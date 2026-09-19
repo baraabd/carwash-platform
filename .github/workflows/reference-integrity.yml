@@ -1,0 +1,41 @@
+name: Reference guard (not release CI)
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reference-integrity:
+    name: Frozen design reference
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2, verified official ref
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0, verified official ref
+        with:
+          node-version: '24'
+      - name: Check unchanged files against the trusted previous baseline
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && [[ "$BASE_SHA" != "0000000000000000000000000000000000000000" ]] && git cat-file -e "$BASE_SHA:scripts/check-design-reference.mjs" 2>/dev/null; then
+            git show "$BASE_SHA:scripts/check-design-reference.mjs" > "$RUNNER_TEMP/trusted-design-check.mjs"
+            node "$RUNNER_TEMP/trusted-design-check.mjs" --root "$GITHUB_WORKSPACE" --base-ref "$BASE_SHA"
+          else
+            echo 'Initial baseline registration or manual self-check; no earlier approved baseline comparison.'
+            node scripts/check-design-reference.mjs
+          fi
+      - name: Test design guard, including negative cases
+        run: node --test tests/design/reference-lock.test.mjs
+      - name: Existing import boundary check (limited static scope)
+        run: node scripts/check-boundaries.mjs
+      - name: Explicit scope
+        run: echo 'These checks do not build Nest/React, test DB/broker, verify live payment, or certify release readiness.'

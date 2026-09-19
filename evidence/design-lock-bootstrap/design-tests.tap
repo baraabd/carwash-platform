@@ -1,0 +1,82 @@
+TAP version 13
+# Subtest: unaltered reference passes
+ok 1 - unaltered reference passes
+  ---
+  duration_ms: 3.87169
+  type: 'test'
+  ...
+# Subtest: changed byte fails
+ok 2 - changed byte fails
+  ---
+  duration_ms: 1.516558
+  type: 'test'
+  ...
+# Subtest: deleted reference fails
+ok 3 - deleted reference fails
+  ---
+  duration_ms: 2.286358
+  type: 'test'
+  ...
+# Subtest: truncated/invalid manifest fails
+ok 4 - truncated/invalid manifest fails
+  ---
+  duration_ms: 1.038717
+  type: 'test'
+  ...
+# Subtest: empty manifest fails closed
+ok 5 - empty manifest fails closed
+  ---
+  duration_ms: 1.077084
+  type: 'test'
+  ...
+# Subtest: bad hash syntax fails
+ok 6 - bad hash syntax fails
+  ---
+  duration_ms: 1.421488
+  type: 'test'
+  ...
+# Subtest: duplicate reference fails
+ok 7 - duplicate reference fails
+  ---
+  duration_ms: 1.528966
+  type: 'test'
+  ...
+# Subtest: path traversal rejected
+ok 8 - path traversal rejected
+  ---
+  duration_ms: 0.845565
+  type: 'test'
+  ...
+# Subtest: symlink rejected
+ok 9 - symlink rejected
+  ---
+  duration_ms: 2.932774
+  type: 'test'
+  ...
+# Subtest: base-ref option is validated
+ok 10 - base-ref option is validated
+  ---
+  duration_ms: 0.913578
+  type: 'test'
+  ...
+# Subtest: trusted base rejects changing both reference and its manifest
+ok 11 - trusted base rejects changing both reference and its manifest
+  ---
+  duration_ms: 39.497591
+  type: 'test'
+  ...
+# Subtest: trusted base rejects policy tampering
+ok 12 - trusted base rejects policy tampering
+  ---
+  duration_ms: 23.600518
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 170.903142

@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "status": "proposed-target-with-foundation-code",
+  "operatingModel": "company-managed teams is an explicit initial assumption, not a confirmed user decision",
+  "publicIngress": "api-gateway",
+  "services": [
+    {
+      "id": "identity",
+      "database": "cw_identity",
+      "runtimeRole": "cw_identity_app",
+      "migrationRole": "cw_identity_migrate",
+      "owns": [
+        "users",
+        "credentials",
+        "sessions",
+        "roles",
+        "permissions"
+      ],
+      "purpose": "Authentication, sessions, roles and grants",
+      "runtimeImplementation": "health-only shell; business API not implemented"
+    },
+    {
+      "id": "customer",
+      "database": "cw_customer",
+      "runtimeRole": "cw_customer_app",
+      "migrationRole": "cw_customer_migrate",
+      "owns": [
+        "customers",
+        "vehicles",
+        "addresses",
+        "preferences"
+      ],
+      "purpose": "Customer profile, owned vehicles, addresses and preferences",
+      "runtimeImplementation": "health-only shell; business API not implemented"
+    },
+    {
+      "id": "catalog",
+      "database": "cw_catalog",
+      "runtimeRole": "cw_catalog_app",
+      "migrationRole": "cw_catalog_migrate",
+      "owns": [
+        "packages",
+        "addons",
+        "price_versions",
+        "quotes",
+        "promotions"
+      ],
+      "purpose": "Wash packages, add-ons, price versions and expiring quotes",
+      "runtimeImplementation": "health-only shell; business API not implemented"
+    },
+    {
+      "id": "workforce",
+      "database": "cw_workforce",
+      "runtimeRole": "cw_workforce_app",
+      "migrationRole": "cw_workforce_migrate",
+      "owns": [
+        "operators",
+        "teams",
+        "vans",
+        "equipment",
+        "verification_cases",
+        "work_grants"
+      ],
+      "purpose": "Operators, teams, vans, onboarding and verification decisions",
+      "runtimeImplementation": "health-only shell; business API not implemented"
+    },
+    {
+      "id": "booking",
+      "database": "cw_booking",
+      "runtimeRole": "cw_booking_app",
+      "migrationRole": "cw_booking_migrate",
+      "owns": [
+        "bookings",
+        "reservations",
+        "assignments",
+        "booking_events",
+        "sagas"
+      ],
+      "purpose": "Bookings, resource reservations, scheduling and dispatch",
+      "runtimeImplementation": "health-only shell; business API not implemented"
+    },
+    {
+      "id": "billing",
+      "database": "cw_billing",
+      "runtimeRole": "cw_billing_app",
+      "migrationRole": "cw_billing_migrate",
+      "owns": [
+        "payments",
+        "cash_receipts",
+        "refunds",
+        "ledger",
+        "subscriptions",
+        "entitlement_reservations"
+      ],
+      "purpose": "Payments, cash collection, refunds, ledger and customer entitlements",
+      "runtimeImplementation": "health-only shell; business API not implemented"
+    },
+    {
+      "id": "media",
+      "database": "cw_media",
+      "runtimeRole": "cw_media_app",
+      "migrationRole": "cw_media_migrate",
+      "owns": [
+        "objects",
+        "upload_reservations",
+        "scan_jobs",
+        "retention_jobs"
+      ],
+      "purpose": "Classified objects, quarantine, scans, retention and audited access",
+      "runtimeImplementation": "health-only shell; business API not implemented"
+    },
+    {
+      "id": "communications",
+      "database": "cw_communications",
+      "runtimeRole": "cw_communications_app",
+      "migrationRole": "cw_communications_migrate",
+      "owns": [
+        "notifications",
+        "delivery_attempts",
+        "conversations",
+        "messages"
+      ],
+      "purpose": "Notifications, delivery attempts, booking conversations and realtime",
+      "runtimeImplementation": "health-only shell; business API not implemented"
+    },
+    {
+      "id": "support",
+      "database": "cw_support",
+      "runtimeRole": "cw_support_app",
+      "migrationRole": "cw_support_migrate",
+      "owns": [
+        "cases",
+        "case_events",
+        "resolution_requests"
+      ],
+      "purpose": "Customer complaints, case review and non-financial resolution decisions",
+      "runtimeImplementation": "health-only shell; business API not implemented"
+    },
+    {
+      "id": "reporting",
+      "database": "cw_reporting",
+      "runtimeRole": "cw_reporting_app",
+      "migrationRole": "cw_reporting_migrate",
+      "owns": [
+        "projections",
+        "consumer_checkpoints",
+        "audit_projections"
+      ],
+      "purpose": "Read-only projections for administration and audit search",
+      "runtimeImplementation": "health-only shell; business API not implemented"
+    }
+  ]
+}

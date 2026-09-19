@@ -1,0 +1,12 @@
+# Review routing, NOT standalone merge enforcement. Configure repository rules separately.
+/design/ @baraabd
+/docs/design/ @baraabd
+/docs/adr/0004-approved-ui-precedence.md @baraabd
+/apps/customer-web/ @baraabd
+/packages/ui/ @baraabd
+/AGENTS.md @baraabd
+/CLAUDE.md @baraabd
+/.claude/ @baraabd
+/.github/ @baraabd
+/scripts/check-design-reference.mjs @baraabd
+/tests/design/ @baraabd

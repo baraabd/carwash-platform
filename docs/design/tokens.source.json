@@ -1,0 +1,18 @@
+{
+  "source": "design/reference/approved/washgo-payments-interactive.html",
+  "sourceSha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549",
+  "note": "Extracted from the first :root block only. Full CSS in the frozen HTML remains authoritative.",
+  "tokens": {
+    "--bg": "#f6f7f2",
+    "--paper": "#fff",
+    "--ink": "#16352b",
+    "--muted": "#65746b",
+    "--line": "#e1e7dd",
+    "--green": "#18533c",
+    "--lime": "#d1f58a",
+    "--soft": "#edf3e6",
+    "--danger": "#a13236",
+    "--shadow": "0 14px 40px #18392c0a",
+    "--radius": "24px"
+  }
+}

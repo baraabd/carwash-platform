@@ -1,0 +1,340 @@
+TAP version 13
+# Subtest: boundary guard: local/contract imports allowed
+ok 1 - boundary guard: local/contract imports allowed
+  ---
+  duration_ms: 253.496464
+  type: 'test'
+  ...
+# Subtest: boundary guard: cross-service alias blocked
+ok 2 - boundary guard: cross-service alias blocked
+  ---
+  duration_ms: 215.028523
+  type: 'test'
+  ...
+# Subtest: boundary guard: cross-service relative path blocked
+ok 3 - boundary guard: cross-service relative path blocked
+  ---
+  duration_ms: 186.410346
+  type: 'test'
+  ...
+# Subtest: boundary guard: shared business database rejected
+ok 4 - boundary guard: shared business database rejected
+  ---
+  duration_ms: 178.72806
+  type: 'test'
+  ...
+# Subtest: quote: two units total without discount
+ok 5 - quote: two units total without discount
+  ---
+  duration_ms: 9.370363
+  type: 'test'
+  ...
+# Subtest: quote: basis-point discount
+ok 6 - quote: basis-point discount
+  ---
+  duration_ms: 0.524489
+  type: 'test'
+  ...
+# Subtest: quote: round half up in minor units
+ok 7 - quote: round half up in minor units
+  ---
+  duration_ms: 0.37905
+  type: 'test'
+  ...
+# Subtest: quote: full discount never negative
+ok 8 - quote: full discount never negative
+  ---
+  duration_ms: 0.297971
+  type: 'test'
+  ...
+# Subtest: quote: preserves integers beyond JS safe number
+ok 9 - quote: preserves integers beyond JS safe number
+  ---
+  duration_ms: 0.333612
+  type: 'test'
+  ...
+# Subtest: quote: reject amount "-1"
+ok 10 - quote: reject amount "-1"
+  ---
+  duration_ms: 1.002581
+  type: 'test'
+  ...
+# Subtest: quote: reject amount "1.5"
+ok 11 - quote: reject amount "1.5"
+  ---
+  duration_ms: 0.558163
+  type: 'test'
+  ...
+# Subtest: quote: reject amount "01"
+ok 12 - quote: reject amount "01"
+  ---
+  duration_ms: 0.198926
+  type: 'test'
+  ...
+# Subtest: quote: reject amount "1e3"
+ok 13 - quote: reject amount "1e3"
+  ---
+  duration_ms: 0.7878
+  type: 'test'
+  ...
+# Subtest: quote: reject amount ""
+ok 14 - quote: reject amount ""
+  ---
+  duration_ms: 0.991742
+  type: 'test'
+  ...
+# Subtest: quote: reject amount "1000000000000000000"
+ok 15 - quote: reject amount "1000000000000000000"
+  ---
+  duration_ms: 0.37385
+  type: 'test'
+  ...
+# Subtest: quote: rejects overflow
+ok 16 - quote: rejects overflow
+  ---
+  duration_ms: 0.278067
+  type: 'test'
+  ...
+# Subtest: quote: rejects empty basket
+ok 17 - quote: rejects empty basket
+  ---
+  duration_ms: 0.278614
+  type: 'test'
+  ...
+# Subtest: quote: rejects malformed currency
+ok 18 - quote: rejects malformed currency
+  ---
+  duration_ms: 0.209455
+  type: 'test'
+  ...
+# Subtest: quote: rejects fractional quantity
+ok 19 - quote: rejects fractional quantity
+  ---
+  duration_ms: 0.213807
+  type: 'test'
+  ...
+# Subtest: quote: rejects negative discount
+ok 20 - quote: rejects negative discount
+  ---
+  duration_ms: 0.187477
+  type: 'test'
+  ...
+# Subtest: quote: rejects discount over 100%
+ok 21 - quote: rejects discount over 100%
+  ---
+  duration_ms: 0.25205
+  type: 'test'
+  ...
+# Subtest: quote: sums several lines
+ok 22 - quote: sums several lines
+  ---
+  duration_ms: 0.392992
+  type: 'test'
+  ...
+# Subtest: booking: legal transition increments version without mutation
+ok 23 - booking: legal transition increments version without mutation
+  ---
+  duration_ms: 0.308208
+  type: 'test'
+  ...
+# Subtest: booking: stale expected version is rejected
+ok 24 - booking: stale expected version is rejected
+  ---
+  duration_ms: 0.286022
+  type: 'test'
+  ...
+# Subtest: booking: cannot skip execution lifecycle
+ok 25 - booking: cannot skip execution lifecycle
+  ---
+  duration_ms: 0.19111
+  type: 'test'
+  ...
+# Subtest: booking: complete lifecycle
+ok 26 - booking: complete lifecycle
+  ---
+  duration_ms: 0.21128
+  type: 'test'
+  ...
+# Subtest: booking: COMPLETED is terminal
+ok 27 - booking: COMPLETED is terminal
+  ---
+  duration_ms: 0.193067
+  type: 'test'
+  ...
+# Subtest: booking: CANCELLED is terminal
+ok 28 - booking: CANCELLED is terminal
+  ---
+  duration_ms: 0.185314
+  type: 'test'
+  ...
+# Subtest: booking: EXPIRED is terminal
+ok 29 - booking: EXPIRED is terminal
+  ---
+  duration_ms: 0.263336
+  type: 'test'
+  ...
+# Subtest: booking: version overflow rejected
+ok 30 - booking: version overflow rejected
+  ---
+  duration_ms: 0.332062
+  type: 'test'
+  ...
+# Subtest: booking: cannot silently expire confirmed booking
+ok 31 - booking: cannot silently expire confirmed booking
+  ---
+  duration_ms: 0.42481
+  type: 'test'
+  ...
+# Subtest: window: touching [start,end) intervals do not overlap
+ok 32 - window: touching [start,end) intervals do not overlap
+  ---
+  duration_ms: 0.332412
+  type: 'test'
+  ...
+# Subtest: window: intersection detected
+ok 33 - window: intersection detected
+  ---
+  duration_ms: 0.285157
+  type: 'test'
+  ...
+# Subtest: window: containment detected
+ok 34 - window: containment detected
+  ---
+  duration_ms: 0.278037
+  type: 'test'
+  ...
+# Subtest: window: empty range rejected
+ok 35 - window: empty range rejected
+  ---
+  duration_ms: 0.366956
+  type: 'test'
+  ...
+# Subtest: ledger: balanced journal accepted
+ok 36 - ledger: balanced journal accepted
+  ---
+  duration_ms: 0.802222
+  type: 'test'
+  ...
+# Subtest: ledger: unbalanced journal rejected
+ok 37 - ledger: unbalanced journal rejected
+  ---
+  duration_ms: 3.563208
+  type: 'test'
+  ...
+# Subtest: ledger: amounts beyond safe JS integer remain precise
+ok 38 - ledger: amounts beyond safe JS integer remain precise
+  ---
+  duration_ms: 0.213792
+  type: 'test'
+  ...
+# Subtest: ledger: cannot offset different currencies
+ok 39 - ledger: cannot offset different currencies
+  ---
+  duration_ms: 0.251992
+  type: 'test'
+  ...
+# Subtest: ledger: independent currency groups can balance
+ok 40 - ledger: independent currency groups can balance
+  ---
+  duration_ms: 0.468151
+  type: 'test'
+  ...
+# Subtest: ledger: negative amount rejected
+ok 41 - ledger: negative amount rejected
+  ---
+  duration_ms: 0.246627
+  type: 'test'
+  ...
+# Subtest: ledger: zero amount rejected
+ok 42 - ledger: zero amount rejected
+  ---
+  duration_ms: 0.235038
+  type: 'test'
+  ...
+# Subtest: ledger: invalid account rejected
+ok 43 - ledger: invalid account rejected
+  ---
+  duration_ms: 0.252611
+  type: 'test'
+  ...
+# Subtest: ledger: invalid side rejected
+ok 44 - ledger: invalid side rejected
+  ---
+  duration_ms: 0.194841
+  type: 'test'
+  ...
+# Subtest: event: valid contract parses to a separate object
+ok 45 - event: valid contract parses to a separate object
+  ---
+  duration_ms: 3.71314
+  type: 'test'
+  ...
+# Subtest: event: rejected extra fields prevent arbitrary PII propagation
+ok 46 - event: rejected extra fields prevent arbitrary PII propagation
+  ---
+  duration_ms: 0.238561
+  type: 'test'
+  ...
+# Subtest: event: data is strict
+ok 47 - event: data is strict
+  ---
+  duration_ms: 0.408855
+  type: 'test'
+  ...
+# Subtest: event: invalid ID rejected
+ok 48 - event: invalid ID rejected
+  ---
+  duration_ms: 0.281784
+  type: 'test'
+  ...
+# Subtest: event: unknown schema rejected explicitly
+ok 49 - event: unknown schema rejected explicitly
+  ---
+  duration_ms: 0.205693
+  type: 'test'
+  ...
+# Subtest: event: producer field is constrained structurally
+ok 50 - event: producer field is constrained structurally
+  ---
+  duration_ms: 0.289738
+  type: 'test'
+  ...
+# Subtest: event: impossible calendar date rejected
+ok 51 - event: impossible calendar date rejected
+  ---
+  duration_ms: 2.98447
+  type: 'test'
+  ...
+# Subtest: event: occurrence time must be canonical UTC
+ok 52 - event: occurrence time must be canonical UTC
+  ---
+  duration_ms: 1.031358
+  type: 'test'
+  ...
+# Subtest: event: missing field rejected
+ok 53 - event: missing field rejected
+  ---
+  duration_ms: 0.309557
+  type: 'test'
+  ...
+# Subtest: event: unsafe aggregate version rejected
+ok 54 - event: unsafe aggregate version rejected
+  ---
+  duration_ms: 0.319602
+  type: 'test'
+  ...
+# Subtest: event: null rejected
+ok 55 - event: null rejected
+  ---
+  duration_ms: 0.21122
+  type: 'test'
+  ...
+1..55
+# tests 55
+# suites 0
+# pass 55
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1057.657086

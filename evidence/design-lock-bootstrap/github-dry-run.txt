@@ -1,0 +1,5 @@
+Target: baraabd/carwash-platform
+Visibility: PRIVATE
+Local source: /mnt/data/carwash-repository-kit/carwash-platform
+DRY RUN ONLY. No git init, network request, repository creation or push occurred.
+To execute from your authenticated computer: node scripts/create-github-repo.mjs --create

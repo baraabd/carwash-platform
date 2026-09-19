@@ -1,0 +1,25 @@
+{
+  "name": "carwash-platform",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "build:domain": "tsc -p tsconfig.domain.json",
+    "test:domain": "node --test tests/*.test.mjs",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "verify:foundation": "pnpm check:boundaries && pnpm build:domain && pnpm test:domain",
+    "dev:env": "node scripts/create-dev-env.mjs",
+    "infra:up": "docker compose --env-file .env.local -f infra/compose.dev.yml up -d",
+    "infra:down": "docker compose --env-file .env.local -f infra/compose.dev.yml down",
+    "prototype": "node scripts/serve-prototype.mjs",
+    "check:design-reference": "node scripts/check-design-reference.mjs",
+    "test:design-lock": "node --test tests/design/reference-lock.test.mjs"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

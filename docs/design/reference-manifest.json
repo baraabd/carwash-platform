@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "referenceId": "washgo-signature-payments-sy-frozen-v1",
+  "owner": "baraabd",
+  "canonicalHtml": "design/reference/approved/washgo-payments-interactive.html",
+  "runtimePrototype": "apps/customer-web/prototype/index.html",
+  "sourceContext": "User explicitly requested exact preservation of the final payments design on 2026-09-19.",
+  "note": "Preservation manifest, not proof of a React port or backend readiness. All sample payment data remains illustrative.",
+  "artifacts": [
+    {
+      "path": "design/reference/approved/washgo-payments-interactive.html",
+      "bytes": 263462,
+      "sha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549"
+    },
+    {
+      "path": "apps/customer-web/prototype/index.html",
+      "bytes": 263462,
+      "sha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549"
+    },
+    {
+      "path": "design/reference/approved/payments-preview.png",
+      "bytes": 455323,
+      "sha256": "a754332becec9681c66a80f2ffa5cce3a3ff7f57180c9dd8953265fc49935811"
+    },
+    {
+      "path": "design/reference/approved/original-readme.txt",
+      "bytes": 6939,
+      "sha256": "766246b07f575d08a1bc7dbb07c4e1da21aea59b5d43573bbccd39c9b30a6fa5"
+    },
+    {
+      "path": "design/reference/approved/historical-test-notes.txt",
+      "bytes": 11438,
+      "sha256": "64898529b34d3f85f96b869d46854e375797f1fbf266ce83536c1e0dbd46b66a"
+    },
+    {
+      "path": "design/reference/supplemental/signature-preview.png",
+      "bytes": 943225,
+      "sha256": "16158bdc6ef6de1357a91c51bd12ed8515067e9064c27efd6097ab6e6171b935"
+    },
+    {
+      "path": "design/reference/supplemental/signature-journey.png",
+      "bytes": 609544,
+      "sha256": "d3f36df2c17024698984f153fbb49b89ee16ac96aa3793f76c2997991f4d8973"
+    },
+    {
+      "path": "docs/design/tokens.source.json",
+      "bytes": 577,
+      "sha256": "1092bde140537e65ac953ee1374c56f020952a5ec428aa448c5beb8f6ae8f954"
+    },
+    {
+      "path": "docs/sources/ATTACHED_MICROSERVICES_PLAN_AR.md",
+      "bytes": 44796,
+      "sha256": "0078e1ea59c92c006460cdd0b51757fbb328c135db2838d978c3819ef039327b"
+    },
+    {
+      "path": "docs/sources/carwash-microservices-foundation.original.zip",
+      "bytes": 114025,
+      "sha256": "da07c781376739790a058e897d9100291776d1f350515368b2112b6ba591e08c"
+    }
+  ],
+  "frozenPolicyPaths": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    ".claude/rules/washgo-design-lock.md",
+    ".github/copilot-instructions.md",
+    ".github/CODEOWNERS",
+    ".github/workflows/reference-integrity.yml",
+    ".gitattributes",
+    "docs/design/DESIGN_LOCK.md",
+    "docs/design/ACCEPTANCE_MATRIX.md",
+    "docs/adr/0004-approved-ui-precedence.md",
+    "scripts/check-design-reference.mjs",
+    "tests/design/reference-lock.test.mjs"
+  ]
+}

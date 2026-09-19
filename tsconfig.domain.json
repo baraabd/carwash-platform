@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "rootDir": ".",
+    "outDir": "dist",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "declaration": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "packages/event-contracts/src/**/*.ts",
+    "services/*/src/domain/**/*.ts"
+  ]
+}

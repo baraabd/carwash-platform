@@ -1,0 +1,40 @@
+{
+  "date": "2026-09-19",
+  "sourceCommit": "66e6d93682dcdf6e5dd198c313f21f638dafe8de",
+  "stage": "foundation-0.1-not-production",
+  "tests": {
+    "runner": "node:test",
+    "passed": 55,
+    "failed": 0,
+    "skipped": 0
+  },
+  "localRuntime": {
+    "node": "22.16.0",
+    "typescript": "5.8.3"
+  },
+  "targetRuntime": {
+    "node": "24 LTS",
+    "typescript": "5.9.3",
+    "pnpm": "10.32.1"
+  },
+  "verified": [
+    "domain compilation",
+    "pure domain and contract tests",
+    "boundary smoke tests",
+    "JSON/YAML parse",
+    "shell syntax"
+  ],
+  "notVerified": [
+    "NestJS install/build/boot",
+    "Docker runtime",
+    "Postgres isolation/SQL execution",
+    "RabbitMQ delivery",
+    "persistent outbox/inbox",
+    "full auth",
+    "browser and mobile",
+    "live money",
+    "dependency/container/security scans",
+    "remote CI",
+    "production deployment"
+  ]
+}

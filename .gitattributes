@@ -1,0 +1,7 @@
+* text=auto eol=lf
+/design/reference/** -text
+/apps/customer-web/prototype/index.html -text
+/docs/sources/ATTACHED_MICROSERVICES_PLAN_AR.md -text
+/docs/design/tokens.source.json -text
+*.png binary
+*.zip binary

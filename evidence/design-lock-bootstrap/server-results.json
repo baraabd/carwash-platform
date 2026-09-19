@@ -1,0 +1,5 @@
+{
+  "exact_http_response": true,
+  "nonpublic_path_404": true,
+  "post_rejected_405": true
+}

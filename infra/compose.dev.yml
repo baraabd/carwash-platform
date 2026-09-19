@@ -1,0 +1,54 @@
+name: carwash-foundation
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: platform_bootstrap
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run dev:env first}
+      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?Run dev:env first}
+      IDENTITY_MIGRATION_PASSWORD: ${IDENTITY_MIGRATION_PASSWORD:?Run dev:env first}
+      CUSTOMER_DB_PASSWORD: ${CUSTOMER_DB_PASSWORD:?Run dev:env first}
+      CUSTOMER_MIGRATION_PASSWORD: ${CUSTOMER_MIGRATION_PASSWORD:?Run dev:env first}
+      CATALOG_DB_PASSWORD: ${CATALOG_DB_PASSWORD:?Run dev:env first}
+      CATALOG_MIGRATION_PASSWORD: ${CATALOG_MIGRATION_PASSWORD:?Run dev:env first}
+      WORKFORCE_DB_PASSWORD: ${WORKFORCE_DB_PASSWORD:?Run dev:env first}
+      WORKFORCE_MIGRATION_PASSWORD: ${WORKFORCE_MIGRATION_PASSWORD:?Run dev:env first}
+      BOOKING_DB_PASSWORD: ${BOOKING_DB_PASSWORD:?Run dev:env first}
+      BOOKING_MIGRATION_PASSWORD: ${BOOKING_MIGRATION_PASSWORD:?Run dev:env first}
+      BILLING_DB_PASSWORD: ${BILLING_DB_PASSWORD:?Run dev:env first}
+      BILLING_MIGRATION_PASSWORD: ${BILLING_MIGRATION_PASSWORD:?Run dev:env first}
+      MEDIA_DB_PASSWORD: ${MEDIA_DB_PASSWORD:?Run dev:env first}
+      MEDIA_MIGRATION_PASSWORD: ${MEDIA_MIGRATION_PASSWORD:?Run dev:env first}
+      COMMUNICATIONS_DB_PASSWORD: ${COMMUNICATIONS_DB_PASSWORD:?Run dev:env first}
+      COMMUNICATIONS_MIGRATION_PASSWORD: ${COMMUNICATIONS_MIGRATION_PASSWORD:?Run dev:env first}
+      SUPPORT_DB_PASSWORD: ${SUPPORT_DB_PASSWORD:?Run dev:env first}
+      SUPPORT_MIGRATION_PASSWORD: ${SUPPORT_MIGRATION_PASSWORD:?Run dev:env first}
+      REPORTING_DB_PASSWORD: ${REPORTING_DB_PASSWORD:?Run dev:env first}
+      REPORTING_MIGRATION_PASSWORD: ${REPORTING_MIGRATION_PASSWORD:?Run dev:env first}
+    ports: ['127.0.0.1:55432:5432']
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres/init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U platform_bootstrap -d postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Run dev:env first}
+    command: ['sh', '-c', 'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
+    ports: ['127.0.0.1:56379:6379']
+    volumes: ['redis_data:/data']
+  rabbitmq:
+    image: rabbitmq:4-management
+    environment:
+      RABBITMQ_DEFAULT_USER: local_bootstrap
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Run dev:env first}
+    ports: ['127.0.0.1:5673:5672', '127.0.0.1:15673:15672']
+    volumes: ['rabbit_data:/var/lib/rabbitmq']
+volumes:
+  pg_data:
+  redis_data:
+  rabbit_data:

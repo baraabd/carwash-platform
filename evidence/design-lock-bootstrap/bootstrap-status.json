@@ -1,0 +1,43 @@
+{
+  "scope": "local bootstrap and exact-reference preservation",
+  "node": "22.16.0",
+  "targetNode24Tested": false,
+  "originalFoundationFiles": 88,
+  "originalFoundationFilesUnchanged": 84,
+  "modifiedFoundationFiles": [
+    "AGENTS.md",
+    "README.md",
+    "apps/customer-web/README.md",
+    "package.json"
+  ],
+  "designGuardTests": {
+    "passed": 12,
+    "failed": 0,
+    "skipped": 0
+  },
+  "originalDomainAndBoundaryRecheck": {
+    "passed": 55,
+    "failed": 0,
+    "skipped": 0
+  },
+  "frozenArtifactsVerified": 10,
+  "httpChecks": {
+    "exact_http_response": true,
+    "nonpublic_path_404": true,
+    "post_rejected_405": true
+  },
+  "gitRoundtripWithAutocrlfTrue": "PASS",
+  "browser": {
+    "status": "BLOCKED",
+    "reason": "Playwright Python package is available, but its Chromium executable is not installed; no new browser pass claim."
+  },
+  "remote": {
+    "githubAccountReadVerified": "baraabd",
+    "repositoryCreated": false,
+    "pushed": false,
+    "ciRun": false,
+    "branchRulesConfigured": false,
+    "deployed": false
+  },
+  "canonicalHtmlSha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549"
+}

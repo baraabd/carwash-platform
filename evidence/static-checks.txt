@@ -1,0 +1,4 @@
+Version 5.8.3
+v22.16.0
+Boundary smoke check passed: 10 owners, 13 source files. This is not a complete AST/dependency/security audit.
+JSON parsed: 24 files. YAML parsed: 2 files. This is syntax-only, not Docker runtime validation.
