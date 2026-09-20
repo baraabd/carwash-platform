@@ -1,0 +1,19 @@
+# Keep the build context small and free of anything secret or machine-local.
+**/node_modules
+**/dist
+**/dist-tests
+**/src/generated
+.git
+.github
+.acceptance
+evidence
+design
+docs
+apps
+tests
+infra
+scripts/dev
+*.md
+.env
+.env.*
+!.env.example
