@@ -1,0 +1,223 @@
+# Sprint 0.2 CI.
+#
+# The existing reference-integrity workflow guards the frozen customer design and
+# is deliberately left alone. This workflow adds the engineering gates the sprint
+# is judged by.
+#
+# Two rules shape every job here:
+#   - a gate that does not run is NOT a pass. Nothing is `continue-on-error`, and
+#     no step swallows a nonzero exit,
+#   - the real-infrastructure suites run against a real PostgreSQL and a real
+#     RabbitMQ provisioned per run by scripts/acceptance.mjs. They are never
+#     replaced by mocks, because the properties under test (role privileges,
+#     broker ACLs, commit/ack ordering) exist only in the real servers.
+#
+# Third-party actions are pinned to a commit SHA, never to a mutable tag.
+name: Sprint 0.2 CI
+
+on:
+  push:
+    branches: [main, develop, 'feat/**']
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sprint-02-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+
+jobs:
+  static:
+    name: Static gates, builds and offline tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+
+      # corepack activates exactly the pnpm pinned in package.json#packageManager.
+      - name: Activate the pinned package manager
+        run: corepack enable && corepack prepare --activate
+
+      - name: Record the toolchain actually in use
+        run: |
+          node --version
+          pnpm --version
+          echo "expected node $(cat .nvmrc)"
+
+      # --frozen-lockfile: CI fails rather than resolving something the lockfile
+      # does not describe.
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Formatting
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Frozen design reference
+        run: pnpm check:design-reference
+
+      - name: Design guard tests, including negative cases
+        run: pnpm test:design-lock
+
+      - name: Architecture boundary guards
+        run: pnpm check:boundaries
+
+      - name: Secret scan
+        run: node scripts/check-secrets.mjs
+
+      - name: Generate service-local Prisma clients
+        run: pnpm generate
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Domain and contract tests
+        run: pnpm test:domain
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+      - name: NestJS bootstrap and dependency-injection tests
+        run: pnpm test:nest
+
+  acceptance:
+    name: Real PostgreSQL and RabbitMQ acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: static
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Activate the pinned package manager
+        run: corepack enable && corepack prepare --activate
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate service-local Prisma clients
+        run: pnpm generate
+
+      - name: Build
+        run: pnpm build
+
+      # Read-only: proves the daemon is reachable and resolves the pinned images
+      # to digests before anything is started.
+      - name: Acceptance preflight
+        run: pnpm acceptance:preflight
+
+      # Provisions an ephemeral stack, migrates each service with its own
+      # migration identity, hardens runtime privileges, declares the broker
+      # topology, runs the integration suites, then tears the stack down.
+      - name: Acceptance run
+        run: pnpm acceptance:run
+
+      - name: Upload acceptance evidence
+        # Evidence matters most when the gate failed.
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: acceptance-evidence-${{ github.run_id }}
+          path: evidence/acceptance/
+          if-no-files-found: warn
+          retention-days: 14
+
+  images:
+    name: Service image build and boot contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: static
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+
+      # Builds the image, then asserts non-root execution, liveness 200,
+      # readiness 503 (correct for a foundation shell), absence of .env in the
+      # image, and a clean SIGTERM shutdown.
+      #
+      # One service here, not all ten. The Dockerfile is shared and parameterised
+      # by SERVICE, so a second image would re-prove the same contract while
+      # repeating a full workspace install on a two-core runner. Locally the same
+      # script is run across several services; see docs/SPRINT_00_2_VERIFICATION.md.
+      - name: Build and verify a service image
+        run: node scripts/check-images.mjs catalog
+
+  supply-chain:
+    name: Dependency and secret scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: static
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Activate the pinned package manager
+        run: corepack enable && corepack prepare --activate
+
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      # Fails the job on a high or critical advisory. Moderate and low are
+      # reported for triage without blocking the branch.
+      - name: Dependency audit (high and critical block)
+        run: pnpm audit --audit-level=high
+
+      - name: Dependency audit (full report, informational)
+        if: always()
+        run: pnpm audit || true
+
+      - name: Secret scan
+        run: node scripts/check-secrets.mjs
+
+      - name: Lockfile matches the manifests
+        # A second, explicit assertion: an install that had to change the
+        # lockfile would already have failed above, and this makes that
+        # guarantee visible as its own gate.
+        run: git diff --exit-code -- pnpm-lock.yaml
+
+  scope:
+    name: Declared scope of these gates
+    runs-on: ubuntu-latest
+    needs: [static, acceptance, images, supply-chain]
+    steps:
+      - name: What this pipeline does and does not prove
+        run: |
+          echo 'Proved: reproducible Node 24 build, per-service PostgreSQL role isolation,'
+          echo '        migrations run by a separate identity, RabbitMQ ACL/fan-out/competing'
+          echo '        consumers, outbox/inbox across a real commit/publish/ack boundary,'
+          echo '        image build with non-root execution and 503 foundation readiness.'
+          echo 'NOT proved: high availability (the acceptance broker is a single node),'
+          echo '        exactly-once delivery (the model is at-least-once plus idempotent'
+          echo '        consumption), browser, mobile, payment or production readiness.'

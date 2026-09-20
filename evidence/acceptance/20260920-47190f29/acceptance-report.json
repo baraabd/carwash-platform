@@ -1,0 +1,180 @@
+{
+  "runId": "20260920-47190f29",
+  "startedAt": "2026-09-20T20:41:40.638Z",
+  "finishedAt": "2026-09-20T20:46:41.398Z",
+  "durationMs": 300794,
+  "accepted": true,
+  "phases": [
+    {
+      "name": "toolchain: Node 24",
+      "status": "PASS",
+      "note": "node v24.21.0"
+    },
+    {
+      "name": "context: per-run identity and free ports",
+      "status": "PASS",
+      "note": "run 20260920-47190f29, project cw-s02-20260920-47190f29"
+    },
+    {
+      "name": "docker: daemon reachable",
+      "status": "PASS",
+      "note": "context=desktop-linux server=29.1.3",
+      "environment": {
+        "context": "desktop-linux",
+        "daemon": {
+          "name": "docker-desktop",
+          "serverVersion": "29.1.3",
+          "osType": "linux",
+          "architecture": "x86_64",
+          "rootDir": "/var/lib/docker"
+        },
+        "composeVersion": "2.40.3-desktop.1"
+      }
+    },
+    {
+      "name": "docker: pinned images resolve to digests",
+      "status": "PASS",
+      "note": "postgres=postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297 rabbitmq=rabbitmq@sha256:643139a7e9b4d7e2c1d6a06295d0296c3c58e5de7666a09630b4564a15c951cd node=node@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6",
+      "digests": {
+        "postgres": {
+          "reference": "postgres:16.10-alpine",
+          "repoDigests": [
+            "postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297"
+          ],
+          "imageId": "sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297"
+        },
+        "rabbitmq": {
+          "reference": "rabbitmq:4.2-management-alpine",
+          "repoDigests": [
+            "rabbitmq@sha256:643139a7e9b4d7e2c1d6a06295d0296c3c58e5de7666a09630b4564a15c951cd"
+          ],
+          "imageId": "sha256:643139a7e9b4d7e2c1d6a06295d0296c3c58e5de7666a09630b4564a15c951cd"
+        },
+        "node": {
+          "reference": "node:24.21.0-bookworm-slim",
+          "repoDigests": [
+            "node@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6"
+          ],
+          "imageId": "sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6"
+        }
+      }
+    },
+    {
+      "name": "infra: compose up (ephemeral, loopback only)",
+      "status": "PASS",
+      "note": "postgres :54576, rabbitmq :54577"
+    },
+    {
+      "name": "rabbitmq: least-privilege identities",
+      "status": "PASS",
+      "note": "vhost washgo-acceptance, 3 broker identities"
+    },
+    {
+      "name": "postgres: migrate as the migration identity",
+      "status": "PASS",
+      "note": "10 services migrated",
+      "services": [
+        "identity",
+        "customer",
+        "catalog",
+        "workforce",
+        "booking",
+        "billing",
+        "media",
+        "communications",
+        "support",
+        "reporting"
+      ]
+    },
+    {
+      "name": "postgres: harden runtime privileges",
+      "status": "PASS",
+      "note": "app roles stripped of DDL and of _prisma_migrations"
+    },
+    {
+      "name": "rabbitmq: shared topology declared by infra identity",
+      "status": "PASS",
+      "note": "durable exchanges asserted"
+    },
+    {
+      "name": "context: write run context for the test processes",
+      "status": "PASS",
+      "note": ".acceptance\\20260920-47190f29\\context.json"
+    },
+    {
+      "name": "integration: real PostgreSQL and RabbitMQ suites",
+      "status": "PASS",
+      "note": "145 passed, 0 failed, 0 skipped",
+      "counts": {
+        "tests": 145,
+        "pass": 145,
+        "fail": 0,
+        "skip": 0
+      }
+    },
+    {
+      "name": "evidence: capture infrastructure logs",
+      "status": "PASS",
+      "note": "evidence\\acceptance\\20260920-47190f29\\logs"
+    }
+  ],
+  "mode": "run",
+  "environment": {
+    "context": "desktop-linux",
+    "daemon": {
+      "name": "docker-desktop",
+      "serverVersion": "29.1.3",
+      "osType": "linux",
+      "architecture": "x86_64",
+      "rootDir": "/var/lib/docker"
+    },
+    "composeVersion": "2.40.3-desktop.1"
+  },
+  "digests": {
+    "postgres": {
+      "reference": "postgres:16.10-alpine",
+      "repoDigests": [
+        "postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297"
+      ],
+      "imageId": "sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297"
+    },
+    "rabbitmq": {
+      "reference": "rabbitmq:4.2-management-alpine",
+      "repoDigests": [
+        "rabbitmq@sha256:643139a7e9b4d7e2c1d6a06295d0296c3c58e5de7666a09630b4564a15c951cd"
+      ],
+      "imageId": "sha256:643139a7e9b4d7e2c1d6a06295d0296c3c58e5de7666a09630b4564a15c951cd"
+    },
+    "node": {
+      "reference": "node:24.21.0-bookworm-slim",
+      "repoDigests": [
+        "node@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6"
+      ],
+      "imageId": "sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6"
+    }
+  },
+  "provisioned": true,
+  "keep": false,
+  "toolchain": {
+    "node": "v24.21.0",
+    "platform": "win32/x64"
+  },
+  "images": {
+    "postgres": "postgres:16.10-alpine",
+    "rabbitmq": "rabbitmq:4.2-management-alpine",
+    "node": "node:24.21.0-bookworm-slim"
+  },
+  "scope": {
+    "proves": [
+      "per-service PostgreSQL role isolation on a real server",
+      "migrations applied by a separate identity, replicas cannot migrate",
+      "RabbitMQ ACL denial, fan-out and competing consumers on a real broker",
+      "outbox/inbox behaviour across a real commit/publish/ack boundary"
+    ],
+    "doesNotProve": [
+      "high availability: the acceptance broker is a single node",
+      "exactly-once delivery: the model is at-least-once plus idempotent consumption",
+      "browser, mobile, payment or production readiness"
+    ]
+  }
+}

@@ -1,0 +1,401 @@
+rabbitmq-1  | 2026-09-20 20:45:47.619667+00:00 [info] <0.768.0> Started message store of type transient for vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:47.687776+00:00 [info] <0.768.0> Started message store of type persistent for vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:47.694325+00:00 [info] <0.768.0> Recovering 4 queues of type rabbit_classic_queue took 103ms[0m
+rabbitmq-1  | 2026-09-20 20:45:47.694424+00:00 [info] <0.768.0> Recovering 0 queues of type rabbit_quorum_queue took 0ms[0m
+rabbitmq-1  | 2026-09-20 20:45:47.694574+00:00 [info] <0.768.0> Recovering 0 queues of type rabbit_stream_queue took 0ms[0m
+rabbitmq-1  | 2026-09-20 20:45:47.711890+00:00 [info] <0.815.0> Making sure data directory '/var/lib/rabbitmq/mnesia/rabbit@f74e2d15a03b/msg_stores/vhosts/628WB79CIFDYO9LJI6DKMI09L' for vhost '/' exists[0m
+rabbitmq-1  | 2026-09-20 20:45:47.719003+00:00 [info] <0.815.0> Starting message stores for vhost '/'[0m
+rabbitmq-1  | 2026-09-20 20:45:47.724263+00:00 [info] <0.815.0> Started message store of type transient for vhost '/'[0m
+rabbitmq-1  | 2026-09-20 20:45:47.728361+00:00 [info] <0.815.0> Started message store of type persistent for vhost '/'[0m
+rabbitmq-1  | 2026-09-20 20:45:47.728610+00:00 [info] <0.815.0> Recovering 0 queues of type rabbit_classic_queue took 14ms[0m
+rabbitmq-1  | 2026-09-20 20:45:47.728672+00:00 [info] <0.815.0> Recovering 0 queues of type rabbit_quorum_queue took 0ms[0m
+rabbitmq-1  | 2026-09-20 20:45:47.728715+00:00 [info] <0.815.0> Recovering 0 queues of type rabbit_stream_queue took 0ms[0m
+rabbitmq-1  | 2026-09-20 20:45:47.733848+00:00 [info] <0.209.0> Running boot step prevent_startup_if_node_was_reset defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.733912+00:00 [info] <0.209.0> Running boot step empty_db_check defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.734083+00:00 [info] <0.209.0> Will not seed default virtual host and user: have definitions to load...[0m
+rabbitmq-1  | 2026-09-20 20:45:47.734114+00:00 [info] <0.209.0> Running boot step rabbit_observer_cli defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.734156+00:00 [info] <0.209.0> Running boot step rabbit_core_metrics_gc defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.734241+00:00 [info] <0.209.0> Running boot step background_gc defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.734337+00:00 [info] <0.209.0> Running boot step rabbit_observer_cli_classic_queues defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.734386+00:00 [info] <0.209.0> Running boot step rabbit_observer_cli_quorum_queues defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.734433+00:00 [info] <0.209.0> Running boot step routing_ready defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.734448+00:00 [info] <0.209.0> Running boot step pre_flight defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.734540+00:00 [info] <0.209.0> Running boot step notify_cluster defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.734655+00:00 [info] <0.209.0> Running boot step networking defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.734686+00:00 [info] <0.209.0> Running boot step rabbit_quorum_queue_periodic_membership_reconciliation defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.734855+00:00 [info] <0.209.0> Running boot step definition_import_worker_pool defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.734983+00:00 [info] <0.535.0> Starting worker pool 'definition_import_pool' with 12 processes in it[0m
+rabbitmq-1  | 2026-09-20 20:45:47.735728+00:00 [info] <0.209.0> Running boot step cluster_name defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.735804+00:00 [info] <0.209.0> Running boot step virtual_host_reconciliation defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.736081+00:00 [info] <0.209.0> Running boot step direct_client defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.736261+00:00 [info] <0.209.0> Running boot step logger_exchange defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.739698+00:00 [info] <0.209.0> Running boot step cluster_tags defined by app rabbit[0m
+rabbitmq-1  | 2026-09-20 20:45:47.742558+00:00 [info] <0.209.0> Running boot step rabbit_management_load_definitions defined by app rabbitmq_management[0m
+rabbitmq-1  | 2026-09-20 20:45:47.742845+00:00 [info] <0.858.0> Resetting node maintenance status[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:45:47.765012+00:00 [warning] <0.875.0> Deprecated features: `management_metrics_collection`: Feature `management_metrics_collection` is deprecated.[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:45:47.765012+00:00 [warning] <0.875.0> By default, this feature can still be used for now.[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:45:47.765012+00:00 [warning] <0.875.0> Its use will not be permitted by default in a future minor RabbitMQ version and the feature will be removed from a future major RabbitMQ version; actual versions to be determined.[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:45:47.765012+00:00 [warning] <0.875.0> To continue using this feature when it is not permitted by default, set the following parameter in your configuration:[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:45:47.765012+00:00 [warning] <0.875.0>     "deprecated_features.permit.management_metrics_collection = true"[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:45:47.765012+00:00 [warning] <0.875.0> To test RabbitMQ as if the feature was removed, set this in your configuration:[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:45:47.765012+00:00 [warning] <0.875.0>     "deprecated_features.permit.management_metrics_collection = false"[0m
+rabbitmq-1  | 2026-09-20 20:45:47.828112+00:00 [info] <0.911.0> Management plugin: HTTP (non-TLS) listener started on port 15672[0m
+rabbitmq-1  | 2026-09-20 20:45:47.828294+00:00 [info] <0.939.0> Statistics database started.[0m
+rabbitmq-1  | 2026-09-20 20:45:47.828358+00:00 [info] <0.938.0> Starting worker pool 'management_worker_pool' with 3 processes in it[0m
+rabbitmq-1  | 2026-09-20 20:45:47.847690+00:00 [info] <0.950.0> Prometheus metrics: HTTP (non-TLS) listener started on port 15692[0m
+rabbitmq-1  | 2026-09-20 20:45:47.847818+00:00 [info] <0.858.0> Ready to start client connection listeners[0m
+rabbitmq-1  | 2026-09-20 20:45:47.852067+00:00 [info] <0.994.0> started TCP listener on [::]:5672[0m
+rabbitmq-1  |  completed with 4 plugins.
+rabbitmq-1  | 2026-09-20 20:45:48.013768+00:00 [info] <0.858.0> Server startup complete; 4 plugins started.[0m
+rabbitmq-1  | 2026-09-20 20:45:48.013768+00:00 [info] <0.858.0>  * rabbitmq_prometheus[0m
+rabbitmq-1  | 2026-09-20 20:45:48.013768+00:00 [info] <0.858.0>  * rabbitmq_management[0m
+rabbitmq-1  | 2026-09-20 20:45:48.013768+00:00 [info] <0.858.0>  * rabbitmq_management_agent[0m
+rabbitmq-1  | 2026-09-20 20:45:48.013768+00:00 [info] <0.858.0>  * rabbitmq_web_dispatch[0m
+rabbitmq-1  | 2026-09-20 20:45:48.144982+00:00 [info] <0.10.0> Time to start RabbitMQ: 5313 ms[0m
+rabbitmq-1  | 2026-09-20 20:45:52.833822+00:00 [info] <0.1008.0> accepting AMQP connection 172.23.0.1:40092 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:52.879903+00:00 [info] <0.1008.0> connection 172.23.0.1:40092 -> 172.23.0.2:5672 has a client-provided name: catalog-outbox-relay-outage-relay[0m
+rabbitmq-1  | 2026-09-20 20:45:52.885835+00:00 [info] <0.1008.0> connection 172.23.0.1:40092 -> 172.23.0.2:5672 - catalog-outbox-relay-outage-relay: user 'cw_catalog_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:45:53.083506+00:00 [warning] <0.1008.0> closing AMQP connection <0.1008.0> (172.23.0.1:40092 -> 172.23.0.2:5672 - catalog-outbox-relay-outage-relay, vhost: 'washgo-acceptance', user: 'cw_catalog_app', duration: '253ms'):[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:45:53.083506+00:00 [warning] <0.1008.0> client unexpectedly closed TCP connection[0m
+rabbitmq-1  | 2026-09-20 20:45:55.785611+00:00 [info] <0.1035.0> accepting AMQP connection 172.23.0.1:35534 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:55.791892+00:00 [info] <0.1035.0> connection 172.23.0.1:35534 -> 172.23.0.2:5672 has a client-provided name: reporting-inbox-consumer[0m
+rabbitmq-1  | 2026-09-20 20:45:55.803594+00:00 [info] <0.1035.0> connection 172.23.0.1:35534 -> 172.23.0.2:5672 - reporting-inbox-consumer: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:56.137370+00:00 [info] <0.1035.0> closing AMQP connection (172.23.0.1:35534 -> 172.23.0.2:5672 - reporting-inbox-consumer, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '352ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:56.239109+00:00 [info] <0.1054.0> accepting AMQP connection 172.23.0.1:35550 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:56.244348+00:00 [info] <0.1054.0> connection 172.23.0.1:35550 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:56.269482+00:00 [info] <0.1054.0> closing AMQP connection (172.23.0.1:35550 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '30ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:56.270482+00:00 [info] <0.1072.0> accepting AMQP connection 172.23.0.1:35558 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:56.275378+00:00 [info] <0.1072.0> connection 172.23.0.1:35558 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:56.296958+00:00 [info] <0.1072.0> closing AMQP connection (172.23.0.1:35558 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '26ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:56.297535+00:00 [info] <0.1090.0> accepting AMQP connection 172.23.0.1:35574 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:56.301057+00:00 [info] <0.1090.0> connection 172.23.0.1:35574 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:56.309535+00:00 [info] <0.1090.0> closing AMQP connection (172.23.0.1:35574 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '12ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:56.310235+00:00 [info] <0.1108.0> accepting AMQP connection 172.23.0.1:35586 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:56.314027+00:00 [info] <0.1108.0> connection 172.23.0.1:35586 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:56.322632+00:00 [info] <0.1108.0> closing AMQP connection (172.23.0.1:35586 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '12ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:56.323420+00:00 [info] <0.1126.0> accepting AMQP connection 172.23.0.1:35588 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:56.326997+00:00 [info] <0.1126.0> connection 172.23.0.1:35588 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:56.334955+00:00 [info] <0.1126.0> closing AMQP connection (172.23.0.1:35588 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '11ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:56.335558+00:00 [info] <0.1144.0> accepting AMQP connection 172.23.0.1:35594 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:56.339155+00:00 [info] <0.1144.0> connection 172.23.0.1:35594 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:56.346883+00:00 [info] <0.1144.0> closing AMQP connection (172.23.0.1:35594 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '11ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:57.152751+00:00 [info] <0.1162.0> accepting AMQP connection 172.23.0.1:35604 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:57.191423+00:00 [info] <0.1162.0> connection 172.23.0.1:35604 -> 172.23.0.2:5672 has a client-provided name: catalog-outbox-relay-dup-relay-1[0m
+rabbitmq-1  | 2026-09-20 20:45:57.219998+00:00 [info] <0.1162.0> connection 172.23.0.1:35604 -> 172.23.0.2:5672 - catalog-outbox-relay-dup-relay-1: user 'cw_catalog_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:57.478682+00:00 [info] <0.1162.0> closing AMQP connection (172.23.0.1:35604 -> 172.23.0.2:5672 - catalog-outbox-relay-dup-relay-1, vhost: 'washgo-acceptance', user: 'cw_catalog_app', duration: '339ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:58.072170+00:00 [info] <0.1180.0> accepting AMQP connection 172.23.0.1:35606 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:58.078175+00:00 [info] <0.1180.0> connection 172.23.0.1:35606 -> 172.23.0.2:5672 has a client-provided name: catalog-outbox-relay-dup-relay-2[0m
+rabbitmq-1  | 2026-09-20 20:45:58.080924+00:00 [info] <0.1180.0> connection 172.23.0.1:35606 -> 172.23.0.2:5672 - catalog-outbox-relay-dup-relay-2: user 'cw_catalog_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:58.197304+00:00 [info] <0.1180.0> closing AMQP connection (172.23.0.1:35606 -> 172.23.0.2:5672 - catalog-outbox-relay-dup-relay-2, vhost: 'washgo-acceptance', user: 'cw_catalog_app', duration: '126ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:58.233724+00:00 [info] <0.1198.0> accepting AMQP connection 172.23.0.1:35614 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:58.242758+00:00 [info] <0.1198.0> connection 172.23.0.1:35614 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:58.263081+00:00 [info] <0.1198.0> closing AMQP connection (172.23.0.1:35614 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '29ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:58.877386+00:00 [info] <0.1216.0> accepting AMQP connection 172.23.0.1:35628 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:58.882660+00:00 [info] <0.1216.0> connection 172.23.0.1:35628 -> 172.23.0.2:5672 has a client-provided name: reporting-inbox-consumer[0m
+rabbitmq-1  | 2026-09-20 20:45:58.885272+00:00 [info] <0.1216.0> connection 172.23.0.1:35628 -> 172.23.0.2:5672 - reporting-inbox-consumer: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:59.145279+00:00 [info] <0.1216.0> closing AMQP connection (172.23.0.1:35628 -> 172.23.0.2:5672 - reporting-inbox-consumer, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '268ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:59.164209+00:00 [info] <0.1234.0> accepting AMQP connection 172.23.0.1:35642 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:59.169911+00:00 [info] <0.1234.0> connection 172.23.0.1:35642 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:59.183563+00:00 [info] <0.1234.0> closing AMQP connection (172.23.0.1:35642 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '20ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:59.200686+00:00 [info] <0.1252.0> accepting AMQP connection 172.23.0.1:35650 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:59.206138+00:00 [info] <0.1252.0> connection 172.23.0.1:35650 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:59.227080+00:00 [info] <0.1252.0> closing AMQP connection (172.23.0.1:35650 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '27ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:59.228016+00:00 [info] <0.1270.0> accepting AMQP connection 172.23.0.1:35664 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:59.232833+00:00 [info] <0.1270.0> connection 172.23.0.1:35664 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:59.264224+00:00 [info] <0.1270.0> closing AMQP connection (172.23.0.1:35664 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '37ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:59.264981+00:00 [info] <0.1288.0> accepting AMQP connection 172.23.0.1:35680 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:59.270547+00:00 [info] <0.1288.0> connection 172.23.0.1:35680 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:59.293554+00:00 [info] <0.1288.0> closing AMQP connection (172.23.0.1:35680 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '29ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:59.294440+00:00 [info] <0.1306.0> accepting AMQP connection 172.23.0.1:35688 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:59.299764+00:00 [info] <0.1306.0> connection 172.23.0.1:35688 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:59.312155+00:00 [info] <0.1306.0> closing AMQP connection (172.23.0.1:35688 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '18ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:59.313218+00:00 [info] <0.1324.0> accepting AMQP connection 172.23.0.1:35704 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:59.318215+00:00 [info] <0.1324.0> connection 172.23.0.1:35704 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:59.330384+00:00 [info] <0.1324.0> closing AMQP connection (172.23.0.1:35704 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '17ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:59.331185+00:00 [info] <0.1342.0> accepting AMQP connection 172.23.0.1:35712 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:59.335531+00:00 [info] <0.1342.0> connection 172.23.0.1:35712 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:45:59.346449+00:00 [info] <0.1342.0> closing AMQP connection (172.23.0.1:35712 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '15ms')[0m
+rabbitmq-1  | 2026-09-20 20:45:59.965413+00:00 [info] <0.1360.0> accepting AMQP connection 172.23.0.1:35724 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:45:59.971759+00:00 [info] <0.1360.0> connection 172.23.0.1:35724 -> 172.23.0.2:5672 has a client-provided name: catalog-outbox-relay-crash-relay[0m
+rabbitmq-1  | 2026-09-20 20:45:59.976218+00:00 [info] <0.1360.0> connection 172.23.0.1:35724 -> 172.23.0.2:5672 - catalog-outbox-relay-crash-relay: user 'cw_catalog_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:00.128857+00:00 [info] <0.1360.0> closing AMQP connection (172.23.0.1:35724 -> 172.23.0.2:5672 - catalog-outbox-relay-crash-relay, vhost: 'washgo-acceptance', user: 'cw_catalog_app', duration: '165ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:00.797935+00:00 [info] <0.1382.0> accepting AMQP connection 172.23.0.1:35728 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:00.804942+00:00 [info] <0.1382.0> connection 172.23.0.1:35728 -> 172.23.0.2:5672 has a client-provided name: reporting-inbox-consumer[0m
+rabbitmq-1  | 2026-09-20 20:46:00.808245+00:00 [info] <0.1382.0> connection 172.23.0.1:35728 -> 172.23.0.2:5672 - reporting-inbox-consumer: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:46:01.011434+00:00 [warning] <0.1382.0> closing AMQP connection <0.1382.0> (172.23.0.1:35728 -> 172.23.0.2:5672 - reporting-inbox-consumer, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '214ms'):[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:46:01.011434+00:00 [warning] <0.1382.0> client unexpectedly closed TCP connection[0m
+rabbitmq-1  | 2026-09-20 20:46:01.053008+00:00 [info] <0.1400.0> accepting AMQP connection 172.23.0.1:35740 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:01.111927+00:00 [info] <0.1400.0> connection 172.23.0.1:35740 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:01.625012+00:00 [info] <0.1400.0> closing AMQP connection (172.23.0.1:35740 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '596ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:02.345470+00:00 [info] <0.1418.0> accepting AMQP connection 172.23.0.1:35748 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:02.359834+00:00 [info] <0.1418.0> connection 172.23.0.1:35748 -> 172.23.0.2:5672 has a client-provided name: reporting-inbox-consumer[0m
+rabbitmq-1  | 2026-09-20 20:46:02.367134+00:00 [info] <0.1418.0> connection 172.23.0.1:35748 -> 172.23.0.2:5672 - reporting-inbox-consumer: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:03.038322+00:00 [info] <0.1418.0> closing AMQP connection (172.23.0.1:35748 -> 172.23.0.2:5672 - reporting-inbox-consumer, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '694ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:03.061266+00:00 [info] <0.1436.0> accepting AMQP connection 172.23.0.1:35750 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:03.080312+00:00 [info] <0.1436.0> connection 172.23.0.1:35750 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:03.161730+00:00 [info] <0.1436.0> closing AMQP connection (172.23.0.1:35750 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '104ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:03.300666+00:00 [info] <0.1454.0> accepting AMQP connection 172.23.0.1:35756 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:03.346025+00:00 [info] <0.1454.0> connection 172.23.0.1:35756 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:03.508619+00:00 [info] <0.1454.0> closing AMQP connection (172.23.0.1:35756 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '219ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:03.526461+00:00 [info] <0.1472.0> accepting AMQP connection 172.23.0.1:35764 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:03.564186+00:00 [info] <0.1472.0> connection 172.23.0.1:35764 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:03.718732+00:00 [info] <0.1472.0> closing AMQP connection (172.23.0.1:35764 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '209ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:03.723846+00:00 [info] <0.1490.0> accepting AMQP connection 172.23.0.1:53468 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:03.753368+00:00 [info] <0.1490.0> connection 172.23.0.1:53468 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:03.835468+00:00 [info] <0.1490.0> closing AMQP connection (172.23.0.1:53468 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '115ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:03.839884+00:00 [info] <0.1508.0> accepting AMQP connection 172.23.0.1:53476 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:03.852305+00:00 [info] <0.1508.0> connection 172.23.0.1:53476 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:03.871948+00:00 [info] <0.1508.0> closing AMQP connection (172.23.0.1:53476 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '35ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:03.872972+00:00 [info] <0.1526.0> accepting AMQP connection 172.23.0.1:53482 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:03.881098+00:00 [info] <0.1526.0> connection 172.23.0.1:53482 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:03.953967+00:00 [info] <0.1526.0> closing AMQP connection (172.23.0.1:53482 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '81ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:03.959059+00:00 [info] <0.1544.0> accepting AMQP connection 172.23.0.1:53490 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:03.994355+00:00 [info] <0.1544.0> connection 172.23.0.1:53490 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:04.124285+00:00 [info] <0.1544.0> closing AMQP connection (172.23.0.1:53490 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '170ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:04.989205+00:00 [info] <0.1562.0> accepting AMQP connection 172.23.0.1:53504 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:04.996042+00:00 [info] <0.1562.0> connection 172.23.0.1:53504 -> 172.23.0.2:5672 has a client-provided name: catalog-outbox-relay-recovery-relay[0m
+rabbitmq-1  | 2026-09-20 20:46:04.999269+00:00 [info] <0.1562.0> connection 172.23.0.1:53504 -> 172.23.0.2:5672 - catalog-outbox-relay-recovery-relay: user 'cw_catalog_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:46:06.385471+00:00 [warning] <0.1562.0> closing AMQP connection <0.1562.0> (172.23.0.1:53504 -> 172.23.0.2:5672 - catalog-outbox-relay-recovery-relay, vhost: 'washgo-acceptance', user: 'cw_catalog_app', duration: '1s'):[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:46:06.385471+00:00 [warning] <0.1562.0> client unexpectedly closed TCP connection[0m
+rabbitmq-1  | 2026-09-20 20:46:06.396902+00:00 [info] <0.1580.0> accepting AMQP connection 172.23.0.1:53508 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:06.404620+00:00 [info] <0.1580.0> connection 172.23.0.1:53508 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:06.416403+00:00 [info] <0.1580.0> closing AMQP connection (172.23.0.1:53508 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '20ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:06.432856+00:00 [info] <0.1598.0> accepting AMQP connection 172.23.0.1:53512 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:06.438698+00:00 [info] <0.1598.0> connection 172.23.0.1:53512 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:06.473839+00:00 [info] <0.1598.0> closing AMQP connection (172.23.0.1:53512 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '41ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:06.474642+00:00 [info] <0.1616.0> accepting AMQP connection 172.23.0.1:53514 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:06.482381+00:00 [info] <0.1616.0> connection 172.23.0.1:53514 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:06.517339+00:00 [info] <0.1616.0> closing AMQP connection (172.23.0.1:53514 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '43ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:06.518794+00:00 [info] <0.1634.0> accepting AMQP connection 172.23.0.1:53520 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:06.529925+00:00 [info] <0.1634.0> connection 172.23.0.1:53520 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:06.549240+00:00 [info] <0.1634.0> closing AMQP connection (172.23.0.1:53520 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '31ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:06.550929+00:00 [info] <0.1652.0> accepting AMQP connection 172.23.0.1:53526 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:06.557811+00:00 [info] <0.1652.0> connection 172.23.0.1:53526 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:06.574216+00:00 [info] <0.1652.0> closing AMQP connection (172.23.0.1:53526 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '24ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:06.575243+00:00 [info] <0.1670.0> accepting AMQP connection 172.23.0.1:53534 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:06.583622+00:00 [info] <0.1670.0> connection 172.23.0.1:53534 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:06.601496+00:00 [info] <0.1670.0> closing AMQP connection (172.23.0.1:53534 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '26ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:06.602440+00:00 [info] <0.1688.0> accepting AMQP connection 172.23.0.1:53544 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:06.609368+00:00 [info] <0.1688.0> connection 172.23.0.1:53544 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:06.629819+00:00 [info] <0.1688.0> closing AMQP connection (172.23.0.1:53544 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '27ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:06.821671+00:00 [info] <0.1706.0> accepting AMQP connection 172.23.0.1:53550 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:06.829043+00:00 [info] <0.1706.0> connection 172.23.0.1:53550 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:06.857956+00:00 [info] <0.1706.0> closing AMQP connection (172.23.0.1:53550 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '36ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:06.858797+00:00 [info] <0.1724.0> accepting AMQP connection 172.23.0.1:53564 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:06.866431+00:00 [info] <0.1724.0> connection 172.23.0.1:53564 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:06.907466+00:00 [info] <0.1724.0> closing AMQP connection (172.23.0.1:53564 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '49ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:06.908372+00:00 [info] <0.1742.0> accepting AMQP connection 172.23.0.1:53580 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:06.914838+00:00 [info] <0.1742.0> connection 172.23.0.1:53580 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:06.942139+00:00 [info] <0.1742.0> closing AMQP connection (172.23.0.1:53580 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '34ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:06.943031+00:00 [info] <0.1760.0> accepting AMQP connection 172.23.0.1:53584 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:06.952648+00:00 [info] <0.1760.0> connection 172.23.0.1:53584 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:07.032724+00:00 [info] <0.1760.0> closing AMQP connection (172.23.0.1:53584 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '90ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:07.043355+00:00 [info] <0.1782.0> accepting AMQP connection 172.23.0.1:53598 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:07.082304+00:00 [info] <0.1782.0> connection 172.23.0.1:53598 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:07.113739+00:00 [info] <0.1782.0> closing AMQP connection (172.23.0.1:53598 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '76ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:07.114920+00:00 [info] <0.1800.0> accepting AMQP connection 172.23.0.1:53610 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:07.119357+00:00 [info] <0.1800.0> connection 172.23.0.1:53610 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:07.147889+00:00 [info] <0.1800.0> closing AMQP connection (172.23.0.1:53610 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '33ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:08.016316+00:00 [info] <0.1818.0> accepting AMQP connection 172.23.0.1:53612 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:08.022828+00:00 [info] <0.1818.0> connection 172.23.0.1:53612 -> 172.23.0.2:5672 has a client-provided name: catalog-outbox-relay-relay-a[0m
+rabbitmq-1  | 2026-09-20 20:46:08.026310+00:00 [info] <0.1818.0> connection 172.23.0.1:53612 -> 172.23.0.2:5672 - catalog-outbox-relay-relay-a: user 'cw_catalog_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:08.031531+00:00 [info] <0.1832.0> accepting AMQP connection 172.23.0.1:53626 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:08.036830+00:00 [info] <0.1832.0> connection 172.23.0.1:53626 -> 172.23.0.2:5672 has a client-provided name: catalog-outbox-relay-relay-b[0m
+rabbitmq-1  | 2026-09-20 20:46:08.040471+00:00 [info] <0.1832.0> connection 172.23.0.1:53626 -> 172.23.0.2:5672 - catalog-outbox-relay-relay-b: user 'cw_catalog_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:46:08.227364+00:00 [warning] <0.1832.0> closing AMQP connection <0.1832.0> (172.23.0.1:53626 -> 172.23.0.2:5672 - catalog-outbox-relay-relay-b, vhost: 'washgo-acceptance', user: 'cw_catalog_app', duration: '196ms'):[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:46:08.227364+00:00 [warning] <0.1832.0> client unexpectedly closed TCP connection[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:46:08.228229+00:00 [warning] <0.1818.0> closing AMQP connection <0.1818.0> (172.23.0.1:53612 -> 172.23.0.2:5672 - catalog-outbox-relay-relay-a, vhost: 'washgo-acceptance', user: 'cw_catalog_app', duration: '213ms'):[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:46:08.228229+00:00 [warning] <0.1818.0> client unexpectedly closed TCP connection[0m
+rabbitmq-1  | 2026-09-20 20:46:08.239482+00:00 [info] <0.1854.0> accepting AMQP connection 172.23.0.1:53640 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:08.246667+00:00 [info] <0.1854.0> connection 172.23.0.1:53640 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:08.259787+00:00 [info] <0.1854.0> closing AMQP connection (172.23.0.1:53640 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '21ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:08.260506+00:00 [info] <0.1870.0> accepting AMQP connection 172.23.0.1:53652 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:08.266115+00:00 [info] <0.1870.0> connection 172.23.0.1:53652 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:08.280116+00:00 [info] <0.1870.0> closing AMQP connection (172.23.0.1:53652 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '20ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:08.297156+00:00 [info] <0.1890.0> accepting AMQP connection 172.23.0.1:53656 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:08.301785+00:00 [info] <0.1890.0> connection 172.23.0.1:53656 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:08.326385+00:00 [info] <0.1890.0> closing AMQP connection (172.23.0.1:53656 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '29ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:08.326993+00:00 [info] <0.1908.0> accepting AMQP connection 172.23.0.1:53666 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:08.331571+00:00 [info] <0.1908.0> connection 172.23.0.1:53666 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:08.357844+00:00 [info] <0.1908.0> closing AMQP connection (172.23.0.1:53666 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '31ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:08.358513+00:00 [info] <0.1926.0> accepting AMQP connection 172.23.0.1:53678 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:08.363199+00:00 [info] <0.1926.0> connection 172.23.0.1:53678 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:08.377234+00:00 [info] <0.1926.0> closing AMQP connection (172.23.0.1:53678 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '19ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:08.378855+00:00 [info] <0.1944.0> accepting AMQP connection 172.23.0.1:53690 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:08.385200+00:00 [info] <0.1944.0> connection 172.23.0.1:53690 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:08.406183+00:00 [info] <0.1944.0> closing AMQP connection (172.23.0.1:53690 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '28ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:08.407020+00:00 [info] <0.1962.0> accepting AMQP connection 172.23.0.1:53704 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:08.412538+00:00 [info] <0.1962.0> connection 172.23.0.1:53704 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:08.433936+00:00 [info] <0.1962.0> closing AMQP connection (172.23.0.1:53704 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '27ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:08.434892+00:00 [info] <0.1980.0> accepting AMQP connection 172.23.0.1:53718 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:08.441045+00:00 [info] <0.1980.0> connection 172.23.0.1:53718 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:08.455306+00:00 [info] <0.1980.0> closing AMQP connection (172.23.0.1:53718 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '21ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:09.029180+00:00 [info] <0.1998.0> accepting AMQP connection 172.23.0.1:53722 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:09.034422+00:00 [info] <0.1998.0> connection 172.23.0.1:53722 -> 172.23.0.2:5672 has a client-provided name: catalog-outbox-relay-unroutable-relay[0m
+rabbitmq-1  | 2026-09-20 20:46:09.036879+00:00 [info] <0.1998.0> connection 172.23.0.1:53722 -> 172.23.0.2:5672 - catalog-outbox-relay-unroutable-relay: user 'cw_catalog_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:09.161277+00:00 [info] <0.1998.0> closing AMQP connection (172.23.0.1:53722 -> 172.23.0.2:5672 - catalog-outbox-relay-unroutable-relay, vhost: 'washgo-acceptance', user: 'cw_catalog_app', duration: '132ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:09.199447+00:00 [info] <0.2016.0> accepting AMQP connection 172.23.0.1:53734 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:09.204104+00:00 [info] <0.2016.0> connection 172.23.0.1:53734 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:09.223366+00:00 [info] <0.2016.0> closing AMQP connection (172.23.0.1:53734 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '24ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:09.223945+00:00 [info] <0.2034.0> accepting AMQP connection 172.23.0.1:53750 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:09.228662+00:00 [info] <0.2034.0> connection 172.23.0.1:53750 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:09.254165+00:00 [info] <0.2034.0> closing AMQP connection (172.23.0.1:53750 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '31ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:09.254917+00:00 [info] <0.2052.0> accepting AMQP connection 172.23.0.1:53760 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:09.259380+00:00 [info] <0.2052.0> connection 172.23.0.1:53760 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:09.269551+00:00 [info] <0.2052.0> closing AMQP connection (172.23.0.1:53760 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '15ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:09.270441+00:00 [info] <0.2070.0> accepting AMQP connection 172.23.0.1:53772 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:09.275236+00:00 [info] <0.2070.0> connection 172.23.0.1:53772 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:09.285098+00:00 [info] <0.2070.0> closing AMQP connection (172.23.0.1:53772 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '15ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:09.286138+00:00 [info] <0.2088.0> accepting AMQP connection 172.23.0.1:53782 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:09.291258+00:00 [info] <0.2088.0> connection 172.23.0.1:53782 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:09.302604+00:00 [info] <0.2088.0> closing AMQP connection (172.23.0.1:53782 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '17ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:09.303734+00:00 [info] <0.2106.0> accepting AMQP connection 172.23.0.1:53786 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:09.308265+00:00 [info] <0.2106.0> connection 172.23.0.1:53786 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:09.321232+00:00 [info] <0.2106.0> closing AMQP connection (172.23.0.1:53786 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '18ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:09.879600+00:00 [info] <0.2124.0> accepting AMQP connection 172.23.0.1:53796 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:09.885230+00:00 [info] <0.2124.0> connection 172.23.0.1:53796 -> 172.23.0.2:5672 has a client-provided name: catalog-outbox-relay-dead-letter-relay[0m
+rabbitmq-1  | 2026-09-20 20:46:09.888501+00:00 [info] <0.2124.0> connection 172.23.0.1:53796 -> 172.23.0.2:5672 - catalog-outbox-relay-dead-letter-relay: user 'cw_catalog_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:46:10.064153+00:00 [warning] <0.2124.0> closing AMQP connection <0.2124.0> (172.23.0.1:53796 -> 172.23.0.2:5672 - catalog-outbox-relay-dead-letter-relay, vhost: 'washgo-acceptance', user: 'cw_catalog_app', duration: '186ms'):[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:46:10.064153+00:00 [warning] <0.2124.0> client unexpectedly closed TCP connection[0m
+rabbitmq-1  | 2026-09-20 20:46:10.614022+00:00 [info] <0.2142.0> accepting AMQP connection 172.23.0.1:53812 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:10.620502+00:00 [info] <0.2142.0> connection 172.23.0.1:53812 -> 172.23.0.2:5672 has a client-provided name: catalog-outbox-relay-post-dead-relay[0m
+rabbitmq-1  | 2026-09-20 20:46:10.624457+00:00 [info] <0.2142.0> connection 172.23.0.1:53812 -> 172.23.0.2:5672 - catalog-outbox-relay-post-dead-relay: user 'cw_catalog_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:10.751655+00:00 [info] <0.2142.0> closing AMQP connection (172.23.0.1:53812 -> 172.23.0.2:5672 - catalog-outbox-relay-post-dead-relay, vhost: 'washgo-acceptance', user: 'cw_catalog_app', duration: '138ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:10.789208+00:00 [info] <0.2160.0> accepting AMQP connection 172.23.0.1:53828 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:10.794863+00:00 [info] <0.2160.0> connection 172.23.0.1:53828 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:10.825163+00:00 [info] <0.2160.0> closing AMQP connection (172.23.0.1:53828 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '36ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:10.826205+00:00 [info] <0.2178.0> accepting AMQP connection 172.23.0.1:53842 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:10.832572+00:00 [info] <0.2178.0> connection 172.23.0.1:53842 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:10.857750+00:00 [info] <0.2178.0> closing AMQP connection (172.23.0.1:53842 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '31ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:10.858581+00:00 [info] <0.2196.0> accepting AMQP connection 172.23.0.1:53848 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:10.864332+00:00 [info] <0.2196.0> connection 172.23.0.1:53848 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:10.877358+00:00 [info] <0.2196.0> closing AMQP connection (172.23.0.1:53848 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '19ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:10.878987+00:00 [info] <0.2214.0> accepting AMQP connection 172.23.0.1:53852 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:10.885347+00:00 [info] <0.2214.0> connection 172.23.0.1:53852 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:10.899039+00:00 [info] <0.2214.0> closing AMQP connection (172.23.0.1:53852 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '21ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:10.900414+00:00 [info] <0.2232.0> accepting AMQP connection 172.23.0.1:53868 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:10.906246+00:00 [info] <0.2232.0> connection 172.23.0.1:53868 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:10.935622+00:00 [info] <0.2232.0> closing AMQP connection (172.23.0.1:53868 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '36ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:10.938104+00:00 [info] <0.2248.0> accepting AMQP connection 172.23.0.1:53882 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:10.954709+00:00 [info] <0.2248.0> connection 172.23.0.1:53882 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:10.985917+00:00 [info] <0.2248.0> closing AMQP connection (172.23.0.1:53882 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '50ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:11.114585+00:00 [info] <0.2268.0> accepting AMQP connection 172.23.0.1:53898 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:11.156098+00:00 [info] <0.2268.0> connection 172.23.0.1:53898 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:11.331068+00:00 [info] <0.2268.0> closing AMQP connection (172.23.0.1:53898 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '225ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:11.331943+00:00 [info] <0.2286.0> accepting AMQP connection 172.23.0.1:53904 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:11.337572+00:00 [info] <0.2286.0> connection 172.23.0.1:53904 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:11.363369+00:00 [info] <0.2286.0> closing AMQP connection (172.23.0.1:53904 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '32ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:11.364162+00:00 [info] <0.2304.0> accepting AMQP connection 172.23.0.1:53906 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:11.371452+00:00 [info] <0.2304.0> connection 172.23.0.1:53906 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:11.384326+00:00 [info] <0.2304.0> closing AMQP connection (172.23.0.1:53906 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '20ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:11.385097+00:00 [info] <0.2322.0> accepting AMQP connection 172.23.0.1:53912 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:11.389315+00:00 [info] <0.2322.0> connection 172.23.0.1:53912 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:11.399560+00:00 [info] <0.2322.0> closing AMQP connection (172.23.0.1:53912 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '14ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:11.400161+00:00 [info] <0.2340.0> accepting AMQP connection 172.23.0.1:53914 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:11.404295+00:00 [info] <0.2340.0> connection 172.23.0.1:53914 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:11.413894+00:00 [info] <0.2340.0> closing AMQP connection (172.23.0.1:53914 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '13ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:11.415100+00:00 [info] <0.2358.0> accepting AMQP connection 172.23.0.1:53916 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:11.419307+00:00 [info] <0.2358.0> connection 172.23.0.1:53916 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:11.434930+00:00 [info] <0.2358.0> closing AMQP connection (172.23.0.1:53916 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '20ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:11.449848+00:00 [info] <0.2376.0> accepting AMQP connection 172.23.0.1:53918 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:11.454399+00:00 [info] <0.2376.0> connection 172.23.0.1:53918 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:11.478283+00:00 [info] <0.2376.0> closing AMQP connection (172.23.0.1:53918 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '29ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:11.479118+00:00 [info] <0.2394.0> accepting AMQP connection 172.23.0.1:53922 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:11.483382+00:00 [info] <0.2394.0> connection 172.23.0.1:53922 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:11.506604+00:00 [info] <0.2394.0> closing AMQP connection (172.23.0.1:53922 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '27ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:11.507262+00:00 [info] <0.2412.0> accepting AMQP connection 172.23.0.1:53938 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:11.511664+00:00 [info] <0.2412.0> connection 172.23.0.1:53938 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:11.522746+00:00 [info] <0.2412.0> closing AMQP connection (172.23.0.1:53938 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '15ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:11.523359+00:00 [info] <0.2430.0> accepting AMQP connection 172.23.0.1:53950 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:11.527009+00:00 [info] <0.2430.0> connection 172.23.0.1:53950 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:11.538312+00:00 [info] <0.2430.0> closing AMQP connection (172.23.0.1:53950 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '15ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:11.539086+00:00 [info] <0.2448.0> accepting AMQP connection 172.23.0.1:53952 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:11.543303+00:00 [info] <0.2448.0> connection 172.23.0.1:53952 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:11.554940+00:00 [info] <0.2448.0> closing AMQP connection (172.23.0.1:53952 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '15ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:11.555596+00:00 [info] <0.2466.0> accepting AMQP connection 172.23.0.1:53964 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:11.559807+00:00 [info] <0.2466.0> connection 172.23.0.1:53964 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:11.571127+00:00 [info] <0.2466.0> closing AMQP connection (172.23.0.1:53964 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '16ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:12.080040+00:00 [info] <0.2484.0> accepting AMQP connection 172.23.0.1:53966 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:12.088095+00:00 [info] <0.2484.0> connection 172.23.0.1:53966 -> 172.23.0.2:5672 has a client-provided name: catalog-outbox-relay-redaction-relay[0m
+rabbitmq-1  | 2026-09-20 20:46:12.090742+00:00 [info] <0.2484.0> connection 172.23.0.1:53966 -> 172.23.0.2:5672 - catalog-outbox-relay-redaction-relay: user 'cw_catalog_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:12.217627+00:00 [info] <0.2484.0> closing AMQP connection (172.23.0.1:53966 -> 172.23.0.2:5672 - catalog-outbox-relay-redaction-relay, vhost: 'washgo-acceptance', user: 'cw_catalog_app', duration: '138ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:39.815814+00:00 [info] <0.2524.0> accepting AMQP connection 172.23.0.1:53742 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:39.827793+00:00 [info] <0.2524.0> connection 172.23.0.1:53742 -> 172.23.0.2:5672: user 'cw_infra_topology' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:39.860648+00:00 [info] <0.2524.0> closing AMQP connection (172.23.0.1:53742 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_infra_topology', duration: '48ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:39.861378+00:00 [info] <0.2542.0> accepting AMQP connection 172.23.0.1:53750 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:39.866313+00:00 [info] <0.2542.0> connection 172.23.0.1:53750 -> 172.23.0.2:5672: user 'cw_catalog_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:39.883084+00:00 [info] <0.2542.0> closing AMQP connection (172.23.0.1:53750 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_catalog_app', duration: '22ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:39.885523+00:00 [info] <0.2560.0> accepting AMQP connection 172.23.0.1:53766 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:39.890531+00:00 [info] <0.2560.0> connection 172.23.0.1:53766 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:39.908883+00:00 [info] <0.2560.0> closing AMQP connection (172.23.0.1:53766 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '25ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:39.910116+00:00 [info] <0.2578.0> accepting AMQP connection 172.23.0.1:53770 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:39.915259+00:00 [info] <0.2578.0> connection 172.23.0.1:53770 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:39.932156+00:00 [info] <0.2578.0> closing AMQP connection (172.23.0.1:53770 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '23ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:39.932895+00:00 [info] <0.2596.0> accepting AMQP connection 172.23.0.1:53772 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:39.937798+00:00 [info] <0.2596.0> connection 172.23.0.1:53772 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:39.951326+00:00 [info] <0.2596.0> closing AMQP connection (172.23.0.1:53772 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '19ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:39.951948+00:00 [info] <0.2614.0> accepting AMQP connection 172.23.0.1:53788 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:39.956776+00:00 [info] <0.2614.0> connection 172.23.0.1:53788 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | 2026-09-20 20:46:39.972658+00:00 [info] <0.2614.0> closing AMQP connection (172.23.0.1:53788 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '21ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:39.975473+00:00 [info] <0.2632.0> accepting AMQP connection 172.23.0.1:53792 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:39.982087+00:00 [info] <0.2632.0> connection 172.23.0.1:53792 -> 172.23.0.2:5672: user 'cw_catalog_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:39.990453+00:00 [error] <0.2641.0> Channel error on connection <0.2632.0> (172.23.0.1:53792 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_catalog_app'), channel 1:[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:39.990453+00:00 [error] <0.2641.0> operation basic.consume caused a channel exception access_refused: read access to queue 'communications.catalog.foundation-probe' in vhost 'washgo-acceptance' refused for user 'cw_catalog_app'[0m
+rabbitmq-1  | 2026-09-20 20:46:39.998521+00:00 [info] <0.2632.0> closing AMQP connection (172.23.0.1:53792 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_catalog_app', duration: '25ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:39.999615+00:00 [info] <0.2650.0> accepting AMQP connection 172.23.0.1:53800 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:40.008548+00:00 [info] <0.2650.0> connection 172.23.0.1:53800 -> 172.23.0.2:5672: user 'cw_catalog_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.016685+00:00 [error] <0.2659.0> Channel error on connection <0.2650.0> (172.23.0.1:53800 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_catalog_app'), channel 1:[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.016685+00:00 [error] <0.2659.0> operation queue.declare caused a channel exception access_refused: configure access to queue 'reporting.catalog.foundation-probe' in vhost 'washgo-acceptance' refused for user 'cw_catalog_app'[0m
+rabbitmq-1  | 2026-09-20 20:46:40.022736+00:00 [info] <0.2650.0> closing AMQP connection (172.23.0.1:53800 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_catalog_app', duration: '23ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:40.023579+00:00 [info] <0.2668.0> accepting AMQP connection 172.23.0.1:53814 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:40.029487+00:00 [info] <0.2668.0> connection 172.23.0.1:53814 -> 172.23.0.2:5672: user 'cw_catalog_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.037169+00:00 [error] <0.2677.0> Channel error on connection <0.2668.0> (172.23.0.1:53814 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_catalog_app'), channel 1:[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.037169+00:00 [error] <0.2677.0> operation queue.declare caused a channel exception access_refused: configure access to queue 'catalog.rogue-queue' in vhost 'washgo-acceptance' refused for user 'cw_catalog_app'[0m
+rabbitmq-1  | 2026-09-20 20:46:40.043940+00:00 [info] <0.2668.0> closing AMQP connection (172.23.0.1:53814 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_catalog_app', duration: '20ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:40.045057+00:00 [info] <0.2686.0> accepting AMQP connection 172.23.0.1:53826 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:40.053084+00:00 [info] <0.2686.0> connection 172.23.0.1:53826 -> 172.23.0.2:5672: user 'cw_catalog_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.060592+00:00 [error] <0.2695.0> Channel error on connection <0.2686.0> (172.23.0.1:53826 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_catalog_app'), channel 1:[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.060592+00:00 [error] <0.2695.0> operation exchange.declare caused a channel exception access_refused: configure access to exchange 'billing.events' in vhost 'washgo-acceptance' refused for user 'cw_catalog_app'[0m
+rabbitmq-1  | 2026-09-20 20:46:40.066912+00:00 [info] <0.2686.0> closing AMQP connection (172.23.0.1:53826 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_catalog_app', duration: '22ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:40.067756+00:00 [info] <0.2704.0> accepting AMQP connection 172.23.0.1:53842 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:40.072515+00:00 [info] <0.2704.0> connection 172.23.0.1:53842 -> 172.23.0.2:5672: user 'cw_catalog_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.079086+00:00 [error] <0.2713.0> Channel error on connection <0.2704.0> (172.23.0.1:53842 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_catalog_app'), channel 1:[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.079086+00:00 [error] <0.2713.0> operation basic.publish caused a channel exception access_refused: write access to exchange 'amq.default' in vhost 'washgo-acceptance' refused for user 'cw_catalog_app'[0m
+rabbitmq-1  | 2026-09-20 20:46:40.085386+00:00 [info] <0.2704.0> closing AMQP connection (172.23.0.1:53842 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_catalog_app', duration: '18ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:40.086140+00:00 [info] <0.2720.0> accepting AMQP connection 172.23.0.1:53856 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:40.092762+00:00 [info] <0.2720.0> connection 172.23.0.1:53856 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.099383+00:00 [error] <0.2731.0> Channel error on connection <0.2720.0> (172.23.0.1:53856 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app'), channel 1:[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.099383+00:00 [error] <0.2731.0> operation exchange.declare caused a channel exception access_refused: configure access to exchange 'catalog.events' in vhost 'washgo-acceptance' refused for user 'cw_communications_app'[0m
+rabbitmq-1  | 2026-09-20 20:46:40.105060+00:00 [info] <0.2720.0> closing AMQP connection (172.23.0.1:53856 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '20ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:40.105988+00:00 [info] <0.2740.0> accepting AMQP connection 172.23.0.1:53864 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:40.110803+00:00 [info] <0.2740.0> connection 172.23.0.1:53864 -> 172.23.0.2:5672: user 'cw_reporting_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.116556+00:00 [error] <0.2749.0> Channel error on connection <0.2740.0> (172.23.0.1:53864 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app'), channel 1:[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.116556+00:00 [error] <0.2749.0> operation basic.consume caused a channel exception access_refused: read access to queue 'communications.catalog.foundation-probe' in vhost 'washgo-acceptance' refused for user 'cw_reporting_app'[0m
+rabbitmq-1  | 2026-09-20 20:46:40.122332+00:00 [info] <0.2740.0> closing AMQP connection (172.23.0.1:53864 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_reporting_app', duration: '17ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:40.123013+00:00 [info] <0.2756.0> accepting AMQP connection 172.23.0.1:53870 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:40.130661+00:00 [info] <0.2756.0> connection 172.23.0.1:53870 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.136623+00:00 [error] <0.2767.0> Channel error on connection <0.2756.0> (172.23.0.1:53870 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app'), channel 1:[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.136623+00:00 [error] <0.2767.0> operation queue.declare caused a channel exception access_refused: configure access to queue 'reporting.injected' in vhost 'washgo-acceptance' refused for user 'cw_communications_app'[0m
+rabbitmq-1  | 2026-09-20 20:46:40.144376+00:00 [info] <0.2756.0> closing AMQP connection (172.23.0.1:53870 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '22ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:40.145316+00:00 [info] <0.2776.0> accepting AMQP connection 172.23.0.1:53880 -> 172.23.0.2:5672[0m
+rabbitmq-1  | 2026-09-20 20:46:40.152018+00:00 [info] <0.2776.0> connection 172.23.0.1:53880 -> 172.23.0.2:5672: user 'cw_communications_app' authenticated and granted access to vhost 'washgo-acceptance'[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.161245+00:00 [error] <0.2785.0> Channel error on connection <0.2776.0> (172.23.0.1:53880 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app'), channel 1:[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.161245+00:00 [error] <0.2785.0> operation basic.publish caused a channel exception access_refused: write access to exchange 'amq.default' in vhost 'washgo-acceptance' refused for user 'cw_communications_app'[0m
+rabbitmq-1  | 2026-09-20 20:46:40.168838+00:00 [info] <0.2776.0> closing AMQP connection (172.23.0.1:53880 -> 172.23.0.2:5672, vhost: 'washgo-acceptance', user: 'cw_communications_app', duration: '23ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:40.170038+00:00 [info] <0.2794.0> accepting AMQP connection 172.23.0.1:53882 -> 172.23.0.2:5672[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.174686+00:00 [error] <0.2794.0> Error on AMQP connection <0.2794.0> (172.23.0.1:53882 -> 172.23.0.2:5672, state: starting):[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.174686+00:00 [error] <0.2794.0> PLAIN login refused: user 'cw_catalog_app' - invalid credentials[0m
+rabbitmq-1  | 2026-09-20 20:46:40.176594+00:00 [info] <0.2794.0> closing AMQP connection (172.23.0.1:53882 -> 172.23.0.2:5672, duration: '7ms')[0m
+rabbitmq-1  | 2026-09-20 20:46:40.179196+00:00 [info] <0.2800.0> accepting AMQP connection 172.23.0.1:53896 -> 172.23.0.2:5672[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.182124+00:00 [error] <0.2800.0> Error on AMQP connection <0.2800.0> (172.23.0.1:53896 -> 172.23.0.2:5672, state: starting):[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.182124+00:00 [error] <0.2800.0> PLAIN login refused: user 'guest' - invalid credentials[0m
+rabbitmq-1  | 2026-09-20 20:46:40.183733+00:00 [info] <0.2800.0> closing AMQP connection (172.23.0.1:53896 -> 172.23.0.2:5672, duration: '5ms')[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:46:40.283156+00:00 [warning] <0.2804.0> HTTP access denied: user 'cw_catalog_app' - Not management user[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:46:40.313023+00:00 [warning] <0.2806.0> HTTP access denied: user 'cw_communications_app' - Not management user[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:46:40.316330+00:00 [warning] <0.2807.0> HTTP access denied: user 'cw_reporting_app' - Not management user[0m
+rabbitmq-1  | [38;5;214m2026-09-20 20:46:40.320042+00:00 [warning] <0.2808.0> HTTP access denied: user 'cw_infra_topology' - Not management user[0m
+rabbitmq-1  | 2026-09-20 20:46:40.323778+00:00 [info] <0.2812.0> accepting AMQP connection 172.23.0.1:53900 -> 172.23.0.2:5672[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.329458+00:00 [error] <0.2812.0> Error on AMQP connection <0.2812.0> (172.23.0.1:53900 -> 172.23.0.2:5672, user: 'cw_catalog_app', state: opening):[0m
+rabbitmq-1  | [38;5;160m2026-09-20 20:46:40.329458+00:00 [error] <0.2812.0> access to vhost '/' refused for user 'cw_catalog_app'[0m
+rabbitmq-1  | 2026-09-20 20:46:40.331559+00:00 [info] <0.2812.0> closing AMQP connection (172.23.0.1:53900 -> 172.23.0.2:5672, vhost: 'none', user: 'cw_catalog_app', duration: '8ms')[0m
+

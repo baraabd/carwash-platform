@@ -1,0 +1,322 @@
+postgres-1  | The files belonging to this database system will be owned by user "postgres".
+postgres-1  | This user must also own the server process.
+postgres-1  | 
+postgres-1  | The database cluster will be initialized with locale "C".
+postgres-1  | The default database encoding has accordingly been set to "SQL_ASCII".
+postgres-1  | The default text search configuration will be set to "english".
+postgres-1  | 
+postgres-1  | Data page checksums are disabled.
+postgres-1  | 
+postgres-1  | fixing permissions on existing directory /var/lib/postgresql/data ... ok
+postgres-1  | creating subdirectories ... ok
+postgres-1  | selecting dynamic shared memory implementation ... posix
+postgres-1  | selecting default max_connections ... 100
+postgres-1  | selecting default shared_buffers ... 128MB
+postgres-1  | selecting default time zone ... UTC
+postgres-1  | creating configuration files ... ok
+postgres-1  | running bootstrap script ... ok
+postgres-1  | sh: locale: not found
+postgres-1  | 2026-09-20 20:41:55.501 UTC [35] WARNING:  no usable system locales were found
+postgres-1  | performing post-bootstrap initialization ... ok
+postgres-1  | syncing data to disk ... ok
+postgres-1  | 
+postgres-1  | 
+postgres-1  | Success. You can now start the database server using:
+postgres-1  | 
+postgres-1  |     pg_ctl -D /var/lib/postgresql/data -l logfile start
+postgres-1  | 
+postgres-1  | initdb: warning: enabling "trust" authentication for local connections
+postgres-1  | initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+postgres-1  | waiting for server to start....2026-09-20 20:41:56.304 UTC [41] LOG:  starting PostgreSQL 16.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 14.2.0) 14.2.0, 64-bit
+postgres-1  | 2026-09-20 20:41:56.307 UTC [41] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+postgres-1  | 2026-09-20 20:41:56.316 UTC [44] LOG:  database system was shut down at 2026-09-20 20:41:56 UTC
+postgres-1  | 2026-09-20 20:41:56.323 UTC [41] LOG:  database system is ready to accept connections
+postgres-1  |  done
+postgres-1  | server started
+postgres-1  | 
+postgres-1  | /usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/01-acceptance-init.sh
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE DATABASE
+postgres-1  | REVOKE
+postgres-1  | GRANT
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | CREATE SCHEMA
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | provisioned cw_identity (cw_identity_migrate / cw_identity_app)
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE DATABASE
+postgres-1  | REVOKE
+postgres-1  | GRANT
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | CREATE SCHEMA
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | provisioned cw_customer (cw_customer_migrate / cw_customer_app)
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE DATABASE
+postgres-1  | REVOKE
+postgres-1  | GRANT
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | CREATE SCHEMA
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | provisioned cw_catalog (cw_catalog_migrate / cw_catalog_app)
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE DATABASE
+postgres-1  | REVOKE
+postgres-1  | GRANT
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | CREATE SCHEMA
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | provisioned cw_workforce (cw_workforce_migrate / cw_workforce_app)
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE DATABASE
+postgres-1  | REVOKE
+postgres-1  | GRANT
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | CREATE SCHEMA
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | provisioned cw_booking (cw_booking_migrate / cw_booking_app)
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE DATABASE
+postgres-1  | REVOKE
+postgres-1  | GRANT
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | CREATE SCHEMA
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | provisioned cw_billing (cw_billing_migrate / cw_billing_app)
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE DATABASE
+postgres-1  | REVOKE
+postgres-1  | GRANT
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | CREATE SCHEMA
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | provisioned cw_media (cw_media_migrate / cw_media_app)
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE DATABASE
+postgres-1  | REVOKE
+postgres-1  | GRANT
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | CREATE SCHEMA
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | provisioned cw_communications (cw_communications_migrate / cw_communications_app)
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE DATABASE
+postgres-1  | REVOKE
+postgres-1  | GRANT
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | CREATE SCHEMA
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | provisioned cw_support (cw_support_migrate / cw_support_app)
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE ROLE
+postgres-1  | CREATE DATABASE
+postgres-1  | REVOKE
+postgres-1  | GRANT
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | CREATE SCHEMA
+postgres-1  | GRANT
+postgres-1  | REVOKE
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | ALTER DEFAULT PRIVILEGES
+postgres-1  | provisioned cw_reporting (cw_reporting_migrate / cw_reporting_app)
+postgres-1  | 
+postgres-1  | waiting for server to shut down....2026-09-20 20:41:57.605 UTC [41] LOG:  received fast shutdown request
+postgres-1  | 2026-09-20 20:41:57.607 UTC [41] LOG:  aborting any active transactions
+postgres-1  | 2026-09-20 20:41:57.610 UTC [41] LOG:  background worker "logical replication launcher" (PID 47) exited with exit code 1
+postgres-1  | 2026-09-20 20:41:57.611 UTC [42] LOG:  shutting down
+postgres-1  | 2026-09-20 20:41:57.613 UTC [42] LOG:  checkpoint starting: shutdown immediate
+postgres-1  | 2026-09-20 20:41:58.353 UTC [42] LOG:  checkpoint complete: wrote 9245 buffers (56.4%); 0 WAL file(s) added, 0 removed, 2 recycled; write=0.236 s, sync=0.493 s, total=0.742 s; sync files=2972, longest=0.005 s, average=0.001 s; distance=42777 kB, estimate=42777 kB; lsn=0/3EB8D38, redo lsn=0/3EB8D38
+postgres-1  | 2026-09-20 20:41:58.370 UTC [41] LOG:  database system is shut down
+postgres-1  |  done
+postgres-1  | server stopped
+postgres-1  | 
+postgres-1  | PostgreSQL init process complete; ready for start up.
+postgres-1  | 
+postgres-1  | 2026-09-20 20:41:58.439 UTC [1] LOG:  starting PostgreSQL 16.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 14.2.0) 14.2.0, 64-bit
+postgres-1  | 2026-09-20 20:41:58.439 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+postgres-1  | 2026-09-20 20:41:58.439 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+postgres-1  | 2026-09-20 20:41:58.445 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+postgres-1  | 2026-09-20 20:41:58.457 UTC [146] LOG:  database system was shut down at 2026-09-20 20:41:58 UTC
+postgres-1  | 2026-09-20 20:41:58.467 UTC [1] LOG:  database system is ready to accept connections
+postgres-1  | 2026-09-20 20:45:09.427 UTC [828] ERROR:  table "_prisma_migrations" does not exist
+postgres-1  | 2026-09-20 20:45:09.427 UTC [828] STATEMENT:  DROP TABLE _prisma_migrations
+postgres-1  | 2026-09-20 20:45:13.240 UTC [837] ERROR:  table "_prisma_migrations" does not exist
+postgres-1  | 2026-09-20 20:45:13.240 UTC [837] STATEMENT:  DROP TABLE _prisma_migrations
+postgres-1  | 2026-09-20 20:45:15.471 UTC [846] ERROR:  table "_prisma_migrations" does not exist
+postgres-1  | 2026-09-20 20:45:15.471 UTC [846] STATEMENT:  DROP TABLE _prisma_migrations
+postgres-1  | 2026-09-20 20:45:17.935 UTC [853] ERROR:  table "_prisma_migrations" does not exist
+postgres-1  | 2026-09-20 20:45:17.935 UTC [853] STATEMENT:  DROP TABLE _prisma_migrations
+postgres-1  | 2026-09-20 20:45:21.125 UTC [862] ERROR:  table "_prisma_migrations" does not exist
+postgres-1  | 2026-09-20 20:45:21.125 UTC [862] STATEMENT:  DROP TABLE _prisma_migrations
+postgres-1  | 2026-09-20 20:45:23.765 UTC [865] ERROR:  table "_prisma_migrations" does not exist
+postgres-1  | 2026-09-20 20:45:23.765 UTC [865] STATEMENT:  DROP TABLE _prisma_migrations
+postgres-1  | 2026-09-20 20:45:26.499 UTC [873] ERROR:  table "_prisma_migrations" does not exist
+postgres-1  | 2026-09-20 20:45:26.499 UTC [873] STATEMENT:  DROP TABLE _prisma_migrations
+postgres-1  | 2026-09-20 20:45:28.966 UTC [882] ERROR:  table "_prisma_migrations" does not exist
+postgres-1  | 2026-09-20 20:45:28.966 UTC [882] STATEMENT:  DROP TABLE _prisma_migrations
+postgres-1  | 2026-09-20 20:45:32.221 UTC [891] ERROR:  table "_prisma_migrations" does not exist
+postgres-1  | 2026-09-20 20:45:32.221 UTC [891] STATEMENT:  DROP TABLE _prisma_migrations
+postgres-1  | 2026-09-20 20:45:34.250 UTC [899] ERROR:  table "_prisma_migrations" does not exist
+postgres-1  | 2026-09-20 20:45:34.250 UTC [899] STATEMENT:  DROP TABLE _prisma_migrations
+postgres-1  | 2026-09-20 20:45:34.818 UTC [900] ERROR:  permission denied for schema app at character 21
+postgres-1  | 2026-09-20 20:45:34.818 UTC [900] STATEMENT:  BEGIN; CREATE TABLE app.startup_migration_probe (id integer); ROLLBACK;
+postgres-1  | 2026-09-20 20:45:35.426 UTC [901] ERROR:  permission denied for schema app at character 21
+postgres-1  | 2026-09-20 20:45:35.426 UTC [901] STATEMENT:  BEGIN; CREATE TABLE app.startup_migration_probe (id integer); ROLLBACK;
+postgres-1  | 2026-09-20 20:45:35.777 UTC [902] ERROR:  permission denied for schema app at character 21
+postgres-1  | 2026-09-20 20:45:35.777 UTC [902] STATEMENT:  BEGIN; CREATE TABLE app.startup_migration_probe (id integer); ROLLBACK;
+postgres-1  | 2026-09-20 20:45:36.372 UTC [144] LOG:  checkpoint starting: immediate force wait
+postgres-1  | 2026-09-20 20:45:36.527 UTC [144] LOG:  checkpoint complete: wrote 657 buffers (4.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.034 s, sync=0.103 s, total=0.156 s; sync files=477, longest=0.006 s, average=0.001 s; distance=7004 kB, estimate=7004 kB; lsn=0/458FEE8, redo lsn=0/458FEB0
+postgres-1  | 2026-09-20 20:46:26.917 UTC [1065] ERROR:  permission denied for schema app at character 21
+postgres-1  | 2026-09-20 20:46:26.917 UTC [1065] STATEMENT:  BEGIN; CREATE TABLE app.should_not_exist (id integer); ROLLBACK;
+postgres-1  | 2026-09-20 20:46:27.212 UTC [1066] ERROR:  must be owner of table service_marker
+postgres-1  | 2026-09-20 20:46:27.212 UTC [1066] STATEMENT:  BEGIN; ALTER TABLE app.service_marker ADD COLUMN injected integer; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:27.413 UTC [1067] ERROR:  must be owner of table service_marker
+postgres-1  | 2026-09-20 20:46:27.413 UTC [1067] STATEMENT:  BEGIN; DROP TABLE app.service_marker; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:27.607 UTC [1068] ERROR:  must be owner of table service_marker
+postgres-1  | 2026-09-20 20:46:27.607 UTC [1068] STATEMENT:  BEGIN; CREATE INDEX should_not_exist_idx ON app.service_marker (service); ROLLBACK;
+postgres-1  | 2026-09-20 20:46:27.795 UTC [1069] ERROR:  permission denied for database cw_identity
+postgres-1  | 2026-09-20 20:46:27.795 UTC [1069] STATEMENT:  BEGIN; CREATE SCHEMA rogue; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:28.052 UTC [1070] ERROR:  permission denied for table service_marker
+postgres-1  | 2026-09-20 20:46:28.052 UTC [1070] STATEMENT:  BEGIN; TRUNCATE app.service_marker; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:28.340 UTC [1071] ERROR:  permission denied for table _prisma_migrations
+postgres-1  | 2026-09-20 20:46:28.340 UTC [1071] STATEMENT:  SELECT count(*) FROM app._prisma_migrations
+postgres-1  | 2026-09-20 20:46:28.557 UTC [1072] ERROR:  permission denied for table _prisma_migrations
+postgres-1  | 2026-09-20 20:46:28.557 UTC [1072] STATEMENT:  BEGIN; DELETE FROM app._prisma_migrations WHERE migration_name <> ''; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:28.778 UTC [1073] ERROR:  permission denied to set role "cw_identity_migrate"
+postgres-1  | 2026-09-20 20:46:28.778 UTC [1073] STATEMENT:  SET ROLE cw_identity_migrate
+postgres-1  | 2026-09-20 20:46:29.009 UTC [1082] ERROR:  permission denied for schema app at character 21
+postgres-1  | 2026-09-20 20:46:29.009 UTC [1082] STATEMENT:  BEGIN; CREATE TABLE app.should_not_exist (id integer); ROLLBACK;
+postgres-1  | 2026-09-20 20:46:29.239 UTC [1083] ERROR:  must be owner of table service_marker
+postgres-1  | 2026-09-20 20:46:29.239 UTC [1083] STATEMENT:  BEGIN; ALTER TABLE app.service_marker ADD COLUMN injected integer; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:29.476 UTC [1084] ERROR:  must be owner of table service_marker
+postgres-1  | 2026-09-20 20:46:29.476 UTC [1084] STATEMENT:  BEGIN; DROP TABLE app.service_marker; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:29.726 UTC [1085] ERROR:  must be owner of table service_marker
+postgres-1  | 2026-09-20 20:46:29.726 UTC [1085] STATEMENT:  BEGIN; CREATE INDEX should_not_exist_idx ON app.service_marker (service); ROLLBACK;
+postgres-1  | 2026-09-20 20:46:29.907 UTC [1086] ERROR:  permission denied for database cw_catalog
+postgres-1  | 2026-09-20 20:46:29.907 UTC [1086] STATEMENT:  BEGIN; CREATE SCHEMA rogue; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:30.159 UTC [1087] ERROR:  permission denied for table service_marker
+postgres-1  | 2026-09-20 20:46:30.159 UTC [1087] STATEMENT:  BEGIN; TRUNCATE app.service_marker; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:30.396 UTC [1088] ERROR:  permission denied for table _prisma_migrations
+postgres-1  | 2026-09-20 20:46:30.396 UTC [1088] STATEMENT:  SELECT count(*) FROM app._prisma_migrations
+postgres-1  | 2026-09-20 20:46:30.911 UTC [1089] ERROR:  permission denied for table _prisma_migrations
+postgres-1  | 2026-09-20 20:46:30.911 UTC [1089] STATEMENT:  BEGIN; DELETE FROM app._prisma_migrations WHERE migration_name <> ''; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:31.104 UTC [1090] ERROR:  permission denied to set role "cw_catalog_migrate"
+postgres-1  | 2026-09-20 20:46:31.104 UTC [1090] STATEMENT:  SET ROLE cw_catalog_migrate
+postgres-1  | 2026-09-20 20:46:31.288 UTC [1091] ERROR:  permission denied for schema app at character 21
+postgres-1  | 2026-09-20 20:46:31.288 UTC [1091] STATEMENT:  BEGIN; CREATE TABLE app.should_not_exist (id integer); ROLLBACK;
+postgres-1  | 2026-09-20 20:46:31.741 UTC [1092] ERROR:  must be owner of table service_marker
+postgres-1  | 2026-09-20 20:46:31.741 UTC [1092] STATEMENT:  BEGIN; ALTER TABLE app.service_marker ADD COLUMN injected integer; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:31.999 UTC [1093] ERROR:  must be owner of table service_marker
+postgres-1  | 2026-09-20 20:46:31.999 UTC [1093] STATEMENT:  BEGIN; DROP TABLE app.service_marker; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:32.202 UTC [1101] ERROR:  must be owner of table service_marker
+postgres-1  | 2026-09-20 20:46:32.202 UTC [1101] STATEMENT:  BEGIN; CREATE INDEX should_not_exist_idx ON app.service_marker (service); ROLLBACK;
+postgres-1  | 2026-09-20 20:46:32.420 UTC [1102] ERROR:  permission denied for database cw_billing
+postgres-1  | 2026-09-20 20:46:32.420 UTC [1102] STATEMENT:  BEGIN; CREATE SCHEMA rogue; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:32.633 UTC [1103] ERROR:  permission denied for table service_marker
+postgres-1  | 2026-09-20 20:46:32.633 UTC [1103] STATEMENT:  BEGIN; TRUNCATE app.service_marker; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:32.926 UTC [1104] ERROR:  permission denied for table _prisma_migrations
+postgres-1  | 2026-09-20 20:46:32.926 UTC [1104] STATEMENT:  SELECT count(*) FROM app._prisma_migrations
+postgres-1  | 2026-09-20 20:46:33.188 UTC [1105] ERROR:  permission denied for table _prisma_migrations
+postgres-1  | 2026-09-20 20:46:33.188 UTC [1105] STATEMENT:  BEGIN; DELETE FROM app._prisma_migrations WHERE migration_name <> ''; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:33.404 UTC [1106] ERROR:  permission denied to set role "cw_billing_migrate"
+postgres-1  | 2026-09-20 20:46:33.404 UTC [1106] STATEMENT:  SET ROLE cw_billing_migrate
+postgres-1  | 2026-09-20 20:46:33.626 UTC [1107] ERROR:  permission denied for schema app at character 21
+postgres-1  | 2026-09-20 20:46:33.626 UTC [1107] STATEMENT:  BEGIN; CREATE TABLE app.should_not_exist (id integer); ROLLBACK;
+postgres-1  | 2026-09-20 20:46:33.820 UTC [1108] ERROR:  must be owner of table service_marker
+postgres-1  | 2026-09-20 20:46:33.820 UTC [1108] STATEMENT:  BEGIN; ALTER TABLE app.service_marker ADD COLUMN injected integer; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:34.064 UTC [1110] ERROR:  must be owner of table service_marker
+postgres-1  | 2026-09-20 20:46:34.064 UTC [1110] STATEMENT:  BEGIN; DROP TABLE app.service_marker; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:34.325 UTC [1111] ERROR:  must be owner of table service_marker
+postgres-1  | 2026-09-20 20:46:34.325 UTC [1111] STATEMENT:  BEGIN; CREATE INDEX should_not_exist_idx ON app.service_marker (service); ROLLBACK;
+postgres-1  | 2026-09-20 20:46:34.551 UTC [1112] ERROR:  permission denied for database cw_reporting
+postgres-1  | 2026-09-20 20:46:34.551 UTC [1112] STATEMENT:  BEGIN; CREATE SCHEMA rogue; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:34.772 UTC [1113] ERROR:  permission denied for table service_marker
+postgres-1  | 2026-09-20 20:46:34.772 UTC [1113] STATEMENT:  BEGIN; TRUNCATE app.service_marker; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:34.985 UTC [1114] ERROR:  permission denied for table _prisma_migrations
+postgres-1  | 2026-09-20 20:46:34.985 UTC [1114] STATEMENT:  SELECT count(*) FROM app._prisma_migrations
+postgres-1  | 2026-09-20 20:46:35.185 UTC [1122] ERROR:  permission denied for table _prisma_migrations
+postgres-1  | 2026-09-20 20:46:35.185 UTC [1122] STATEMENT:  BEGIN; DELETE FROM app._prisma_migrations WHERE migration_name <> ''; ROLLBACK;
+postgres-1  | 2026-09-20 20:46:35.427 UTC [1123] ERROR:  permission denied to set role "cw_reporting_migrate"
+postgres-1  | 2026-09-20 20:46:35.427 UTC [1123] STATEMENT:  SET ROLE cw_reporting_migrate
+postgres-1  | 2026-09-20 20:46:35.866 UTC [1124] FATAL:  permission denied for database "cw_booking"
+postgres-1  | 2026-09-20 20:46:35.866 UTC [1124] DETAIL:  User does not have CONNECT privilege.
+postgres-1  | 2026-09-20 20:46:36.418 UTC [1125] FATAL:  permission denied for database "cw_booking"
+postgres-1  | 2026-09-20 20:46:36.418 UTC [1125] DETAIL:  User does not have CONNECT privilege.
+postgres-1  | 2026-09-20 20:46:36.635 UTC [1126] FATAL:  permission denied for database "cw_billing"
+postgres-1  | 2026-09-20 20:46:36.635 UTC [1126] DETAIL:  User does not have CONNECT privilege.
+postgres-1  | 2026-09-20 20:46:36.852 UTC [1127] FATAL:  permission denied for database "cw_billing"
+postgres-1  | 2026-09-20 20:46:36.852 UTC [1127] DETAIL:  User does not have CONNECT privilege.
+postgres-1  | 2026-09-20 20:46:37.151 UTC [1128] FATAL:  permission denied for database "cw_identity"
+postgres-1  | 2026-09-20 20:46:37.151 UTC [1128] DETAIL:  User does not have CONNECT privilege.
+postgres-1  | 2026-09-20 20:46:37.405 UTC [1129] FATAL:  permission denied for database "cw_identity"
+postgres-1  | 2026-09-20 20:46:37.405 UTC [1129] DETAIL:  User does not have CONNECT privilege.
+postgres-1  | 2026-09-20 20:46:37.619 UTC [1130] FATAL:  permission denied for database "cw_customer"
+postgres-1  | 2026-09-20 20:46:37.619 UTC [1130] DETAIL:  User does not have CONNECT privilege.
+postgres-1  | 2026-09-20 20:46:37.807 UTC [1131] FATAL:  permission denied for database "cw_customer"
+postgres-1  | 2026-09-20 20:46:37.807 UTC [1131] DETAIL:  User does not have CONNECT privilege.
+postgres-1  | 2026-09-20 20:46:37.980 UTC [1132] FATAL:  permission denied for database "cw_billing"
+postgres-1  | 2026-09-20 20:46:37.980 UTC [1132] DETAIL:  User does not have CONNECT privilege.
+postgres-1  | 2026-09-20 20:46:38.158 UTC [1133] FATAL:  permission denied for database "cw_billing"
+postgres-1  | 2026-09-20 20:46:38.158 UTC [1133] DETAIL:  User does not have CONNECT privilege.
+postgres-1  | 2026-09-20 20:46:38.395 UTC [1141] FATAL:  permission denied for database "cw_catalog"
+postgres-1  | 2026-09-20 20:46:38.395 UTC [1141] DETAIL:  User does not have CONNECT privilege.
+postgres-1  | 2026-09-20 20:46:38.601 UTC [1142] FATAL:  permission denied for database "cw_catalog"
+postgres-1  | 2026-09-20 20:46:38.601 UTC [1142] DETAIL:  User does not have CONNECT privilege.
+postgres-1  | 2026-09-20 20:46:38.849 UTC [1143] ERROR:  permission denied to set role "cw_billing_app"
+postgres-1  | 2026-09-20 20:46:38.849 UTC [1143] STATEMENT:  SET ROLE cw_billing_app
+postgres-1  | 2026-09-20 20:46:39.035 UTC [1145] WARNING:  no privileges were granted for "app"
+postgres-1  | 2026-09-20 20:46:39.035 UTC [1145] ERROR:  permission denied for schema app at character 74
+postgres-1  | 2026-09-20 20:46:39.035 UTC [1145] STATEMENT:  BEGIN;
+postgres-1  | 	     GRANT ALL ON SCHEMA app TO cw_catalog_app;
+postgres-1  | 	     CREATE TABLE app.escalation_probe (id integer);
+postgres-1  | 	     ROLLBACK;
+postgres-1  | 2026-09-20 20:46:39.228 UTC [1146] WARNING:  no privileges were granted for "cw_catalog"
+postgres-1  | 2026-09-20 20:46:39.630 UTC [1148] ERROR:  permission denied for schema public at character 21
+postgres-1  | 2026-09-20 20:46:39.630 UTC [1148] STATEMENT:  BEGIN; CREATE TABLE public.should_not_exist (id integer); ROLLBACK;
+
