@@ -6,3 +6,9 @@ dist/
 coverage/
 playwright-report/
 test-results/
+
+# Sprint 0.2 regenerable outputs (never committed; produced by `pnpm generate`/`pnpm build`).
+dist-tests/
+**/dist-tests/
+services/*/src/generated/
+.acceptance/

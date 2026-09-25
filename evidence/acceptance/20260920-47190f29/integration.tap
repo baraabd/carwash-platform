@@ -1,0 +1,880 @@
+TAP version 13
+# Subtest: one event reaches BOTH subscriber queues independently
+ok 1 - one event reaches BOTH subscriber queues independently
+  ---
+  duration_ms: 3081.1097
+  type: 'test'
+  ...
+# Subtest: two replicas of ONE service share its queue instead of duplicating work
+ok 2 - two replicas of ONE service share its queue instead of duplicating work
+  ---
+  duration_ms: 2121.6294
+  type: 'test'
+  ...
+# Subtest: a message that no binding matches is returned, not silently dropped
+ok 3 - a message that no binding matches is returned, not silently dropped
+  ---
+  duration_ms: 531.6091
+  type: 'test'
+  ...
+# Subtest: a poison message ends up on the dead-letter queue, not in an endless retry loop
+ok 4 - a poison message ends up on the dead-letter queue, not in an endless retry loop
+  ---
+  duration_ms: 1420.0153
+  type: 'test'
+  ...
+# Subtest: queues and messages are durable: they survive with no consumer attached
+ok 5 - queues and messages are durable: they survive with no consumer attached
+  ---
+  duration_ms: 1255.1441
+  type: 'test'
+  ...
+# Subtest: identity: the migration really was applied to a real database
+ok 6 - identity: the migration really was applied to a real database
+  ---
+  duration_ms: 294.2615
+  type: 'test'
+  ...
+# Subtest: identity: the migration job left its marker
+ok 7 - identity: the migration job left its marker
+  ---
+  duration_ms: 164.3951
+  type: 'test'
+  ...
+# Subtest: identity: expected tables exist in the owned schema, not in public
+ok 8 - identity: expected tables exist in the owned schema, not in public
+  ---
+  duration_ms: 199.0436
+  type: 'test'
+  ...
+# Subtest: identity: re-running migrate deploy is a safe no-op
+ok 9 - identity: re-running migrate deploy is a safe no-op
+  ---
+  duration_ms: 2558.3634
+  type: 'test'
+  ...
+# Subtest: identity: migrate status reports the database as up to date
+ok 10 - identity: migrate status reports the database as up to date
+  ---
+  duration_ms: 2868.5775
+  type: 'test'
+  ...
+# Subtest: customer: the migration really was applied to a real database
+ok 11 - customer: the migration really was applied to a real database
+  ---
+  duration_ms: 215.7008
+  type: 'test'
+  ...
+# Subtest: customer: the migration job left its marker
+ok 12 - customer: the migration job left its marker
+  ---
+  duration_ms: 234.4962
+  type: 'test'
+  ...
+# Subtest: customer: expected tables exist in the owned schema, not in public
+ok 13 - customer: expected tables exist in the owned schema, not in public
+  ---
+  duration_ms: 295.9879
+  type: 'test'
+  ...
+# Subtest: customer: re-running migrate deploy is a safe no-op
+ok 14 - customer: re-running migrate deploy is a safe no-op
+  ---
+  duration_ms: 3068.6283
+  type: 'test'
+  ...
+# Subtest: customer: migrate status reports the database as up to date
+ok 15 - customer: migrate status reports the database as up to date
+  ---
+  duration_ms: 2705.0447
+  type: 'test'
+  ...
+# Subtest: catalog: the migration really was applied to a real database
+ok 16 - catalog: the migration really was applied to a real database
+  ---
+  duration_ms: 219.491
+  type: 'test'
+  ...
+# Subtest: catalog: the migration job left its marker
+ok 17 - catalog: the migration job left its marker
+  ---
+  duration_ms: 231.5287
+  type: 'test'
+  ...
+# Subtest: catalog: expected tables exist in the owned schema, not in public
+ok 18 - catalog: expected tables exist in the owned schema, not in public
+  ---
+  duration_ms: 206.8339
+  type: 'test'
+  ...
+# Subtest: catalog: re-running migrate deploy is a safe no-op
+ok 19 - catalog: re-running migrate deploy is a safe no-op
+  ---
+  duration_ms: 3160.3535
+  type: 'test'
+  ...
+# Subtest: catalog: migrate status reports the database as up to date
+ok 20 - catalog: migrate status reports the database as up to date
+  ---
+  duration_ms: 3171.3512
+  type: 'test'
+  ...
+# Subtest: workforce: the migration really was applied to a real database
+ok 21 - workforce: the migration really was applied to a real database
+  ---
+  duration_ms: 184.7528
+  type: 'test'
+  ...
+# Subtest: workforce: the migration job left its marker
+ok 22 - workforce: the migration job left its marker
+  ---
+  duration_ms: 208.0803
+  type: 'test'
+  ...
+# Subtest: workforce: expected tables exist in the owned schema, not in public
+ok 23 - workforce: expected tables exist in the owned schema, not in public
+  ---
+  duration_ms: 263.5198
+  type: 'test'
+  ...
+# Subtest: workforce: re-running migrate deploy is a safe no-op
+ok 24 - workforce: re-running migrate deploy is a safe no-op
+  ---
+  duration_ms: 2118.1395
+  type: 'test'
+  ...
+# Subtest: workforce: migrate status reports the database as up to date
+ok 25 - workforce: migrate status reports the database as up to date
+  ---
+  duration_ms: 1826.7845
+  type: 'test'
+  ...
+# Subtest: booking: the migration really was applied to a real database
+ok 26 - booking: the migration really was applied to a real database
+  ---
+  duration_ms: 211.2431
+  type: 'test'
+  ...
+# Subtest: booking: the migration job left its marker
+ok 27 - booking: the migration job left its marker
+  ---
+  duration_ms: 823.8098
+  type: 'test'
+  ...
+# Subtest: booking: expected tables exist in the owned schema, not in public
+ok 28 - booking: expected tables exist in the owned schema, not in public
+  ---
+  duration_ms: 240.7189
+  type: 'test'
+  ...
+# Subtest: booking: re-running migrate deploy is a safe no-op
+ok 29 - booking: re-running migrate deploy is a safe no-op
+  ---
+  duration_ms: 2239.181
+  type: 'test'
+  ...
+# Subtest: booking: migrate status reports the database as up to date
+ok 30 - booking: migrate status reports the database as up to date
+  ---
+  duration_ms: 2020.7787
+  type: 'test'
+  ...
+# Subtest: billing: the migration really was applied to a real database
+ok 31 - billing: the migration really was applied to a real database
+  ---
+  duration_ms: 200.0686
+  type: 'test'
+  ...
+# Subtest: billing: the migration job left its marker
+ok 32 - billing: the migration job left its marker
+  ---
+  duration_ms: 288.6209
+  type: 'test'
+  ...
+# Subtest: billing: expected tables exist in the owned schema, not in public
+ok 33 - billing: expected tables exist in the owned schema, not in public
+  ---
+  duration_ms: 621.1418
+  type: 'test'
+  ...
+# Subtest: billing: re-running migrate deploy is a safe no-op
+ok 34 - billing: re-running migrate deploy is a safe no-op
+  ---
+  duration_ms: 2504.9808
+  type: 'test'
+  ...
+# Subtest: billing: migrate status reports the database as up to date
+ok 35 - billing: migrate status reports the database as up to date
+  ---
+  duration_ms: 2174.7245
+  type: 'test'
+  ...
+# Subtest: media: the migration really was applied to a real database
+ok 36 - media: the migration really was applied to a real database
+  ---
+  duration_ms: 225.2479
+  type: 'test'
+  ...
+# Subtest: media: the migration job left its marker
+ok 37 - media: the migration job left its marker
+  ---
+  duration_ms: 531.3561
+  type: 'test'
+  ...
+# Subtest: media: expected tables exist in the owned schema, not in public
+ok 38 - media: expected tables exist in the owned schema, not in public
+  ---
+  duration_ms: 212.5105
+  type: 'test'
+  ...
+# Subtest: media: re-running migrate deploy is a safe no-op
+ok 39 - media: re-running migrate deploy is a safe no-op
+  ---
+  duration_ms: 2448.7842
+  type: 'test'
+  ...
+# Subtest: media: migrate status reports the database as up to date
+ok 40 - media: migrate status reports the database as up to date
+  ---
+  duration_ms: 2218.0159
+  type: 'test'
+  ...
+# Subtest: communications: the migration really was applied to a real database
+ok 41 - communications: the migration really was applied to a real database
+  ---
+  duration_ms: 505.943
+  type: 'test'
+  ...
+# Subtest: communications: the migration job left its marker
+ok 42 - communications: the migration job left its marker
+  ---
+  duration_ms: 208.1555
+  type: 'test'
+  ...
+# Subtest: communications: expected tables exist in the owned schema, not in public
+ok 43 - communications: expected tables exist in the owned schema, not in public
+  ---
+  duration_ms: 203.8606
+  type: 'test'
+  ...
+# Subtest: communications: re-running migrate deploy is a safe no-op
+ok 44 - communications: re-running migrate deploy is a safe no-op
+  ---
+  duration_ms: 1946.1817
+  type: 'test'
+  ...
+# Subtest: communications: migrate status reports the database as up to date
+ok 45 - communications: migrate status reports the database as up to date
+  ---
+  duration_ms: 2719.8393
+  type: 'test'
+  ...
+# Subtest: support: the migration really was applied to a real database
+ok 46 - support: the migration really was applied to a real database
+  ---
+  duration_ms: 543.8592
+  type: 'test'
+  ...
+# Subtest: support: the migration job left its marker
+ok 47 - support: the migration job left its marker
+  ---
+  duration_ms: 203.3323
+  type: 'test'
+  ...
+# Subtest: support: expected tables exist in the owned schema, not in public
+ok 48 - support: expected tables exist in the owned schema, not in public
+  ---
+  duration_ms: 216.9915
+  type: 'test'
+  ...
+# Subtest: support: re-running migrate deploy is a safe no-op
+ok 49 - support: re-running migrate deploy is a safe no-op
+  ---
+  duration_ms: 2057.4207
+  type: 'test'
+  ...
+# Subtest: support: migrate status reports the database as up to date
+ok 50 - support: migrate status reports the database as up to date
+  ---
+  duration_ms: 2261.3908
+  type: 'test'
+  ...
+# Subtest: reporting: the migration really was applied to a real database
+ok 51 - reporting: the migration really was applied to a real database
+  ---
+  duration_ms: 257.443
+  type: 'test'
+  ...
+# Subtest: reporting: the migration job left its marker
+ok 52 - reporting: the migration job left its marker
+  ---
+  duration_ms: 698.853
+  type: 'test'
+  ...
+# Subtest: reporting: expected tables exist in the owned schema, not in public
+ok 53 - reporting: expected tables exist in the owned schema, not in public
+  ---
+  duration_ms: 385.6575
+  type: 'test'
+  ...
+# Subtest: reporting: re-running migrate deploy is a safe no-op
+ok 54 - reporting: re-running migrate deploy is a safe no-op
+  ---
+  duration_ms: 2136.262
+  type: 'test'
+  ...
+# Subtest: reporting: migrate status reports the database as up to date
+ok 55 - reporting: migrate status reports the database as up to date
+  ---
+  duration_ms: 3273.5445
+  type: 'test'
+  ...
+# Subtest: the committed migrations reproduce the committed schema exactly
+ok 56 - the committed migrations reproduce the committed schema exactly
+  ---
+  duration_ms: 28275.3552
+  type: 'test'
+  ...
+# Subtest: the migration identity is not the runtime identity
+ok 57 - the migration identity is not the runtime identity
+  ---
+  duration_ms: 0.39
+  type: 'test'
+  ...
+# Subtest: application replicas hold no privilege that could migrate a schema
+ok 58 - application replicas hold no privilege that could migrate a schema
+  ---
+  duration_ms: 1309.9545
+  type: 'test'
+  ...
+# Subtest: the local change and the outbox row commit together
+ok 59 - the local change and the outbox row commit together
+  ---
+  duration_ms: 919.5049
+  type: 'test'
+  ...
+# Subtest: the local change and the outbox row roll back together
+ok 60 - the local change and the outbox row roll back together
+  ---
+  duration_ms: 206.1603
+  type: 'test'
+  ...
+# Subtest: Case A: an event committed while the broker is down is published once it returns
+ok 61 - Case A: an event committed while the broker is down is published once it returns
+  ---
+  duration_ms: 18206.0776
+  type: 'test'
+  ...
+# Subtest: Case B: the same event delivered twice applies its effect once
+ok 62 - Case B: the same event delivered twice applies its effect once
+  ---
+  duration_ms: 3013.1756
+  type: 'test'
+  ...
+# Subtest: Case C: a crash between commit and ACK redelivers without duplicating the effect
+ok 63 - Case C: a crash between commit and ACK redelivers without duplicating the effect
+  ---
+  duration_ms: 3961.7952
+  type: 'test'
+  ...
+# Subtest: Case D: a row leased by a worker that died is republished by a new worker
+ok 64 - Case D: a row leased by a worker that died is republished by a new worker
+  ---
+  duration_ms: 3280.1293
+  type: 'test'
+  ...
+# Subtest: Case D: a stale worker cannot overwrite the state of the worker that took over
+ok 65 - Case D: a stale worker cannot overwrite the state of the worker that took over
+  ---
+  duration_ms: 386.5741
+  type: 'test'
+  ...
+# Subtest: competing relay workers publish each row exactly once
+ok 66 - competing relay workers publish each row exactly once
+  ---
+  duration_ms: 1478.4545
+  type: 'test'
+  ...
+# Subtest: Case E: an unroutable publication is never marked as published
+ok 67 - Case E: an unroutable publication is never marked as published
+  ---
+  duration_ms: 899.4596
+  type: 'test'
+  ...
+# Subtest: Case F: a permanently unroutable row is parked as dead instead of retried forever
+ok 68 - Case F: a permanently unroutable row is parked as dead instead of retried forever
+  ---
+  duration_ms: 1589.4467
+  type: 'test'
+  ...
+# Subtest: the event payload carries no personal data and a closed label alphabet
+ok 69 - the event payload carries no personal data and a closed label alphabet
+  ---
+  duration_ms: 240.1837
+  type: 'test'
+  ...
+# Subtest: an event whose label could carry free text is refused by the contract
+ok 70 - an event whose label could carry free text is refused by the contract
+  ---
+  duration_ms: 420.4877
+  type: 'test'
+  ...
+# Subtest: the application connection string never reaches the worker output
+ok 71 - the application connection string never reaches the worker output
+  ---
+  duration_ms: 799.4335
+  type: 'test'
+  ...
+# Subtest: every service has its own logical database
+ok 72 - every service has its own logical database
+  ---
+  duration_ms: 257.6808
+  type: 'test'
+  ...
+# Subtest: every service has a distinct application and migration role
+ok 73 - every service has a distinct application and migration role
+  ---
+  duration_ms: 175.4526
+  type: 'test'
+  ...
+# Subtest: no cw_ role is a superuser, and none may create databases or roles
+ok 74 - no cw_ role is a superuser, and none may create databases or roles
+  ---
+  duration_ms: 300.0472
+  type: 'test'
+  ...
+# Subtest: no cw_ role is a member of any other role
+ok 75 - no cw_ role is a member of any other role
+  ---
+  duration_ms: 273.7833
+  type: 'test'
+  ...
+# Subtest: the application role can do ordinary DML in its own schema
+ok 76 - the application role can do ordinary DML in its own schema
+  ---
+  duration_ms: 215.6953
+  type: 'test'
+  ...
+# Subtest: identity runtime role cannot CREATE TABLE
+ok 77 - identity runtime role cannot CREATE TABLE
+  ---
+  duration_ms: 236.7076
+  type: 'test'
+  ...
+# Subtest: identity runtime role cannot ALTER TABLE
+ok 78 - identity runtime role cannot ALTER TABLE
+  ---
+  duration_ms: 294.3922
+  type: 'test'
+  ...
+# Subtest: identity runtime role cannot DROP TABLE
+ok 79 - identity runtime role cannot DROP TABLE
+  ---
+  duration_ms: 195.6308
+  type: 'test'
+  ...
+# Subtest: identity runtime role cannot CREATE INDEX
+ok 80 - identity runtime role cannot CREATE INDEX
+  ---
+  duration_ms: 196.3443
+  type: 'test'
+  ...
+# Subtest: identity runtime role cannot CREATE SCHEMA
+ok 81 - identity runtime role cannot CREATE SCHEMA
+  ---
+  duration_ms: 186.7012
+  type: 'test'
+  ...
+# Subtest: identity runtime role cannot TRUNCATE another owner table
+ok 82 - identity runtime role cannot TRUNCATE another owner table
+  ---
+  duration_ms: 268.4474
+  type: 'test'
+  ...
+# Subtest: identity runtime role cannot touch migration history
+ok 83 - identity runtime role cannot touch migration history
+  ---
+  duration_ms: 498.4126
+  type: 'test'
+  ...
+# Subtest: identity runtime role cannot SET ROLE to its own migration identity
+ok 84 - identity runtime role cannot SET ROLE to its own migration identity
+  ---
+  duration_ms: 215.043
+  type: 'test'
+  ...
+# Subtest: catalog runtime role cannot CREATE TABLE
+ok 85 - catalog runtime role cannot CREATE TABLE
+  ---
+  duration_ms: 231.3722
+  type: 'test'
+  ...
+# Subtest: catalog runtime role cannot ALTER TABLE
+ok 86 - catalog runtime role cannot ALTER TABLE
+  ---
+  duration_ms: 230.8325
+  type: 'test'
+  ...
+# Subtest: catalog runtime role cannot DROP TABLE
+ok 87 - catalog runtime role cannot DROP TABLE
+  ---
+  duration_ms: 235.1886
+  type: 'test'
+  ...
+# Subtest: catalog runtime role cannot CREATE INDEX
+ok 88 - catalog runtime role cannot CREATE INDEX
+  ---
+  duration_ms: 250.5559
+  type: 'test'
+  ...
+# Subtest: catalog runtime role cannot CREATE SCHEMA
+ok 89 - catalog runtime role cannot CREATE SCHEMA
+  ---
+  duration_ms: 178.5992
+  type: 'test'
+  ...
+# Subtest: catalog runtime role cannot TRUNCATE another owner table
+ok 90 - catalog runtime role cannot TRUNCATE another owner table
+  ---
+  duration_ms: 255.7514
+  type: 'test'
+  ...
+# Subtest: catalog runtime role cannot touch migration history
+ok 91 - catalog runtime role cannot touch migration history
+  ---
+  duration_ms: 751.2771
+  type: 'test'
+  ...
+# Subtest: catalog runtime role cannot SET ROLE to its own migration identity
+ok 92 - catalog runtime role cannot SET ROLE to its own migration identity
+  ---
+  duration_ms: 191.8581
+  type: 'test'
+  ...
+# Subtest: billing runtime role cannot CREATE TABLE
+ok 93 - billing runtime role cannot CREATE TABLE
+  ---
+  duration_ms: 189.9046
+  type: 'test'
+  ...
+# Subtest: billing runtime role cannot ALTER TABLE
+ok 94 - billing runtime role cannot ALTER TABLE
+  ---
+  duration_ms: 471.5505
+  type: 'test'
+  ...
+# Subtest: billing runtime role cannot DROP TABLE
+ok 95 - billing runtime role cannot DROP TABLE
+  ---
+  duration_ms: 232.0607
+  type: 'test'
+  ...
+# Subtest: billing runtime role cannot CREATE INDEX
+ok 96 - billing runtime role cannot CREATE INDEX
+  ---
+  duration_ms: 205.9131
+  type: 'test'
+  ...
+# Subtest: billing runtime role cannot CREATE SCHEMA
+ok 97 - billing runtime role cannot CREATE SCHEMA
+  ---
+  duration_ms: 215.0955
+  type: 'test'
+  ...
+# Subtest: billing runtime role cannot TRUNCATE another owner table
+ok 98 - billing runtime role cannot TRUNCATE another owner table
+  ---
+  duration_ms: 212.9097
+  type: 'test'
+  ...
+# Subtest: billing runtime role cannot touch migration history
+ok 99 - billing runtime role cannot touch migration history
+  ---
+  duration_ms: 554.9233
+  type: 'test'
+  ...
+# Subtest: billing runtime role cannot SET ROLE to its own migration identity
+ok 100 - billing runtime role cannot SET ROLE to its own migration identity
+  ---
+  duration_ms: 214.3673
+  type: 'test'
+  ...
+# Subtest: reporting runtime role cannot CREATE TABLE
+ok 101 - reporting runtime role cannot CREATE TABLE
+  ---
+  duration_ms: 223.0158
+  type: 'test'
+  ...
+# Subtest: reporting runtime role cannot ALTER TABLE
+ok 102 - reporting runtime role cannot ALTER TABLE
+  ---
+  duration_ms: 217.5144
+  type: 'test'
+  ...
+# Subtest: reporting runtime role cannot DROP TABLE
+ok 103 - reporting runtime role cannot DROP TABLE
+  ---
+  duration_ms: 238.8995
+  type: 'test'
+  ...
+# Subtest: reporting runtime role cannot CREATE INDEX
+ok 104 - reporting runtime role cannot CREATE INDEX
+  ---
+  duration_ms: 266.3199
+  type: 'test'
+  ...
+# Subtest: reporting runtime role cannot CREATE SCHEMA
+ok 105 - reporting runtime role cannot CREATE SCHEMA
+  ---
+  duration_ms: 221.7329
+  type: 'test'
+  ...
+# Subtest: reporting runtime role cannot TRUNCATE another owner table
+ok 106 - reporting runtime role cannot TRUNCATE another owner table
+  ---
+  duration_ms: 228.7527
+  type: 'test'
+  ...
+# Subtest: reporting runtime role cannot touch migration history
+ok 107 - reporting runtime role cannot touch migration history
+  ---
+  duration_ms: 407.038
+  type: 'test'
+  ...
+# Subtest: reporting runtime role cannot SET ROLE to its own migration identity
+ok 108 - reporting runtime role cannot SET ROLE to its own migration identity
+  ---
+  duration_ms: 257.545
+  type: 'test'
+  ...
+# Subtest: identity runtime role cannot connect to the booking database
+ok 109 - identity runtime role cannot connect to the booking database
+  ---
+  duration_ms: 418.8456
+  type: 'test'
+  ...
+# Subtest: identity MIGRATION role cannot connect to the booking database either
+ok 110 - identity MIGRATION role cannot connect to the booking database either
+  ---
+  duration_ms: 555.0006
+  type: 'test'
+  ...
+# Subtest: booking runtime role cannot connect to the billing database
+ok 111 - booking runtime role cannot connect to the billing database
+  ---
+  duration_ms: 215.5972
+  type: 'test'
+  ...
+# Subtest: booking MIGRATION role cannot connect to the billing database either
+ok 112 - booking MIGRATION role cannot connect to the billing database either
+  ---
+  duration_ms: 220.5138
+  type: 'test'
+  ...
+# Subtest: billing runtime role cannot connect to the identity database
+ok 113 - billing runtime role cannot connect to the identity database
+  ---
+  duration_ms: 301.9938
+  type: 'test'
+  ...
+# Subtest: billing MIGRATION role cannot connect to the identity database either
+ok 114 - billing MIGRATION role cannot connect to the identity database either
+  ---
+  duration_ms: 254.1642
+  type: 'test'
+  ...
+# Subtest: catalog runtime role cannot connect to the customer database
+ok 115 - catalog runtime role cannot connect to the customer database
+  ---
+  duration_ms: 207.0783
+  type: 'test'
+  ...
+# Subtest: catalog MIGRATION role cannot connect to the customer database either
+ok 116 - catalog MIGRATION role cannot connect to the customer database either
+  ---
+  duration_ms: 189.332
+  type: 'test'
+  ...
+# Subtest: reporting runtime role cannot connect to the billing database
+ok 117 - reporting runtime role cannot connect to the billing database
+  ---
+  duration_ms: 173.2682
+  type: 'test'
+  ...
+# Subtest: reporting MIGRATION role cannot connect to the billing database either
+ok 118 - reporting MIGRATION role cannot connect to the billing database either
+  ---
+  duration_ms: 180.1865
+  type: 'test'
+  ...
+# Subtest: communications runtime role cannot connect to the catalog database
+ok 119 - communications runtime role cannot connect to the catalog database
+  ---
+  duration_ms: 237.8405
+  type: 'test'
+  ...
+# Subtest: communications MIGRATION role cannot connect to the catalog database either
+ok 120 - communications MIGRATION role cannot connect to the catalog database either
+  ---
+  duration_ms: 203.0026
+  type: 'test'
+  ...
+# Subtest: a runtime role cannot SET ROLE to another service identity
+ok 121 - a runtime role cannot SET ROLE to another service identity
+  ---
+  duration_ms: 249.8581
+  type: 'test'
+  ...
+# Subtest: a self-GRANT does not actually escalate the runtime role
+ok 122 - a self-GRANT does not actually escalate the runtime role
+  ---
+  duration_ms: 186.8505
+  type: 'test'
+  ...
+# Subtest: a runtime role cannot grant another service access to its database
+ok 123 - a runtime role cannot grant another service access to its database
+  ---
+  duration_ms: 193.4715
+  type: 'test'
+  ...
+# Subtest: the migration role owns the schema and can change it in its own database
+ok 124 - the migration role owns the schema and can change it in its own database
+  ---
+  duration_ms: 176.457
+  type: 'test'
+  ...
+# Subtest: the public schema is unusable, so nothing lands there by accident
+ok 125 - the public schema is unusable, so nothing lands there by accident
+  ---
+  duration_ms: 238.3109
+  type: 'test'
+  ...
+# Subtest: the infrastructure identity may declare the shared exchange
+ok 126 - the infrastructure identity may declare the shared exchange
+  ---
+  duration_ms: 55.0517
+  type: 'test'
+  ...
+# Subtest: the catalog producer may declare and publish to its own exchange
+ok 127 - the catalog producer may declare and publish to its own exchange
+  ---
+  duration_ms: 21.9014
+  type: 'test'
+  ...
+# Subtest: the communications subscriber may consume its own queue
+ok 128 - the communications subscriber may consume its own queue
+  ---
+  duration_ms: 26.0892
+  type: 'test'
+  ...
+# Subtest: the communications subscriber may bind its queue to the catalog exchange
+ok 129 - the communications subscriber may bind its queue to the catalog exchange
+  ---
+  duration_ms: 23.7341
+  type: 'test'
+  ...
+# Subtest: the reporting subscriber may consume its own queue
+ok 130 - the reporting subscriber may consume its own queue
+  ---
+  duration_ms: 18.8777
+  type: 'test'
+  ...
+# Subtest: the reporting subscriber may bind its queue to the catalog exchange
+ok 131 - the reporting subscriber may bind its queue to the catalog exchange
+  ---
+  duration_ms: 20.8477
+  type: 'test'
+  ...
+# Subtest: the catalog producer cannot consume another service queue
+ok 132 - the catalog producer cannot consume another service queue
+  ---
+  duration_ms: 25.5112
+  type: 'test'
+  ...
+# Subtest: the catalog producer cannot read the reporting queue either
+ok 133 - the catalog producer cannot read the reporting queue either
+  ---
+  duration_ms: 24.3432
+  type: 'test'
+  ...
+# Subtest: the catalog producer cannot create a queue outside its namespace
+ok 134 - the catalog producer cannot create a queue outside its namespace
+  ---
+  duration_ms: 20.7951
+  type: 'test'
+  ...
+# Subtest: the catalog producer cannot declare an exchange it does not own
+ok 135 - the catalog producer cannot declare an exchange it does not own
+  ---
+  duration_ms: 23.0441
+  type: 'test'
+  ...
+# Subtest: the catalog producer cannot bypass its exchange via the DEFAULT exchange
+ok 136 - the catalog producer cannot bypass its exchange via the DEFAULT exchange
+  ---
+  duration_ms: 18.8575
+  type: 'test'
+  ...
+# Subtest: a subscriber cannot publish to the producer exchange
+ok 137 - a subscriber cannot publish to the producer exchange
+  ---
+  duration_ms: 19.5333
+  type: 'test'
+  ...
+# Subtest: a subscriber cannot consume the OTHER subscriber queue
+ok 138 - a subscriber cannot consume the OTHER subscriber queue
+  ---
+  duration_ms: 16.8499
+  type: 'test'
+  ...
+# Subtest: a subscriber cannot create resources in another namespace
+ok 139 - a subscriber cannot create resources in another namespace
+  ---
+  duration_ms: 21.0107
+  type: 'test'
+  ...
+# Subtest: a subscriber cannot publish to the other subscriber queue via the default exchange
+ok 140 - a subscriber cannot publish to the other subscriber queue via the default exchange
+  ---
+  duration_ms: 25.3024
+  type: 'test'
+  ...
+# Subtest: a wrong password is refused at authentication
+ok 141 - a wrong password is refused at authentication
+  ---
+  duration_ms: 9.7599
+  type: 'test'
+  ...
+# Subtest: the default guest account does not exist
+ok 142 - the default guest account does not exist
+  ---
+  duration_ms: 6.9405
+  type: 'test'
+  ...
+# Subtest: no application identity holds broker administration rights
+ok 143 - no application identity holds broker administration rights
+  ---
+  duration_ms: 134.7322
+  type: 'test'
+  ...
+# Subtest: even the topology identity cannot administer the broker
+ok 144 - even the topology identity cannot administer the broker
+  ---
+  duration_ms: 3.3733
+  type: 'test'
+  ...
+# Subtest: application identities cannot reach another vhost
+ok 145 - application identities cannot reach another vhost
+  ---
+  duration_ms: 9.4007
+  type: 'test'
+  ...
+1..145
+# tests 145
+# suites 0
+# pass 145
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 177300.7064

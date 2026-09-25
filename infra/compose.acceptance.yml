@@ -1,0 +1,76 @@
+# Ephemeral acceptance infrastructure for Sprint 0.2.
+#
+# Every run gets its own compose project name (cw-s02-<run-id>), its own volumes,
+# its own generated credentials and its own loopback-only ports, so a run can be
+# torn down by project without touching any other container, volume or database
+# on the machine.
+#
+# This file is for automated acceptance only. It is not a production topology and
+# a single-node broker here is explicitly NOT highly available.
+name: ${CW_PROJECT:?CW_PROJECT is required}
+
+services:
+  postgres:
+    image: ${CW_POSTGRES_IMAGE:?CW_POSTGRES_IMAGE is required}
+    environment:
+      POSTGRES_USER: cw_acceptance_bootstrap
+      POSTGRES_PASSWORD: ${POSTGRES_BOOTSTRAP_PASSWORD:?required}
+      POSTGRES_DB: postgres
+      # Deterministic collation so migration/order assertions do not depend on
+      # the host locale.
+      LANG: C
+      CW_SERVICES: ${CW_SERVICES:?required}
+      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?required}
+      IDENTITY_MIGRATION_PASSWORD: ${IDENTITY_MIGRATION_PASSWORD:?required}
+      CUSTOMER_DB_PASSWORD: ${CUSTOMER_DB_PASSWORD:?required}
+      CUSTOMER_MIGRATION_PASSWORD: ${CUSTOMER_MIGRATION_PASSWORD:?required}
+      CATALOG_DB_PASSWORD: ${CATALOG_DB_PASSWORD:?required}
+      CATALOG_MIGRATION_PASSWORD: ${CATALOG_MIGRATION_PASSWORD:?required}
+      WORKFORCE_DB_PASSWORD: ${WORKFORCE_DB_PASSWORD:?required}
+      WORKFORCE_MIGRATION_PASSWORD: ${WORKFORCE_MIGRATION_PASSWORD:?required}
+      BOOKING_DB_PASSWORD: ${BOOKING_DB_PASSWORD:?required}
+      BOOKING_MIGRATION_PASSWORD: ${BOOKING_MIGRATION_PASSWORD:?required}
+      BILLING_DB_PASSWORD: ${BILLING_DB_PASSWORD:?required}
+      BILLING_MIGRATION_PASSWORD: ${BILLING_MIGRATION_PASSWORD:?required}
+      MEDIA_DB_PASSWORD: ${MEDIA_DB_PASSWORD:?required}
+      MEDIA_MIGRATION_PASSWORD: ${MEDIA_MIGRATION_PASSWORD:?required}
+      COMMUNICATIONS_DB_PASSWORD: ${COMMUNICATIONS_DB_PASSWORD:?required}
+      COMMUNICATIONS_MIGRATION_PASSWORD: ${COMMUNICATIONS_MIGRATION_PASSWORD:?required}
+      SUPPORT_DB_PASSWORD: ${SUPPORT_DB_PASSWORD:?required}
+      SUPPORT_MIGRATION_PASSWORD: ${SUPPORT_MIGRATION_PASSWORD:?required}
+      REPORTING_DB_PASSWORD: ${REPORTING_DB_PASSWORD:?required}
+      REPORTING_MIGRATION_PASSWORD: ${REPORTING_MIGRATION_PASSWORD:?required}
+    # Loopback only: acceptance infrastructure is never reachable off-host.
+    ports:
+      - '127.0.0.1:${CW_PG_PORT:?required}:5432'
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres/acceptance-init.sh:/docker-entrypoint-initdb.d/01-acceptance-init.sh:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U cw_acceptance_bootstrap -d postgres']
+      interval: 3s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+  rabbitmq:
+    image: ${CW_RABBITMQ_IMAGE:?CW_RABBITMQ_IMAGE is required}
+    environment:
+      RABBITMQ_DEFAULT_USER: cw_acceptance_bootstrap
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_BOOTSTRAP_PASSWORD:?required}
+    ports:
+      - '127.0.0.1:${CW_RABBIT_PORT:?required}:5672'
+      - '127.0.0.1:${CW_RABBIT_MGMT_PORT:?required}:15672'
+    volumes:
+      - rabbit_data:/var/lib/rabbitmq
+      - ./rabbitmq/acceptance-bootstrap.sh:/opt/cw/acceptance-bootstrap.sh:ro
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'check_running']
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 15s
+
+volumes:
+  pg_data:
+  rabbit_data:
