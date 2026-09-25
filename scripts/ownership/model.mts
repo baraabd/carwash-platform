@@ -28,6 +28,8 @@ const sharedZones: Readonly<Record<string, string>> = {
   ui: 'ui',
   'design-tokens': 'ui',
   observability: 'technical',
+  'service-kit': 'technical',
+  'platform-messaging': 'technical',
   'security-kit': 'technical',
   'test-utils': 'test',
   'eslint-config': 'config',
