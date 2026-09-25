@@ -10,10 +10,10 @@ export interface FoundationResult {
 }
 const canonicalWorkspaceGlobs = ['apps/*', 'services/*', 'packages/*'] as const;
 function workspaceGlobs(text: string): string[] {
-  const block = /^packages:\n((?:  - [^\n]+\n)+)/m.exec(text.replaceAll('\r\n', '\n'));
+  const block = /^packages:\n((?: {2}- [^\n]+\n)+)/m.exec(text.replaceAll('\r\n', '\n'));
   const body = block?.[1];
   if (body === undefined) return [];
-  return [...body.matchAll(/^  - ['"]([^'"]+)['"]\s*$/gm)].map((match) => match[1]!);
+  return [...body.matchAll(/^ {2}- ['"]([^'"]+)['"]\s*$/gm)].map((match) => match[1]!);
 }
 function json(file: string): Record<string, unknown> {
   const value: unknown = JSON.parse(readFileSync(file, 'utf8'));
