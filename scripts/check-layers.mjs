@@ -10,6 +10,7 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { selectFoundationShellServices } from './dev/service-template.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const rootArgIndex = process.argv.indexOf('--root');
@@ -23,7 +24,7 @@ if (rootArgIndex >= 0) {
 const catalog = JSON.parse(
   await readFile(path.join(ROOT, 'architecture/service-catalog.json'), 'utf8'),
 );
-const services = catalog.services.map((service) => service.id);
+const services = selectFoundationShellServices(catalog);
 const LAYERS = ['domain', 'application', 'ports', 'infrastructure', 'transport'];
 const FRAMEWORK_OR_IO = [
   /^@nestjs(?:\/|$)/,
