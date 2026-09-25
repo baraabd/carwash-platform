@@ -1,0 +1,49 @@
+name: F001 environment diagnostics (not acceptance)
+on:
+  push:
+    branches: ['feat/F001-monorepo-ownership']
+    paths: ['.github/workflows/f001-environment-probe.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Record untouched baseline and available dependency versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/f001-probe"
+          git bundle create "$RUNNER_TEMP/f001-probe/source.bundle" HEAD
+          node --version | tee "$RUNNER_TEMP/f001-probe/node-version.txt"
+          node scripts/check-design-reference.mjs | tee "$RUNNER_TEMP/f001-probe/design-before.log"
+          node --test tests/design/reference-lock.test.mjs | tee "$RUNNER_TEMP/f001-probe/design-tests.tap"
+          node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          import { writeFileSync } from 'node:fs';
+          const specs = ['pnpm@10.32.1','typescript@5.9.3','turbo@2.11.4','@eslint/js@10.0.1','eslint@10.11.0','typescript-eslint@8.70.0','prettier@3.9.8','@nestjs/common@11.2.1','@nestjs/core@11.2.1','@nestjs/platform-express@11.2.1','@types/node@24.0.0'];
+          const results = specs.map(spec => {
+            try { return { spec, available: true, metadata: JSON.parse(execFileSync('npm', ['view', spec, 'version', 'engines', '--json'], { encoding: 'utf8', timeout: 45000 })) }; }
+            catch (error) { return { spec, available: false, error: String(error.stderr || error.message) }; }
+          });
+          const text = JSON.stringify(results, null, 2);
+          writeFileSync(process.env.RUNNER_TEMP + '/f001-probe/dependencies.json', text + '\n');
+          console.log(text);
+          if (results.some(result => !result.available)) process.exitCode = 1;
+          NODE
+      - name: Retain source and actual diagnostic results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f001-environment-${{ github.sha }}
+          path: ${{ runner.temp }}/f001-probe
+          if-no-files-found: error
+          retention-days: 3
