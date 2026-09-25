@@ -44,7 +44,17 @@ export class BrokerConnection {
   }
 
   onClose(listener: () => void): void {
-    this.model.on('close', listener);
+    let fired = false;
+    const notify = (): void => {
+      if (fired) return;
+      fired = true;
+      listener();
+    };
+    // A channel can be closed independently of the TCP connection (for
+    // example after a protocol-level refusal). Either event invalidates this
+    // BrokerConnection for callers and must trigger a reconnect.
+    this.channel.once('close', notify);
+    this.model.once('close', notify);
   }
 
   async close(): Promise<void> {
