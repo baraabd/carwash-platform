@@ -24,9 +24,7 @@ export function selectFoundationShellServices(catalog) {
 
   if (
     services.length === 0 ||
-    services.some(
-      (service) => typeof service !== 'string' || !/^[a-z][a-z0-9-]*$/.test(service),
-    ) ||
+    services.some((service) => typeof service !== 'string' || !/^[a-z][a-z0-9-]*$/.test(service)) ||
     new Set(services).size !== services.length
   ) {
     throw new Error('INVALID_FOUNDATION_SERVICE_SET');
