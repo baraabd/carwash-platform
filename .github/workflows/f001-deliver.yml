@@ -25,7 +25,7 @@ jobs:
         with:
           version: '10.32.1'
           run_install: false
-      - name: Retrieve exact reviewed patch and protect frozen baseline
+      - name: Retrieve exact reviewed patches and protect frozen baseline
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -36,13 +36,13 @@ jobs:
           node "$RUNNER_TEMP/f001-delivery/trusted-design.mjs" --root "$GITHUB_WORKSPACE" --base-ref 0d6453fc65b62efd287ad3728930857d930e6601 | tee "$RUNNER_TEMP/f001-delivery/design-before.log"
           python3 <<'PY'
           import base64, hashlib, json, lzma, os, pathlib, subprocess
-          shas = ['278ff43c09c2a9537bf5526b0c7341285cffbf56','1dfb4649a2f5b5e9707971e431d88db6d8c66b20','03a9f0c03af862727a3d406f6d56491ed006bcd0','2db58cfbbf4753ab181be8e54262b9af6c5ada90','68ef9607c1b4aa9ff222dff0021c70df20b338bb']
-          payload = b''
-          for sha in shas:
+          def read_blob(sha):
               blob = json.loads(subprocess.check_output(['gh','api',f'repos/baraabd/carwash-platform/git/blobs/{sha}']))
               data = base64.b64decode(blob['content'])
               assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest() == sha
-              payload += data
+              return data
+          shas = ['278ff43c09c2a9537bf5526b0c7341285cffbf56','1dfb4649a2f5b5e9707971e431d88db6d8c66b20','03a9f0c03af862727a3d406f6d56491ed006bcd0','2db58cfbbf4753ab181be8e54262b9af6c5ada90','68ef9607c1b4aa9ff222dff0021c70df20b338bb']
+          payload = b''.join(read_blob(sha) for sha in shas)
           assert hashlib.sha256(payload).hexdigest() == '745d1dce9a6e817af5884f93348f8be8d4e09f981640238c4aeb7bd32534906a'
           patch = lzma.decompress(payload)
           paths = [line.split(' b/',1)[1] for line in patch.decode().splitlines() if line.startswith('diff --git ')]
@@ -55,9 +55,17 @@ jobs:
               assert name not in ('scripts/check-design-reference.mjs','tests/design/reference-lock.test.mjs','scripts/check-boundaries.mjs')
           out = pathlib.Path(os.environ['RUNNER_TEMP'])/'f001-delivery'
           (out/'reviewed.patch').write_bytes(patch)
-          (out/'paths.json').write_text(json.dumps(paths))
           subprocess.run(['git','apply','--check','--whitespace=error-all',str(out/'reviewed.patch')],check=True)
           subprocess.run(['git','apply','--whitespace=error-all',str(out/'reviewed.patch')],check=True)
+          security_patch = read_blob('f625979c95995c50a1a5828b5d4e2d4ddbfb4fbc')
+          security_paths = [line.split(' b/',1)[1] for line in security_patch.decode().splitlines() if line.startswith('diff --git ')]
+          assert set(security_paths) == {'package.json','architecture/adr/F001-monorepo-and-data-ownership.md','architecture/f001-owned-files.json','tests/foundation/dependency-compatibility.test.mjs'}
+          (out/'security.patch').write_bytes(security_patch)
+          subprocess.run(['git','apply','--check','--whitespace=error-all',str(out/'security.patch')],check=True)
+          subprocess.run(['git','apply','--whitespace=error-all',str(out/'security.patch')],check=True)
+          paths = sorted(set(paths + security_paths))
+          assert len(paths) == 135
+          (out/'paths.json').write_text(json.dumps(paths))
           PY
       - name: Resolve real lockfile without dependency scripts
         shell: bash
