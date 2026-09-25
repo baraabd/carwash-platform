@@ -41,8 +41,10 @@ export const SERVICES = [
 export const BROKER_SERVICES = ['catalog', 'communications', 'reporting'];
 
 function password() {
-  // URL-safe so it can be embedded in a DSN without escaping surprises.
-  return randomBytes(24).toString('base64url');
+  // 24 random bytes = 192 bits of entropy. Hex is URL-safe and, unlike
+  // base64url, can never begin with "-" and be parsed as a CLI option by
+  // rabbitmqctl when passed as a positional password argument.
+  return randomBytes(24).toString('hex');
 }
 
 async function freePort() {
