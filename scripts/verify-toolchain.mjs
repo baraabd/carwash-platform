@@ -260,6 +260,9 @@ const TOOLCHAIN_OWNERSHIP_EXEMPT_WORKFLOWS = new Set([
   // F002 must not modify it just to propagate a patch pin; its own guard
   // verifies that the file remains identical to the trusted baseline.
   'reference-integrity.yml',
+  // F001 owns this branch-only environment diagnostic. It does not run on
+  // main/develop/PR builds and is not part of the F002 reproducible build path.
+  'f001-environment-probe.yml',
 ]);
 if (!existsSync(workflowDir)) {
   pass('propagation', 'CI reads .nvmrc', 'no workflows in this tree; skipped');
