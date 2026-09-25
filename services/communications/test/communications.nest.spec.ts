@@ -6,9 +6,9 @@ import { AppModule, BUSINESS_READY, SERVICE_NAME, postgresProbe } from '../src/a
 import { PrismaService, databaseUrlFromEnv } from '../src/prisma.service';
 import { createHttpApplication } from '../src/transport/http/create-app';
 
-const DSN = 'postgresql://cw_communications_app:placeholder@127.0.0.1:5432/cw_communications?schema=app';
+const DSN =
+  'postgresql://cw_communications_app:placeholder@127.0.0.1:5432/cw_communications?schema=app';
 
-/** Minimal stand-in for the HTTP response, so the test needs no real server. */
 function fakeResponse() {
   const captured: { code: number | null; body: unknown } = { code: null, body: null };
   const res = {
@@ -76,7 +76,7 @@ test('communications: liveness reports the process is running, and its real stag
   await moduleRef.close();
 });
 
-test('communications: readiness answers 503 because the business API is not implemented', async () => {
+test('communications: foundation readiness returns 503', async () => {
   const moduleRef = await compile();
   const controller = moduleRef.get(HealthController);
   const { res, captured } = fakeResponse();
@@ -107,7 +107,7 @@ test('communications: a healthy dependency still does not make the shell ready',
   await moduleRef.close();
 });
 
-test('communications: a failing dependency probe is reported as DOWN without leaking the DSN', async () => {
+test('communications: dependency failure is DOWN without credential leakage', async () => {
   const moduleRef = await compile();
   const options = moduleRef.get<HealthOptions>(HEALTH_OPTIONS);
   const controller = new HealthController({

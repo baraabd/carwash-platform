@@ -2,20 +2,186 @@
 /**
  * Writes the NestJS framework tests every service must pass.
  *
- * These are framework tests, not business tests. They prove the module graph
+ * These are framework tests, not business tests: they prove the module graph
  * compiles, the real HTTP adapter boots, liveness/readiness stay distinct and a
- * foundation shell never advertises business readiness.
+ * foundation shell refuses to advertise business readiness.
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { format } from 'prettier';
 import { ROOT, SERVICES } from '../acceptance/lib/context.mjs';
 
-const spec = (service) => "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { Test } from '@nestjs/testing';\nimport { HealthController, HEALTH_OPTIONS, type HealthOptions } from '@carwash/service-kit';\nimport { AppModule, BUSINESS_READY, SERVICE_NAME, postgresProbe } from '../src/app.module';\nimport { PrismaService, databaseUrlFromEnv } from '../src/prisma.service';\nimport { createHttpApplication } from '../src/transport/http/create-app';\n\nconst DSN = 'postgresql://cw___SERVICE___app:placeholder@127.0.0.1:5432/cw___SERVICE__?schema=app';\n\n/** Minimal stand-in for the HTTP response, so the test needs no real server. */\nfunction fakeResponse() {\n  const captured: { code: number | null; body: unknown } = { code: null, body: null };\n  const res = {\n    status(code: number) {\n      captured.code = code;\n      return res;\n    },\n    json(body: unknown) {\n      captured.body = body;\n      return body;\n    },\n  };\n  return { res, captured };\n}\n\nasync function compile() {\n  process.env.DATABASE_URL = DSN;\n  return Test.createTestingModule({ imports: [AppModule] }).compile();\n}\n\ntest('__SERVICE__: the application module compiles and wires its dependencies', async () => {\n  const moduleRef = await compile();\n  assert.ok(moduleRef.get(PrismaService) instanceof PrismaService);\n  assert.ok(moduleRef.get(HealthController) instanceof HealthController);\n  await moduleRef.close();\n});\n\ntest('__SERVICE__: the real HTTP adapter boots with distinct live/ready semantics', async () => {\n  process.env.DATABASE_URL = DSN;\n  const app = await createHttpApplication();\n  await app.listen(0, '127.0.0.1');\n  try {\n    const url = await app.getUrl();\n    const live = await fetch(`${url}/health/live`);\n    assert.equal(live.status, 200);\n    assert.deepEqual(await live.json(), {\n      service: '__SERVICE__',\n      status: 'alive',\n      stage: 'foundation-only',\n    });\n\n    const ready = await fetch(`${url}/health/ready`);\n    assert.equal(ready.status, 503, 'foundation shell must not advertise business readiness');\n    const body = (await ready.json()) as {\n      businessReady: boolean;\n      ready: boolean;\n      code: string;\n    };\n    assert.equal(body.businessReady, false);\n    assert.equal(body.ready, false);\n    assert.equal(body.code, 'FOUNDATION_NOT_READY');\n  } finally {\n    await app.close();\n  }\n});\n\ntest('__SERVICE__: liveness reports the process is running, and its real stage', async () => {\n  const moduleRef = await compile();\n  const controller = moduleRef.get(HealthController);\n  assert.deepEqual(controller.live(), {\n    service: '__SERVICE__',\n    status: 'alive',\n    stage: 'foundation-only',\n  });\n  await moduleRef.close();\n});\n\ntest('__SERVICE__: readiness answers 503 because the business API is not implemented', async () => {\n  const moduleRef = await compile();\n  const controller = moduleRef.get(HealthController);\n  const { res, captured } = fakeResponse();\n  await controller.ready(res);\n  assert.equal(captured.code, 503, 'a foundation shell must never advertise readiness');\n  const body = captured.body as { businessReady: boolean; ready: boolean; code: string };\n  assert.equal(body.businessReady, false);\n  assert.equal(body.ready, false);\n  assert.equal(body.code, 'FOUNDATION_NOT_READY');\n  await moduleRef.close();\n});\n\ntest('__SERVICE__: a healthy dependency still does not make the shell ready', async () => {\n  const moduleRef = await compile();\n  const options = moduleRef.get<HealthOptions>(HEALTH_OPTIONS);\n  const withHealthyDependency = new HealthController({\n    ...options,\n    dependencies: [{ name: 'postgres', kind: 'postgres', check: () => Promise.resolve() }],\n  });\n  const { res, captured } = fakeResponse();\n  await withHealthyDependency.ready(res);\n  assert.equal(captured.code, 503);\n  const body = captured.body as { dependencies: { status: string }[]; ready: boolean };\n  assert.equal(body.dependencies.length, 1);\n  const [dependency] = body.dependencies;\n  assert.equal(dependency?.status, 'UP', 'the dependency state is still reported honestly');\n  assert.equal(body.ready, false);\n  await moduleRef.close();\n});\n\ntest('__SERVICE__: a failing dependency probe is reported as DOWN without leaking the DSN', async () => {\n  const moduleRef = await compile();\n  const options = moduleRef.get<HealthOptions>(HEALTH_OPTIONS);\n  const controller = new HealthController({\n    ...options,\n    businessReady: true,\n    dependencies: [\n      {\n        name: 'postgres',\n        kind: 'postgres',\n        check: () => Promise.reject(new Error(`connect ECONNREFUSED ${DSN}`)),\n      },\n    ],\n  });\n  const { res, captured } = fakeResponse();\n  await controller.ready(res);\n  assert.equal(captured.code, 503);\n  const body = captured.body as {\n    code: string;\n    dependencies: { status: string; error?: string }[];\n  };\n  assert.equal(body.code, 'DEPENDENCY_DOWN');\n  assert.equal(body.dependencies.length, 1);\n  const [dependency] = body.dependencies;\n  assert.equal(dependency?.status, 'DOWN');\n  assert.ok(\n    !JSON.stringify(body).includes('placeholder'),\n    'the probe error must not carry credentials',\n  );\n  await moduleRef.close();\n});\n\ntest('__SERVICE__: the service is declared foundation-only, not business ready', () => {\n  assert.equal(SERVICE_NAME, '__SERVICE__');\n  assert.equal(BUSINESS_READY, false);\n});\n\ntest('__SERVICE__: a missing DATABASE_URL fails closed instead of guessing', () => {\n  assert.throws(() => databaseUrlFromEnv({}), /DATABASE_URL_REQUIRED/);\n  assert.throws(() => databaseUrlFromEnv({ DATABASE_URL: '' }), /DATABASE_URL_REQUIRED/);\n});\n\ntest('__SERVICE__: the postgres probe is wired to this service own client', async () => {\n  const moduleRef = await compile();\n  const probe = postgresProbe(moduleRef.get(PrismaService));\n  assert.equal(probe.name, 'postgres');\n  assert.equal(probe.kind, 'postgres');\n  await moduleRef.close();\n});\n"
-  .replaceAll('__SERVICE__', service);
+const spec = (service) => `import test from 'node:test';
+import assert from 'node:assert/strict';
+import { Test } from '@nestjs/testing';
+import { HealthController, HEALTH_OPTIONS, type HealthOptions } from '@carwash/service-kit';
+import { AppModule, BUSINESS_READY, SERVICE_NAME, postgresProbe } from '../src/app.module';
+import { PrismaService, databaseUrlFromEnv } from '../src/prisma.service';
+import { createHttpApplication } from '../src/transport/http/create-app';
+
+const DSN = 'postgresql://cw_${service}_app:placeholder@127.0.0.1:5432/cw_${service}?schema=app';
+
+function fakeResponse() {
+  const captured: { code: number | null; body: unknown } = { code: null, body: null };
+  const res = {
+    status(code: number) {
+      captured.code = code;
+      return res;
+    },
+    json(body: unknown) {
+      captured.body = body;
+      return body;
+    },
+  };
+  return { res, captured };
+}
+
+async function compile() {
+  process.env.DATABASE_URL = DSN;
+  return Test.createTestingModule({ imports: [AppModule] }).compile();
+}
+
+test('${service}: the application module compiles and wires its dependencies', async () => {
+  const moduleRef = await compile();
+  assert.ok(moduleRef.get(PrismaService) instanceof PrismaService);
+  assert.ok(moduleRef.get(HealthController) instanceof HealthController);
+  await moduleRef.close();
+});
+
+test('${service}: the real HTTP adapter boots with distinct live/ready semantics', async () => {
+  process.env.DATABASE_URL = DSN;
+  const app = await createHttpApplication();
+  await app.listen(0, '127.0.0.1');
+  try {
+    const url = await app.getUrl();
+    const live = await fetch(\`${url}/health/live\`);
+    assert.equal(live.status, 200);
+    assert.deepEqual(await live.json(), {
+      service: '${service}',
+      status: 'alive',
+      stage: 'foundation-only',
+    });
+
+    const ready = await fetch(\`${url}/health/ready\`);
+    assert.equal(ready.status, 503, 'foundation shell must not advertise business readiness');
+    const body = (await ready.json()) as {
+      businessReady: boolean;
+      ready: boolean;
+      code: string;
+    };
+    assert.equal(body.businessReady, false);
+    assert.equal(body.ready, false);
+    assert.equal(body.code, 'FOUNDATION_NOT_READY');
+  } finally {
+    await app.close();
+  }
+});
+
+test('${service}: liveness reports the process is running, and its real stage', async () => {
+  const moduleRef = await compile();
+  const controller = moduleRef.get(HealthController);
+  assert.deepEqual(controller.live(), {
+    service: '${service}',
+    status: 'alive',
+    stage: 'foundation-only',
+  });
+  await moduleRef.close();
+});
+
+test('${service}: foundation readiness returns 503', async () => {
+  const moduleRef = await compile();
+  const controller = moduleRef.get(HealthController);
+  const { res, captured } = fakeResponse();
+  await controller.ready(res);
+  assert.equal(captured.code, 503, 'a foundation shell must never advertise readiness');
+  const body = captured.body as { businessReady: boolean; ready: boolean; code: string };
+  assert.equal(body.businessReady, false);
+  assert.equal(body.ready, false);
+  assert.equal(body.code, 'FOUNDATION_NOT_READY');
+  await moduleRef.close();
+});
+
+test('${service}: a healthy dependency still does not make the shell ready', async () => {
+  const moduleRef = await compile();
+  const options = moduleRef.get<HealthOptions>(HEALTH_OPTIONS);
+  const withHealthyDependency = new HealthController({
+    ...options,
+    dependencies: [{ name: 'postgres', kind: 'postgres', check: () => Promise.resolve() }],
+  });
+  const { res, captured } = fakeResponse();
+  await withHealthyDependency.ready(res);
+  assert.equal(captured.code, 503);
+  const body = captured.body as { dependencies: { status: string }[]; ready: boolean };
+  assert.equal(body.dependencies.length, 1);
+  const [dependency] = body.dependencies;
+  assert.equal(dependency?.status, 'UP', 'the dependency state is still reported honestly');
+  assert.equal(body.ready, false);
+  await moduleRef.close();
+});
+
+test('${service}: dependency failure is DOWN without credential leakage', async () => {
+  const moduleRef = await compile();
+  const options = moduleRef.get<HealthOptions>(HEALTH_OPTIONS);
+  const controller = new HealthController({
+    ...options,
+    businessReady: true,
+    dependencies: [
+      {
+        name: 'postgres',
+        kind: 'postgres',
+        check: () => Promise.reject(new Error(\`connect ECONNREFUSED ${DSN}\`)),
+      },
+    ],
+  });
+  const { res, captured } = fakeResponse();
+  await controller.ready(res);
+  assert.equal(captured.code, 503);
+  const body = captured.body as {
+    code: string;
+    dependencies: { status: string; error?: string }[];
+  };
+  assert.equal(body.code, 'DEPENDENCY_DOWN');
+  assert.equal(body.dependencies.length, 1);
+  const [dependency] = body.dependencies;
+  assert.equal(dependency?.status, 'DOWN');
+  assert.ok(
+    !JSON.stringify(body).includes('placeholder'),
+    'the probe error must not carry credentials',
+  );
+  await moduleRef.close();
+});
+
+test('${service}: the service is declared foundation-only, not business ready', () => {
+  assert.equal(SERVICE_NAME, '${service}');
+  assert.equal(BUSINESS_READY, false);
+});
+
+test('${service}: a missing DATABASE_URL fails closed instead of guessing', () => {
+  assert.throws(() => databaseUrlFromEnv({}), /DATABASE_URL_REQUIRED/);
+  assert.throws(() => databaseUrlFromEnv({ DATABASE_URL: '' }), /DATABASE_URL_REQUIRED/);
+});
+
+test('${service}: the postgres probe is wired to this service own client', async () => {
+  const moduleRef = await compile();
+  const probe = postgresProbe(moduleRef.get(PrismaService));
+  assert.equal(probe.name, 'postgres');
+  assert.equal(probe.kind, 'postgres');
+  await moduleRef.close();
+});
+`;
 
 for (const service of SERVICES) {
   const dir = path.join(ROOT, 'services', service, 'test');
   await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, `${service}.nest.spec.ts`), spec(service), 'utf8');
+  const output = await format(spec(service), {
+    parser: 'typescript',
+    singleQuote: true,
+    trailingComma: 'all',
+    printWidth: 100,
+    semi: true,
+    arrowParens: 'always',
+    endOfLine: 'lf',
+  });
+  await writeFile(path.join(dir, `${service}.nest.spec.ts`), output, 'utf8');
   console.log(`wrote services/${service}/test/${service}.nest.spec.ts`);
 }

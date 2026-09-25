@@ -80,12 +80,12 @@ function frameworkHttpStatus(error: unknown): number | null {
   if (typeof getStatus !== 'function') return null;
   try {
     const status: unknown = (getStatus as () => unknown).call(error);
-    return typeof status === 'number' &&
+    const valid =
+      typeof status === 'number' &&
       Number.isInteger(status) &&
       status >= 400 &&
-      status <= 599
-      ? status
-      : ERROR_STATUS.INTERNAL;
+      status <= 599;
+    return valid ? status : ERROR_STATUS.INTERNAL;
   } catch {
     return ERROR_STATUS.INTERNAL;
   }

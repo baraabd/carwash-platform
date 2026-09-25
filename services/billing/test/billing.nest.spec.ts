@@ -8,7 +8,6 @@ import { createHttpApplication } from '../src/transport/http/create-app';
 
 const DSN = 'postgresql://cw_billing_app:placeholder@127.0.0.1:5432/cw_billing?schema=app';
 
-/** Minimal stand-in for the HTTP response, so the test needs no real server. */
 function fakeResponse() {
   const captured: { code: number | null; body: unknown } = { code: null, body: null };
   const res = {
@@ -76,7 +75,7 @@ test('billing: liveness reports the process is running, and its real stage', asy
   await moduleRef.close();
 });
 
-test('billing: readiness answers 503 because the business API is not implemented', async () => {
+test('billing: foundation readiness returns 503', async () => {
   const moduleRef = await compile();
   const controller = moduleRef.get(HealthController);
   const { res, captured } = fakeResponse();
@@ -107,7 +106,7 @@ test('billing: a healthy dependency still does not make the shell ready', async 
   await moduleRef.close();
 });
 
-test('billing: a failing dependency probe is reported as DOWN without leaking the DSN', async () => {
+test('billing: dependency failure is DOWN without credential leakage', async () => {
   const moduleRef = await compile();
   const options = moduleRef.get<HealthOptions>(HEALTH_OPTIONS);
   const controller = new HealthController({

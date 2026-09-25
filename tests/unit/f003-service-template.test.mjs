@@ -98,7 +98,13 @@ async function withLayerFixture(applicationSource, body) {
     );
     await writeFile(
       path.join(root, 'services/fixture/Dockerfile'),
-      'FROM node:24 AS builder\nRUN pnpm install --frozen-lockfile\nFROM node:24 AS runner\nUSER node\n',
+      [
+        'FROM node:24 AS builder',
+        'RUN pnpm install --frozen-lockfile',
+        'FROM node:24 AS runner',
+        'USER node',
+        '',
+      ].join('\n'),
     );
     await body(root);
   } finally {

@@ -12,10 +12,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const arg = process.argv.indexOf('--root');
-const ROOT =
-  arg >= 0 ? path.resolve(process.argv[arg + 1] ?? '') : path.resolve(HERE, '..');
-if (arg >= 0 && !process.argv[arg + 1]) throw new Error('--root requires a path');
+const rootArgIndex = process.argv.indexOf('--root');
+let ROOT = path.resolve(HERE, '..');
+if (rootArgIndex >= 0) {
+  const rootArg = process.argv[rootArgIndex + 1];
+  if (!rootArg) throw new Error('--root requires a path');
+  ROOT = path.resolve(rootArg);
+}
 
 const catalog = JSON.parse(
   await readFile(path.join(ROOT, 'architecture/service-catalog.json'), 'utf8'),
@@ -64,7 +67,10 @@ function targetLayer(file, specifier, serviceRoot) {
   const relative = path
     .relative(path.join(serviceRoot, 'src'), resolved)
     .replaceAll('\\', '/');
-  return LAYERS.find((layer) => relative === layer || relative.startsWith(`${layer}/`)) ?? null;
+  const layer = LAYERS.find(
+    (candidate) => relative === candidate || relative.startsWith(`${candidate}/`),
+  );
+  return layer ?? null;
 }
 
 function forbidExternal(layer, specifier, relativeFile) {
