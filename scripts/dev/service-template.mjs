@@ -94,7 +94,7 @@ import {
   PrismaService,
   databaseUrlFromEnv,
 } from './infrastructure/persistence/prisma.service';
-${slice.imports}/** 
+${slice.imports}/**
  * Composition root for the ${service} service.
  *
  * Nest belongs here at the outside edge. Domain/application/ports do not import
