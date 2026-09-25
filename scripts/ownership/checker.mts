@@ -365,6 +365,10 @@ export function checkRepository(inputRoot: string): ScanResult {
           );
         return;
       }
+      // Prisma clients are generated into a service-local, git-ignored namespace.
+      // Their bytes do not exist during the static ownership gate, but the lexical
+      // path itself proves they cannot cross an owner boundary.
+      if (relative(owner.dir, base).startsWith('src/generated/')) return;
     }
     const resolved = ts.resolveModuleName(specifier, file, optionsFor(file), ts.sys).resolvedModule;
     if (resolved) {
