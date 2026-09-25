@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./booking-confirmed": {
+      "types": "./dist/booking-confirmed.d.ts",
+      "default": "./dist/booking-confirmed.js"
     }
   },
   "files": [
