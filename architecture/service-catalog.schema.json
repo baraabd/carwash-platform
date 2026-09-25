@@ -47,8 +47,8 @@
       "items": {
         "$ref": "#/$defs/shared"
       },
-      "minItems": 10,
-      "maxItems": 10
+      "minItems": 12,
+      "maxItems": 12
     },
     "policy": {
       "type": "object",
@@ -427,7 +427,9 @@
             "security-kit",
             "test-utils",
             "eslint-config",
-            "tsconfig"
+            "tsconfig",
+            "service-kit",
+            "platform-messaging"
           ]
         },
         "path": {
@@ -449,7 +451,8 @@
           "pattern": "^platform:[a-z-]+$"
         },
         "version": {
-          "const": "0.0.1"
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$"
         }
       },
       "required": ["id", "path", "packageName", "zone", "owner", "version"],
