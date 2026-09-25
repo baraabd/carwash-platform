@@ -255,12 +255,26 @@ for (const [relative, pattern] of IMAGE_CONSUMERS) {
  * release than the Dockerfile builds against.
  */
 const workflowDir = path.join(root, '.github/workflows');
+const TOOLCHAIN_OWNERSHIP_EXEMPT_WORKFLOWS = new Set([
+  // This workflow is byte-frozen by the approved design-reference policy.
+  // F002 must not modify it just to propagate a patch pin; its own guard
+  // verifies that the file remains identical to the trusted baseline.
+  'reference-integrity.yml',
+]);
 if (!existsSync(workflowDir)) {
   pass('propagation', 'CI reads .nvmrc', 'no workflows in this tree; skipped');
 } else {
   for (const file of (await readdir(workflowDir)).filter((f) => /\.ya?ml$/.test(f))) {
     const text = await readFile(path.join(workflowDir, file), 'utf8');
     if (!text.includes('actions/setup-node')) continue;
+    if (TOOLCHAIN_OWNERSHIP_EXEMPT_WORKFLOWS.has(file)) {
+      pass(
+        'propagation',
+        `${file} remains outside F002 ownership`,
+        'frozen by the design-reference guard; left byte-identical to the approved baseline',
+      );
+      continue;
+    }
     const literal = /^\s*node-version:\s*(.+)$/m.exec(text);
     if (literal) {
       fail(
