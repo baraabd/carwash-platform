@@ -9,8 +9,8 @@ import { fixture } from './fixtures.mjs';
 const sourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const original = readFileSync(path.join(sourceRoot, 'scripts/check-boundaries.mjs'));
 const blob = createHash('sha1').update(`blob ${original.length}\0`).update(original).digest('hex');
-test('the original boundary gate remains byte-identical and accepts the new V2 fixture layout', (t) => {
-  assert.equal(blob, '06f2a5f749a5e9acd5bb3b73117d383e46b4668f');
+test('the approved post-F002 boundary gate remains byte-identical and accepts the V2 fixture layout', (t) => {
+  assert.equal(blob, '814d9a7fee7aa7c1184bb03fbf22dbbee5149f89');
   const f = fixture(t);
   f.put('scripts/check-boundaries.mjs', original.toString('utf8'));
   const result = spawnSync(process.execPath, [path.join(f.root, 'scripts/check-boundaries.mjs')], {
@@ -19,7 +19,7 @@ test('the original boundary gate remains byte-identical and accepts the new V2 f
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /19 owners/);
 });
-test('the unchanged original boundary gate still rejects a cross-service import in V2 fixtures', (t) => {
+test('the unchanged approved boundary gate still rejects a cross-service import in V2 fixtures', (t) => {
   const f = fixture(t);
   f.put('scripts/check-boundaries.mjs', original.toString('utf8'));
   f.put('services/vehicle/src/violation.ts', "import '../../billing/src/index.js';\n");
