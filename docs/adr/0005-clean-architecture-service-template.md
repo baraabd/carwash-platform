@@ -4,7 +4,7 @@ Status: Accepted for F003 foundation shells.
 
 ## Decision
 
-Every service uses the same generated outer shell and exposes five explicit source layers:
+Every service whose catalog entry is marked `runtimeImplementation: existing-health-only-shell` uses the same generated outer shell and exposes five explicit source layers:
 
 - `domain`: business invariants and value/domain logic; framework and IO free.
 - `application`: use-case orchestration; depends inward and on ports, never concrete IO.
@@ -31,7 +31,7 @@ The existing catalog/communications/reporting outbox/inbox probe slice remains a
 
 ## Generation and drift
 
-`scripts/dev/service-template.mjs` is the side-effect-free renderer. `generate-service-shells.mjs` materialises only template-owned files and supports `--check`. CI runs the drift check through the architecture boundary gate, so copy/paste edits to one service shell fail instead of silently diverging.
+`scripts/dev/service-template.mjs` is the side-effect-free renderer and owns the catalog selector for F003 foundation shells. `generate-service-shells.mjs` and `scripts/check-layers.mjs` use that same selector, so F001 ownership-only entries marked `directory-and-typescript-skeleton-only` are not mistaken for fully materialised F003 runtime shells. A service enters the F003 template contract only when its catalog runtime status is promoted explicitly. `generate-service-shells.mjs` materialises only template-owned files and supports `--check`. CI runs the drift check through the architecture boundary gate, so copy/paste edits to one service shell fail instead of silently diverging.
 
 Each service receives its own multi-stage Dockerfile. It builds with the locked toolchain, a frozen lockfile and a non-root runtime. The existing root parameterised Dockerfile remains for F002 compatibility.
 
