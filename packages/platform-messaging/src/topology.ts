@@ -28,8 +28,12 @@ export interface QueueSpec {
   readonly name: string;
   readonly deadLetterExchange?: string;
   readonly deadLetterRoutingKey?: string;
-  /** Broker-owned delay used by retry queues before redelivery. */
-  readonly messageTtlMs?: number;
+  readonly queueType?: 'classic' | 'quorum';
+  /**
+   * Broker-enforced redelivery ceiling. RabbitMQ supports this on quorum queues;
+   * once exceeded the message is dead-lettered instead of looping forever.
+   */
+  readonly deliveryLimit?: number;
 }
 
 export interface BindingSpec {
@@ -52,11 +56,15 @@ export async function assertTopology(channel: ConfirmChannel, spec: TopologySpec
     const args: Record<string, unknown> = {};
     if (queue.deadLetterExchange) args['x-dead-letter-exchange'] = queue.deadLetterExchange;
     if (queue.deadLetterRoutingKey) args['x-dead-letter-routing-key'] = queue.deadLetterRoutingKey;
-    if (queue.messageTtlMs !== undefined) {
-      if (!Number.isInteger(queue.messageTtlMs) || queue.messageTtlMs < 1) {
-        throw new Error(`INVALID_QUEUE_TTL: ${queue.name}`);
+    if (queue.queueType) args['x-queue-type'] = queue.queueType;
+    if (queue.deliveryLimit !== undefined) {
+      if (queue.queueType !== 'quorum') {
+        throw new Error(`DELIVERY_LIMIT_REQUIRES_QUORUM: ${queue.name}`);
       }
-      args['x-message-ttl'] = queue.messageTtlMs;
+      if (!Number.isInteger(queue.deliveryLimit) || queue.deliveryLimit < 1) {
+        throw new Error(`INVALID_DELIVERY_LIMIT: ${queue.name}`);
+      }
+      args['x-delivery-limit'] = queue.deliveryLimit;
     }
     // Durable queues survive a broker restart; messages are published persistent.
     await channel.assertQueue(queue.name, { durable: true, arguments: args });
@@ -84,7 +92,7 @@ export const sharedTopology: TopologySpec = {
   bindings: [],
 };
 
-export const FOUNDATION_RETRY_DELAY_MS = 250;
+export const FOUNDATION_TRANSIENT_DELIVERY_LIMIT = 3;
 
 export function subscriberQueueName(subscriber: string): string {
   // The queue belongs to the SUBSCRIBING SERVICE, not to a process replica.
@@ -93,18 +101,6 @@ export function subscriberQueueName(subscriber: string): string {
   // receive their own copy. Naming a queue per replica would silently turn
   // fan-out into duplicated work.
   return `${subscriber}.catalog.foundation-probe`;
-}
-
-export function subscriberRetryExchangeName(subscriber: string): string {
-  return `${subscriber}.retry`;
-}
-
-export function subscriberRedeliveryExchangeName(subscriber: string): string {
-  return `${subscriber}.redelivery`;
-}
-
-export function subscriberRetryQueueName(subscriber: string): string {
-  return `${subscriber}.retry.catalog.foundation-probe`;
 }
 
 export function subscriberDeadLetterExchangeName(subscriber: string): string {
@@ -116,50 +112,39 @@ export function subscriberDeadLetterQueueName(subscriber: string): string {
 }
 
 /**
- * Subscriber-owned retry topology.
+ * Subscriber-owned topology with broker-persistent bounded redelivery.
  *
- * A transient failure is confirmed into the subscriber's own retry exchange.
- * The retry queue holds it briefly, then RabbitMQ dead-letters it to the
- * subscriber's own redelivery exchange, which is also bound to the main queue.
- * This avoids granting a consumer WRITE permission on the producer's exchange.
+ * The main queue is quorum-backed and RabbitMQ owns the delivery counter. A
+ * transient consumer failure uses NACK+requeue; once the broker-enforced limit
+ * is exceeded the message is dead-lettered. Because the counter lives in the
+ * broker rather than process memory, restarting a consumer cannot reset the
+ * retry budget.
  *
- * The retry count is carried in the message header by InboxConsumer, so the
- * retry budget survives consumer process restarts. Permanent failures still
- * dead-letter directly from the main queue to the subscriber DLQ.
+ * Permanent parse/integrity failures use NACK without requeue and go directly
+ * to the same DLQ. The subscriber still has only READ access on catalog.events:
+ * no retry mechanism grants it permission to forge producer events.
  */
 export function subscriberTopology(
   subscriber: string,
-  retryDelayMs = FOUNDATION_RETRY_DELAY_MS,
+  deliveryLimit = FOUNDATION_TRANSIENT_DELIVERY_LIMIT,
 ): TopologySpec {
   const queue = subscriberQueueName(subscriber);
-  const retryExchange = subscriberRetryExchangeName(subscriber);
-  const redeliveryExchange = subscriberRedeliveryExchangeName(subscriber);
-  const retryQueue = subscriberRetryQueueName(subscriber);
   const dlx = subscriberDeadLetterExchangeName(subscriber);
   const dlq = subscriberDeadLetterQueueName(subscriber);
   return {
-    // Every resource below is inside the subscriber's namespace. The only
-    // foreign resource touched is catalog.events, and only with READ permission
-    // for binding.
-    exchanges: [
-      { name: dlx, type: 'topic' },
-      { name: retryExchange, type: 'topic' },
-      { name: redeliveryExchange, type: 'topic' },
-    ],
+    exchanges: [{ name: dlx, type: 'topic' }],
     queues: [
-      { name: queue, deadLetterExchange: dlx, deadLetterRoutingKey: FOUNDATION_PROBE_ROUTING_KEY },
       {
-        name: retryQueue,
-        deadLetterExchange: redeliveryExchange,
+        name: queue,
+        deadLetterExchange: dlx,
         deadLetterRoutingKey: FOUNDATION_PROBE_ROUTING_KEY,
-        messageTtlMs: retryDelayMs,
+        queueType: 'quorum',
+        deliveryLimit,
       },
       { name: dlq },
     ],
     bindings: [
       { queue, exchange: CATALOG_EVENTS_EXCHANGE, routingKey: FOUNDATION_PROBE_ROUTING_KEY },
-      { queue, exchange: redeliveryExchange, routingKey: FOUNDATION_PROBE_ROUTING_KEY },
-      { queue: retryQueue, exchange: retryExchange, routingKey: FOUNDATION_PROBE_ROUTING_KEY },
       { queue: dlq, exchange: dlx, routingKey: '#' },
     ],
   };
