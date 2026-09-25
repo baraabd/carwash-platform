@@ -19,7 +19,11 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0, verified official ref
         with:
-          node-version: '24'
+          # Read the pin rather than repeat it. A literal '24' here resolved to
+          # whatever the newest 24.x was on the day the job ran, so this guard
+          # could run on a different patch release than the one the Dockerfile
+          # builds and the tests are attributed to.
+          node-version-file: .nvmrc
       - name: Check unchanged files against the trusted previous baseline
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}

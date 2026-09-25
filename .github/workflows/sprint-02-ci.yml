@@ -56,6 +56,13 @@ jobs:
           pnpm --version
           echo "expected node $(cat .nvmrc)"
 
+      # Runs before the install, and needs no dependencies of its own: a wrong
+      # runtime should fail here rather than halfway through a build. Asserts
+      # that the running Node and pnpm match the pins, and that every file which
+      # repeats a pinned version still agrees with .nvmrc.
+      - name: Verify the locked toolchain
+        run: node scripts/verify-toolchain.mjs
+
       # --frozen-lockfile: CI fails rather than resolving something the lockfile
       # does not describe.
       - name: Install (frozen lockfile)
@@ -206,6 +213,14 @@ jobs:
         # lockfile would already have failed above, and this makes that
         # guarantee visible as its own gate.
         run: git diff --exit-code -- pnpm-lock.yaml
+
+      # The install above runs in a warm checkout, where pnpm can skip most of
+      # the work. This re-runs --frozen-lockfile in a throwaway tree with no
+      # node_modules, and audits the lockfile for the marks of a hand edit: a
+      # specifier that no longer matches its manifest, a malformed integrity
+      # hash, an importer that is not a workspace package.
+      - name: Lockfile is a genuine, reproducible resolution
+        run: node scripts/verify-frozen-install.mjs
 
   scope:
     name: Declared scope of these gates
