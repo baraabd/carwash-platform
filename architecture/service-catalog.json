@@ -1174,7 +1174,7 @@
       "packageName": "@carwash/event-contracts",
       "zone": "contracts",
       "owner": "platform:event-contracts",
-      "version": "0.0.1"
+      "version": "0.0.2"
     },
     {
       "id": "contracts",
@@ -1215,6 +1215,22 @@
       "zone": "technical",
       "owner": "platform:observability",
       "version": "0.0.1"
+    },
+    {
+      "id": "service-kit",
+      "path": "packages/service-kit",
+      "packageName": "@carwash/service-kit",
+      "zone": "technical",
+      "owner": "platform:service-kit",
+      "version": "0.0.2"
+    },
+    {
+      "id": "platform-messaging",
+      "path": "packages/platform-messaging",
+      "packageName": "@carwash/platform-messaging",
+      "zone": "technical",
+      "owner": "platform:platform-messaging",
+      "version": "0.0.2"
     },
     {
       "id": "security-kit",
