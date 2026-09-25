@@ -28,21 +28,24 @@ function snapshot(service) {
 
 test('F003 renderer snapshot and structure are deterministic', () => {
   assert.equal(renderServiceFiles('identity').size, 13);
-  assert.deepEqual([...renderServiceFiles('identity').keys()], [
-    'src/domain/index.ts',
-    'src/application/index.ts',
-    'src/ports/index.ts',
-    'src/infrastructure/persistence/prisma.service.ts',
-    'src/prisma.service.ts',
-    'src/app.module.ts',
-    'src/transport/http/create-app.ts',
-    'src/transport/messaging/consumer.ts',
-    'src/main.ts',
-    'test/domain/.gitkeep',
-    'test/unit/.gitkeep',
-    'test/integration/.gitkeep',
-    'Dockerfile',
-  ]);
+  assert.deepEqual(
+    [...renderServiceFiles('identity').keys()],
+    [
+      'src/domain/index.ts',
+      'src/application/index.ts',
+      'src/ports/index.ts',
+      'src/infrastructure/persistence/prisma.service.ts',
+      'src/prisma.service.ts',
+      'src/app.module.ts',
+      'src/transport/http/create-app.ts',
+      'src/transport/messaging/consumer.ts',
+      'src/main.ts',
+      'test/domain/.gitkeep',
+      'test/unit/.gitkeep',
+      'test/integration/.gitkeep',
+      'Dockerfile',
+    ],
+  );
   assert.equal(
     snapshot('identity'),
     '5b4670e93c378a090a311bea51203285162e888bf53df34e22fe04a8f9f6d022',
@@ -84,10 +87,7 @@ async function withLayerFixture(applicationSource, body) {
     for (const testLayer of ['domain', 'unit', 'integration']) {
       await mkdir(path.join(root, 'services/fixture/test', testLayer), { recursive: true });
     }
-    await writeFile(
-      path.join(root, 'services/fixture/test/fixture.nest.spec.ts'),
-      'export {};\n',
-    );
+    await writeFile(path.join(root, 'services/fixture/test/fixture.nest.spec.ts'), 'export {};\n');
     await writeFile(
       path.join(root, 'services/fixture/src/application/use-case.ts'),
       applicationSource,

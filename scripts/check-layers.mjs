@@ -55,18 +55,14 @@ async function walk(dir) {
 
 function importSpecifiers(source) {
   return [
-    ...source.matchAll(
-      /(?:\bfrom\s*|\bimport\s*\(|\brequire\s*\(|\bimport\s*)['"]([^'"]+)['"]/g,
-    ),
+    ...source.matchAll(/(?:\bfrom\s*|\bimport\s*\(|\brequire\s*\(|\bimport\s*)['"]([^'"]+)['"]/g),
   ].map((match) => match[1]);
 }
 
 function targetLayer(file, specifier, serviceRoot) {
   if (!specifier.startsWith('.')) return null;
   const resolved = path.resolve(path.dirname(file), specifier);
-  const relative = path
-    .relative(path.join(serviceRoot, 'src'), resolved)
-    .replaceAll('\\', '/');
+  const relative = path.relative(path.join(serviceRoot, 'src'), resolved).replaceAll('\\', '/');
   const layer = LAYERS.find(
     (candidate) => relative === candidate || relative.startsWith(`${candidate}/`),
   );
@@ -75,9 +71,7 @@ function targetLayer(file, specifier, serviceRoot) {
 
 function forbidExternal(layer, specifier, relativeFile) {
   if (FRAMEWORK_OR_IO.some((pattern) => pattern.test(specifier))) {
-    throw new Error(
-      `${layer} layer imports framework/IO dependency ${specifier}: ${relativeFile}`,
-    );
+    throw new Error(`${layer} layer imports framework/IO dependency ${specifier}: ${relativeFile}`);
   }
 }
 
@@ -103,9 +97,7 @@ for (const service of services) {
         } else if (layer === 'application') {
           forbidExternal(layer, specifier, relativeFile);
           if (target === 'infrastructure' || target === 'transport') {
-            throw new Error(
-              `application layer imports outward layer ${target}: ${relativeFile}`,
-            );
+            throw new Error(`application layer imports outward layer ${target}: ${relativeFile}`);
           }
         } else if (layer === 'ports') {
           forbidExternal(layer, specifier, relativeFile);

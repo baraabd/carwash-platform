@@ -20,7 +20,7 @@
     "build:domain": "tsc -p tsconfig.domain.json",
     "typecheck": "pnpm --filter \"./packages/*\" --sequential run typecheck && pnpm --filter \"./services/*\" --sequential run typecheck",
     "lint": "pnpm run build:packages && eslint .",
-    "format:check": "prettier --write packages/service-kit/src/errors.ts scripts/check-layers.mjs tests/unit/f003-service-template.test.mjs && git diff -- packages/service-kit/src/errors.ts scripts/check-layers.mjs tests/unit/f003-service-template.test.mjs && exit 1",
+    "format:check": "prettier --check .",
     "format:write": "prettier --write .",
     "check:boundaries": "node scripts/check-boundaries.mjs && node scripts/check-layers.mjs && node scripts/dev/generate-service-shells.mjs --check",
     "check:layers": "node scripts/check-layers.mjs",
