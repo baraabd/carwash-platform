@@ -23,7 +23,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # same pinned release as original reference guard
         with:
-          node-version: '24'
+          node-version-file: .nvmrc
       - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0, resolved from signed upstream tag
         with:
           version: '10.32.1'
