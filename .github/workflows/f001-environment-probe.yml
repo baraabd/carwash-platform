@@ -8,7 +8,7 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '24'
-      - name: Record untouched baseline and available dependency versions
+      - name: Record untouched baseline
         shell: bash
         run: |
           set -euo pipefail
@@ -25,20 +25,31 @@ jobs:
           git bundle create "$RUNNER_TEMP/f001-probe/source.bundle" HEAD
           node --version | tee "$RUNNER_TEMP/f001-probe/node-version.txt"
           node scripts/check-design-reference.mjs | tee "$RUNNER_TEMP/f001-probe/design-before.log"
-          node --test tests/design/reference-lock.test.mjs | tee "$RUNNER_TEMP/f001-probe/design-tests.tap"
+          node --test --test-reporter=tap tests/design/reference-lock.test.mjs | tee "$RUNNER_TEMP/f001-probe/design-tests.tap"
+      - name: Provision target tools and package cache without running dependency scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/f001-portable/bin" "$RUNNER_TEMP/f001-portable/tools"
+          cp "$(command -v node)" "$RUNNER_TEMP/f001-portable/bin/node"
+          npm install --prefix "$RUNNER_TEMP/f001-bootstrap" --ignore-scripts --no-audit --no-fund pnpm@10.32.1
           node --input-type=module <<'NODE'
-          import { execFileSync } from 'node:child_process';
           import { writeFileSync } from 'node:fs';
-          const specs = ['pnpm@10.32.1','typescript@5.9.3','turbo@2.11.4','@eslint/js@10.0.1','eslint@10.11.0','typescript-eslint@8.70.0','prettier@3.9.8','@nestjs/common@11.2.1','@nestjs/core@11.2.1','@nestjs/platform-express@11.2.1','@types/node@24.0.0'];
-          const results = specs.map(spec => {
-            try { return { spec, available: true, metadata: JSON.parse(execFileSync('npm', ['view', spec, 'version', 'engines', '--json'], { encoding: 'utf8', timeout: 45000 })) }; }
-            catch (error) { return { spec, available: false, error: String(error.stderr || error.message) }; }
-          });
-          const text = JSON.stringify(results, null, 2);
-          writeFileSync(process.env.RUNNER_TEMP + '/f001-probe/dependencies.json', text + '\n');
-          console.log(text);
-          if (results.some(result => !result.available)) process.exitCode = 1;
+          const manifest = {
+            name: 'washgo-f001-validation-tools', private: true, version: '0.0.0',
+            dependencies: {
+              pnpm: '10.32.1', typescript: '5.9.3', '@types/node': '24.0.0',
+              turbo: '2.11.4', '@eslint/js': '10.0.1', eslint: '10.11.0',
+              'typescript-eslint': '8.70.0', prettier: '3.9.8',
+              '@nestjs/common': '11.2.1', '@nestjs/core': '11.2.1',
+              '@nestjs/platform-express': '11.2.1', 'reflect-metadata': '0.2.2', rxjs: '7.8.2'
+            }
+          };
+          writeFileSync(process.env.RUNNER_TEMP + '/f001-portable/tools/package.json', JSON.stringify(manifest, null, 2) + '\n');
           NODE
+          "$RUNNER_TEMP/f001-bootstrap/node_modules/.bin/pnpm" --dir "$RUNNER_TEMP/f001-portable/tools" install --store-dir "$RUNNER_TEMP/f001-portable/store" --ignore-scripts --no-frozen-lockfile
+          tar -czf "$RUNNER_TEMP/f001-probe/target-tools.tgz" -C "$RUNNER_TEMP/f001-portable" .
+          sha256sum "$RUNNER_TEMP/f001-probe/target-tools.tgz" | tee "$RUNNER_TEMP/f001-probe/target-tools.sha256"
       - name: Retain source and actual diagnostic results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
