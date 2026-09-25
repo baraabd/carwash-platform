@@ -8,7 +8,12 @@ export interface FoundationResult {
   readonly workspaces: number;
   readonly errors: readonly string[];
 }
-const canonicalWorkspace = "packages:\n  - 'apps/*'\n  - 'services/*'\n  - 'packages/*'\n";
+const canonicalWorkspaceGlobs = ['apps/*', 'services/*', 'packages/*'] as const;
+function workspaceGlobs(text: string): string[] {
+  const block = /^packages:\n((?:  - [^\n]+\n)+)/m.exec(text.replaceAll('\r\n', '\n'));
+  if (!block) return [];
+  return [...block[1].matchAll(/^  - ['"]([^'"]+)['"]\s*$/gm)].map((match) => match[1]!);
+}
 function json(file: string): Record<string, unknown> {
   const value: unknown = JSON.parse(readFileSync(file, 'utf8'));
   if (!value || typeof value !== 'object' || Array.isArray(value))
@@ -50,10 +55,8 @@ export function checkFoundation(root: string, checkPnpm = false): FoundationResu
   if (!result.catalog) return { ok: false, scope: 'F001-catalog-and-workspace', workspaces: 0, errors };
   const definitions = catalogDefinitions(result.catalog);
   try {
-    if (
-      readFileSync(path.join(root, 'pnpm-workspace.yaml'), 'utf8').replaceAll('\r\n', '\n') !==
-      canonicalWorkspace
-    )
+    const globs = workspaceGlobs(readFileSync(path.join(root, 'pnpm-workspace.yaml'), 'utf8'));
+    if (JSON.stringify(globs) !== JSON.stringify(canonicalWorkspaceGlobs))
       errors.push(
         'pnpm-workspace.yaml: canonical workspace discovery must remain apps/*, services/*, packages/* exactly once',
       );
