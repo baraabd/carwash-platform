@@ -8,10 +8,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { ROOT } from '../acceptance/lib/context.mjs';
-import {
-  renderServiceFiles,
-  selectFoundationShellServices,
-} from './service-template.mjs';
+import { renderServiceFiles, selectFoundationShellServices } from './service-template.mjs';
 
 const checkOnly = process.argv.includes('--check');
 const drift = [];
