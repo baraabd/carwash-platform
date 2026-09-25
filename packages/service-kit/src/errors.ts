@@ -56,7 +56,9 @@ export class DomainError extends Error {
   }
 }
 
-const STATUS_MESSAGE: Readonly<Record<number, Readonly<{ code: string; message: string }>>> = {
+const STATUS_MESSAGE: Readonly<
+  Record<number, Readonly<{ code: string; message: string }>>
+> = {
   400: { code: 'BAD_REQUEST', message: 'The request is invalid.' },
   401: { code: 'UNAUTHORIZED', message: 'Authentication is required.' },
   403: { code: 'FORBIDDEN', message: 'The operation is not allowed.' },

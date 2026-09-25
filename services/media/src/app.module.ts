@@ -32,10 +32,7 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
       logger: createLogger({ service: SERVICE_NAME }),
     }),
   ],
-  providers: [
-    { provide: DATABASE_URL, useFactory: () => databaseUrlFromEnv() },
-    PrismaService,
-  ],
+  providers: [{ provide: DATABASE_URL, useFactory: () => databaseUrlFromEnv() }, PrismaService],
   exports: [PrismaService],
 })
 export class AppModule {}

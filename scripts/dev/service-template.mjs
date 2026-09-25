@@ -87,6 +87,12 @@ export * from './infrastructure/persistence/prisma.service';
 
 function appModule(service) {
   const slice = SPECIAL_SLICES[service] ?? { imports: '', providers: '' };
+  const providers = slice.providers
+    ? `  providers: [
+    { provide: DATABASE_URL, useFactory: () => databaseUrlFromEnv() },
+    PrismaService,
+${slice.providers}  ],`
+    : `  providers: [{ provide: DATABASE_URL, useFactory: () => databaseUrlFromEnv() }, PrismaService],`;
   return `import { Module } from '@nestjs/common';
 import { HealthModule, createLogger, type DependencyProbe } from '@carwash/service-kit';
 import {
@@ -121,10 +127,7 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
       logger: createLogger({ service: SERVICE_NAME }),
     }),
   ],
-  providers: [
-    { provide: DATABASE_URL, useFactory: () => databaseUrlFromEnv() },
-    PrismaService,
-${slice.providers}  ],
+${providers}
   exports: [PrismaService],
 })
 export class AppModule {}
@@ -228,6 +231,9 @@ export function renderServiceFiles(service) {
     ['src/transport/http/create-app.ts', httpApplication()],
     ['src/transport/messaging/consumer.ts', messageConsumer(service)],
     ['src/main.ts', main(service)],
+    ['test/domain/.gitkeep', ''],
+    ['test/unit/.gitkeep', ''],
+    ['test/integration/.gitkeep', ''],
     ['Dockerfile', dockerfile(service)],
   ]);
 }

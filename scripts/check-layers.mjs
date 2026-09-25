@@ -13,7 +13,8 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const arg = process.argv.indexOf('--root');
-const ROOT = arg >= 0 ? path.resolve(process.argv[arg + 1] ?? '') : path.resolve(HERE, '..');
+const ROOT =
+  arg >= 0 ? path.resolve(process.argv[arg + 1] ?? '') : path.resolve(HERE, '..');
 if (arg >= 0 && !process.argv[arg + 1]) throw new Error('--root requires a path');
 
 const catalog = JSON.parse(
@@ -60,7 +61,9 @@ function importSpecifiers(source) {
 function targetLayer(file, specifier, serviceRoot) {
   if (!specifier.startsWith('.')) return null;
   const resolved = path.resolve(path.dirname(file), specifier);
-  const relative = path.relative(path.join(serviceRoot, 'src'), resolved).replaceAll('\\', '/');
+  const relative = path
+    .relative(path.join(serviceRoot, 'src'), resolved)
+    .replaceAll('\\', '/');
   return LAYERS.find((layer) => relative === layer || relative.startsWith(`${layer}/`)) ?? null;
 }
 
@@ -116,8 +119,21 @@ for (const service of services) {
     throw new Error(`${service} foundation shell must declare BUSINESS_READY = false`);
   }
 
+  for (const testLayer of ['domain', 'unit', 'integration']) {
+    const testDir = path.join(serviceRoot, 'test', testLayer);
+    if (!(await exists(testDir))) {
+      throw new Error(`${service} is missing required test layout: test/${testLayer}`);
+    }
+  }
+  const testFiles = await readdir(path.join(serviceRoot, 'test'));
+  if (!testFiles.some((file) => file.endsWith('.nest.spec.ts'))) {
+    throw new Error(`${service} is missing its Nest framework spec`);
+  }
+
   const dockerPath = path.join(serviceRoot, 'Dockerfile');
-  if (!(await exists(dockerPath))) throw new Error(`${service} is missing its generated Dockerfile`);
+  if (!(await exists(dockerPath))) {
+    throw new Error(`${service} is missing its generated Dockerfile`);
+  }
   const docker = await readFile(dockerPath, 'utf8');
   const fromCount = [...docker.matchAll(/^FROM\s+/gm)].length;
   if (fromCount < 2 || !/^USER node$/m.test(docker) || !/--frozen-lockfile/.test(docker)) {

@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import { HealthController, HEALTH_OPTIONS, type HealthOptions } from '@carwash/service-kit';
 import { AppModule, BUSINESS_READY, SERVICE_NAME, postgresProbe } from '../src/app.module';
 import { PrismaService, databaseUrlFromEnv } from '../src/prisma.service';
+import { createHttpApplication } from '../src/transport/http/create-app';
 
 const DSN = 'postgresql://cw_identity_app:placeholder@127.0.0.1:5432/cw_identity?schema=app';
 
@@ -24,8 +25,6 @@ function fakeResponse() {
 }
 
 async function compile() {
-  // Nest resolves DATABASE_URL through a factory; supplying it here keeps the
-  // test independent of the developer's environment.
   process.env.DATABASE_URL = DSN;
   return Test.createTestingModule({ imports: [AppModule] }).compile();
 }
@@ -35,6 +34,35 @@ test('identity: the application module compiles and wires its dependencies', asy
   assert.ok(moduleRef.get(PrismaService) instanceof PrismaService);
   assert.ok(moduleRef.get(HealthController) instanceof HealthController);
   await moduleRef.close();
+});
+
+test('identity: the real HTTP adapter boots with distinct live/ready semantics', async () => {
+  process.env.DATABASE_URL = DSN;
+  const app = await createHttpApplication();
+  await app.listen(0, '127.0.0.1');
+  try {
+    const url = await app.getUrl();
+    const live = await fetch(`${url}/health/live`);
+    assert.equal(live.status, 200);
+    assert.deepEqual(await live.json(), {
+      service: 'identity',
+      status: 'alive',
+      stage: 'foundation-only',
+    });
+
+    const ready = await fetch(`${url}/health/ready`);
+    assert.equal(ready.status, 503, 'foundation shell must not advertise business readiness');
+    const body = (await ready.json()) as {
+      businessReady: boolean;
+      ready: boolean;
+      code: string;
+    };
+    assert.equal(body.businessReady, false);
+    assert.equal(body.ready, false);
+    assert.equal(body.code, 'FOUNDATION_NOT_READY');
+  } finally {
+    await app.close();
+  }
 });
 
 test('identity: liveness reports the process is running, and its real stage', async () => {
@@ -62,8 +90,6 @@ test('identity: readiness answers 503 because the business API is not implemente
 });
 
 test('identity: a healthy dependency still does not make the shell ready', async () => {
-  // The failure this guards against: wiring a green database probe and reading
-  // it as "the service is ready", which would be a false readiness claim.
   const moduleRef = await compile();
   const options = moduleRef.get<HealthOptions>(HEALTH_OPTIONS);
   const withHealthyDependency = new HealthController({
@@ -91,7 +117,6 @@ test('identity: a failing dependency probe is reported as DOWN without leaking t
       {
         name: 'postgres',
         kind: 'postgres',
-        // Rejecting synchronously: there is no asynchronous work to await here.
         check: () => Promise.reject(new Error(`connect ECONNREFUSED ${DSN}`)),
       },
     ],

@@ -27,7 +27,7 @@ function snapshot(service) {
 }
 
 test('F003 renderer snapshot and structure are deterministic', () => {
-  assert.equal(renderServiceFiles('identity').size, 10);
+  assert.equal(renderServiceFiles('identity').size, 13);
   assert.deepEqual([...renderServiceFiles('identity').keys()], [
     'src/domain/index.ts',
     'src/application/index.ts',
@@ -38,19 +38,22 @@ test('F003 renderer snapshot and structure are deterministic', () => {
     'src/transport/http/create-app.ts',
     'src/transport/messaging/consumer.ts',
     'src/main.ts',
+    'test/domain/.gitkeep',
+    'test/unit/.gitkeep',
+    'test/integration/.gitkeep',
     'Dockerfile',
   ]);
   assert.equal(
     snapshot('identity'),
-    '2f64d550070ea36c18cb02e2efdb3f7957b99ef657eca9a7bbd11b9f404c2eb2',
+    '5b4670e93c378a090a311bea51203285162e888bf53df34e22fe04a8f9f6d022',
   );
   assert.equal(
     snapshot('catalog'),
-    '3688d3accde193830e39c6ef764777eeec1247b7baf0af5949690c4a1104ac5a',
+    'c9aff4ffbc010b2fa60b82236b9fbc2c0a7ab8f4c6178342de3820bd20d4520e',
   );
   assert.equal(
     snapshot('communications'),
-    '91107150f56851ab2fe782e605b7408b110a163e44840d9620bdcd818e765b56',
+    'b782bb45869781193d1e95cd628977113a211f35616af5de5c3431ad77835089',
   );
 });
 
@@ -78,6 +81,13 @@ async function withLayerFixture(applicationSource, body) {
       await mkdir(path.join(root, 'services/fixture/src', layer), { recursive: true });
       await writeFile(path.join(root, 'services/fixture/src', layer, 'index.ts'), 'export {};\n');
     }
+    for (const testLayer of ['domain', 'unit', 'integration']) {
+      await mkdir(path.join(root, 'services/fixture/test', testLayer), { recursive: true });
+    }
+    await writeFile(
+      path.join(root, 'services/fixture/test/fixture.nest.spec.ts'),
+      'export {};\n',
+    );
     await writeFile(
       path.join(root, 'services/fixture/src/application/use-case.ts'),
       applicationSource,
@@ -161,7 +171,12 @@ test('message consumer adapter delegates to the application and classifies failu
   });
   const failed = await failing.consume({ id: '2', type: 'probe.v1', payload: {} });
   assert.deepEqual(
-    { kind: failed.kind, code: failed.code, status: failed.status, retryable: failed.retryable },
+    {
+      kind: failed.kind,
+      code: failed.code,
+      status: failed.status,
+      retryable: failed.retryable,
+    },
     { kind: 'failed', code: 'INTERNAL_ERROR', status: 500, retryable: true },
   );
 });
