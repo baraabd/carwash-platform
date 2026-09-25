@@ -124,6 +124,14 @@ async function main(): Promise<void> {
               update: { applyCount: { increment: 1 } },
             });
           },
+          onTransientFailure: (event, deliveryCount) => {
+            emit({
+              event: 'consumer_transient_failure',
+              service: 'communications',
+              eventId: event.eventId,
+              deliveryCount,
+            });
+          },
           onBeforeAck: (event, outcome) => {
             handled += 1;
             emit({
