@@ -6,7 +6,10 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { ROOT, serviceKit } from './_load.mjs';
-import { renderServiceFiles } from '../../scripts/dev/service-template.mjs';
+import {
+  renderServiceFiles,
+  selectFoundationShellServices,
+} from '../../scripts/dev/service-template.mjs';
 
 function run(script, args = []) {
   const result = spawnSync(process.execPath, [path.join(ROOT, script), ...args], {
@@ -25,6 +28,18 @@ function snapshot(service) {
     .join('\0');
   return createHash('sha256').update(serialized).digest('hex');
 }
+
+test('F003 service selection targets runtime foundation shells only', () => {
+  assert.deepEqual(
+    selectFoundationShellServices({
+      services: [
+        { id: 'identity', runtimeImplementation: 'existing-health-only-shell' },
+        { id: 'vehicle', runtimeImplementation: 'directory-and-typescript-skeleton-only' },
+      ],
+    }),
+    ['identity'],
+  );
+});
 
 test('F003 renderer snapshot and structure are deterministic', () => {
   assert.equal(renderServiceFiles('identity').size, 13);
@@ -72,13 +87,18 @@ test('F003 clean-layer guard passes the committed services', () => {
   assert.match(result.output, /Layer guard passed: 10 service\(s\)/);
 });
 
-async function withLayerFixture(applicationSource, body) {
+async function withLayerFixture(applicationSource, body, extraServices = []) {
   const root = await mkdtemp(path.join(tmpdir(), 'cw-f003-layer-'));
   try {
     await mkdir(path.join(root, 'architecture'), { recursive: true });
     await writeFile(
       path.join(root, 'architecture/service-catalog.json'),
-      JSON.stringify({ services: [{ id: 'fixture' }] }),
+      JSON.stringify({
+        services: [
+          { id: 'fixture', runtimeImplementation: 'existing-health-only-shell' },
+          ...extraServices,
+        ],
+      }),
     );
     for (const layer of ['domain', 'application', 'ports', 'infrastructure', 'transport']) {
       await mkdir(path.join(root, 'services/fixture/src', layer), { recursive: true });
@@ -111,6 +131,18 @@ async function withLayerFixture(applicationSource, body) {
     await rm(root, { recursive: true, force: true });
   }
 }
+
+test('F003 layer guard ignores ownership-only service skeletons', async () => {
+  await withLayerFixture(
+    'export {};\n',
+    async (root) => {
+      const result = run('scripts/check-layers.mjs', ['--root', root]);
+      assert.equal(result.code, 0, result.output);
+      assert.match(result.output, /Layer guard passed: 1 service\(s\)/);
+    },
+    [{ id: 'vehicle', runtimeImplementation: 'directory-and-typescript-skeleton-only' }],
+  );
+});
 
 test('F003 layer guard rejects Nest imports from application code', async () => {
   await withLayerFixture(
