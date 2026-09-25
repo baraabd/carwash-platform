@@ -15,11 +15,11 @@
     "verify:frozen-install": "node scripts/verify-frozen-install.mjs",
     "verify:lockfile": "node scripts/verify-frozen-install.mjs --audit-only",
     "generate": "pnpm --filter \"./services/*\" --sequential run generate",
-    "build": "pnpm run build:domain && pnpm --filter \"./packages/*\" --sequential run build && pnpm --filter \"./services/*\" --sequential run build",
+    "build": "pnpm run build:domain && pnpm run build:packages && pnpm --filter \"./services/*\" --sequential run build",
     "build:tests": "pnpm --filter \"./services/*\" --sequential run build:tests",
     "build:domain": "tsc -p tsconfig.domain.json",
     "typecheck": "pnpm --filter \"./packages/*\" --sequential run typecheck && pnpm --filter \"./services/*\" --sequential run typecheck",
-    "lint": "eslint .",
+    "lint": "pnpm run build:packages && eslint .",
     "format:check": "prettier --check .",
     "format:write": "prettier --write .",
     "check:boundaries": "node scripts/check-boundaries.mjs",
@@ -36,7 +36,8 @@
     "dev:env": "node scripts/create-dev-env.mjs",
     "infra:up": "docker compose --env-file .env.local -f infra/compose.dev.yml up -d",
     "infra:down": "docker compose --env-file .env.local -f infra/compose.dev.yml down",
-    "prototype": "node scripts/serve-prototype.mjs"
+    "prototype": "node scripts/serve-prototype.mjs",
+    "build:packages": "pnpm --filter \"./packages/*\" --sequential run build"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
