@@ -255,14 +255,15 @@ for (const [relative, pattern] of IMAGE_CONSUMERS) {
  * release than the Dockerfile builds against.
  */
 const workflowDir = path.join(root, '.github/workflows');
-const TOOLCHAIN_OWNERSHIP_EXEMPT_WORKFLOWS = new Set([
-  // This workflow is byte-frozen by the approved design-reference policy.
-  // F002 must not modify it just to propagate a patch pin; its own guard
-  // verifies that the file remains identical to the trusted baseline.
-  'reference-integrity.yml',
-  // F001 owns this branch-only environment diagnostic. It does not run on
-  // main/develop/PR builds and is not part of the F002 reproducible build path.
-  'f001-environment-probe.yml',
+const TOOLCHAIN_OWNERSHIP_EXEMPT_WORKFLOWS = new Map([
+  [
+    'reference-integrity.yml',
+    'frozen by the design-reference guard; left byte-identical to the approved baseline',
+  ],
+  [
+    'f001-environment-probe.yml',
+    'owned by F001 and branch-only; not part of the F002 reproducible build path',
+  ],
 ]);
 if (!existsSync(workflowDir)) {
   pass('propagation', 'CI reads .nvmrc', 'no workflows in this tree; skipped');
@@ -274,7 +275,7 @@ if (!existsSync(workflowDir)) {
       pass(
         'propagation',
         `${file} remains outside F002 ownership`,
-        'frozen by the design-reference guard; left byte-identical to the approved baseline',
+        TOOLCHAIN_OWNERSHIP_EXEMPT_WORKFLOWS.get(file),
       );
       continue;
     }
