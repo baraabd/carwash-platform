@@ -1,0 +1,31 @@
+name: Temporary F001 lockfile repair
+on:
+  push:
+    branches: [feat/F001-monorepo-ownership]
+permissions:
+  contents: read
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Activate pinned pnpm
+        run: corepack enable && corepack prepare --activate
+      - name: Regenerate lockfile from current manifests
+        run: pnpm install --lockfile-only --no-frozen-lockfile --ignore-scripts
+      - name: Show lockfile diff
+        run: git diff -- pnpm-lock.yaml
+      - name: Upload regenerated lockfile
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: regenerated-f001-lockfile
+          path: pnpm-lock.yaml
+          if-no-files-found: error
+          retention-days: 1
