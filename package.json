@@ -37,7 +37,21 @@
     "infra:up": "docker compose --env-file .env.local -f infra/compose.dev.yml up -d",
     "infra:down": "docker compose --env-file .env.local -f infra/compose.dev.yml down",
     "prototype": "node scripts/serve-prototype.mjs",
-    "build:packages": "pnpm --filter \"./packages/*\" --sequential run build"
+    "build:packages": "pnpm --filter \"./packages/*\" --sequential run build",
+    "build:ownership": "tsc -p tsconfig.ownership.json",
+    "typecheck:ownership": "tsc -p tsconfig.ownership.json --noEmit",
+    "check:ownership": "pnpm build:ownership && node scripts/check-ownership.mjs",
+    "check:ownership:ci": "pnpm build:ownership && node scripts/check-ownership.mjs --ci --json",
+    "test:ownership": "pnpm build:ownership && node --test --test-reporter=tap tests/ownership/checker.test.mjs tests/ownership/references.test.mjs",
+    "check:foundation": "pnpm build:ownership && node scripts/check-foundation.mjs",
+    "check:foundation:ci": "pnpm build:ownership && node scripts/check-foundation.mjs --ci",
+    "test:f001": "pnpm build:ownership && node scripts/f001/test.mjs",
+    "lint:f001": "node scripts/f001/quality.mjs lint",
+    "format:f001:check": "node scripts/f001/quality.mjs format-check",
+    "format:f001:write": "node scripts/f001/quality.mjs format-write",
+    "build:workspace": "turbo run build",
+    "verify:f001": "node scripts/f001/acceptance.mjs",
+    "test:contracts": "node --test --test-reporter=tap tests/contracts/public-event-contract.test.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -45,13 +59,15 @@
     "eslint": "10.11.0",
     "prettier": "3.9.8",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.70.0"
+    "typescript-eslint": "8.70.0",
+    "turbo": "2.11.4"
   },
   "pnpm": {
     "overrides": {
       "multer": ">=2.3.0",
       "mysql2": ">=3.23.1",
-      "deepmerge-ts": ">=8.0.0"
+      "deepmerge-ts": ">=8.0.0",
+      "@nestjs/platform-express>multer": "2.3.0"
     }
   }
 }
