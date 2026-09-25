@@ -4,11 +4,11 @@ import { Test } from '@nestjs/testing';
 import { HealthController, HEALTH_OPTIONS, type HealthOptions } from '@carwash/service-kit';
 import { AppModule, BUSINESS_READY, SERVICE_NAME, postgresProbe } from '../src/app.module';
 import { PrismaService, databaseUrlFromEnv } from '../src/prisma.service';
+import { createHttpApplication } from '../src/transport/http/create-app';
 
 const DSN =
   'postgresql://cw_communications_app:placeholder@127.0.0.1:5432/cw_communications?schema=app';
 
-/** Minimal stand-in for the HTTP response, so the test needs no real server. */
 function fakeResponse() {
   const captured: { code: number | null; body: unknown } = { code: null, body: null };
   const res = {
@@ -25,8 +25,6 @@ function fakeResponse() {
 }
 
 async function compile() {
-  // Nest resolves DATABASE_URL through a factory; supplying it here keeps the
-  // test independent of the developer's environment.
   process.env.DATABASE_URL = DSN;
   return Test.createTestingModule({ imports: [AppModule] }).compile();
 }
@@ -36,6 +34,35 @@ test('communications: the application module compiles and wires its dependencies
   assert.ok(moduleRef.get(PrismaService) instanceof PrismaService);
   assert.ok(moduleRef.get(HealthController) instanceof HealthController);
   await moduleRef.close();
+});
+
+test('communications: the real HTTP adapter boots with distinct live/ready semantics', async () => {
+  process.env.DATABASE_URL = DSN;
+  const app = await createHttpApplication();
+  await app.listen(0, '127.0.0.1');
+  try {
+    const url = await app.getUrl();
+    const live = await fetch(url + '/health/live');
+    assert.equal(live.status, 200);
+    assert.deepEqual(await live.json(), {
+      service: 'communications',
+      status: 'alive',
+      stage: 'foundation-only',
+    });
+
+    const ready = await fetch(url + '/health/ready');
+    assert.equal(ready.status, 503, 'foundation shell must not advertise business readiness');
+    const body = (await ready.json()) as {
+      businessReady: boolean;
+      ready: boolean;
+      code: string;
+    };
+    assert.equal(body.businessReady, false);
+    assert.equal(body.ready, false);
+    assert.equal(body.code, 'FOUNDATION_NOT_READY');
+  } finally {
+    await app.close();
+  }
 });
 
 test('communications: liveness reports the process is running, and its real stage', async () => {
@@ -49,7 +76,7 @@ test('communications: liveness reports the process is running, and its real stag
   await moduleRef.close();
 });
 
-test('communications: readiness answers 503 because the business API is not implemented', async () => {
+test('communications: foundation readiness returns 503', async () => {
   const moduleRef = await compile();
   const controller = moduleRef.get(HealthController);
   const { res, captured } = fakeResponse();
@@ -63,8 +90,6 @@ test('communications: readiness answers 503 because the business API is not impl
 });
 
 test('communications: a healthy dependency still does not make the shell ready', async () => {
-  // The failure this guards against: wiring a green database probe and reading
-  // it as "the service is ready", which would be a false readiness claim.
   const moduleRef = await compile();
   const options = moduleRef.get<HealthOptions>(HEALTH_OPTIONS);
   const withHealthyDependency = new HealthController({
@@ -82,7 +107,7 @@ test('communications: a healthy dependency still does not make the shell ready',
   await moduleRef.close();
 });
 
-test('communications: a failing dependency probe is reported as DOWN without leaking the DSN', async () => {
+test('communications: dependency failure is DOWN without credential leakage', async () => {
   const moduleRef = await compile();
   const options = moduleRef.get<HealthOptions>(HEALTH_OPTIONS);
   const controller = new HealthController({
@@ -92,8 +117,7 @@ test('communications: a failing dependency probe is reported as DOWN without lea
       {
         name: 'postgres',
         kind: 'postgres',
-        // Rejecting synchronously: there is no asynchronous work to await here.
-        check: () => Promise.reject(new Error(`connect ECONNREFUSED ${DSN}`)),
+        check: () => Promise.reject(new Error('connect ECONNREFUSED ' + DSN)),
       },
     ],
   });

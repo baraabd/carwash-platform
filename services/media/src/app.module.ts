@@ -1,14 +1,15 @@
 import { Module } from '@nestjs/common';
 import { HealthModule, createLogger, type DependencyProbe } from '@carwash/service-kit';
-import { DATABASE_URL, PrismaService, databaseUrlFromEnv } from './prisma.service';
-
+import {
+  DATABASE_URL,
+  PrismaService,
+  databaseUrlFromEnv,
+} from './infrastructure/persistence/prisma.service';
 /**
- * media service module.
+ * Composition root for the media service.
  *
- * businessReady is FALSE: this sprint delivers the runtime foundation, not the
- * media business API. Readiness therefore answers 503 while still reporting
- * the real state of its dependencies. Flipping this to true without an
- * implemented API would be a false readiness claim.
+ * Nest belongs here at the outside edge. Domain/application/ports do not import
+ * it. BUSINESS_READY stays false while this is only a foundation shell.
  */
 export const SERVICE_NAME = 'media';
 export const BUSINESS_READY = false;

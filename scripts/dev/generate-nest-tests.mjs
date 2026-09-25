@@ -3,13 +3,12 @@
  * Writes the NestJS framework tests every service must pass.
  *
  * These are framework tests, not business tests: they prove the module graph
- * actually compiles, that dependency injection resolves, that liveness and
- * readiness mean different things, and that a foundation shell refuses to
- * advertise business readiness. Sprint 0.2 delivers no business API, so there is
- * nothing else here to test.
+ * compiles, the real HTTP adapter boots, liveness/readiness stay distinct and a
+ * foundation shell refuses to advertise business readiness.
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { format } from 'prettier';
 import { ROOT, SERVICES } from '../acceptance/lib/context.mjs';
 
 const spec = (service) => `import test from 'node:test';
@@ -18,10 +17,10 @@ import { Test } from '@nestjs/testing';
 import { HealthController, HEALTH_OPTIONS, type HealthOptions } from '@carwash/service-kit';
 import { AppModule, BUSINESS_READY, SERVICE_NAME, postgresProbe } from '../src/app.module';
 import { PrismaService, databaseUrlFromEnv } from '../src/prisma.service';
+import { createHttpApplication } from '../src/transport/http/create-app';
 
 const DSN = 'postgresql://cw_${service}_app:placeholder@127.0.0.1:5432/cw_${service}?schema=app';
 
-/** Minimal stand-in for the HTTP response, so the test needs no real server. */
 function fakeResponse() {
   const captured: { code: number | null; body: unknown } = { code: null, body: null };
   const res = {
@@ -38,8 +37,6 @@ function fakeResponse() {
 }
 
 async function compile() {
-  // Nest resolves DATABASE_URL through a factory; supplying it here keeps the
-  // test independent of the developer's environment.
   process.env.DATABASE_URL = DSN;
   return Test.createTestingModule({ imports: [AppModule] }).compile();
 }
@@ -49,6 +46,35 @@ test('${service}: the application module compiles and wires its dependencies', a
   assert.ok(moduleRef.get(PrismaService) instanceof PrismaService);
   assert.ok(moduleRef.get(HealthController) instanceof HealthController);
   await moduleRef.close();
+});
+
+test('${service}: the real HTTP adapter boots with distinct live/ready semantics', async () => {
+  process.env.DATABASE_URL = DSN;
+  const app = await createHttpApplication();
+  await app.listen(0, '127.0.0.1');
+  try {
+    const url = await app.getUrl();
+    const live = await fetch(url + '/health/live');
+    assert.equal(live.status, 200);
+    assert.deepEqual(await live.json(), {
+      service: '${service}',
+      status: 'alive',
+      stage: 'foundation-only',
+    });
+
+    const ready = await fetch(url + '/health/ready');
+    assert.equal(ready.status, 503, 'foundation shell must not advertise business readiness');
+    const body = (await ready.json()) as {
+      businessReady: boolean;
+      ready: boolean;
+      code: string;
+    };
+    assert.equal(body.businessReady, false);
+    assert.equal(body.ready, false);
+    assert.equal(body.code, 'FOUNDATION_NOT_READY');
+  } finally {
+    await app.close();
+  }
 });
 
 test('${service}: liveness reports the process is running, and its real stage', async () => {
@@ -62,7 +88,7 @@ test('${service}: liveness reports the process is running, and its real stage', 
   await moduleRef.close();
 });
 
-test('${service}: readiness answers 503 because the business API is not implemented', async () => {
+test('${service}: foundation readiness returns 503', async () => {
   const moduleRef = await compile();
   const controller = moduleRef.get(HealthController);
   const { res, captured } = fakeResponse();
@@ -76,8 +102,6 @@ test('${service}: readiness answers 503 because the business API is not implemen
 });
 
 test('${service}: a healthy dependency still does not make the shell ready', async () => {
-  // The failure this guards against: wiring a green database probe and reading
-  // it as "the service is ready", which would be a false readiness claim.
   const moduleRef = await compile();
   const options = moduleRef.get<HealthOptions>(HEALTH_OPTIONS);
   const withHealthyDependency = new HealthController({
@@ -95,7 +119,7 @@ test('${service}: a healthy dependency still does not make the shell ready', asy
   await moduleRef.close();
 });
 
-test('${service}: a failing dependency probe is reported as DOWN without leaking the DSN', async () => {
+test('${service}: dependency failure is DOWN without credential leakage', async () => {
   const moduleRef = await compile();
   const options = moduleRef.get<HealthOptions>(HEALTH_OPTIONS);
   const controller = new HealthController({
@@ -105,20 +129,25 @@ test('${service}: a failing dependency probe is reported as DOWN without leaking
       {
         name: 'postgres',
         kind: 'postgres',
-        // Rejecting synchronously: there is no asynchronous work to await here.
-        check: () => Promise.reject(new Error(\`connect ECONNREFUSED \${DSN}\`)),
+        check: () => Promise.reject(new Error('connect ECONNREFUSED ' + DSN)),
       },
     ],
   });
   const { res, captured } = fakeResponse();
   await controller.ready(res);
   assert.equal(captured.code, 503);
-  const body = captured.body as { code: string; dependencies: { status: string; error?: string }[] };
+  const body = captured.body as {
+    code: string;
+    dependencies: { status: string; error?: string }[];
+  };
   assert.equal(body.code, 'DEPENDENCY_DOWN');
   assert.equal(body.dependencies.length, 1);
   const [dependency] = body.dependencies;
   assert.equal(dependency?.status, 'DOWN');
-  assert.ok(!JSON.stringify(body).includes('placeholder'), 'the probe error must not carry credentials');
+  assert.ok(
+    !JSON.stringify(body).includes('placeholder'),
+    'the probe error must not carry credentials',
+  );
   await moduleRef.close();
 });
 
@@ -144,6 +173,15 @@ test('${service}: the postgres probe is wired to this service own client', async
 for (const service of SERVICES) {
   const dir = path.join(ROOT, 'services', service, 'test');
   await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, `${service}.nest.spec.ts`), spec(service), 'utf8');
+  const output = await format(spec(service), {
+    parser: 'typescript',
+    singleQuote: true,
+    trailingComma: 'all',
+    printWidth: 100,
+    semi: true,
+    arrowParens: 'always',
+    endOfLine: 'lf',
+  });
+  await writeFile(path.join(dir, `${service}.nest.spec.ts`), output, 'utf8');
   console.log(`wrote services/${service}/test/${service}.nest.spec.ts`);
 }
