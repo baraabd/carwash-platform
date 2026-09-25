@@ -9,11 +9,11 @@ import { catalogDefinitions } from '../../dist/ownership/catalog.mjs';
 import { checkRepository } from '../../dist/ownership/checker.mjs';
 import { catalog, fixture } from './fixtures.mjs';
 const sourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-test('static workspace discovery accounts for all 33 synthetic fixture workspaces exactly once', (t) => {
+test('static workspace discovery accounts for all 35 synthetic fixture workspaces exactly once', (t) => {
   const f = fixture(t);
   const result = checkFoundation(f.root);
   assert.deepEqual(result.errors, []);
-  assert.equal(result.workspaces, 33);
+  assert.equal(result.workspaces, 35);
   assert.equal(result.scope, 'F001-catalog-and-static-workspace-only');
   assert.equal(checkRepository(f.root).ok, true);
 });
@@ -71,7 +71,7 @@ for (const [name, edit] of Object.entries(cases))
     edit(f);
     assert.equal(checkFoundation(f.root).ok, false);
   });
-test('pnpm output comparator accepts 33 rows with or without the root row (not a real pnpm run)', (t) => {
+test('pnpm output comparator accepts 35 rows with or without the root row (not a real pnpm run)', (t) => {
   const f = fixture(t);
   const definitions = catalogDefinitions(catalog);
   assert.deepEqual(comparePnpmDiscovery(f.root, definitions, f.rows), []);
