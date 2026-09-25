@@ -1,5 +1,5 @@
 {
-  "name": "@carwash/event-contracts",
+  "name": "@carwash/tsconfig",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -12,12 +12,9 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/booking-confirmed.d.ts",
-      "import": "./dist/booking-confirmed.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
-    "./booking-confirmed": {
-      "types": "./dist/booking-confirmed.d.ts",
-      "import": "./dist/booking-confirmed.js"
-    }
+    "./base.json": "./base.json"
   }
 }

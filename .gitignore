@@ -6,3 +6,6 @@ dist/
 coverage/
 playwright-report/
 test-results/
+
+# F001 local task cache; source and evidence are never hidden.
+.turbo/

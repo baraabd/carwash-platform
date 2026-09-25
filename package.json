@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build:domain": "tsc -p tsconfig.domain.json",
-    "test:domain": "node --test tests/*.test.mjs",
+    "test:domain": "node --test --test-reporter=tap tests/*.test.mjs",
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "verify:foundation": "pnpm check:boundaries && pnpm build:domain && pnpm test:domain",
     "dev:env": "node scripts/create-dev-env.mjs",
@@ -17,9 +17,34 @@
     "infra:down": "docker compose --env-file .env.local -f infra/compose.dev.yml down",
     "prototype": "node scripts/serve-prototype.mjs",
     "check:design-reference": "node scripts/check-design-reference.mjs",
-    "test:design-lock": "node --test tests/design/reference-lock.test.mjs"
+    "test:design-lock": "node --test --test-reporter=tap tests/design/reference-lock.test.mjs",
+    "build:ownership": "tsc -p tsconfig.ownership.json",
+    "typecheck:ownership": "tsc -p tsconfig.ownership.json --noEmit",
+    "check:ownership": "pnpm build:ownership && node scripts/check-ownership.mjs",
+    "check:ownership:ci": "pnpm build:ownership && node scripts/check-ownership.mjs --ci --json",
+    "test:ownership": "pnpm build:ownership && node --test --test-reporter=tap tests/ownership/checker.test.mjs tests/ownership/references.test.mjs",
+    "check:foundation": "pnpm build:ownership && node scripts/check-foundation.mjs",
+    "check:foundation:ci": "pnpm build:ownership && node scripts/check-foundation.mjs --ci",
+    "test:f001": "pnpm build:ownership && node scripts/f001/test.mjs",
+    "lint:f001": "node scripts/f001/quality.mjs lint",
+    "format:f001:check": "node scripts/f001/quality.mjs format-check",
+    "format:f001:write": "node scripts/f001/quality.mjs format-write",
+    "build:workspace": "turbo run build",
+    "verify:f001": "node scripts/f001/acceptance.mjs",
+    "test:contracts": "node --test --test-reporter=tap tests/contracts/public-event-contract.test.mjs"
   },
   "devDependencies": {
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "@types/node": "24.0.0",
+    "turbo": "2.11.4",
+    "@eslint/js": "10.0.1",
+    "eslint": "10.11.0",
+    "typescript-eslint": "8.70.0",
+    "prettier": "3.9.8"
+  },
+  "pnpm": {
+    "overrides": {
+      "@nestjs/platform-express>multer": "2.3.0"
+    }
   }
 }
