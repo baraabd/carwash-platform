@@ -1,0 +1,462 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://washgo.invalid/schemas/service-catalog-v2.json",
+  "title": "F001 ownership baseline, not runtime certification",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "const": "./service-catalog.schema.json"
+    },
+    "schemaVersion": {
+      "const": 2
+    },
+    "sprint": {
+      "const": "F001"
+    },
+    "status": {
+      "const": "ownership-baseline-not-runtime-acceptance"
+    },
+    "operatingModel": {
+      "type": "string",
+      "minLength": 1
+    },
+    "publicIngress": {
+      "const": "api-gateway"
+    },
+    "services": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/service"
+      },
+      "minItems": 19,
+      "maxItems": 19
+    },
+    "gateway": {
+      "$ref": "#/$defs/gateway"
+    },
+    "apps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/app"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "sharedPackages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/shared"
+      },
+      "minItems": 12,
+      "maxItems": 12
+    },
+    "policy": {
+      "type": "object",
+      "properties": {
+        "crossServiceDatabaseAccess": {
+          "const": false
+        },
+        "crossServiceImplementationImports": {
+          "const": false
+        },
+        "gatewayBusinessState": {
+          "const": false
+        },
+        "sharedBusinessLogic": {
+          "const": false
+        },
+        "distributedWrites": {
+          "const": "owner-local-outbox-inbox-and-explicit-saga"
+        },
+        "databaseIsolationVerified": {
+          "const": false
+        }
+      },
+      "required": [
+        "crossServiceDatabaseAccess",
+        "crossServiceImplementationImports",
+        "gatewayBusinessState",
+        "sharedBusinessLogic",
+        "distributedWrites",
+        "databaseIsolationVerified"
+      ],
+      "additionalProperties": false
+    },
+    "legacyPrototypeLocations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^services/[a-z]+/src/domain/[a-z]+\\.ts$"
+          },
+          "futureDataOwner": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "state": {
+            "const": "preserved-unconnected-pure-prototype"
+          }
+        },
+        "required": ["path", "futureDataOwner", "state"],
+        "additionalProperties": false
+      },
+      "minItems": 3,
+      "maxItems": 3
+    }
+  },
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "sprint",
+    "status",
+    "operatingModel",
+    "publicIngress",
+    "services",
+    "gateway",
+    "apps",
+    "sharedPackages",
+    "policy",
+    "legacyPrototypeLocations"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "api": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "prefix": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^/(internal/v1/[a-z-]+|api/v1)$"
+        },
+        "status": {
+          "const": "planned-not-implemented"
+        },
+        "contractPackage": {
+          "const": "@carwash/contracts"
+        }
+      },
+      "required": ["version", "prefix", "status", "contractPackage"],
+      "additionalProperties": false
+    },
+    "events": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "published": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z-]*\\.[a-z][a-z-]*\\.v1$"
+          },
+          "uniqueItems": true
+        },
+        "status": {
+          "const": "planned-not-implemented"
+        },
+        "contractPackage": {
+          "const": "@carwash/event-contracts"
+        }
+      },
+      "required": ["version", "published", "status", "contractPackage"],
+      "additionalProperties": false
+    },
+    "deployment": {
+      "type": "object",
+      "properties": {
+        "artifact": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^carwash-[a-z-]+$"
+        },
+        "independent": {
+          "const": true
+        },
+        "verified": {
+          "const": false
+        }
+      },
+      "required": ["artifact", "independent", "verified"],
+      "additionalProperties": false
+    },
+    "service": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^services/[a-z-]+$"
+        },
+        "packageName": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^@carwash/[a-z-]+$"
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^domain:[a-z-]+$"
+        },
+        "reviewer": {
+          "const": "baraabd"
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "responsibilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 3,
+          "uniqueItems": true
+        },
+        "database": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^cw_[a-z]+$"
+        },
+        "runtimeRole": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^cw_[a-z]+_app$"
+        },
+        "migrationRole": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^cw_[a-z]+_migrate$"
+        },
+        "dataStatus": {
+          "const": "reserved-not-provisioned-by-F001"
+        },
+        "owns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z_]*$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "api": {
+          "$ref": "#/$defs/api"
+        },
+        "events": {
+          "$ref": "#/$defs/events"
+        },
+        "forbiddenDependencies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^@carwash/[a-z-]+$"
+          },
+          "minItems": 19,
+          "maxItems": 19,
+          "uniqueItems": true
+        },
+        "deployment": {
+          "$ref": "#/$defs/deployment"
+        },
+        "runtimeImplementation": {
+          "enum": ["existing-health-only-shell", "directory-and-typescript-skeleton-only"]
+        }
+      },
+      "required": [
+        "id",
+        "path",
+        "packageName",
+        "owner",
+        "reviewer",
+        "purpose",
+        "responsibilities",
+        "database",
+        "runtimeRole",
+        "migrationRole",
+        "dataStatus",
+        "owns",
+        "api",
+        "events",
+        "forbiddenDependencies",
+        "deployment",
+        "runtimeImplementation"
+      ],
+      "additionalProperties": false
+    },
+    "gateway": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "const": "gateway"
+        },
+        "path": {
+          "const": "apps/api-gateway"
+        },
+        "packageName": {
+          "const": "@carwash/api-gateway"
+        },
+        "owner": {
+          "const": "technical:gateway"
+        },
+        "reviewer": {
+          "const": "baraabd"
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "database": {
+          "type": "null"
+        },
+        "runtimeRole": {
+          "type": "null"
+        },
+        "migrationRole": {
+          "type": "null"
+        },
+        "owns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "maxItems": 0
+        },
+        "api": {
+          "$ref": "#/$defs/api"
+        },
+        "events": {
+          "$ref": "#/$defs/events"
+        },
+        "forbiddenDependencies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^@carwash/[a-z-]+$"
+          },
+          "minItems": 19,
+          "maxItems": 19,
+          "uniqueItems": true
+        },
+        "deployment": {
+          "$ref": "#/$defs/deployment"
+        },
+        "runtimeImplementation": {
+          "enum": ["existing-health-only-shell", "directory-and-typescript-skeleton-only"]
+        }
+      },
+      "required": [
+        "id",
+        "path",
+        "packageName",
+        "owner",
+        "reviewer",
+        "purpose",
+        "database",
+        "runtimeRole",
+        "migrationRole",
+        "owns",
+        "api",
+        "events",
+        "forbiddenDependencies",
+        "deployment",
+        "runtimeImplementation"
+      ],
+      "additionalProperties": false
+    },
+    "app": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "enum": ["customer-web", "operator-web", "admin-web"]
+        },
+        "audience": {
+          "enum": ["customer", "technician", "admin"]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^apps/[a-z-]+$"
+        },
+        "packageName": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^@carwash/[a-z-]+$"
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^experience:[a-z]+$"
+        },
+        "reviewer": {
+          "const": "baraabd"
+        }
+      },
+      "required": ["id", "audience", "path", "packageName", "owner", "reviewer"],
+      "additionalProperties": false
+    },
+    "shared": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "enum": [
+            "event-contracts",
+            "contracts",
+            "api-clients",
+            "ui",
+            "design-tokens",
+            "observability",
+            "security-kit",
+            "test-utils",
+            "eslint-config",
+            "tsconfig",
+            "service-kit",
+            "platform-messaging"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^packages/[a-z-]+$"
+        },
+        "packageName": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^@carwash/[a-z-]+$"
+        },
+        "zone": {
+          "enum": ["contracts", "ui", "technical", "test", "config"]
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^platform:[a-z-]+$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$"
+        }
+      },
+      "required": ["id", "path", "packageName", "zone", "owner", "version"],
+      "additionalProperties": false
+    }
+  }
+}

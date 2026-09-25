@@ -27,6 +27,13 @@ export default tseslint.config(
       // Byte-frozen guard tests are executed by test:design-lock; lint must not
       // require edits to files the design-reference policy forbids changing.
       'tests/design/**',
+      // F001-owned source is linted by eslint.f001.config.mjs in its own mandatory gate.
+      // Do not apply a second, different global policy to the same files.
+      'scripts/f001/**',
+      'scripts/ownership/**',
+      'tests/contracts/**',
+      'tests/foundation/**',
+      'tests/ownership/**',
       'docs/**',
     ],
   },

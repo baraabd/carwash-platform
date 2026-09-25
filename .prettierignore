@@ -50,3 +50,15 @@ scripts/create-dev-env.mjs
 scripts/create-github-repo.mjs
 scripts/serve-prototype.mjs
 packages/event-contracts/src/booking-confirmed.ts
+
+# ---------------------------------------------------------------------------
+# F001-owned source has its own locked formatter configuration (printWidth 110)
+# and is verified by `pnpm format:f001:check`. The global Sprint 0.2 formatter
+# uses printWidth 100, so running both policies over the same files creates
+# artificial style churn rather than additional coverage.
+# ---------------------------------------------------------------------------
+scripts/f001/
+scripts/ownership/
+tests/contracts/
+tests/foundation/
+tests/ownership/

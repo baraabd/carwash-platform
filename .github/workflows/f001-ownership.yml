@@ -1,0 +1,50 @@
+name: F001 ownership and workspace acceptance
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: f001-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  f001:
+    name: F001 final-source acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # same pinned release as original reference guard
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # same pinned release as original reference guard
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0, resolved from signed upstream tag
+        with:
+          version: '10.32.1'
+          run_install: false
+      - name: Run all gates on the checked-out source without replacing missing evidence
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          EVIDENCE_DIR: ${{ runner.temp }}/f001-evidence
+          TURBO_TELEMETRY_DISABLED: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || [[ "$BASE_SHA" == "0000000000000000000000000000000000000000" ]]; then
+            BASE_SHA=0d6453fc65b62efd287ad3728930857d930e6601
+          fi
+          node scripts/f001/acceptance.mjs --ci --base-ref "$BASE_SHA" --evidence-dir "$EVIDENCE_DIR"
+      - name: Retain real logs even when a prerequisite or test fails
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: f001-evidence-${{ github.sha }}
+          path: ${{ runner.temp }}/f001-evidence
+          if-no-files-found: error
+          retention-days: 14

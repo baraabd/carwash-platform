@@ -1,153 +1,1293 @@
 {
-  "schemaVersion": 1,
-  "status": "proposed-target-with-foundation-code",
+  "$schema": "./service-catalog.schema.json",
+  "schemaVersion": 2,
+  "sprint": "F001",
+  "status": "ownership-baseline-not-runtime-acceptance",
   "operatingModel": "company-managed teams is an explicit initial assumption, not a confirmed user decision",
   "publicIngress": "api-gateway",
   "services": [
     {
       "id": "identity",
+      "path": "services/identity",
+      "packageName": "@carwash/identity",
+      "owner": "domain:identity",
+      "reviewer": "baraabd",
+      "purpose": "Accounts, authentication, sessions and permission grants",
+      "responsibilities": [
+        "Accounts, authentication, sessions and permission grants",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
       "database": "cw_identity",
       "runtimeRole": "cw_identity_app",
       "migrationRole": "cw_identity_migrate",
-      "owns": [
-        "users",
-        "credentials",
-        "sessions",
-        "roles",
-        "permissions"
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["users", "credentials", "sessions", "roles", "permissions"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/identity",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["identity.user-updated.v1", "identity.access-revoked.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/booking",
+        "@carwash/catalog",
+        "@carwash/communications",
+        "@carwash/configuration",
+        "@carwash/customer",
+        "@carwash/dispatch",
+        "@carwash/geo",
+        "@carwash/media",
+        "@carwash/pricing",
+        "@carwash/reporting",
+        "@carwash/reviews",
+        "@carwash/scheduling",
+        "@carwash/subscription",
+        "@carwash/support",
+        "@carwash/vehicle",
+        "@carwash/wallet",
+        "@carwash/workforce"
       ],
-      "purpose": "Authentication, sessions, roles and grants",
-      "runtimeImplementation": "health-only shell; business API not implemented"
+      "deployment": {
+        "artifact": "carwash-identity",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "existing-health-only-shell"
     },
     {
       "id": "customer",
+      "path": "services/customer",
+      "packageName": "@carwash/customer",
+      "owner": "domain:customer",
+      "reviewer": "baraabd",
+      "purpose": "Customer profiles, owned addresses, preferences and consent",
+      "responsibilities": [
+        "Customer profiles, owned addresses, preferences and consent",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
       "database": "cw_customer",
       "runtimeRole": "cw_customer_app",
       "migrationRole": "cw_customer_migrate",
-      "owns": [
-        "customers",
-        "vehicles",
-        "addresses",
-        "preferences"
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["customers", "addresses", "preferences", "customer_consents"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/customer",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["customer.profile-updated.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/booking",
+        "@carwash/catalog",
+        "@carwash/communications",
+        "@carwash/configuration",
+        "@carwash/dispatch",
+        "@carwash/geo",
+        "@carwash/identity",
+        "@carwash/media",
+        "@carwash/pricing",
+        "@carwash/reporting",
+        "@carwash/reviews",
+        "@carwash/scheduling",
+        "@carwash/subscription",
+        "@carwash/support",
+        "@carwash/vehicle",
+        "@carwash/wallet",
+        "@carwash/workforce"
       ],
-      "purpose": "Customer profile, owned vehicles, addresses and preferences",
-      "runtimeImplementation": "health-only shell; business API not implemented"
+      "deployment": {
+        "artifact": "carwash-customer",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "existing-health-only-shell"
+    },
+    {
+      "id": "vehicle",
+      "path": "services/vehicle",
+      "packageName": "@carwash/vehicle",
+      "owner": "domain:vehicle",
+      "reviewer": "baraabd",
+      "purpose": "Vehicles, plate metadata and customer-vehicle ownership",
+      "responsibilities": [
+        "Vehicles, plate metadata and customer-vehicle ownership",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
+      "database": "cw_vehicle",
+      "runtimeRole": "cw_vehicle_app",
+      "migrationRole": "cw_vehicle_migrate",
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["vehicles", "vehicle_ownerships"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/vehicle",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["vehicle.vehicle-updated.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/booking",
+        "@carwash/catalog",
+        "@carwash/communications",
+        "@carwash/configuration",
+        "@carwash/customer",
+        "@carwash/dispatch",
+        "@carwash/geo",
+        "@carwash/identity",
+        "@carwash/media",
+        "@carwash/pricing",
+        "@carwash/reporting",
+        "@carwash/reviews",
+        "@carwash/scheduling",
+        "@carwash/subscription",
+        "@carwash/support",
+        "@carwash/wallet",
+        "@carwash/workforce"
+      ],
+      "deployment": {
+        "artifact": "carwash-vehicle",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "directory-and-typescript-skeleton-only"
     },
     {
       "id": "catalog",
+      "path": "services/catalog",
+      "packageName": "@carwash/catalog",
+      "owner": "domain:catalog",
+      "reviewer": "baraabd",
+      "purpose": "Wash definitions, add-ons, durations and compatibility; never monetary quotes",
+      "responsibilities": [
+        "Wash definitions, add-ons, durations and compatibility; never monetary quotes",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
       "database": "cw_catalog",
       "runtimeRole": "cw_catalog_app",
       "migrationRole": "cw_catalog_migrate",
-      "owns": [
-        "packages",
-        "addons",
-        "price_versions",
-        "quotes",
-        "promotions"
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["packages", "addons", "service_compatibilities"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/catalog",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["catalog.package-updated.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/booking",
+        "@carwash/communications",
+        "@carwash/configuration",
+        "@carwash/customer",
+        "@carwash/dispatch",
+        "@carwash/geo",
+        "@carwash/identity",
+        "@carwash/media",
+        "@carwash/pricing",
+        "@carwash/reporting",
+        "@carwash/reviews",
+        "@carwash/scheduling",
+        "@carwash/subscription",
+        "@carwash/support",
+        "@carwash/vehicle",
+        "@carwash/wallet",
+        "@carwash/workforce"
       ],
-      "purpose": "Wash packages, add-ons, price versions and expiring quotes",
-      "runtimeImplementation": "health-only shell; business API not implemented"
+      "deployment": {
+        "artifact": "carwash-catalog",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "existing-health-only-shell"
     },
     {
-      "id": "workforce",
-      "database": "cw_workforce",
-      "runtimeRole": "cw_workforce_app",
-      "migrationRole": "cw_workforce_migrate",
-      "owns": [
-        "operators",
-        "teams",
-        "vans",
-        "equipment",
-        "verification_cases",
-        "work_grants"
+      "id": "pricing",
+      "path": "services/pricing",
+      "packageName": "@carwash/pricing",
+      "owner": "domain:pricing",
+      "reviewer": "baraabd",
+      "purpose": "Versioned prices, promotions and expiring server-issued quotes",
+      "responsibilities": [
+        "Versioned prices, promotions and expiring server-issued quotes",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
       ],
-      "purpose": "Operators, teams, vans, onboarding and verification decisions",
-      "runtimeImplementation": "health-only shell; business API not implemented"
+      "database": "cw_pricing",
+      "runtimeRole": "cw_pricing_app",
+      "migrationRole": "cw_pricing_migrate",
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["price_versions", "quotes", "promotions"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/pricing",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["pricing.quote-issued.v1", "pricing.price-published.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/booking",
+        "@carwash/catalog",
+        "@carwash/communications",
+        "@carwash/configuration",
+        "@carwash/customer",
+        "@carwash/dispatch",
+        "@carwash/geo",
+        "@carwash/identity",
+        "@carwash/media",
+        "@carwash/reporting",
+        "@carwash/reviews",
+        "@carwash/scheduling",
+        "@carwash/subscription",
+        "@carwash/support",
+        "@carwash/vehicle",
+        "@carwash/wallet",
+        "@carwash/workforce"
+      ],
+      "deployment": {
+        "artifact": "carwash-pricing",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "directory-and-typescript-skeleton-only"
     },
     {
       "id": "booking",
+      "path": "services/booking",
+      "packageName": "@carwash/booking",
+      "owner": "domain:booking",
+      "reviewer": "baraabd",
+      "purpose": "Booking lifecycle and persistent orchestration; never capacity or payment authority",
+      "responsibilities": [
+        "Booking lifecycle and persistent orchestration; never capacity or payment authority",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
       "database": "cw_booking",
       "runtimeRole": "cw_booking_app",
       "migrationRole": "cw_booking_migrate",
-      "owns": [
-        "bookings",
-        "reservations",
-        "assignments",
-        "booking_events",
-        "sagas"
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["bookings", "booking_events", "sagas"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/booking",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["booking.confirmed.v1", "booking.cancelled.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/catalog",
+        "@carwash/communications",
+        "@carwash/configuration",
+        "@carwash/customer",
+        "@carwash/dispatch",
+        "@carwash/geo",
+        "@carwash/identity",
+        "@carwash/media",
+        "@carwash/pricing",
+        "@carwash/reporting",
+        "@carwash/reviews",
+        "@carwash/scheduling",
+        "@carwash/subscription",
+        "@carwash/support",
+        "@carwash/vehicle",
+        "@carwash/wallet",
+        "@carwash/workforce"
       ],
-      "purpose": "Bookings, resource reservations, scheduling and dispatch",
-      "runtimeImplementation": "health-only shell; business API not implemented"
+      "deployment": {
+        "artifact": "carwash-booking",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "existing-health-only-shell"
+    },
+    {
+      "id": "scheduling",
+      "path": "services/scheduling",
+      "packageName": "@carwash/scheduling",
+      "owner": "domain:scheduling",
+      "reviewer": "baraabd",
+      "purpose": "Capacity, time windows, expiring holds and conflict prevention",
+      "responsibilities": [
+        "Capacity, time windows, expiring holds and conflict prevention",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
+      "database": "cw_scheduling",
+      "runtimeRole": "cw_scheduling_app",
+      "migrationRole": "cw_scheduling_migrate",
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["reservations", "capacity_windows", "capacity_holds"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/scheduling",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["scheduling.hold-created.v1", "scheduling.hold-expired.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/booking",
+        "@carwash/catalog",
+        "@carwash/communications",
+        "@carwash/configuration",
+        "@carwash/customer",
+        "@carwash/dispatch",
+        "@carwash/geo",
+        "@carwash/identity",
+        "@carwash/media",
+        "@carwash/pricing",
+        "@carwash/reporting",
+        "@carwash/reviews",
+        "@carwash/subscription",
+        "@carwash/support",
+        "@carwash/vehicle",
+        "@carwash/wallet",
+        "@carwash/workforce"
+      ],
+      "deployment": {
+        "artifact": "carwash-scheduling",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "directory-and-typescript-skeleton-only"
+    },
+    {
+      "id": "dispatch",
+      "path": "services/dispatch",
+      "packageName": "@carwash/dispatch",
+      "owner": "domain:dispatch",
+      "reviewer": "baraabd",
+      "purpose": "Assignment of eligible workforce to reserved bookings",
+      "responsibilities": [
+        "Assignment of eligible workforce to reserved bookings",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
+      "database": "cw_dispatch",
+      "runtimeRole": "cw_dispatch_app",
+      "migrationRole": "cw_dispatch_migrate",
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["assignments", "dispatch_attempts"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/dispatch",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["dispatch.assignment-created.v1", "dispatch.assignment-released.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/booking",
+        "@carwash/catalog",
+        "@carwash/communications",
+        "@carwash/configuration",
+        "@carwash/customer",
+        "@carwash/geo",
+        "@carwash/identity",
+        "@carwash/media",
+        "@carwash/pricing",
+        "@carwash/reporting",
+        "@carwash/reviews",
+        "@carwash/scheduling",
+        "@carwash/subscription",
+        "@carwash/support",
+        "@carwash/vehicle",
+        "@carwash/wallet",
+        "@carwash/workforce"
+      ],
+      "deployment": {
+        "artifact": "carwash-dispatch",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "directory-and-typescript-skeleton-only"
+    },
+    {
+      "id": "workforce",
+      "path": "services/workforce",
+      "packageName": "@carwash/workforce",
+      "owner": "domain:workforce",
+      "reviewer": "baraabd",
+      "purpose": "Personnel, teams, equipment, shifts, verification and work eligibility",
+      "responsibilities": [
+        "Personnel, teams, equipment, shifts, verification and work eligibility",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
+      "database": "cw_workforce",
+      "runtimeRole": "cw_workforce_app",
+      "migrationRole": "cw_workforce_migrate",
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["operators", "teams", "vans", "equipment", "verification_cases", "work_grants", "work_shifts"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/workforce",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["workforce.eligibility-changed.v1", "workforce.shift-updated.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/booking",
+        "@carwash/catalog",
+        "@carwash/communications",
+        "@carwash/configuration",
+        "@carwash/customer",
+        "@carwash/dispatch",
+        "@carwash/geo",
+        "@carwash/identity",
+        "@carwash/media",
+        "@carwash/pricing",
+        "@carwash/reporting",
+        "@carwash/reviews",
+        "@carwash/scheduling",
+        "@carwash/subscription",
+        "@carwash/support",
+        "@carwash/vehicle",
+        "@carwash/wallet"
+      ],
+      "deployment": {
+        "artifact": "carwash-workforce",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "existing-health-only-shell"
     },
     {
       "id": "billing",
+      "path": "services/billing",
+      "packageName": "@carwash/billing",
+      "owner": "domain:billing",
+      "reviewer": "baraabd",
+      "purpose": "Payment verification, refunds, cash reconciliation and authoritative financial ledger",
+      "responsibilities": [
+        "Payment verification, refunds, cash reconciliation and authoritative financial ledger",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
       "database": "cw_billing",
       "runtimeRole": "cw_billing_app",
       "migrationRole": "cw_billing_migrate",
-      "owns": [
-        "payments",
-        "cash_receipts",
-        "refunds",
-        "ledger",
-        "subscriptions",
-        "entitlement_reservations"
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["payments", "cash_receipts", "refunds", "ledger"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/billing",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["billing.payment-confirmed.v1", "billing.refund-confirmed.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/booking",
+        "@carwash/catalog",
+        "@carwash/communications",
+        "@carwash/configuration",
+        "@carwash/customer",
+        "@carwash/dispatch",
+        "@carwash/geo",
+        "@carwash/identity",
+        "@carwash/media",
+        "@carwash/pricing",
+        "@carwash/reporting",
+        "@carwash/reviews",
+        "@carwash/scheduling",
+        "@carwash/subscription",
+        "@carwash/support",
+        "@carwash/vehicle",
+        "@carwash/wallet",
+        "@carwash/workforce"
       ],
-      "purpose": "Payments, cash collection, refunds, ledger and customer entitlements",
-      "runtimeImplementation": "health-only shell; business API not implemented"
+      "deployment": {
+        "artifact": "carwash-billing",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "existing-health-only-shell"
+    },
+    {
+      "id": "wallet",
+      "path": "services/wallet",
+      "packageName": "@carwash/wallet",
+      "owner": "domain:wallet",
+      "reviewer": "baraabd",
+      "purpose": "Wallet balances and holds referencing Billing ledger postings; no second financial ledger",
+      "responsibilities": [
+        "Wallet balances and holds referencing Billing ledger postings; no second financial ledger",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
+      "database": "cw_wallet",
+      "runtimeRole": "cw_wallet_app",
+      "migrationRole": "cw_wallet_migrate",
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["wallet_accounts", "wallet_reservations", "wallet_movements"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/wallet",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["wallet.balance-updated.v1", "wallet.hold-released.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/booking",
+        "@carwash/catalog",
+        "@carwash/communications",
+        "@carwash/configuration",
+        "@carwash/customer",
+        "@carwash/dispatch",
+        "@carwash/geo",
+        "@carwash/identity",
+        "@carwash/media",
+        "@carwash/pricing",
+        "@carwash/reporting",
+        "@carwash/reviews",
+        "@carwash/scheduling",
+        "@carwash/subscription",
+        "@carwash/support",
+        "@carwash/vehicle",
+        "@carwash/workforce"
+      ],
+      "deployment": {
+        "artifact": "carwash-wallet",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "directory-and-typescript-skeleton-only"
+    },
+    {
+      "id": "subscription",
+      "path": "services/subscription",
+      "packageName": "@carwash/subscription",
+      "owner": "domain:subscription",
+      "reviewer": "baraabd",
+      "purpose": "Plans held by customers, renewal state and wash entitlement consumption",
+      "responsibilities": [
+        "Plans held by customers, renewal state and wash entitlement consumption",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
+      "database": "cw_subscription",
+      "runtimeRole": "cw_subscription_app",
+      "migrationRole": "cw_subscription_migrate",
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["subscriptions", "entitlement_reservations", "entitlements"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/subscription",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["subscription.entitlement-reserved.v1", "subscription.subscription-changed.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/booking",
+        "@carwash/catalog",
+        "@carwash/communications",
+        "@carwash/configuration",
+        "@carwash/customer",
+        "@carwash/dispatch",
+        "@carwash/geo",
+        "@carwash/identity",
+        "@carwash/media",
+        "@carwash/pricing",
+        "@carwash/reporting",
+        "@carwash/reviews",
+        "@carwash/scheduling",
+        "@carwash/support",
+        "@carwash/vehicle",
+        "@carwash/wallet",
+        "@carwash/workforce"
+      ],
+      "deployment": {
+        "artifact": "carwash-subscription",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "directory-and-typescript-skeleton-only"
     },
     {
       "id": "media",
+      "path": "services/media",
+      "packageName": "@carwash/media",
+      "owner": "domain:media",
+      "reviewer": "baraabd",
+      "purpose": "Private classified objects, quarantine, scans, retention and audited media access",
+      "responsibilities": [
+        "Private classified objects, quarantine, scans, retention and audited media access",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
       "database": "cw_media",
       "runtimeRole": "cw_media_app",
       "migrationRole": "cw_media_migrate",
-      "owns": [
-        "objects",
-        "upload_reservations",
-        "scan_jobs",
-        "retention_jobs"
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["objects", "upload_reservations", "scan_jobs", "retention_jobs"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/media",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["media.scan-completed.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/booking",
+        "@carwash/catalog",
+        "@carwash/communications",
+        "@carwash/configuration",
+        "@carwash/customer",
+        "@carwash/dispatch",
+        "@carwash/geo",
+        "@carwash/identity",
+        "@carwash/pricing",
+        "@carwash/reporting",
+        "@carwash/reviews",
+        "@carwash/scheduling",
+        "@carwash/subscription",
+        "@carwash/support",
+        "@carwash/vehicle",
+        "@carwash/wallet",
+        "@carwash/workforce"
       ],
-      "purpose": "Classified objects, quarantine, scans, retention and audited access",
-      "runtimeImplementation": "health-only shell; business API not implemented"
+      "deployment": {
+        "artifact": "carwash-media",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "existing-health-only-shell"
     },
     {
       "id": "communications",
+      "path": "services/communications",
+      "packageName": "@carwash/communications",
+      "owner": "domain:communications",
+      "reviewer": "baraabd",
+      "purpose": "Notification delivery and booking conversations; never booking state authority",
+      "responsibilities": [
+        "Notification delivery and booking conversations; never booking state authority",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
       "database": "cw_communications",
       "runtimeRole": "cw_communications_app",
       "migrationRole": "cw_communications_migrate",
-      "owns": [
-        "notifications",
-        "delivery_attempts",
-        "conversations",
-        "messages"
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["notifications", "delivery_attempts", "conversations", "messages"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/communications",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["communications.delivery-updated.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/booking",
+        "@carwash/catalog",
+        "@carwash/configuration",
+        "@carwash/customer",
+        "@carwash/dispatch",
+        "@carwash/geo",
+        "@carwash/identity",
+        "@carwash/media",
+        "@carwash/pricing",
+        "@carwash/reporting",
+        "@carwash/reviews",
+        "@carwash/scheduling",
+        "@carwash/subscription",
+        "@carwash/support",
+        "@carwash/vehicle",
+        "@carwash/wallet",
+        "@carwash/workforce"
       ],
-      "purpose": "Notifications, delivery attempts, booking conversations and realtime",
-      "runtimeImplementation": "health-only shell; business API not implemented"
+      "deployment": {
+        "artifact": "carwash-communications",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "existing-health-only-shell"
+    },
+    {
+      "id": "reviews",
+      "path": "services/reviews",
+      "packageName": "@carwash/reviews",
+      "owner": "domain:reviews",
+      "reviewer": "baraabd",
+      "purpose": "Verified-service reviews and moderation decisions",
+      "responsibilities": [
+        "Verified-service reviews and moderation decisions",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
+      "database": "cw_reviews",
+      "runtimeRole": "cw_reviews_app",
+      "migrationRole": "cw_reviews_migrate",
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["reviews", "review_moderation_cases"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/reviews",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["reviews.review-published.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/booking",
+        "@carwash/catalog",
+        "@carwash/communications",
+        "@carwash/configuration",
+        "@carwash/customer",
+        "@carwash/dispatch",
+        "@carwash/geo",
+        "@carwash/identity",
+        "@carwash/media",
+        "@carwash/pricing",
+        "@carwash/reporting",
+        "@carwash/scheduling",
+        "@carwash/subscription",
+        "@carwash/support",
+        "@carwash/vehicle",
+        "@carwash/wallet",
+        "@carwash/workforce"
+      ],
+      "deployment": {
+        "artifact": "carwash-reviews",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "directory-and-typescript-skeleton-only"
     },
     {
       "id": "support",
+      "path": "services/support",
+      "packageName": "@carwash/support",
+      "owner": "domain:support",
+      "reviewer": "baraabd",
+      "purpose": "Customer complaints and case decisions; requests refunds from Billing rather than writing money",
+      "responsibilities": [
+        "Customer complaints and case decisions; requests refunds from Billing rather than writing money",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
       "database": "cw_support",
       "runtimeRole": "cw_support_app",
       "migrationRole": "cw_support_migrate",
-      "owns": [
-        "cases",
-        "case_events",
-        "resolution_requests"
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["cases", "case_events", "resolution_requests"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/support",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["support.case-resolved.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/booking",
+        "@carwash/catalog",
+        "@carwash/communications",
+        "@carwash/configuration",
+        "@carwash/customer",
+        "@carwash/dispatch",
+        "@carwash/geo",
+        "@carwash/identity",
+        "@carwash/media",
+        "@carwash/pricing",
+        "@carwash/reporting",
+        "@carwash/reviews",
+        "@carwash/scheduling",
+        "@carwash/subscription",
+        "@carwash/vehicle",
+        "@carwash/wallet",
+        "@carwash/workforce"
       ],
-      "purpose": "Customer complaints, case review and non-financial resolution decisions",
-      "runtimeImplementation": "health-only shell; business API not implemented"
+      "deployment": {
+        "artifact": "carwash-support",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "existing-health-only-shell"
+    },
+    {
+      "id": "geo",
+      "path": "services/geo",
+      "packageName": "@carwash/geo",
+      "owner": "domain:geo",
+      "reviewer": "baraabd",
+      "purpose": "Service geography and location-derived estimates; never customer-address authority",
+      "responsibilities": [
+        "Service geography and location-derived estimates; never customer-address authority",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
+      "database": "cw_geo",
+      "runtimeRole": "cw_geo_app",
+      "migrationRole": "cw_geo_migrate",
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["service_zones", "geocoding_cache", "travel_estimates"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/geo",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["geo.zone-updated.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/booking",
+        "@carwash/catalog",
+        "@carwash/communications",
+        "@carwash/configuration",
+        "@carwash/customer",
+        "@carwash/dispatch",
+        "@carwash/identity",
+        "@carwash/media",
+        "@carwash/pricing",
+        "@carwash/reporting",
+        "@carwash/reviews",
+        "@carwash/scheduling",
+        "@carwash/subscription",
+        "@carwash/support",
+        "@carwash/vehicle",
+        "@carwash/wallet",
+        "@carwash/workforce"
+      ],
+      "deployment": {
+        "artifact": "carwash-geo",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "directory-and-typescript-skeleton-only"
     },
     {
       "id": "reporting",
+      "path": "services/reporting",
+      "packageName": "@carwash/reporting",
+      "owner": "domain:reporting",
+      "reviewer": "baraabd",
+      "purpose": "Event-derived administrative read models; writes its own projections only",
+      "responsibilities": [
+        "Event-derived administrative read models; writes its own projections only",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
       "database": "cw_reporting",
       "runtimeRole": "cw_reporting_app",
       "migrationRole": "cw_reporting_migrate",
-      "owns": [
-        "projections",
-        "consumer_checkpoints",
-        "audit_projections"
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["projections", "consumer_checkpoints", "audit_projections"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/reporting",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["reporting.projection-refreshed.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/booking",
+        "@carwash/catalog",
+        "@carwash/communications",
+        "@carwash/configuration",
+        "@carwash/customer",
+        "@carwash/dispatch",
+        "@carwash/geo",
+        "@carwash/identity",
+        "@carwash/media",
+        "@carwash/pricing",
+        "@carwash/reviews",
+        "@carwash/scheduling",
+        "@carwash/subscription",
+        "@carwash/support",
+        "@carwash/vehicle",
+        "@carwash/wallet",
+        "@carwash/workforce"
       ],
-      "purpose": "Read-only projections for administration and audit search",
-      "runtimeImplementation": "health-only shell; business API not implemented"
+      "deployment": {
+        "artifact": "carwash-reporting",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "existing-health-only-shell"
+    },
+    {
+      "id": "configuration",
+      "path": "services/configuration",
+      "packageName": "@carwash/configuration",
+      "owner": "domain:configuration",
+      "reviewer": "baraabd",
+      "purpose": "Versioned technical and market policies; never domain transaction state",
+      "responsibilities": [
+        "Versioned technical and market policies; never domain transaction state",
+        "Own local data, migrations, authorization and release artifact",
+        "Expose only versioned APIs and events; never cross-service implementation or DB access"
+      ],
+      "database": "cw_configuration",
+      "runtimeRole": "cw_configuration_app",
+      "migrationRole": "cw_configuration_migrate",
+      "dataStatus": "reserved-not-provisioned-by-F001",
+      "owns": ["market_settings", "feature_policies", "configuration_versions"],
+      "api": {
+        "version": 1,
+        "prefix": "/internal/v1/configuration",
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/contracts"
+      },
+      "events": {
+        "version": 1,
+        "published": ["configuration.configuration-published.v1"],
+        "status": "planned-not-implemented",
+        "contractPackage": "@carwash/event-contracts"
+      },
+      "forbiddenDependencies": [
+        "@carwash/api-gateway",
+        "@carwash/billing",
+        "@carwash/booking",
+        "@carwash/catalog",
+        "@carwash/communications",
+        "@carwash/customer",
+        "@carwash/dispatch",
+        "@carwash/geo",
+        "@carwash/identity",
+        "@carwash/media",
+        "@carwash/pricing",
+        "@carwash/reporting",
+        "@carwash/reviews",
+        "@carwash/scheduling",
+        "@carwash/subscription",
+        "@carwash/support",
+        "@carwash/vehicle",
+        "@carwash/wallet",
+        "@carwash/workforce"
+      ],
+      "deployment": {
+        "artifact": "carwash-configuration",
+        "independent": true,
+        "verified": false
+      },
+      "runtimeImplementation": "directory-and-typescript-skeleton-only"
+    }
+  ],
+  "gateway": {
+    "id": "gateway",
+    "path": "apps/api-gateway",
+    "packageName": "@carwash/api-gateway",
+    "owner": "technical:gateway",
+    "reviewer": "baraabd",
+    "purpose": "Ingress routing, authentication transport and bounded response composition; no business state",
+    "database": null,
+    "runtimeRole": null,
+    "migrationRole": null,
+    "owns": [],
+    "api": {
+      "version": 1,
+      "prefix": "/api/v1",
+      "status": "planned-not-implemented",
+      "contractPackage": "@carwash/contracts"
+    },
+    "events": {
+      "version": 1,
+      "published": [],
+      "status": "planned-not-implemented",
+      "contractPackage": "@carwash/event-contracts"
+    },
+    "forbiddenDependencies": [
+      "@carwash/billing",
+      "@carwash/booking",
+      "@carwash/catalog",
+      "@carwash/communications",
+      "@carwash/configuration",
+      "@carwash/customer",
+      "@carwash/dispatch",
+      "@carwash/geo",
+      "@carwash/identity",
+      "@carwash/media",
+      "@carwash/pricing",
+      "@carwash/reporting",
+      "@carwash/reviews",
+      "@carwash/scheduling",
+      "@carwash/subscription",
+      "@carwash/support",
+      "@carwash/vehicle",
+      "@carwash/wallet",
+      "@carwash/workforce"
+    ],
+    "deployment": {
+      "artifact": "carwash-api-gateway",
+      "independent": true,
+      "verified": false
+    },
+    "runtimeImplementation": "directory-and-typescript-skeleton-only"
+  },
+  "apps": [
+    {
+      "id": "customer-web",
+      "audience": "customer",
+      "path": "apps/customer-web",
+      "packageName": "@carwash/customer-web",
+      "owner": "experience:customer",
+      "reviewer": "baraabd"
+    },
+    {
+      "id": "operator-web",
+      "audience": "technician",
+      "path": "apps/operator-web",
+      "packageName": "@carwash/operator-web",
+      "owner": "experience:technician",
+      "reviewer": "baraabd"
+    },
+    {
+      "id": "admin-web",
+      "audience": "admin",
+      "path": "apps/admin-web",
+      "packageName": "@carwash/admin-web",
+      "owner": "experience:admin",
+      "reviewer": "baraabd"
+    }
+  ],
+  "sharedPackages": [
+    {
+      "id": "event-contracts",
+      "path": "packages/event-contracts",
+      "packageName": "@carwash/event-contracts",
+      "zone": "contracts",
+      "owner": "platform:event-contracts",
+      "version": "0.0.2"
+    },
+    {
+      "id": "contracts",
+      "path": "packages/contracts",
+      "packageName": "@carwash/contracts",
+      "zone": "contracts",
+      "owner": "platform:contracts",
+      "version": "0.0.1"
+    },
+    {
+      "id": "api-clients",
+      "path": "packages/api-clients",
+      "packageName": "@carwash/api-clients",
+      "zone": "contracts",
+      "owner": "platform:api-clients",
+      "version": "0.0.1"
+    },
+    {
+      "id": "ui",
+      "path": "packages/ui",
+      "packageName": "@carwash/ui",
+      "zone": "ui",
+      "owner": "platform:ui",
+      "version": "0.0.1"
+    },
+    {
+      "id": "design-tokens",
+      "path": "packages/design-tokens",
+      "packageName": "@carwash/design-tokens",
+      "zone": "ui",
+      "owner": "platform:design-tokens",
+      "version": "0.0.1"
+    },
+    {
+      "id": "observability",
+      "path": "packages/observability",
+      "packageName": "@carwash/observability",
+      "zone": "technical",
+      "owner": "platform:observability",
+      "version": "0.0.1"
+    },
+    {
+      "id": "service-kit",
+      "path": "packages/service-kit",
+      "packageName": "@carwash/service-kit",
+      "zone": "technical",
+      "owner": "platform:service-kit",
+      "version": "0.0.2"
+    },
+    {
+      "id": "platform-messaging",
+      "path": "packages/platform-messaging",
+      "packageName": "@carwash/platform-messaging",
+      "zone": "technical",
+      "owner": "platform:platform-messaging",
+      "version": "0.0.2"
+    },
+    {
+      "id": "security-kit",
+      "path": "packages/security-kit",
+      "packageName": "@carwash/security-kit",
+      "zone": "technical",
+      "owner": "platform:security-kit",
+      "version": "0.0.1"
+    },
+    {
+      "id": "test-utils",
+      "path": "packages/test-utils",
+      "packageName": "@carwash/test-utils",
+      "zone": "test",
+      "owner": "platform:test-utils",
+      "version": "0.0.1"
+    },
+    {
+      "id": "eslint-config",
+      "path": "packages/eslint-config",
+      "packageName": "@carwash/eslint-config",
+      "zone": "config",
+      "owner": "platform:eslint-config",
+      "version": "0.0.1"
+    },
+    {
+      "id": "tsconfig",
+      "path": "packages/tsconfig",
+      "packageName": "@carwash/tsconfig",
+      "zone": "config",
+      "owner": "platform:tsconfig",
+      "version": "0.0.1"
+    }
+  ],
+  "policy": {
+    "crossServiceDatabaseAccess": false,
+    "crossServiceImplementationImports": false,
+    "gatewayBusinessState": false,
+    "sharedBusinessLogic": false,
+    "distributedWrites": "owner-local-outbox-inbox-and-explicit-saga",
+    "databaseIsolationVerified": false
+  },
+  "legacyPrototypeLocations": [
+    {
+      "path": "services/catalog/src/domain/quote.ts",
+      "futureDataOwner": "pricing",
+      "state": "preserved-unconnected-pure-prototype"
+    },
+    {
+      "path": "services/booking/src/domain/lifecycle.ts",
+      "futureDataOwner": "booking",
+      "state": "preserved-unconnected-pure-prototype"
+    },
+    {
+      "path": "services/billing/src/domain/ledger.ts",
+      "futureDataOwner": "billing",
+      "state": "preserved-unconnected-pure-prototype"
     }
   ]
 }
