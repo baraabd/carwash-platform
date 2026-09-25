@@ -31,7 +31,7 @@ export function fixture(t) {
     // Explicitly synthetic framework fixtures, not copies of production services.
     put(`${entry.path}/package.json`, {
       name: entry.packageName,
-      version: '0.0.1',
+      version: entry.version ?? '0.0.1',
       private: true,
       type: 'module',
       exports: { '.': './src/index.ts' },
@@ -42,7 +42,7 @@ export function fixture(t) {
     name: entry.packageName,
     path: path.join(root, entry.path),
     private: true,
-    version: '0.0.1',
+    version: entry.version ?? '0.0.1',
   }));
   return { root, put, change, rows };
 }
