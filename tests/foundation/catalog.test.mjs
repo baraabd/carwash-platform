@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { catalogDefinitions, validateCatalogValue } from '../../dist/ownership/catalog.mjs';
 import { catalog, schema } from './fixtures.mjs';
-test('catalog defines 19 exclusive data owners, one data-less gateway, three apps and ten shared packages', () => {
+test('catalog defines 19 exclusive data owners, one data-less gateway, three apps and twelve shared packages', () => {
   const result = validateCatalogValue(catalog, schema);
   assert.deepEqual(result.errors, []);
-  assert.equal(catalogDefinitions(result.catalog).length, 33);
+  assert.equal(catalogDefinitions(result.catalog).length, 35);
   assert.equal(catalog.services.length, 19);
   assert.equal(catalog.gateway.database, null);
   assert.deepEqual(catalog.gateway.owns, []);
