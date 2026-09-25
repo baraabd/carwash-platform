@@ -25,8 +25,7 @@ export class AppExceptionFilter implements ExceptionFilter {
     const response = http.getResponse<ErrorHttpResponse>();
     const correlationId = resolveCorrelationId(request.headers?.[CORRELATION_HEADER]);
     const body = toErrorResponse(error, correlationId);
-    const log = body.error.status >= 500 ? this.logger?.error : this.logger?.warn;
-    log?.call(this.logger, 'request_failed', {
+    const fields = {
       code: body.error.code,
       status: body.error.status,
       correlationId,
@@ -35,7 +34,12 @@ export class AppExceptionFilter implements ExceptionFilter {
       error,
       ...(error instanceof AppError && error.details ? { details: error.details } : {}),
       ...(error instanceof DomainError && error.details ? { details: error.details } : {}),
-    });
+    };
+    if (body.error.status >= 500) {
+      this.logger?.error('request_failed', fields);
+    } else {
+      this.logger?.warn('request_failed', fields);
+    }
     response.setHeader?.(CORRELATION_HEADER, correlationId);
     response.status(body.error.status).json(body);
   }

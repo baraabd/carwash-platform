@@ -54,7 +54,7 @@ test('${service}: the real HTTP adapter boots with distinct live/ready semantics
   await app.listen(0, '127.0.0.1');
   try {
     const url = await app.getUrl();
-    const live = await fetch(\`${url}/health/live\`);
+    const live = await fetch(url + '/health/live');
     assert.equal(live.status, 200);
     assert.deepEqual(await live.json(), {
       service: '${service}',
@@ -62,7 +62,7 @@ test('${service}: the real HTTP adapter boots with distinct live/ready semantics
       stage: 'foundation-only',
     });
 
-    const ready = await fetch(\`${url}/health/ready\`);
+    const ready = await fetch(url + '/health/ready');
     assert.equal(ready.status, 503, 'foundation shell must not advertise business readiness');
     const body = (await ready.json()) as {
       businessReady: boolean;
@@ -129,7 +129,7 @@ test('${service}: dependency failure is DOWN without credential leakage', async 
       {
         name: 'postgres',
         kind: 'postgres',
-        check: () => Promise.reject(new Error(\`connect ECONNREFUSED ${DSN}\`)),
+        check: () => Promise.reject(new Error('connect ECONNREFUSED ' + DSN)),
       },
     ],
   });
