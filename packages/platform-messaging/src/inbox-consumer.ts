@@ -32,12 +32,6 @@ export interface InboxConsumerOptions<T extends ParsedEvent> {
   readonly logger?: MessageLogger;
   readonly prefetch?: number;
   /**
-   * Bounded redelivery for TRANSIENT failures. The counter is process-local: a
-   * restarted consumer starts counting again. That is a documented limitation,
-   * not a guarantee of a global retry budget.
-   */
-  readonly maxTransientAttempts?: number;
-  /**
    * Observation hook invoked after the local transaction has COMMITTED and
    * before the ACK is sent. It exists because that gap is the only place where
    * a crash can turn into a redelivery, and it must be observable to be
@@ -54,6 +48,12 @@ export interface ConsumerStats {
   transientFailures: number;
 }
 
+export function brokerDeliveryCount(message: ConsumeMessage): number {
+  const headers = message.properties.headers as Record<string, unknown> | undefined;
+  const raw = headers?.['x-delivery-count'];
+  return typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 ? raw : 0;
+}
+
 export function payloadHash(body: string): string {
   return createHash('sha256').update(body, 'utf8').digest('hex');
 }
@@ -67,7 +67,6 @@ export class InboxConsumer<T extends ParsedEvent> {
     transientFailures: 0,
   };
 
-  private readonly transientAttempts = new Map<string, number>();
   private consumerTag: string | undefined;
 
   constructor(private readonly options: InboxConsumerOptions<T>) {}
@@ -130,27 +129,22 @@ export class InboxConsumer<T extends ParsedEvent> {
       }
       if (outcome === 'DUPLICATE') this.stats.duplicates += 1;
       else this.stats.applied += 1;
-      this.transientAttempts.delete(event.eventId);
       // The commit has happened. Anything that prevents the ACK from here on
       // results in a redelivery, which the inbox row makes harmless.
       await this.options.onBeforeAck?.(event, outcome);
       this.options.channel.ack(message);
     } catch (error: unknown) {
       this.stats.transientFailures += 1;
-      const attempts = (this.transientAttempts.get(event.eventId) ?? 0) + 1;
-      this.transientAttempts.set(event.eventId, attempts);
-      const max = this.options.maxTransientAttempts ?? 3;
+      const deliveryCount = brokerDeliveryCount(message);
       this.options.logger?.warn('inbox_apply_failed', {
         eventId: event.eventId,
-        attempts,
+        deliveryCount,
         error: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
       });
-      if (attempts >= max) {
-        this.transientAttempts.delete(event.eventId);
-        this.deadLetter(message, 'MAX_TRANSIENT_ATTEMPTS');
-        return;
-      }
-      // Never an ACK: a database failure must not discard the message.
+      // Never an ACK: a database/application failure must not discard the
+      // message. The queue is quorum-backed with x-delivery-limit, so RabbitMQ
+      // owns the bounded retry counter and dead-letters once the limit is
+      // exceeded. Process restarts therefore cannot reset the retry budget.
       this.options.channel.nack(message, false, true);
     }
   }
