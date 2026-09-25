@@ -1,0 +1,138 @@
+name: F001 scoped source delivery (temporary)
+on:
+  push:
+    branches: ['feat/F001-monorepo-ownership']
+    paths: ['.github/workflows/f001-deliver.yml']
+permissions:
+  contents: read
+jobs:
+  deliver:
+    if: github.repository == 'baraabd/carwash-platform' && github.ref == 'refs/heads/feat/F001-monorepo-ownership'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda
+        with:
+          version: '10.32.1'
+          run_install: false
+      - name: Retrieve exact reviewed patch and protect frozen baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/f001-delivery"
+          git show 0d6453fc65b62efd287ad3728930857d930e6601:scripts/check-design-reference.mjs > "$RUNNER_TEMP/f001-delivery/trusted-design.mjs"
+          node "$RUNNER_TEMP/f001-delivery/trusted-design.mjs" --root "$GITHUB_WORKSPACE" --base-ref 0d6453fc65b62efd287ad3728930857d930e6601 | tee "$RUNNER_TEMP/f001-delivery/design-before.log"
+          python3 <<'PY'
+          import base64, hashlib, json, lzma, os, pathlib, subprocess
+          shas = ['278ff43c09c2a9537bf5526b0c7341285cffbf56','1dfb4649a2f5b5e9707971e431d88db6d8c66b20','03a9f0c03af862727a3d406f6d56491ed006bcd0','2db58cfbbf4753ab181be8e54262b9af6c5ada90','68ef9607c1b4aa9ff222dff0021c70df20b338bb']
+          payload = b''
+          for sha in shas:
+              blob = json.loads(subprocess.check_output(['gh','api',f'repos/baraabd/carwash-platform/git/blobs/{sha}']))
+              data = base64.b64decode(blob['content'])
+              assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest() == sha
+              payload += data
+          assert hashlib.sha256(payload).hexdigest() == '745d1dce9a6e817af5884f93348f8be8d4e09f981640238c4aeb7bd32534906a'
+          patch = lzma.decompress(payload)
+          paths = [line.split(' b/',1)[1] for line in patch.decode().splitlines() if line.startswith('diff --git ')]
+          assert len(paths) == 134 and len(set(paths)) == 134
+          allowed_root = {'.gitignore','.npmrc','package.json','turbo.json','tsconfig.base.json','tsconfig.ownership.json','eslint.f001.config.mjs','.prettierrc.f001.json'}
+          for name in paths:
+              assert name in allowed_root or name.startswith(('architecture/','scripts/','tests/','apps/','services/','packages/')), name
+              assert '..' not in pathlib.PurePosixPath(name).parts
+              assert '/prototype/' not in name and not name.endswith(('.html','.png','.jpg','.svg'))
+              assert name not in ('scripts/check-design-reference.mjs','tests/design/reference-lock.test.mjs','scripts/check-boundaries.mjs')
+          out = pathlib.Path(os.environ['RUNNER_TEMP'])/'f001-delivery'
+          (out/'reviewed.patch').write_bytes(patch)
+          (out/'paths.json').write_text(json.dumps(paths))
+          subprocess.run(['git','apply','--check','--whitespace=error-all',str(out/'reviewed.patch')],check=True)
+          subprocess.run(['git','apply','--whitespace=error-all',str(out/'reviewed.patch')],check=True)
+          PY
+      - name: Resolve real lockfile without dependency scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --ignore-scripts --no-frozen-lockfile 2>&1 | tee "$RUNNER_TEMP/f001-delivery/install.log"
+      - name: Validate all precommit gates including the complete dependency audit
+        env:
+          TURBO_TELEMETRY_DISABLED: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { gatePlan, tapHasUnprovenTests } from './scripts/f001/acceptance.mjs';
+          import { spawnSync } from 'node:child_process';
+          import { writeFileSync } from 'node:fs';
+          const results = [];
+          let failed = false;
+          for (const gate of gatePlan) {
+            const args = gate.id === 'independent-workspace-builds' ? [...gate.args,'--concurrency=2'] : gate.args;
+            const result = spawnSync(gate.program, args, { encoding:'utf8',timeout:600000,maxBuffer:32*1024*1024 });
+            const output = (result.stdout || '')+'\n'+(result.stderr || '')+'\n'+(result.error?.message || '');
+            writeFileSync(process.env.RUNNER_TEMP+'/f001-delivery/'+gate.id+'.log',output);
+            const pass = !result.error && result.status === 0 && (!gate.tests || !tapHasUnprovenTests(output));
+            console.log((pass?'PASS ':'FAILED ')+gate.id);
+            if (!pass) console.log(output);
+            results.push({ id:gate.id,command:[gate.program,...args],exitCode:result.status,status:pass?'PASS':'FAILED' });
+            failed ||= !pass;
+            if (!pass && ['install-frozen','toolchain','compile-ownership'].includes(gate.id)) break;
+          }
+          writeFileSync(process.env.RUNNER_TEMP+'/f001-delivery/precommit-gates.json',JSON.stringify({ scope:'Precommit only; final clean-commit acceptance remains mandatory',gates:results },null,2));
+          if (failed) process.exitCode=1;
+          NODE
+      - name: Verify frozen assets again
+        shell: bash
+        run: |
+          set -euo pipefail
+          node "$RUNNER_TEMP/f001-delivery/trusted-design.mjs" --root "$GITHUB_WORKSPACE" --base-ref 0d6453fc65b62efd287ad3728930857d930e6601 | tee "$RUNNER_TEMP/f001-delivery/design-after.log"
+      - name: Commit only validated source and push non-forced to F001
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = baraabd/carwash-platform
+          test "$GITHUB_REF" = refs/heads/feat/F001-monorepo-ownership
+          python3 <<'PY'
+          import json,os,pathlib,subprocess
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'f001-delivery'
+          paths=json.loads((out/'paths.json').read_text())+['pnpm-lock.yaml']
+          subprocess.run(['git','add','--',*paths],check=True)
+          actual=subprocess.check_output(['git','diff','--cached','--name-only','-z']).decode().split('\0')[:-1]
+          assert set(actual)==set(paths),(set(actual)-set(paths),set(paths)-set(actual))
+          assert not any(p.startswith('.github/') for p in actual)
+          subprocess.run(['git','diff','--cached','--check'],check=True)
+          remote=json.loads(subprocess.check_output(['gh','api','repos/baraabd/carwash-platform/git/ref/heads/feat/F001-monorepo-ownership']))['object']['sha']
+          assert remote==os.environ['GITHUB_SHA'],'Branch changed; refusing concurrent overwrite'
+          subprocess.run(['git','-c','user.name=github-actions[bot]','-c','user.email=41898282+github-actions[bot]@users.noreply.github.com','commit','-m','feat(f001): establish monorepo ownership and audited foundation gates'],check=True)
+          subprocess.run(['gh','auth','setup-git'],check=True)
+          subprocess.run(['git','push','origin','HEAD:refs/heads/feat/F001-monorepo-ownership'],check=True)
+          (out/'published-sha.txt').write_text(subprocess.check_output(['git','rev-parse','HEAD']).decode())
+          PY
+      - name: Retain actual logs and exact source state
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/f001-delivery"
+          git bundle create "$RUNNER_TEMP/f001-delivery/source.bundle" HEAD
+          git diff --binary > "$RUNNER_TEMP/f001-delivery/uncommitted.diff"
+          if [[ -f pnpm-lock.yaml ]]; then cp pnpm-lock.yaml "$RUNNER_TEMP/f001-delivery/resolved-lock.yaml"; fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: f001-delivery-${{ github.sha }}
+          path: ${{ runner.temp }}/f001-delivery
+          if-no-files-found: error
+          retention-days: 14
