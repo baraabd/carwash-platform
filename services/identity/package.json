@@ -1,21 +1,33 @@
 {
   "name": "@carwash/identity",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "commonjs",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "generate": "prisma generate",
+    "build": "tsc -p tsconfig.build.json",
+    "build:tests": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "migrate:deploy": "prisma migrate deploy",
     "start": "node dist/main.js"
   },
   "dependencies": {
-    "@nestjs/common": "11.2.1",
-    "@nestjs/core": "11.2.1",
-    "@nestjs/platform-express": "11.2.1",
+    "@carwash/event-contracts": "workspace:*",
+    "@carwash/service-kit": "workspace:*",
+    "@nestjs/common": "11.2.5",
+    "@nestjs/core": "11.2.5",
+    "@nestjs/platform-express": "11.2.5",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "pg": "8.23.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@nestjs/testing": "11.2.5",
+    "@types/node": "24.13.6",
+    "@types/pg": "8.23.1",
+    "prisma": "7.10.0",
     "typescript": "5.9.3"
   }
 }

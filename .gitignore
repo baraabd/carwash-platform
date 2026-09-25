@@ -7,5 +7,8 @@ coverage/
 playwright-report/
 test-results/
 
-# F001 local task cache; source and evidence are never hidden.
-.turbo/
+# Sprint 0.2 regenerable outputs (never committed; produced by `pnpm generate`/`pnpm build`).
+dist-tests/
+**/dist-tests/
+services/*/src/generated/
+.acceptance/

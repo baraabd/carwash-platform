@@ -1,0 +1,52 @@
+# ---------------------------------------------------------------------------
+# The approved customer UI and every frozen reference artifact are byte-locked.
+# A formatter must never rewrite them: the design contract and its SHA-256
+# manifest both depend on these exact bytes, and `check-design-reference` fails
+# the moment one of them changes.
+#
+# This is not a way of hiding a problem - it is the design lock being enforced.
+# ---------------------------------------------------------------------------
+design/
+apps/customer-web/prototype/
+docs/design/tokens.source.json
+docs/design/reference-manifest.json
+docs/sources/
+
+# ---------------------------------------------------------------------------
+# Owner-authored policy and architecture documents, largely Arabic/RTL.
+# Reformatting them produces churn unrelated to this sprint and risks altering
+# how the text reads. They are changed deliberately or not at all.
+# ---------------------------------------------------------------------------
+*.md
+docs/
+architecture/
+.claude/
+.github/
+
+# ---------------------------------------------------------------------------
+# Generated, vendored or evidence output: regenerated rather than edited.
+# ---------------------------------------------------------------------------
+**/node_modules/
+**/dist/
+**/dist-tests/
+services/*/src/generated/
+services/*/prisma/migrations/
+pnpm-lock.yaml
+evidence/
+.acceptance/
+
+# ---------------------------------------------------------------------------
+# Pre-existing foundation sources written in a deliberately dense style and
+# covered by their own tests. Reformatting them would add noise unrelated to
+# Sprint 0.2 without improving anything.
+# ---------------------------------------------------------------------------
+tsconfig.domain.json
+tests/domain.test.mjs
+tests/boundaries.test.mjs
+tests/design/
+scripts/check-boundaries.mjs
+scripts/check-design-reference.mjs
+scripts/create-dev-env.mjs
+scripts/create-github-repo.mjs
+scripts/serve-prototype.mjs
+packages/event-contracts/src/booking-confirmed.ts

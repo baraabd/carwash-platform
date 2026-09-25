@@ -1,23 +1,25 @@
 {
   "name": "@carwash/event-contracts",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
-  "type": "module",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
+    "@types/node": "24.13.6",
     "typescript": "5.9.3"
-  },
-  "exports": {
-    ".": {
-      "types": "./dist/booking-confirmed.d.ts",
-      "import": "./dist/booking-confirmed.js"
-    },
-    "./booking-confirmed": {
-      "types": "./dist/booking-confirmed.d.ts",
-      "import": "./dist/booking-confirmed.js"
-    }
   }
 }

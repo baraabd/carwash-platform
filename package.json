@@ -2,49 +2,56 @@
   "name": "carwash-platform",
   "private": true,
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "packageManager": "pnpm@10.32.1",
   "engines": {
-    "node": ">=24 <25"
+    "node": ">=24 <25",
+    "pnpm": ">=10.32.1 <11"
   },
   "scripts": {
+    "resolve:dependencies": "node scripts/resolve-dependencies.mjs",
+    "verify:toolchain": "node scripts/verify-toolchain.mjs",
+    "verify:toolchain:config": "node scripts/verify-toolchain.mjs --config-only",
+    "verify:frozen-install": "node scripts/verify-frozen-install.mjs",
+    "verify:lockfile": "node scripts/verify-frozen-install.mjs --audit-only",
+    "generate": "pnpm --filter \"./services/*\" --sequential run generate",
+    "build": "pnpm run build:domain && pnpm run build:packages && pnpm --filter \"./services/*\" --sequential run build",
+    "build:tests": "pnpm --filter \"./services/*\" --sequential run build:tests",
     "build:domain": "tsc -p tsconfig.domain.json",
-    "test:domain": "node --test --test-reporter=tap tests/*.test.mjs",
+    "typecheck": "pnpm --filter \"./packages/*\" --sequential run typecheck && pnpm --filter \"./services/*\" --sequential run typecheck",
+    "lint": "pnpm run build:packages && eslint .",
+    "format:check": "prettier --check .",
+    "format:write": "prettier --write .",
     "check:boundaries": "node scripts/check-boundaries.mjs",
-    "verify:foundation": "pnpm check:boundaries && pnpm build:domain && pnpm test:domain",
+    "check:design-reference": "node scripts/check-design-reference.mjs",
+    "test:domain": "node --test tests/*.test.mjs",
+    "test:unit": "node --test --test-reporter=spec tests/unit/*.test.mjs tests/*.test.mjs",
+    "test:nest": "node scripts/run-nest-tests.mjs",
+    "test:design-lock": "node --test tests/design/reference-lock.test.mjs",
+    "test:integration": "node scripts/run-integration-tests.mjs",
+    "acceptance:preflight": "node scripts/acceptance.mjs --preflight",
+    "acceptance:run": "node scripts/acceptance.mjs --run",
+    "verify:release": "node scripts/acceptance.mjs --run",
+    "verify:foundation": "pnpm verify:toolchain && pnpm check:boundaries && pnpm build:domain && pnpm test:domain",
     "dev:env": "node scripts/create-dev-env.mjs",
     "infra:up": "docker compose --env-file .env.local -f infra/compose.dev.yml up -d",
     "infra:down": "docker compose --env-file .env.local -f infra/compose.dev.yml down",
     "prototype": "node scripts/serve-prototype.mjs",
-    "check:design-reference": "node scripts/check-design-reference.mjs",
-    "test:design-lock": "node --test --test-reporter=tap tests/design/reference-lock.test.mjs",
-    "build:ownership": "tsc -p tsconfig.ownership.json",
-    "typecheck:ownership": "tsc -p tsconfig.ownership.json --noEmit",
-    "check:ownership": "pnpm build:ownership && node scripts/check-ownership.mjs",
-    "check:ownership:ci": "pnpm build:ownership && node scripts/check-ownership.mjs --ci --json",
-    "test:ownership": "pnpm build:ownership && node --test --test-reporter=tap tests/ownership/checker.test.mjs tests/ownership/references.test.mjs",
-    "check:foundation": "pnpm build:ownership && node scripts/check-foundation.mjs",
-    "check:foundation:ci": "pnpm build:ownership && node scripts/check-foundation.mjs --ci",
-    "test:f001": "pnpm build:ownership && node scripts/f001/test.mjs",
-    "lint:f001": "node scripts/f001/quality.mjs lint",
-    "format:f001:check": "node scripts/f001/quality.mjs format-check",
-    "format:f001:write": "node scripts/f001/quality.mjs format-write",
-    "build:workspace": "turbo run build",
-    "verify:f001": "node scripts/f001/acceptance.mjs",
-    "test:contracts": "node --test --test-reporter=tap tests/contracts/public-event-contract.test.mjs"
+    "build:packages": "pnpm --filter \"./packages/*\" --sequential run build"
   },
   "devDependencies": {
-    "typescript": "5.9.3",
-    "@types/node": "24.0.0",
-    "turbo": "2.11.4",
     "@eslint/js": "10.0.1",
+    "@types/node": "24.13.6",
     "eslint": "10.11.0",
-    "typescript-eslint": "8.70.0",
-    "prettier": "3.9.8"
+    "prettier": "3.9.8",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.0"
   },
   "pnpm": {
     "overrides": {
-      "@nestjs/platform-express>multer": "2.3.0"
+      "multer": ">=2.3.0",
+      "mysql2": ">=3.23.1",
+      "deepmerge-ts": ">=8.0.0"
     }
   }
 }
