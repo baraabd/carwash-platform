@@ -1,7 +1,7 @@
 import {
-  BrokerConnection,
   InboxConsumer,
-  assertTopology,
+  runReconnectingInboxLoop,
+  subscriberQueueName,
   subscriberTopology,
 } from '@carwash/platform-messaging';
 import {
@@ -17,18 +17,19 @@ import type { PrismaService } from '../prisma.service';
 /**
  * Standalone communications consumer worker.
  *
- * Runs as its own process so that integration tests can terminate it at an exact
- * point - in particular AFTER the local transaction has committed but BEFORE the
- * ACK - and then prove that redelivery does not duplicate the local effect.
- *
- * Every meaningful step is emitted as one JSON line on stdout so tests can
- * synchronise on observed facts rather than on sleeps.
+ * RabbitMQ owns durable queue state and the quorum delivery limit; this process
+ * owns only a reconnect loop and the local transactional Inbox/effect. A broker
+ * restart therefore recreates the connection/channel/consumer session without
+ * resetting the retry budget.
  */
 interface ConsumerArgs {
   readonly stopAfter: number;
   readonly crashBeforeAckAfter: number;
   readonly prefetch: number;
-  readonly maxTransientAttempts: number;
+  /** Acceptance-only fault seam: fail the local transaction before any effect. */
+  readonly failEffect: boolean;
+  readonly reconnectMinMs: number;
+  readonly reconnectMaxMs: number;
 }
 
 function parseArgs(argv: readonly string[]): ConsumerArgs {
@@ -44,7 +45,9 @@ function parseArgs(argv: readonly string[]): ConsumerArgs {
     // 0 disables the crash seam.
     crashBeforeAckAfter: num('crash-before-ack-after', 0),
     prefetch: num('prefetch', 1),
-    maxTransientAttempts: num('max-transient-attempts', 3),
+    failEffect: argv.includes('--fail-effect'),
+    reconnectMinMs: num('reconnect-min-ms', 200),
+    reconnectMaxMs: num('reconnect-max-ms', 5_000),
   };
 }
 
@@ -70,84 +73,107 @@ async function main(): Promise<void> {
     ),
   });
   const store = new PrismaInboxStore({ client } as unknown as PrismaService);
+  const topology = subscriberTopology('communications');
+  const queue = subscriberQueueName('communications');
+  const controller = new AbortController();
+
+  let handled = 0;
+  let connections = 0;
+  let stopping = false;
 
   const emit = (record: Record<string, unknown>): void => {
     process.stdout.write(`${JSON.stringify(record)}\n`);
   };
 
-  const connection = await BrokerConnection.open({
-    url: requireEnv('BROKER_URL'),
-    connectionName: 'communications-inbox-consumer',
-    logger,
-  });
-  const topology = subscriberTopology('communications');
-  await assertTopology(connection.channel, topology);
-  const queue = topology.queues[0]!.name;
-
-  let handled = 0;
-  const consumer = new InboxConsumer<FoundationProbeCreatedV1>({
-    channel: connection.channel,
-    queue,
-    store,
-    parse: parseFoundationProbeCreatedV1,
-    logger,
-    prefetch: args.prefetch,
-    maxTransientAttempts: args.maxTransientAttempts,
-    effect: async (event, tx) => {
-      const transaction = tx as PrismaClient;
-      // upsert with an increment rather than a silent no-op: if deduplication
-      // ever failed, apply_count would become 2 and the test would see it.
-      await transaction.probeNotification.upsert({
-        where: { probeId: event.data.probeId },
-        create: { probeId: event.data.probeId, label: event.data.label, applyCount: 1 },
-        update: { applyCount: { increment: 1 } },
-      });
-    },
-    onBeforeAck: (event, outcome) => {
-      handled += 1;
-      emit({
-        event: 'consumer_committed',
-        service: 'communications',
-        eventId: event.eventId,
-        probeId: event.data.probeId,
-        outcome,
-        handled,
-      });
-      if (args.crashBeforeAckAfter > 0 && handled >= args.crashBeforeAckAfter) {
-        emit({
-          event: 'consumer_crash_before_ack',
-          service: 'communications',
-          eventId: event.eventId,
-        });
-        // Hard exit: no ACK, no graceful close. The broker must redeliver.
-        process.exit(9);
-      }
-    },
-  });
-
-  await consumer.start();
-  emit({ event: 'consumer_started', service: 'communications', queue });
-
-  const stop = async (signal: string): Promise<void> => {
-    emit({ event: 'consumer_stopping', service: 'communications', signal, stats: consumer.stats });
-    await consumer.stop().catch(() => {});
-    await connection.close();
-    await client.$disconnect();
-    emit({ event: 'consumer_stopped', service: 'communications', stats: consumer.stats });
-    process.exit(0);
+  const stop = (signal: string): void => {
+    if (stopping) return;
+    stopping = true;
+    emit({ event: 'consumer_stopping', service: 'communications', signal, handled, connections });
+    controller.abort();
   };
-  process.on('SIGTERM', () => void stop('SIGTERM'));
-  process.on('SIGINT', () => void stop('SIGINT'));
+  process.on('SIGTERM', () => stop('SIGTERM'));
+  process.on('SIGINT', () => stop('SIGINT'));
 
-  if (Number.isFinite(args.stopAfter)) {
-    const timer = setInterval(() => {
-      const total =
-        consumer.stats.applied + consumer.stats.duplicates + consumer.stats.deadLettered;
-      if (total >= args.stopAfter) {
-        clearInterval(timer);
-        void stop('stop-after');
-      }
-    }, 100);
+  try {
+    await runReconnectingInboxLoop<FoundationProbeCreatedV1>({
+      broker: {
+        url: requireEnv('BROKER_URL'),
+        connectionName: 'communications-inbox-consumer',
+        logger,
+      },
+      topology,
+      signal: controller.signal,
+      logger,
+      reconnectMinMs: args.reconnectMinMs,
+      reconnectMaxMs: args.reconnectMaxMs,
+      createConsumer: (channel) =>
+        new InboxConsumer<FoundationProbeCreatedV1>({
+          channel,
+          queue,
+          store,
+          parse: parseFoundationProbeCreatedV1,
+          logger,
+          prefetch: args.prefetch,
+          effect: async (event, tx) => {
+            if (args.failEffect) throw new Error('SIMULATED_TRANSIENT_EFFECT_FAILURE');
+            const transaction = tx as PrismaClient;
+            // Increment on update makes any dedupe defect observable.
+            await transaction.probeNotification.upsert({
+              where: { probeId: event.data.probeId },
+              create: { probeId: event.data.probeId, label: event.data.label, applyCount: 1 },
+              update: { applyCount: { increment: 1 } },
+            });
+          },
+          onBeforeAck: (event, outcome) => {
+            handled += 1;
+            emit({
+              event: 'consumer_committed',
+              service: 'communications',
+              eventId: event.eventId,
+              probeId: event.data.probeId,
+              outcome,
+              handled,
+            });
+            if (args.crashBeforeAckAfter > 0 && handled >= args.crashBeforeAckAfter) {
+              emit({
+                event: 'consumer_crash_before_ack',
+                service: 'communications',
+                eventId: event.eventId,
+              });
+              process.exit(9);
+            }
+            if (Number.isFinite(args.stopAfter) && handled >= args.stopAfter) {
+              // ACK is synchronous and happens immediately after this hook
+              // returns; abort on the next turn so shutdown cannot race it.
+              setImmediate(() => stop('stop-after'));
+            }
+          },
+        }),
+      onConnected: ({ connectionNumber }) => {
+        connections = connectionNumber;
+        emit({
+          event: 'consumer_started',
+          service: 'communications',
+          queue,
+          connectionNumber,
+          reconnected: connectionNumber > 1,
+        });
+      },
+      onDisconnected: ({ connectionNumber }) => {
+        emit({ event: 'consumer_disconnected', service: 'communications', connectionNumber });
+      },
+      onUnavailable: ({ error, nextDelayMs }) => {
+        emit({
+          event: 'consumer_broker_unavailable',
+          service: 'communications',
+          error: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
+          nextDelayMs,
+        });
+      },
+    });
+  } finally {
+    await client.$disconnect();
+    emit({ event: 'consumer_stopped', service: 'communications', handled, connections });
   }
 }
 
