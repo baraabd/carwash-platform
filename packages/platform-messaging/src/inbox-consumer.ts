@@ -38,6 +38,11 @@ export interface InboxConsumerOptions<T extends ParsedEvent> {
    * testable. Throwing from it suppresses the ACK, exactly as a crash would.
    */
   readonly onBeforeAck?: (event: T, outcome: InboxOutcome) => void | Promise<void>;
+  /**
+   * Observation only: invoked after the transient NACK has been issued.
+   * RabbitMQ remains the authority for the durable delivery counter.
+   */
+  readonly onTransientFailure?: (event: T, deliveryCount: number) => void;
 }
 
 export interface ConsumerStats {
@@ -146,6 +151,7 @@ export class InboxConsumer<T extends ParsedEvent> {
       // owns the bounded retry counter and dead-letters once the limit is
       // exceeded. Process restarts therefore cannot reset the retry budget.
       this.options.channel.nack(message, false, true);
+      this.options.onTransientFailure?.(event, deliveryCount);
     }
   }
 }
