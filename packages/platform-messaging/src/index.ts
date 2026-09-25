@@ -1,3 +1,4 @@
+export * from './consumer-loop';
 export * from './connection';
 export * from './inbox-consumer';
 export * from './outbox-relay';
