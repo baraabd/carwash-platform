@@ -24,6 +24,9 @@ export default tseslint.config(
       // The approved customer UI is byte-locked and must not be rewritten.
       'design/**',
       'apps/customer-web/prototype/**',
+      // Byte-frozen guard tests are executed by test:design-lock; lint must not
+      // require edits to files the design-reference policy forbids changing.
+      'tests/design/**',
       'docs/**',
     ],
   },
