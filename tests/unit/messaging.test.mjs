@@ -7,6 +7,7 @@ const {
   PublishError,
   OutboxRelay,
   InboxConsumer,
+  brokerDeliveryCount,
   payloadHash,
   subscriberTopology,
   subscriberQueueName,
@@ -15,6 +16,7 @@ const {
   assertTopology,
   CATALOG_EVENTS_EXCHANGE,
   FOUNDATION_PROBE_ROUTING_KEY,
+  FOUNDATION_TRANSIENT_DELIVERY_LIMIT,
 } = messaging;
 
 const { parseFoundationProbeCreatedV1 } = contracts;
@@ -363,8 +365,13 @@ class FakeInboxStore {
   }
 }
 
-function message(id, body) {
-  return { id, content: Buffer.from(body, 'utf8'), properties: {}, fields: {} };
+function message(id, body, headers = undefined) {
+  return {
+    id,
+    content: Buffer.from(body, 'utf8'),
+    properties: headers ? { headers } : {},
+    fields: {},
+  };
 }
 
 async function deliver(channel, msg) {
@@ -452,26 +459,29 @@ test('consumer: a database failure requeues, it never acks the message away', as
   assert.deepEqual(channel.nacks, [{ id: 'm1', requeue: true }]);
 });
 
-test('consumer: transient failures are bounded and end at the dead-letter queue', async () => {
+test('consumer: transient failures always requeue and let RabbitMQ own the durable limit', async () => {
   const store = new FakeInboxStore(() => {
     throw new Error('still broken');
   });
-  const { channel, consumer } = makeConsumer(store, { maxTransientAttempts: 3 });
+  const { channel, consumer } = makeConsumer(store);
   await consumer.start();
-  const body = JSON.stringify(probeEvent());
-  await deliver(channel, message('m1', body));
-  await deliver(channel, message('m1', body));
-  await deliver(channel, message('m1', body));
-  assert.deepEqual(
-    channel.nacks,
-    [
-      { id: 'm1', requeue: true },
-      { id: 'm1', requeue: true },
-      { id: 'm1', requeue: false },
-    ],
-    'the third attempt must stop requeueing and dead-letter instead',
+  await deliver(
+    channel,
+    message('m1', JSON.stringify(probeEvent()), { 'x-delivery-count': 2 }),
   );
-  assert.equal(consumer.stats.deadLettered, 1);
+  assert.deepEqual(channel.acks, []);
+  assert.deepEqual(channel.nacks, [{ id: 'm1', requeue: true }]);
+  assert.equal(consumer.stats.transientFailures, 1);
+});
+
+test('consumer: quorum delivery count is observable without process-local state', () => {
+  assert.equal(
+    brokerDeliveryCount(
+      message('m1', '{}', { 'x-delivery-count': FOUNDATION_TRANSIENT_DELIVERY_LIMIT - 1 }),
+    ),
+    FOUNDATION_TRANSIENT_DELIVERY_LIMIT - 1,
+  );
+  assert.equal(brokerDeliveryCount(message('m2', '{}')), 0);
 });
 
 test('consumer: the before-ack hook runs after commit and can suppress the ack', async () => {
@@ -541,5 +551,10 @@ test('topology: queues are durable and dead-lettered', async () => {
   const main = channel.queues.find((q) => q.name === 'reporting.catalog.foundation-probe');
   assert.equal(main.options.durable, true);
   assert.equal(main.options.arguments['x-dead-letter-exchange'], 'reporting.dlx');
+  assert.equal(main.options.arguments['x-queue-type'], 'quorum');
+  assert.equal(
+    main.options.arguments['x-delivery-limit'],
+    FOUNDATION_TRANSIENT_DELIVERY_LIMIT,
+  );
   assert.equal(channel.exchanges[0].options.durable, true);
 });
