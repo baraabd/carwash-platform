@@ -48,8 +48,9 @@ jobs:
           writeFileSync(process.env.RUNNER_TEMP + '/f001-portable/tools/package.json', JSON.stringify(manifest, null, 2) + '\n');
           NODE
           "$RUNNER_TEMP/f001-bootstrap/node_modules/.bin/pnpm" --dir "$RUNNER_TEMP/f001-portable/tools" install --store-dir "$RUNNER_TEMP/f001-portable/store" --ignore-scripts --no-frozen-lockfile
-          tar -czf "$RUNNER_TEMP/f001-probe/target-tools.tgz" -C "$RUNNER_TEMP/f001-portable" .
-          sha256sum "$RUNNER_TEMP/f001-probe/target-tools.tgz" | tee "$RUNNER_TEMP/f001-probe/target-tools.sha256"
+          cp -a "$HOME/.cache/pnpm" "$RUNNER_TEMP/f001-portable/cache"
+          tar -czf "$RUNNER_TEMP/f001-probe/registry-cache.tgz" -C "$RUNNER_TEMP/f001-portable" cache
+          sha256sum "$RUNNER_TEMP/f001-probe/registry-cache.tgz" | tee "$RUNNER_TEMP/f001-probe/registry-cache.sha256"
       - name: Retain source and actual diagnostic results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
