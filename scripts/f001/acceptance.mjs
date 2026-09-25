@@ -19,7 +19,7 @@ export const gatePlan = [
   { id: 'design-lock-tests', program: 'pnpm', args: ['test:design-lock'], tests: true },
   { id: 'lint', program: 'pnpm', args: ['lint:f001'] },
   { id: 'format', program: 'pnpm', args: ['format:f001:check'] },
-  { id: 'independent-workspace-builds', program: 'pnpm', args: ['exec', 'turbo', 'run', 'build', '--force'] },
+  { id: 'independent-workspace-builds', program: 'pnpm', args: ['build:workspace'] },
   { id: 'public-contract-entrypoints', program: 'pnpm', args: ['test:contracts'], tests: true },
   { id: 'dependency-audit', program: 'pnpm', args: ['audit', '--audit-level=low'] },
   { id: 'diff-whitespace', program: 'git', args: ['diff', '--check'] },
