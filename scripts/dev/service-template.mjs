@@ -6,6 +6,35 @@
  * the repository.
  */
 
+export const FOUNDATION_RUNTIME_IMPLEMENTATION = 'existing-health-only-shell';
+
+export function selectFoundationShellServices(catalog) {
+  if (!catalog || !Array.isArray(catalog.services)) {
+    throw new Error('INVALID_SERVICE_CATALOG');
+  }
+
+  const services = catalog.services
+    .filter(
+      (service) =>
+        service &&
+        typeof service === 'object' &&
+        service.runtimeImplementation === FOUNDATION_RUNTIME_IMPLEMENTATION,
+    )
+    .map((service) => service.id);
+
+  if (
+    services.length === 0 ||
+    services.some(
+      (service) => typeof service !== 'string' || !/^[a-z][a-z0-9-]*$/.test(service),
+    ) ||
+    new Set(services).size !== services.length
+  ) {
+    throw new Error('INVALID_FOUNDATION_SERVICE_SET');
+  }
+
+  return services;
+}
+
 const SPECIAL_SLICES = {
   catalog: {
     imports:
