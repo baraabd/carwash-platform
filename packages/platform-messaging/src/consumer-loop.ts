@@ -17,9 +17,7 @@ export interface ReconnectingInboxLoopOptions<T extends ParsedEvent> {
     readonly consumer: InboxConsumer<T>;
     readonly connectionNumber: number;
   }) => void | Promise<void>;
-  readonly onDisconnected?: (input: {
-    readonly connectionNumber: number;
-  }) => void | Promise<void>;
+  readonly onDisconnected?: (input: { readonly connectionNumber: number }) => void | Promise<void>;
   readonly onUnavailable?: (input: {
     readonly error: unknown;
     readonly nextDelayMs: number;
