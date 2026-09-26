@@ -156,7 +156,9 @@ async function main(): Promise<void> {
             });
             // Flush the observation before the intentional hard exit. No finally
             // block runs: the lease must remain exactly as a crashed worker left it.
-            await new Promise<void>((resolve) => process.stdout.write('', resolve));
+            await new Promise<void>((resolve) => {
+              process.stdout.write('', () => resolve());
+            });
             process.exit(8);
           }
           if (args.pauseAfterLeaseMs > 0) {
