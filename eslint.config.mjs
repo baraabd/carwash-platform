@@ -42,7 +42,12 @@ export default tseslint.config(
 
   // TypeScript written in this sprint: full type-aware linting.
   {
-    files: ['packages/*/src/**/*.ts', 'services/*/src/**/*.ts', 'services/*/test/**/*.ts'],
+    files: [
+      'packages/*/src/**/*.ts',
+      'services/*/src/**/*.ts',
+      'apps/api-gateway/src/**/*.ts',
+      'services/*/test/**/*.ts',
+    ],
     extends: [...tseslint.configs.recommendedTypeChecked],
     languageOptions: {
       parserOptions: {
