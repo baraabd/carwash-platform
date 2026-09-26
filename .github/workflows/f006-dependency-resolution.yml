@@ -1,0 +1,65 @@
+name: F006 reviewed dependency resolution
+on:
+  push:
+    branches: ['work/F006-baseline-inspection']
+permissions:
+  contents: read
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Resolve explicitly reviewed new manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          node --input-type=commonjs <<'NODE'
+          const fs = require('node:fs');
+          for (const name of ['contracts', 'security-kit']) {
+            const p = `packages/${name}/package.json`;
+            const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+            j.version = '0.0.2'; j.type = 'commonjs'; j.main = 'dist/index.js'; j.types = 'dist/index.d.ts';
+            j.exports = { '.': { types: './dist/index.d.ts', default: './dist/index.js' } };
+            j.files = ['dist'];
+            if (name === 'security-kit') {
+              j.dependencies = { '@redis/client': '6.1.0', jose: '6.2.5' };
+              j.devDependencies['@types/node'] = '24.13.6';
+            }
+            fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
+          }
+          const p = 'services/identity/package.json';
+          const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+          j.dependencies['@carwash/contracts'] = 'workspace:*';
+          j.dependencies['@carwash/security-kit'] = 'workspace:*';
+          j.dependencies.argon2 = '0.45.1';
+          fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
+          let ws = fs.readFileSync('pnpm-workspace.yaml', 'utf8');
+          ws = ws.replace('# Nothing else', '#   argon2 -> loads its upstream prebuilt native Argon2 binding (F006 review).\n# Nothing else');
+          ws += "  - 'argon2'\n";
+          fs.writeFileSync('pnpm-workspace.yaml', ws);
+          NODE
+          # Dependency-authoring job, not a frozen-install acceptance verdict.
+          pnpm install --no-frozen-lockfile
+          pnpm install --frozen-lockfile
+          pnpm audit --audit-level=high
+          mkdir -p "$RUNNER_TEMP/f006-resolved"
+          cp pnpm-lock.yaml "$RUNNER_TEMP/f006-resolved/"
+          find . -type d -name node_modules -prune -print0 > "$RUNNER_TEMP/f006-deps.list"
+          tar --null -czf "$RUNNER_TEMP/f006-resolved/dependencies.tar.gz" -T "$RUNNER_TEMP/f006-deps.list"
+          corepack pack pnpm@10.32.1 -o "$RUNNER_TEMP/f006-resolved/corepack-pnpm.tgz"
+          node -e 'console.log(JSON.stringify({node:process.version, platform:process.platform}))' > "$RUNNER_TEMP/f006-resolved/environment.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f006-resolved-${{ github.run_id }}
+          path: ${{ runner.temp }}/f006-resolved/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
