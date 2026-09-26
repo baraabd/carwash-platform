@@ -1,0 +1,41 @@
+name: F007 execution workspace
+
+on:
+  push:
+    branches: ['chore/F007-execution-snapshot']
+    paths: ['.github/workflows/f007-execution-snapshot.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: f46a9a747df364e2c1f66da7aa64179bf7917e0c
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Prepare exact toolchain without repository credentials
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          mkdir -p "$RUNNER_TEMP/f007-tools/bin"
+          cp "$(command -v node)" "$RUNNER_TEMP/f007-tools/bin/node"
+          cp -a "$(dirname "$(dirname "$(command -v node)")")/lib/node_modules/corepack" "$RUNNER_TEMP/f007-tools/corepack"
+          cp -a "${COREPACK_HOME:-$HOME/.cache/node/corepack}" "$RUNNER_TEMP/f007-tools/corepack-cache"
+          node --version > "$RUNNER_TEMP/f007-tools/NODE_VERSION.txt"
+          pnpm --version > "$RUNNER_TEMP/f007-tools/PNPM_VERSION.txt"
+          tar -czf "$RUNNER_TEMP/f007-toolchain.tar.gz" -C "$RUNNER_TEMP/f007-tools" .
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f007-offline-toolchain
+          path: ${{ runner.temp }}/f007-toolchain.tar.gz
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error

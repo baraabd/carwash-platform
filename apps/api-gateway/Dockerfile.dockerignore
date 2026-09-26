@@ -1,5 +1,13 @@
-# Gateway-specific context: the root service-image ignore excludes apps entirely.
-# Keep all workspace manifests for the frozen install, but only Gateway app code.
+# Context for: docker build -f apps/api-gateway/Dockerfile .
+# Dockerfile-specific rules replace the root .dockerignore. Keep the root
+# service-image policy unchanged, and include only the gateway application.
+apps/*
+!apps/api-gateway
+# Keep these exclusions AFTER the app exception so local artifacts stay out.
+**/node_modules
+**/dist
+**/dist-tests
+**/src/generated
 .git
 .github
 .acceptance
@@ -10,14 +18,8 @@ tests
 infra
 scripts/dev
 *.md
-apps/*/**
-!apps/*/package.json
-!apps/api-gateway/**
-**/node_modules
-**/dist
-**/dist-tests
-**/src/generated
-**/prototype
+.env
+.env.*
 **/.env
 **/.env.*
-!**/.env.example
+!.env.example
