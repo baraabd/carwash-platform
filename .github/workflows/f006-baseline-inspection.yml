@@ -1,0 +1,49 @@
+name: F006 isolated baseline inspection
+
+on:
+  push:
+    branches: ['work/F006-baseline-inspection']
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Validate and package the tracked baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          node scripts/check-design-reference.mjs
+          node scripts/check-secrets.mjs
+          mkdir -p "$RUNNER_TEMP/f006-baseline"
+          git archive --format=tar.gz --output="$RUNNER_TEMP/f006-baseline/source.tar.gz" HEAD
+          git bundle create "$RUNNER_TEMP/f006-baseline/history.bundle" HEAD
+          printf 'sha=%s\nnode=%s\npnpm=%s\n' "$(git rev-parse HEAD)" "$(node --version)" "$(pnpm --version)" > "$RUNNER_TEMP/f006-baseline/baseline.txt"
+          pnpm install --frozen-lockfile
+          pnpm generate
+          pnpm build
+          find . -type d -name node_modules -prune -print0 > "$RUNNER_TEMP/f006-deps.list"
+          tar --null -czf "$RUNNER_TEMP/f006-baseline/dependencies.tar.gz" -T "$RUNNER_TEMP/f006-deps.list"
+          tar -czf "$RUNNER_TEMP/f006-baseline/node-toolchain.tar.gz" -C "$(dirname "$(dirname "$(command -v node)")")" bin lib
+          git diff --exit-code
+          node scripts/check-design-reference.mjs
+      - name: Upload source and offline development dependencies only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f006-baseline-${{ github.run_id }}
+          path: ${{ runner.temp }}/f006-baseline/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 2
