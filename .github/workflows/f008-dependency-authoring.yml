@@ -1,0 +1,77 @@
+name: F008 dependency authoring (not acceptance)
+on:
+  push:
+    branches: ['work/F008-dependency-authoring']
+    paths: ['.github/workflows/f008-dependency-authoring.yml']
+permissions:
+  contents: write
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: e5b73fe7fb58059633cf0b0482474c4ea3623e6a
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Author exact dependency manifest, not a production feature or acceptance claim
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const file='packages/observability/package.json';
+          const pkg=JSON.parse(fs.readFileSync(file,'utf8'));
+          pkg.type='commonjs';
+          pkg.main='dist/index.js'; pkg.types='dist/index.d.ts'; pkg.files=['dist'];
+          pkg.exports={'.':{types:'./dist/index.d.ts',require:'./dist/index.js',import:'./dist/index.js'},'./browser':{types:'./dist/browser.d.ts',require:'./dist/browser.js',import:'./dist/browser.js'}};
+          pkg.devDependencies['@types/node']='24.13.6';
+          pkg.dependencies={pino:'10.3.1','prom-client':'15.1.3','@opentelemetry/api':'1.9.0','@opentelemetry/core':'2.7.1','@opentelemetry/resources':'2.7.1','@opentelemetry/sdk-trace-base':'2.7.1','@opentelemetry/exporter-trace-otlp-http':'0.215.0'};
+          fs.writeFileSync(file,JSON.stringify(pkg,null,2)+'\n');
+          for(const p of ['packages/service-kit/package.json','packages/platform-messaging/package.json','apps/api-gateway/package.json']) {
+            const x=JSON.parse(fs.readFileSync(p,'utf8')); x.dependencies['@carwash/observability']='workspace:*'; fs.writeFileSync(p,JSON.stringify(x,null,2)+'\n');
+          }
+          JS
+          pnpm install --lockfile-only
+          pnpm install --frozen-lockfile
+          pnpm audit --audit-level=high
+      - name: Preserve audited dependencies and immutable source history only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/f008-authoring"
+          mkdir -p "$out"
+          cp pnpm-lock.yaml "$out/"
+          for p in packages/observability/package.json packages/service-kit/package.json packages/platform-messaging/package.json apps/api-gateway/package.json; do
+            mkdir -p "$out/$(dirname "$p")"; cp "$p" "$out/$p";
+          done
+          git bundle create "$out/source-history.bundle" HEAD
+          find . -name node_modules -type d -prune -print0 > "$RUNNER_TEMP/f008-modules.paths"
+          tar --null -T "$RUNNER_TEMP/f008-modules.paths" -czf "$out/dependencies.tar.gz"
+          node --version > "$out/node-version.txt"
+          pnpm --version > "$out/pnpm-version.txt"
+          python3 - <<'PY'
+          import os, json, hashlib, urllib.request
+          from pathlib import Path
+          output=Path(os.environ['RUNNER_TEMP'])/'f008-authoring'
+          data=Path('pnpm-lock.yaml').read_bytes()
+          req=urllib.request.Request('https://api.github.com/repos/'+os.environ['GH_REPO']+'/git/blobs',data=json.dumps({'content':data.decode(),'encoding':'utf-8'}).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'},method='POST')
+          with urllib.request.urlopen(req,timeout=30) as r: blob=json.load(r)
+          result={'sourceSHA':'e5b73fe7fb58059633cf0b0482474c4ea3623e6a','lockSHA':blob['sha'],'lockSHA256':hashlib.sha256(data).hexdigest(),'scope':'dependency authoring only; no acceptance or ref mutation'}
+          (output/'provenance.json').write_text(json.dumps(result,indent=2))
+          print(json.dumps(result))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f008-authored-dependencies-${{ github.run_id }}
+          path: ${{ runner.temp }}/f008-authoring/
+          compression-level: 0
+          retention-days: 2
+          if-no-files-found: error
