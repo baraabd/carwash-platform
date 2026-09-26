@@ -1,0 +1,47 @@
+name: F006 identity security acceptance
+on:
+  push:
+    branches: [main, develop, 'feat/F006-*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: f006-identity-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  identity-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Pinned toolchain and frozen installation
+        run: |
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          pnpm install --frozen-lockfile
+      - name: Build the exact source
+        run: |
+          pnpm generate
+          pnpm build
+          pnpm typecheck
+          pnpm test:unit
+      - name: Pinned Chromium runtime
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Real PostgreSQL Redis API and browser security acceptance
+        run: pnpm acceptance:identity
+      - name: Redacted evidence only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: identity-security-${{ github.run_id }}
+          path: evidence/identity/
+          if-no-files-found: error
+          retention-days: 14
