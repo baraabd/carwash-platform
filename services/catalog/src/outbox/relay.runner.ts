@@ -31,6 +31,10 @@ interface RelayArgs {
   readonly batchSize: number;
   readonly maxAttempts: number;
   readonly maxPasses: number;
+  /** Acceptance-only hard-crash seam immediately after a lease is acquired. */
+  readonly crashAfterLease: boolean;
+  /** Acceptance-only pause to cut the broker between lease and publish. */
+  readonly pauseAfterLeaseMs: number;
 }
 
 function parseArgs(argv: readonly string[]): RelayArgs {
@@ -53,6 +57,8 @@ function parseArgs(argv: readonly string[]): RelayArgs {
     batchSize: num('batch-size', 20),
     maxAttempts: num('max-attempts', 5),
     maxPasses: num('max-passes', Number.POSITIVE_INFINITY),
+    crashAfterLease: argv.includes('--crash-after-lease'),
+    pauseAfterLeaseMs: num('pause-after-lease-ms', 0),
   };
 }
 
@@ -139,6 +145,26 @@ async function main(): Promise<void> {
         leaseMs: args.leaseMs,
         batchSize: args.batchSize,
         maxAttempts: args.maxAttempts,
+        onLeased: async (records) => {
+          if (records.length === 0) return;
+          emit({ event: 'relay_leased', workerId: args.workerId, leased: records.length });
+          if (args.crashAfterLease) {
+            emit({
+              event: 'relay_crash_after_lease',
+              workerId: args.workerId,
+              leased: records.length,
+            });
+            // Flush the observation before the intentional hard exit. No finally
+            // block runs: the lease must remain exactly as a crashed worker left it.
+            await new Promise<void>((resolve) => {
+              process.stdout.write('', () => resolve());
+            });
+            process.exit(8);
+          }
+          if (args.pauseAfterLeaseMs > 0) {
+            await new Promise((resolve) => setTimeout(resolve, args.pauseAfterLeaseMs));
+          }
+        },
       });
 
       let pass;

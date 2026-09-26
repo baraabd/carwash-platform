@@ -19,11 +19,23 @@ export interface BrokerOptions {
 }
 
 export class BrokerConnection {
+  private closedState = false;
+  private readonly closeListeners = new Set<() => void>();
+
   private constructor(
     private readonly model: ChannelModel,
     readonly channel: ConfirmChannel,
     private readonly logger: MessageLogger | undefined,
-  ) {}
+  ) {
+    const notify = (): void => {
+      if (this.closedState) return;
+      this.closedState = true;
+      for (const listener of this.closeListeners) listener();
+      this.closeListeners.clear();
+    };
+    this.channel.once('close', notify);
+    this.model.once('close', notify);
+  }
 
   static async open(options: BrokerOptions): Promise<BrokerConnection> {
     const url = new URL(options.url);
@@ -44,7 +56,13 @@ export class BrokerConnection {
   }
 
   onClose(listener: () => void): void {
-    this.model.on('close', listener);
+    // Callers may subscribe after the close event raced with startup. In that
+    // case notify on the next microtask instead of silently missing the signal.
+    if (this.closedState) {
+      queueMicrotask(listener);
+      return;
+    }
+    this.closeListeners.add(listener);
   }
 
   async close(): Promise<void> {

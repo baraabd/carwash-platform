@@ -25,6 +25,8 @@ export interface OutboxRelayOptions {
   readonly leaseMs?: number;
   readonly batchSize?: number;
   readonly maxAttempts?: number;
+  /** Observation/fault-injection seam after the durable lease is acquired. */
+  readonly onLeased?: (records: readonly OutboxRecord[]) => void | Promise<void>;
 }
 
 export interface RelayPass {
@@ -52,6 +54,7 @@ export class OutboxRelay {
       limit: this.batchSize,
       maxAttempts: this.maxAttempts,
     });
+    await this.options.onLeased?.(records);
     let published = 0;
     let failed = 0;
     let leaseLost = 0;

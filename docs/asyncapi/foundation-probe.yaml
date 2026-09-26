@@ -1,0 +1,106 @@
+asyncapi: '2.6.0'
+info:
+  title: WashGo Foundation Probe Events
+  version: '1.0.0'
+  description: >
+    Non-business F005 acceptance contract for the RabbitMQ Outbox/Inbox
+    foundation. This document does not describe booking, payment, customer or
+    production-ready business events.
+defaultContentType: application/json
+channels:
+  catalog.events:
+    description: Topic exchange owned by the Catalog service.
+    publish:
+      operationId: publishFoundationProbeCreatedV1
+      message:
+        $ref: '#/components/messages/FoundationProbeCreatedV1'
+    bindings:
+      amqp:
+        is: routingKey
+        exchange:
+          name: catalog.events
+          type: topic
+          durable: true
+          autoDelete: false
+  communications.catalog.foundation-probe:
+    description: Communications-owned quorum queue for the foundation probe.
+    subscribe:
+      operationId: communicationsConsumeFoundationProbeCreatedV1
+      message:
+        $ref: '#/components/messages/FoundationProbeCreatedV1'
+    bindings:
+      amqp:
+        is: queue
+        queue:
+          name: communications.catalog.foundation-probe
+          durable: true
+          exclusive: false
+          autoDelete: false
+  reporting.catalog.foundation-probe:
+    description: Reporting-owned quorum queue for the foundation probe.
+    subscribe:
+      operationId: reportingConsumeFoundationProbeCreatedV1
+      message:
+        $ref: '#/components/messages/FoundationProbeCreatedV1'
+    bindings:
+      amqp:
+        is: queue
+        queue:
+          name: reporting.catalog.foundation-probe
+          durable: true
+          exclusive: false
+          autoDelete: false
+components:
+  messages:
+    FoundationProbeCreatedV1:
+      name: foundation.probe.created.v1
+      title: Foundation probe created
+      summary: Disposable non-financial event used only for F005 acceptance.
+      correlationId:
+        location: $message.payload#/correlationId
+      bindings:
+        amqp:
+          contentEncoding: UTF-8
+          messageType: foundation.probe.created.v1
+      payload:
+        type: object
+        additionalProperties: false
+        required:
+          - eventId
+          - eventType
+          - schemaVersion
+          - producer
+          - occurredAt
+          - correlationId
+          - aggregateVersion
+          - data
+        properties:
+          eventId:
+            type: string
+            format: uuid
+          eventType:
+            const: foundation.probe.created.v1
+          schemaVersion:
+            const: 1
+          producer:
+            const: catalog
+          occurredAt:
+            type: string
+            format: date-time
+          correlationId:
+            type: string
+            format: uuid
+          aggregateVersion:
+            type: integer
+            minimum: 1
+          data:
+            type: object
+            additionalProperties: false
+            required: [probeId, label]
+            properties:
+              probeId:
+                type: string
+                format: uuid
+              label:
+                type: string
+                pattern: '^probe-[a-z0-9-]{1,32}$'

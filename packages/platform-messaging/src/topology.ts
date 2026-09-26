@@ -28,6 +28,12 @@ export interface QueueSpec {
   readonly name: string;
   readonly deadLetterExchange?: string;
   readonly deadLetterRoutingKey?: string;
+  readonly queueType?: 'classic' | 'quorum';
+  /**
+   * Broker-enforced redelivery ceiling. RabbitMQ supports this on quorum queues;
+   * once exceeded the message is dead-lettered instead of looping forever.
+   */
+  readonly deliveryLimit?: number;
 }
 
 export interface BindingSpec {
@@ -50,6 +56,16 @@ export async function assertTopology(channel: ConfirmChannel, spec: TopologySpec
     const args: Record<string, unknown> = {};
     if (queue.deadLetterExchange) args['x-dead-letter-exchange'] = queue.deadLetterExchange;
     if (queue.deadLetterRoutingKey) args['x-dead-letter-routing-key'] = queue.deadLetterRoutingKey;
+    if (queue.queueType) args['x-queue-type'] = queue.queueType;
+    if (queue.deliveryLimit !== undefined) {
+      if (queue.queueType !== 'quorum') {
+        throw new Error(`DELIVERY_LIMIT_REQUIRES_QUORUM: ${queue.name}`);
+      }
+      if (!Number.isInteger(queue.deliveryLimit) || queue.deliveryLimit < 1) {
+        throw new Error(`INVALID_DELIVERY_LIMIT: ${queue.name}`);
+      }
+      args['x-delivery-limit'] = queue.deliveryLimit;
+    }
     // Durable queues survive a broker restart; messages are published persistent.
     await channel.assertQueue(queue.name, { durable: true, arguments: args });
   }
@@ -76,6 +92,8 @@ export const sharedTopology: TopologySpec = {
   bindings: [],
 };
 
+export const FOUNDATION_TRANSIENT_DELIVERY_LIMIT = 3;
+
 export function subscriberQueueName(subscriber: string): string {
   // The queue belongs to the SUBSCRIBING SERVICE, not to a process replica.
   // Two replicas of one service share this queue and therefore compete for
@@ -85,19 +103,47 @@ export function subscriberQueueName(subscriber: string): string {
   return `${subscriber}.catalog.foundation-probe`;
 }
 
-export function subscriberTopology(subscriber: string): TopologySpec {
+export function subscriberDeadLetterExchangeName(subscriber: string): string {
+  return `${subscriber}.dlx`;
+}
+
+export function subscriberDeadLetterQueueName(subscriber: string): string {
+  return `${subscriber}.dlq`;
+}
+
+/**
+ * Subscriber-owned topology with broker-persistent bounded redelivery.
+ *
+ * The main queue is quorum-backed and RabbitMQ owns the delivery counter. A
+ * transient consumer failure uses NACK+requeue; once the broker-enforced limit
+ * is exceeded the message is dead-lettered. Because the counter lives in the
+ * broker rather than process memory, restarting a consumer cannot reset the
+ * retry budget.
+ *
+ * Permanent parse/integrity failures use NACK without requeue and go directly
+ * to the same DLQ. The subscriber still has only READ access on catalog.events:
+ * no retry mechanism grants it permission to forge producer events.
+ */
+export function subscriberTopology(
+  subscriber: string,
+  deliveryLimit = FOUNDATION_TRANSIENT_DELIVERY_LIMIT,
+): TopologySpec {
   const queue = subscriberQueueName(subscriber);
-  const dlx = `${subscriber}.dlx`;
-  const dlq = `${subscriber}.dlq`;
+  const dlx = subscriberDeadLetterExchangeName(subscriber);
+  const dlq = subscriberDeadLetterQueueName(subscriber);
   return {
-    // Only resources inside the subscriber's own namespace are declared here.
     exchanges: [{ name: dlx, type: 'topic' }],
     queues: [
-      { name: queue, deadLetterExchange: dlx, deadLetterRoutingKey: FOUNDATION_PROBE_ROUTING_KEY },
+      {
+        name: queue,
+        deadLetterExchange: dlx,
+        deadLetterRoutingKey: FOUNDATION_PROBE_ROUTING_KEY,
+        queueType: 'quorum',
+        deliveryLimit,
+      },
       { name: dlq },
     ],
     bindings: [
-      // Binding to a foreign exchange needs `read` on it, not `configure`.
       { queue, exchange: CATALOG_EVENTS_EXCHANGE, routingKey: FOUNDATION_PROBE_ROUTING_KEY },
       { queue: dlq, exchange: dlx, routingKey: '#' },
     ],
