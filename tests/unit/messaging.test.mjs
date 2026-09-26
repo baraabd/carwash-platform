@@ -465,10 +465,7 @@ test('consumer: transient failures always requeue and let RabbitMQ own the durab
   });
   const { channel, consumer } = makeConsumer(store);
   await consumer.start();
-  await deliver(
-    channel,
-    message('m1', JSON.stringify(probeEvent()), { 'x-delivery-count': 2 }),
-  );
+  await deliver(channel, message('m1', JSON.stringify(probeEvent()), { 'x-delivery-count': 2 }));
   assert.deepEqual(channel.acks, []);
   assert.deepEqual(channel.nacks, [{ id: 'm1', requeue: true }]);
   assert.equal(consumer.stats.transientFailures, 1);
@@ -552,9 +549,6 @@ test('topology: queues are durable and dead-lettered', async () => {
   assert.equal(main.options.durable, true);
   assert.equal(main.options.arguments['x-dead-letter-exchange'], 'reporting.dlx');
   assert.equal(main.options.arguments['x-queue-type'], 'quorum');
-  assert.equal(
-    main.options.arguments['x-delivery-limit'],
-    FOUNDATION_TRANSIENT_DELIVERY_LIMIT,
-  );
+  assert.equal(main.options.arguments['x-delivery-limit'], FOUNDATION_TRANSIENT_DELIVERY_LIMIT);
   assert.equal(channel.exchanges[0].options.durable, true);
 });
