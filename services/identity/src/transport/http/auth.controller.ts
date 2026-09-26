@@ -96,6 +96,14 @@ export class IdentityAuthController {
   async session(@Req() request: AuthRequest) {
     return this.runtime.auth.authorize(await this.runtime.principal(request));
   }
+  /** F007 cookie command authorization: read-only, signed CSRF stays with Identity. */
+  @Post('authorize')
+  @HttpCode(200)
+  async authorize(@Body() body: unknown, @Req() request: AuthRequest) {
+    this.runtime.assertCsrf(request);
+    objectInput(body, []);
+    return this.runtime.auth.authorize(await this.runtime.principal(request));
+  }
   @Post('logout')
   @HttpCode(204)
   async logout(

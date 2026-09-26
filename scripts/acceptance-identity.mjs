@@ -9,9 +9,10 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { run, registerSecret, redact } from './acceptance/lib/exec.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const includeGateway = process.argv.includes('--include-gateway');
 const project = `cw-f006-${randomBytes(6).toString('hex')}`;
 const work = path.join(ROOT, '.acceptance', project);
-const evidence = path.join(ROOT, 'evidence', 'identity', project);
+const evidence = path.join(ROOT, 'evidence', includeGateway ? 'gateway' : 'identity', project);
 const compose = path.join(work, 'compose.json');
 const own = createRequire(path.join(ROOT, 'services/identity/package.json'));
 const security = createRequire(path.join(ROOT, 'packages/security-kit/package.json'));
@@ -25,7 +26,7 @@ const passwords = Object.fromEntries(
 );
 Object.values(passwords).forEach(registerSecret);
 const report = {
-  sprint: 'F006',
+  sprint: includeGateway ? 'F007' : 'F006',
   project,
   sourceSHA: null,
   startedAt: new Date().toISOString(),
@@ -315,6 +316,7 @@ try {
         '--test-reporter=tap',
         'tests/identity/api.test.mjs',
         'tests/identity/browser.test.mjs',
+        ...(includeGateway ? ['tests/gateway/api.test.mjs'] : []),
       ],
       { cwd: ROOT, env: { ...process.env, F006_CONTEXT_FILE: contextFile }, timeoutMs: 360_000 },
     );
@@ -370,6 +372,6 @@ try {
     JSON.stringify(report, null, 2) + '\n',
   );
   console.log(
-    `${report.accepted ? 'ACCEPTED' : 'NOT ACCEPTED'}: F006; evidence ${path.relative(ROOT, evidence)}`,
+    `${report.accepted ? 'ACCEPTED' : 'NOT ACCEPTED'}: ${includeGateway ? 'F007' : 'F006'}; evidence ${path.relative(ROOT, evidence)}`,
   );
 }

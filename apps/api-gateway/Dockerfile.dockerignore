@@ -1,0 +1,23 @@
+# Gateway-specific context: the root service-image ignore excludes apps entirely.
+# Keep all workspace manifests for the frozen install, but only Gateway app code.
+.git
+.github
+.acceptance
+evidence
+design
+docs
+tests
+infra
+scripts/dev
+*.md
+apps/*/**
+!apps/*/package.json
+!apps/api-gateway/**
+**/node_modules
+**/dist
+**/dist-tests
+**/src/generated
+**/prototype
+**/.env
+**/.env.*
+!**/.env.example
