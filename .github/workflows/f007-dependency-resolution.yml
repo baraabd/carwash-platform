@@ -1,0 +1,66 @@
+name: F007 gateway dependency authoring
+on:
+  push:
+    branches: ['work/F007-dependency-resolution']
+    paths: ['.github/workflows/f007-dependency-resolution.yml']
+permissions:
+  contents: read
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Author reviewed gateway manifest and resolve normally
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          node --input-type=commonjs <<'NODE'
+          const fs = require('node:fs');
+          const p = 'apps/api-gateway/package.json';
+          const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+          j.version = '0.0.2';
+          j.type = 'commonjs';
+          j.main = 'dist/index.js';
+          j.types = 'dist/index.d.ts';
+          j.files = ['dist'];
+          j.scripts.start = 'node dist/main.js';
+          j.dependencies = {
+            '@carwash/contracts': 'workspace:*',
+            '@carwash/security-kit': 'workspace:*',
+            '@nestjs/common': '12.0.3',
+            '@nestjs/core': '12.0.3',
+            '@nestjs/platform-express': '12.0.3',
+            'reflect-metadata': '0.2.2',
+            rxjs: '7.8.2'
+          };
+          j.devDependencies['@types/node'] = '24.13.6';
+          fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
+          NODE
+          # Authoring is not an acceptance verdict. The resulting lock is then checked frozen.
+          pnpm install --no-frozen-lockfile
+          pnpm install --frozen-lockfile
+          pnpm audit --audit-level=high
+          pnpm --filter @carwash/api-gateway exec node -e "require('reflect-metadata'); const {NestFactory}=require('@nestjs/core'); if(typeof NestFactory.create!=='function')process.exit(1); console.log('Nest 12 CommonJS load: PASS')"
+          mkdir -p "$RUNNER_TEMP/f007-resolved"
+          cp pnpm-lock.yaml "$RUNNER_TEMP/f007-resolved/"
+          cp apps/api-gateway/package.json "$RUNNER_TEMP/f007-resolved/gateway.package.json"
+          find . -type d -name node_modules -prune -print0 > "$RUNNER_TEMP/f007-deps.list"
+          tar --null -czf "$RUNNER_TEMP/f007-resolved/dependencies.tar.gz" -T "$RUNNER_TEMP/f007-deps.list"
+          git bundle create "$RUNNER_TEMP/f007-resolved/source-history.bundle" HEAD
+          node -e 'console.log(JSON.stringify({node:process.version, platform:process.platform}))' > "$RUNNER_TEMP/f007-resolved/environment.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f007-resolved-${{ github.run_id }}
+          path: ${{ runner.temp }}/f007-resolved/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 2
