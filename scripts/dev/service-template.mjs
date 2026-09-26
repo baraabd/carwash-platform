@@ -161,7 +161,17 @@ export class AppModule {}
 `;
 }
 
-function httpApplication() {
+function httpApplication(service) {
+  if (service === 'identity') {
+    return `import type { INestApplication } from '@nestjs/common';
+import { createIdentityHttpApplication } from '../../identity-runtime';
+
+/** Identity owns its opt-in auth composition; other shells remain unchanged. */
+export function createHttpApplication(): Promise<INestApplication> {
+  return createIdentityHttpApplication();
+}
+`;
+  }
   return `import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../app.module';
@@ -255,7 +265,7 @@ export function renderServiceFiles(service) {
     ['src/infrastructure/persistence/prisma.service.ts', prismaService(service)],
     ['src/prisma.service.ts', prismaCompatibility()],
     ['src/app.module.ts', appModule(service)],
-    ['src/transport/http/create-app.ts', httpApplication()],
+    ['src/transport/http/create-app.ts', httpApplication(service)],
     ['src/transport/messaging/consumer.ts', messageConsumer(service)],
     ['src/main.ts', main(service)],
     ['test/domain/.gitkeep', ''],

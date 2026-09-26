@@ -1182,7 +1182,7 @@
       "packageName": "@carwash/contracts",
       "zone": "contracts",
       "owner": "platform:contracts",
-      "version": "0.0.1"
+      "version": "0.0.2"
     },
     {
       "id": "api-clients",
@@ -1238,7 +1238,7 @@
       "packageName": "@carwash/security-kit",
       "zone": "technical",
       "owner": "platform:security-kit",
-      "version": "0.0.1"
+      "version": "0.0.2"
     },
     {
       "id": "test-utils",
