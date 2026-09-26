@@ -1,0 +1,42 @@
+name: F007 reviewed contract artifact authoring
+on:
+  push:
+    branches: ['feat/F007-final-source-verification']
+    paths: ['.github/workflows/f007-author-discovery.yml']
+permissions:
+  contents: write
+jobs:
+  author:
+    if: github.repository == 'baraabd/carwash-platform' && github.ref == 'refs/heads/feat/F007-final-source-verification'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Author only the previously reviewed discovery bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object apps/api-gateway/src/transport/http/openapi.ts)" = 7d32c55243a2d50e314f49ff5d2243b4ff60a963
+          test "$(git hash-object apps/api-gateway/src/infrastructure/http-client.ts)" = 3ee955bb03a1117cc1b8a3a3e40b8a8e33e7b8e6
+          test "$(git hash-object tests/gateway/unit.test.mjs)" = 48a35a4f0870a8fd31f407ad02872716e66c7449
+          corepack enable
+          corepack prepare --activate
+          pnpm install --frozen-lockfile
+          pnpm build:packages
+          pnpm --filter @carwash/api-gateway build
+          node scripts/gateway-openapi.mjs --write
+          test "$(git hash-object docs/contracts/gateway.openapi.json)" = 906b8581ab122341805daac0a5a3e875baa509c1
+          pnpm test:gateway
+          pnpm check:gateway-contract
+          node scripts/check-design-reference.mjs
+          test "$(git diff --name-only)" = docs/contracts/gateway.openapi.json
+          git diff --check
+          git add -- docs/contracts/gateway.openapi.json
+          test "$(git diff --cached --name-only)" = docs/contracts/gateway.openapi.json
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'docs(F007): synchronize byte-verified gateway discovery contract'
+          git push origin HEAD:refs/heads/feat/F007-final-source-verification

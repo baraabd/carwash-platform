@@ -357,3 +357,154 @@ test('F007 gateway contains no database/service implementation dependencies or p
     );
   }
 });
+
+test('F007 discovery marks every BFF composition authenticated with every required permission', () => {
+  const api = gateway.gatewayOpenApi();
+  for (const composition of GATEWAY_COMPOSITIONS) {
+    const operation = api.paths['/api/v1' + composition.path].get;
+    const expected = [
+      ...new Set(
+        composition.routes.map((id) => GATEWAY_ROUTES.find((route) => route.id === id).permission),
+      ),
+    ].sort();
+    assert.deepEqual(operation.security, [{ bearer: [] }, { session: [] }]);
+    assert.deepEqual(operation['x-required-permissions'], expected);
+    assert.equal(operation['x-read-only'], true);
+  }
+});
+
+test('F007 discovery documents one closed error envelope and correlation headers on every operation', () => {
+  const api = gateway.gatewayOpenApi();
+  const schema = api.components.schemas?.GatewayErrorEnvelope;
+  assert.ok(schema, 'stable error envelope is missing from discovery');
+  assert.equal(
+    api.components.responses.GatewayError.content['application/json'].schema.$ref,
+    '#/components/schemas/GatewayErrorEnvelope',
+  );
+  assert.equal(schema.additionalProperties, false);
+  assert.deepEqual(schema.required, ['error']);
+  assert.deepEqual(schema.properties.error.required, [
+    'code',
+    'message',
+    'requestId',
+    'correlationId',
+  ]);
+  for (const pathItem of Object.values(api.paths)) {
+    for (const operation of Object.values(pathItem)) {
+      for (const status of [
+        '400',
+        '401',
+        '403',
+        '404',
+        '409',
+        '413',
+        '422',
+        '429',
+        '500',
+        '502',
+        '503',
+        '504',
+      ]) {
+        assert.equal(operation.responses[status]?.$ref, '#/components/responses/GatewayError');
+      }
+      for (const name of ['X-Correlation-Id', 'traceparent']) {
+        assert.ok(
+          operation.parameters.some(
+            (parameter) => parameter.in === 'header' && parameter.name === name,
+          ),
+        );
+      }
+    }
+  }
+});
+
+test('F007 rejects JSON-lookalike upstream media types while allowing JSON with charset', async (t) => {
+  const owner = await stub('customer');
+  t.after(() => owner.close());
+  const http = new gateway.BoundedHttpClient(config(owner.base, { customer: owner.base }));
+  for (const mediaType of ['application/jsonp', 'application/json-extra', 'text/html']) {
+    owner.state.handler = (_call, res) => {
+      res.setHeader('content-type', mediaType);
+      res.end('{"private":"not a contracted response"}');
+    };
+    await assert.rejects(
+      http.request('customer', '/', 'GET', {}),
+      (error) => error.code === 'UPSTREAM_INVALID',
+    );
+  }
+  owner.state.handler = (_call, res) => {
+    res.setHeader('content-type', 'application/json; charset=utf-8');
+    res.end('{"ok":true}');
+  };
+  assert.deepEqual((await http.request('customer', '/', 'GET', {})).body, { ok: true });
+  assert.equal(owner.calls.length, 4, 'one attempt per request, including rejected responses');
+});
+
+test('F007 admin BFF requires the intersection of component permissions before any owner call', async (t) => {
+  const { identity, token, session } = await signedSession(t, ['billing.read']);
+  const billing = await stub('billing');
+  const support = await stub('support');
+  t.after(() => billing.close());
+  t.after(() => support.close());
+  const app = await start(config(identity.base, { billing: billing.base, support: support.base }));
+  t.after(() => app.close());
+  const options = { headers: { authorization: `Bearer ${token}` } };
+  assert.equal((await request(app.base, '/api/v1/admin/overview', options)).status, 403);
+  assert.equal(billing.calls.length, 0);
+  assert.equal(support.calls.length, 0);
+  session.permissions = ['billing.read', 'support.cases.read'];
+  const allowed = await request(app.base, '/api/v1/admin/overview', options);
+  assert.equal(allowed.status, 200);
+  assert.equal(allowed.body['admin.billing'].owner, 'billing');
+  assert.equal(allowed.body['admin.support'].owner, 'support');
+  assert.equal(billing.calls[0].method, 'GET');
+  assert.equal(support.calls[0].method, 'GET');
+});
+
+test('F007 mismatched live Identity subject, session or version fails before a business owner', async (t) => {
+  const { identity, token, session } = await signedSession(t);
+  const customer = await stub('customer');
+  t.after(() => customer.close());
+  const app = await start(config(identity.base, { customer: customer.base }));
+  t.after(() => app.close());
+  for (const mismatch of [
+    { subject: randomUUID() },
+    { sessionId: randomUUID() },
+    { authVersion: 2 },
+  ]) {
+    identity.state.handler = (call, res) =>
+      res.end(
+        JSON.stringify(
+          call.path.endsWith('jwks.json') ? { keys: [jwk] } : { ...session, ...mismatch },
+        ),
+      );
+    const response = await request(app.base, '/api/v1/customer/profile', {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(response.status, 502);
+    assert.equal(response.body.error.code, 'UPSTREAM_INVALID');
+  }
+  assert.equal(customer.calls.length, 0);
+});
+
+test('F007 a failed BFF component returns a safe failure rather than invented partial business data', async (t) => {
+  const { identity, token } = await signedSession(t);
+  const customer = await stub('customer');
+  const catalog = await stub('catalog', (_call, res) => {
+    res.statusCode = 500;
+    res.end('{"error":"SQL password=private"}');
+  });
+  t.after(() => customer.close());
+  t.after(() => catalog.close());
+  const app = await start(
+    config(identity.base, { customer: customer.base, catalog: catalog.base }),
+  );
+  t.after(() => app.close());
+  const result = await request(app.base, '/api/v1/customer/overview', {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  assert.equal(result.status, 502);
+  assert.deepEqual(Object.keys(result.body), ['error']);
+  assert.equal(result.body.error.code, 'UPSTREAM_UNAVAILABLE');
+  assert.doesNotMatch(JSON.stringify(result.body), /SQL|password|private|testStub/);
+});

@@ -1,7 +1,7 @@
 name: F007 gateway contract acceptance
 on:
   push:
-    branches: ['feat/F007-*']
+    branches: [main, develop, 'feat/F007-*']
   pull_request:
   workflow_dispatch:
 permissions:
@@ -39,9 +39,18 @@ jobs:
           pnpm check:boundaries
       - name: F001 final-source regression on the same head
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || 'f46a9a747df364e2c1f66da7aa64179bf7917e0c' }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           TURBO_TELEMETRY_DISABLED: '1'
-        run: node scripts/f001/acceptance.mjs --ci --base-ref "$BASE_SHA" --evidence-dir "$RUNNER_TEMP/f007-f001"
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="$BASE_SHA"
+          if [[ -z "$base" || "$base" == "0000000000000000000000000000000000000000" ]]; then
+            base="$(git merge-base HEAD "origin/$DEFAULT_BRANCH")"
+          fi
+          git cat-file -e "$base^{commit}"
+          node scripts/f001/acceptance.mjs --ci --base-ref "$base" --evidence-dir "$RUNNER_TEMP/f007-f001"
       - name: All PostgreSQL RabbitMQ foundation regressions
         run: pnpm acceptance:run
       - name: Install pinned browser
