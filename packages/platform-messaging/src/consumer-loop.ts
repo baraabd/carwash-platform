@@ -1,7 +1,7 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import type { ConfirmChannel } from 'amqplib';
 import { BrokerConnection, type BrokerOptions } from './connection';
-import { InboxConsumer, type ParsedEvent } from './inbox-consumer';
+import type { InboxConsumer, ParsedEvent } from './inbox-consumer';
 import { assertTopology, type TopologySpec } from './topology';
 import type { MessageLogger } from './types';
 
