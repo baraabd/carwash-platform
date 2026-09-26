@@ -19,7 +19,10 @@ const services = selectFoundationShellServices(catalog);
 
 for (const service of services) {
   const root = path.join(ROOT, 'services', service);
-  for (const [relative, expected] of renderServiceFiles(service)) {
+  // F006 opts Identity into its own versioned composition adapter. The default
+  // renderer remains the original F003 contract for all foundation-only users.
+  const httpRuntime = service === 'identity' ? 'identity-security-v1' : 'foundation';
+  for (const [relative, expected] of renderServiceFiles(service, { httpRuntime })) {
     const target = path.join(root, relative);
     if (checkOnly) {
       let actual;

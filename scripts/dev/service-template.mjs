@@ -161,8 +161,8 @@ export class AppModule {}
 `;
 }
 
-function httpApplication(service) {
-  if (service === 'identity') {
+function httpApplication(httpRuntime) {
+  if (httpRuntime === 'identity-security-v1') {
     return `import type { INestApplication } from '@nestjs/common';
 import { createIdentityHttpApplication } from '../../identity-runtime';
 
@@ -256,8 +256,15 @@ CMD ["node", "dist/main.js"]
 `;
 }
 
-export function renderServiceFiles(service) {
+/** The default is the byte-stable F003 shell; capability wiring is explicit. */
+export function renderServiceFiles(service, { httpRuntime = 'foundation' } = {}) {
   if (!/^[a-z][a-z0-9-]*$/.test(service)) throw new Error('INVALID_SERVICE_ID');
+  if (
+    httpRuntime !== 'foundation' &&
+    !(httpRuntime === 'identity-security-v1' && service === 'identity')
+  ) {
+    throw new Error('INVALID_SERVICE_HTTP_RUNTIME');
+  }
   return new Map([
     ['src/domain/index.ts', marker('domain', service)],
     ['src/application/index.ts', marker('application', service)],
@@ -265,7 +272,7 @@ export function renderServiceFiles(service) {
     ['src/infrastructure/persistence/prisma.service.ts', prismaService(service)],
     ['src/prisma.service.ts', prismaCompatibility()],
     ['src/app.module.ts', appModule(service)],
-    ['src/transport/http/create-app.ts', httpApplication(service)],
+    ['src/transport/http/create-app.ts', httpApplication(httpRuntime)],
     ['src/transport/messaging/consumer.ts', messageConsumer(service)],
     ['src/main.ts', main(service)],
     ['test/domain/.gitkeep', ''],
