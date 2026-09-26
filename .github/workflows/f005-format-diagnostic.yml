@@ -1,0 +1,28 @@
+name: F005 format diagnostic
+
+on:
+  push:
+    branches: ['feat/F005-rabbitmq-outbox-inbox']
+
+permissions:
+  contents: read
+
+jobs:
+  format-diff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Activate pinned pnpm
+        run: corepack enable && corepack prepare --activate
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Print exact Prettier diff
+        run: |
+          pnpm exec prettier --write tests/integration/outbox-inbox.test.mjs
+          git diff -- tests/integration/outbox-inbox.test.mjs
