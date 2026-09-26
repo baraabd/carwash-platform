@@ -23,6 +23,13 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const INTEGRATION_SUITES = [
   'tests/integration/migrations.test.mjs',
   'tests/integration/postgres-isolation.test.mjs',
+  // Asks the server's own catalogue who holds what, which covers the cases the
+  // connection-level suite cannot observe: a role refused at the database door
+  // never gets far enough to be denied a SELECT.
+  'tests/integration/postgres-privileges.test.mjs',
+  // Replays the provisioning script against the live cluster. Kept after the
+  // privilege suites so a bootstrap defect cannot mask their results.
+  'tests/integration/postgres-bootstrap.test.mjs',
   'tests/integration/rabbitmq-acl.test.mjs',
   'tests/integration/messaging-delivery.test.mjs',
   'tests/integration/outbox-inbox.test.mjs',

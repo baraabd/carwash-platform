@@ -33,7 +33,7 @@
     "acceptance:preflight": "node scripts/acceptance.mjs --preflight",
     "acceptance:run": "node scripts/acceptance.mjs --run",
     "verify:release": "node scripts/acceptance.mjs --run",
-    "verify:foundation": "pnpm verify:toolchain && pnpm check:boundaries && pnpm build:domain && pnpm test:domain",
+    "verify:foundation": "pnpm verify:toolchain && pnpm check:boundaries && pnpm check:migrations && pnpm build:domain && pnpm test:domain",
     "dev:env": "node scripts/create-dev-env.mjs",
     "infra:up": "docker compose --env-file .env.local -f infra/compose.dev.yml up -d",
     "infra:down": "docker compose --env-file .env.local -f infra/compose.dev.yml down",
@@ -52,7 +52,8 @@
     "format:f001:write": "node scripts/f001/quality.mjs format-write",
     "build:workspace": "pnpm generate && turbo run build",
     "verify:f001": "node scripts/f001/acceptance.mjs",
-    "test:contracts": "node --test --test-reporter=tap tests/contracts/public-event-contract.test.mjs"
+    "test:contracts": "node --test --test-reporter=tap tests/contracts/public-event-contract.test.mjs",
+    "check:migrations": "node scripts/check-migrations.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
