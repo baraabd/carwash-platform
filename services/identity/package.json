@@ -21,7 +21,11 @@
     "@prisma/client": "7.10.0",
     "pg": "8.23.0",
     "reflect-metadata": "0.2.2",
-    "rxjs": "7.8.2"
+    "rxjs": "7.8.2",
+    "@carwash/contracts": "workspace:*",
+    "@carwash/security-kit": "workspace:*",
+    "argon2": "0.45.1",
+    "jose": "6.2.5"
   },
   "devDependencies": {
     "@nestjs/testing": "11.2.5",

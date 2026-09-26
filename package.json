@@ -17,9 +17,9 @@
     "generate": "pnpm --filter \"./services/*\" --sequential run generate",
     "build": "pnpm run build:domain && pnpm run build:packages && pnpm --filter \"./services/*\" --sequential run build",
     "build:tests": "pnpm --filter \"./services/*\" --sequential run build:tests",
-    "build:domain": "tsc -p tsconfig.domain.json",
+    "build:domain": "pnpm --filter @carwash/contracts run build && tsc -p tsconfig.domain.json",
     "typecheck": "pnpm --filter \"./packages/*\" --sequential run typecheck && pnpm --filter \"./services/*\" --sequential run typecheck",
-    "lint": "pnpm run build:packages && eslint .",
+    "lint": "pnpm run build:packages && pnpm generate && eslint .",
     "format:check": "prettier --check .",
     "format:write": "prettier --write .",
     "check:boundaries": "node scripts/check-boundaries.mjs && node scripts/check-layers.mjs && node scripts/dev/generate-service-shells.mjs --check",
@@ -53,7 +53,8 @@
     "build:workspace": "pnpm generate && turbo run build",
     "verify:f001": "node scripts/f001/acceptance.mjs",
     "test:contracts": "node --test --test-reporter=tap tests/contracts/public-event-contract.test.mjs",
-    "check:migrations": "node scripts/check-migrations.mjs"
+    "check:migrations": "node scripts/check-migrations.mjs",
+    "acceptance:identity": "node scripts/acceptance-identity.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -62,7 +63,8 @@
     "prettier": "3.9.8",
     "typescript": "5.9.3",
     "typescript-eslint": "8.70.0",
-    "turbo": "2.11.4"
+    "turbo": "2.11.4",
+    "@playwright/test": "1.63.0"
   },
   "pnpm": {
     "overrides": {

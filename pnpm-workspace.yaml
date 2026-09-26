@@ -7,7 +7,9 @@ packages:
 # Each entry below was reviewed before being allowed:
 #   @prisma/engines / prisma  -> downloads the official query/schema engine binaries
 #                                that `prisma generate` and `prisma migrate` require.
+#   argon2 -> loads its upstream prebuilt native Argon2 binding (F006 review).
 # Nothing else in this workspace is permitted to run install-time scripts.
 onlyBuiltDependencies:
   - '@prisma/engines'
   - 'prisma'
+  - 'argon2'

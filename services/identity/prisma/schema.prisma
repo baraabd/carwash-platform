@@ -26,3 +26,65 @@ model ServiceMarker {
 
   @@map("service_marker")
 }
+
+
+model IdentityAccount {
+  id           String @id @db.Uuid
+  email        String @unique @db.VarChar(254)
+  passwordHash String @map("password_hash")
+  status       String @db.VarChar(16)
+  roles        String[]
+  authVersion  Int @default(1) @map("auth_version")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  sessions     IdentitySession[]
+  @@map("identity_account")
+}
+
+model IdentityChallenge {
+  id           String @id @db.Uuid
+  email        String @db.VarChar(254)
+  accountId    String? @map("account_id") @db.Uuid
+  purpose      String @db.VarChar(16)
+  passwordHash String? @map("password_hash")
+  digest       String @db.Char(64)
+  generation   Int
+  attempts     Int
+  expiresAt    DateTime @map("expires_at") @db.Timestamptz(3)
+  resendAt     DateTime @map("resend_at") @db.Timestamptz(3)
+  state        String @db.VarChar(16)
+  @@index([expiresAt])
+  @@map("identity_challenge")
+}
+
+model IdentitySession {
+  id        String @id @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  account   IdentityAccount @relation(fields: [accountId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  refresh   IdentityRefresh[]
+  @@index([accountId, revokedAt])
+  @@map("identity_session")
+}
+
+model IdentityRefresh {
+  digest    String @id @db.Char(64)
+  sessionId String @map("session_id") @db.Uuid
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  session   IdentitySession @relation(fields: [sessionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  @@index([sessionId])
+  @@map("identity_refresh")
+}
+
+model IdentityAudit {
+  id         String @id @db.Uuid
+  action     String @db.VarChar(64)
+  outcome    String @db.VarChar(16)
+  actorId    String? @map("actor_id") @db.Uuid
+  subjectId  String? @map("subject_id") @db.Uuid
+  requestId  String @map("request_id") @db.Uuid
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  @@index([occurredAt])
+  @@map("identity_audit")
+}
