@@ -232,12 +232,20 @@ test('Case A3: transient retry budget survives consumer restart and ends in DLQ'
   await first.waitFor((line) => line.event === 'consumer_started', {
     description: 'first failing consumer start',
   });
+  // This case proves that RabbitMQ owns the retry budget across a PROCESS RESTART.
+  // Wait for the first consumer process to be gone before starting the replacement.
+  // POSIX may report a clean code; Windows may report termination by SIGTERM.
+  // Abrupt crash/redelivery semantics are independently proven by Case C.
   const firstFailure = await first.waitFor((line) => line.event === 'consumer_transient_failure', {
     description: 'first transient failure',
   });
   assert.equal(firstFailure.deliveryCount, 0);
-  await first.kill();
+  const firstExit = await first.stop();
 
+  assert.ok(
+    firstExit.code === 0 || firstExit.signal === 'SIGTERM',
+    `the first consumer must stop before restart; got ${JSON.stringify(firstExit)}`,
+  );
   const second = spawnWorker(
     consumerArgs('reporting', ['--fail-effect']),
     consumerEnv('reporting'),

@@ -56,6 +56,34 @@ if (!existsSync(catalogFile)) {
 }
 const catalog = JSON.parse(await readFile(catalogFile, 'utf8'));
 
+const migrationServices = catalog.services.filter(
+  (service) => service.runtimeImplementation === 'existing-health-only-shell',
+);
+
+if (migrationServices.length === 0) {
+  console.error(
+    'No migration-enabled runtime services found in architecture/service-catalog.json.',
+  );
+  process.exit(1);
+}
+
+// Ownership-only service declarations reserve future database boundaries but do
+// not yet own a Prisma schema or migration history. If one unexpectedly gains a
+// migration before being promoted to a runtime service, fail explicitly rather
+// than silently ignoring the drift.
+for (const service of catalog.services) {
+  if (service.runtimeImplementation === 'existing-health-only-shell') continue;
+
+  const unexpected = await migrationsOf(service.id);
+  if (unexpected.length > 0) {
+    fail(
+      'runtime-migration-scope',
+      `services/${service.id}`,
+      `service is ${service.runtimeImplementation ?? 'unclassified'} but contains ${unexpected.length} migration(s)`,
+    );
+  }
+}
+
 /** migration directories for a service, oldest first (Prisma orders by name). */
 async function migrationsOf(service) {
   const dir = path.join(root, 'services', service, 'prisma/migrations');
@@ -70,7 +98,7 @@ async function migrationsOf(service) {
 // ------------------------------------------------------------- one owner -----
 
 let migrationCount = 0;
-for (const service of catalog.services) {
+for (const service of migrationServices) {
   const names = await migrationsOf(service.id);
   migrationCount += names.length;
 
