@@ -25,10 +25,13 @@ services:
       SUPPORT_MIGRATION_PASSWORD: ${SUPPORT_MIGRATION_PASSWORD:?Run dev:env first}
       REPORTING_DB_PASSWORD: ${REPORTING_DB_PASSWORD:?Run dev:env first}
       REPORTING_MIGRATION_PASSWORD: ${REPORTING_MIGRATION_PASSWORD:?Run dev:env first}
+      # One provisioning script serves dev and acceptance, so the two cannot
+      # drift into different isolation models. It reads the service list here.
+      CW_SERVICES: 'identity customer catalog workforce booking billing media communications support reporting'
     ports: ['127.0.0.1:55432:5432']
     volumes:
       - pg_data:/var/lib/postgresql/data
-      - ./postgres/init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
+      - ./postgres/provision.sh:/docker-entrypoint-initdb.d/01-provision.sh:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U platform_bootstrap -d postgres']
       interval: 10s
