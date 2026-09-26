@@ -40,6 +40,7 @@ jobs:
           j.dependencies['@carwash/contracts'] = 'workspace:*';
           j.dependencies['@carwash/security-kit'] = 'workspace:*';
           j.dependencies.argon2 = '0.45.1';
+          j.dependencies.jose = '6.2.5';
           fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
           let ws = fs.readFileSync('pnpm-workspace.yaml', 'utf8');
           ws = ws.replace('# Nothing else', '#   argon2 -> loads its upstream prebuilt native Argon2 binding (F006 review).\n# Nothing else');
