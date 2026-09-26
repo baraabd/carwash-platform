@@ -1,6 +1,9 @@
 # Context for: docker build -f apps/api-gateway/Dockerfile .
 # Dockerfile-specific rules replace the root .dockerignore. Keep the root
 # service-image policy unchanged, and include only the gateway application.
+apps/*
+!apps/api-gateway
+# Keep these exclusions AFTER the app exception so local artifacts stay out.
 **/node_modules
 **/dist
 **/dist-tests
@@ -11,8 +14,6 @@
 evidence
 design
 docs
-apps/*
-!apps/api-gateway
 tests
 infra
 scripts/dev
