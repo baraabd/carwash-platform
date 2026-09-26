@@ -1,0 +1,45 @@
+name: F007 deterministic routing discovery object
+on:
+  push:
+    branches: ['work/F007-reviewed-delivery']
+    paths: ['.github/workflows/f007-openapi-object.yml']
+permissions:
+  contents: write
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 67e1898d5c3cc05db7282a8effbed0489adb1507
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Build pinned source and reproduce the reviewed discovery bytes
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          pnpm install --frozen-lockfile
+          pnpm build:packages
+          pnpm --filter @carwash/api-gateway run build
+          mkdir -p docs/contracts
+          node scripts/gateway-openapi.mjs --write
+          echo 'ba2b0399afc0c97eed5d0bd0876fac663d02ee9f815073f6d09f0247117ccb4e  docs/contracts/gateway.openapi.json' | sha256sum -c -
+      - name: Store only the matching immutable blob; no branch updates
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request, hashlib
+          from pathlib import Path
+          data=Path('docs/contracts/gateway.openapi.json').read_bytes()
+          assert hashlib.sha256(data).hexdigest() == 'ba2b0399afc0c97eed5d0bd0876fac663d02ee9f815073f6d09f0247117ccb4e'
+          request=urllib.request.Request('https://api.github.com/repos/'+os.environ['GH_REPO']+'/git/blobs',data=json.dumps({'content':data.decode(),'encoding':'utf-8'}).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'},method='POST')
+          with urllib.request.urlopen(request,timeout=30) as response:
+              result=json.load(response)
+          print(json.dumps({'blobSHA':result['sha'],'sourceSHA':'67e1898d5c3cc05db7282a8effbed0489adb1507'}))
+          PY
