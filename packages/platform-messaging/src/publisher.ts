@@ -28,8 +28,6 @@ export interface PublishInput {
   readonly messageId: string;
   readonly eventType: string;
   readonly correlationId: string;
-  /** Transport metadata such as the durable retry counter. */
-  readonly headers?: Readonly<Record<string, unknown>>;
 }
 
 export class ConfirmingPublisher {
@@ -87,7 +85,6 @@ export class ConfirmingPublisher {
           correlationId: input.correlationId,
           type: input.eventType,
           timestamp: Date.now(),
-          ...(input.headers ? { headers: { ...input.headers } } : {}),
         },
         (error: unknown) => {
           if (error) {
