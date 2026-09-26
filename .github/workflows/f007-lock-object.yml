@@ -1,0 +1,46 @@
+name: F007 verified lockfile object
+on:
+  push:
+    branches: ['work/F007-reviewed-delivery']
+    paths: ['.github/workflows/f007-lock-object.yml']
+permissions:
+  contents: write
+  actions: read
+jobs:
+  preserve:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Read the already audited dependency-authoring artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh run download 36218681152 --name f007-resolved-36218681152 --dir "$RUNNER_TEMP/resolved"
+      - name: Verify exact bytes and create only an immutable Git blob (no refs, no merges)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import os, json, hashlib, urllib.request
+          from pathlib import Path
+          data = (Path(os.environ['RUNNER_TEMP']) / 'resolved/pnpm-lock.yaml').read_bytes()
+          expected = '99916d3fb75dee27762dc22e9603aedd8eb0370cdd2e40c8bad9188d0e431dfe'
+          if hashlib.sha256(data).hexdigest() != expected:
+              raise SystemExit('LOCKFILE_SOURCE_HASH_MISMATCH')
+          body = json.dumps({'content': data.decode('utf-8'), 'encoding': 'utf-8'}).encode()
+          request = urllib.request.Request('https://api.github.com/repos/' + os.environ['GH_REPO'] + '/git/blobs', data=body, headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept':'application/vnd.github+json', 'Content-Type':'application/json'}, method='POST')
+          with urllib.request.urlopen(request, timeout=30) as response:
+              result = json.load(response)
+          output = Path(os.environ['RUNNER_TEMP']) / 'lock-object.json'
+          output.write_text(json.dumps({'blobSHA':result['sha'], 'sha256':expected, 'sourceRun':36218681152, 'scope':'immutable lock object only; no branch mutation'}, indent=2))
+          print(output.read_text())
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f007-verified-lock-object
+          path: ${{ runner.temp }}/lock-object.json
+          if-no-files-found: error
+          retention-days: 2
