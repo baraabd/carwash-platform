@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: 67e1898d5c3cc05db7282a8effbed0489adb1507
+          ref: e3cd3cfc7efeb6a097e906d93b13e2fa52259a36
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
@@ -41,5 +41,5 @@ jobs:
           request=urllib.request.Request('https://api.github.com/repos/'+os.environ['GH_REPO']+'/git/blobs',data=json.dumps({'content':data.decode(),'encoding':'utf-8'}).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'},method='POST')
           with urllib.request.urlopen(request,timeout=30) as response:
               result=json.load(response)
-          print(json.dumps({'blobSHA':result['sha'],'sourceSHA':'67e1898d5c3cc05db7282a8effbed0489adb1507'}))
+          print(json.dumps({'blobSHA':result['sha'],'sourceSHA':'e3cd3cfc7efeb6a097e906d93b13e2fa52259a36'}))
           PY
