@@ -1,0 +1,67 @@
+name: F006 verified source import
+on:
+  push:
+    branches: ['work/F006-baseline-inspection']
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 912b94b7081b21d9c4ce12980c6ddbc3a3820391
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Verify payload and publish only the F006 feature ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=912b94b7081b21d9c4ce12980c6ddbc3a3820391
+          branch=feat/F006-identity-security
+          current=$(gh api repos/baraabd/carwash-platform/git/ref/heads/$branch --jq .object.sha)
+          test "$current" = "$base"
+          test "$(git rev-parse HEAD)" = "$base"
+          payload="$RUNNER_TEMP/f006-source.patch.xz"
+          : > "$payload"
+          for blob in 357a94bc82c1bf60703fc5d21c3cd9cb57a26f5e dcdde738f341a9803b1cb861f472d1a03ffbc4f9 2b99d5aa7454dcbdeeed53048ce7feb610d75ddf c1c0086a062607d317c30aad78859b02570240c2 7f6e844b69204221cf6bc3e1b11d9e21be0964df 32318d98fca8eb6e968deeced9a7fe04e26ad726 440f950145e0a7ea4dd742f56bb204580532d697; do
+            gh api repos/baraabd/carwash-platform/git/blobs/$blob --jq .content | base64 --decode >> "$payload"
+          done
+          echo "c2c36ab8f8f4685172b2b36a2a8b059a9933cd53292488a3c175b594c50c7b4b  $payload" | sha256sum --check
+          xz --decompress --stdout "$payload" > "$RUNNER_TEMP/f006-source.patch"
+          git apply --check "$RUNNER_TEMP/f006-source.patch"
+          git apply --index "$RUNNER_TEMP/f006-source.patch"
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/acceptance-identity.mjs')
+          s = p.read_text()
+          a = "  await writeFile(path.join(work, 'users.acl'), acl, { mode: 0o600 });"
+          b = "  // Read-only container mount: Redis runs as a non-root user. This file contains\n  // only a SHA-256 hash of the generated high-entropy test credential.\n  await writeFile(path.join(work, 'users.acl'), acl, { mode: 0o644 });"
+          assert s.count(a) == 1
+          p.write_text(s.replace(a, b))
+          PY
+          git add scripts/acceptance-identity.mjs
+          git diff --cached --check
+          test "$(git write-tree)" = 443ad47749d735fa45eb78bdfbc77cd66f96b86b
+          node scripts/check-secrets.mjs
+          node scripts/check-design-reference.mjs
+          git config user.name 'WashGo Engineering'
+          git config user.email 'automation@washgo.invalid'
+          git commit -m 'feat(F006): implement Identity-owned security and real acceptance suites'
+          test "$(gh api repos/baraabd/carwash-platform/git/ref/heads/$branch --jq .object.sha)" = "$base"
+          git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin HEAD:refs/heads/$branch
+          git rev-parse HEAD
+          mkdir -p "$RUNNER_TEMP/f006-source-import"
+          git bundle create "$RUNNER_TEMP/f006-source-import/feature.bundle" HEAD ^$base
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f006-import-${{ github.run_id }}
+          path: ${{ runner.temp }}/f006-source-import/
+          if-no-files-found: error
+          retention-days: 2
