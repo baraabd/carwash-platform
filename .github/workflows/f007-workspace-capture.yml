@@ -1,0 +1,40 @@
+name: F007 temporary validation workspace
+on:
+  push:
+    branches: ['feat/F007-final-source-verification']
+    paths: ['.github/workflows/f007-workspace-capture.yml']
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Frozen installation and source-only history
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          pnpm install --frozen-lockfile
+          node scripts/check-design-reference.mjs
+          mkdir -p "$RUNNER_TEMP/f007-current"
+          git bundle create "$RUNNER_TEMP/f007-current/source.bundle" HEAD
+          find . -type d -name node_modules -prune -print0 > "$RUNNER_TEMP/f007-node-modules.list"
+          tar --null -T "$RUNNER_TEMP/f007-node-modules.list" -czf "$RUNNER_TEMP/f007-current/dependencies.tar.gz"
+          git rev-parse HEAD > "$RUNNER_TEMP/f007-current/SOURCE_SHA.txt"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f007-current-workspace
+          path: ${{ runner.temp }}/f007-current/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
