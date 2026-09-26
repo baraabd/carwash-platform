@@ -39,11 +39,7 @@ import {
  * independent systems.
  */
 
-const {
-  CATALOG_EVENTS_EXCHANGE,
-  FOUNDATION_PROBE_ROUTING_KEY,
-  subscriberQueueName,
-} = messaging();
+const { CATALOG_EVENTS_EXCHANGE, FOUNDATION_PROBE_ROUTING_KEY, subscriberQueueName } = messaging();
 
 const clients = {};
 
@@ -208,9 +204,11 @@ test('Case A2: the same consumer process reconnects after a RabbitMQ restart', a
 
     await eventually(
       async () =>
-        (await clients.reporting.probeProjection.findUnique({
-          where: { probeId: created.probeId },
-        }))?.applyCount === 1,
+        (
+          await clients.reporting.probeProjection.findUnique({
+            where: { probeId: created.probeId },
+          })
+        )?.applyCount === 1,
       { description: 'event consumed after reconnect', timeoutMs: 90_000 },
     );
   } finally {
@@ -234,10 +232,9 @@ test('Case A3: transient retry budget survives consumer restart and ends in DLQ'
   await first.waitFor((line) => line.event === 'consumer_started', {
     description: 'first failing consumer start',
   });
-  const firstFailure = await first.waitFor(
-    (line) => line.event === 'consumer_transient_failure',
-    { description: 'first transient failure' },
-  );
+  const firstFailure = await first.waitFor((line) => line.event === 'consumer_transient_failure', {
+    description: 'first transient failure',
+  });
   assert.equal(firstFailure.deliveryCount, 0);
   await first.kill();
 
@@ -378,11 +375,9 @@ test('Case C2: same eventId with different payload is dead-lettered without a se
   conflicting.data = { ...conflicting.data, label: 'probe-conflict-mutated' };
   await publishRawCatalog(JSON.stringify(conflicting), created.eventId);
 
-  const conflictConsumer = spawnWorker(
-    consumerArgs('reporting'),
-    consumerEnv('reporting'),
-    { label: 'consumer:conflict-mutated' },
-  );
+  const conflictConsumer = spawnWorker(consumerArgs('reporting'), consumerEnv('reporting'), {
+    label: 'consumer:conflict-mutated',
+  });
   try {
     await conflictConsumer.waitFor((line) => line.event === 'consumer_started', {
       description: 'conflict consumer start',
