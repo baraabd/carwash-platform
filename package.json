@@ -15,10 +15,10 @@
     "verify:frozen-install": "node scripts/verify-frozen-install.mjs",
     "verify:lockfile": "node scripts/verify-frozen-install.mjs --audit-only",
     "generate": "pnpm --filter \"./services/*\" --sequential run generate",
-    "build": "pnpm run build:domain && pnpm run build:packages && pnpm --filter \"./services/*\" --sequential run build",
+    "build": "pnpm run build:domain && pnpm run build:packages && pnpm --filter \"./services/*\" --sequential run build && pnpm --filter @carwash/api-gateway run build",
     "build:tests": "pnpm --filter \"./services/*\" --sequential run build:tests",
     "build:domain": "pnpm --filter @carwash/contracts run build && tsc -p tsconfig.domain.json",
-    "typecheck": "pnpm --filter \"./packages/*\" --sequential run typecheck && pnpm --filter \"./services/*\" --sequential run typecheck",
+    "typecheck": "pnpm --filter \"./packages/*\" --sequential run typecheck && pnpm --filter \"./services/*\" --sequential run typecheck && pnpm --filter @carwash/api-gateway run typecheck",
     "lint": "pnpm run build:packages && pnpm generate && eslint .",
     "format:check": "prettier --check .",
     "format:write": "prettier --write .",
@@ -54,7 +54,10 @@
     "verify:f001": "node scripts/f001/acceptance.mjs",
     "test:contracts": "node --test --test-reporter=tap tests/contracts/public-event-contract.test.mjs",
     "check:migrations": "node scripts/check-migrations.mjs",
-    "acceptance:identity": "node scripts/acceptance-identity.mjs"
+    "acceptance:identity": "node scripts/acceptance-identity.mjs",
+    "test:gateway": "node --test tests/gateway/unit.test.mjs",
+    "acceptance:gateway": "node scripts/acceptance-identity.mjs --include-gateway",
+    "check:gateway-contract": "node scripts/gateway-openapi.mjs --check"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

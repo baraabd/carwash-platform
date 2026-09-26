@@ -1,0 +1,84 @@
+name: F007 gateway contract acceptance
+on:
+  push:
+    branches: ['feat/F007-*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: f007-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  gateway:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Pinned tools, frozen install, independent build and contracts
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          pnpm install --frozen-lockfile
+          pnpm generate
+          pnpm build
+          pnpm typecheck
+          pnpm format:check
+          pnpm lint
+          pnpm test:gateway
+          pnpm check:gateway-contract
+          pnpm check:boundaries
+      - name: F001 final-source regression on the same head
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || 'f46a9a747df364e2c1f66da7aa64179bf7917e0c' }}
+          TURBO_TELEMETRY_DISABLED: '1'
+        run: node scripts/f001/acceptance.mjs --ci --base-ref "$BASE_SHA" --evidence-dir "$RUNNER_TEMP/f007-f001"
+      - name: All PostgreSQL RabbitMQ foundation regressions
+        run: pnpm acceptance:run
+      - name: Install pinned browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Real Identity Postgres Redis and browser plus gateway owner contracts
+        run: pnpm acceptance:gateway
+      - name: Gateway production image non-root boot and shutdown
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="cw-f007-${GITHUB_RUN_ID}"
+          container="cw-f007-${GITHUB_RUN_ID}-boot"
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+          docker build -f apps/api-gateway/Dockerfile -t "$image" .
+          test "$(docker run --rm "$image" node -p 'process.getuid()')" = 1000
+          docker run -d --name "$container" -p 127.0.0.1::4000 \
+            -e 'GATEWAY_UPSTREAMS={"identity":"http://127.0.0.1:9"}' \
+            -e IDENTITY_ISSUER=https://identity.washgo.invalid -e IDENTITY_AUDIENCE=washgo-web \
+            -e GATEWAY_ALLOWED_ORIGINS=https://customer.washgo.invalid "$image"
+          port="$(docker port "$container" 4000/tcp | sed 's/.*://')"
+          ok=0
+          for attempt in $(seq 1 30); do
+            if curl -fsS "http://127.0.0.1:$port/health/live" >/dev/null; then ok=1; break; fi
+            sleep 1
+          done
+          test "$ok" = 1
+          test "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/health/ready")" = 503
+          docker stop -t 10 "$container"
+          test "$(docker inspect -f '{{.State.ExitCode}}' "$container")" = 0
+      - name: Preserve redacted evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f007-acceptance-${{ github.run_id }}
+          path: |
+            evidence/gateway/
+            evidence/acceptance/
+            ${{ runner.temp }}/f007-f001/
+          if-no-files-found: error
+          retention-days: 14

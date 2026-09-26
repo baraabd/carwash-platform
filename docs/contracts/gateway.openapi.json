@@ -1,0 +1,991 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "WashGo Gateway/BFF foundation",
+    "version": "1.0.0",
+    "description": "Routing discovery only; does not assert business endpoints are implemented."
+  },
+  "paths": {
+    "/api/v1/auth/csrf": {
+      "get": {
+        "operationId": "auth.csrf",
+        "x-owning-service": "identity",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/.well-known/jwks.json": {
+      "get": {
+        "operationId": "auth.jwks",
+        "x-owning-service": "identity",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "operationId": "auth.register",
+        "x-owning-service": "identity",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "auth.login",
+        "x-owning-service": "identity",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/challenges/resend": {
+      "post": {
+        "operationId": "auth.challenges.resend",
+        "x-owning-service": "identity",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/challenges/verify": {
+      "post": {
+        "operationId": "auth.challenges.verify",
+        "x-owning-service": "identity",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "operationId": "auth.refresh",
+        "x-owning-service": "identity",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "auth.logout",
+        "x-owning-service": "identity",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout-all": {
+      "post": {
+        "operationId": "auth.logout-all",
+        "x-owning-service": "identity",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/session": {
+      "get": {
+        "operationId": "auth.session",
+        "x-owning-service": "identity",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/customer/profile": {
+      "get": {
+        "operationId": "customer.profile.read",
+        "x-owning-service": "customer",
+        "x-required-permission": "profile.read:self",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "customer.profile.write",
+        "x-owning-service": "customer",
+        "x-required-permission": "profile.write:self",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/customer/packages": {
+      "get": {
+        "operationId": "customer.catalog",
+        "x-owning-service": "catalog",
+        "x-required-permission": "profile.read:self",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/customer/bookings": {
+      "get": {
+        "operationId": "customer.bookings.read",
+        "x-owning-service": "booking",
+        "x-required-permission": "bookings.read:self",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      },
+      "post": {
+        "operationId": "customer.bookings.create",
+        "x-owning-service": "booking",
+        "x-required-permission": "bookings.create:self",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/technician/work": {
+      "get": {
+        "operationId": "technician.work.read",
+        "x-owning-service": "booking",
+        "x-required-permission": "work.read:assigned",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/technician/work/{id}/execute": {
+      "post": {
+        "operationId": "technician.work.execute",
+        "x-owning-service": "booking",
+        "x-required-permission": "work.execute:assigned",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/technician/profile": {
+      "get": {
+        "operationId": "technician.profile",
+        "x-owning-service": "workforce",
+        "x-required-permission": "work.read:assigned",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/dispatch/{id}": {
+      "post": {
+        "operationId": "admin.dispatch",
+        "x-owning-service": "booking",
+        "x-required-permission": "operations.dispatch",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/billing": {
+      "get": {
+        "operationId": "admin.billing",
+        "x-owning-service": "billing",
+        "x-required-permission": "billing.read",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/billing/{id}/refund": {
+      "post": {
+        "operationId": "admin.refund",
+        "x-owning-service": "billing",
+        "x-required-permission": "billing.refund",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/support": {
+      "get": {
+        "operationId": "admin.support",
+        "x-owning-service": "support",
+        "x-required-permission": "support.cases.read",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/reviews/{id}": {
+      "post": {
+        "operationId": "admin.review",
+        "x-owning-service": "workforce",
+        "x-required-permission": "verification.review",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/accounts/{id}/status": {
+      "post": {
+        "operationId": "admin.status",
+        "x-owning-service": "identity",
+        "x-required-permission": "identity.accounts.suspend",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/accounts/{id}/roles": {
+      "post": {
+        "operationId": "admin.roles",
+        "x-owning-service": "identity",
+        "x-required-permission": "identity.roles.assign",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner."
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Unavailable owner"
+          },
+          "504": {
+            "description": "Owner timeout"
+          }
+        }
+      }
+    },
+    "/api/v1/customer/overview": {
+      "get": {
+        "operationId": "customer.overview",
+        "x-read-only": true,
+        "x-composes": [
+          "customer.profile.read",
+          "customer.catalog"
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only composition of owner responses"
+          }
+        }
+      }
+    },
+    "/api/v1/technician/overview": {
+      "get": {
+        "operationId": "technician.overview",
+        "x-read-only": true,
+        "x-composes": [
+          "technician.profile",
+          "technician.work.read"
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only composition of owner responses"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/overview": {
+      "get": {
+        "operationId": "admin.overview",
+        "x-read-only": true,
+        "x-composes": [
+          "admin.billing",
+          "admin.support"
+        ],
+        "responses": {
+          "200": {
+            "description": "Read-only composition of owner responses"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-wg_access"
+      }
+    }
+  }
+}
