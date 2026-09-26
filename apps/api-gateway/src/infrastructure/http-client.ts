@@ -46,7 +46,8 @@ export class BoundedHttpClient implements HttpPort {
       let parsed: unknown = null;
       if (raw) {
         if (
-          !(response.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json')
+          (response.headers.get('content-type') ?? '').split(';', 1)[0]?.trim().toLowerCase() !==
+          'application/json'
         )
           throw new GatewayFault(502, 'UPSTREAM_INVALID');
         try {
