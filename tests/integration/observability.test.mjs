@@ -56,7 +56,7 @@ test(
       middleware(request, response, () => {
         // A test-only HTTP transport invokes the real owner-local transactional producer.
         // This does not introduce a public business API into the foundation shell.
-        void createProbe(clients.catalog, { label: 'f008-context' })
+        void createProbe(clients.catalog, { label: 'probe-f008-context' })
           .then((value) => {
             response.setHeader('content-type', 'application/json');
             response.end(JSON.stringify(value));
