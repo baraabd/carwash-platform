@@ -1,7 +1,7 @@
 import { Module, type DynamicModule, type INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { randomUUID } from 'node:crypto';
+import { instrumentApplication, currentContext, safeId } from '@carwash/service-kit';
 import { RedisRateBudget } from '@carwash/security-kit';
 import { AppModule } from './app.module';
 import { IdentityAuthService } from './application/identity-auth.service';
@@ -76,6 +76,7 @@ export async function createIdentityApplication(
       IdentitySecurityModule.register(runtime),
       { logger: false, bodyParser: false, abortOnError: false },
     );
+    instrumentApplication(app, 'identity');
     app.set('trust proxy', false);
     app.useBodyParser('json', { limit: '16kb', strict: true });
     app.enableCors({
@@ -87,11 +88,7 @@ export async function createIdentityApplication(
     });
     app.use((request: AuthRequest, response: AuthResponse, next: () => void) => {
       const incoming = request.headers['x-correlation-id'];
-      request.authRequestId =
-        typeof incoming === 'string' &&
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(incoming)
-          ? incoming
-          : randomUUID();
+      request.authRequestId = currentContext()?.correlationId ?? safeId(incoming);
       response.setHeader('x-correlation-id', request.authRequestId);
       response.setHeader('cache-control', 'no-store');
       response.setHeader('x-content-type-options', 'nosniff');
@@ -109,7 +106,7 @@ export async function createIdentityApplication(
 export function createIdentityHttpApplication(): Promise<INestApplication> {
   const enabled = process.env.IDENTITY_AUTH_ENABLED;
   if (enabled === undefined || enabled === 'false')
-    return NestFactory.create(AppModule, { bufferLogs: false });
+    return NestFactory.create(AppModule, { logger: false, abortOnError: false });
   if (enabled !== 'true') return Promise.reject(new Error('INVALID_IDENTITY_AUTH_ENABLED'));
   return createIdentityApplication(loadIdentityConfig());
 }

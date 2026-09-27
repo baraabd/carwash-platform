@@ -4,5 +4,5 @@ import { AppModule } from '../../app.module';
 
 /** HTTP transport adapter. Business rules never live in this factory. */
 export function createHttpApplication(): Promise<INestApplication> {
-  return NestFactory.create(AppModule, { bufferLogs: false });
+  return NestFactory.create(AppModule, { logger: false, abortOnError: false });
 }

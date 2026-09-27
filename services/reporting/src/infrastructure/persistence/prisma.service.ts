@@ -1,6 +1,7 @@
 import { Inject, Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { databaseSchemaFromUrl } from '@carwash/service-kit';
+import { databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
+import { Pool } from 'pg';
 import { PrismaClient } from '../../generated/prisma/client';
 
 /** Injection token for this service's own connection string. */
@@ -19,7 +20,13 @@ export class PrismaService implements OnModuleDestroy {
 
   constructor(@Inject(DATABASE_URL) url: string) {
     if (!url) throw new Error('DATABASE_URL_REQUIRED');
-    const adapter = new PrismaPg({ connectionString: url }, { schema: databaseSchemaFromUrl(url) });
+    const pool = new Pool({ connectionString: url });
+    const telemetry = serviceTelemetry('reporting');
+    telemetry.metrics.observePool(() => pool);
+    const adapter = new PrismaPg(pool, {
+      schema: databaseSchemaFromUrl(url),
+      disposeExternalPool: true,
+    });
     this.client = new PrismaClient({ adapter });
   }
 

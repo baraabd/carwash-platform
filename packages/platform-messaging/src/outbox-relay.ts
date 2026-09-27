@@ -1,3 +1,5 @@
+import { bestEffortLog } from '@carwash/observability';
+import type { Telemetry } from '@carwash/observability';
 import { PublishError, type ConfirmingPublisher } from './publisher';
 import type { MessageLogger, OutboxRecord, OutboxStore } from './types';
 
@@ -18,6 +20,7 @@ import type { MessageLogger, OutboxRecord, OutboxStore } from './types';
  */
 
 export interface OutboxRelayOptions {
+  readonly telemetry?: Telemetry;
   readonly workerId: string;
   readonly store: OutboxStore;
   readonly publisher: ConfirmingPublisher;
@@ -48,6 +51,15 @@ export class OutboxRelay {
   }
 
   async runOnce(signal?: AbortSignal): Promise<RelayPass> {
+    this.options.telemetry?.metrics.active('relay', 1);
+    try {
+      return await this.runPass(signal);
+    } finally {
+      this.options.telemetry?.metrics.active('relay', -1);
+    }
+  }
+
+  private async runPass(signal?: AbortSignal): Promise<RelayPass> {
     const records = await this.options.store.leaseBatch({
       workerId: this.options.workerId,
       leaseMs: this.leaseMs,
@@ -65,6 +77,7 @@ export class OutboxRelay {
         await this.publish(record);
       } catch (error: unknown) {
         failed += 1;
+        this.options.telemetry?.metrics.event('retry');
         const reason =
           error instanceof PublishError
             ? error.reason
@@ -78,7 +91,7 @@ export class OutboxRelay {
           maxAttempts: this.maxAttempts,
         });
         if (!owned) leaseLost += 1;
-        this.options.logger?.warn('outbox_publish_failed', {
+        bestEffortLog(this.options.logger, 'warn', 'outbox_publish_failed', {
           eventId: record.eventId,
           eventType: record.eventType,
           reason,
@@ -97,7 +110,7 @@ export class OutboxRelay {
         // left to its current owner; the event may be published twice, which is
         // exactly why consumers deduplicate.
         leaseLost += 1;
-        this.options.logger?.warn('outbox_lease_lost_after_publish', {
+        bestEffortLog(this.options.logger, 'warn', 'outbox_lease_lost_after_publish', {
           eventId: record.eventId,
         });
       }
@@ -113,6 +126,8 @@ export class OutboxRelay {
       messageId: record.eventId,
       eventType: record.eventType,
       correlationId: record.correlationId,
+      ...(record.traceParent ? { traceParent: record.traceParent } : {}),
+      ...(record.createdAtMs === undefined ? {} : { createdAtMs: record.createdAtMs }),
     });
   }
 }

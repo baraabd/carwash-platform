@@ -8,8 +8,9 @@ import {
   parseFoundationProbeCreatedV1,
   type FoundationProbeCreatedV1,
 } from '@carwash/event-contracts';
-import { createLogger, databaseSchemaFromUrl } from '@carwash/service-kit';
+import { createLogger, databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 import { PrismaClient } from '../generated/prisma/client';
 import { PrismaInboxStore } from './prisma-inbox.store';
 import type { PrismaService } from '../prisma.service';
@@ -59,6 +60,7 @@ function requireEnv(name: string): string {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
+  const telemetry = serviceTelemetry('reporting');
   const logger = createLogger({
     service: 'reporting',
     level: (process.env.LOG_LEVEL as 'info') ?? 'info',
@@ -66,11 +68,13 @@ async function main(): Promise<void> {
   });
 
   const databaseUrl = requireEnv('DATABASE_URL');
+  const pool = new Pool({ connectionString: databaseUrl });
+  telemetry.metrics.observePool(() => pool);
   const client = new PrismaClient({
-    adapter: new PrismaPg(
-      { connectionString: databaseUrl },
-      { schema: databaseSchemaFromUrl(databaseUrl) },
-    ),
+    adapter: new PrismaPg(pool, {
+      schema: databaseSchemaFromUrl(databaseUrl),
+      disposeExternalPool: true,
+    }),
   });
   const store = new PrismaInboxStore({ client } as unknown as PrismaService);
   const topology = subscriberTopology('reporting');
@@ -81,8 +85,13 @@ async function main(): Promise<void> {
   let connections = 0;
   let stopping = false;
 
+  const eventLogger = createLogger({
+    service: 'reporting',
+    level: 'info',
+    base: { component: 'worker-events' },
+  });
   const emit = (record: Record<string, unknown>): void => {
-    process.stdout.write(`${JSON.stringify(record)}\n`);
+    eventLogger.info('worker_event', record);
   };
 
   const stop = (signal: string): void => {
@@ -108,6 +117,7 @@ async function main(): Promise<void> {
       reconnectMaxMs: args.reconnectMaxMs,
       createConsumer: (channel) =>
         new InboxConsumer<FoundationProbeCreatedV1>({
+          telemetry,
           channel,
           queue,
           store,
@@ -182,12 +192,13 @@ async function main(): Promise<void> {
   } finally {
     await client.$disconnect();
     emit({ event: 'consumer_stopped', service: 'reporting', handled, connections });
+    await telemetry.shutdown();
   }
 }
 
-void main().catch((error: unknown) => {
-  process.stderr.write(
-    `${JSON.stringify({ event: 'consumer_fatal', error: error instanceof Error ? error.message : 'UNKNOWN_ERROR' })}\n`,
-  );
+void main().catch(async (error: unknown) => {
+  const telemetry = serviceTelemetry('reporting');
+  telemetry.logger.error('worker_fatal', { error });
+  await telemetry.shutdown();
   process.exitCode = 1;
 });

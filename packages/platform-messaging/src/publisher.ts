@@ -1,3 +1,5 @@
+import { bestEffortLog } from '@carwash/observability';
+import { traceHeaders, withContext, remoteContext, type Telemetry } from '@carwash/observability';
 import type { ConfirmChannel } from 'amqplib';
 import type { MessageLogger } from './types';
 
@@ -28,6 +30,8 @@ export interface PublishInput {
   readonly messageId: string;
   readonly eventType: string;
   readonly correlationId: string;
+  readonly traceParent?: string | null;
+  readonly createdAtMs?: number;
 }
 
 export class ConfirmingPublisher {
@@ -38,11 +42,12 @@ export class ConfirmingPublisher {
     private readonly channel: ConfirmChannel,
     private readonly logger?: MessageLogger,
     private readonly confirmTimeoutMs = 10_000,
+    private readonly telemetry?: Telemetry,
   ) {
     this.channel.on('return', (message) => {
       const id = message.properties.messageId;
       if (typeof id === 'string') this.returned.add(id);
-      this.logger?.warn('publish_returned_unroutable', {
+      bestEffortLog(this.logger, 'warn', 'publish_returned_unroutable', {
         exchange: message.fields.exchange,
         routingKey: message.fields.routingKey,
       });
@@ -53,6 +58,26 @@ export class ConfirmingPublisher {
   }
 
   async publish(input: PublishInput): Promise<void> {
+    const headers = {
+      ...traceHeaders(),
+      'x-correlation-id': input.correlationId,
+      ...(input.traceParent ? { traceparent: input.traceParent } : {}),
+    };
+    const work = async (): Promise<void> => {
+      try {
+        await this.publishConfirmed(input);
+        this.telemetry?.metrics.event('published');
+        bestEffortLog(this.logger, 'info', 'message_published');
+      } catch (error: unknown) {
+        this.telemetry?.metrics.event('failed');
+        throw error;
+      }
+    };
+    if (this.telemetry) await this.telemetry.run('messaging.publish', work, headers);
+    else await withContext(remoteContext(headers), work);
+  }
+
+  private async publishConfirmed(input: PublishInput): Promise<void> {
     if (this.closed) throw new PublishError('CHANNEL_CLOSED');
     this.returned.delete(input.messageId);
 
@@ -84,7 +109,8 @@ export class ConfirmingPublisher {
           messageId: input.messageId,
           correlationId: input.correlationId,
           type: input.eventType,
-          timestamp: Date.now(),
+          timestamp: Math.floor((input.createdAtMs ?? Date.now()) / 1000),
+          headers: traceHeaders(),
         },
         (error: unknown) => {
           if (error) {

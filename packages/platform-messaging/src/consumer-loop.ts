@@ -1,3 +1,4 @@
+import { bestEffortLog } from '@carwash/observability';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { ConfirmChannel } from 'amqplib';
 import { BrokerConnection, type BrokerOptions } from './connection';
@@ -84,12 +85,12 @@ export async function runReconnectingInboxLoop<T extends ParsedEvent>(
 
       const outcome = await waitForCloseOrAbort(connection, options.signal);
       if (outcome === 'closed' && !options.signal.aborted) {
-        options.logger?.warn('inbox_broker_disconnected', { connectionNumber });
+        bestEffortLog(options.logger, 'warn', 'inbox_broker_disconnected', { connectionNumber });
         await options.onDisconnected?.({ connectionNumber });
       }
     } catch (error: unknown) {
       if (options.signal.aborted) break;
-      options.logger?.warn('inbox_broker_unavailable', {
+      bestEffortLog(options.logger, 'warn', 'inbox_broker_unavailable', {
         error: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
         nextDelayMs: backoffMs,
       });

@@ -1,5 +1,6 @@
+import { serviceTelemetry } from '@carwash/observability';
 import { Controller, Get, Inject, Module, Res, type DynamicModule } from '@nestjs/common';
-import type { Logger } from './logging';
+import { bestEffortLog, type Logger } from './logging';
 
 /**
  * Liveness and readiness are different questions and are answered separately.
@@ -14,7 +15,7 @@ import type { Logger } from './logging';
 
 export interface DependencyProbe {
   readonly name: string;
-  readonly kind: 'postgres' | 'rabbitmq' | 'http' | 'other';
+  readonly kind: 'postgres' | 'redis' | 'rabbitmq' | 'http' | 'other';
   check(): Promise<void>;
 }
 
@@ -88,6 +89,13 @@ export class HealthController {
     const dependencies = await Promise.all(
       (this.options.dependencies ?? []).map((probe) => withTimeout(probe, timeoutMs)),
     );
+    const telemetry = serviceTelemetry(this.options.service);
+    for (const dependency of dependencies)
+      telemetry.metrics.dependency(
+        dependency.kind,
+        dependency.status === 'UP',
+        dependency.durationMs / 1000,
+      );
     const dependenciesUp = dependencies.every((d) => d.status === 'UP');
     // A green dependency never promotes an unimplemented service to ready.
     const ready = this.options.businessReady && dependenciesUp;
@@ -102,7 +110,8 @@ export class HealthController {
         : 'FOUNDATION_NOT_READY',
       dependencies,
     };
-    if (!ready) this.options.logger?.warn('readiness_not_ready', { code: body.code });
+    if (!ready)
+      bestEffortLog(this.options.logger, 'warn', 'readiness_not_ready', { code: body.code });
     return res.status(ready ? 200 : 503).json(body);
   }
 }

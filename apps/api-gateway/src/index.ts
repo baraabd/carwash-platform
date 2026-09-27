@@ -1,3 +1,4 @@
+import { instrumentApplication, type Telemetry } from '@carwash/observability';
 import 'reflect-metadata';
 import { Module, type INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -17,9 +18,18 @@ export async function createGatewayApplication(config: GatewayConfig): Promise<I
   validateGatewayConfig(config);
   const http = new BoundedHttpClient(config);
   const gateway = new GatewayService(http, new PublicIdentityClient(http, config), config);
+  const observation: { runtime?: Telemetry } = {};
+  const lifecycle = {
+    onApplicationShutdown: async (): Promise<void> => {
+      await observation.runtime?.shutdown();
+    },
+  };
   @Module({
     controllers: [GatewayController],
-    providers: [{ provide: GATEWAY_SERVICE, useValue: gateway }],
+    providers: [
+      { provide: GATEWAY_SERVICE, useValue: gateway },
+      { provide: 'GATEWAY_TELEMETRY_LIFECYCLE', useValue: lifecycle },
+    ],
   })
   class GatewayModule {}
   const app = await NestFactory.create<NestExpressApplication>(GatewayModule, {
@@ -27,6 +37,7 @@ export async function createGatewayApplication(config: GatewayConfig): Promise<I
     bodyParser: false,
     abortOnError: false,
   });
+  observation.runtime = instrumentApplication(app, 'api-gateway');
   app.use((request: GatewayRequest, response: GatewayResponse, next: () => void) => {
     const context = contextFor(request.headers);
     request.gatewayContext = context;

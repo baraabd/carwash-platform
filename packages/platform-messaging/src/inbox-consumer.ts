@@ -1,3 +1,11 @@
+import { bestEffortLog } from '@carwash/observability';
+import {
+  currentContext,
+  withContext,
+  remoteContext,
+  safeId,
+  type Telemetry,
+} from '@carwash/observability';
 import { createHash } from 'node:crypto';
 import type { ConfirmChannel, ConsumeMessage } from 'amqplib';
 import type { InboxOutcome, InboxRecord, InboxStore, MessageLogger } from './types';
@@ -24,6 +32,7 @@ export interface ParsedEvent {
 }
 
 export interface InboxConsumerOptions<T extends ParsedEvent> {
+  readonly telemetry?: Telemetry;
   readonly channel: ConfirmChannel;
   readonly queue: string;
   readonly store: InboxStore;
@@ -73,6 +82,7 @@ export class InboxConsumer<T extends ParsedEvent> {
   };
 
   private consumerTag: string | undefined;
+  private readonly inFlight = new Set<Promise<void>>();
 
   constructor(private readonly options: InboxConsumerOptions<T>) {}
 
@@ -82,7 +92,11 @@ export class InboxConsumer<T extends ParsedEvent> {
       this.options.queue,
       (message) => {
         if (message === null) return; // consumer cancelled by the broker
-        void this.handle(message);
+        const work = this.observe(message).catch((error: unknown) => {
+          bestEffortLog(this.options.logger, 'error', 'consumer_callback_failed', { error });
+        });
+        this.inFlight.add(work);
+        void work.finally(() => this.inFlight.delete(work));
       },
       { noAck: false },
     );
@@ -95,13 +109,46 @@ export class InboxConsumer<T extends ParsedEvent> {
     const tag = this.consumerTag;
     this.consumerTag = undefined;
     await this.options.channel.cancel(tag);
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      await Promise.race([
+        Promise.allSettled([...this.inFlight]),
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, 5000);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+    // On a deadline the owner closes the channel; RabbitMQ redelivers unacked work.
   }
 
   private deadLetter(message: ConsumeMessage, reason: string): void {
     this.stats.deadLettered += 1;
-    this.options.logger?.error('message_dead_lettered', { reason });
+    this.options.telemetry?.metrics.event('rejected');
+    bestEffortLog(this.options.logger, 'error', 'message_dead_lettered', { reason });
     // requeue=false -> the queue's dead-letter exchange, never an ACK.
     this.options.channel.nack(message, false, false);
+  }
+
+  private async observe(message: ConsumeMessage): Promise<void> {
+    const carrier = message.properties.headers as Record<string, unknown> | undefined;
+    const headers = {
+      traceparent: carrier?.['traceparent'],
+      'x-request-id': carrier?.['x-request-id'],
+      'x-correlation-id': message.properties.correlationId,
+    };
+    const work = async (): Promise<void> => {
+      this.options.telemetry?.metrics.active('consumer', 1);
+      try {
+        await this.handle(message);
+      } finally {
+        this.options.telemetry?.metrics.active('consumer', -1);
+      }
+    };
+    if (this.options.telemetry)
+      await this.options.telemetry.run('messaging.consume', work, headers);
+    else await withContext(remoteContext(headers), work);
   }
 
   private async handle(message: ConsumeMessage): Promise<void> {
@@ -109,12 +156,21 @@ export class InboxConsumer<T extends ParsedEvent> {
     let event: T;
     try {
       event = this.options.parse(JSON.parse(body));
-    } catch (error: unknown) {
+    } catch {
       // Malformed or unsupported: retrying can never make it valid.
-      this.deadLetter(message, error instanceof Error ? error.message : 'PARSE_ERROR');
+      this.deadLetter(message, 'PARSE_ERROR');
       return;
     }
 
+    const context = currentContext();
+    if (context)
+      await withContext({ ...context, correlationId: safeId(event.correlationId) }, () =>
+        this.apply(message, event, body),
+      );
+    else await this.apply(message, event, body);
+  }
+
+  private async apply(message: ConsumeMessage, event: T, body: string): Promise<void> {
     const record: InboxRecord = {
       eventId: event.eventId,
       eventType: event.eventType,
@@ -138,10 +194,14 @@ export class InboxConsumer<T extends ParsedEvent> {
       // results in a redelivery, which the inbox row makes harmless.
       await this.options.onBeforeAck?.(event, outcome);
       this.options.channel.ack(message);
+      const timestamp: unknown = message.properties.timestamp;
+      const age = typeof timestamp === 'number' ? Date.now() / 1000 - timestamp : undefined;
+      this.options.telemetry?.metrics.event(outcome === 'DUPLICATE' ? 'duplicate' : 'applied', age);
     } catch (error: unknown) {
       this.stats.transientFailures += 1;
+      this.options.telemetry?.metrics.event('retry');
       const deliveryCount = brokerDeliveryCount(message);
-      this.options.logger?.warn('inbox_apply_failed', {
+      bestEffortLog(this.options.logger, 'warn', 'inbox_apply_failed', {
         eventId: event.eventId,
         deliveryCount,
         error: error instanceof Error ? error.name : 'UNKNOWN_ERROR',

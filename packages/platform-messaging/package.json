@@ -19,7 +19,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "amqplib": "2.0.1"
+    "amqplib": "2.0.1",
+    "@carwash/observability": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "24.13.6",

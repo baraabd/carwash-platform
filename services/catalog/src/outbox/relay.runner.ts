@@ -6,8 +6,9 @@ import {
   assertTopology,
   producerTopology,
 } from '@carwash/platform-messaging';
-import { createLogger, databaseSchemaFromUrl } from '@carwash/service-kit';
+import { createLogger, databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 import { PrismaClient } from '../generated/prisma/client';
 import { PrismaOutboxStore } from './prisma-outbox.store';
 import type { PrismaService } from '../prisma.service';
@@ -70,6 +71,7 @@ function requireEnv(name: string): string {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
+  const telemetry = serviceTelemetry('catalog');
   const logger = createLogger({
     service: 'catalog',
     level: (process.env.LOG_LEVEL as 'info') ?? 'info',
@@ -77,21 +79,28 @@ async function main(): Promise<void> {
   });
 
   const databaseUrl = requireEnv('DATABASE_URL');
+  const pool = new Pool({ connectionString: databaseUrl });
+  telemetry.metrics.observePool(() => pool);
   const brokerUrl = requireEnv('BROKER_URL');
 
-  const adapter = new PrismaPg(
-    { connectionString: databaseUrl },
-    { schema: databaseSchemaFromUrl(databaseUrl) },
-  );
+  const adapter = new PrismaPg(pool, {
+    schema: databaseSchemaFromUrl(databaseUrl),
+    disposeExternalPool: true,
+  });
   const client = new PrismaClient({ adapter });
   const store = new PrismaOutboxStore({ client } as unknown as PrismaService);
 
   let stopping = false;
   let connection: BrokerConnection | undefined;
 
+  const eventLogger = createLogger({
+    service: 'catalog',
+    level: 'info',
+    base: { component: 'worker-events' },
+  });
   const emit = (record: Record<string, unknown>): void => {
-    // One JSON object per line on stdout; logs go to stderr via the logger.
-    process.stdout.write(`${JSON.stringify(record)}\n`);
+    // Structured event records retain the acceptance synchronization contract.
+    eventLogger.info('worker_event', record);
   };
 
   const shutdown = (signal: string): void => {
@@ -140,7 +149,8 @@ async function main(): Promise<void> {
       const relay = new OutboxRelay({
         workerId: args.workerId,
         store,
-        publisher: new ConfirmingPublisher(connection.channel, logger),
+        publisher: new ConfirmingPublisher(connection.channel, logger, 10_000, telemetry),
+        telemetry,
         logger,
         leaseMs: args.leaseMs,
         batchSize: args.batchSize,
@@ -191,12 +201,13 @@ async function main(): Promise<void> {
     await connection?.close();
     await client.$disconnect();
     emit({ event: 'relay_stopped', workerId: args.workerId, passes });
+    await telemetry.shutdown();
   }
 }
 
-void main().catch((error: unknown) => {
-  process.stderr.write(
-    `${JSON.stringify({ event: 'relay_fatal', error: error instanceof Error ? error.message : 'UNKNOWN_ERROR' })}\n`,
-  );
+void main().catch(async (error: unknown) => {
+  const telemetry = serviceTelemetry('catalog');
+  telemetry.logger.error('worker_fatal', { error });
+  await telemetry.shutdown();
   process.exitCode = 1;
 });

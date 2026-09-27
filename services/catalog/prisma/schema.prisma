@@ -49,6 +49,7 @@ model OutboxMessage {
   routingKey    String    @map("routing_key")
   payload       String
   correlationId String    @map("correlation_id") @db.Uuid
+  traceParent   String?   @map("trace_parent") @db.VarChar(55)
   attempts      Int       @default(0)
   lockedBy      String?   @map("locked_by")
   lockedUntil   DateTime? @map("locked_until")

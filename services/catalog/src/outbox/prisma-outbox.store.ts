@@ -11,6 +11,8 @@ interface LeasedRow {
   payload: string;
   correlation_id: string;
   attempts: number;
+  trace_parent: string | null;
+  created_at: Date;
 }
 
 /**
@@ -56,7 +58,7 @@ export class PrismaOutboxStore implements OutboxStore {
            LIMIT $4
         )
       RETURNING o.id, o.event_id, o.event_type, o.exchange, o.routing_key,
-                o.payload, o.correlation_id, o.attempts`,
+                o.payload, o.correlation_id, o.attempts, o.trace_parent, o.created_at`,
       input.workerId,
       input.leaseMs,
       input.maxAttempts,
@@ -72,6 +74,8 @@ export class PrismaOutboxStore implements OutboxStore {
       payload: row.payload,
       correlationId: row.correlation_id,
       attempts: row.attempts,
+      traceParent: row.trace_parent,
+      createdAtMs: row.created_at.getTime(),
     }));
   }
 

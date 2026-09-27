@@ -57,7 +57,8 @@
     "acceptance:identity": "node scripts/acceptance-identity.mjs",
     "test:gateway": "node --test tests/gateway/unit.test.mjs",
     "acceptance:gateway": "node scripts/acceptance-identity.mjs --include-gateway",
-    "check:gateway-contract": "node scripts/gateway-openapi.mjs --check"
+    "check:gateway-contract": "node scripts/gateway-openapi.mjs --check",
+    "test:observability": "node --test --test-reporter=spec tests/observability/*.test.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
