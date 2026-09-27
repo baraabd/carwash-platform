@@ -1,0 +1,46 @@
+name: F008 isolated authoring workspace
+on:
+  push:
+    branches: ['work/F008-workspace-20260927']
+permissions:
+  contents: read
+jobs:
+  workspace:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Prepare isolated offline authoring inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          pnpm install --frozen-lockfile
+          mkdir -p "$RUNNER_TEMP/f008-authoring"
+          git bundle create "$RUNNER_TEMP/f008-authoring/source.bundle" --all
+          pnpm --filter @carwash/observability add --save-exact pino prom-client @opentelemetry/api @opentelemetry/core @opentelemetry/context-async-hooks @opentelemetry/resources @opentelemetry/sdk-trace-base @opentelemetry/exporter-trace-otlp-http
+          pnpm generate
+          node scripts/check-design-reference.mjs
+          tar --exclude=.git --exclude=evidence --exclude=.env.local -czf "$RUNNER_TEMP/f008-authoring/workspace.tgz" .
+          node_root="$(dirname "$(dirname "$(command -v node)")")"
+          tar -czf "$RUNNER_TEMP/f008-authoring/node.tgz" -C "$node_root" .
+          corepack pack pnpm@10.32.1 -o "$RUNNER_TEMP/f008-authoring/package-manager.tgz"
+          tar -czf "$RUNNER_TEMP/f008-authoring/pnpm-store.tgz" -C "$(pnpm store path)" .
+          printf 'Authoring inputs only; not acceptance evidence.\nSource: %s\nNode: %s\npnpm: %s\n' "$(git rev-parse HEAD)" "$(node --version)" "$(pnpm --version)" > "$RUNNER_TEMP/f008-authoring/PROVENANCE.txt"
+          cd "$RUNNER_TEMP/f008-authoring"
+          sha256sum *.tgz source.bundle > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f008-authoring-${{ github.run_id }}
+          path: ${{ runner.temp }}/f008-authoring/
+          retention-days: 1
+          if-no-files-found: error
+          compression-level: 0
