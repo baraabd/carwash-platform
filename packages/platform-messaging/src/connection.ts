@@ -1,3 +1,4 @@
+import { bestEffortLog } from '@carwash/observability';
 import { connect, type ChannelModel, type ConfirmChannel } from 'amqplib';
 import type { MessageLogger } from './types';
 
@@ -47,10 +48,10 @@ export class BrokerConnection {
     // Unhandled 'error' on an EventEmitter would crash the process; the caller
     // learns about the failure through closed()/onClose instead.
     model.on('error', (error: Error) =>
-      options.logger?.warn('broker_connection_error', { error: error.name }),
+      bestEffortLog(options.logger, 'warn', 'broker_connection_error', { error: error.name }),
     );
     channel.on('error', (error: Error) =>
-      options.logger?.warn('broker_channel_error', { error: error.name }),
+      bestEffortLog(options.logger, 'warn', 'broker_channel_error', { error: error.name }),
     );
     return new BrokerConnection(model, channel, options.logger);
   }
@@ -69,14 +70,14 @@ export class BrokerConnection {
     try {
       await this.channel.close();
     } catch (error: unknown) {
-      this.logger?.debug('broker_channel_close_failed', {
+      bestEffortLog(this.logger, 'debug', 'broker_channel_close_failed', {
         error: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
       });
     }
     try {
       await this.model.close();
     } catch (error: unknown) {
-      this.logger?.debug('broker_connection_close_failed', {
+      bestEffortLog(this.logger, 'debug', 'broker_connection_close_failed', {
         error: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
       });
     }

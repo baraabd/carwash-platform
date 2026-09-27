@@ -63,16 +63,27 @@ test('F003 renderer snapshot and structure are deterministic', () => {
   );
   assert.equal(
     snapshot('identity'),
-    '5b4670e93c378a090a311bea51203285162e888bf53df34e22fe04a8f9f6d022',
+    'a5d6f321c84e1e0ff486391e4b61983df4dfb2f88217df3e829a397e35e64541',
   );
   assert.equal(
     snapshot('catalog'),
-    'c9aff4ffbc010b2fa60b82236b9fbc2c0a7ab8f4c6178342de3820bd20d4520e',
+    '2ca0b2cc3050698e53bb9a2f3357cee358a8abd57712a7053eefa69bfa675552',
   );
   assert.equal(
     snapshot('communications'),
-    'b782bb45869781193d1e95cd628977113a211f35616af5de5c3431ad77835089',
+    '16129fa26980e62d94e46d861f6c6e204c76419bf6afb9b2036781360bad9162',
   );
+});
+
+test('F008 generated adapters bind only their owner-local pool and dispose it', () => {
+  for (const owner of ['identity', 'catalog', 'communications']) {
+    const files = renderServiceFiles(owner);
+    const adapter = files.get('src/infrastructure/persistence/prisma.service.ts');
+    assert.ok(adapter.includes("serviceTelemetry('" + owner + "')"));
+    assert.ok(adapter.includes('metrics.observePool(() => pool)'));
+    assert.ok(adapter.includes('disposeExternalPool: true'));
+    assert.ok(adapter.includes('new Pool({ connectionString: url })'));
+  }
 });
 
 test('F003 committed service shells exactly match the generator', () => {

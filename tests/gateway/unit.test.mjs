@@ -330,7 +330,9 @@ test('F007 gateway contains no database/service implementation dependencies or p
   const manifest = JSON.parse(
     await readFile(path.join(ROOT, 'apps/api-gateway/package.json'), 'utf8'),
   );
+  // F008 adds only a technical package; database and owner dependencies remain forbidden.
   const allowed = [
+    '@carwash/observability',
     '@carwash/contracts',
     '@carwash/security-kit',
     '@nestjs/common',

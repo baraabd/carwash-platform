@@ -7,3 +7,10 @@ export * from './errors';
 export * from './health';
 export * from './http-filter';
 export * from './logging';
+export {
+  instrumentApplication,
+  serviceTelemetry,
+  currentContext,
+  traceHeaders,
+  safeId,
+} from '@carwash/observability';

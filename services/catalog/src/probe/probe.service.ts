@@ -1,3 +1,4 @@
+import { currentContext, traceHeaders } from '@carwash/service-kit';
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import {
@@ -42,7 +43,7 @@ export class ProbeService {
   async createProbe(input: CreateProbeInput): Promise<CreateProbeResult> {
     const probeId = randomUUID();
     const eventId = randomUUID();
-    const correlationId = input.correlationId ?? randomUUID();
+    const correlationId = input.correlationId ?? currentContext()?.correlationId ?? randomUUID();
     const occurredAt = new Date().toISOString();
 
     const event: FoundationProbeCreatedV1 = {
@@ -72,6 +73,7 @@ export class ProbeService {
           routingKey: FOUNDATION_PROBE_ROUTING_KEY,
           payload,
           correlationId,
+          traceParent: traceHeaders()['traceparent'] ?? null,
         },
       });
       if (input.failAfterWrites) throw new Error('SIMULATED_PRODUCER_FAILURE');

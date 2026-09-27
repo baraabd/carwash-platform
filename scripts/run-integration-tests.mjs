@@ -33,6 +33,7 @@ export const INTEGRATION_SUITES = [
   'tests/integration/rabbitmq-acl.test.mjs',
   'tests/integration/messaging-delivery.test.mjs',
   'tests/integration/outbox-inbox.test.mjs',
+  'tests/integration/observability.test.mjs',
 ];
 
 /**

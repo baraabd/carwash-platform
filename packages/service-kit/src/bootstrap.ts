@@ -1,8 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
 import { loadServiceRuntimeConfig, type ServiceRuntimeConfig } from './config';
-import { CORRELATION_HEADER, resolveCorrelationId } from './correlation';
 import { AppExceptionFilter } from './http-filter';
-import { createLogger, type Logger } from './logging';
+import type { Logger } from './logging';
+import { instrumentApplication, serviceTelemetry } from '@carwash/observability';
 
 export interface BootstrapOptions {
   readonly service: string;
@@ -33,27 +33,20 @@ function withTimeout<T>(label: string, promise: Promise<T>, timeoutMs: number): 
 
 export async function bootstrapService(options: BootstrapOptions): Promise<ServiceRuntime> {
   const config = loadServiceRuntimeConfig(options.service, options.env);
-  const logger = createLogger({ service: options.service, level: config.logLevel });
+  const telemetry = serviceTelemetry(options.service, options.env);
+  const logger = telemetry.logger;
   const exit = options.exit ?? ((code: number) => process.exit(code));
 
   const app = await withTimeout(
     'STARTUP_CREATE_APPLICATION',
     options.createApplication(),
     config.startupTimeoutMs,
-  );
+  ).catch(async (error: unknown) => {
+    await telemetry.shutdown();
+    throw error;
+  });
+  instrumentApplication(app, options.service, options.env);
 
-  app.use(
-    (
-      req: { headers: Record<string, unknown> },
-      res: { setHeader(name: string, value: string): void },
-      next: () => void,
-    ) => {
-      const correlationId = resolveCorrelationId(req.headers[CORRELATION_HEADER]);
-      req.headers[CORRELATION_HEADER] = correlationId;
-      res.setHeader(CORRELATION_HEADER, correlationId);
-      next();
-    },
-  );
   app.useGlobalFilters(new AppExceptionFilter(logger));
 
   try {
@@ -64,6 +57,7 @@ export async function bootstrapService(options: BootstrapOptions): Promise<Servi
     );
   } catch (error: unknown) {
     await withTimeout('STARTUP_ROLLBACK', app.close(), config.shutdownTimeoutMs).catch(() => {});
+    await telemetry.shutdown();
     throw error;
   }
 
@@ -73,20 +67,24 @@ export async function bootstrapService(options: BootstrapOptions): Promise<Servi
     businessReady: options.businessReady,
   });
 
-  let shuttingDown = false;
-  const shutdown = async (signal: NodeJS.Signals | 'TEST'): Promise<void> => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    logger.info('service_stopping', { signal });
-    try {
-      await withTimeout('SHUTDOWN', app.close(), config.shutdownTimeoutMs);
-      logger.info('service_stopped', { signal });
-      if (signal !== 'TEST') exit(0);
-    } catch (error: unknown) {
-      logger.error('service_stop_failed', { signal, error });
-      if (signal !== 'TEST') exit(1);
-      else throw error;
-    }
+  let shuttingDown: Promise<void> | undefined;
+  const shutdown = (signal: NodeJS.Signals | 'TEST'): Promise<void> => {
+    if (shuttingDown) return shuttingDown;
+    shuttingDown = (async () => {
+      logger.info('service_stopping', { signal });
+      try {
+        await withTimeout('SHUTDOWN', app.close(), config.shutdownTimeoutMs);
+        logger.info('service_stopped', { signal });
+        await telemetry.shutdown();
+        if (signal !== 'TEST') exit(0);
+      } catch (error: unknown) {
+        logger.error('service_stop_failed', { signal, error });
+        await telemetry.shutdown();
+        if (signal !== 'TEST') exit(1);
+        else throw error;
+      }
+    })();
+    return shuttingDown;
   };
 
   if (options.installSignalHandlers !== false) {

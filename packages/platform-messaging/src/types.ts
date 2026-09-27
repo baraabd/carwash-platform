@@ -17,6 +17,9 @@ export interface OutboxRecord {
   readonly payload: string;
   readonly correlationId: string;
   readonly attempts: number;
+  /** Optional technical metadata; legacy rows legitimately have no trace. */
+  readonly traceParent?: string | null;
+  readonly createdAtMs?: number;
 }
 
 /**
