@@ -1,0 +1,44 @@
+name: F010 font provenance only
+on:
+  push:
+    branches: ['work/F010-harness-inputs-20260927']
+permissions:
+  contents: read
+jobs:
+  fonts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Record hashes only for the rendering font set
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install-deps chromium
+          mkdir -p "$RUNNER_TEMP/f010-fonts"
+          python3 <<'PY'
+          import hashlib,json,os,pathlib,subprocess
+          files=sorted(set(subprocess.check_output(['fc-list','--format=%{file}\n'],text=True).splitlines()))
+          records=sorted([{'name':pathlib.Path(f).name,'sha256':hashlib.sha256(pathlib.Path(f).read_bytes()).hexdigest()} for f in files],key=lambda x:(x['name'],x['sha256']))
+          matched={}
+          for pattern in ['Segoe UI','Tahoma','Arial','sans-serif','sans-serif:charset=0639','sans-serif:charset=1f600']:
+              file=subprocess.check_output(['fc-match','--format=%{file}',pattern],text=True)
+              matched[pattern]={'name':pathlib.Path(file).name,'sha256':hashlib.sha256(pathlib.Path(file).read_bytes()).hexdigest()}
+          report={'schemaVersion':1,'platform':'linux/x64','runner':'ubuntu-24.04','fontFiles':records,'fontMatches':matched,'note':'Hashes only. No font binaries are distributed.'}
+          (pathlib.Path(os.environ['RUNNER_TEMP'])/'f010-fonts/fonts.lock.json').write_text(json.dumps(report,indent=2)+'\n')
+          print('Font files recorded:',len(records))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f010-font-provenance-${{ github.run_id }}
+          path: ${{ runner.temp }}/f010-fonts/
+          retention-days: 1
+          if-no-files-found: error
