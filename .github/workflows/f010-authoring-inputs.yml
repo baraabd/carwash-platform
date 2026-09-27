@@ -1,0 +1,44 @@
+name: F010 authoring inputs only
+on:
+  push:
+    branches: ['work/F010-harness-inputs-20260927']
+permissions:
+  contents: read
+jobs:
+  inputs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Resolve exact harness tooling, not acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          pnpm install --frozen-lockfile
+          pnpm add -Dw --save-exact axe-core pngjs
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+          mkdir -p "$RUNNER_TEMP/f010-inputs"
+          git bundle create "$RUNNER_TEMP/f010-inputs/source.bundle" --all
+          tar --exclude=.git --exclude=evidence --exclude=.env.local --exclude='*.ttf' --exclude='*.otf' --exclude='*.woff*' -czf "$RUNNER_TEMP/f010-inputs/workspace.tgz" .
+          tar -czf "$RUNNER_TEMP/f010-inputs/pnpm-metadata.tgz" -C "$HOME/.cache/pnpm" .
+          tar --exclude='*.ttf' --exclude='*.otf' --exclude='*.woff*' -czf "$RUNNER_TEMP/f010-inputs/browser.tgz" -C "$HOME/.cache/ms-playwright" .
+          cp package.json pnpm-lock.yaml "$RUNNER_TEMP/f010-inputs/"
+          printf 'Authoring inputs only; not F010 acceptance.\nSource: %s\nNode: %s\npnpm: %s\n' "$(git rev-parse HEAD)" "$(node --version)" "$(pnpm --version)" > "$RUNNER_TEMP/f010-inputs/PROVENANCE.txt"
+          cd "$RUNNER_TEMP/f010-inputs"
+          sha256sum *.tgz source.bundle package.json pnpm-lock.yaml > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f010-authoring-${{ github.run_id }}
+          path: ${{ runner.temp }}/f010-inputs/
+          retention-days: 1
+          if-no-files-found: error
+          compression-level: 0
