@@ -1,0 +1,64 @@
+name: F009 authoring inputs only
+on:
+  push:
+    branches: ['work/F009-source-export-20260927']
+permissions:
+  contents: read
+jobs:
+  inputs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Capture public source and checksum-verified tools
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/f009-inputs/tools"
+          git bundle create "$RUNNER_TEMP/f009-inputs/source.bundle" --all
+          python3 <<'PY'
+          import hashlib, json, os, pathlib, tarfile, urllib.request
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'f009-inputs'
+          def api(path):
+              req = urllib.request.Request('https://api.github.com/' + path, headers={'Authorization':'Bearer ' + os.environ['GH_TOKEN'], 'Accept':'application/vnd.github+json'})
+              with urllib.request.urlopen(req, timeout=60) as response:
+                  return json.load(response)
+          tools = {}
+          for name, repo, suffix in [('actionlint','rhysd/actionlint','linux_amd64.tar.gz'),('gitleaks','gitleaks/gitleaks','linux_x64.tar.gz'),('trivy','aquasecurity/trivy','Linux-64bit.tar.gz')]:
+              release = api('repos/' + repo + '/releases/latest')
+              asset = next(a for a in release['assets'] if a['name'].endswith(suffix))
+              checksum = next(a for a in release['assets'] if 'checksums' in a['name'].lower() and a['name'].endswith('.txt'))
+              with urllib.request.urlopen(checksum['browser_download_url'], timeout=60) as response:
+                  expected = next(line.split()[0] for line in response.read().decode().splitlines() if line.split()[-1].lstrip('*') == asset['name'])
+              archive = root / asset['name']
+              urllib.request.urlretrieve(asset['browser_download_url'], archive)
+              actual = hashlib.sha256(archive.read_bytes()).hexdigest()
+              assert actual == expected
+              with tarfile.open(archive) as tar:
+                  member = next(m for m in tar.getmembers() if m.isfile() and pathlib.PurePosixPath(m.name).name == name)
+                  binary = root / 'tools' / name
+                  binary.write_bytes(tar.extractfile(member).read())
+                  binary.chmod(0o755)
+              tools[name] = {'version':release['tag_name'], 'url':asset['browser_download_url'], 'sha256':actual, 'binarySha256':hashlib.sha256(binary.read_bytes()).hexdigest(), 'checksumsUrl':checksum['browser_download_url']}
+              archive.unlink()
+          actions = {}
+          for repo, ref in [('github/codeql-action','v4'),('actions/download-artifact','v5')]:
+              commit = api('repos/' + repo + '/commits/' + ref)
+              actions[repo] = {'ref':ref, 'sha':commit['sha']}
+          (root / 'tools.lock.json').write_text(json.dumps({'schemaVersion':1, 'tools':tools, 'actions':actions}, indent=2) + '\n')
+          runs = api('repos/baraabd/carwash-platform/actions/runs?head_sha=f368c397d2274eb00261d5dd2a70b25209966c02&per_page=100')
+          (root / 'baseline-runs.json').write_text(json.dumps([{'id':r['id'],'name':r['name'],'status':r['status'],'conclusion':r['conclusion'],'head_sha':r['head_sha']} for r in runs['workflow_runs']], indent=2) + '\n')
+          print((root / 'tools.lock.json').read_text())
+          PY
+          printf 'Authoring inputs, not sprint acceptance.\nSource: %s\n' "$(git rev-parse HEAD)" > "$RUNNER_TEMP/f009-inputs/PROVENANCE.txt"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f009-authoring-${{ github.run_id }}
+          path: ${{ runner.temp }}/f009-inputs/
+          retention-days: 1
+          if-no-files-found: error
