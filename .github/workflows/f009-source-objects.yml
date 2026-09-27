@@ -1,0 +1,58 @@
+name: F009 verified source objects only
+on:
+  push:
+    branches: ['work/F009-source-objects-20260927']
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ef105fe0d9abf2876e400155d13917688d022cc7
+          persist-credentials: false
+      - name: Verify exact patch, preserve references, prepare code objects only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 <<'PY'
+          import base64, hashlib, json, lzma, os, pathlib, subprocess, urllib.request
+          parent='ef105fe0d9abf2876e400155d13917688d022cc7'
+          base_tree='fcaadd83f4911dc1b7c3e4e714ed5ac98125ff2d'
+          expected='2a678ba3b21f4b19236f3202ca8647392d5e2946'
+          code_tree='419b1c27c868479642ee78c693dc19534eba67cd'
+          def api(path, data=None):
+              request=urllib.request.Request('https://api.github.com/repos/baraabd/carwash-platform'+path, data=None if data is None else json.dumps(data).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'})
+              with urllib.request.urlopen(request,timeout=60) as response: return json.load(response)
+          data=base64.b64decode(api('/git/blobs/c7adab435c21181900d57a5303bc2b50ebdee736')['content'])
+          assert len(data)==6352 and hashlib.sha256(data).hexdigest()=='f4efb705005d7232746a477213b21fa8bb02fb3652fc254864077256b3ee64a9'
+          patch=lzma.decompress(data,memlimit=268435456)
+          assert len(patch)==29264
+          assert subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()==parent
+          subprocess.run(['git','apply','--index','--unidiff-zero','-'],input=patch,check=True)
+          subprocess.run(['git','diff','--cached','--check'],check=True)
+          assert subprocess.check_output(['git','write-tree'],text=True).strip()==expected
+          paths=subprocess.check_output(['git','diff','--cached','--name-only'],text=True).splitlines()
+          assert len(paths)==24
+          manifest=json.loads(pathlib.Path('docs/design/reference-manifest.json').read_text())
+          forbidden=set(manifest['frozenPolicyPaths'])|{i['path'] for i in manifest['artifacts']}
+          for path in paths:
+              assert path not in forbidden and not path.startswith(('design/','.env','.claude/'))
+              assert '..' not in pathlib.PurePosixPath(path).parts
+              assert pathlib.Path(path).is_file() and not pathlib.Path(path).is_symlink()
+          code=[path for path in paths if not path.startswith('.github/workflows/')]
+          assert len(code)==22
+          result=api('/git/trees',{'base_tree':base_tree,'tree':[{'path':p,'mode':'100644','type':'blob','content':pathlib.Path(p).read_text()} for p in code]})
+          assert result['sha']==code_tree
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'f009-source-objects';root.mkdir()
+          (root/'source.json').write_text(json.dumps({'sourceParent':parent,'codeTree':code_tree,'expectedFinalTree':expected,'changedFiles':paths,'scope':'Source objects only; no branch update, merge, deployment or acceptance claim.'},indent=2)+'\n')
+          print('Verified code tree:',code_tree)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f009-source-objects-${{ github.run_id }}
+          path: ${{ runner.temp }}/f009-source-objects/
+          if-no-files-found: error
+          retention-days: 1
