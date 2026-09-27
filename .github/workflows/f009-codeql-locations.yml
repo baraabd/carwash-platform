@@ -1,0 +1,61 @@
+name: F009 CodeQL source diagnosis
+on:
+  push:
+    branches: ['work/F009-source-export-20260927']
+permissions:
+  contents: read
+jobs:
+  diagnosis:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ef105fe0d9abf2876e400155d13917688d022cc7
+          persist-credentials: false
+      - uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2
+        id: init
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          tools: linked
+          queries: security-extended
+          db-location: ${{ runner.temp }}/f009-diagnostic-codeql
+          debug: false
+      - uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2
+        with:
+          output: ${{ runner.temp }}/raw-sarif
+          upload: never
+          upload-database: false
+      - name: Retain only exact-source rule metadata and locations
+        env:
+          CODEQL_VERSION: ${{ steps.init.outputs.codeql-version }}
+        run: |
+          python3 <<'PY'
+          import json, os, pathlib, subprocess
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])
+          evidence=root/'safe-locations'
+          evidence.mkdir()
+          rows=[]
+          for file in (root/'raw-sarif').glob('*.sarif'):
+              for run in json.loads(file.read_text())['runs']:
+                  rules={r['id']:r for r in run['tool']['driver'].get('rules',[])}
+                  for extension in run['tool'].get('extensions',[]):
+                      rules.update({r['id']:r for r in extension.get('rules',[])})
+                  for result in run.get('results',[]):
+                      rule=rules[result['ruleId']]
+                      def loc(value):
+                          p=value.get('physicalLocation',{})
+                          return {'path':p.get('artifactLocation',{}).get('uri'),'line':p.get('region',{}).get('startLine')}
+                      rows.append({'rule':result['ruleId'],'level':result.get('level',rule.get('defaultConfiguration',{}).get('level')),'score':rule.get('properties',{}).get('security-severity'),'locations':[loc(x) for x in result.get('locations',[])],'flowLocations':[[loc(x.get('location',{})) for x in thread.get('locations',[])] for flow in result.get('codeFlows',[]) for thread in flow.get('threadFlows',[])]})
+          report={'sourceSha':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'codeqlVersion':os.environ['CODEQL_VERSION'],'scope':'Diagnostic reproduction; not F009 acceptance','findings':rows}
+          (evidence/'locations.json').write_text(json.dumps(report,indent=2)+'\n')
+          print('Exact-source findings:',len(rows))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: f009-codeql-locations-${{ github.run_id }}
+          path: ${{ runner.temp }}/safe-locations/
+          if-no-files-found: error
+          retention-days: 1
