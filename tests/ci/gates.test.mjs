@@ -1,4 +1,7 @@
 import test from 'node:test';
+import { constants, symlinkSync } from 'node:fs';
+import { readRegularFile } from '../../scripts/lib/read-regular-file.mjs';
+import { loopbackIdentityPort } from '../identity/_proxy-target.mjs';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -274,4 +277,43 @@ test('all runtime Dockerfiles use the reviewed digest, numeric identity and exac
     assert.match(source, /^USER 1000:1000$/m);
     assert.ok(source.includes('CMD ["node", "-e",'));
   }
+});
+
+test('F009 descriptor reader handles empty files, exact limits and bounded overflow', (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), 'cw-f009-file-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const file = path.join(root, 'input');
+  writeFileSync(file, '');
+  assert.equal(readRegularFile(file, 8).length, 0);
+  writeFileSync(file, '12345678');
+  assert.equal(readRegularFile(file, 8).toString(), '12345678');
+  assert.throws(() => readRegularFile(file, 7), /FILE_LIMIT_EXCEEDED/);
+  assert.throws(() => readRegularFile(file, 0), /INVALID_FILE_LIMIT/);
+  assert.throws(() => readRegularFile(root, 8), /NOT_A_REGULAR_FILE/);
+});
+
+test('F009 descriptor reader refuses symlink targets in the Linux CI environment', (t) => {
+  assert.ok(constants.O_NOFOLLOW, 'This Linux-specific acceptance requires O_NOFOLLOW');
+  const root = mkdtempSync(path.join(tmpdir(), 'cw-f009-symlink-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const target = path.join(root, 'target');
+  const link = path.join(root, 'link');
+  writeFileSync(target, 'must not be read through the link');
+  symlinkSync(target, link);
+  assert.throws(() => readRegularFile(link, 100), { code: 'ELOOP' });
+  assert.equal(readRegularFile(target, 100).toString(), 'must not be read through the link');
+});
+
+test('F009 browser proxy accepts only the explicit local Identity fixture port', () => {
+  assert.equal(loopbackIdentityPort('http://127.0.0.1:49152'), 49152);
+  for (const value of [
+    'https://127.0.0.1:49152',
+    'http://remote.invalid:49152',
+    'http://127.0.0.1:0',
+    'http://127.0.0.1',
+    'http://u:p@127.0.0.1:49152',
+    'http://127.0.0.1:49152/other',
+    'http://127.0.0.1:49152/?x=y',
+  ])
+    assert.throws(() => loopbackIdentityPort(value));
 });

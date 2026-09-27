@@ -16,7 +16,7 @@
  *   node scripts/check-secrets.mjs --all      scan the working tree too
  */
 import { spawnSync } from 'node:child_process';
-import { readFile, stat } from 'node:fs/promises';
+import { readRegularFile } from './lib/read-regular-file.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -154,18 +154,19 @@ async function scanFile(file) {
   if (isSkipped(file)) return findings;
 
   const absolute = path.join(ROOT, file);
-  let info;
-  try {
-    info = await stat(absolute);
-  } catch {
-    return findings;
-  }
-  if (!info.isFile() || info.size > MAX_BYTES) return findings;
-
   let text;
   try {
-    text = await readFile(absolute, 'utf8');
-  } catch {
+    text = readRegularFile(absolute, MAX_BYTES).toString('utf8');
+  } catch (error) {
+    // Removed working-tree files and the inherited maximum-size exclusion are
+    // explicit. Other read failures must not masquerade as a clean scan.
+    if (error.code !== 'ENOENT' && error.message !== 'FILE_LIMIT_EXCEEDED')
+      findings.push({
+        file,
+        line: 0,
+        rule: 'file-read',
+        description: 'file could not be safely scanned',
+      });
     return findings;
   }
   // A NUL byte means binary; there is nothing useful to match in it.

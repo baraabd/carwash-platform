@@ -257,3 +257,13 @@ test('F006 config: missing production secrets/configuration never starts a fake 
   );
   assert.throws(() => loadIdentityConfig({ APP_ENV: 'test' }), /INVALID_APP_ENV/);
 });
+
+test('F009 cookie parsing rejects prototype keys without changing normal cookie values', () => {
+  for (const name of ['__proto__', 'constructor', 'prototype'])
+    assert.throws(() => readCookies(`${name}=unsafe`), /INVALID_COOKIE_NAME/);
+  const cookies = readCookies('__Host-wg_refresh=opaque; unrelated=value');
+  assert.equal(Object.getPrototypeOf(cookies), null);
+  assert.equal(cookies['__Host-wg_refresh'], 'opaque');
+  assert.equal(cookies.unrelated, 'value');
+  assert.equal(Object.prototype.unsafe, undefined);
+});

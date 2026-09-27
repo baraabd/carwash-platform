@@ -57,10 +57,11 @@ async function assertPrerequisites() {
         'or run the full gate:  pnpm acceptance:run',
     );
   }
+  let context;
   try {
-    await access(contextFile);
+    context = JSON.parse(await readFile(contextFile, 'utf8'));
   } catch {
-    throw new Error(`CW_CONTEXT_FILE points at a file that does not exist: ${contextFile}`);
+    throw new Error('CW_CONTEXT_FILE must name a readable, valid acceptance context.');
   }
 
   // Fail with the actual remedy rather than five identical import stacks.
@@ -78,7 +79,6 @@ async function assertPrerequisites() {
     );
   }
 
-  const context = JSON.parse(await readFile(contextFile, 'utf8'));
   return context;
 }
 

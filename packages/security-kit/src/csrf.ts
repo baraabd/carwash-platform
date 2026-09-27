@@ -64,6 +64,8 @@ export function readCookies(header: unknown): Readonly<Record<string, string>> {
     if (split < 1) continue;
     const name = part.slice(0, split).trim();
     const value = part.slice(split + 1).trim();
+    if (name === '__proto__' || name === 'constructor' || name === 'prototype')
+      throw new Error('INVALID_COOKIE_NAME');
     if (Object.hasOwn(cookies, name)) throw new Error('DUPLICATE_COOKIE');
     cookies[name] = value;
   }
