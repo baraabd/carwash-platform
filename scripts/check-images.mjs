@@ -26,6 +26,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { run } from './acceptance/lib/exec.mjs';
+import {
+  verifiedNonRoot,
+  verifiedNoBakedSecrets,
+  BAKED_SECRET_PROBE,
+} from './lib/image-probes.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -157,10 +162,12 @@ async function verifyService(service) {
 
   try {
     // ---- non-root ----
-    const whoami = await docker(['exec', container, 'id', '-u'], { timeoutMs: 60_000 });
+    const whoami = await docker(['exec', container, 'node', '-p', 'process.getuid()'], {
+      timeoutMs: 60_000,
+    });
     const uid = whoami.stdout.trim();
     results.push(
-      uid && uid !== '0'
+      verifiedNonRoot(whoami)
         ? pass(service, 'runs as non-root', `uid=${uid}`)
         : fail(service, 'runs as non-root', `uid=${uid || 'unknown'}`),
     );
@@ -190,12 +197,11 @@ async function verifyService(service) {
     );
 
     // ---- no secrets baked in ----
-    const leaked = await docker(
-      ['exec', container, 'sh', '-c', 'ls -a /app | grep -E "^\\.env|^\\.acceptance" || true'],
-      { timeoutMs: 60_000 },
-    );
+    const leaked = await docker(['exec', container, 'node', '-e', BAKED_SECRET_PROBE], {
+      timeoutMs: 60_000,
+    });
     results.push(
-      leaked.stdout.trim() === ''
+      verifiedNoBakedSecrets(leaked)
         ? pass(service, 'no .env or .acceptance in image')
         : fail(service, 'no .env or .acceptance in image', leaked.stdout.trim()),
     );
