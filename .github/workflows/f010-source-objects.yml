@@ -1,0 +1,68 @@
+name: F010 verified source objects only
+on:
+  push:
+    branches: ['work/F010-source-objects-20260927']
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fee6340062b7145004d12abfcba223b45f32b57e
+          persist-credentials: false
+      - name: Verify exact source, file modes and existing immutable references
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 <<'PY'
+          import base64, hashlib, json, lzma, os, pathlib, subprocess, urllib.request
+          parent='fee6340062b7145004d12abfcba223b45f32b57e'
+          base_tree='a0d6a224d717e193c22e15893cb245cac54179db'
+          expected='cb1826f12c76ec68be3ee0c3e1421b1a8e6f440'
+          code_tree='44e1c2f7244c94d275a8e9420305c38ee1bbcb1a'
+          blobs=['82a0083a9740f687ee52bdc57a3f8c14c10e6099','24d4a69c96251597e5f9c668232d7bc5e5e940d3','734488d3825f72eb1b22ffbb36b9831c63fffc90','24d088479f03d1a9c9a7a6601b3b10a6bd503b0f','7b5940761f660a3ec8a1ac94eb9974eff6d3e100','9cdd99e990a273bbdf34c96ad8dd21901f327a10']
+          def api(path, data=None):
+              request=urllib.request.Request('https://api.github.com/repos/baraabd/carwash-platform'+path, data=None if data is None else json.dumps(data).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'})
+              with urllib.request.urlopen(request,timeout=60) as response: return json.load(response)
+          data=b''.join(base64.b64decode(api('/git/blobs/'+sha)['content']) for sha in blobs)
+          assert len(data)==61696 and hashlib.sha256(data).hexdigest()=='885c9a72aa1a3c51bc7f3757ca9e2d5110a43b613429563b72e5cfe0378cf7e5'
+          patch=lzma.decompress(data,memlimit=268435456)
+          assert len(patch)==249807
+          assert subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()==parent
+          subprocess.run(['git','apply','--index','--unidiff-zero','-'],input=patch,check=True)
+          subprocess.run(['git','diff','--cached','--check'],check=True)
+          assert subprocess.check_output(['git','write-tree'],text=True).strip()==expected
+          paths=subprocess.check_output(['git','diff','--cached','--name-only'],text=True).splitlines()
+          assert len(paths)==19
+          manifest=json.loads(pathlib.Path('docs/design/reference-manifest.json').read_text())
+          forbidden=set(manifest['frozenPolicyPaths'])|{i['path'] for i in manifest['artifacts']}|{'docs/design/reference-manifest.json'}
+          imported={'design/reference/approved/washgo-technician-interactive.html':'d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc','design/reference/approved/washgo-admin-prototype.html':'b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273'}
+          for item in manifest['artifacts']:
+              assert hashlib.sha256(pathlib.Path(item['path']).read_bytes()).hexdigest()==item['sha256']
+          entries=[]
+          for path in paths:
+              assert path not in forbidden and not path.startswith(('.env','.claude/'))
+              assert '..' not in pathlib.PurePosixPath(path).parts
+              assert pathlib.Path(path).is_file() and not pathlib.Path(path).is_symlink()
+              if path.startswith('design/'):
+                  assert path in imported and hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()==imported[path]
+              if path.startswith('.github/workflows/'): continue
+              mode=subprocess.check_output(['git','ls-files','--stage','--',path],text=True).split()[0]
+              assert mode in ['100644','100755']
+              entries.append({'path':path,'mode':mode,'type':'blob','content':pathlib.Path(path).read_text()})
+          assert len(entries)==17
+          result=api('/git/trees',{'base_tree':base_tree,'tree':entries})
+          assert result['sha']==code_tree, result['sha']
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'f010-source-objects';root.mkdir()
+          (root/'source.json').write_text(json.dumps({'sourceParent':parent,'codeTree':code_tree,'expectedFinalTree':expected,'changedFiles':paths,'scope':'Source objects only; no branch update, merge, deployment or acceptance claim.'},indent=2)+'\n')
+          print('Verified code tree:',code_tree)
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f010-source-objects-${{ github.run_id }}
+          path: ${{ runner.temp }}/f010-source-objects/
+          if-no-files-found: error
+          retention-days: 1
