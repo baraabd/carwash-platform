@@ -53,16 +53,28 @@ jobs:
           mkdir -p "$RUNNER_TEMP/f008"
           node --input-type=module <<'NODE' > "$RUNNER_TEMP/f008/source.json"
           import { execFileSync } from 'node:child_process';
+          import { cpSync, mkdirSync } from 'node:fs';
+          import path from 'node:path';
           const call = (cmd, args) => { try { return execFileSync(cmd, args, { encoding: 'utf8' }).trim(); } catch { return 'unavailable'; } };
-          console.log(JSON.stringify({ scope: 'F008', sourceSha: call('git', ['rev-parse', 'HEAD']), sourceTree: call('git', ['rev-parse', 'HEAD^{tree}']), sourceDirty: call('git', ['status', '--porcelain']) !== '', node: process.version, pnpm: call('pnpm', ['--version']), docker: call('docker', ['--version']), note: 'Provenance only; acceptance requires all required job and test results.' }, null, 2));
+          const untracked = call('git', ['ls-files', '--others', '--exclude-standard']).split('\n').filter(Boolean);
+          const evidencePattern = /^evidence\/acceptance\/[0-9]{8}-[a-f0-9]{8}\/(?:acceptance-report\.json|integration\.tap|logs\/(?:compose-ps\.json|postgres\.log|rabbitmq\.log))$/;
+          const generatedEvidence = untracked.filter((file) => evidencePattern.test(file));
+          const unexpectedFiles = untracked.filter((file) => !evidencePattern.test(file));
+          const trackedSourceDirty = call('git', ['diff', '--name-only', 'HEAD']) !== '';
+          const sourceDirty = trackedSourceDirty || unexpectedFiles.length > 0;
+          for (const file of generatedEvidence) {
+            const destination = path.join(process.env.RUNNER_TEMP, 'f008', file);
+            mkdirSync(path.dirname(destination), { recursive: true });
+            cpSync(file, destination, { errorOnExist: true, force: false });
+          }
+          console.log(JSON.stringify({ scope: 'F008', sourceSha: call('git', ['rev-parse', 'HEAD']), sourceTree: call('git', ['rev-parse', 'HEAD^{tree}']), sourceDirty, trackedSourceDirty, unexpectedFiles, generatedEvidence, node: process.version, pnpm: call('pnpm', ['--version']), docker: call('docker', ['--version']), note: 'Only exact whitelisted outputs newly produced by this run are retained. Generated evidence is not a source edit. Acceptance requires all required job and test results.' }, null, 2));
+          if (sourceDirty) process.exitCode = 1;
           NODE
       - name: Retain safe focused evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: f008-observability-${{ github.run_id }}
-          path: |
-            ${{ runner.temp }}/f008/
-            evidence/acceptance/
+          path: ${{ runner.temp }}/f008/
           if-no-files-found: error
           retention-days: 14
