@@ -22,7 +22,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 <<'PY'
-          import base64, hashlib, json, lzma, os, pathlib, subprocess, urllib.request
+          import base64, hashlib, json, lzma, os, pathlib, subprocess, urllib.request, urllib.error
           repo = os.environ['GH_REPOSITORY']
           assert repo == 'baraabd/carwash-platform'
           parent = '15544a92a270b2abafcf57e58191e90b7d8eba42'
@@ -33,8 +33,12 @@ jobs:
           def api(path, payload=None):
               body = None if payload is None else json.dumps(payload).encode()
               request = urllib.request.Request('https://api.github.com/repos/' + repo + path, data=body, headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json'})
-              with urllib.request.urlopen(request, timeout=60) as response:
-                  return json.load(response)
+              try:
+                  with urllib.request.urlopen(request, timeout=60) as response:
+                      return json.load(response)
+              except urllib.error.HTTPError as error:
+                  print('GitHub API failure:', error.code, json.loads(error.read()).get('message', 'unspecified'))
+                  raise
           packed = b''.join(base64.b64decode(api('/git/blobs/' + sha)['content']) for sha in blobs)
           assert len(packed) == 31956 and hashlib.sha256(packed).hexdigest() == expected_digest
           patch = lzma.decompress(packed, memlimit=268435456)
@@ -42,8 +46,7 @@ jobs:
           assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip() == parent
           subprocess.run(['git', 'apply', '--index', '--unidiff-zero', '-'], input=patch, check=True)
           subprocess.run(['git', 'diff', '--cached', '--check'], check=True)
-          actual_tree = subprocess.check_output(['git', 'write-tree'], text=True).strip()
-          assert actual_tree == expected_tree
+          assert subprocess.check_output(['git', 'write-tree'], text=True).strip() == expected_tree
           paths = subprocess.check_output(['git', 'diff', '--cached', '--name-only', '-z']).decode().rstrip('\0').split('\0')
           assert len(paths) == 66 and len(set(paths)) == 66
           frozen = json.loads(pathlib.Path('docs/design/reference-manifest.json').read_text())
@@ -52,15 +55,16 @@ jobs:
               assert path not in forbidden and not path.startswith(('design/', '.claude/', '.env'))
               assert '..' not in pathlib.PurePosixPath(path).parts
               assert pathlib.Path(path).is_file() and not pathlib.Path(path).is_symlink()
-          entries = [{'path': path, 'mode': '100644', 'type': 'blob', 'content': pathlib.Path(path).read_text()} for path in paths]
+          code_paths = [path for path in paths if not path.startswith('.github/workflows/')]
+          assert len(code_paths) == 65
+          entries = [{'path': path, 'mode': '100644', 'type': 'blob', 'content': pathlib.Path(path).read_text()} for path in code_paths]
           result = api('/git/trees', {'base_tree': base_tree, 'tree': entries})
-          assert result['sha'] == expected_tree, result['sha']
+          assert result['sha'] == 'b521581748bd54e20e2aaf7413aba29cdf9c1b3d', result['sha']
           evidence = pathlib.Path(os.environ['RUNNER_TEMP']) / 'f008-tree'
           evidence.mkdir()
-          record = {'sourceParent': parent, 'sourceTree': result['sha'], 'patchSha256': expected_digest, 'changedFiles': paths, 'scope': 'Source authoring only. No branch update, merge, deployment or acceptance claim.'}
+          record = {'sourceParent': parent, 'codeTree': result['sha'], 'expectedFinalTree': expected_tree, 'patchSha256': expected_digest, 'changedFiles': paths, 'scope': 'Source authoring only. Workflow must be added through the authorized GitHub connection. No ref update, merge, deployment or acceptance claim.'}
           (evidence / 'tree.json').write_text(json.dumps(record, indent=2) + '\n')
-          print('VERIFIED_SOURCE_TREE=' + result['sha'])
-          print('Changed files: ' + str(len(paths)))
+          print('VERIFIED_CODE_TREE=' + result['sha'])
           PY
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
