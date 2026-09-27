@@ -1,0 +1,66 @@
+name: F009 security diagnosis only
+on:
+  push:
+    branches: ['work/F009-source-export-20260927']
+permissions:
+  contents: read
+  security-events: read
+jobs:
+  diagnosis:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ef105fe0d9abf2876e400155d13917688d022cc7
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Fetch finding locations without snippets or credentials
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/f009-diagnosis"
+          python3 <<'PY'
+          import json, os, pathlib, urllib.request, urllib.error
+          records = []
+          for ref in ['refs/heads/feat/F009-ci-security','refs/pull/16/head']:
+              from urllib.parse import urlencode
+              query = urlencode({'ref':ref,'per_page':100})
+              request = urllib.request.Request('https://api.github.com/repos/baraabd/carwash-platform/code-scanning/alerts?' + query, headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+              try:
+                  with urllib.request.urlopen(request, timeout=60) as response:
+                      alerts=json.load(response)
+                  for a in alerts:
+                      loc=a.get('most_recent_instance',{}).get('location',{})
+                      records.append({'ref':ref,'number':a['number'],'rule':a['rule']['id'],'severity':a['rule'].get('security_severity_level'),'state':a['state'],'path':loc.get('path'),'startLine':loc.get('start_line'),'endLine':loc.get('end_line')})
+              except urllib.error.HTTPError as error:
+                  records.append({'ref':ref,'httpStatus':error.code})
+          (pathlib.Path(os.environ['RUNNER_TEMP'])/'f009-diagnosis/locations.json').write_text(json.dumps(records,indent=2)+'\n')
+          print(json.dumps(records,indent=2))
+          PY
+      - name: Resolve and inspect a minimal maintained runtime candidate
+        env:
+          CI_TOOLS_DIR: ${{ runner.temp }}/f009-tools
+        run: |
+          set -euo pipefail
+          node scripts/ci/install-tools.mjs trivy
+          docker pull gcr.io/distroless/cc-debian13:nonroot
+          docker inspect --format '{{json .RepoDigests}}' gcr.io/distroless/cc-debian13:nonroot > "$RUNNER_TEMP/f009-diagnosis/runtime-digest.json"
+          "$CI_TOOLS_DIR/trivy" image --scanners vuln --format json --output "$RUNNER_TEMP/scan-private.json" --timeout 10m gcr.io/distroless/cc-debian13:nonroot
+          python3 <<'PY'
+          import json, os, pathlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])
+          raw=json.loads((root/'scan-private.json').read_text())
+          records=[{'id':v['VulnerabilityID'],'package':v['PkgName'],'installed':v.get('InstalledVersion'),'fixed':v.get('FixedVersion'),'severity':v['Severity']} for r in raw.get('Results',[]) for v in r.get('Vulnerabilities',[]) if v['Severity'] in ['HIGH','CRITICAL','UNKNOWN']]
+          (root/'f009-diagnosis/runtime-findings.json').write_text(json.dumps({'scope':'Candidate diagnosis only, not F009 acceptance','findings':records},indent=2)+'\n')
+          print('Blocking runtime candidate findings:',len(records))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: f009-security-diagnosis-${{ github.run_id }}
+          path: ${{ runner.temp }}/f009-diagnosis/
+          if-no-files-found: error
+          retention-days: 1
