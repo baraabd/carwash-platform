@@ -15,7 +15,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version-file: .nvmrc
-      - name: Resolve and capture exact public package metadata
+      - name: Resolve public packages and technical workspace links
         shell: bash
         run: |
           set -euo pipefail
@@ -23,6 +23,17 @@ jobs:
           corepack prepare --activate
           pnpm install --frozen-lockfile
           pnpm --filter @carwash/observability add --save-exact pino@10.3.1 prom-client@15.1.3 @opentelemetry/api@1.9.1 @opentelemetry/core@2.11.0 @opentelemetry/context-async-hooks@2.11.0 @opentelemetry/resources@2.11.0 @opentelemetry/sdk-trace-base@2.11.0 @opentelemetry/exporter-trace-otlp-http@0.222.0
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          for (const directory of ['packages/service-kit', 'packages/platform-messaging', 'apps/api-gateway']) {
+            const file = `${directory}/package.json`;
+            const value = JSON.parse(fs.readFileSync(file, 'utf8'));
+            value.dependencies['@carwash/observability'] = 'workspace:*';
+            fs.writeFileSync(file, JSON.stringify(value, null, 2) + '\n');
+          }
+          NODE
+          pnpm install --lockfile-only --force
+          pnpm install --frozen-lockfile
           mkdir -p "$RUNNER_TEMP/f008-metadata"
           tar -czf "$RUNNER_TEMP/f008-metadata/metadata.tgz" -C "$HOME/.cache/pnpm" .
           cp pnpm-lock.yaml "$RUNNER_TEMP/f008-metadata/resolved-lock.yaml"
