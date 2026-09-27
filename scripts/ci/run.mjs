@@ -196,7 +196,11 @@ try {
       const files = readdirSync(directory).filter((f) => f.endsWith('.sarif'));
       assert.ok(files.length > 0, 'Missing CodeQL SARIF');
       const findings = files.flatMap((file) => sarifFindings(readJson(path.join(directory, file))));
-      assert.match(process.env.CODEQL_VERSION ?? '', /^2\.[0-9]+\.[0-9]+$/);
+      assert.equal(
+        process.env.CODEQL_VERSION,
+        toolLock.actions['github/codeql-action'].cliVersion,
+        'Unexpected CodeQL CLI version; linked bundle must match the pinned action',
+      );
       const summary = {
         action: toolLock.actions['github/codeql-action'].sha,
         version: process.env.CODEQL_VERSION,
@@ -204,6 +208,12 @@ try {
         findings: findings.length,
         blocking: findings.filter((f) => f.blocking).length,
         rules: [...new Set(findings.map((f) => f.ruleId))].sort(),
+        locations: findings.map(({ ruleId, level, securitySeverity, locations }) => ({
+          ruleId,
+          level,
+          securitySeverity,
+          locations,
+        })),
         threshold: 'Security severity >=7, or error level; no suppressed-result exception.',
       };
       // This summary cannot contain SARIF snippets, source contents or secrets.

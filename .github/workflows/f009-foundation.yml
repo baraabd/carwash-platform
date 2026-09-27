@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: f009-${{ github.event.pull_request.number || github.ref }}
+  group: f009-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 jobs:
   plan:
@@ -270,6 +270,8 @@ jobs:
         with:
           languages: javascript-typescript
           build-mode: none
+          db-location: ${{ runner.temp }}/f009-codeql-databases
+          debug: false
           tools: linked
           queries: security-extended
       - name: Analyze source

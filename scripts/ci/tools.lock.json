@@ -26,11 +26,19 @@
   "actions": {
     "github/codeql-action": {
       "ref": "v4",
-      "sha": "2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2"
+      "sha": "2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2",
+      "cliVersion": "2.27.1",
+      "bundleVersion": "codeql-bundle-v2.27.1"
     },
     "actions/download-artifact": {
       "ref": "v5",
       "sha": "634f93cb2916e3fdff6788551b99b062d0335ce0"
     }
+  },
+  "runtime": {
+    "image": "gcr.io/distroless/cc-debian13@sha256:54df941ed0d06a1bd95ef5e0ce391fd8d9f94b64782dc9a60062727849ee3f97",
+    "sourceTag": "gcr.io/distroless/cc-debian13:nonroot",
+    "scope": "Minimal C/C++ runtime; the exact F002-pinned Node binary is copied from the build image.",
+    "diagnosticRun": "36350408049"
   }
 }

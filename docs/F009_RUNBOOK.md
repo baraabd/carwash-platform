@@ -57,3 +57,9 @@ The aggregate verifies source identity but does not replace review: an author ab
 ## Acceptance limits
 
 Actual execution results belong in the PR and current-run artifacts. This document is not a passing test report. No full customer/technician/admin app, production deployment, sustained-load result, disaster recovery exercise or physical-device testing is claimed. F010 must not be called accepted before its separate visual/behavior/accessibility evidence exists.
+
+## Runtime maintenance
+
+`NODE_IMAGE` remains the exact F002 builder toolchain. `RUNTIME_IMAGE` is an immutable reviewed distroless Debian 13 digest, also recorded in `scripts/ci/tools.lock.json`. Updating it requires a source change, regenerated service Dockerfiles, reviewed template assertions and the full container/security suite; do not substitute a floating tag. The final runtime uses numeric UID/GID 1000, the exact builder Node binary and only deployed production dependencies. Liveness healthchecks use JSON command form, with no shell dependency.
+
+The first F009 run exposed real image advisories, an old ShellCheck warning and a gateway fixture that used a display name instead of the catalog owner ID. These must be corrected in source and proven on the replacement head. Passing earlier security/integration jobs does not excuse a later failed or missing gate. CodeQL summaries retain only rule/severity and source path/line metadata; snippets and full flow contents stay out of generic artifacts.

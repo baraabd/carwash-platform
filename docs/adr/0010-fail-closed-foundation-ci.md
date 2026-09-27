@@ -28,3 +28,11 @@ Each implemented image is independently built, run without external networking, 
 Branch/ruleset configuration is separate from source code. A repository administrator must make `Foundation release gate` required and require review for CI changes; the connected integration does not expose administration access. Without that repository setting, a privileged human can still bypass a red check. F009 does not claim otherwise.
 
 No production deployment, automatic merge, full browser application, high availability or load certification is introduced. F010 remains dependent on accepted F009 and identified approved HTML references.
+
+## Runtime image correction discovered by the new gate
+
+The first actual F009 container scan rejected the prior Debian 12 Node runtime for operating-system and bundled npm-toolchain advisories. No finding was ignored. The build still uses the exact F002 Node image; deployment now uses the reviewed digest of `gcr.io/distroless/cc-debian13:nonroot`, copies only that build's exact Node binary and the existing production-only `pnpm deploy` tree, and runs as UID/GID 1000. The runtime contains no shell, package manager or Corepack. The final image is rescanned; a clean base alone cannot accept the application image.
+
+The official distroless runtime model and maintained Debian 13 image list are documented in the GoogleContainerTools/distroless repository. The pinned digest was retrieved and scanned in diagnostic run `36350408049`; that diagnostic is not F009 acceptance. The digest is recorded in `scripts/ci/tools.lock.json` and every Dockerfile, including the root compatibility Dockerfile and the generator. Image acceptance additionally verifies the Node version and absence of build tools. JSON-vector health checks replace shell-form health checks because a shell is intentionally absent.
+
+The layer guard now checks the **last USER in the final runtime stage**, accepting only the established named user or the explicit unprivileged UID/GID. Regression tests reject root overrides. Service-template hashes were intentionally updated for these Docker-only changes, not for any approved HTML or visual reference. All earlier design locks remain unchanged.

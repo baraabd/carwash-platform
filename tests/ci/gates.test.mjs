@@ -15,6 +15,7 @@ import {
   trivyFindings,
   auditSummary,
   assertTap,
+  runtimeEnvironment,
 } from '../../scripts/ci/policy.mjs';
 const green = () => Object.fromEntries(REQUIRED_JOBS.map((id) => [id, { result: 'success' }]));
 const owners = [
@@ -229,4 +230,48 @@ test('TAP acceptance rejects skipped, TODO, canceled, empty and duplicate summar
   assert.throws(() => assertTap(valid + valid));
   assert.throws(() => assertTap(''));
   assert.throws(() => assertTap(valid.replace('# tests 1', '# tests 0')));
+});
+
+test('gateway uses its catalog identity and never receives a business database', () => {
+  const targets = inventory().targets;
+  const gateway = targets.find((t) => t.database === null);
+  assert.equal(gateway.id, 'gateway');
+  const env = runtimeEnvironment(gateway);
+  assert.ok(env.some((v) => v.startsWith('GATEWAY_UPSTREAMS=')));
+  assert.ok(!env.some((v) => v.startsWith('DATABASE_URL=')));
+  for (const target of targets.filter((t) => t.database)) {
+    const ownerEnv = runtimeEnvironment(target);
+    assert.ok(ownerEnv.some((v) => v.startsWith(`DATABASE_URL=postgresql://cw_${target.id}_app:`)));
+    assert.ok(!ownerEnv.some((v) => v.startsWith('GATEWAY_UPSTREAMS=')));
+  }
+});
+
+test('CodeQL location evidence excludes messages, snippets and tainted payloads', () => {
+  const value = sarif();
+  value.runs[0].results[0].message = { text: 'private-marker' };
+  value.runs[0].results[0].locations = [
+    {
+      physicalLocation: {
+        artifactLocation: { uri: 'scripts/ci/example.mjs' },
+        region: { startLine: 12, snippet: { text: 'private-marker' } },
+      },
+    },
+  ];
+  const result = sarifFindings(value);
+  assert.deepEqual(result[0].locations, [{ path: 'scripts/ci/example.mjs', line: 12 }]);
+  assert.ok(!JSON.stringify(result).includes('private-marker'));
+  value.runs[0].results[0].locations[0].physicalLocation.artifactLocation.uri = '../private';
+  assert.throws(() => sarifFindings(value));
+});
+
+test('all runtime Dockerfiles use the reviewed digest, numeric identity and exact Node copy', () => {
+  const lock = JSON.parse(readFileSync(path.join(ROOT, 'scripts/ci/tools.lock.json'), 'utf8'));
+  for (const file of ['Dockerfile', ...inventory().targets.map((t) => `${t.path}/Dockerfile`)]) {
+    const source = readFileSync(path.join(ROOT, file), 'utf8');
+    assert.ok(source.includes(`ARG RUNTIME_IMAGE=${lock.runtime.image}`));
+    assert.ok(source.includes('FROM ${RUNTIME_IMAGE} AS runner'));
+    assert.ok(source.includes('COPY --from=builder /usr/local/bin/node /usr/local/bin/node'));
+    assert.match(source, /^USER 1000:1000$/m);
+    assert.ok(source.includes('CMD ["node", "-e",'));
+  }
 });

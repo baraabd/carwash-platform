@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { inventory, readJson, trivyFindings } from './policy.mjs';
+import { inventory, readJson, trivyFindings, runtimeEnvironment } from './policy.mjs';
 import { checked, command, tool, toolLock, stage } from './runtime.mjs';
 const id = process.argv[2];
 const target = inventory().targets.find((t) => t.id === id);
@@ -32,11 +32,23 @@ try {
       });
       assert.ok(digests.length > 0 && /@sha256:[a-f0-9]{64}$/.test(digests[0]));
       info.baseImage = digests[0];
+      const runtimeImage = (readFileSync(`${target.path}/Dockerfile`, 'utf8').match(
+        /^ARG RUNTIME_IMAGE=(.+)$/m,
+      ) ?? [])[1];
+      assert.equal(
+        runtimeImage,
+        toolLock.runtime.image,
+        'Runtime image must match the reviewed digest',
+      );
+      await step('pull-immutable-runtime', () => docker('pull', runtimeImage));
+      info.runtimeImage = runtimeImage;
       await step('independent-docker-build', () =>
         docker(
           'build',
           '--build-arg',
           `NODE_IMAGE=${digests[0]}`,
+          '--build-arg',
+          `RUNTIME_IMAGE=${runtimeImage}`,
           '-f',
           `${target.path}/Dockerfile`,
           '-t',
@@ -48,23 +60,15 @@ try {
       await step('non-root', async () =>
         assert.equal(await docker('run', '--rm', tag, 'node', '-p', 'process.getuid()'), '1000'),
       );
-      const env = ['-e', `PORT=${target.port}`, '-e', 'LOG_LEVEL=warn'];
-      if (id === 'api-gateway')
-        env.push(
-          '-e',
-          'GATEWAY_UPSTREAMS={"identity":"http://127.0.0.1:9"}',
-          '-e',
-          'IDENTITY_ISSUER=https://identity.washgo.invalid',
-          '-e',
-          'IDENTITY_AUDIENCE=washgo-web',
-          '-e',
-          'GATEWAY_ALLOWED_ORIGINS=https://customer.washgo.invalid',
-        );
-      else
-        env.push(
-          '-e',
-          `DATABASE_URL=postgresql://cw_${id}_app:changeme@127.0.0.1:9/cw_${id}?schema=app`,
-        );
+      await step('pinned-node-runtime', async () =>
+        assert.equal(await docker('run', '--rm', tag, 'node', '--version'), process.version),
+      );
+      await step('no-shell-or-build-toolchain', async () => {
+        const script =
+          "const fs=require('node:fs');if(['/bin/sh','/bin/bash','/usr/bin/apt','/usr/local/bin/npm','/usr/local/bin/corepack'].some(p=>fs.existsSync(p)))process.exit(1)";
+        await docker('run', '--rm', tag, 'node', '-e', script);
+      });
+      const env = runtimeEnvironment(target);
       await step('isolated-container-start', async () => {
         created = true;
         await docker('run', '-d', '--name', name, '--network', 'none', ...env, tag);

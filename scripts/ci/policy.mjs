@@ -173,6 +173,19 @@ export function sarifFindings(sarif) {
         level,
         securitySeverity: severity,
         blocking: level === 'error' || (severity !== null && severity >= 7),
+        locations: (result.locations ?? []).map(({ physicalLocation: location }) => {
+          const uri = location?.artifactLocation?.uri;
+          const line = location?.region?.startLine;
+          assert.ok(
+            typeof uri === 'string' &&
+              uri.length <= 500 &&
+              !path.isAbsolute(uri) &&
+              !uri.split('/').includes('..'),
+            'Unsafe SARIF source location',
+          );
+          assert.ok(Number.isSafeInteger(line) && line > 0, 'Invalid SARIF line');
+          return { path: uri, line };
+        }),
       });
     }
   }
@@ -212,4 +225,26 @@ export function auditSummary(report) {
     high: counts.high,
     critical: counts.critical,
   };
+}
+
+// Runtime identity comes from the catalog's ownership, not a guessed directory id.
+export function runtimeEnvironment(target) {
+  const env = ['-e', `PORT=${target.port}`, '-e', 'LOG_LEVEL=warn'];
+  if (target.database === null)
+    env.push(
+      '-e',
+      'GATEWAY_UPSTREAMS={"identity":"http://127.0.0.1:9"}',
+      '-e',
+      'IDENTITY_ISSUER=https://identity.washgo.invalid',
+      '-e',
+      'IDENTITY_AUDIENCE=washgo-web',
+      '-e',
+      'GATEWAY_ALLOWED_ORIGINS=https://customer.washgo.invalid',
+    );
+  else
+    env.push(
+      '-e',
+      `DATABASE_URL=postgresql://cw_${target.id}_app:changeme@127.0.0.1:9/cw_${target.id}?schema=app`,
+    );
+  return env;
 }

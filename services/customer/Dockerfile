@@ -2,6 +2,7 @@
 # Build from the repository root:
 #   docker build -f services/customer/Dockerfile -t washgo/customer:dev .
 ARG NODE_IMAGE=node:24.21.0-bookworm-slim
+ARG RUNTIME_IMAGE=gcr.io/distroless/cc-debian13@sha256:54df941ed0d06a1bd95ef5e0ce391fd8d9f94b64782dc9a60062727849ee3f97
 
 FROM ${NODE_IMAGE} AS builder
 ARG SERVICE=customer
@@ -18,14 +19,16 @@ RUN pnpm --filter "@carwash/${SERVICE}" run generate \
  && pnpm --filter "@carwash/${SERVICE}" run build
 RUN pnpm --filter "@carwash/${SERVICE}" --prod deploy --legacy /deploy
 
-FROM ${NODE_IMAGE} AS runner
+FROM ${RUNTIME_IMAGE} AS runner
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
 WORKDIR /app
-COPY --from=builder --chown=node:node /deploy /app
-USER node
+COPY --from=builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=builder --chown=1000:1000 /deploy /app
+USER 1000:1000
+ENTRYPOINT []
 EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
 CMD ["node", "dist/main.js"]
