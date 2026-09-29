@@ -7,7 +7,7 @@ const workflow = readFileSync(
   new URL('../../.github/workflows/f009-foundation.yml', import.meta.url),
   'utf8',
 );
-const match = workflow.match(/^concurrency:\n  group: ([^\r\n]+)\n  cancel-in-progress: true$/m);
+const match = workflow.match(/^concurrency:\n {2}group: ([^\r\n]+)\n {2}cancel-in-progress: true$/m);
 assert.ok(match, 'F009 must retain explicit cancel-in-progress concurrency');
 const eventExpression = '${{ github.event_name }}';
 const ownerExpression = '${{ github.event.pull_request.head.repo.full_name || github.repository }}';
@@ -29,7 +29,7 @@ function groupFor(event, ref, number = 0, owner = repository) {
 
 test('F009 concurrency contract isolates event, repository and PR or full ref', () => {
   assert.equal(match[1], `f009-${eventExpression}-${ownerExpression}-${subjectExpression}`);
-  assert.match(workflow, /  aggregate:\n    name: Foundation release gate\n    if: always\(\)/);
+  assert.match(workflow, / {2}aggregate:\n {4}name: Foundation release gate\n {4}if: always\(\)/);
 });
 
 test('push and pull_request for the same head cannot cancel each other', () => {
