@@ -24,7 +24,7 @@ test('Multer security overrides remain exactly pinned to the reviewed patched re
   assert.equal(manifest.pnpm.overrides['@nestjs/platform-express>multer'], '2.4.0');
 });
 
-test('all Nest services and the gateway resolve patched Multer and load compatible adapters', () => {
+test('all Nest runtimes resolve patched Multer and load compatible adapters', () => {
   for (const owner of runtimePaths) {
     const ownerRequire = createRequire(new URL(`${owner}/package.json`, root));
     const adapterPath = ownerRequire.resolve('@nestjs/platform-express');
