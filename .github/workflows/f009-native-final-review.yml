@@ -1,0 +1,125 @@
+name: F009 final native inventory evidence review
+on:
+  push:
+    branches: ['work/F009-pr16-remediation-20260930']
+    paths: ['.github/workflows/f009-native-final-review.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Inspect both events and all source-bound native package records
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -u <<'PY'
+          import hashlib,io,json,os,pathlib,time,urllib.request,urllib.error,zipfile
+          from urllib.parse import urlparse,quote
+          root='https://api.github.com/repos/baraabd/carwash-platform'
+          sha='069d3db1094d64b1c5d9e383da9a712ce9ee849d'
+          tree='ed4a8d5a2970d6f363ad7af588d812ccbe9e9026'
+          def api(path):
+              request=urllib.request.Request(root+path,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+              with urllib.request.urlopen(request,timeout=60) as response:return json.load(response)
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self,*args,**kwargs):return None
+          def archive(url):
+              assert url.startswith(root+'/actions/artifacts/') and url.endswith('/zip')
+              request=urllib.request.Request(url,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+              try:
+                  with urllib.request.build_opener(NoRedirect()).open(request,timeout=60) as response:return response.read(4*1024*1024+1)
+              except urllib.error.HTTPError as error:
+                  if error.code!=302:raise
+                  location=error.headers['Location']
+              parsed=urlparse(location)
+              assert parsed.scheme=='https' and not parsed.username and not parsed.password
+              with urllib.request.urlopen(location,timeout=60) as response:return response.read(4*1024*1024+1)
+          deadline=time.monotonic()+900
+          previous=None
+          while True:
+              runs=api('/actions/runs?head_sha='+sha+'&per_page=100')['workflow_runs']
+              foundation=[r for r in runs if r['path']=='.github/workflows/f009-foundation.yml']
+              state=[(r['id'],r['event'],r['status'],r['conclusion']) for r in foundation]
+              if state!=previous:print('PROGRESS',json.dumps(state));previous=state
+              if {'push','pull_request'}.issubset({r['event'] for r in foundation}) and all(r['status']=='completed' for r in runs):break
+              assert time.monotonic()<deadline,'Final-source workflows did not finish; acceptance not inferred'
+              time.sleep(20)
+          summary={'sourceSha':sha,'sourceTree':tree,'scope':'Independent evidence inspection, not deployment or production readiness.','sourceRuns':[{'id':r['id'],'name':r['name'],'event':r['event'],'conclusion':r['conclusion']} for r in runs],'foundation':[]}
+          print('SOURCE_RUNS',json.dumps(summary['sourceRuns']))
+          expected={'plan','targeted','static','integration','security','codeql'}|{'image-'+s for s in ['billing','booking','catalog','communications','customer','gateway','identity','media','reporting','support','workforce']}
+          for run in foundation:
+              record={'runId':run['id'],'event':run['event'],'conclusion':run['conclusion'],'stages':{},'images':{},'artifactDigests':{}}
+              jobs=api('/actions/runs/'+str(run['id'])+'/jobs?per_page=100')['jobs']
+              record['jobs']=[{'name':j['name'],'conclusion':j['conclusion'],'failedSteps':[s['name'] for s in j.get('steps',[]) if s['conclusion']=='failure']} for j in jobs]
+              print('JOBS',json.dumps({'runId':run['id'],'jobs':record['jobs']}))
+              def identity(value):
+                  assert value['sourceSha']==sha and value['sourceTree']==tree and value['sourceDirty'] is False
+                  assert value['runId']==str(run['id']) and value['runAttempt']==str(run['run_attempt'])
+              artifacts=api('/actions/runs/'+str(run['id'])+'/artifacts?per_page=100')['artifacts']
+              for artifact in artifacts:
+                  assert artifact['name'].endswith('-'+str(run['id'])+'-'+str(run['run_attempt']))
+                  assert not artifact['expired'] and artifact['size_in_bytes']<4*1024*1024
+                  data=archive(artifact['archive_download_url']);assert len(data)<4*1024*1024
+                  digest='sha256:'+hashlib.sha256(data).hexdigest()
+                  assert not artifact.get('digest') or digest==artifact['digest']
+                  record['artifactDigests'][artifact['name']]={'id':artifact['id'],'sha256':digest}
+                  with zipfile.ZipFile(io.BytesIO(data)) as archive_file:
+                      for item in archive_file.infolist():
+                          if item.is_dir():continue
+                          assert item.file_size<4*1024*1024 and '/' not in item.filename and item.filename.endswith('.json')
+                          name=item.filename[:-5];value=json.loads(archive_file.read(item))
+                          if name in expected|{'aggregate'}:
+                              identity(value);assert name not in record['stages']
+                              record['stages'][name]={k:value[k] for k in ['status','tools','steps','detail']}
+                              if name.startswith('image-'):record['images'].setdefault(name[6:],{})['runtime']=value.get('detail',{})
+                          elif name.startswith('sbom-'):
+                              assert value['bomFormat']=='CycloneDX' and value['components']
+                              native=[]
+                              for pkg in ['libgcc-s1','libstdc++6']:
+                                  found=[c for c in value['components'] if c.get('name')==pkg]
+                                  assert len(found)==1 and found[0]['version']=='14.2.0-19'
+                                  assert found[0]['purl']=='pkg:deb/debian/'+quote(pkg,safe='')+'@14.2.0-19?arch=amd64&distro=debian-13.7'
+                                  native.append({k:found[0][k] for k in ['name','version','purl']})
+                              assert not any(c.get('name')=='libssl3t64' for c in value['components'])
+                              record['images'].setdefault(name[5:],{})['sbom']={'components':len(value['components']),'nativePackages':native}
+                          elif name.startswith('scan-'):
+                              is_raw=name.endswith('-unfiltered')
+                              target=name[5:-11] if is_raw else name[5:]
+                              if is_raw:identity(value)
+                              record['images'].setdefault(target,{})['rawScan' if is_raw else 'filteredScan']={k:value[k] for k in ['findings','secretCount','reviewedFindingCount','unreviewedBlocking','reviewedVex'] if k in value}
+                          elif name=='codeql-findings':record['codeql']=value
+                          else:raise AssertionError('Unexpected artifact entry: '+name)
+              record['missingStages']=sorted((expected|{'aggregate'})-set(record['stages']))
+              print('STAGES',json.dumps({'runId':run['id'],'stages':{k:{'status':v['status'],'detail':v['detail']} for k,v in record['stages'].items() if not k.startswith('image-')},'missing':record['missingStages']}))
+              for target,image in sorted(record['images'].items()):
+                  print('IMAGE',json.dumps({'runId':run['id'],'target':target,**image}))
+                  if run['conclusion']=='success':
+                      assert {'runtime','sbom','rawScan','filteredScan'}.issubset(image)
+                      native=image['runtime']['nativeRuntime']
+                      assert native['crypto'] is True and native['tls'] is True and native['packageInventory'] is True
+                      assert native['node']=='v24.21.0' and native['uid']==1000 and native['argon2']==(target=='identity')
+                      assert image['runtime']['nativePackages']==image['sbom']['nativePackages']
+              if run['conclusion']=='success':
+                  assert len(record['images'])==11 and not record['missingStages']
+                  assert all(v['status']=='passed' and all(s['status']=='passed' for s in v['steps']) for v in record['stages'].values())
+                  assert all(j['conclusion']=='success' for j in jobs)
+                  assert record['stages']['aggregate']['detail']['accepted'] is True
+              summary['foundation'].append(record)
+          summary['currentPrHead']=api('/git/ref/heads/feat/F009-ci-security')['object']['sha']
+          summary['acceptedOnInspectedSource']=summary['currentPrHead']==sha and all(r['conclusion']=='success' for r in runs)
+          destination=pathlib.Path(os.environ['RUNNER_TEMP'])/'final-review';destination.mkdir()
+          (destination/'review.json').write_text(json.dumps(summary,indent=2)+'\n')
+          print('FINAL_VERDICT',json.dumps({'sourceSha':sha,'sourceTree':tree,'currentPrHead':summary['currentPrHead'],'acceptedOnInspectedSource':summary['acceptedOnInspectedSource']}))
+          print('Helper success means inspection completed; the reviewed source results determine acceptance.')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f009-final-review-${{ github.run_id }}
+          path: ${{ runner.temp }}/final-review/review.json
+          if-no-files-found: error
+          retention-days: 14
