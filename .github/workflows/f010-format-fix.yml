@@ -1,0 +1,35 @@
+name: F010 format fixer
+on:
+  push:
+    branches: ['feat/F010-html-parity-harness']
+    paths: ['.github/workflows/f010-format-fix.yml']
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Apply repository-pinned Prettier
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          pnpm install --frozen-lockfile
+          pnpm exec prettier scripts/f010/aggregate.mjs scripts/f010/browser-acceptance.mjs scripts/f010/font-provenance.mjs scripts/f010/reference-registry.mjs scripts/f010/reference-server.mjs --write
+          pnpm exec prettier scripts/f010/aggregate.mjs scripts/f010/browser-acceptance.mjs scripts/f010/font-provenance.mjs scripts/f010/reference-registry.mjs scripts/f010/reference-server.mjs --check
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/f010/aggregate.mjs scripts/f010/browser-acceptance.mjs scripts/f010/font-provenance.mjs scripts/f010/reference-registry.mjs scripts/f010/reference-server.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m "style(F010): apply repository Prettier output"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
