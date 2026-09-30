@@ -36,9 +36,9 @@
     }
   },
   "runtime": {
-    "image": "gcr.io/distroless/cc-debian13@sha256:54df941ed0d06a1bd95ef5e0ce391fd8d9f94b64782dc9a60062727849ee3f97",
-    "sourceTag": "gcr.io/distroless/cc-debian13:nonroot",
-    "scope": "Minimal C/C++ runtime; the exact F002-pinned Node binary is copied from the build image.",
-    "diagnosticRun": "36350408049"
+    "image": "gcr.io/distroless/base-nossl-debian13@sha256:8c563c1fb5e120606f0d85733049775faed6192e2bd2223ef283a5393eec22b9",
+    "sourceTag": "gcr.io/distroless/base-nossl-debian13:nonroot",
+    "scope": "Minimal glibc runtime without system OpenSSL; exact pinned Node plus only required C++ ABI libraries are copied from the builder.",
+    "diagnosticRun": "36697756791"
   }
 }

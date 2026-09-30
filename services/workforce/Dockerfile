@@ -2,7 +2,7 @@
 # Build from the repository root:
 #   docker build -f services/workforce/Dockerfile -t washgo/workforce:dev .
 ARG NODE_IMAGE=node:24.21.0-bookworm-slim
-ARG RUNTIME_IMAGE=gcr.io/distroless/cc-debian13@sha256:54df941ed0d06a1bd95ef5e0ce391fd8d9f94b64782dc9a60062727849ee3f97
+ARG RUNTIME_IMAGE=gcr.io/distroless/base-nossl-debian13@sha256:8c563c1fb5e120606f0d85733049775faed6192e2bd2223ef283a5393eec22b9
 
 FROM ${NODE_IMAGE} AS builder
 ARG SERVICE=workforce
@@ -25,6 +25,10 @@ ENV HOST=0.0.0.0
 ENV PORT=3000
 WORKDIR /app
 COPY --from=builder /usr/local/bin/node /usr/local/bin/node
+# The distroless base-nossl runtime intentionally omits libstdc++/libgcc.
+# Node is built in the pinned Debian builder and needs only these C++ ABI libraries at runtime.
+COPY --from=builder /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+COPY --from=builder /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/libgcc_s.so.1
 COPY --from=builder --chown=1000:1000 /deploy /app
 USER 1000:1000
 ENTRYPOINT []
