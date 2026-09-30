@@ -1,0 +1,55 @@
+name: F009 PR16 remediation diagnosis only
+on:
+  push:
+    branches: ['work/F009-pr16-remediation-20260930']
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: d7ebd03d8ebb8802ff4b0f0544439446f2dd0cd8
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Baseline and exact formatting diagnosis
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          printf 'Source: '; git rev-parse HEAD
+          printf 'Tree: '; git rev-parse 'HEAD^{tree}'
+          git status --porcelain
+          node --version; pnpm --version; docker --version
+          node scripts/check-design-reference.mjs
+          pnpm install --frozen-lockfile
+          pnpm exec prettier --write scripts/ci/image.mjs tests/unit/f009-security-remediation.test.mjs
+          git diff --check
+          git diff -- scripts/ci/image.mjs tests/unit/f009-security-remediation.test.mjs
+      - name: Inspect maintained runtime without approving any finding
+        env:
+          CI_TOOLS_DIR: ${{ runner.temp }}/f009-tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/ci/install-tools.mjs trivy
+          docker pull --platform linux/amd64 gcr.io/distroless/cc-debian13:nonroot
+          docker image inspect --format '{{json .RepoDigests}} {{.Os}}/{{.Architecture}}' gcr.io/distroless/cc-debian13:nonroot
+          "$CI_TOOLS_DIR/trivy" image --scanners vuln,secret --list-all-pkgs --format json --output "$RUNNER_TEMP/runtime-unfiltered.json" --exit-code 0 --timeout 10m gcr.io/distroless/cc-debian13:nonroot
+          "$CI_TOOLS_DIR/trivy" image --scanners vuln,secret --vex security/vex/CVE-2026-97399.openvex.json --format json --output "$RUNNER_TEMP/runtime-vex.json" --exit-code 0 --timeout 10m gcr.io/distroless/cc-debian13:nonroot
+          python3 <<'PY'
+          import json,os,pathlib,subprocess
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])
+          reports={k:json.loads((root/f'runtime-{k}.json').read_text()) for k in ['unfiltered','vex']}
+          def findings(report):
+              return [{'id':v['VulnerabilityID'],'package':v['PkgName'],'installed':v.get('InstalledVersion'),'fixed':v.get('FixedVersion'),'severity':v['Severity'],'purl':v.get('PkgIdentifier',{}).get('PURL')} for r in report['Results'] for v in r.get('Vulnerabilities',[]) if v['Severity'] in ['HIGH','CRITICAL','UNKNOWN']]
+          packages=[{'name':p['Name'],'version':p['Version'],'purl':p.get('Identifier',{}).get('PURL')} for r in reports['unfiltered']['Results'] for p in r.get('Packages',[]) if p['Name'] in ['libssl3t64','libc6']]
+          print(json.dumps({'scope':'Diagnostic only, not acceptance','packages':packages,'unfiltered':findings(reports['unfiltered']),'afterExistingVex':findings(reports['vex']),'secretCounts':{k:sum(len(r.get('Secrets',[])) for r in v['Results']) for k,v in reports.items()}},indent=2))
+          PY
+          node scripts/check-design-reference.mjs
