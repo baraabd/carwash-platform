@@ -4,7 +4,7 @@ on:
     branches: ['feat/F010-html-parity-harness']
     paths: ['.github/workflows/f010-dependency-resolver.yml']
 permissions:
-  contents: read
+  contents: write
 jobs:
   resolve:
     runs-on: ubuntu-24.04
@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          persist-credentials: false
+          persist-credentials: true
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version-file: .nvmrc
@@ -30,6 +30,19 @@ jobs:
           cp package.json pnpm-lock.yaml "$RUNNER_TEMP/f010-lock/"
           printf 'source=%s\nnode=%s\npnpm=%s\n' "$(git rev-parse HEAD)" "$(node --version)" "$(pnpm --version)" > "$RUNNER_TEMP/f010-lock/PROVENANCE.txt"
           sha256sum package.json pnpm-lock.yaml > "$RUNNER_TEMP/f010-lock/SHA256SUMS"
+      - name: Commit the pnpm-generated lock update
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json pnpm-lock.yaml
+          if git diff --cached --quiet; then
+            echo "Dependency lock already current."
+          else
+            git commit -m "build(F010): lock axe-core accessibility dependency"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: f010-lock-${{ github.run_id }}
