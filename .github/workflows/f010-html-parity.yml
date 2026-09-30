@@ -1,0 +1,135 @@
+name: F010 golden HTML parity
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop, 'feat/F010-*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: f010-${{ github.event_name }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  static:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Exact toolchain and frozen install
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          pnpm install --frozen-lockfile
+      - name: Existing frozen customer baseline
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && git cat-file -e "$BASE_SHA:scripts/check-design-reference.mjs" 2>/dev/null; then
+            git show "$BASE_SHA:scripts/check-design-reference.mjs" > "$RUNNER_TEMP/trusted-design-check.mjs"
+            node "$RUNNER_TEMP/trusted-design-check.mjs" --root "$GITHUB_WORKSPACE" --base-ref "$BASE_SHA"
+          else
+            pnpm check:design-reference
+          fi
+      - name: F010 registered authorities and trusted-base protection
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          F010_EVIDENCE_DIR: ${{ runner.temp }}/f010-static
+        run: |
+          set -euo pipefail
+          mkdir -p "$F010_EVIDENCE_DIR"
+          if [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && git cat-file -e "$BASE_SHA:scripts/f010/reference-registry.mjs" 2>/dev/null; then
+            git show "$BASE_SHA:scripts/f010/reference-registry.mjs" > "$RUNNER_TEMP/trusted-f010-registry.mjs"
+            node "$RUNNER_TEMP/trusted-f010-registry.mjs" --root "$GITHUB_WORKSPACE" --base-ref "$BASE_SHA" --evidence "$F010_EVIDENCE_DIR/references.json"
+          else
+            node scripts/f010/reference-registry.mjs --allow-registration --evidence "$F010_EVIDENCE_DIR/references.json"
+          fi
+          pnpm test:f010:unit
+          pnpm format:check
+          pnpm lint
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: f010-static-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/f010-static/
+          if-no-files-found: error
+          retention-days: 14
+
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Exact toolchain and browser
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+      - name: Deterministic browser parity harness acceptance
+        env:
+          F010_EVIDENCE_DIR: ${{ runner.temp }}/f010-browser
+        run: |
+          set -euo pipefail
+          mkdir -p "$F010_EVIDENCE_DIR"
+          pnpm f010:fonts
+          pnpm test:f010:browser
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: f010-browser-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/f010-browser/
+          if-no-files-found: error
+          retention-days: 14
+
+  aggregate:
+    name: F010 parity harness gate
+    if: always()
+    needs: [static, browser]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          pattern: f010-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/f010-downloaded
+          merge-multiple: true
+      - name: Fail closed on missing or inconsistent evidence
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          F010_DOWNLOADED_EVIDENCE: ${{ runner.temp }}/f010-downloaded
+          F010_EVIDENCE_DIR: ${{ runner.temp }}/f010-aggregate
+        run: node scripts/f010/aggregate.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: f010-aggregate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/f010-aggregate/
+          if-no-files-found: error
+          retention-days: 14

@@ -58,7 +58,12 @@
     "test:gateway": "node --test tests/gateway/unit.test.mjs",
     "acceptance:gateway": "node scripts/acceptance-identity.mjs --include-gateway",
     "check:gateway-contract": "node scripts/gateway-openapi.mjs --check",
-    "test:observability": "node --test --test-reporter=spec tests/observability/*.test.mjs"
+    "test:observability": "node --test --test-reporter=spec tests/observability/*.test.mjs",
+    "check:f010-references": "node scripts/f010/reference-registry.mjs --allow-registration",
+    "test:f010:unit": "node --test --test-reporter=spec tests/f010/*.test.mjs",
+    "test:f010:browser": "node scripts/f010/browser-acceptance.mjs",
+    "f010:fonts": "node scripts/f010/font-provenance.mjs",
+    "verify:f010": "pnpm check:design-reference && pnpm check:f010-references && pnpm test:f010:unit && pnpm test:f010:browser"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
