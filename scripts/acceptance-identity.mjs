@@ -18,13 +18,13 @@ const own = createRequire(path.join(ROOT, 'services/identity/package.json'));
 const security = createRequire(path.join(ROOT, 'packages/security-kit/package.json'));
 const { Client } = own('pg');
 const { createClient } = security('@redis/client');
-const passwords = Object.fromEntries(
-  ['bootstrap', 'app', 'migration', 'redis'].map((key) => [
-    key,
-    randomBytes(32).toString('base64url'),
-  ]),
-);
-Object.values(passwords).forEach(registerSecret);
+const credentials = {
+  bootstrap: randomBytes(32).toString('base64url'),
+  app: randomBytes(32).toString('base64url'),
+  migration: randomBytes(32).toString('base64url'),
+  redisAclSecret: randomBytes(32).toString('base64url'),
+};
+Object.values(credentials).forEach(registerSecret);
 const report = {
   sprint: includeGateway ? 'F007' : 'F006',
   project,
@@ -125,7 +125,7 @@ try {
       );
     }
   });
-  const acl = `user default off\nuser cw_identity_rate on #${createHash('sha256').update(passwords.redis).digest('hex')} ~identity:rate:* -@all +hello +auth +ping +quit +select +client|setinfo +client|setname +client|id +eval +incr +pexpire +pttl\n`;
+  const acl = `user default off\nuser cw_identity_rate on #${createHash('sha256').update(credentials.redisAclSecret).digest('hex')} ~identity:rate:* -@all +hello +auth +ping +quit +select +client|setinfo +client|setname +client|id +eval +incr +pexpire +pttl\n`;
   // Read-only container mount: Redis runs as a non-root user. This file contains
   // only a SHA-256 hash of the generated high-entropy test credential.
   await writeFile(path.join(work, 'users.acl'), acl, { mode: 0o644 });
@@ -138,10 +138,10 @@ try {
             image: pgImage,
             environment: {
               POSTGRES_USER: 'cw_f006_bootstrap',
-              POSTGRES_PASSWORD: passwords.bootstrap,
+              POSTGRES_PASSWORD: credentials.bootstrap,
               CW_SERVICES: 'identity',
-              IDENTITY_DB_PASSWORD: passwords.app,
-              IDENTITY_MIGRATION_PASSWORD: passwords.migration,
+              IDENTITY_DB_PASSWORD: credentials.app,
+              IDENTITY_MIGRATION_PASSWORD: credentials.migration,
             },
             ports: ['127.0.0.1::5432'],
             volumes: [
@@ -177,9 +177,9 @@ try {
   );
   const pgPort = port((await dc(['port', 'postgres', '5432'])).stdout);
   const redisPort = port((await dc(['port', 'redis', '6379'])).stdout);
-  const databaseUrl = `postgresql://cw_identity_app:${passwords.app}@127.0.0.1:${pgPort}/cw_identity?schema=app`;
-  const migrationUrl = `postgresql://cw_identity_migrate:${passwords.migration}@127.0.0.1:${pgPort}/cw_identity?schema=app`;
-  const redisUrl = `redis://cw_identity_rate:${passwords.redis}@127.0.0.1:${redisPort}/0`;
+  const databaseUrl = `postgresql://cw_identity_app:${credentials.app}@127.0.0.1:${pgPort}/cw_identity?schema=app`;
+  const migrationUrl = `postgresql://cw_identity_migrate:${credentials.migration}@127.0.0.1:${pgPort}/cw_identity?schema=app`;
+  const redisUrl = `redis://cw_identity_rate:${credentials.redisAclSecret}@127.0.0.1:${redisPort}/0`;
   const sentinel = `f006-${randomUUID()}`;
   await phase('real service readiness with least-privilege identities', async () => {
     await waitFor(() => sql(databaseUrl, 'SELECT 1'), 'PostgreSQL');

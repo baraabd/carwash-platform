@@ -228,6 +228,9 @@ test('F006 cookies: hardened session attributes and duplicate-name rejection', (
     }),
   );
   assert.throws(() => readCookies('wg_refresh=a; wg_refresh=b'), /DUPLICATE_COOKIE/);
+  assert.deepEqual(readCookies('wg_refresh=a; theme=dark'), { wg_refresh: 'a', theme: 'dark' });
+  assert.throws(() => readCookies('__proto__=polluted'), /INVALID_COOKIE_NAME/);
+  assert.equal({}.polluted, undefined);
 });
 for (const role of IDENTITY_ROLES) {
   test(`F006 permissions: ${role} has explicit grants`, () => {

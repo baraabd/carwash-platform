@@ -55,8 +55,8 @@ export function allowedOrigin(
 
 /** Duplicate names fail closed instead of allowing intermediary/parser disagreement. */
 export function readCookies(header: unknown): Readonly<Record<string, string>> {
-  const cookies: Record<string, string> = Object.create(null) as Record<string, string>;
-  if (header === undefined) return cookies;
+  const cookies = new Map<string, string>();
+  if (header === undefined) return Object.freeze({});
   if (typeof header !== 'string' || header.length > 16_384)
     throw new Error('INVALID_COOKIE_HEADER');
   for (const part of header.split(';')) {
@@ -66,10 +66,10 @@ export function readCookies(header: unknown): Readonly<Record<string, string>> {
     const value = part.slice(split + 1).trim();
     if (name === '__proto__' || name === 'constructor' || name === 'prototype')
       throw new Error('INVALID_COOKIE_NAME');
-    if (Object.hasOwn(cookies, name)) throw new Error('DUPLICATE_COOKIE');
-    cookies[name] = value;
+    if (cookies.has(name)) throw new Error('DUPLICATE_COOKIE');
+    cookies.set(name, value);
   }
-  return cookies;
+  return Object.freeze(Object.fromEntries(cookies));
 }
 export function sessionCookie(
   name: string,

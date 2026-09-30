@@ -1,0 +1,6 @@
+name: F009 CodeQL runtime source scope
+paths-ignore:
+  # Byte-frozen customer design authorities are test/reference assets, not runtime source.
+  # Their integrity is enforced independently by reference-integrity.yml and F009 static acceptance.
+  - design/reference/approved/washgo-payments-interactive.html
+  - apps/customer-web/prototype/index.html

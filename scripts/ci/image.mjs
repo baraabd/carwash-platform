@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { inventory, readJson, trivyFindings, runtimeEnvironment } from './policy.mjs';
+import { ROOT, inventory, readJson, trivyFindings, runtimeEnvironment } from './policy.mjs';
 import { checked, command, tool, toolLock, stage } from './runtime.mjs';
 const id = process.argv[2];
 const target = inventory().targets.find((t) => t.id === id);
@@ -13,6 +13,7 @@ const run = randomUUID().slice(0, 8);
 const tag = `cw-f009-${id}:${run}`;
 const name = `cw-f009-${id}-${run}`;
 const temporary = mkdtempSync(path.join(tmpdir(), 'cw-f009-image-'));
+const vexPath = path.join(ROOT, 'security/vex/CVE-2026-97399.openvex.json');
 const docker = (...args) =>
   checked('docker', args, { timeoutMs: 1800000, capture: !['build', 'pull'].includes(args[0]) });
 let created = false;
@@ -57,6 +58,15 @@ try {
         ),
       );
       info.imageId = await docker('image', 'inspect', '--format', '{{.Id}}', tag);
+      info.architecture = await step('amd64-runtime-applicability', async () => {
+        const architecture = await docker('image', 'inspect', '--format', '{{.Architecture}}', tag);
+        assert.equal(
+          architecture,
+          'amd64',
+          'The reviewed CVE-2026-97399 VEX is valid only for linux/amd64 runtime images',
+        );
+        return architecture;
+      });
       await step('non-root', async () =>
         assert.equal(await docker('run', '--rm', tag, 'node', '-p', 'process.getuid()'), '1000'),
       );
@@ -103,6 +113,47 @@ try {
         assert.equal(await docker('inspect', '--format', '{{.State.ExitCode}}', name), '0');
       });
       await step('trivy-container-security', async () => {
+        const unfilteredOutput = path.join(temporary, 'trivy-unfiltered.json');
+        const diagnostic = await command(
+          tool('trivy'),
+          [
+            'image',
+            '--scanners',
+            'vuln,secret',
+            '--format',
+            'json',
+            '--output',
+            unfilteredOutput,
+            '--exit-code',
+            '0',
+            '--severity',
+            'HIGH,CRITICAL,UNKNOWN',
+            '--timeout',
+            '10m',
+            tag,
+          ],
+          { timeoutMs: 720000 },
+        );
+        assert.equal(diagnostic.code, 0, 'Trivy diagnostic scan failure');
+        const unfilteredReport = readJson(unfilteredOutput);
+        const unfilteredFindings = trivyFindings(unfilteredReport);
+        const unreviewedBlocking = unfilteredFindings.filter(
+          (finding) =>
+            finding.blocking &&
+            !(finding.id === 'CVE-2026-97399' && finding.package === 'libc6'),
+        );
+        assert.deepEqual(
+          unreviewedBlocking,
+          [],
+          'Unreviewed HIGH/CRITICAL/UNKNOWN vulnerability must remain blocking',
+        );
+        const reviewedFindingCount = unfilteredFindings.filter(
+          (finding) =>
+            finding.blocking &&
+            finding.id === 'CVE-2026-97399' &&
+            finding.package === 'libc6',
+        ).length;
+
         const output = path.join(temporary, 'trivy.json');
         const result = await command(
           tool('trivy'),
@@ -110,6 +161,8 @@ try {
             'image',
             '--scanners',
             'vuln,secret',
+            '--vex',
+            vexPath,
             '--format',
             'json',
             '--output',
@@ -129,9 +182,17 @@ try {
         const secrets = report.Results.reduce((sum, r) => sum + (r.Secrets?.length ?? 0), 0);
         const summary = {
           imageId: info.imageId,
+          architecture: info.architecture,
           version: toolLock.tools.trivy.version,
           findings,
           secretCount: secrets,
+          reviewedVex: {
+            vulnerability: 'CVE-2026-97399',
+            package: 'libc6',
+            status: 'not_affected',
+            justification: 'vulnerable_code_not_present',
+            matchedUnfilteredFindings: reviewedFindingCount,
+          },
         };
         writeFileSync(
           path.join(process.env.CI_EVIDENCE_DIR, `scan-${id}.json`),
@@ -141,6 +202,7 @@ try {
         assert.equal(secrets, 0);
         assert.ok(findings.every((f) => !f.blocking));
         info.scanner = toolLock.tools.trivy.version;
+        info.reviewedVex = summary.reviewedVex;
       });
       await step('cyclonedx-sbom', async () => {
         const output = path.join(temporary, 'sbom.json');
