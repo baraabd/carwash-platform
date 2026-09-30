@@ -9,11 +9,13 @@ import { chromium } from '@playwright/test';
 import { APP_IDS, ROOT, loadRegistry, verifyRegisteredReferences } from './reference-registry.mjs';
 import { startReferenceServer } from './reference-server.mjs';
 import { comparePngBuffers } from './pixel-compare.mjs';
+import { compareReferenceDebt, loadDebtBaseline } from './reference-debt.mjs';
 
 const require = createRequire(import.meta.url);
 const axeSource = readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
 const manifest = loadRegistry(ROOT);
 const contract = manifest.rendering;
+const debtBaseline = loadDebtBaseline(ROOT);
 const evidence =
   process.env.F010_EVIDENCE_DIR ??
   resolve(tmpdir(), `washgo-f010-${process.pid}-${randomUUID().slice(0, 8)}`);
@@ -273,19 +275,20 @@ try {
     await drift.context.close();
   }
 
-  summary.accepted =
-    summary.accessibilityBlocking.length === 0 && summary.geometryDebt.length === 0;
+  summary.referenceDebt = compareReferenceDebt(
+    debtBaseline,
+    summary.accessibilityBlocking,
+    summary.geometryDebt,
+  );
+  summary.accepted = summary.referenceDebt.matches;
   writeFileSync(resolve(evidence, 'browser-summary.json'), JSON.stringify(summary, null, 2) + '\n');
-  assert.deepEqual(
-    {
-      accessibilityBlocking: summary.accessibilityBlocking,
-      geometryDebt: summary.geometryDebt,
-    },
-    { accessibilityBlocking: [], geometryDebt: [] },
-    'Approved references contain accessibility or geometry debt; review the retained inventory before defining the exact regression baseline.',
+  assert.equal(
+    summary.referenceDebt.matches,
+    true,
+    'Approved-reference accessibility/geometry debt changed from the reviewed fingerprint baseline.',
   );
   console.log(
-    `F010 browser acceptance: ${summary.captures.length} deterministic captures, drift detector verified.`,
+    `F010 browser acceptance: ${summary.captures.length} deterministic captures, drift detector verified, reference debt fingerprint matched.`,
   );
 } finally {
   await browser.close();

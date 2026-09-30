@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "referenceSet": "washgo-three-apps-v1",
+  "evidenceRunId": "36768922875",
+  "evidenceSourceSha": "a369ccf644d9701783eb3ab172c0822e21ec9755",
+  "browserVersion": "153.0.8010.12",
+  "policy": {
+    "meaning": "Exact fingerprint inventory of serious/critical accessibility and horizontal-overflow debt already present in immutable approved HTML references. This is not a WCAG waiver for future production UI.",
+    "newOrChangedDebt": "blocked",
+    "referenceMutation": "blocked"
+  },
+  "accessibility": [
+    {
+      "app": "customer",
+      "widths": [
+        320,
+        390,
+        430,
+        768,
+        1024
+      ],
+      "id": "color-contrast",
+      "impact": "serious",
+      "targets": [
+        [
+          ".section-title:nth-child(5) > div > small"
+        ],
+        [
+          ".featured > p"
+        ]
+      ]
+    },
+    {
+      "app": "technician",
+      "widths": [
+        320,
+        390,
+        430,
+        768,
+        1024,
+        1440
+      ],
+      "id": "color-contrast",
+      "impact": "serious",
+      "targets": [
+        [
+          ".design-footer"
+        ]
+      ]
+    },
+    {
+      "app": "admin",
+      "widths": [
+        320,
+        390,
+        430,
+        768,
+        1024,
+        1440
+      ],
+      "id": "color-contrast",
+      "impact": "serious",
+      "targets": [
+        [
+          ".kpi.card:nth-child(1) > div:nth-child(2) > .up"
+        ],
+        [
+          ".kpi.card:nth-child(2) > div:nth-child(2) > .up"
+        ],
+        [
+          ".kpi.card:nth-child(3) > div:nth-child(2) > .up"
+        ],
+        [
+          ".kpi.card:nth-child(4) > div:nth-child(2) > .up"
+        ],
+        [
+          ".kpi.card:nth-child(5) > div:nth-child(2) > .up"
+        ],
+        [
+          ".health > div:nth-child(1) > small"
+        ],
+        [
+          ".health > div:nth-child(2) > small"
+        ],
+        [
+          ".health > div:nth-child(3) > small"
+        ],
+        [
+          ".health > div:nth-child(4) > small"
+        ]
+      ]
+    }
+  ],
+  "geometry": [
+    {
+      "app": "admin",
+      "width": 320,
+      "viewportWidth": 320,
+      "scrollWidth": 668,
+      "overflowPixels": 348
+    },
+    {
+      "app": "admin",
+      "width": 390,
+      "viewportWidth": 390,
+      "scrollWidth": 668,
+      "overflowPixels": 278
+    },
+    {
+      "app": "admin",
+      "width": 430,
+      "viewportWidth": 430,
+      "scrollWidth": 668,
+      "overflowPixels": 238
+    },
+    {
+      "app": "admin",
+      "width": 1024,
+      "viewportWidth": 1024,
+      "scrollWidth": 1103,
+      "overflowPixels": 79
+    }
+  ]
+}

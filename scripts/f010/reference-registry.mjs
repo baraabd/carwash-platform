@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 export const F010_MANIFEST = 'docs/design/f010-reference-manifest.json';
 const LEGACY_MANIFEST = 'docs/design/reference-manifest.json';
+const F010_DEBT_BASELINE = 'docs/design/f010-reference-debt-baseline.json';
 export const APP_IDS = Object.freeze(['customer', 'technician', 'admin']);
 
 const APPROVED = Object.freeze({
@@ -163,6 +164,18 @@ export function verifyRegisteredReferences({
           const current = readFileSync(safeFile(root, path));
           if (!current.equals(gitShow(root, baseRef, path))) {
             errors.push(`F010_TRUSTED_REFERENCE_CHANGED:${id}`);
+          }
+        }
+        try {
+          const trustedDebt = gitShow(root, baseRef, F010_DEBT_BASELINE);
+          const currentDebt = readFileSync(safeFile(root, F010_DEBT_BASELINE));
+          if (!currentDebt.equals(trustedDebt)) {
+            errors.push('F010_TRUSTED_DEBT_BASELINE_CHANGED');
+          }
+        } catch (error) {
+          const message = String(error?.message ?? error);
+          if (!/does not exist in|exists on disk, but not in|path .* does not exist/i.test(message)) {
+            throw error;
           }
         }
       } catch (error) {

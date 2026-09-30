@@ -23,10 +23,9 @@ assert.equal(
   browser.captures.every((capture) => capture.pixelDeterminism.changedPixels === 0),
   true,
 );
-assert.equal(
-  browser.captures.every((capture) => capture.accessibility.blocking === 0),
-  true,
-);
+assert.equal(browser.referenceDebt?.matches, true);
+assert.equal(browser.referenceDebt?.accessibilityMatches, true);
+assert.equal(browser.referenceDebt?.geometryMatches, true);
 assert.equal(browser.driftProbe.detected, true);
 const result = {
   schemaVersion: 1,
@@ -38,6 +37,11 @@ const result = {
   ),
   referenceSet: browser.referenceSet,
   captures: browser.captures.length,
+  reviewedReferenceDebt: {
+    accessibilityGroups: browser.accessibilityBlocking.length,
+    geometryCases: browser.geometryDebt.length,
+    matches: browser.referenceDebt.matches,
+  },
 };
 const evidence = resolve(process.env.F010_EVIDENCE_DIR ?? '');
 mkdirSync(evidence, { recursive: true });
