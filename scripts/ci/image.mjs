@@ -5,7 +5,8 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { ROOT, inventory, readJson, trivyFindings, runtimeEnvironment } from './policy.mjs';
-import { checked, command, tool, toolLock, stage } from './runtime.mjs';
+import { checked, command, tool, toolLock, stage, git, sourceDirty } from './runtime.mjs';
+import { assessUnfilteredImageScan } from './image-security.mjs';
 const id = process.argv[2];
 const target = inventory().targets.find((t) => t.id === id);
 assert.ok(target, 'Target must be an actual catalog-owned runtime');
@@ -136,20 +137,37 @@ try {
         );
         assert.equal(diagnostic.code, 0, 'Trivy diagnostic scan failure');
         const unfilteredReport = readJson(unfilteredOutput);
-        const unfilteredFindings = trivyFindings(unfilteredReport);
-        const unreviewedBlocking = unfilteredFindings.filter(
-          (finding) =>
-            finding.blocking && !(finding.id === 'CVE-2026-97399' && finding.package === 'libc6'),
+        const assessment = assessUnfilteredImageScan(unfilteredReport, info.architecture);
+        const { unreviewedBlocking, reviewedFindingCount } = assessment;
+        // Persist bounded, redacted diagnostics BEFORE enforcing the gate.
+        // A rejected scan is evidence, not a successful image stage.
+        writeFileSync(
+          path.join(process.env.CI_EVIDENCE_DIR, `scan-${id}-unfiltered.json`),
+          JSON.stringify(
+            {
+              schemaVersion: 1,
+              sourceSha: git('rev-parse', 'HEAD'),
+              sourceTree: git('rev-parse', 'HEAD^{tree}'),
+              sourceDirty: sourceDirty(),
+              runId: process.env.GITHUB_RUN_ID ?? 'local',
+              runAttempt: process.env.GITHUB_RUN_ATTEMPT ?? '1',
+              imageId: info.imageId,
+              runtimeImage: info.runtimeImage,
+              architecture: info.architecture,
+              scannerVersion: toolLock.tools.trivy.version,
+              scope: 'Unfiltered diagnostic inventory; never acceptance on its own.',
+              ...assessment,
+            },
+            null,
+            2,
+          ) + '\n',
         );
+        assert.equal(assessment.secretCount, 0, 'Unfiltered image secrets must remain blocking');
         assert.deepEqual(
           unreviewedBlocking,
           [],
           'Unreviewed HIGH/CRITICAL/UNKNOWN vulnerability must remain blocking',
         );
-        const reviewedFindingCount = unfilteredFindings.filter(
-          (finding) =>
-            finding.blocking && finding.id === 'CVE-2026-97399' && finding.package === 'libc6',
-        ).length;
 
         const output = path.join(temporary, 'trivy.json');
         const result = await command(
