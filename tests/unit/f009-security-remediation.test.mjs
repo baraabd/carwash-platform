@@ -21,10 +21,7 @@ const toolLock = JSON.parse(
 );
 const rootDockerfile = readFileSync(new URL('../../Dockerfile', import.meta.url), 'utf8');
 const vex = JSON.parse(
-  readFileSync(
-    new URL('../../security/vex/CVE-2026-97399.openvex.json', import.meta.url),
-    'utf8',
-  ),
+  readFileSync(new URL('../../security/vex/CVE-2026-97399.openvex.json', import.meta.url), 'utf8'),
 );
 
 test('F009 CodeQL excludes only the two immutable customer HTML authorities', () => {
@@ -52,14 +49,16 @@ test('F009 VEX is single-CVE, package-and-architecture scoped and justified', ()
 test('F009 keeps UNKNOWN blocking and verifies amd64 before applying the reviewed VEX', () => {
   assert.match(policy, /\['HIGH', 'CRITICAL', 'UNKNOWN'\]\.includes\(v\.Severity\)/);
   assert.doesNotMatch(imageRunner, /ignore-unfixed|\.trivyignore/);
-  const architectureGuard = imageRunner.indexOf("assert.equal(\n          architecture,\n          'amd64'");
+  const architectureGuard = imageRunner.indexOf(
+    "assert.equal(\n          architecture,\n          'amd64'",
+  );
   const vexUse = imageRunner.indexOf("'--vex'");
   assert.ok(architectureGuard >= 0, 'Missing amd64 applicability guard');
-  assert.ok(
-    vexUse > architectureGuard,
-    'VEX must not be applied before architecture verification',
+  assert.ok(vexUse > architectureGuard, 'VEX must not be applied before architecture verification');
+  assert.match(
+    imageRunner,
+    /Unreviewed HIGH\/CRITICAL\/UNKNOWN vulnerability must remain blocking/,
   );
-  assert.match(imageRunner, /Unreviewed HIGH\/CRITICAL\/UNKNOWN vulnerability must remain blocking/);
 });
 
 test('F009 Redis ACL acceptance distinguishes a generated machine credential from user passwords', () => {
@@ -72,19 +71,13 @@ test('F009 Redis ACL acceptance distinguishes a generated machine credential fro
 });
 
 test('F009 runtime removes system OpenSSL instead of suppressing fixable OpenSSL CVEs', () => {
-  assert.match(
-    toolLock.runtime.image,
-    /distroless\/base-nossl-debian13@sha256:[a-f0-9]{64}$/,
-  );
+  assert.match(toolLock.runtime.image, /distroless\/base-nossl-debian13@sha256:[a-f0-9]{64}$/);
   assert.equal(toolLock.runtime.sourceTag, 'gcr.io/distroless/base-nossl-debian13:nonroot');
   assert.doesNotMatch(toolLock.runtime.image, /\/cc-debian13/);
   assert.match(
     rootDockerfile,
     /COPY --from=builder \/usr\/lib\/x86_64-linux-gnu\/libstdc\+\+\.so\.6/,
   );
-  assert.match(
-    rootDockerfile,
-    /COPY --from=builder \/lib\/x86_64-linux-gnu\/libgcc_s\.so\.1/,
-  );
+  assert.match(rootDockerfile, /COPY --from=builder \/lib\/x86_64-linux-gnu\/libgcc_s\.so\.1/);
   assert.doesNotMatch(rootDockerfile, /ignore-unfixed|trivyignore/);
 });

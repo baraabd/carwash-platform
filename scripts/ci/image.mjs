@@ -59,13 +59,7 @@ try {
       );
       info.imageId = await docker('image', 'inspect', '--format', '{{.Id}}', tag);
       info.architecture = await step('amd64-runtime-applicability', async () => {
-        const architecture = await docker(
-          'image',
-          'inspect',
-          '--format',
-          '{{.Architecture}}',
-          tag,
-        );
+        const architecture = await docker('image', 'inspect', '--format', '{{.Architecture}}', tag);
         assert.equal(
           architecture,
           'amd64',
@@ -145,8 +139,7 @@ try {
         const unfilteredFindings = trivyFindings(unfilteredReport);
         const unreviewedBlocking = unfilteredFindings.filter(
           (finding) =>
-            finding.blocking &&
-            !(finding.id === 'CVE-2026-97399' && finding.package === 'libc6'),
+            finding.blocking && !(finding.id === 'CVE-2026-97399' && finding.package === 'libc6'),
         );
         assert.deepEqual(
           unreviewedBlocking,
@@ -155,9 +148,7 @@ try {
         );
         const reviewedFindingCount = unfilteredFindings.filter(
           (finding) =>
-            finding.blocking &&
-            finding.id === 'CVE-2026-97399' &&
-            finding.package === 'libc6',
+            finding.blocking && finding.id === 'CVE-2026-97399' && finding.package === 'libc6',
         ).length;
 
         const output = path.join(temporary, 'trivy.json');
@@ -185,10 +176,7 @@ try {
         );
         const report = readJson(output);
         const findings = trivyFindings(report);
-        const secrets = report.Results.reduce(
-          (sum, r) => sum + (r.Secrets?.length ?? 0),
-          0,
-        );
+        const secrets = report.Results.reduce((sum, r) => sum + (r.Secrets?.length ?? 0), 0);
         const summary = {
           imageId: info.imageId,
           architecture: info.architecture,
