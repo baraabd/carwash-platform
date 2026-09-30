@@ -174,7 +174,9 @@ export function verifyRegisteredReferences({
           }
         } catch (error) {
           const message = String(error?.message ?? error);
-          if (!/does not exist in|exists on disk, but not in|path .* does not exist/i.test(message)) {
+          if (
+            !/does not exist in|exists on disk, but not in|path .* does not exist/i.test(message)
+          ) {
             throw error;
           }
         }
