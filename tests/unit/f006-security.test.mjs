@@ -228,6 +228,11 @@ test('F006 cookies: hardened session attributes and duplicate-name rejection', (
     }),
   );
   assert.throws(() => readCookies('wg_refresh=a; wg_refresh=b'), /DUPLICATE_COOKIE/);
+  const parsedCookies = readCookies('wg_refresh=a; theme=dark');
+  assert.equal(Object.getPrototypeOf(parsedCookies), null);
+  assert.deepEqual({ ...parsedCookies }, { wg_refresh: 'a', theme: 'dark' });
+  assert.throws(() => readCookies('__proto__=polluted'), /INVALID_COOKIE_NAME/);
+  assert.equal({}.polluted, undefined);
 });
 for (const role of IDENTITY_ROLES) {
   test(`F006 permissions: ${role} has explicit grants`, () => {
@@ -256,4 +261,14 @@ test('F006 config: missing production secrets/configuration never starts a fake 
     /SECURE_COOKIES_REQUIRED/,
   );
   assert.throws(() => loadIdentityConfig({ APP_ENV: 'test' }), /INVALID_APP_ENV/);
+});
+
+test('F009 cookie parsing rejects prototype keys without changing normal cookie values', () => {
+  for (const name of ['__proto__', 'constructor', 'prototype'])
+    assert.throws(() => readCookies(`${name}=unsafe`), /INVALID_COOKIE_NAME/);
+  const cookies = readCookies('__Host-wg_refresh=opaque; unrelated=value');
+  assert.equal(Object.getPrototypeOf(cookies), null);
+  assert.equal(cookies['__Host-wg_refresh'], 'opaque');
+  assert.equal(cookies.unrelated, 'value');
+  assert.equal(Object.prototype.unsafe, undefined);
 });

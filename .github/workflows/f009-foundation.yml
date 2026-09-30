@@ -1,0 +1,340 @@
+name: F009 foundation verification
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop, 'feat/F009-*']
+  workflow_dispatch:
+permissions:
+  contents: read
+# Different events must not cancel each other for the same source commit.
+# Within one event, supersede older work for the same PR or full Git ref.
+concurrency:
+  group: f009-${{ github.event_name }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      affected: ${{ steps.plan.outputs.affected }}
+      base: ${{ steps.plan.outputs.base }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Activate exact repository toolchain
+        run: |
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          echo "CI_EVIDENCE_DIR=$RUNNER_TEMP/f009-evidence" >> "$GITHUB_ENV"
+          echo "CI_TOOLS_DIR=$RUNNER_TEMP/f009-tools" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/f009-evidence"
+      - name: Discover actual runtime owners and conservative impact
+        id: plan
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node scripts/ci/plan.mjs
+      - name: Retain only bounded structured evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f009-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/f009-evidence/
+          if-no-files-found: error
+          retention-days: 14
+  targeted:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Activate exact repository toolchain
+        run: |
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          echo "CI_EVIDENCE_DIR=$RUNNER_TEMP/f009-evidence" >> "$GITHUB_ENV"
+          echo "CI_TOOLS_DIR=$RUNNER_TEMP/f009-tools" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/f009-evidence"
+      - name: Frozen installation
+        run: pnpm install --frozen-lockfile
+      - name: Execute targeted acceptance
+        env:
+          BASE_SHA: ${{ needs.plan.outputs.base }}
+          AFFECTED_TARGETS: ${{ needs.plan.outputs.affected }}
+          TURBO_TELEMETRY_DISABLED: '1'
+        run: node scripts/ci/run.mjs targeted
+      - name: Retain only bounded structured evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f009-targeted-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/f009-evidence/
+          if-no-files-found: error
+          retention-days: 14
+  static:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Activate exact repository toolchain
+        run: |
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          echo "CI_EVIDENCE_DIR=$RUNNER_TEMP/f009-evidence" >> "$GITHUB_ENV"
+          echo "CI_TOOLS_DIR=$RUNNER_TEMP/f009-tools" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/f009-evidence"
+      - name: Frozen installation
+        run: pnpm install --frozen-lockfile
+      - name: Install checksum-locked workflow validator
+        run: node scripts/ci/install-tools.mjs actionlint
+      - name: Execute static acceptance
+        env:
+          BASE_SHA: ${{ needs.plan.outputs.base }}
+          AFFECTED_TARGETS: ${{ needs.plan.outputs.affected }}
+          TURBO_TELEMETRY_DISABLED: '1'
+        run: node scripts/ci/run.mjs static
+      - name: Retain only bounded structured evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f009-static-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/f009-evidence/
+          if-no-files-found: error
+          retention-days: 14
+  integration:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Activate exact repository toolchain
+        run: |
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          echo "CI_EVIDENCE_DIR=$RUNNER_TEMP/f009-evidence" >> "$GITHUB_ENV"
+          echo "CI_TOOLS_DIR=$RUNNER_TEMP/f009-tools" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/f009-evidence"
+      - name: Frozen installation
+        run: pnpm install --frozen-lockfile
+      - name: Execute integration acceptance
+        env:
+          BASE_SHA: ${{ needs.plan.outputs.base }}
+          AFFECTED_TARGETS: ${{ needs.plan.outputs.affected }}
+          TURBO_TELEMETRY_DISABLED: '1'
+        run: node scripts/ci/run.mjs integration
+      - name: Retain only bounded structured evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f009-integration-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/f009-evidence/
+          if-no-files-found: error
+          retention-days: 14
+  security:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Activate exact repository toolchain
+        run: |
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          echo "CI_EVIDENCE_DIR=$RUNNER_TEMP/f009-evidence" >> "$GITHUB_ENV"
+          echo "CI_TOOLS_DIR=$RUNNER_TEMP/f009-tools" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/f009-evidence"
+      - name: Frozen installation
+        run: pnpm install --frozen-lockfile
+      - name: Install checksum-locked secret scanner
+        run: node scripts/ci/install-tools.mjs gitleaks
+      - name: Execute security acceptance
+        env:
+          BASE_SHA: ${{ needs.plan.outputs.base }}
+          AFFECTED_TARGETS: ${{ needs.plan.outputs.affected }}
+          TURBO_TELEMETRY_DISABLED: '1'
+        run: node scripts/ci/run.mjs security
+      - name: Retain only bounded structured evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f009-security-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/f009-evidence/
+          if-no-files-found: error
+          retention-days: 14
+  images:
+    needs: plan
+    name: Image / ${{ matrix.id }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Activate exact repository toolchain
+        run: |
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          echo "CI_EVIDENCE_DIR=$RUNNER_TEMP/f009-evidence" >> "$GITHUB_ENV"
+          echo "CI_TOOLS_DIR=$RUNNER_TEMP/f009-tools" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/f009-evidence"
+      - name: Install checksum-locked container scanner
+        run: node scripts/ci/install-tools.mjs trivy
+      - name: Independent image build, runtime contract, security and SBOM
+        env:
+          TARGET: ${{ matrix.id }}
+        run: node scripts/ci/image.mjs "$TARGET"
+      - name: Retain only bounded structured evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f009-image-${{ matrix.id }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/f009-evidence/
+          if-no-files-found: error
+          retention-days: 14
+  codeql:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Activate exact repository toolchain
+        run: |
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          echo "CI_EVIDENCE_DIR=$RUNNER_TEMP/f009-evidence" >> "$GITHUB_ENV"
+          echo "CI_TOOLS_DIR=$RUNNER_TEMP/f009-tools" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/f009-evidence"
+      - name: Initialize pinned CodeQL and linked query bundle
+        id: codeql
+        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          db-location: ${{ runner.temp }}/f009-codeql-databases
+          debug: false
+          tools: linked
+          queries: security-extended
+          config-file: ./.github/codeql/f009-codeql-config.yml
+      - name: Analyze source
+        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2
+        with:
+          output: ${{ runner.temp }}/f009-sarif
+          upload-database: false
+          ref: ${{ github.event_name == 'pull_request' && format('refs/pull/{0}/head', github.event.pull_request.number) || github.ref }}
+          sha: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Enforce result severity, not just scanner exit status
+        env:
+          CODEQL_RESULTS: ${{ runner.temp }}/f009-sarif
+          CODEQL_VERSION: ${{ steps.codeql.outputs.codeql-version }}
+        run: node scripts/ci/run.mjs codeql
+      - name: Retain only bounded structured evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f009-codeql-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/f009-evidence/
+          if-no-files-found: error
+          retention-days: 14
+  aggregate:
+    name: Foundation release gate
+    if: always()
+    needs: [plan, targeted, static, integration, images, security, codeql]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Activate exact repository toolchain
+        run: |
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          echo "CI_EVIDENCE_DIR=$RUNNER_TEMP/f009-evidence" >> "$GITHUB_ENV"
+          echo "CI_TOOLS_DIR=$RUNNER_TEMP/f009-tools" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/f009-evidence"
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          pattern: f009-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/f009-downloaded
+          merge-multiple: true
+      - name: Require every job and every current-source evidence record
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          CI_DOWNLOADED_EVIDENCE: ${{ runner.temp }}/f009-downloaded
+        run: node scripts/ci/aggregate.mjs
+      - name: Retain only bounded structured evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: f009-aggregate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/f009-evidence/
+          if-no-files-found: error
+          retention-days: 14

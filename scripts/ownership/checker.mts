@@ -58,8 +58,14 @@ const packagePart = (specifier: string): string =>
   specifier.startsWith('@')
     ? specifier.split('/').slice(0, 2).join('/')
     : (specifier.split('/')[0] ?? specifier);
-const isTest = (file: string): boolean =>
-  /(?:^|[/\\])(?:tests?|__tests__)(?:[/\\])|\.(?:test|spec)\.[cm]?[jt]sx?$/i.test(file);
+const isTest = (file: string): boolean => {
+  const segments = file.replaceAll('\\', '/').split('/');
+  const filename = segments.pop() ?? '';
+  return (
+    segments.some((segment) => /^(?:tests?|__tests__)$/i.test(segment)) ||
+    /^.+\.(?:test|spec)\.[cm]?[jt]sx?$/i.test(filename)
+  );
+};
 function flattenTargets(value: unknown): string[] {
   if (typeof value === 'string') return [value];
   if (Array.isArray(value)) return value.flatMap(flattenTargets);

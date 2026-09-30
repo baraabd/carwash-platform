@@ -6,10 +6,11 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 import { fixture, context, email, PASSWORD, IDENTITY_V1 } from './_fixture.mjs';
+import { loopbackIdentityPort } from './_proxy-target.mjs';
 
 /** Test-only TLS ingress. It never exposes a delivery adapter or a product screen. */
 async function ingress() {
-  let upstream;
+  let upstreamPort;
   const server = https.createServer(
     { key: await readFile(context.tls.keyFile), cert: await readFile(context.tls.certFile) },
     (request, response) => {
@@ -23,15 +24,19 @@ async function ingress() {
         );
         return;
       }
-      if (!upstream || !request.url?.startsWith(`${IDENTITY_V1}/`)) {
+      if (!upstreamPort || !request.url?.startsWith(`${IDENTITY_V1}/`)) {
         response.writeHead(404);
         response.end();
         return;
       }
-      const destination = new URL(request.url, upstream);
       const proxied = http.request(
-        destination,
-        { method: request.method, headers: request.headers },
+        {
+          hostname: '127.0.0.1',
+          port: upstreamPort,
+          path: request.url,
+          method: request.method,
+          headers: request.headers,
+        },
         (incoming) => {
           response.writeHead(incoming.statusCode ?? 502, incoming.headers);
           incoming.pipe(response);
@@ -49,7 +54,7 @@ async function ingress() {
   return {
     origin,
     setUpstream(value) {
-      upstream = value;
+      upstreamPort = loopbackIdentityPort(value);
     },
     async close() {
       server.closeAllConnections();

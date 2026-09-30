@@ -61,17 +61,20 @@ test('F003 renderer snapshot and structure are deterministic', () => {
       'Dockerfile',
     ],
   );
+  // F009 deliberately changes only the generated Docker runtime: reviewed
+  // distroless digest, exact Node copy, numeric UID and shell-free healthcheck.
+  // These service-template hashes are not approved HTML or visual snapshots.
   assert.equal(
     snapshot('identity'),
-    'a5d6f321c84e1e0ff486391e4b61983df4dfb2f88217df3e829a397e35e64541',
+    'f7bb7bf38b6839238babd8e85ef874ef70c8d3eac3e3cc420c9d1abea5cd7c7a',
   );
   assert.equal(
     snapshot('catalog'),
-    '2ca0b2cc3050698e53bb9a2f3357cee358a8abd57712a7053eefa69bfa675552',
+    '84c87ed30fb68b9bd29ba90954a51e0a1ae45e5bc7950e1b0685f24dde7134cc',
   );
   assert.equal(
     snapshot('communications'),
-    '16129fa26980e62d94e46d861f6c6e204c76419bf6afb9b2036781360bad9162',
+    '155c074ea3a14564c206afb2abaca3ed034bb8e6f30b81ac525264a8fe6ae8b6',
   );
 });
 
@@ -290,3 +293,31 @@ test('shared bootstrap bounds a hanging shutdown', async () => {
   });
   await assert.rejects(runtime.shutdown('TEST'), /SHUTDOWN_TIMEOUT/);
 });
+
+// The deployed distroless runtime has no named node user. Numeric UID/GID must
+// preserve the same unprivileged contract, never accept an earlier safe USER
+// followed by a root override in the final stage.
+for (const [user, expected] of [
+  ['1000:1000', 0],
+  ['root', 1],
+  ['0:0', 1],
+]) {
+  test(`F009 runtime layer guard verifies final USER ${user}`, async () => {
+    await withLayerFixture('export {};\n', async (root) => {
+      const file = path.join(root, 'services/fixture/Dockerfile');
+      await writeFile(
+        file,
+        [
+          'FROM node:24 AS builder',
+          'RUN pnpm install --frozen-lockfile',
+          'FROM fixed-runtime AS runner',
+          'USER node',
+          `USER ${user}`,
+          '',
+        ].join('\n'),
+      );
+      const result = run('scripts/check-layers.mjs', ['--root', root]);
+      assert.equal(result.code, expected, result.output);
+    });
+  });
+}

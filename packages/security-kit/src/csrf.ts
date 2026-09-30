@@ -53,10 +53,18 @@ export function allowedOrigin(
   }
 }
 
+function freezeNullPrototypeRecord(
+  entries: Iterable<readonly [string, string]> = [],
+): Readonly<Record<string, string>> {
+  const record = Object.fromEntries(entries) as Record<string, string>;
+  Object.setPrototypeOf(record, null);
+  return Object.freeze(record);
+}
+
 /** Duplicate names fail closed instead of allowing intermediary/parser disagreement. */
 export function readCookies(header: unknown): Readonly<Record<string, string>> {
-  const cookies: Record<string, string> = Object.create(null) as Record<string, string>;
-  if (header === undefined) return cookies;
+  const cookies = new Map<string, string>();
+  if (header === undefined) return freezeNullPrototypeRecord();
   if (typeof header !== 'string' || header.length > 16_384)
     throw new Error('INVALID_COOKIE_HEADER');
   for (const part of header.split(';')) {
@@ -64,10 +72,12 @@ export function readCookies(header: unknown): Readonly<Record<string, string>> {
     if (split < 1) continue;
     const name = part.slice(0, split).trim();
     const value = part.slice(split + 1).trim();
-    if (Object.hasOwn(cookies, name)) throw new Error('DUPLICATE_COOKIE');
-    cookies[name] = value;
+    if (name === '__proto__' || name === 'constructor' || name === 'prototype')
+      throw new Error('INVALID_COOKIE_NAME');
+    if (cookies.has(name)) throw new Error('DUPLICATE_COOKIE');
+    cookies.set(name, value);
   }
-  return cookies;
+  return freezeNullPrototypeRecord(cookies);
 }
 export function sessionCookie(
   name: string,

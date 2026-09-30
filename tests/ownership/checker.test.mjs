@@ -478,3 +478,35 @@ test('public wildcard cannot permit package subpath traversal', (t) => {
   f.put('services/booking/src/index.ts', "import '@carwash/event-contracts/../../billing';");
   rejects(f.root, 'UNSUPPORTED_MODULE_PATH');
 });
+
+for (const file of [
+  'src/tests-pretend/input.ts',
+  'src/testdata/input.ts',
+  'src/thing.spec.ts-extra.js',
+  'src/test.tsx/runtime.ts',
+]) {
+  test(`F009 test classification rejects lookalike runtime path: ${file}`, (t) => {
+    const f = fixture(t);
+    f.change('services/booking/package.json', (p) => {
+      p.devDependencies = { '@carwash/test-utils': 'workspace:0.0.1' };
+    });
+    f.put(`services/booking/${file}`, "import '@carwash/test-utils';");
+    rejects(f.root, 'TEST_UTILS_IN_RUNTIME');
+  });
+}
+for (const file of [
+  'src/test/input.ts',
+  'src/tests/input.ts',
+  'src/__tests__/input.ts',
+  'src/booking.spec.ts',
+  'src/booking.test.mts',
+]) {
+  test(`F009 test classification accepts exact test path: ${file}`, (t) => {
+    const f = fixture(t);
+    f.change('services/booking/package.json', (p) => {
+      p.devDependencies = { '@carwash/test-utils': 'workspace:0.0.1' };
+    });
+    f.put(`services/booking/${file}`, "import '@carwash/test-utils';");
+    accepts(f.root);
+  });
+}

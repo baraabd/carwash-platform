@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { readRegularFile } from '../lib/read-regular-file.mjs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 const repository = 'baraabd/carwash-platform';
@@ -149,7 +150,7 @@ export function applyPackage({
   git(destination, ['apply', '--whitespace=error-all', path.resolve(patchFile)]);
   for (const entry of manifest.files) {
     const file = path.join(destination, entry.path);
-    if (lstatSync(file).isSymbolicLink() || sha256(readFileSync(file)) !== entry.sha256)
+    if (sha256(readRegularFile(file, 16 * 1024 * 1024)) !== entry.sha256)
       throw new Error(`Applied source hash mismatch: ${entry.path}`);
   }
   const changed = git(destination, ['status', '--porcelain=v1', '--untracked-files=all'])

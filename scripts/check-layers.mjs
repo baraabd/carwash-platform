@@ -135,7 +135,14 @@ for (const service of services) {
   }
   const docker = await readFile(dockerPath, 'utf8');
   const fromCount = [...docker.matchAll(/^FROM\s+/gm)].length;
-  if (fromCount < 2 || !/^USER node$/m.test(docker) || !/--frozen-lockfile/.test(docker)) {
+  const runtimeStage = docker.split(/^FROM .+$/m).at(-1) ?? '';
+  const runtimeUsers = [...runtimeStage.matchAll(/^USER (.+)$/gm)];
+  const runtimeUser = runtimeUsers.at(-1)?.[1];
+  if (
+    fromCount < 2 ||
+    !['node', '1000:1000'].includes(runtimeUser) ||
+    !/--frozen-lockfile/.test(docker)
+  ) {
     throw new Error(`${service} Dockerfile must be multi-stage, frozen-install and non-root`);
   }
 }
