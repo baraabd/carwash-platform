@@ -1,0 +1,20 @@
+name: F009 runtime candidate diagnostic
+on:
+  push:
+    branches: ['feat/F009-ci-security']
+    paths: ['.github/workflows/f009-runtime-candidate.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Resolve maintained distroless base-nossl digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          image='gcr.io/distroless/base-nossl-debian13:nonroot'
+          docker pull "$image"
+          docker image inspect "$image" --format 'ARCH={{.Architecture}} OS={{.Os}}'
+          docker image inspect "$image" --format '{{range .RepoDigests}}{{println .}}{{end}}'
