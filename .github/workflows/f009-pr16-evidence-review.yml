@@ -1,0 +1,97 @@
+name: F009 PR16 final evidence review only
+on:
+  push:
+    branches: ['work/F009-pr16-remediation-20260930']
+    paths: ['.github/workflows/f009-pr16-evidence-review.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Inspect both events and source-bound structured evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -u <<'PY'
+          import hashlib,io,json,os,time,urllib.request,urllib.error,zipfile
+          from urllib.parse import urlparse
+          root='https://api.github.com/repos/baraabd/carwash-platform'
+          sha='115aa61dc3f486fca51d23cf635a9f54648e1d08'
+          tree='222cafb2dab2a6584c0b3f670e9d8dd64ea16ecb'
+          def api(path):
+              request=urllib.request.Request(root+path,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+              with urllib.request.urlopen(request,timeout=60) as response: return json.load(response)
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self,*args,**kwargs): return None
+          def archive(url):
+              assert url.startswith(root+'/actions/artifacts/') and url.endswith('/zip')
+              request=urllib.request.Request(url,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+              try:
+                  with urllib.request.build_opener(NoRedirect()).open(request,timeout=60) as response: return response.read(4*1024*1024+1)
+              except urllib.error.HTTPError as error:
+                  if error.code != 302: raise
+                  location=error.headers['Location']
+              parsed=urlparse(location)
+              assert parsed.scheme=='https' and not parsed.username and not parsed.password
+              with urllib.request.urlopen(location,timeout=60) as response: return response.read(4*1024*1024+1)
+          deadline=time.monotonic()+900
+          previous=None
+          while True:
+              runs=api('/actions/runs?head_sha='+sha+'&per_page=100')['workflow_runs']
+              foundation=[r for r in runs if r['path']=='.github/workflows/f009-foundation.yml']
+              state=[(r['id'],r['event'],r['status'],r['conclusion']) for r in foundation]
+              if state!=previous: print('FOUNDATION_PROGRESS',json.dumps(state));previous=state
+              if {'push','pull_request'}.issubset({r['event'] for r in foundation}) and all(r['status']=='completed' for r in runs): break
+              assert time.monotonic()<deadline,'Timed out waiting for final-source runs; no acceptance inferred'
+              time.sleep(20)
+          print('ALL_SOURCE_RUNS',json.dumps([{'id':r['id'],'name':r['name'],'event':r['event'],'status':r['status'],'conclusion':r['conclusion']} for r in runs]))
+          expected={'plan','targeted','static','integration','security','codeql'}|{'image-'+s for s in ['billing','booking','catalog','communications','customer','gateway','identity','media','reporting','support','workforce']}
+          for run in foundation:
+              assert run['head_sha']==sha
+              jobs=api('/actions/runs/'+str(run['id'])+'/jobs?per_page=100')['jobs']
+              print('JOBS',json.dumps({'run':run['id'],'event':run['event'],'jobs':[{'name':j['name'],'conclusion':j['conclusion'],'failedSteps':[s['name'] for s in j.get('steps',[]) if s['conclusion']=='failure']} for j in jobs]}))
+              artifacts=api('/actions/runs/'+str(run['id'])+'/artifacts?per_page=100')['artifacts']
+              seen=set()
+              for artifact in sorted(artifacts,key=lambda a:a['name']):
+                  assert artifact['name'].endswith('-'+str(run['id'])+'-'+str(run['run_attempt']))
+                  assert not artifact['expired'] and artifact['size_in_bytes']<4*1024*1024
+                  data=archive(artifact['archive_download_url'])
+                  assert len(data)<4*1024*1024
+                  digest='sha256:'+hashlib.sha256(data).hexdigest()
+                  assert not artifact.get('digest') or digest==artifact['digest']
+                  with zipfile.ZipFile(io.BytesIO(data)) as z:
+                      for item in z.infolist():
+                          if item.is_dir(): continue
+                          assert item.file_size<4*1024*1024 and '/' not in item.filename
+                          if not item.filename.endswith('.json'): raise AssertionError('Unexpected evidence type')
+                          value=json.loads(z.read(item))
+                          name=item.filename[:-5]
+                          if name in expected|{'aggregate'}:
+                              assert value['sourceSha']==sha and value['sourceTree']==tree
+                              assert value['runId']==str(run['id']) and value['runAttempt']==str(run['run_attempt'])
+                              assert value['sourceDirty'] is False
+                              assert name not in seen;seen.add(name)
+                              print('STAGE',json.dumps({'run':run['id'],'event':run['event'],'artifact':artifact['id'],'sha256':digest,'id':name,'status':value['status'],'tools':value['tools'],'failedSteps':[s['id'] for s in value['steps'] if s['status']!='passed'],'detail':value.get('detail',{})}))
+                          elif name.startswith('sbom-'):
+                              assert value['bomFormat']=='CycloneDX' and value['components']
+                              native=[{k:c.get(k) for k in ['name','version','purl']} for c in value['components'] if c.get('name') in ['libc6','libssl3t64','libstdc++6','libgcc-s1','node']]
+                              print('SBOM',json.dumps({'run':run['id'],'name':name,'components':len(value['components']),'nativePackages':native}))
+                          elif name.startswith('scan-'):
+                              safe={k:value[k] for k in ['imageId','runtimeImage','architecture','scannerVersion','version','secretCount','reviewedVex','reviewedFindingCount','findings','unreviewedBlocking'] if k in value}
+                              if name.endswith('-unfiltered'):
+                                  assert value['sourceSha']==sha and value['sourceTree']==tree and value['sourceDirty'] is False
+                                  assert value['runId']==str(run['id']) and value['runAttempt']==str(run['run_attempt'])
+                              print('SCAN',json.dumps({'run':run['id'],'name':name,**safe}))
+                          elif name=='codeql-findings':
+                              print('CODEQL',json.dumps({'run':run['id'],**value}))
+                          else: raise AssertionError('Unexpected evidence file: '+name)
+              print('EVIDENCE_COMPLETENESS',json.dumps({'run':run['id'],'missing':sorted((expected|{'aggregate'})-seen),'inspected':len(seen),'sourceSha':sha,'sourceTree':tree}))
+          current=api('/git/ref/heads/feat/F009-ci-security')['object']['sha']
+          print('CURRENT_PR_HEAD',current)
+          print('Review completed. Helper success means inspection completed; only the inspected source workflow and stage results determine acceptance.')
+          PY
