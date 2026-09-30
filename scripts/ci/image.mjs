@@ -59,7 +59,13 @@ try {
       );
       info.imageId = await docker('image', 'inspect', '--format', '{{.Id}}', tag);
       info.architecture = await step('amd64-runtime-applicability', async () => {
-        const architecture = await docker('image', 'inspect', '--format', '{{.Architecture}}', tag);
+        const architecture = await docker(
+          'image',
+          'inspect',
+          '--format',
+          '{{.Architecture}}',
+          tag,
+        );
         assert.equal(
           architecture,
           'amd64',
@@ -179,7 +185,10 @@ try {
         );
         const report = readJson(output);
         const findings = trivyFindings(report);
-        const secrets = report.Results.reduce((sum, r) => sum + (r.Secrets?.length ?? 0), 0);
+        const secrets = report.Results.reduce(
+          (sum, r) => sum + (r.Secrets?.length ?? 0),
+          0,
+        );
         const summary = {
           imageId: info.imageId,
           architecture: info.architecture,

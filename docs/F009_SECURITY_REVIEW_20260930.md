@@ -63,3 +63,20 @@ Acceptance requires new push and pull-request F009 runs on the resulting source.
 required jobs and image matrix entries must complete successfully, machine-readable
 evidence must match the final source SHA/tree/run attempt, and inherited workflows
 must remain green. Historical results are not acceptance for the new source.
+
+## Follow-up: OpenSSL findings discovered by the fresh Trivy DB
+
+The first remediation run correctly failed closed when the newly downloaded Trivy
+database reported two additional HIGH findings in system `libssl3t64`:
+`CVE-2026-75804` and `CVE-2026-84782`. Unlike the Power8-only glibc issue,
+these findings are not waived.
+
+The runtime was reduced from `distroless/cc-debian13` to the official
+`distroless/base-nossl-debian13` digest resolved by diagnostic run
+`36697756791`. The F002-pinned Node binary is copied from the builder together
+with only the required C++ ABI libraries. The existing independent image jobs
+must prove boot, liveness, fail-closed readiness, non-root execution, graceful
+shutdown, Trivy policy compliance and CycloneDX SBOM generation.
+
+No `--ignore-unfixed`, severity downgrade or VEX statement was added for the
+fixable OpenSSL findings.
