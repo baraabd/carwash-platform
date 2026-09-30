@@ -49,7 +49,7 @@ test('F010 removed or changed baseline debt is detectable rather than silently r
   const actual = actualFrom(baseline);
   actual[0].violations[0].nodes.pop();
   assert.equal(compareReferenceDebt(baseline, actual, baseline.geometry).matches, false);
-  const geometry = structuredClone(baseline.geometry);
+  const geometry = globalThis.structuredClone(baseline.geometry);
   geometry[0].scrollWidth += 1;
   geometry[0].overflowPixels += 1;
   assert.equal(compareReferenceDebt(baseline, actualFrom(baseline), geometry).matches, false);
