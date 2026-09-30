@@ -62,13 +62,14 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
     "@types/node": "24.13.6",
+    "axe-core": "4.13.0",
     "eslint": "10.11.0",
     "prettier": "3.9.8",
-    "typescript": "5.9.3",
-    "typescript-eslint": "8.70.0",
     "turbo": "2.11.4",
-    "@playwright/test": "1.63.0"
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.0"
   },
   "pnpm": {
     "overrides": {
