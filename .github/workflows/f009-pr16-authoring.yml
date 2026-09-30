@@ -1,0 +1,226 @@
+name: F009 PR16 reviewed source authoring
+on:
+  push:
+    branches: ['work/F009-pr16-remediation-20260930']
+    paths: ['.github/workflows/f009-pr16-authoring.yml']
+permissions:
+  contents: read
+jobs:
+  prepare:
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: feat/F009-ci-security
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Check baseline and author only scan policy, regression tests and documentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          git merge-base --is-ancestor d7ebd03d8ebb8802ff4b0f0544439446f2dd0cd8 HEAD
+          git rev-parse HEAD
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          node scripts/check-design-reference.mjs
+          pnpm install --frozen-lockfile
+          python3 <<'PY'
+          import pathlib
+          module=pathlib.Path('scripts/ci/image-security.mjs')
+          assert not module.exists()
+          module.write_text('''import assert from 'node:assert/strict';
+          import { trivyFindings } from './policy.mjs';
+
+          // Narrow the existing VEX preflight: never exempt a different package,
+          // version, distribution or architecture simply because its CVE matches.
+          export function assessUnfilteredImageScan(report, architecture) {
+            const findings = trivyFindings(report);
+            const raw = report.Results.flatMap((result) => result.Vulnerabilities ?? []);
+            const reviewed = (finding, index) =>
+              architecture === 'amd64' &&
+              report.Metadata?.OS?.Family === 'debian' &&
+              report.Metadata?.OS?.Name === '13.7' &&
+              finding.id === 'CVE-2026-97399' &&
+              finding.package === 'libc6' &&
+              finding.installed === '2.41-12+deb13u4' &&
+              raw[index]?.PkgIdentifier?.PURL ===
+                'pkg:deb/debian/libc6@2.41-12%2Bdeb13u4?arch=amd64&distro=debian-13.7';
+            const secretCount = report.Results.reduce((sum, result) => {
+              assert.ok(result.Secrets === undefined || Array.isArray(result.Secrets));
+              return sum + (result.Secrets?.length ?? 0);
+            }, 0);
+            return {
+              findings,
+              secretCount,
+              unreviewedBlocking: findings.filter((finding, index) => finding.blocking && !reviewed(finding, index)),
+              reviewedFindingCount: findings.filter((finding, index) => finding.blocking && reviewed(finding, index)).length,
+            };
+          }
+          ''')
+          target=pathlib.Path('scripts/ci/image.mjs')
+          text=target.read_text()
+          anchor="import { checked, command, tool, toolLock, stage } from './runtime.mjs';"
+          assert text.count(anchor)==1
+          text=text.replace(anchor, "import { checked, command, tool, toolLock, stage, git, sourceDirty } from './runtime.mjs';\nimport { assessUnfilteredImageScan } from './image-security.mjs';")
+          start=text.index('        const unfilteredFindings = trivyFindings(unfilteredReport);')
+          end=text.index("        const output = path.join(temporary, 'trivy.json');", start)
+          text=text[:start]+'''        const assessment = assessUnfilteredImageScan(unfilteredReport, info.architecture);
+                  const { unreviewedBlocking, reviewedFindingCount } = assessment;
+                  // Persist bounded, redacted diagnostics BEFORE enforcing the gate.
+                  // A rejected scan is evidence, not a successful image stage.
+                  writeFileSync(
+                    path.join(process.env.CI_EVIDENCE_DIR, `scan-${id}-unfiltered.json`),
+                    JSON.stringify({
+                      schemaVersion: 1,
+                      sourceSha: git('rev-parse', 'HEAD'),
+                      sourceTree: git('rev-parse', 'HEAD^{tree}'),
+                      sourceDirty: sourceDirty(),
+                      runId: process.env.GITHUB_RUN_ID ?? 'local',
+                      runAttempt: process.env.GITHUB_RUN_ATTEMPT ?? '1',
+                      imageId: info.imageId,
+                      runtimeImage: info.runtimeImage,
+                      architecture: info.architecture,
+                      scannerVersion: toolLock.tools.trivy.version,
+                      scope: 'Unfiltered diagnostic inventory; never acceptance on its own.',
+                      ...assessment,
+                    }, null, 2) + '\\n',
+                  );
+                  assert.equal(assessment.secretCount, 0, 'Unfiltered image secrets must remain blocking');
+                  assert.deepEqual(
+                    unreviewedBlocking,
+                    [],
+                    'Unreviewed HIGH/CRITICAL/UNKNOWN vulnerability must remain blocking',
+                  );
+
+          '''+text[end:]
+          target.write_text(text)
+          tests=pathlib.Path('tests/unit/f009-image-security.test.mjs')
+          assert not tests.exists()
+          tests.write_text('''import test from 'node:test';
+          import assert from 'node:assert/strict';
+          import { assessUnfilteredImageScan } from '../../scripts/ci/image-security.mjs';
+
+          const reviewedFinding = () => ({
+            VulnerabilityID: 'CVE-2026-97399', PkgName: 'libc6',
+            InstalledVersion: '2.41-12+deb13u4', Severity: 'UNKNOWN',
+            PkgIdentifier: { PURL: 'pkg:deb/debian/libc6@2.41-12%2Bdeb13u4?arch=amd64&distro=debian-13.7' },
+          });
+          const report = (vulnerabilities = []) => ({
+            SchemaVersion: 2, Metadata: { OS: { Family: 'debian', Name: '13.7' } },
+            Results: [{ Vulnerabilities: vulnerabilities }],
+          });
+          test('unfiltered clean inventory is explicit rather than missing evidence', () => {
+            assert.deepEqual(assessUnfilteredImageScan(report(), 'amd64'), {
+              findings: [], secretCount: 0, unreviewedBlocking: [], reviewedFindingCount: 0,
+            });
+            for (const invalid of [{}, { SchemaVersion: 2, Results: [] }])
+              assert.throws(() => assessUnfilteredImageScan(invalid, 'amd64'));
+          });
+          test('only the reviewed exact amd64 glibc finding is eligible for VEX evaluation', () => {
+            const result = assessUnfilteredImageScan(report([reviewedFinding()]), 'amd64');
+            assert.equal(result.findings[0].blocking, true);
+            assert.equal(result.reviewedFindingCount, 1);
+            assert.deepEqual(result.unreviewedBlocking, []);
+          });
+          test('both reported OpenSSL CVEs remain blocking alongside the reviewed finding', () => {
+            const vulnerabilities = ['CVE-2026-75804', 'CVE-2026-84782'].map((id) => ({
+              VulnerabilityID: id, PkgName: 'libssl3t64', InstalledVersion: '3.5.7-1~deb13u2',
+              FixedVersion: '3.5.7-1~deb13u3', Severity: 'HIGH',
+            }));
+            const result = assessUnfilteredImageScan(report([reviewedFinding(), ...vulnerabilities]), 'amd64');
+            assert.equal(result.reviewedFindingCount, 1);
+            assert.equal(result.unreviewedBlocking.length, 2);
+            assert.deepEqual(result.unreviewedBlocking.map((v) => v.id), vulnerabilities.map((v) => v.VulnerabilityID));
+          });
+          test('UNKNOWN findings do not receive a blanket exemption', () => {
+            const finding = { ...reviewedFinding(), VulnerabilityID: 'CVE-2099-10000' };
+            assert.equal(assessUnfilteredImageScan(report([finding]), 'amd64').unreviewedBlocking.length, 1);
+          });
+          test('CVE matching cannot exempt another package, version or missing PURL', () => {
+            for (const change of [
+              { PkgName: 'other' }, { InstalledVersion: '2.42-1' },
+              { PkgIdentifier: undefined },
+              { PkgIdentifier: { PURL: 'pkg:deb/debian/libc6?arch=ppc64el' } },
+            ]) {
+              const result = assessUnfilteredImageScan(report([{ ...reviewedFinding(), ...change }]), 'amd64');
+              assert.equal(result.reviewedFindingCount, 0);
+              assert.equal(result.unreviewedBlocking.length, 1);
+            }
+          });
+          test('unproven architecture and distribution remain blocking', () => {
+            for (const architecture of ['arm64', 'ppc64le', undefined])
+              assert.equal(assessUnfilteredImageScan(report([reviewedFinding()]), architecture).unreviewedBlocking.length, 1);
+            for (const metadata of [undefined, { OS: { Family: 'ubuntu', Name: '13.7' } }, { OS: { Family: 'debian', Name: '14' } }]) {
+              const value = report([reviewedFinding()]); value.Metadata = metadata;
+              assert.equal(assessUnfilteredImageScan(value, 'amd64').unreviewedBlocking.length, 1);
+            }
+          });
+          test('secret evidence records counts without retaining credential snippets', () => {
+            const value = report();
+            value.Results[0].Secrets = [{ Match: 'private-fixture-sentinel', Code: { Lines: ['private-fixture-sentinel'] } }];
+            const result = assessUnfilteredImageScan(value, 'amd64');
+            assert.equal(result.secretCount, 1);
+            assert.ok(!JSON.stringify(result).includes('private-fixture-sentinel'));
+            value.Results[0].Secrets = 'malformed';
+            assert.throws(() => assessUnfilteredImageScan(value, 'amd64'));
+          });
+          ''')
+          doc=pathlib.Path('docs/F009_PR16_GATE_REPAIR_20260930.md')
+          assert not doc.exists()
+          doc.write_text('''# F009 PR16: formatting and image scan evidence repair
+
+          Status: implementation record, not a substitute for final-source acceptance.
+
+          The reported PR run 36696550670 at d7ebd03d8ebb8802ff4b0f0544439446f2dd0cd8 failed because Prettier rejected two files and the container scanner found CVE-2026-75804 and CVE-2026-84782 in system libssl3t64 3.5.7-1~deb13u2. Debian identifies 3.5.7-1~deb13u3 as fixed. A separate read-only diagnosis (36698311993) reproduced both findings in the maintained cc-debian13 candidate; refreshing the tag alone was not remediation.
+
+          The PR received a separate base-nossl runtime change while this review was in progress. This patch is prepared above the current PR head and preserves that work. It does not claim authorship or acceptance of that runtime change. Final image builds, native runtime loading, vulnerability scans and SBOM records must prove the resulting runtime independently.
+
+          This repair runs the repository-pinned Prettier on scripts/ci/image.mjs and tests/unit/f009-security-remediation.test.mjs rather than excluding either file from formatting. It also persists a bounded unfiltered scanner inventory before rejecting a finding or secret, so a failing image stage retains source SHA/tree, run/attempt, runtime/image identity, scanner version, finding metadata and secret counts. Raw secret text and source snippets are not retained.
+
+          The existing Power8-only glibc VEX preflight is narrowed to the observed Debian 13.7 amd64 package version and exact package URL. An architecture, distribution, version or identity mismatch remains blocking. The second Trivy VEX scan still has to succeed. New tests explicitly retain both OpenSSL findings, unrelated UNKNOWN findings and secret counts; no threshold or required dependency is removed.
+
+          Reference HTML, UI snapshots, business code, database schemas, branch protection and production environments are unchanged by this follow-up. No merge is authorized. The helper prepares source objects only; acceptance requires all new and inherited checks on the final PR commit, including the push analysis rather than PR CodeQL alone. Local container execution was unavailable; the recorded formatter and regression execution used GitHub runners.
+
+          References:
+          - https://security-tracker.debian.org/tracker/CVE-2026-75804
+          - https://security-tracker.debian.org/tracker/CVE-2026-84782
+          - https://security-tracker.debian.org/tracker/CVE-2026-97399
+          ''')
+          PY
+          pnpm exec prettier --write scripts/ci/image.mjs scripts/ci/image-security.mjs tests/unit/f009-security-remediation.test.mjs tests/unit/f009-image-security.test.mjs docs/F009_PR16_GATE_REPAIR_20260930.md
+          pnpm format:check
+          node --test tests/unit/f009-concurrency-regression.test.mjs tests/unit/f009-security-remediation.test.mjs tests/unit/f009-image-security.test.mjs tests/ci/gates.test.mjs
+          node scripts/check-design-reference.mjs
+          git diff --check
+      - name: Prepare exactly reviewed code tree without updating a branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json,os,pathlib,subprocess,urllib.request
+          paths=['scripts/ci/image.mjs','scripts/ci/image-security.mjs','tests/unit/f009-security-remediation.test.mjs','tests/unit/f009-image-security.test.mjs','docs/F009_PR16_GATE_REPAIR_20260930.md']
+          git=lambda *a:subprocess.check_output(['git',*a],text=True).strip()
+          parent=git('rev-parse','HEAD')
+          subprocess.run(['git','add','--',*paths],check=True)
+          changed=git('diff','--cached','--name-only').splitlines()
+          assert set(changed).issubset(set(paths)) and len(changed)>=4
+          assert not git('diff','--name-only')
+          assert not git('ls-files','--others','--exclude-standard')
+          entries=[{'path':p,'mode':git('ls-files','--stage','--',p).split()[0],'type':'blob','content':pathlib.Path(p).read_text()} for p in changed]
+          expected=git('write-tree')
+          req=urllib.request.Request('https://api.github.com/repos/baraabd/carwash-platform/git/trees',data=json.dumps({'base_tree':git('rev-parse','HEAD^{tree}'),'tree':entries}).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'})
+          with urllib.request.urlopen(req,timeout=60) as response: result=json.load(response)
+          assert result['sha']==expected
+          print(json.dumps({'parent':parent,'sourceTree':expected,'changedFiles':changed,'scope':'Prepared source only; not final PR acceptance; no branch updated.'},indent=2))
+          subprocess.run(['git','diff','--cached','--stat'],check=True)
+          PY
