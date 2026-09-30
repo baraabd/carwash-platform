@@ -1,0 +1,90 @@
+name: F009 native runtime inventory diagnosis
+on:
+  push:
+    branches: ['work/F009-pr16-remediation-20260930']
+    paths: ['.github/workflows/f009-native-candidate.yml']
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 115aa61dc3f486fca51d23cf635a9f54648e1d08
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Inspect same-distribution library package identities
+        env:
+          CC_IMAGE: gcr.io/distroless/cc-debian13@sha256:54df941ed0d06a1bd95ef5e0ce391fd8d9f94b64782dc9a60062727849ee3f97
+          CI_TOOLS_DIR: ${{ runner.temp }}/f009-tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          donor="cw-native-donor-${GITHUB_RUN_ID}"
+          trap 'docker rm -f "$donor" >/dev/null 2>&1 || true' EXIT
+          docker pull --platform linux/amd64 "$CC_IMAGE"
+          docker create --name "$donor" "$CC_IMAGE" /diagnosis-only
+          mkdir -p "$RUNNER_TEMP/native-status"
+          docker cp "$donor:/var/lib/dpkg/status.d/." "$RUNNER_TEMP/native-status/"
+          python3 <<'PY'
+          import os,pathlib,json
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'native-status'
+          rows=[]
+          for f in root.iterdir():
+              if not f.is_file() or f.suffix=='.md5sums': continue
+              text=f.read_text()
+              fields={line.split(': ',1)[0]:line.split(': ',1)[1] for line in text.splitlines() if ': ' in line and not line.startswith(' ')}
+              if fields.get('Package') in ['libstdc++6','libgcc-s1','gcc-14-base']:
+                  rows.append({'file':f.name,**{k:fields.get(k) for k in ['Package','Version','Architecture','Source']}})
+          print('DONOR_PACKAGES',json.dumps(rows))
+          assert {'libstdc++6','libgcc-s1'}.issubset({r['Package'] for r in rows})
+          for r in rows:
+              assert r['file']==r['Package']
+          PY
+          docker cp "$donor:/usr/share/doc/libstdc++6" "$RUNNER_TEMP/libstdcxx-docs"
+          docker cp "$donor:/usr/share/doc/libgcc-s1" "$RUNNER_TEMP/libgcc-docs"
+          node scripts/ci/install-tools.mjs trivy
+      - name: Build and scan candidate with accurate C++ package inventory
+        env:
+          CC_IMAGE: gcr.io/distroless/cc-debian13@sha256:54df941ed0d06a1bd95ef5e0ce391fd8d9f94b64782dc9a60062727849ee3f97
+          CI_TOOLS_DIR: ${{ runner.temp }}/f009-tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="cw-native-candidate:${GITHUB_RUN_ID}"
+          trap 'docker image rm -f "$image" >/dev/null 2>&1 || true' EXIT
+          python3 <<'PY'
+          import os,pathlib
+          text=pathlib.Path('Dockerfile').read_text()
+          anchor='# ----------------------------------------------------------------- runner ----'
+          assert text.count(anchor)==1
+          text=text.replace(anchor,'FROM '+os.environ['CC_IMAGE']+' AS native_libraries\n\n'+anchor)
+          text=text.replace('COPY --from=builder /usr/lib/x86_64-linux-gnu/libstdc++.so.6','COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libstdc++.so.6')
+          text=text.replace('COPY --from=builder /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/libgcc_s.so.1','COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1')
+          anchor='COPY --from=builder --chown=1000:1000 /deploy /app'
+          extra='\n'.join('COPY --from=native_libraries '+p+' '+p for p in ['/var/lib/dpkg/status.d/libstdc++6','/var/lib/dpkg/status.d/libgcc-s1','/usr/share/doc/libstdc++6','/usr/share/doc/libgcc-s1'])
+          text=text.replace(anchor,extra+'\n'+anchor)
+          (pathlib.Path(os.environ['RUNNER_TEMP'])/'native.Dockerfile').write_text(text)
+          PY
+          docker build --build-arg SERVICE=identity -f "$RUNNER_TEMP/native.Dockerfile" -t "$image" .
+          docker run --rm --network none "$image" node -e 'const assert=require("node:assert/strict"); const crypto=require("node:crypto"); require("node:tls").createSecureContext(); const keys=crypto.generateKeyPairSync("ec",{namedCurve:"prime256v1"}); const data=Buffer.from("native-runtime-check"); const signature=crypto.sign("sha256",data,keys.privateKey); assert.ok(crypto.verify("sha256",data,keys.publicKey,signature)); const argon=require("node:module").createRequire(require.resolve("@carwash/security-kit"))("argon2"); argon.hash("native-runtime-check",{memoryCost:8192,timeCost:1,parallelism:1}).then(hash=>argon.verify(hash,"native-runtime-check")).then(ok=>{assert.ok(ok);console.log(JSON.stringify({node:process.version,openssl:process.versions.openssl,uid:process.getuid(),crypto:true,tls:true,argon2:true}));}).catch(()=>process.exit(1));'
+          "$CI_TOOLS_DIR/trivy" image --scanners vuln,secret --format json --output "$RUNNER_TEMP/native-scan.json" --severity HIGH,CRITICAL,UNKNOWN --exit-code 1 --timeout 10m "$image"
+          "$CI_TOOLS_DIR/trivy" image --format cyclonedx --output "$RUNNER_TEMP/native-sbom.json" --timeout 10m "$image"
+          python3 <<'PY'
+          import json,os,pathlib
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])
+          report=json.loads((root/'native-scan.json').read_text())
+          findings=[v for r in report['Results'] for v in r.get('Vulnerabilities',[])]
+          assert not findings and not any(r.get('Secrets') for r in report['Results'])
+          bom=json.loads((root/'native-sbom.json').read_text())
+          packages={c.get('name'):c for c in bom['components'] if c.get('purl','').startswith('pkg:deb/')}
+          assert {'libc6','libgcc-s1','libstdc++6'}.issubset(packages)
+          assert 'libssl3t64' not in packages
+          print('CANDIDATE_RESULT',json.dumps({'scope':'Candidate diagnosis only; not final-source acceptance','componentCount':len(bom['components']),'blockingFindings':0,'nativePackages':[{k:packages[n].get(k) for k in ['name','version','purl']} for n in ['libc6','libgcc-s1','libstdc++6']]}))
+          PY
+          git diff --exit-code
+          node scripts/check-design-reference.mjs
