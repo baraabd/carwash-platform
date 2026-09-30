@@ -5,8 +5,7 @@ import { dirname, resolve } from 'node:path';
 import { ROOT } from './reference-registry.mjs';
 
 const evidence =
-  process.env.F010_EVIDENCE_DIR ??
-  resolve(ROOT, '.tmp/f010-evidence-not-for-commit');
+  process.env.F010_EVIDENCE_DIR ?? resolve(ROOT, '.tmp/f010-evidence-not-for-commit');
 const patterns = ['Segoe UI', 'Tahoma', 'Arial', 'sans-serif', 'sans-serif:charset=0639'];
 
 function hash(path) {

@@ -59,7 +59,11 @@ export function loadRegistry(root = ROOT) {
 }
 
 export function validateRegistry(manifest) {
-  if (!manifest || manifest.schemaVersion !== 1 || manifest.referenceSet !== 'washgo-three-apps-v1') {
+  if (
+    !manifest ||
+    manifest.schemaVersion !== 1 ||
+    manifest.referenceSet !== 'washgo-three-apps-v1'
+  ) {
     throw new Error('INVALID_F010_MANIFEST');
   }
   if (!manifest.references || !manifest.rendering) throw new Error('INVALID_F010_MANIFEST');

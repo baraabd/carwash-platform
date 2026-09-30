@@ -92,12 +92,19 @@ async function geometryAndKeyboard(page, expected) {
     viewportWidth: window.innerWidth,
     scrollWidth: document.documentElement.scrollWidth,
     scrollHeight: document.documentElement.scrollHeight,
-    focusableCount: [...document.querySelectorAll(
-      'button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
-    )].filter((element) => {
+    focusableCount: [
+      ...document.querySelectorAll(
+        'button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
+      ),
+    ].filter((element) => {
       const style = getComputedStyle(element);
       const rect = element.getBoundingClientRect();
-      return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
+      return (
+        style.visibility !== 'hidden' &&
+        style.display !== 'none' &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
     }).length,
   }));
   assert.equal(geometry.language, expected.language);
@@ -187,7 +194,11 @@ try {
           contract.channelThreshold,
         );
         assert.equal(deterministic.sameDimensions, true);
-        assert.equal(deterministic.changedPixels, 0, `Non-deterministic pixels for ${app} at ${width}`);
+        assert.equal(
+          deterministic.changedPixels,
+          0,
+          `Non-deterministic pixels for ${app} at ${width}`,
+        );
         const geometry = await geometryAndKeyboard(session.page, expected);
         const accessibility = await axeAudit(session.page);
         assert.deepEqual(session.externalRequests, [], `External request from ${app}`);

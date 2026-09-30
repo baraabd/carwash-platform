@@ -6,7 +6,8 @@ import { ROOT, APP_IDS, loadRegistry, verifyRegisteredReferences } from './refer
 export async function startReferenceServer({ host = '127.0.0.1', port = 0 } = {}) {
   if (host !== '127.0.0.1') throw new Error('F010_REFERENCE_SERVER_MUST_BIND_LOOPBACK');
   const verified = verifyRegisteredReferences({ allowRegistration: true });
-  if (!verified.ok) throw new Error(`F010_REFERENCE_VERIFICATION_FAILED:${verified.errors.join('|')}`);
+  if (!verified.ok)
+    throw new Error(`F010_REFERENCE_VERIFICATION_FAILED:${verified.errors.join('|')}`);
   const manifest = loadRegistry(ROOT);
   const html = new Map(
     APP_IDS.map((id) => [
