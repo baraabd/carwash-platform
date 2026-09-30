@@ -13,7 +13,7 @@ export async function comparePngBuffers(browser, expected, actual, channelThresh
       async ({ expectedBase64, actualBase64, threshold }) => {
         const load = async (base64) => {
           const blob = await (await fetch(`data:image/png;base64,${base64}`)).blob();
-          return createImageBitmap(blob);
+          return globalThis.createImageBitmap(blob);
         };
         const [left, right] = await Promise.all([load(expectedBase64), load(actualBase64)]);
         if (left.width !== right.width || left.height !== right.height) {
@@ -28,7 +28,7 @@ export async function comparePngBuffers(browser, expected, actual, channelThresh
             diffBase64: null,
           };
         }
-        const canvas = document.createElement('canvas');
+        const canvas = globalThis.document.createElement('canvas');
         canvas.width = left.width;
         canvas.height = left.height;
         const context = canvas.getContext('2d', { willReadFrequently: true });

@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { chromium } from '@playwright/test';
 import { APP_IDS, ROOT, loadRegistry, verifyRegisteredReferences } from './reference-registry.mjs';
 import { startReferenceServer } from './reference-server.mjs';
@@ -78,7 +78,7 @@ async function openReference(browser, server, app, width) {
   const response = await page.goto(`${server.origin}/${app}`, { waitUntil: 'load' });
   assert.equal(response?.status(), 200);
   await page.evaluate(async () => {
-    if (document.fonts) await document.fonts.ready;
+    if (globalThis.document.fonts) await globalThis.document.fonts.ready;
   });
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'light' });
   await page.waitForTimeout(80);
@@ -87,17 +87,17 @@ async function openReference(browser, server, app, width) {
 
 async function geometryAndKeyboard(page, expected) {
   const geometry = await page.evaluate(() => ({
-    language: document.documentElement.lang,
-    direction: document.documentElement.dir,
-    viewportWidth: window.innerWidth,
-    scrollWidth: document.documentElement.scrollWidth,
-    scrollHeight: document.documentElement.scrollHeight,
+    language: globalThis.document.documentElement.lang,
+    direction: globalThis.document.documentElement.dir,
+    viewportWidth: globalThis.window.innerWidth,
+    scrollWidth: globalThis.document.documentElement.scrollWidth,
+    scrollHeight: globalThis.document.documentElement.scrollHeight,
     focusableCount: [
-      ...document.querySelectorAll(
+      ...globalThis.document.querySelectorAll(
         'button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
       ),
     ].filter((element) => {
-      const style = getComputedStyle(element);
+      const style = globalThis.getComputedStyle(element);
       const rect = element.getBoundingClientRect();
       return (
         style.visibility !== 'hidden' &&
@@ -116,14 +116,14 @@ async function geometryAndKeyboard(page, expected) {
   assert.ok(geometry.focusableCount > 0, 'Reference must expose keyboard-focusable controls');
   await page.keyboard.press('Tab');
   const focus = await page.evaluate(() => {
-    const element = document.activeElement;
+    const element = globalThis.document.activeElement;
     if (!element) return null;
     const rect = element.getBoundingClientRect();
     return {
       tag: element.tagName,
       width: rect.width,
       height: rect.height,
-      visible: getComputedStyle(element).visibility !== 'hidden',
+      visible: globalThis.getComputedStyle(element).visibility !== 'hidden',
     };
   });
   assert.ok(focus && !['HTML', 'BODY'].includes(focus.tag) && focus.visible);
@@ -133,7 +133,7 @@ async function geometryAndKeyboard(page, expected) {
 async function axeAudit(page) {
   await page.addScriptTag({ content: axeSource });
   const result = await page.evaluate(async () =>
-    window.axe.run(document, {
+    globalThis.axe.run(globalThis.document, {
       runOnly: {
         type: 'tag',
         values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'],
@@ -175,6 +175,7 @@ const summary = {
   rendering: contract,
   captures: [],
   driftProbe: null,
+  accessibilityBlocking: [],
 };
 
 try {
@@ -203,17 +204,19 @@ try {
         const accessibility = await axeAudit(session.page);
         assert.deepEqual(session.externalRequests, [], `External request from ${app}`);
         assert.deepEqual(session.pageErrors, [], `Page error in ${app}`);
-        assert.deepEqual(
-          accessibility.blocking,
-          [],
-          `Serious/critical accessibility violations in ${app} at ${width}`,
-        );
         const fileName = `reference-${app}-${width}.png`;
         writeFileSync(resolve(evidence, fileName), first);
         writeFileSync(
           resolve(evidence, `axe-${app}-${width}.json`),
           JSON.stringify(accessibility, null, 2) + '\n',
         );
+        if (accessibility.blocking.length > 0) {
+          summary.accessibilityBlocking.push({
+            app,
+            width,
+            violations: accessibility.blocking,
+          });
+        }
         summary.captures.push({
           app,
           width,
@@ -239,7 +242,7 @@ try {
   try {
     const baseline = await drift.page.screenshot({ fullPage: true, animations: 'disabled' });
     await drift.page.evaluate(() => {
-      document.documentElement.style.filter = 'hue-rotate(35deg)';
+      globalThis.document.documentElement.style.filter = 'hue-rotate(35deg)';
     });
     const changed = await drift.page.screenshot({ fullPage: true, animations: 'disabled' });
     const comparison = await comparePngBuffers(
@@ -263,8 +266,13 @@ try {
     await drift.context.close();
   }
 
-  summary.accepted = true;
+  summary.accepted = summary.accessibilityBlocking.length === 0;
   writeFileSync(resolve(evidence, 'browser-summary.json'), JSON.stringify(summary, null, 2) + '\n');
+  assert.deepEqual(
+    summary.accessibilityBlocking,
+    [],
+    'Serious/critical accessibility findings exist in approved references; review the retained evidence before defining a regression baseline.',
+  );
   console.log(
     `F010 browser acceptance: ${summary.captures.length} deterministic captures, drift detector verified.`,
   );

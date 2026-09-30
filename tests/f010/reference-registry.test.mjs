@@ -21,21 +21,21 @@ test('F010 current reference bytes match their pinned registrations', () => {
 
 test('F010 manifest validation rejects added, removed, or mutated authorities', () => {
   const base = loadRegistry();
-  const extra = structuredClone(base);
-  extra.references.fake = structuredClone(extra.references.customer);
+  const extra = globalThis.structuredClone(base);
+  extra.references.fake = globalThis.structuredClone(extra.references.customer);
   assert.throws(() => validateRegistry(extra), /REFERENCE_SET/);
 
-  const removed = structuredClone(base);
+  const removed = globalThis.structuredClone(base);
   delete removed.references.admin;
   assert.throws(() => validateRegistry(removed), /REFERENCE_SET/);
 
-  const changed = structuredClone(base);
+  const changed = globalThis.structuredClone(base);
   changed.references.technician.sha256 = '0'.repeat(64);
   assert.throws(() => validateRegistry(changed), /REGISTRATION_MISMATCH/);
 });
 
 test('F010 rendering contract cannot silently change canonical viewports', () => {
-  const changed = structuredClone(loadRegistry());
+  const changed = globalThis.structuredClone(loadRegistry());
   changed.rendering.viewports = [390];
   assert.throws(() => validateRegistry(changed), /RENDERING_CONTRACT/);
 });

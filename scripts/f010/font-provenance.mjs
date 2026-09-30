@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { ROOT } from './reference-registry.mjs';
 
 const evidence =
