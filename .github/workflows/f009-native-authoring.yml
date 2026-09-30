@@ -1,0 +1,279 @@
+name: F009 native inventory source authoring
+on:
+  push:
+    branches: ['work/F009-pr16-remediation-20260930']
+    paths: ['.github/workflows/f009-native-authoring.yml']
+permissions:
+  contents: read
+jobs:
+  prepare:
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: feat/F009-ci-security
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Apply reviewed package-preserving runtime changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          git merge-base --is-ancestor 115aa61dc3f486fca51d23cf635a9f54648e1d08 HEAD
+          corepack enable
+          corepack prepare --activate
+          node scripts/check-design-reference.mjs
+          pnpm install --frozen-lockfile
+          python3 <<'PY'
+          import json,pathlib,re,subprocess
+          donor='gcr.io/distroless/cc-debian13@sha256:54df941ed0d06a1bd95ef5e0ce391fd8d9f94b64782dc9a60062727849ee3f97'
+          catalog=json.loads(pathlib.Path('architecture/service-catalog.json').read_text())
+          owners=[s['id'] for s in catalog['services'] if s['runtimeImplementation']=='existing-health-only-shell']
+          assert len(owners)==10
+          files=['Dockerfile','apps/api-gateway/Dockerfile','scripts/dev/service-template.mjs']+[f'services/{s}/Dockerfile' for s in owners]
+          metadata=['/var/lib/dpkg/status.d/libstdc++6','/var/lib/dpkg/status.d/libgcc-s1','/usr/share/doc/libstdc++6','/usr/share/doc/libgcc-s1']
+          for file in files:
+              p=pathlib.Path(file);text=p.read_text()
+              assert 'AS native_libraries' not in text
+              text,count=re.subn(r'(^ARG RUNTIME_IMAGE=[^\n]+\n)',r'\1ARG NATIVE_RUNTIME_IMAGE='+donor+'\n',text,flags=re.M);assert count==1
+              prefix='FROM \\${RUNTIME_IMAGE} AS runner' if file.endswith('.mjs') else 'FROM ${RUNTIME_IMAGE} AS runner'
+              native='FROM \\${NATIVE_RUNTIME_IMAGE} AS native_libraries' if file.endswith('.mjs') else 'FROM ${NATIVE_RUNTIME_IMAGE} AS native_libraries'
+              assert text.count(prefix)==1;text=text.replace(prefix,native+'\n\n'+prefix)
+              old='COPY --from=builder /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so.6'
+              assert text.count(old)==1;text=text.replace(old,old.replace('--from=builder','--from=native_libraries'))
+              old='COPY --from=builder /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/libgcc_s.so.1'
+              assert text.count(old)==1;text=text.replace(old,'COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1')
+              text=text.replace('# Node is built in the pinned Debian builder and needs only these C++ ABI libraries at runtime.','# Copy Debian 13 ABI libraries with their original package identities and licenses.\n# Do not copy the donor OpenSSL libraries or hide copied binaries from scanners.')
+              anchor='COPY --from=builder --chown=1000:1000 /deploy /app'
+              assert text.count(anchor)==1
+              text=text.replace(anchor,'\n'.join('COPY --from=native_libraries '+m+' '+m for m in metadata)+'\n'+anchor)
+              p.write_text(text)
+          p=pathlib.Path('scripts/ci/tools.lock.json');lock=json.loads(p.read_text())
+          assert 'nativeLibraries' not in lock
+          lock['nativeLibraries']={'image':donor,'platform':'linux/amd64','packageVersion':'14.2.0-19','packages':['libgcc-s1','libstdc++6'],'note':'Only these Debian 13 ABI libraries, original package records and licenses are copied. The donor is not the final runtime layer.'}
+          p.write_text(json.dumps(lock,indent=2)+'\n')
+          p=pathlib.Path('scripts/ci/native-runtime.mjs');assert not p.exists()
+          p.write_text('''import assert from 'node:assert/strict';
+
+          export const NATIVE_PACKAGES = Object.freeze(['libgcc-s1', 'libstdc++6']);
+          export const NATIVE_PACKAGE_VERSION = '14.2.0-19';
+
+          /** Missing native package inventory is a gate failure, not a clean scan. */
+          export function assertNativeSbom(sbom) {
+            assert.equal(sbom?.bomFormat, 'CycloneDX');
+            assert.ok(Array.isArray(sbom.components));
+            const native = NATIVE_PACKAGES.map((name) => {
+              const found = sbom.components.filter((component) => component?.name === name);
+              assert.equal(found.length, 1, `Missing or duplicated native SBOM package: ${name}`);
+              const [component] = found;
+              assert.equal(component.version, NATIVE_PACKAGE_VERSION, `Wrong native package version: ${name}`);
+              assert.equal(component.purl,
+                `pkg:deb/debian/${encodeURIComponent(name)}@${NATIVE_PACKAGE_VERSION}?arch=amd64&distro=debian-13.7`,
+                `Wrong native package identity: ${name}`);
+              return { name, version: component.version, purl: component.purl };
+            });
+            assert.ok(!sbom.components.some((component) => component?.name === 'libssl3t64'),
+              'System OpenSSL must not be reintroduced into the nossl runtime');
+            return native;
+          }
+
+          // Executed by Node inside the final image, with no host shell or network.
+          // This checks bundled TLS/crypto and the actual native password module,
+          // not merely that the HTTP process can reach its health route.
+          export const NATIVE_RUNTIME_PROBE = String.raw`
+          (async () => {
+            const assert = require('node:assert/strict');
+            const fs = require('node:fs');
+            const crypto = require('node:crypto');
+            require('node:tls').createSecureContext();
+            const keys = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+            const input = Buffer.from('native-runtime-check');
+            assert.ok(crypto.verify('sha256', input, keys.publicKey, crypto.sign('sha256', input, keys.privateKey)));
+            for (const name of ['libgcc-s1', 'libstdc++6']) {
+              const record = fs.readFileSync('/var/lib/dpkg/status.d/' + name, 'utf8');
+              assert.ok(record.split('\n').includes('Package: ' + name));
+              assert.ok(record.split('\n').includes('Version: 14.2.0-19'));
+              assert.ok(record.split('\n').includes('Architecture: amd64'));
+            }
+            for (const file of ['libssl.so.3', 'libcrypto.so.3'])
+              assert.ok(!fs.existsSync('/usr/lib/x86_64-linux-gnu/' + file));
+            const identity = process.argv[1] === 'identity';
+            if (identity) {
+              const own = require('node:module').createRequire(require.resolve('@carwash/security-kit'));
+              const argon2 = own('argon2');
+              const hash = await argon2.hash('native-runtime-check', { memoryCost: 8192, timeCost: 1, parallelism: 1 });
+              assert.equal(await argon2.verify(hash, 'native-runtime-check'), true);
+              assert.equal(await argon2.verify(hash, 'different-fixture'), false);
+            }
+            console.log(JSON.stringify({ node: process.version, openssl: process.versions.openssl,
+              uid: process.getuid(), crypto: true, tls: true, argon2: identity, packageInventory: true }));
+          })().catch(() => { console.error('NATIVE_RUNTIME_PROBE_FAILED'); process.exitCode = 1; });
+          `;
+          ''')
+          p=pathlib.Path('scripts/ci/image.mjs');text=p.read_text()
+          anchor="import { assessUnfilteredImageScan } from './image-security.mjs';"
+          assert text.count(anchor)==1
+          text=text.replace(anchor,anchor+"\nimport { assertNativeSbom, NATIVE_RUNTIME_PROBE } from './native-runtime.mjs';")
+          anchor='      info.runtimeImage = runtimeImage;'
+          assert text.count(anchor)==1
+          text=text.replace(anchor,anchor+'''
+                const nativeImage = (readFileSync(`${target.path}/Dockerfile`, 'utf8').match(
+                  /^ARG NATIVE_RUNTIME_IMAGE=(.+)$/m,
+                ) ?? [])[1];
+                assert.equal(nativeImage, toolLock.nativeLibraries.image, 'Native donor must match the reviewed digest');
+                await step('pull-immutable-native-donor', () => docker('pull', nativeImage));
+                info.nativeRuntimeImage = nativeImage;
+          ''')
+          anchor='          `RUNTIME_IMAGE=${runtimeImage}`, '
+          anchor=anchor.rstrip()
+          assert text.count(anchor)==1
+          text=text.replace(anchor,anchor+"\n          '--build-arg',\n          `NATIVE_RUNTIME_IMAGE=${nativeImage}`,")
+          anchor="      await step('no-shell-or-build-toolchain', async () => {"
+          assert text.count(anchor)==1
+          text=text.replace(anchor,'''
+                info.nativeRuntime = await step('native-crypto-tls-and-package-inventory', async () => {
+                  const result = JSON.parse(await docker('run', '--rm', '--network', 'none', tag,
+                    'node', '-e', NATIVE_RUNTIME_PROBE, id));
+                  assert.equal(result.node, process.version);
+                  assert.equal(result.uid, 1000);
+                  assert.equal(result.crypto, true);
+                  assert.equal(result.tls, true);
+                  assert.equal(result.packageInventory, true);
+                  assert.equal(result.argon2, id === 'identity');
+                  return result;
+                });
+          '''+anchor)
+          anchor='        assert.ok(sbom.components?.length > 0);'
+          assert text.count(anchor)==1;text=text.replace(anchor,anchor+'\n        info.nativePackages = assertNativeSbom(sbom);')
+          p.write_text(text)
+          p=pathlib.Path('tests/unit/f009-security-remediation.test.mjs');text=p.read_text()
+          text=text.replace('COPY --from=builder \\/usr\\/lib\\/x86_64-linux-gnu\\/libstdc','COPY --from=native_libraries \\/usr\\/lib\\/x86_64-linux-gnu\\/libstdc')
+          text=text.replace('COPY --from=builder \\/lib\\/x86_64-linux-gnu\\/libgcc','COPY --from=native_libraries \\/usr\\/lib\\/x86_64-linux-gnu\\/libgcc')
+          p.write_text(text)
+          p=pathlib.Path('tests/unit/f009-native-runtime.test.mjs');assert not p.exists()
+          p.write_text('''import test from 'node:test';
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          import { assertNativeSbom, NATIVE_PACKAGES, NATIVE_PACKAGE_VERSION, NATIVE_RUNTIME_PROBE } from '../../scripts/ci/native-runtime.mjs';
+          import { inventory } from '../../scripts/ci/policy.mjs';
+          import { renderServiceFiles } from '../../scripts/dev/service-template.mjs';
+          const load = (file) => readFileSync(new URL('../../' + file, import.meta.url), 'utf8');
+          const lock = JSON.parse(load('scripts/ci/tools.lock.json'));
+          const complete = () => ({ bomFormat: 'CycloneDX', components: NATIVE_PACKAGES.map((name) => ({
+            name, version: NATIVE_PACKAGE_VERSION,
+            purl: `pkg:deb/debian/${encodeURIComponent(name)}@${NATIVE_PACKAGE_VERSION}?arch=amd64&distro=debian-13.7`,
+          })) });
+          test('native ABI inventory is required even when vulnerability findings are empty', () => {
+            assert.equal(assertNativeSbom(complete()).length, 2);
+            for (const missing of [{}, { bomFormat: 'CycloneDX', components: [] }])
+              assert.throws(() => assertNativeSbom(missing));
+            for (const name of NATIVE_PACKAGES) {
+              const value = complete(); value.components = value.components.filter((c) => c.name !== name);
+              assert.throws(() => assertNativeSbom(value), /Missing or duplicated/);
+            }
+          });
+          test('native ABI inventory rejects duplicates and mismatched package versions', () => {
+            const duplicated = complete(); duplicated.components.push(duplicated.components[0]);
+            assert.throws(() => assertNativeSbom(duplicated), /duplicated/);
+            const wrong = complete(); wrong.components[0].version = '12.2.0-14';
+            assert.throws(() => assertNativeSbom(wrong), /version/);
+          });
+          test('native ABI package identity includes architecture and runtime distribution', () => {
+            for (const change of [(p) => p.replace('amd64', 'arm64'), (p) => p.replace('debian-13.7', 'debian-12'), () => undefined]) {
+              const wrong = complete(); wrong.components[0].purl = change(wrong.components[0].purl);
+              assert.throws(() => assertNativeSbom(wrong), /identity/);
+            }
+          });
+          test('native inventory gate rejects accidentally reintroduced system OpenSSL', () => {
+            const wrong = complete(); wrong.components.push({ name: 'libssl3t64' });
+            assert.throws(() => assertNativeSbom(wrong), /OpenSSL/);
+          });
+          test('every Dockerfile preserves original native package metadata and license provenance', () => {
+            assert.match(lock.nativeLibraries.image, /distroless\\/cc-debian13@sha256:[a-f0-9]{64}$/);
+            assert.equal(lock.nativeLibraries.packageVersion, NATIVE_PACKAGE_VERSION);
+            assert.deepEqual(lock.nativeLibraries.packages, [...NATIVE_PACKAGES]);
+            const files = [load('Dockerfile'), ...inventory().targets.map((t) => load(t.path + '/Dockerfile')),
+              renderServiceFiles('identity').get('Dockerfile')];
+            assert.equal(files.length, 13);
+            for (const source of files) {
+              assert.ok(source.includes('ARG NATIVE_RUNTIME_IMAGE=' + lock.nativeLibraries.image));
+              assert.ok(source.includes('FROM ${NATIVE_RUNTIME_IMAGE} AS native_libraries'));
+              for (const name of NATIVE_PACKAGES) {
+                for (const directory of ['/var/lib/dpkg/status.d/', '/usr/share/doc/']) {
+                  const file = directory + name;
+                  assert.ok(source.includes(`COPY --from=native_libraries ${file} ${file}`));
+                }
+              }
+              assert.ok(source.includes('COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libgcc_s.so.1'));
+              assert.ok(source.includes('COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libstdc++.so.6'));
+              assert.ok(!source.includes('COPY --from=builder /usr/lib/x86_64-linux-gnu/libstdc++'));
+            }
+          });
+          test('final image acceptance executes crypto and native identity checks before release', () => {
+            const source = load('scripts/ci/image.mjs');
+            assert.ok(source.includes("step('native-crypto-tls-and-package-inventory'"));
+            assert.ok(source.includes('info.nativePackages = assertNativeSbom(sbom)'));
+            assert.ok(NATIVE_RUNTIME_PROBE.includes('createSecureContext'));
+            assert.ok(NATIVE_RUNTIME_PROBE.includes("own('argon2')"));
+            assert.ok(NATIVE_RUNTIME_PROBE.includes('process.exitCode = 1'));
+          });
+          ''')
+          script="""import {renderServiceFiles} from './scripts/dev/service-template.mjs';import {createHash} from 'node:crypto'; const result={};for(const service of ['identity','catalog','communications']) result[service]=createHash('sha256').update([...renderServiceFiles(service)].map(([p,c])=>`${p}\\0${c}`).join('\\0')).digest('hex');console.log(JSON.stringify(result));"""
+          hashes=json.loads(subprocess.check_output(['node','--input-type=module','-e',script],text=True))
+          p=pathlib.Path('tests/unit/f003-service-template.test.mjs');text=p.read_text()
+          for service,digest in hashes.items():
+              text,count=re.subn(r"(snapshot\('"+service+r"'\),\s*)'[a-f0-9]{64}'",lambda m:m.group(1)+"'"+digest+"'",text);assert count==1
+          p.write_text(text)
+          p=pathlib.Path('docs/F009_PR16_GATE_REPAIR_20260930.md')
+          p.write_text(p.read_text()+'''
+
+          ## Native-library scan coverage correction
+
+          Inspecting final image artifact 11089492475 on source 115aa61 showed that its two copied C++ ABI libraries lacked package metadata in the final image. CI was green, but the SBOM omitted libgcc-s1 and libstdc++6. That intermediate green run is not used as the acceptance evidence for this correction.
+
+          The isolated candidate run 36700600293 built Identity with Debian 13 libraries from the digest-pinned cc-debian13 donor, retaining their original dpkg records and licenses. Both packages were observed at 14.2.0-19, amd64. Only those two libraries are copied; neither the donor's OpenSSL libraries nor its complete package database are copied. The final base-nossl runtime is preserved. Candidate raw HIGH/CRITICAL/UNKNOWN and secret scanning passed without VEX, and its SBOM identified both ABI packages. Actual Node 24.21.0, bundled OpenSSL 3.5.8, TLS context creation, signature verification and native Argon2 hash/verify succeeded with UID 1000 and networking disabled.
+
+          Every real image now requires this native crypto/TLS and package-metadata probe; Identity additionally requires Argon2. The SBOM gate rejects a missing, duplicated, differently versioned or incorrectly identified ABI package, and rejects reintroduced system OpenSSL. Generator technical Dockerfile expectations were updated by hashing its actual rendered source; approved HTML and visual snapshots remain unchanged.
+
+          The scope remains Linux amd64 foundation acceptance, not ARM support, a deployed TLS endpoint, production load or whole-application readiness. Recorded Node/OpenSSL versions are execution provenance, not a claim that Trivy inventories every statically bundled component.
+          ''')
+          PY
+          pnpm exec prettier --write scripts/ci/native-runtime.mjs scripts/ci/image.mjs scripts/ci/tools.lock.json scripts/dev/service-template.mjs tests/unit/f009-native-runtime.test.mjs tests/unit/f009-security-remediation.test.mjs tests/unit/f003-service-template.test.mjs docs/F009_PR16_GATE_REPAIR_20260930.md
+          pnpm format:check
+          pnpm generate
+          pnpm build
+          pnpm typecheck
+          pnpm lint
+          node --test tests/unit/f009-native-runtime.test.mjs tests/unit/f009-image-security.test.mjs tests/unit/f009-security-remediation.test.mjs tests/unit/f009-concurrency-regression.test.mjs tests/unit/f003-service-template.test.mjs tests/ci/gates.test.mjs
+          node scripts/dev/generate-service-shells.mjs --check
+          node scripts/check-design-reference.mjs
+          git diff --check
+      - name: Prepare reviewed tree only, without moving a branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 <<'PY'
+          import json,os,pathlib,subprocess,urllib.request
+          git=lambda *args:subprocess.check_output(['git',*args],text=True).strip()
+          files=['Dockerfile','apps/api-gateway/Dockerfile','scripts/dev/service-template.mjs','scripts/ci/tools.lock.json','scripts/ci/native-runtime.mjs','scripts/ci/image.mjs','tests/unit/f009-native-runtime.test.mjs','tests/unit/f009-security-remediation.test.mjs','tests/unit/f003-service-template.test.mjs','docs/F009_PR16_GATE_REPAIR_20260930.md']
+          catalog=json.loads(pathlib.Path('architecture/service-catalog.json').read_text())
+          files += [f"services/{s['id']}/Dockerfile" for s in catalog['services'] if s['runtimeImplementation']=='existing-health-only-shell']
+          assert len(files)==20
+          subprocess.run(['git','add','--',*files],check=True)
+          paths=git('diff','--cached','--name-only').splitlines()
+          assert set(paths)==set(files)
+          assert not git('diff','--name-only') and not git('ls-files','--others','--exclude-standard')
+          entries=[{'path':p,'mode':git('ls-files','--stage','--',p).split()[0],'type':'blob','content':pathlib.Path(p).read_text()} for p in paths]
+          expected=git('write-tree')
+          request=urllib.request.Request('https://api.github.com/repos/baraabd/carwash-platform/git/trees',data=json.dumps({'base_tree':git('rev-parse','HEAD^{tree}'),'tree':entries}).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'})
+          with urllib.request.urlopen(request,timeout=60) as response: result=json.load(response)
+          assert result['sha']==expected
+          print(json.dumps({'parent':git('rev-parse','HEAD'),'sourceTree':expected,'changedFiles':paths,'scope':'Prepared source only, not final-source acceptance. No branch update, merge or deployment.'},indent=2))
+          subprocess.run(['git','diff','--cached','--stat'],check=True)
+          PY
