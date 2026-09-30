@@ -40,5 +40,12 @@
     "sourceTag": "gcr.io/distroless/base-nossl-debian13:nonroot",
     "scope": "Minimal glibc runtime without system OpenSSL; exact pinned Node plus only required C++ ABI libraries are copied from the builder.",
     "diagnosticRun": "36697756791"
+  },
+  "nativeLibraries": {
+    "image": "gcr.io/distroless/cc-debian13@sha256:54df941ed0d06a1bd95ef5e0ce391fd8d9f94b64782dc9a60062727849ee3f97",
+    "platform": "linux/amd64",
+    "packageVersion": "14.2.0-19",
+    "packages": ["libgcc-s1", "libstdc++6"],
+    "note": "Only these Debian 13 ABI libraries, original package records and licenses are copied. The donor is not the final runtime layer."
   }
 }

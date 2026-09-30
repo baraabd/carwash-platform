@@ -7,6 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { ROOT, inventory, readJson, trivyFindings, runtimeEnvironment } from './policy.mjs';
 import { checked, command, tool, toolLock, stage, git, sourceDirty } from './runtime.mjs';
 import { assessUnfilteredImageScan } from './image-security.mjs';
+import { assertNativeSbom, NATIVE_RUNTIME_PROBE } from './native-runtime.mjs';
 const id = process.argv[2];
 const target = inventory().targets.find((t) => t.id === id);
 assert.ok(target, 'Target must be an actual catalog-owned runtime');
@@ -44,6 +45,17 @@ try {
       );
       await step('pull-immutable-runtime', () => docker('pull', runtimeImage));
       info.runtimeImage = runtimeImage;
+      const nativeImage = (readFileSync(`${target.path}/Dockerfile`, 'utf8').match(
+        /^ARG NATIVE_RUNTIME_IMAGE=(.+)$/m,
+      ) ?? [])[1];
+      assert.equal(
+        nativeImage,
+        toolLock.nativeLibraries.image,
+        'Native donor must match the reviewed digest',
+      );
+      await step('pull-immutable-native-donor', () => docker('pull', nativeImage));
+      info.nativeRuntimeImage = nativeImage;
+
       await step('independent-docker-build', () =>
         docker(
           'build',
@@ -51,6 +63,8 @@ try {
           `NODE_IMAGE=${digests[0]}`,
           '--build-arg',
           `RUNTIME_IMAGE=${runtimeImage}`,
+          '--build-arg',
+          `NATIVE_RUNTIME_IMAGE=${nativeImage}`,
           '-f',
           `${target.path}/Dockerfile`,
           '-t',
@@ -74,6 +88,29 @@ try {
       await step('pinned-node-runtime', async () =>
         assert.equal(await docker('run', '--rm', tag, 'node', '--version'), process.version),
       );
+
+      info.nativeRuntime = await step('native-crypto-tls-and-package-inventory', async () => {
+        const result = JSON.parse(
+          await docker(
+            'run',
+            '--rm',
+            '--network',
+            'none',
+            tag,
+            'node',
+            '-e',
+            NATIVE_RUNTIME_PROBE,
+            id,
+          ),
+        );
+        assert.equal(result.node, process.version);
+        assert.equal(result.uid, 1000);
+        assert.equal(result.crypto, true);
+        assert.equal(result.tls, true);
+        assert.equal(result.packageInventory, true);
+        assert.equal(result.argon2, id === 'identity');
+        return result;
+      });
       await step('no-shell-or-build-toolchain', async () => {
         const script =
           "const fs=require('node:fs');if(['/bin/sh','/bin/bash','/usr/bin/apt','/usr/local/bin/npm','/usr/local/bin/corepack'].some(p=>fs.existsSync(p)))process.exit(1)";
@@ -229,6 +266,7 @@ try {
         const sbom = readJson(output);
         assert.equal(sbom.bomFormat, 'CycloneDX');
         assert.ok(sbom.components?.length > 0);
+        info.nativePackages = assertNativeSbom(sbom);
         // Preserve valid package inventory without runtime/config/source fields.
         const safe = {
           bomFormat: sbom.bomFormat,

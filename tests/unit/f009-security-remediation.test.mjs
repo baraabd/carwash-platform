@@ -76,8 +76,11 @@ test('F009 runtime removes system OpenSSL instead of suppressing fixable OpenSSL
   assert.doesNotMatch(toolLock.runtime.image, /\/cc-debian13/);
   assert.match(
     rootDockerfile,
-    /COPY --from=builder \/usr\/lib\/x86_64-linux-gnu\/libstdc\+\+\.so\.6/,
+    /COPY --from=native_libraries \/usr\/lib\/x86_64-linux-gnu\/libstdc\+\+\.so\.6/,
   );
-  assert.match(rootDockerfile, /COPY --from=builder \/lib\/x86_64-linux-gnu\/libgcc_s\.so\.1/);
+  assert.match(
+    rootDockerfile,
+    /COPY --from=native_libraries \/usr\/lib\/x86_64-linux-gnu\/libgcc_s\.so\.1/,
+  );
   assert.doesNotMatch(rootDockerfile, /ignore-unfixed|trivyignore/);
 });
