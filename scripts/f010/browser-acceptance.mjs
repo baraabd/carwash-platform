@@ -109,10 +109,7 @@ async function geometryAndKeyboard(page, expected) {
   }));
   assert.equal(geometry.language, expected.language);
   assert.equal(geometry.direction, expected.direction);
-  assert.ok(
-    geometry.scrollWidth <= geometry.viewportWidth + 1,
-    `Horizontal overflow: ${geometry.scrollWidth} > ${geometry.viewportWidth}`,
-  );
+  const horizontalOverflow = Math.max(0, geometry.scrollWidth - geometry.viewportWidth);
   assert.ok(geometry.focusableCount > 0, 'Reference must expose keyboard-focusable controls');
   await page.keyboard.press('Tab');
   const focus = await page.evaluate(() => {
@@ -127,7 +124,7 @@ async function geometryAndKeyboard(page, expected) {
     };
   });
   assert.ok(focus && !['HTML', 'BODY'].includes(focus.tag) && focus.visible);
-  return { ...geometry, firstFocus: focus };
+  return { ...geometry, horizontalOverflow, firstFocus: focus };
 }
 
 async function axeAudit(page) {
@@ -176,6 +173,7 @@ const summary = {
   captures: [],
   driftProbe: null,
   accessibilityBlocking: [],
+  geometryDebt: [],
 };
 
 try {
@@ -202,6 +200,15 @@ try {
         );
         const geometry = await geometryAndKeyboard(session.page, expected);
         const accessibility = await axeAudit(session.page);
+        if (geometry.horizontalOverflow > 1) {
+          summary.geometryDebt.push({
+            app,
+            width,
+            viewportWidth: geometry.viewportWidth,
+            scrollWidth: geometry.scrollWidth,
+            overflowPixels: geometry.horizontalOverflow,
+          });
+        }
         assert.deepEqual(session.externalRequests, [], `External request from ${app}`);
         assert.deepEqual(session.pageErrors, [], `Page error in ${app}`);
         const fileName = `reference-${app}-${width}.png`;
@@ -266,12 +273,16 @@ try {
     await drift.context.close();
   }
 
-  summary.accepted = summary.accessibilityBlocking.length === 0;
+  summary.accepted =
+    summary.accessibilityBlocking.length === 0 && summary.geometryDebt.length === 0;
   writeFileSync(resolve(evidence, 'browser-summary.json'), JSON.stringify(summary, null, 2) + '\n');
   assert.deepEqual(
-    summary.accessibilityBlocking,
-    [],
-    'Serious/critical accessibility findings exist in approved references; review the retained evidence before defining a regression baseline.',
+    {
+      accessibilityBlocking: summary.accessibilityBlocking,
+      geometryDebt: summary.geometryDebt,
+    },
+    { accessibilityBlocking: [], geometryDebt: [] },
+    'Approved references contain accessibility or geometry debt; review the retained inventory before defining the exact regression baseline.',
   );
   console.log(
     `F010 browser acceptance: ${summary.captures.length} deterministic captures, drift detector verified.`,
