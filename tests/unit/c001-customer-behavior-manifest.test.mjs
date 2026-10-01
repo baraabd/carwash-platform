@@ -10,7 +10,7 @@ test('C001 customer behavior manifest matches the immutable prototype authority'
   assert.equal(result.ok, true);
   assert.equal(result.screens, 7);
   assert.equal(result.bookingSteps, 7);
-  assert.equal(result.forms, 4);
+  assert.equal(result.forms, 6);
   assert.ok(result.actions >= 80);
 });
 
@@ -58,8 +58,24 @@ test('C001 rejects reference authority drift', () => {
   assert.throws(() => validateCustomerBehaviorManifest(changed), /C001_REFERENCE_SHA256/);
 });
 
-test('C001 rejects unowned capability removal', () => {
+test('C001 inventories class-only payment configuration forms', () => {
   const changed = globalThis.structuredClone(loadCustomerManifest());
-  delete changed.capabilityOwnership.paymentVerificationAndRefund;
-  assert.throws(() => validateCustomerBehaviorManifest(changed), /C001_OWNER_MISSING:billing/);
+  changed.forms = changed.forms.filter((form) => form.id !== 'pay-config-form:sham');
+  assert.throws(() => validateCustomerBehaviorManifest(changed), /C001_FORM_INVENTORY/);
+});
+
+test('C001 rejects capability removal and owner reassignment', () => {
+  const removed = globalThis.structuredClone(loadCustomerManifest());
+  delete removed.capabilityOwnership.paymentVerificationAndRefund;
+  assert.throws(() => validateCustomerBehaviorManifest(removed), /C001_CAPABILITY_SET/);
+
+  const swapped = globalThis.structuredClone(loadCustomerManifest());
+  [swapped.capabilityOwnership.vehicles, swapped.capabilityOwnership.paymentVerificationAndRefund] = [
+    swapped.capabilityOwnership.paymentVerificationAndRefund,
+    swapped.capabilityOwnership.vehicles,
+  ];
+  assert.throws(
+    () => validateCustomerBehaviorManifest(swapped),
+    /C001_OWNER_MISMATCH:vehicles:vehicle/,
+  );
 });
