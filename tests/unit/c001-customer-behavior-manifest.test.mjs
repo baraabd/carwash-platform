@@ -22,8 +22,14 @@ test('C001 rejects an omitted customer action', () => {
 
 test('C001 rejects booking-flow reordering or relabeling', () => {
   const changed = structuredClone(loadCustomerManifest());
-  [changed.bookingFlow[0], changed.bookingFlow[1]] = [changed.bookingFlow[1], changed.bookingFlow[0]];
-  assert.throws(() => validateCustomerBehaviorManifest(changed), /C001_FLOW_INDEXES|C001_FLOW_LABELS/);
+  [changed.bookingFlow[0], changed.bookingFlow[1]] = [
+    changed.bookingFlow[1],
+    changed.bookingFlow[0],
+  ];
+  assert.throws(
+    () => validateCustomerBehaviorManifest(changed),
+    /C001_FLOW_INDEXES|C001_FLOW_LABELS/,
+  );
 
   const relabeled = structuredClone(loadCustomerManifest());
   relabeled.bookingFlow[5].label = 'دفع';

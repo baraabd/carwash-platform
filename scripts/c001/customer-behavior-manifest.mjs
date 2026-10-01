@@ -19,7 +19,8 @@ export function inspectCustomerReference(root = ROOT) {
   const manifest = loadCustomerManifest(root);
   const source = readFileSync(resolve(root, manifest.reference.canonicalHtml), 'utf8');
   const actions = new Set();
-  for (const match of source.matchAll(/data-action=["']([A-Za-z0-9_-]+)["']/g)) actions.add(match[1]);
+  for (const match of source.matchAll(/data-action=["']([A-Za-z0-9_-]+)["']/g))
+    actions.add(match[1]);
   for (const match of source.matchAll(/\ba\s*===\s*['"]([^'"]+)['"]/g)) actions.add(match[1]);
   const forms = sorted(
     new Set([...source.matchAll(/<form[^>]+id=["']([^"']+)["']/g)].map((match) => match[1])),
@@ -74,22 +75,37 @@ export function validateCustomerBehaviorManifest(manifest, { root = ROOT } = {})
   const flow = manifest.bookingFlow ?? [];
   assert(flow.length === 7, 'C001_FLOW_LENGTH');
   assert(
-    same(flow.map((step) => step.index), [0, 1, 2, 3, 4, 5, 6]),
+    same(
+      flow.map((step) => step.index),
+      [0, 1, 2, 3, 4, 5, 6],
+    ),
     'C001_FLOW_INDEXES',
   );
-  assert(same(flow.map((step) => step.label), observed.flowLabels), 'C001_FLOW_LABELS');
-  assert(same(flow.map((step) => step.nextLabel), observed.nextLabels), 'C001_FLOW_NEXT_LABELS');
   assert(
-    same(flow.map((step) => step.id), ['vehicle', 'care', 'location', 'time', 'contact', 'payment', 'review']),
+    same(
+      flow.map((step) => step.label),
+      observed.flowLabels,
+    ),
+    'C001_FLOW_LABELS',
+  );
+  assert(
+    same(
+      flow.map((step) => step.nextLabel),
+      observed.nextLabels,
+    ),
+    'C001_FLOW_NEXT_LABELS',
+  );
+  assert(
+    same(
+      flow.map((step) => step.id),
+      ['vehicle', 'care', 'location', 'time', 'contact', 'payment', 'review'],
+    ),
     'C001_FLOW_IDS',
   );
 
   assert(same(sorted(manifest.actions ?? []), observed.actions), 'C001_ACTION_INVENTORY');
   assert(
-    same(
-      sorted((manifest.forms ?? []).map((item) => item.id)),
-      observed.forms,
-    ),
+    same(sorted((manifest.forms ?? []).map((item) => item.id)), observed.forms),
     'C001_FORM_INVENTORY',
   );
 
@@ -135,7 +151,10 @@ export function validateCustomerBehaviorManifest(manifest, { root = ROOT } = {})
 
   const localKeys = manifest.localStorageKeys ?? [];
   for (const key of ['washgo.payments.sy.v6', 'washgo.payments.sy.merchants.v1']) {
-    assert(localKeys.includes(key) && observed.source.includes(`'${key}'`), `C001_LOCAL_KEY:${key}`);
+    assert(
+      localKeys.includes(key) && observed.source.includes(`'${key}'`),
+      `C001_LOCAL_KEY:${key}`,
+    );
   }
 
   for (const route of ['#home', '#orders', '#garage', '#account']) {
@@ -144,9 +163,18 @@ export function validateCustomerBehaviorManifest(manifest, { root = ROOT } = {})
       `C001_ROUTE_MISSING:${route}`,
     );
   }
-  assert(manifest.primaryScreens.some((item) => item.route === '#book/:step'), 'C001_BOOK_ROUTE');
-  assert(manifest.primaryScreens.some((item) => item.route === '#pay/:orderId'), 'C001_PAY_ROUTE');
-  assert(manifest.primaryScreens.some((item) => item.route === '#order/:orderId'), 'C001_ORDER_ROUTE');
+  assert(
+    manifest.primaryScreens.some((item) => item.route === '#book/:step'),
+    'C001_BOOK_ROUTE',
+  );
+  assert(
+    manifest.primaryScreens.some((item) => item.route === '#pay/:orderId'),
+    'C001_PAY_ROUTE',
+  );
+  assert(
+    manifest.primaryScreens.some((item) => item.route === '#order/:orderId'),
+    'C001_ORDER_ROUTE',
+  );
 
   const owners = new Set(Object.values(manifest.capabilityOwnership ?? {}));
   for (const owner of [
