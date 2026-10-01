@@ -14,7 +14,14 @@ export interface CustomerFixtureState {
   readonly surface: CustomerSurfaceId;
   readonly route: string;
   readonly shellKind: CustomerShellKind;
-  readonly bookingStep?: 'vehicle' | 'care' | 'location' | 'time' | 'contact' | 'payment' | 'review';
+  readonly bookingStep?:
+    | 'vehicle'
+    | 'care'
+    | 'location'
+    | 'time'
+    | 'contact'
+    | 'payment'
+    | 'review';
 }
 
 export const customerFixtureStates = [
