@@ -1,0 +1,34 @@
+name: C002 lockfile resolution
+on:
+  push:
+    branches: ['feat/C002-customer-shell']
+    paths: ['.github/workflows/c002-lockfile-resolution.yml']
+permissions:
+  contents: read
+jobs:
+  lockfile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Resolve genuine pnpm lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          pnpm install --lockfile-only --ignore-scripts
+          pnpm install --frozen-lockfile --ignore-scripts
+          git diff --exit-code -- apps/customer-web/package.json
+          git diff -- pnpm-lock.yaml
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: c002-lockfile-${{ github.run_id }}
+          path: pnpm-lock.yaml
+          if-no-files-found: error
+          retention-days: 1
