@@ -1,6 +1,8 @@
+export const BOOKING_CONFIRMED_V1 = 'booking.confirmed.v1' as const;
+
 export interface BookingConfirmedV1 {
   eventId: string;
-  eventType: 'booking.confirmed.v1';
+  eventType: typeof BOOKING_CONFIRMED_V1;
   schemaVersion: 1;
   producer: 'booking';
   occurredAt: string;
@@ -25,7 +27,7 @@ function id(value: unknown): string {
 export function parseBookingConfirmedV1(value: unknown): BookingConfirmedV1 {
   const v = object(value);
   exactKeys(v, ['eventId','eventType','schemaVersion','producer','occurredAt','correlationId','aggregateVersion','data']);
-  if (v.eventType !== 'booking.confirmed.v1' || v.schemaVersion !== 1 || v.producer !== 'booking')
+  if (v.eventType !== BOOKING_CONFIRMED_V1 || v.schemaVersion !== 1 || v.producer !== 'booking')
     throw new Error('UNSUPPORTED_EVENT');
   if (typeof v.occurredAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(v.occurredAt))
     throw new Error('INVALID_TIMESTAMP');
@@ -36,7 +38,7 @@ export function parseBookingConfirmedV1(value: unknown): BookingConfirmedV1 {
     throw new Error('INVALID_AGGREGATE_VERSION');
   const data = object(v.data);
   exactKeys(data, ['bookingId', 'customerId']);
-  return { eventId:id(v.eventId), eventType:'booking.confirmed.v1', schemaVersion:1, producer:'booking',
+  return { eventId:id(v.eventId), eventType:BOOKING_CONFIRMED_V1, schemaVersion:1, producer:'booking',
     occurredAt:v.occurredAt, correlationId:id(v.correlationId), aggregateVersion:v.aggregateVersion,
     data:{bookingId:id(data.bookingId), customerId:id(data.customerId)} };
 }
