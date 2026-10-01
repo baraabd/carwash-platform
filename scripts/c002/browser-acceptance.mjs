@@ -37,12 +37,29 @@ try {
       const referenceApp = await referencePage.locator('.app').boundingBox();
       const referenceHeader = await referencePage.locator('.app-header').boundingBox();
       const referenceMain = await referencePage.locator('.main').boundingBox();
-      assert.ok(referenceApp && referenceHeader && referenceMain);
+      const candidateNav = await page.locator('.bottom-nav').boundingBox();
+      const referenceNav = await referencePage.locator('.bottom-nav').boundingBox();
+      assert.ok(referenceApp && referenceHeader && referenceMain && candidateNav && referenceNav);
       for (const [label, actual, expected] of [
+        ['app x', shell.x, referenceApp.x],
+        ['app y', shell.y, referenceApp.y],
         ['app width', shell.width, referenceApp.width],
+        ['header x', header.x, referenceHeader.x],
+        ['header y', header.y, referenceHeader.y],
         ['header width', header.width, referenceHeader.width],
+        ['header height', header.height, referenceHeader.height],
+        ['main x', main.x, referenceMain.x],
+        ['main y', main.y, referenceMain.y],
         ['main width', main.width, referenceMain.width],
-      ]) assert.ok(Math.abs(actual - expected) <= 2, `${label} drift at ${width}: ${actual} vs ${expected}`);
+        ['bottom nav x', candidateNav.x, referenceNav.x],
+        ['bottom nav width', candidateNav.width, referenceNav.width],
+        ['bottom nav height', candidateNav.height, referenceNav.height],
+      ]) {
+        assert.ok(
+          Math.abs(actual - expected) <= 2,
+          `${label} drift at ${width}: ${actual} vs ${expected}`,
+        );
+      }
       await referencePage.close();
 
       await page.keyboard.press('Tab');
