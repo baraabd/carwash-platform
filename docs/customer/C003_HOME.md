@@ -82,12 +82,14 @@ because removing approved UI also requires that decision.
 
 ## Shell corrections made for parity
 
-Comparing Home against the reference exposed four shell deviations, corrected here because they are
+Comparing Home against the reference exposed five shell deviations, corrected here because they are
 visible on Home:
 
 - desktop chip copy restored to the approved «تصميم للهاتف · تجربة محلية»;
 - `.app` shadow at ≥600px and the bottom navigation shadow at ≥800px now follow the reference cascade;
 - navigation icons are 25px and icon stroke is 1.65, as in the reference;
+- `font-synthesis` is `weight`, the reference's resolved value, so bold Arabic text is synthesised
+  identically where the installed font has no bold face (visible on Linux, not on Windows);
 - the city control uses its visible text «دمشق» as its accessible name and 15px icons.
 
 ## Verification

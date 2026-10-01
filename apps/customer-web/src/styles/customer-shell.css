@@ -10,7 +10,7 @@
   --radius: 26px;
   color-scheme: light;
   font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, Arial, sans-serif;
-  font-synthesis: none;
+  font-synthesis: weight;
 }
 * {
   box-sizing: border-box;
