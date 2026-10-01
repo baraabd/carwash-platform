@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { chromium } from '@playwright/test';
@@ -16,10 +16,29 @@ const axeSource = readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
 const manifest = loadRegistry(ROOT);
 const contract = manifest.rendering;
 const debtBaseline = loadDebtBaseline(ROOT);
-const evidence =
-  process.env.F010_EVIDENCE_DIR ??
-  resolve(tmpdir(), `washgo-f010-${process.pid}-${randomUUID().slice(0, 8)}`);
+const configuredEvidence = process.env.F010_EVIDENCE_DIR;
+const evidence = configuredEvidence
+  ? resolve(configuredEvidence)
+  : mkdtempSync(resolve(tmpdir(), 'washgo-f010-'));
 mkdirSync(evidence, { recursive: true });
+
+const deterministicScreenshot = Object.freeze({
+  fullPage: true,
+  animations: 'disabled',
+  caret: 'hide',
+  // Browser scrollbars and finite CSS transitions are browser chrome/transient
+  // state, not part of the approved UI contract. Hiding them during capture
+  // leaves layout/overflow measurements intact while keeping rasterization
+  // deterministic for reference and future candidate captures.
+  style: `
+    html { scrollbar-width: none !important; }
+    *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+    *, *::before, *::after {
+      animation: none !important;
+      transition: none !important;
+    }
+  `,
+});
 
 const git = (...args) =>
   execFileSync('git', ['-C', ROOT, ...args], {
@@ -185,9 +204,13 @@ try {
     for (const width of contract.viewports) {
       const session = await openReference(browser, server, app, width);
       try {
-        const first = await session.page.screenshot({ fullPage: true, animations: 'disabled' });
-        await session.page.waitForTimeout(50);
-        const second = await session.page.screenshot({ fullPage: true, animations: 'disabled' });
+        // The first capture intentionally warms Chromium's full-page raster path.
+        // It is discarded; determinism is asserted on two subsequent captures.
+        await session.page.screenshot(deterministicScreenshot);
+        await session.page.waitForTimeout(25);
+        const first = await session.page.screenshot(deterministicScreenshot);
+        await session.page.waitForTimeout(25);
+        const second = await session.page.screenshot(deterministicScreenshot);
         const deterministic = await comparePngBuffers(
           browser,
           first,
@@ -195,6 +218,16 @@ try {
           contract.channelThreshold,
         );
         assert.equal(deterministic.sameDimensions, true);
+        if (deterministic.changedPixels !== 0) {
+          writeFileSync(resolve(evidence, `nondeterministic-${app}-${width}-first.png`), first);
+          writeFileSync(resolve(evidence, `nondeterministic-${app}-${width}-second.png`), second);
+          if (deterministic.diffBuffer) {
+            writeFileSync(
+              resolve(evidence, `nondeterministic-${app}-${width}-diff.png`),
+              deterministic.diffBuffer,
+            );
+          }
+        }
         assert.equal(
           deterministic.changedPixels,
           0,
@@ -249,11 +282,12 @@ try {
 
   const drift = await openReference(browser, server, 'customer', 390);
   try {
-    const baseline = await drift.page.screenshot({ fullPage: true, animations: 'disabled' });
+    await drift.page.screenshot(deterministicScreenshot);
+    const baseline = await drift.page.screenshot(deterministicScreenshot);
     await drift.page.evaluate(() => {
       globalThis.document.documentElement.style.filter = 'hue-rotate(35deg)';
     });
-    const changed = await drift.page.screenshot({ fullPage: true, animations: 'disabled' });
+    const changed = await drift.page.screenshot(deterministicScreenshot);
     const comparison = await comparePngBuffers(
       browser,
       baseline,
