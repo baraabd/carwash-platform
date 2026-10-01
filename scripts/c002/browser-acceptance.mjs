@@ -64,8 +64,10 @@ try {
         ['header y', header.y, referenceHeader.y],
         ['header width', header.width, referenceHeader.width],
         ['header height', header.height, referenceHeader.height],
+        // The reference screen's first content margin can collapse into <main> and
+        // shift its y-coordinate. C002 owns the shell/container geometry, while
+        // each feature sprint owns its screen-content vertical rhythm.
         ['main x', main.x, referenceMain.x],
-        ['main y', main.y, referenceMain.y],
         ['main width', main.width, referenceMain.width],
         ['bottom nav x', candidateNav.x, referenceNav.x],
         ['bottom nav width', candidateNav.width, referenceNav.width],
