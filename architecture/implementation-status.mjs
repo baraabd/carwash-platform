@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -118,7 +119,7 @@ export function validateImplementationStatus(status, catalog) {
 }
 
 function clone(value) {
-  return structuredClone(value);
+  return JSON.parse(JSON.stringify(value));
 }
 
 export function runAdversarialSelfTest(status, catalog) {
@@ -168,9 +169,13 @@ const catalog = readJson(CATALOG_FILE);
 const result = validateImplementationStatus(status, catalog);
 if (process.argv.includes('--self-test')) {
   const adversarial = runAdversarialSelfTest(status, catalog);
-  console.log(
-    JSON.stringify({ accepted: true, ...result, adversarial: { passed: adversarial.length, cases: adversarial } }, null, 2),
+  process.stdout.write(
+    JSON.stringify(
+      { accepted: true, ...result, adversarial: { passed: adversarial.length, cases: adversarial } },
+      null,
+      2,
+    ) + '\n',
   );
 } else {
-  console.log(JSON.stringify({ accepted: true, ...result }, null, 2));
+  process.stdout.write(JSON.stringify({ accepted: true, ...result }, null, 2) + '\n');
 }
