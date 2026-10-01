@@ -1,13 +1,7 @@
 export type CustomerShellKind = 'normal' | 'booking' | 'payment' | 'tracking';
 
 export type CustomerSurfaceId =
-  | 'home'
-  | 'booking'
-  | 'orders'
-  | 'garage'
-  | 'account'
-  | 'payment'
-  | 'tracking';
+  'home' | 'booking' | 'orders' | 'garage' | 'account' | 'payment' | 'tracking';
 
 export interface CustomerFixtureState {
   readonly id: string;
@@ -15,13 +9,7 @@ export interface CustomerFixtureState {
   readonly route: string;
   readonly shellKind: CustomerShellKind;
   readonly bookingStep?:
-    | 'vehicle'
-    | 'care'
-    | 'location'
-    | 'time'
-    | 'contact'
-    | 'payment'
-    | 'review';
+    'vehicle' | 'care' | 'location' | 'time' | 'contact' | 'payment' | 'review';
 }
 
 export type CustomerBookingStepId = NonNullable<CustomerFixtureState['bookingStep']>;
