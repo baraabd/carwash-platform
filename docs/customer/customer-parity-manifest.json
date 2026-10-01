@@ -1,0 +1,440 @@
+{
+  "schemaVersion": 1,
+  "manifestId": "washgo-customer-prototype-behavior-v1",
+  "sprint": "C001",
+  "reference": {
+    "canonicalHtml": "design/reference/approved/washgo-payments-interactive.html",
+    "bytes": 263462,
+    "sha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549",
+    "language": "ar",
+    "direction": "rtl",
+    "authority": "immutable-golden-design"
+  },
+  "prototypeTruth": {
+    "implementationKind": "local-interactive-prototype",
+    "serverCalls": false,
+    "createsRealBookings": false,
+    "processesRealPayments": false,
+    "liveTechnicianTracking": false,
+    "cloudAccount": false,
+    "authoritativePricing": false,
+    "authoritativeAvailability": false,
+    "localPersistence": [
+      "localStorage",
+      "IndexedDB-when-available"
+    ],
+    "productionRule": "Production React/API implementations must preserve the visible/interaction contract while moving business truth to owning microservices."
+  },
+  "primaryScreens": [
+    {
+      "id": "home",
+      "route": "#home",
+      "view": "homeView",
+      "owner": "customer-web"
+    },
+    {
+      "id": "booking",
+      "route": "#book/:step",
+      "view": "bookingView",
+      "owner": "customer-web"
+    },
+    {
+      "id": "payment",
+      "route": "#pay/:orderId",
+      "view": "checkoutView",
+      "owner": "customer-web"
+    },
+    {
+      "id": "tracking",
+      "route": "#order/:orderId",
+      "view": "trackingView",
+      "owner": "customer-web"
+    },
+    {
+      "id": "orders",
+      "route": "#orders",
+      "view": "ordersView",
+      "owner": "customer-web"
+    },
+    {
+      "id": "garage",
+      "route": "#garage",
+      "view": "garageView",
+      "owner": "customer-web"
+    },
+    {
+      "id": "account",
+      "route": "#account",
+      "view": "accountView",
+      "owner": "customer-web"
+    }
+  ],
+  "bottomNavigation": [
+    {
+      "id": "home",
+      "label": "الرئيسية",
+      "screen": "home"
+    },
+    {
+      "id": "orders",
+      "label": "حجوزاتي",
+      "screen": "orders"
+    },
+    {
+      "id": "garage",
+      "label": "سياراتي",
+      "screen": "garage"
+    },
+    {
+      "id": "account",
+      "label": "حسابي",
+      "screen": "account"
+    }
+  ],
+  "bookingFlow": [
+    {
+      "index": 0,
+      "id": "vehicle",
+      "label": "السيارة",
+      "nextLabel": "اختيار العناية",
+      "futureOwners": [
+        "vehicle",
+        "booking"
+      ],
+      "prototypeTruth": "local draft selection"
+    },
+    {
+      "index": 1,
+      "id": "care",
+      "label": "العناية",
+      "nextLabel": "تحديد المكان",
+      "futureOwners": [
+        "catalog",
+        "pricing",
+        "booking"
+      ],
+      "prototypeTruth": "local package/add-on calculation only"
+    },
+    {
+      "index": 2,
+      "id": "location",
+      "label": "المكان",
+      "nextLabel": "اختيار الموعد",
+      "futureOwners": [
+        "customer",
+        "geo",
+        "booking"
+      ],
+      "prototypeTruth": "illustrative map/local address only"
+    },
+    {
+      "index": 3,
+      "id": "time",
+      "label": "الموعد",
+      "nextLabel": "بيانات التواصل",
+      "futureOwners": [
+        "scheduling",
+        "booking"
+      ],
+      "prototypeTruth": "demo availability only"
+    },
+    {
+      "index": 4,
+      "id": "contact",
+      "label": "بياناتك",
+      "nextLabel": "اختيار الدفع",
+      "futureOwners": [
+        "customer",
+        "booking"
+      ],
+      "prototypeTruth": "local contact data only"
+    },
+    {
+      "index": 5,
+      "id": "payment",
+      "label": "الدفع",
+      "nextLabel": "مراجعة الحجز",
+      "futureOwners": [
+        "billing",
+        "booking"
+      ],
+      "prototypeTruth": "payment simulation only"
+    },
+    {
+      "index": 6,
+      "id": "review",
+      "label": "التأكيد",
+      "nextLabel": "تأكيد الحجز التجريبي",
+      "futureOwners": [
+        "booking",
+        "billing"
+      ],
+      "prototypeTruth": "local demo order only"
+    }
+  ],
+  "routeGuards": [
+    {
+      "targetAfterStep": 0,
+      "condition": "plate format valid",
+      "fallbackStep": 0
+    },
+    {
+      "targetAfterStep": 2,
+      "condition": "address length >= 4",
+      "fallbackStep": 2
+    },
+    {
+      "targetAfterStep": 3,
+      "condition": "selected demo date/time is available",
+      "fallbackStep": 3
+    },
+    {
+      "targetAfterStep": 4,
+      "condition": "name length >= 2 and phone valid",
+      "fallbackStep": 4
+    },
+    {
+      "targetAfterStep": 5,
+      "condition": "payment method selected",
+      "fallbackStep": 5
+    }
+  ],
+  "payment": {
+    "methods": [
+      {
+        "id": "cash",
+        "label": "كاش بعد الغسيل",
+        "futureOwner": "billing"
+      },
+      {
+        "id": "sham",
+        "label": "شام كاش",
+        "futureOwner": "billing"
+      },
+      {
+        "id": "syriatel",
+        "label": "سيريتل كاش",
+        "futureOwner": "billing"
+      }
+    ],
+    "states": [
+      "cash_due",
+      "awaiting_transfer",
+      "awaiting_review",
+      "needs_review",
+      "paid_demo",
+      "cash_collected_demo",
+      "refund_review_demo",
+      "cancelled"
+    ],
+    "invariants": [
+      "QR display is not proof of payment",
+      "proof submission is not payment confirmation",
+      "cash remains due until collection is recorded",
+      "changed quote must not inherit a prior verified electronic-payment state",
+      "production payment truth belongs to Billing service"
+    ]
+  },
+  "orderTracking": {
+    "stages": [
+      {
+        "index": 0,
+        "label": "استلمنا الطلب",
+        "futureOwner": "booking"
+      },
+      {
+        "index": 1,
+        "label": "تعيين الفني",
+        "futureOwner": "dispatch"
+      },
+      {
+        "index": 2,
+        "label": "في الطريق",
+        "futureOwner": "dispatch"
+      },
+      {
+        "index": 3,
+        "label": "جاري الغسيل",
+        "futureOwner": "booking"
+      },
+      {
+        "index": 4,
+        "label": "مكتمل",
+        "futureOwner": "booking"
+      }
+    ],
+    "cancelledStage": -1,
+    "prototypeTruth": "simulated stages and illustrative route; not live tracking"
+  },
+  "forms": [
+    {
+      "id": "vehicle-form",
+      "purpose": "vehicle details",
+      "futureOwners": [
+        "vehicle"
+      ]
+    },
+    {
+      "id": "address-form",
+      "purpose": "service address",
+      "futureOwners": [
+        "customer",
+        "geo"
+      ]
+    },
+    {
+      "id": "profile-form",
+      "purpose": "customer profile",
+      "futureOwners": [
+        "customer"
+      ]
+    },
+    {
+      "id": "pay-proof-form",
+      "purpose": "demo payment proof",
+      "futureOwners": [
+        "billing",
+        "media"
+      ]
+    }
+  ],
+  "localStorageKeys": [
+    "washgo.payments.sy.v6",
+    "washgo.payments.sy.merchants.v1"
+  ],
+  "interactionCapabilities": [
+    "browser hash routing and back/forward restoration",
+    "save/resume local draft",
+    "vehicle add/edit/delete/use",
+    "plate preview",
+    "package and add-on selection",
+    "manual/saved/sample address selection",
+    "illustrative map pin, pan, zoom, keyboard movement and optional geolocation permission",
+    "demo date/time selection",
+    "contact validation and demo fill",
+    "cash/Sham Cash/Syriatel Cash payment choice",
+    "demo QR expand/save/copy",
+    "demo payment-proof reference or local image",
+    "payment-state simulation and cancellation/refund-review demonstration",
+    "orders active/past filtering",
+    "simulated technician/order progression",
+    "before/after local media and comparison reveal",
+    "repeat booking",
+    "motion preference/reduced-motion support",
+    "local profile/addresses/garage management",
+    "local JSON export and reset"
+  ],
+  "actions": [
+    "add-address",
+    "add-car",
+    "address-sheet",
+    "addresses",
+    "all-times",
+    "apply-extras",
+    "back",
+    "book-step",
+    "cancel-order",
+    "cancel-prompt",
+    "choose-car",
+    "city",
+    "close-sheet",
+    "contact-tech",
+    "day",
+    "delete-address",
+    "delete-address-confirm",
+    "delete-car",
+    "delete-car-prompt",
+    "demo-contact",
+    "done-photos",
+    "earliest",
+    "edit-address",
+    "edit-car",
+    "edit-step",
+    "exit",
+    "expand-compare",
+    "export",
+    "export-order",
+    "extras-sheet",
+    "filter",
+    "fresh-car",
+    "garage-tab",
+    "geolocate",
+    "help",
+    "map-zoom",
+    "motion",
+    "next",
+    "order-details",
+    "pay-cash-collected",
+    "pay-change",
+    "pay-change-confirm",
+    "pay-config-reset",
+    "pay-copy",
+    "pay-demo",
+    "pay-expand",
+    "pay-export",
+    "pay-help",
+    "pay-open",
+    "pay-proof",
+    "pay-proof-demo",
+    "pay-remove-proof",
+    "pay-save-qr",
+    "pay-settings",
+    "pay-simulate",
+    "pay-to-order",
+    "photo-view",
+    "play-reveal",
+    "preview-result",
+    "price-breakdown",
+    "privacy",
+    "profile",
+    "quick-rebook",
+    "rate",
+    "remove-photo",
+    "reset-compare",
+    "reset-confirm",
+    "reset-prompt",
+    "resume",
+    "sample-address",
+    "save-exit",
+    "saved-address",
+    "scene-view",
+    "services-info",
+    "set-motion",
+    "sheet-sample",
+    "sheet-saved-address",
+    "sim-auto",
+    "sim-next",
+    "start",
+    "start-service",
+    "tab",
+    "technician",
+    "time",
+    "use-car",
+    "vehicle-sheet",
+    "view-order"
+  ],
+  "capabilityOwnership": {
+    "identity": "identity",
+    "customerProfileAndAddresses": "customer",
+    "vehicles": "vehicle",
+    "packages": "catalog",
+    "authoritativePrice": "pricing",
+    "bookingDraftAndLifecycle": "booking",
+    "availability": "scheduling",
+    "technicianAssignmentAndTravel": "dispatch",
+    "paymentVerificationAndRefund": "billing",
+    "beforeAfterAndPaymentProofMedia": "media",
+    "notificationsAndConversation": "communications",
+    "serviceabilityAndGeocoding": "geo",
+    "technicianReadProjection": "workforce"
+  },
+  "productionBoundaries": [
+    "The prototype's localStorage/IndexedDB state is not production persistence.",
+    "The prototype price calculation is not authoritative production pricing.",
+    "The prototype date/time list is not authoritative capacity.",
+    "The prototype map and route are illustrative and are not navigation or live tracking.",
+    "The prototype payment states are simulations and cannot verify or move money.",
+    "The prototype technician is illustrative and does not prove workforce assignment.",
+    "Visual presence of a feature does not prove its backend microservice has been implemented."
+  ]
+}
