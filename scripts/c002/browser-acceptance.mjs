@@ -80,9 +80,7 @@ try {
 
       await page.keyboard.press('Tab');
       assert.equal(
-        await page.evaluate(() =>
-          globalThis.document.activeElement?.classList.contains('skip'),
-        ),
+        await page.evaluate(() => globalThis.document.activeElement?.classList.contains('skip')),
         true,
       );
     } finally {
