@@ -1,6 +1,6 @@
 # WashGo implementation status
 
-**Status date:** 2026-10-01  
+**Status date:** 2026-10-01
 **Baseline:** `main@f364792d78cf572444df8093c2e4c6315becdae9`
 
 The machine-readable source is `architecture/implementation-status.json`. Validate it with:
