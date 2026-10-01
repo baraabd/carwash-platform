@@ -19,7 +19,7 @@ export const HTTP_CONTRACTS: readonly HttpContractDescriptor[] = [
     version: 1,
     prefix: IDENTITY_V1,
     status: 'foundation-runtime',
-    openApi: 'docs/contracts/gateway.openapi.json#identity-owned-routes',
+    openApi: 'docs/contracts/gateway.openapi.json',
   },
   {
     id: 'gateway.v1',
