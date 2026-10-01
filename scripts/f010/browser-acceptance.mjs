@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
