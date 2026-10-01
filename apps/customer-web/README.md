@@ -1,10 +1,12 @@
 # Customer web
 
-Current executable: `prototype/index.html`, an exact copy of the approved final payments HTML.
-Run from repository root: `node scripts/serve-prototype.mjs`, then open http://127.0.0.1:4173.
-Or open the HTML directly. Do not enter real payment details.
+C002 introduces the React/Vite customer application shell on top of the immutable F010 HTML authority.
 
-This is the unchanged local prototype, not a React port or a backend-integrated application.
-Planned React/Vite implementation must preserve docs/design/DESIGN_LOCK.md exactly.
-Any production service integration must use server facts and remove designer-only controls
-from production, while preserving the immutable reference itself.
+## Current executable surfaces
+
+- React candidate shell: `pnpm --filter @carwash/customer-web dev`
+- Immutable approved prototype: `prototype/index.html`
+
+The React shell owns only layout, navigation and route mount points. Business screen contents, persistence, booking state, payment state and backend integration remain intentionally deferred to their owning customer sprints.
+
+The approved HTML under `design/reference/approved/` and the byte-identical prototype copy remain immutable golden inputs.
