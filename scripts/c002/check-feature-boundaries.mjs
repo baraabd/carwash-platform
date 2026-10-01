@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -44,16 +44,11 @@ export function checkFeatureBoundaries(root = REPO_ROOT) {
       if (!targetFromFeatures.startsWith('..') && !targetFromFeatures.startsWith(sep)) {
         const targetFeature = targetFromFeatures.split(sep)[0];
         if (targetFeature !== sourceFeature) {
-          errors.push(
-            `CROSS_FEATURE_IMPORT:${relative(root, file)}->${specifier}`,
-          );
+          errors.push(`CROSS_FEATURE_IMPORT:${relative(root, file)}->${specifier}`);
         }
       }
       const targetFromSrc = relative(srcRoot, target);
-      if (
-        !targetFromSrc.startsWith('..') &&
-        targetFromSrc.split(sep)[0] === 'app'
-      ) {
+      if (!targetFromSrc.startsWith('..') && targetFromSrc.split(sep)[0] === 'app') {
         errors.push(`FEATURE_IMPORTS_APP_LAYER:${relative(root, file)}->${specifier}`);
       }
     }
