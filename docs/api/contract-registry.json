@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "status": "foundation-contract-registry-not-product-api-completion",
+  "contracts": [
+    {
+      "id": "identity.v1",
+      "domain": "identity",
+      "version": 1,
+      "prefix": "/internal/v1/identity",
+      "status": "foundation-runtime",
+      "openApi": "docs/contracts/gateway.openapi.json",
+      "scope": "Identity-owned routes represented through the current gateway routing discovery document; not a complete standalone Identity business OpenAPI."
+    },
+    {
+      "id": "gateway.v1",
+      "domain": "gateway",
+      "version": 1,
+      "prefix": "/api/v1",
+      "status": "routing-contract-only",
+      "openApi": "docs/contracts/gateway.openapi.json",
+      "scope": "Gateway/BFF routing discovery. Route presence does not claim the owning business endpoint is implemented."
+    }
+  ],
+  "unpublishedBusinessDomains": [
+    "customer",
+    "vehicle",
+    "catalog",
+    "pricing",
+    "booking",
+    "scheduling",
+    "dispatch",
+    "workforce",
+    "billing",
+    "wallet",
+    "subscription",
+    "media",
+    "communications",
+    "reviews",
+    "support",
+    "geo",
+    "reporting",
+    "configuration"
+  ]
+}
