@@ -41,7 +41,7 @@ The bottom navigation exposes الرئيسية، حجوزاتي، سياراتي
 
 The manifest inventories:
 - every literal customer action handled by the prototype;
-- four forms (vehicle, address, profile, payment proof);
+- six rendered form instances: vehicle, address, profile, payment proof, plus the class-only Sham Cash and Syriatel Cash merchant-QR configuration forms;
 - vehicle/plate preview and saved-car behavior;
 - packages and add-ons;
 - illustrative address map and geolocation permission path;
@@ -98,6 +98,7 @@ The HTML itself says it makes no server calls or real orders. Therefore C001 exp
 - form inventory changes;
 - payment method/state inventory changes;
 - the manifest overclaims server/payment/tracking/account/pricing/availability readiness;
-- required microservice ownership disappears.
+- a class-only payment configuration form disappears;
+- required microservice ownership disappears or a capability is reassigned to the wrong service.
 
 The test suite includes adversarial manifest mutations. Approved HTML bytes are not changed by C001.

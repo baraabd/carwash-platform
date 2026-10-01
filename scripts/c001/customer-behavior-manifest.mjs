@@ -6,6 +6,23 @@ import { fileURLToPath } from 'node:url';
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 export const MANIFEST_PATH = 'docs/customer/customer-parity-manifest.json';
 export const F010_PATH = 'docs/design/f010-reference-manifest.json';
+export const SERVICE_CATALOG_PATH = 'architecture/service-catalog.json';
+
+const EXPECTED_CAPABILITY_OWNERSHIP = Object.freeze({
+  identity: 'identity',
+  customerProfileAndAddresses: 'customer',
+  vehicles: 'vehicle',
+  packages: 'catalog',
+  authoritativePrice: 'pricing',
+  bookingDraftAndLifecycle: 'booking',
+  availability: 'scheduling',
+  technicianAssignmentAndTravel: 'dispatch',
+  paymentVerificationAndRefund: 'billing',
+  beforeAfterAndPaymentProofMedia: 'media',
+  notificationsAndConversation: 'communications',
+  serviceabilityAndGeocoding: 'geo',
+  technicianReadProjection: 'workforce',
+});
 
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const sorted = (values) => [...values].sort();
@@ -22,9 +39,15 @@ export function inspectCustomerReference(root = ROOT) {
   for (const match of source.matchAll(/data-action=["']([A-Za-z0-9_-]+)["']/g))
     actions.add(match[1]);
   for (const match of source.matchAll(/\ba\s*===\s*['"]([^'"]+)['"]/g)) actions.add(match[1]);
-  const forms = sorted(
-    new Set([...source.matchAll(/<form[^>]+id=["']([^"']+)["']/g)].map((match) => match[1])),
+  const forms = new Set(
+    [...source.matchAll(/<form[^>]+id=["']([^"']+)["']/g)].map((match) => match[1]),
   );
+  const configFormLoop =
+    /\['sham','syriatel'\]\.map\(method=>\{[\s\S]*?<form class="pay-config-form" data-method="\$\{method\}"/;
+  if (configFormLoop.test(source)) {
+    forms.add('pay-config-form:sham');
+    forms.add('pay-config-form:syriatel');
+  }
   const flowStart = source.indexOf('const FLOW=Object.freeze([');
   const flowEnd = source.indexOf(']);\n  const STEPS=', flowStart);
   if (flowStart < 0 || flowEnd < 0) throw new Error('C001_FLOW_SOURCE_NOT_FOUND');
@@ -36,7 +59,7 @@ export function inspectCustomerReference(root = ROOT) {
     bytes: Buffer.byteLength(source),
     sha256: digest(Buffer.from(source)),
     actions: sorted(actions),
-    forms,
+    forms: sorted(forms),
     flowLabels,
     nextLabels,
   };
@@ -176,23 +199,19 @@ export function validateCustomerBehaviorManifest(manifest, { root = ROOT } = {})
     'C001_ORDER_ROUTE',
   );
 
-  const owners = new Set(Object.values(manifest.capabilityOwnership ?? {}));
-  for (const owner of [
-    'identity',
-    'customer',
-    'vehicle',
-    'catalog',
-    'pricing',
-    'booking',
-    'scheduling',
-    'dispatch',
-    'billing',
-    'media',
-    'communications',
-    'geo',
-    'workforce',
-  ]) {
-    assert(owners.has(owner), `C001_OWNER_MISSING:${owner}`);
+  const catalog = JSON.parse(readFileSync(resolve(root, SERVICE_CATALOG_PATH), 'utf8'));
+  const serviceIds = new Set((catalog.services ?? []).map((service) => service.id));
+  const actualOwnership = manifest.capabilityOwnership ?? {};
+  assert(
+    same(sorted(Object.keys(actualOwnership)), sorted(Object.keys(EXPECTED_CAPABILITY_OWNERSHIP))),
+    'C001_CAPABILITY_SET',
+  );
+  for (const [capability, expectedOwner] of Object.entries(EXPECTED_CAPABILITY_OWNERSHIP)) {
+    assert(
+      actualOwnership[capability] === expectedOwner,
+      `C001_OWNER_MISMATCH:${capability}:${expectedOwner}`,
+    );
+    assert(serviceIds.has(expectedOwner), `C001_OWNER_NOT_IN_CATALOG:${expectedOwner}`);
   }
 
   assert(
