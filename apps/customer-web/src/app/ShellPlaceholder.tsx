@@ -8,12 +8,7 @@ interface PlaceholderProps {
   readonly bookingStep?: BookingStepId;
 }
 
-export function ShellPlaceholder({
-  routeId,
-  title,
-  description,
-  bookingStep,
-}: PlaceholderProps) {
+export function ShellPlaceholder({ routeId, title, description, bookingStep }: PlaceholderProps) {
   const params = useParams();
   return (
     <section

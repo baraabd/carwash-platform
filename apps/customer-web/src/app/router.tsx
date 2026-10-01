@@ -33,27 +33,51 @@ export const customerRouter = createHashRouter([
       ...bookingRoutes,
       {
         path: 'orders',
-        element: <ShellPlaceholder routeId="orders" title="حجوزاتي." description="نقطة تركيب الحجوزات." />,
+        element: (
+          <ShellPlaceholder routeId="orders" title="حجوزاتي." description="نقطة تركيب الحجوزات." />
+        ),
       },
       {
         path: 'garage',
-        element: <ShellPlaceholder routeId="garage" title="سياراتي." description="نقطة تركيب السيارات." />,
+        element: (
+          <ShellPlaceholder routeId="garage" title="سياراتي." description="نقطة تركيب السيارات." />
+        ),
       },
       {
         path: 'account',
-        element: <ShellPlaceholder routeId="account" title="حسابي." description="نقطة تركيب الحساب." />,
+        element: (
+          <ShellPlaceholder routeId="account" title="حسابي." description="نقطة تركيب الحساب." />
+        ),
       },
       {
         path: 'pay/:orderId',
-        element: <ShellPlaceholder routeId="payment" title="الدفع، بكل وضوح." description="نقطة تركيب الدفع." />,
+        element: (
+          <ShellPlaceholder
+            routeId="payment"
+            title="الدفع، بكل وضوح."
+            description="نقطة تركيب الدفع."
+          />
+        ),
       },
       {
         path: 'order/:orderId',
-        element: <ShellPlaceholder routeId="tracking" title="غسلتك خطوة بخطوة" description="نقطة تركيب متابعة الحجز." />,
+        element: (
+          <ShellPlaceholder
+            routeId="tracking"
+            title="غسلتك خطوة بخطوة"
+            description="نقطة تركيب متابعة الحجز."
+          />
+        ),
       },
       {
         path: '*',
-        element: <ShellPlaceholder routeId="not-found" title="المسار غير موجود." description="عد إلى الرئيسية." />,
+        element: (
+          <ShellPlaceholder
+            routeId="not-found"
+            title="المسار غير موجود."
+            description="عد إلى الرئيسية."
+          />
+        ),
       },
     ],
   },

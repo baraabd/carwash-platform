@@ -5,8 +5,12 @@ function NormalHeader() {
   return (
     <>
       <NavLink className="brand" to="/" aria-label="WashGo الرئيسية">
-        <span className="brand-mark"><Icon name="drop" /></span>
-        <span className="wordmark">Wash<em>Go</em></span>
+        <span className="brand-mark">
+          <Icon name="drop" />
+        </span>
+        <span className="wordmark">
+          Wash<em>Go</em>
+        </span>
       </NavLink>
       <button className="city" type="button" aria-label="المدينة">
         <Icon name="pin" small /> دمشق <Icon name="down" small />
@@ -77,7 +81,9 @@ function BottomNavigation({ tracking }: { readonly tracking: boolean }) {
           }
           aria-current={tracking && tab.id === 'orders' ? 'page' : undefined}
         >
-          <span className="nav-icon"><Icon name={tab.icon} /></span>
+          <span className="nav-icon">
+            <Icon name={tab.icon} />
+          </span>
           {tab.label}
         </NavLink>
       ))}
@@ -105,14 +111,28 @@ export function CustomerShell() {
 
   return (
     <>
-      <a className="skip" href="#main">انتقل إلى المحتوى</a>
+      <a className="skip" href="#main">
+        انتقل إلى المحتوى
+      </a>
       <aside className="desktop-note" aria-hidden="true">
         <div className="label">WASHGO / SIGNATURE</div>
-        <h2>تفاصيل أقل.<br />عناية أكثر.</h2>
-        <p>من أول اختيار…<br />إلى آخر لمعة.<br />تجربة صُمّمت لراحتك.</p>
+        <h2>
+          تفاصيل أقل.
+          <br />
+          عناية أكثر.
+        </h2>
+        <p>
+          من أول اختيار…
+          <br />
+          إلى آخر لمعة.
+          <br />
+          تجربة صُمّمت لراحتك.
+        </p>
         <span className="desktop-chip">تصميم للهاتف</span>
       </aside>
-      <span className="desktop-number" aria-hidden="true">CAR CARE — SIMPLIFIED / 04</span>
+      <span className="desktop-number" aria-hidden="true">
+        CAR CARE — SIMPLIFIED / 04
+      </span>
       <div className="app" data-c002-shell data-shell-kind={kind}>
         <header className="app-header">
           {kind === 'normal' ? <NormalHeader /> : <ContextHeader kind={kind} />}

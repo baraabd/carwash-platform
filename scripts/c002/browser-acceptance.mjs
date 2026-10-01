@@ -4,7 +4,21 @@ import { startReferenceServer } from '../f010/reference-server.mjs';
 
 const origin = process.env.C002_ORIGIN ?? 'http://127.0.0.1:4174';
 const widths = [320, 390, 430, 768, 1024];
-const routes = ['/', '/book/0', '/book/1', '/book/2', '/book/3', '/book/4', '/book/5', '/book/6', '/orders', '/garage', '/account', '/pay/demo-order', '/order/demo-order'];
+const routes = [
+  '/',
+  '/book/0',
+  '/book/1',
+  '/book/2',
+  '/book/3',
+  '/book/4',
+  '/book/5',
+  '/book/6',
+  '/orders',
+  '/garage',
+  '/account',
+  '/pay/demo-order',
+  '/order/demo-order',
+];
 
 const browser = await chromium.launch({ headless: true, args: ['--font-render-hinting=none'] });
 const reference = await startReferenceServer();
@@ -63,13 +77,19 @@ try {
       await referencePage.close();
 
       await page.keyboard.press('Tab');
-      assert.equal(await page.evaluate(() => document.activeElement?.classList.contains('skip')), true);
+      assert.equal(
+        await page.evaluate(() => document.activeElement?.classList.contains('skip')),
+        true,
+      );
     } finally {
       await context.close();
     }
   }
 
-  const context = await browser.newContext({ viewport: { width: 390, height: 900 }, locale: 'ar-SY' });
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 900 },
+    locale: 'ar-SY',
+  });
   try {
     const page = await context.newPage();
     for (const route of routes) {

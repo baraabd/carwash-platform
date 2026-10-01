@@ -20,8 +20,13 @@ const css = readFileSync(
 
 test('C002 declares seven distinct booking route mount points', () => {
   for (const [index, id] of [
-    [0, 'vehicle'], [1, 'care'], [2, 'location'], [3, 'time'],
-    [4, 'contact'], [5, 'payment'], [6, 'review'],
+    [0, 'vehicle'],
+    [1, 'care'],
+    [2, 'location'],
+    [3, 'time'],
+    [4, 'contact'],
+    [5, 'payment'],
+    [6, 'review'],
   ]) {
     assert.match(routes, new RegExp(`index: ${index}, id: '${id}'.*path: '/book/${index}'`));
   }
@@ -29,10 +34,15 @@ test('C002 declares seven distinct booking route mount points', () => {
 
 test('C002 shell keeps approved outer structural landmarks', () => {
   for (const token of [
-    'className="skip"', 'className="desktop-note"', 'className="desktop-number"',
-    'className="app"', 'className="app-header"', 'className="main"',
+    'className="skip"',
+    'className="desktop-note"',
+    'className="desktop-number"',
+    'className="app"',
+    'className="app-header"',
+    'className="main"',
     'className="bottom-nav"',
-  ]) assert.ok(shell.includes(token), token);
+  ])
+    assert.ok(shell.includes(token), token);
 });
 
 test('C002 uses the pinned stable React/Vite stack', () => {
