@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "status": "foundation-and-contract-registry-not-runtime-completion",
+  "contracts": [
+    {
+      "id": "foundation.probe.created.v1",
+      "producer": "catalog",
+      "schemaVersion": 1,
+      "status": "foundation-runtime",
+      "asyncApi": "docs/asyncapi/foundation-probe.yaml"
+    },
+    {
+      "id": "booking.confirmed.v1",
+      "producer": "booking",
+      "schemaVersion": 1,
+      "status": "contract-only",
+      "asyncApi": "docs/asyncapi/booking-confirmed-v1.yaml"
+    }
+  ]
+}

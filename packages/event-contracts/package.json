@@ -13,6 +13,18 @@
     "./booking-confirmed": {
       "types": "./dist/booking-confirmed.d.ts",
       "default": "./dist/booking-confirmed.js"
+    },
+    "./booking-confirmed-v1": {
+      "types": "./dist/booking-confirmed.d.ts",
+      "default": "./dist/booking-confirmed.js"
+    },
+    "./foundation-probe-created-v1": {
+      "types": "./dist/foundation-probe-created.d.ts",
+      "default": "./dist/foundation-probe-created.js"
+    },
+    "./registry": {
+      "types": "./dist/registry.d.ts",
+      "default": "./dist/registry.js"
     }
   },
   "files": [

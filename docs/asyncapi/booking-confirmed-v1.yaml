@@ -1,0 +1,78 @@
+asyncapi: '2.6.0'
+info:
+  title: WashGo Booking Confirmed V1 Contract
+  version: '1.0.0'
+  description: >
+    Contract-only description of booking.confirmed.v1. The Booking service
+    business publisher is not implemented by X003; this document defines the
+    versioned wire shape only.
+defaultContentType: application/json
+channels:
+  booking.events:
+    description: Planned Booking-owned topic exchange.
+    publish:
+      operationId: publishBookingConfirmedV1
+      message:
+        $ref: '#/components/messages/BookingConfirmedV1'
+    bindings:
+      amqp:
+        is: routingKey
+        exchange:
+          name: booking.events
+          type: topic
+          durable: true
+          autoDelete: false
+components:
+  messages:
+    BookingConfirmedV1:
+      name: booking.confirmed.v1
+      title: Booking confirmed
+      summary: Versioned booking confirmation event contract.
+      correlationId:
+        location: $message.payload#/correlationId
+      bindings:
+        amqp:
+          contentEncoding: UTF-8
+          messageType: booking.confirmed.v1
+      payload:
+        type: object
+        additionalProperties: false
+        required:
+          - eventId
+          - eventType
+          - schemaVersion
+          - producer
+          - occurredAt
+          - correlationId
+          - aggregateVersion
+          - data
+        properties:
+          eventId:
+            type: string
+            format: uuid
+          eventType:
+            const: booking.confirmed.v1
+          schemaVersion:
+            const: 1
+          producer:
+            const: booking
+          occurredAt:
+            type: string
+            format: date-time
+          correlationId:
+            type: string
+            format: uuid
+          aggregateVersion:
+            type: integer
+            minimum: 1
+          data:
+            type: object
+            additionalProperties: false
+            required: [bookingId, customerId]
+            properties:
+              bookingId:
+                type: string
+                format: uuid
+              customerId:
+                type: string
+                format: uuid
