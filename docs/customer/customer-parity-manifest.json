@@ -296,6 +296,24 @@
         "billing",
         "media"
       ]
+    },
+    {
+      "id": "pay-config-form:sham",
+      "purpose": "local Sham Cash merchant QR configuration preview",
+      "futureOwners": [
+        "billing",
+        "media"
+      ],
+      "prototypeOnly": true
+    },
+    {
+      "id": "pay-config-form:syriatel",
+      "purpose": "local Syriatel Cash merchant QR configuration preview",
+      "futureOwners": [
+        "billing",
+        "media"
+      ],
+      "prototypeOnly": true
     }
   ],
   "localStorageKeys": [
