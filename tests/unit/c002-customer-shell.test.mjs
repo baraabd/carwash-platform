@@ -69,10 +69,15 @@ test('C002 outer shell keeps approved customer reference geometry and tokens', (
     'padding: 16px 20px 10px;',
     'min-height: 78px;',
     'padding: 0 20px calc(108px + env(safe-area-inset-bottom));',
-    'width: 35px; height: 39px; border-radius: 15px 15px 15px 5px;',
-    'letter-spacing: -1.4px; font-size: 25px;',
+    'width: 35px;',
+    'height: 39px;',
+    'border-radius: 15px 15px 15px 5px;',
+    'letter-spacing: -1.4px;',
+    'font-size: 25px;',
     'padding: 7px 10px calc(7px + env(safe-area-inset-bottom));',
-    'border-radius: 13px; width: 49px; height: 30px;',
+    'border-radius: 13px;',
+    'width: 49px;',
+    'height: 30px;',
     'background: #e6f0d7;',
   ]) {
     assert.ok(css.includes(fragment), fragment);
