@@ -1,0 +1,28 @@
+name: C002 Prettier diagnostic
+on:
+  push:
+    branches: ['work/C002-prettier-report']
+permissions:
+  contents: read
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Print repository-format output
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          pnpm install --frozen-lockfile
+          echo '===== fixture ====='
+          pnpm exec prettier apps/customer-web/src/fixtures/customerFixtureStates.ts
+          echo '===== boundary-checker ====='
+          pnpm exec prettier scripts/c002/check-feature-boundaries.mjs
