@@ -1,41 +1,89 @@
-# ما نُفّذ وما تم التحقق منه
+# التحقق الحالي للمستودع
 
-**تاريخ الفحص:** 19 سبتمبر 2026.  
-**حالة المنتج:** تأسيس 0.1 فقط، وليس Sprint0 كاملًا أو نظامًا جاهزًا للإطلاق.
+**تاريخ الحالة:** 1 أكتوبر 2026
+**خط الأساس الذي بدأ منه X002:** `main@f364792d78cf572444df8093c2e4c6315becdae9`
 
-## نتائج منفذة فعليًا
+المرجع الآلي لحالة التنفيذ هو:
 
-| الفحص | النتيجة | حدود النتيجة |
-|---|---|---|
-| ترجمة النواة `tsc -p tsconfig.domain.json` | نجحت | Event contract + ملفات domain الثلاثة فقط؛ لا ترجمة لجميع NestJS أو الواجهة |
-| اختبارات Node | 55 نجحت، 0 فشلت، 0 متخطاة | وظائف خالصة واختبار فحص حدود بالمجلدات المؤقتة |
-| نواة التسعير | اختبار حساب صحيح وخصم وتقريب وأعداد كبيرة ومدخلات مرفوضة | لا أسعار إنتاج ولا تخزين Quote ولا كوبونات محجوزة ولا ضرائب |
-| نواة الحجز | انتقالات وحالات نهائية وإصدارات وفحص تداخل فترات | ليست معاملة قاعدة بيانات أو اختبار تزامن فعلي أو صلاحيات |
-| نواة القيد المالي | توازن حسب العملة ومبالغ صحيحة | لا حسابات مالية فعلية أو Ledger منشور أو دفع/استرداد |
-| عقد حدث | شكل صارم وإصدار وهوية بنيوية وطابع زمني | لا إثبات مصدر ناشر ولا اختبار تسليم RabbitMQ |
-| فحص الحدود Smoke | نجح على 10 مالكي بيانات و13 ملف مصدر | ليس محلل AST كاملًا ولا تدقيق كل أسلوب استيراد أو وصول شبكي |
-| حالات فشل لفحص الحدود | منع alias ومسار نسبي لخدمة أخرى وقاعدة مشتركة في بيانات الاختبار | لا يثبت عزل Postgres ماديًا؛ يلزم اختبار أدوار حقيقي |
-| ملفات JSON | فُكّت 24 ملفًا بنجاح | صحة JSON فقط |
-| ملفات YAML | فُكّ ملفان بنجاح | ليست نتيجة `docker compose config` أو تشغيل حاويات |
-| سكربت إنشاء البيئة | فُحص تركيب JavaScript | لم تُنشأ أسرار فعلية في الحزمة المسلّمة |
-| سكربت تهيئة قواعد التطوير | اجتاز `sh -n` | لم تنفذ أوامر SQL على قاعدة حقيقية |
+- `architecture/implementation-status.json`
+- `architecture/implementation-status.schema.json`
+- `architecture/implementation-status.mjs`
 
-الأدلة النصية الأصلية في `evidence/domain-tests.tap` و`evidence/static-checks.txt`. ملفات JavaScript في `dist/` مولدة من النواة المصدرية في هذا الفحص وأضيفت إلى الملف المضغوط للتجربة دون تنزيل. لا يُنصح بتتبع build artifacts في مستودع التطوير العادي.
+ويجب التحقق منه بالأمر:
 
-## اختلاف بيئة الفحص عن الهدف
+```bash
+node architecture/implementation-status.mjs --self-test
+```
 
-هدف المشروع Node24 LTS وTypeScript5.9.3 وpnpm10.32.1. المتاح هنا Node22.16.0 وTypeScript5.8.3. نجحت الاختبارات والترجمة على المتاح فقط. لا يُعد هذا إثبات مصفوفة Node24 أو تثبيت الحزم التي تتطلب تنزيلًا. تعذر الوصول إلى سجل npm من بيئة التنفيذ، ولم يكن Docker متاحًا. اتصال قراءة GitHub والتوثيق الخارجي منفصل عن اتصال تنفيذ الحاويات.
+## ما تم تنفيذه والتحقق منه
 
-## قوالب الخدمات
+تم دمج F001–F010 في `main`. هذه السبرينتات تثبت **الأساس الهندسي** وليست شهادة اكتمال المنتج:
 
-عشرة مجلدات تملك package.json وtsconfig ومدخل NestJS مستقلًا. تحتوي `/health/live` فقط و`/health/ready` يعيد503 عمدًا. لم تُثبت الاعتمادات أو تُبنَ أو تُشغّل قوالب Nest هنا. هذه **قوالب وليست عشر وظائف Microservices مكتملة**. مجلدات تطبيقات العميل والعامل والأدمن وGateway هي تعريف حدود فقط وليست شاشات أو Proxy منفذًا.
+| المجال | الحالة الحالية المثبتة |
+|---|---|
+| حدود الملكية وMonorepo | مطبقة ومختبرة |
+| Node/pnpm وLockfile | مثبتة ومتحقق منها |
+| قوالب الخدمات وطبقاتها | مطبقة لخدمات الأساس مع فحوص حدود |
+| عزل PostgreSQL والترحيلات | مختبر على خدمات الأساس |
+| RabbitMQ + Outbox/Inbox | مختبر كآلية foundation |
+| Identity والجلسات وأمن المتصفح | Foundation مطبق ومختبر |
+| API Gateway | Foundation stateless مطبق ومختبر |
+| Observability | Logs/metrics/traces مترابطة ومختبرة |
+| CI/Security/CodeQL/Images | بوابات fail-closed مطبقة |
+| Golden HTML parity | Harness حتمي للعميل والفني والأدمن مطبق ومختبر |
 
-## غير منفذ أو غير متحقق
+F010 تم دمجه عبر PR #17 بعد نجاح بوابات F001/F006/F007/F008/F009/F010 وSprint 0.2 وReference Guard على مصدره النهائي.
 
-لا مصادقة فعلية أو JWT/JWKS، ولا ربط قواعد عبر Prisma، ولا قفل اعتماد نهائي، ولا HTTP API تجاري، ولا حجز محفوظ، ولا إرسال حدث بالوسيط، ولا Outbox/Inbox دائمين، ولا Saga منفذة، ولا دفع أو بوابة مصرفية، ولا صور أو خرائط أو إشعارات مفعلة، ولا واجهة أو تطبيق هاتف، ولا اختبار متصفح، ولا فحوص أمان فعلية للحزم أو الصور، ولا CI عن بعد، ولا رفع إلى GitHub، ولا نشر أو حسابات عملاء.
+## ما لا يعنيه نجاح الأساس
 
-`booking-capacity.draft.sql` نموذج تصميم **خارج مسار migrations**. لم يُطبق، ولا يجوز نقله منفردًا إلى الإنتاج دون Prisma mirror واختبارات ترقيات وتزامن. تكوين Docker للبنية المحلية مقترح لم يُشغّل؛ لا يعتمد كتشغيل إنتاج.
+نجاح F001–F010 لا يعني أن تطبيق WashGo التجاري مكتمل أو جاهز للإنتاج.
 
-## بوابة الخروج التالية
+الحالة الحالية المثبتة من الكود:
 
-Sprint0.2 يثبت حزم الهدف وLockfile، ويبني القوالب ويختبر أدوار قواعد البيانات وBroker ACLs وOutbox/Inbox على خدمات حقيقية. يلي ذلك تسليم ميزة عمودية قابلة للاستخدام. لا تُحذف حالات503 أو تُختلق نتائج لاعتبار الأساس منتهيًا.
+- يوجد 19 حد خدمة في `architecture/service-catalog.json`.
+- 10 خدمات لديها Foundation runtime.
+- 9 خدمات ما زالت TypeScript/directory skeletons.
+- كل Business API في service catalog ما يزال `planned-not-implemented`.
+- كل Business event contract في service catalog ما يزال `planned-not-implemented`.
+- كل `deployment.verified` في service catalog ما يزال `false`.
+- Identity يحتوي نماذج جلسات/حسابات/تدقيق حقيقية خاصة بأساس الأمن.
+- Customer وBooking وWorkforce وBilling وMedia وSupport لا تزال قواعدها في مستوى foundation marker بالنسبة لبيانات المنتج.
+- Customer UI ما يزال prototype/golden HTML وليس React app مربوطًا بالخلفية.
+- operator-web وadmin-web ما زالا planned application boundaries، رغم وجود مراجع HTML معتمدة لهما.
+- F010 يثبت المرجع وآلة المقارنة فقط؛ لا يثبت أن تطبيقات React قد نُفذت.
+
+## بوابات التحقق الحالية
+
+المستودع يحتوي بوابات مستقلة تشمل:
+
+- F001 ownership/workspace acceptance
+- F006 Identity security acceptance
+- F007 Gateway contract acceptance
+- F008 Observability acceptance
+- F009 Foundation release gate
+- F010 Parity harness gate
+- Sprint 0.2 PostgreSQL/RabbitMQ/image/security checks
+- Frozen design/reference guard
+
+لا تُعتبر نتيجة قديمة أو تشغيل ملغى دليلًا لمصدر جديد. القبول يجب أن يرتبط بنفس SHA الجاري تسليمه.
+
+## حوكمة GitHub
+
+في 1 أكتوبر 2026، أعاد GitHub API لفرع `main`:
+
+- `protected: false`
+- لا توجد Repository Rulesets.
+
+كما أن اتصال GitHub الحالي لا يملك صلاحية Administration لتعديل Branch Protection. لذلك X001 يبقى **BLOCKED** على الإعداد الإداري الخارجي. وجود CI أخضر وحده لا يمنع مستخدمًا مخولًا من الدمج إذا لم تجعل GitHub هذه الفحوص Required Checks.
+
+## قاعدة التقرير من الآن فصاعدًا
+
+لا يُستخدم عدد الاختبارات أو نجاح البناء كبديل عن حالة المنتج. كل تقرير يجب أن يفرق بين:
+
+1. Foundation capability.
+2. Business-domain implementation.
+3. UI parity/application implementation.
+4. Production deployment/readiness.
+5. External repository/platform administration.
+
+أي قدرة غير مثبتة بكود واختبار على المصدر الحالي تبقى `planned` أو `blocked` ولا تُرقّى بالاستنتاج.

@@ -1,0 +1,387 @@
+{
+  "$schema": "./implementation-status.schema.json",
+  "schemaVersion": 1,
+  "asOf": {
+    "date": "2026-10-01",
+    "mainSha": "f364792d78cf572444df8093c2e4c6315becdae9"
+  },
+  "product": {
+    "readiness": "foundation-accepted-product-not-implemented",
+    "productionReady": false,
+    "summary": "F001-F010 foundation capabilities are merged and verified, but the customer, technician and admin product applications and most business-domain APIs/persistence remain unimplemented."
+  },
+  "foundation": {
+    "F001": {
+      "status": "merged-and-verified",
+      "capability": "Monorepo ownership boundaries and fail-closed foundation acceptance.",
+      "evidence": [
+        "PR #3",
+        "architecture/service-catalog.json",
+        ".github/workflows/f001-ownership.yml"
+      ]
+    },
+    "F002": {
+      "status": "merged-and-verified",
+      "capability": "Pinned Node/pnpm toolchain and frozen dependency discipline.",
+      "evidence": [
+        "PR #1",
+        ".nvmrc",
+        "pnpm-lock.yaml",
+        "scripts/verify-toolchain.mjs"
+      ]
+    },
+    "F003": {
+      "status": "merged-and-verified",
+      "capability": "Clean-architecture service template and layer enforcement for foundation runtimes.",
+      "evidence": [
+        "PR #4",
+        "PR #5",
+        "packages/service-kit",
+        "scripts/check-layers.mjs"
+      ]
+    },
+    "F004": {
+      "status": "merged-and-verified",
+      "capability": "PostgreSQL ownership, migration-role isolation and schema-drift acceptance.",
+      "evidence": [
+        "PR #7",
+        "scripts/check-migrations.mjs",
+        "scripts/acceptance"
+      ]
+    },
+    "F005": {
+      "status": "merged-and-verified",
+      "capability": "RabbitMQ foundation with durable Outbox/Inbox delivery semantics.",
+      "evidence": [
+        "PR #6",
+        "packages/platform-messaging",
+        "tests/integration"
+      ]
+    },
+    "F006": {
+      "status": "merged-and-verified",
+      "capability": "Identity-owned authentication, sessions, Redis-backed browser security and authorization foundation.",
+      "evidence": [
+        "PR #8",
+        "services/identity",
+        "scripts/acceptance-identity.mjs"
+      ]
+    },
+    "F007": {
+      "status": "merged-and-verified",
+      "capability": "Stateless API gateway with verified authentication and BFF routing contracts.",
+      "evidence": [
+        "PR #10",
+        "PR #13",
+        "apps/api-gateway",
+        ".github/workflows/f007-gateway.yml"
+      ]
+    },
+    "F008": {
+      "status": "merged-and-verified",
+      "capability": "Correlated redacted observability with durable HTTP-to-message trace propagation.",
+      "evidence": [
+        "PR #14",
+        "packages/observability",
+        ".github/workflows/f008-observability.yml"
+      ]
+    },
+    "F009": {
+      "status": "merged-and-verified",
+      "capability": "Fail-closed CI/security, CodeQL, dependency/secret scanning and independently verified runtime images.",
+      "evidence": [
+        "PR #16",
+        ".github/workflows/f009-foundation.yml",
+        "scripts/ci"
+      ]
+    },
+    "F010": {
+      "status": "merged-and-verified",
+      "capability": "Deterministic three-app golden HTML parity harness with reference integrity and reviewed debt fingerprints.",
+      "evidence": [
+        "PR #17",
+        ".github/workflows/f010-html-parity.yml",
+        "docs/design/f010-reference-manifest.json",
+        "scripts/f010"
+      ]
+    }
+  },
+  "services": [
+    {
+      "id": "identity",
+      "path": "services/identity",
+      "runtimeImplementation": "existing-health-only-shell",
+      "database": "cw_identity",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [
+        "ServiceMarker",
+        "IdentityAccount",
+        "IdentityChallenge",
+        "IdentitySession",
+        "IdentityRefresh",
+        "IdentityAudit"
+      ],
+      "productDomainStatus": "identity-security-foundation-only"
+    },
+    {
+      "id": "customer",
+      "path": "services/customer",
+      "runtimeImplementation": "existing-health-only-shell",
+      "database": "cw_customer",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
+      "productDomainStatus": "foundation-shell-only"
+    },
+    {
+      "id": "vehicle",
+      "path": "services/vehicle",
+      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "database": "cw_vehicle",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [],
+      "productDomainStatus": "typescript-skeleton-only"
+    },
+    {
+      "id": "catalog",
+      "path": "services/catalog",
+      "runtimeImplementation": "existing-health-only-shell",
+      "database": "cw_catalog",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [
+        "ServiceMarker",
+        "FoundationProbe",
+        "OutboxMessage"
+      ],
+      "productDomainStatus": "foundation-shell-only"
+    },
+    {
+      "id": "pricing",
+      "path": "services/pricing",
+      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "database": "cw_pricing",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [],
+      "productDomainStatus": "typescript-skeleton-only"
+    },
+    {
+      "id": "booking",
+      "path": "services/booking",
+      "runtimeImplementation": "existing-health-only-shell",
+      "database": "cw_booking",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
+      "productDomainStatus": "foundation-shell-only"
+    },
+    {
+      "id": "scheduling",
+      "path": "services/scheduling",
+      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "database": "cw_scheduling",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [],
+      "productDomainStatus": "typescript-skeleton-only"
+    },
+    {
+      "id": "dispatch",
+      "path": "services/dispatch",
+      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "database": "cw_dispatch",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [],
+      "productDomainStatus": "typescript-skeleton-only"
+    },
+    {
+      "id": "workforce",
+      "path": "services/workforce",
+      "runtimeImplementation": "existing-health-only-shell",
+      "database": "cw_workforce",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
+      "productDomainStatus": "foundation-shell-only"
+    },
+    {
+      "id": "billing",
+      "path": "services/billing",
+      "runtimeImplementation": "existing-health-only-shell",
+      "database": "cw_billing",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
+      "productDomainStatus": "foundation-shell-only"
+    },
+    {
+      "id": "wallet",
+      "path": "services/wallet",
+      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "database": "cw_wallet",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [],
+      "productDomainStatus": "typescript-skeleton-only"
+    },
+    {
+      "id": "subscription",
+      "path": "services/subscription",
+      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "database": "cw_subscription",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [],
+      "productDomainStatus": "typescript-skeleton-only"
+    },
+    {
+      "id": "media",
+      "path": "services/media",
+      "runtimeImplementation": "existing-health-only-shell",
+      "database": "cw_media",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
+      "productDomainStatus": "foundation-shell-only"
+    },
+    {
+      "id": "communications",
+      "path": "services/communications",
+      "runtimeImplementation": "existing-health-only-shell",
+      "database": "cw_communications",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [
+        "ServiceMarker",
+        "InboxMessage",
+        "ProbeNotification"
+      ],
+      "productDomainStatus": "foundation-shell-only"
+    },
+    {
+      "id": "reviews",
+      "path": "services/reviews",
+      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "database": "cw_reviews",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [],
+      "productDomainStatus": "typescript-skeleton-only"
+    },
+    {
+      "id": "support",
+      "path": "services/support",
+      "runtimeImplementation": "existing-health-only-shell",
+      "database": "cw_support",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
+      "productDomainStatus": "foundation-shell-only"
+    },
+    {
+      "id": "geo",
+      "path": "services/geo",
+      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "database": "cw_geo",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [],
+      "productDomainStatus": "typescript-skeleton-only"
+    },
+    {
+      "id": "reporting",
+      "path": "services/reporting",
+      "runtimeImplementation": "existing-health-only-shell",
+      "database": "cw_reporting",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [
+        "ServiceMarker",
+        "InboxMessage",
+        "ProbeProjection"
+      ],
+      "productDomainStatus": "foundation-shell-only"
+    },
+    {
+      "id": "configuration",
+      "path": "services/configuration",
+      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "database": "cw_configuration",
+      "businessApi": "planned-not-implemented",
+      "businessEvents": "planned-not-implemented",
+      "deploymentVerified": false,
+      "persistenceModels": [],
+      "productDomainStatus": "typescript-skeleton-only"
+    }
+  ],
+  "applications": {
+    "customer-web": {
+      "status": "golden-html-prototype-only",
+      "evidence": [
+        "apps/customer-web/README.md",
+        "apps/customer-web/prototype/index.html",
+        "design/reference/approved/washgo-payments-interactive.html"
+      ]
+    },
+    "operator-web": {
+      "status": "planned-boundary-only",
+      "evidence": [
+        "apps/operator-web/README.md",
+        "design/reference/approved/washgo-technician-interactive.html"
+      ]
+    },
+    "admin-web": {
+      "status": "planned-boundary-only",
+      "evidence": [
+        "apps/admin-web/README.md",
+        "design/reference/approved/washgo-admin-prototype.html"
+      ]
+    },
+    "api-gateway": {
+      "status": "foundation-gateway-runtime",
+      "evidence": [
+        "apps/api-gateway",
+        ".github/workflows/f007-gateway.yml"
+      ]
+    }
+  },
+  "governance": {
+    "branchProtection": "not-enforced",
+    "rulesets": 0,
+    "note": "Observed from the GitHub repository API on 2026-10-01: main reports protected=false and the repository ruleset collection is empty. This is external repository state and requires X001 administration capability to change."
+  }
+}
