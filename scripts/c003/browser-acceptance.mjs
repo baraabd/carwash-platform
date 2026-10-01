@@ -488,8 +488,8 @@ try {
       const candidate = await openCandidate(context, interaction.scenario);
       await reference.page.locator(interaction.selector).first().click();
       await candidate.page.locator(interaction.selector).first().click();
-      await reference.page.waitForTimeout(120);
-      await candidate.page.waitForTimeout(120);
+      await reference.page.waitForURL(/#(?:book|order)[/]/);
+      await candidate.page.waitForURL(/#[/](?:book|order)[/]/);
       const referenceResult = interaction.read(reference.page.url());
       const candidateResult = interaction.read(candidate.page.url());
       assert.equal(referenceResult, interaction.expected, `${interaction.name}: reference`);
@@ -511,10 +511,10 @@ try {
       page.on('request', (request) => requests.push(`${request.method()} ${request.url()}`));
       await reference.page.locator('.quick-return').click();
       await page.locator('.quick-return').click();
+      await page.locator('[data-booking-step="review"]').waitFor();
       await page.waitForTimeout(150);
       assert.match(page.url(), /#\/book\/6$/);
       assert.deepEqual(requests, [], 'repeat must not send any request');
-      assert.equal(await page.locator('.nav-dot').count(), 0, 'repeat must not add an order');
       assert.equal(
         await page.locator('.toast.show').innerText(),
         await reference.page.locator('.toast.show').innerText(),
@@ -527,11 +527,15 @@ try {
       );
       // Back on Home the finished order is still the only one, now with a draft to continue.
       await page.getByRole('button', { name: 'العودة' }).click();
-      await page.waitForTimeout(120);
+      await page.locator('.quick-return').waitFor();
       assert.match(page.url(), /#\/\?scenario=home-repeat-order$/);
       assert.equal(await page.locator('.quick-return').count(), 1);
       assert.equal(await page.locator('[data-home-entry="saved-draft"]').count(), 1);
       assert.equal(await page.locator('[data-home-entry="active-order"]').count(), 0);
+      // The bookings tab still has no in-progress badge: no order was added.
+      assert.equal(await page.locator('.bottom-nav').count(), 1);
+      assert.equal(await page.locator('.nav-dot').count(), 0, 'repeat must not add an order');
+      assert.deepEqual(requests, [], 'returning Home must not send any request either');
       assert.deepEqual(problems, []);
       summary.interactions.push({ name: 'repeat creates a draft only', requests: requests.length });
     } finally {
@@ -686,7 +690,7 @@ try {
       // Keyboard activation of the repeat entry behaves like a click.
       await page.locator('.quick-return').focus();
       await page.keyboard.press('Enter');
-      await page.waitForTimeout(120);
+      await page.waitForURL(/#[/]book[/]/);
       assert.match(page.url(), /#\/book\/6$/);
       assert.deepEqual(problems, []);
     } finally {
@@ -699,21 +703,36 @@ try {
     const context = await newContext(browser, 390);
     try {
       const { page, problems } = await openCandidate(context, 'home-saved-draft');
+      // The URL changes before React commits the new route, so each step waits for
+      // the destination screen itself rather than for a fixed delay.
+      const bookingScreen = page.locator('[data-booking-step="location"]');
+      const savedDraftCard = page.locator('[data-home-entry="saved-draft"]');
+      const focusedTag = () => page.evaluate(() => globalThis.document.activeElement?.tagName);
+
       await page.locator('.resume .text-btn').click();
       assert.match(page.url(), /#\/book\/2$/);
+      await bookingScreen.waitFor();
+      assert.equal(await focusedTag(), 'H1', 'booking heading receives focus on entry');
+
       await page.goBack();
       assert.match(page.url(), /#\/\?scenario=home-saved-draft$/);
-      assert.equal(await page.locator('[data-home-entry="saved-draft"]').count(), 1);
+      await savedDraftCard.waitFor();
+      assert.equal(await savedDraftCard.count(), 1);
       assert.equal(
-        await page.evaluate(() => globalThis.document.activeElement?.tagName),
-        'H1',
+        await page.evaluate(() => globalThis.document.activeElement?.closest('.hero') !== null),
+        true,
         'Home heading receives focus after in-app navigation',
       );
+      assert.equal(await focusedTag(), 'H1');
+
       await page.goForward();
       assert.match(page.url(), /#\/book\/2$/);
+      await bookingScreen.waitFor();
       await page.goBack();
+      await savedDraftCard.waitFor();
       await page.reload({ waitUntil: 'networkidle' });
-      assert.equal(await page.locator('[data-home-entry="saved-draft"]').count(), 1);
+      await savedDraftCard.waitFor();
+      assert.equal(await savedDraftCard.count(), 1);
       await page.keyboard.press('Tab');
       assert.equal(
         await page.evaluate(() => globalThis.document.activeElement?.classList.contains('skip')),
@@ -737,7 +756,7 @@ try {
       const waves = await page.locator('.hero-cta .tap-wave').count();
       await page.mouse.up();
       assert.equal(waves, reducedMotion === 'reduce' ? 0 : 1, `tap wave with ${reducedMotion}`);
-      await page.waitForTimeout(120);
+      await page.waitForURL(/#[/]book[/]/);
       assert.match(page.url(), /#\/book\/0$/, 'the CTA still works');
       assert.deepEqual(problems, []);
     } finally {
