@@ -4,20 +4,20 @@ import { startReferenceServer } from '../f010/reference-server.mjs';
 
 const origin = process.env.C002_ORIGIN ?? 'http://127.0.0.1:4174';
 const widths = [320, 390, 430, 768, 1024];
-const routes = [
-  '/',
-  '/book/0',
-  '/book/1',
-  '/book/2',
-  '/book/3',
-  '/book/4',
-  '/book/5',
-  '/book/6',
-  '/orders',
-  '/garage',
-  '/account',
-  '/pay/demo-order',
-  '/order/demo-order',
+const routeFixtures = [
+  { route: '/', fixture: 'home-default', shellKind: 'normal' },
+  { route: '/book/0', fixture: 'booking-vehicle-default', shellKind: 'booking' },
+  { route: '/book/1', fixture: 'booking-care-default', shellKind: 'booking' },
+  { route: '/book/2', fixture: 'booking-location-default', shellKind: 'booking' },
+  { route: '/book/3', fixture: 'booking-time-default', shellKind: 'booking' },
+  { route: '/book/4', fixture: 'booking-contact-default', shellKind: 'booking' },
+  { route: '/book/5', fixture: 'booking-payment-default', shellKind: 'booking' },
+  { route: '/book/6', fixture: 'booking-review-default', shellKind: 'booking' },
+  { route: '/orders', fixture: 'orders-default', shellKind: 'normal' },
+  { route: '/garage', fixture: 'garage-default', shellKind: 'normal' },
+  { route: '/account', fixture: 'account-default', shellKind: 'normal' },
+  { route: '/pay/demo-order', fixture: 'payment-default', shellKind: 'payment' },
+  { route: '/order/demo-order', fixture: 'tracking-default', shellKind: 'tracking' },
 ];
 
 const browser = await chromium.launch({ headless: true, args: ['--font-render-hinting=none'] });
@@ -91,15 +91,28 @@ try {
   const context = await browser.newContext({
     viewport: { width: 390, height: 900 },
     locale: 'ar-SY',
+    timezoneId: 'Asia/Damascus',
+    reducedMotion: 'reduce',
   });
   try {
     const page = await context.newPage();
-    for (const route of routes) {
-      await page.goto(`${origin}/#${route}`, { waitUntil: 'networkidle' });
-      assert.ok(await page.locator('[data-customer-route]').count(), `missing route ${route}`);
+    for (const state of routeFixtures) {
+      await page.goto(`${origin}/#${state.route}`, { waitUntil: 'networkidle' });
+      const route = page.locator('[data-customer-route]');
+      assert.equal(await route.count(), 1, `missing route ${state.route}`);
+      assert.equal(
+        await route.getAttribute('data-customer-fixture'),
+        state.fixture,
+        `fixture mismatch for ${state.route}`,
+      );
+      assert.equal(
+        await page.locator('[data-c002-shell]').getAttribute('data-shell-kind'),
+        state.shellKind,
+        `shell kind mismatch for ${state.route}`,
+      );
       const before = page.url();
       await page.reload({ waitUntil: 'networkidle' });
-      assert.equal(page.url(), before, `reload changed route ${route}`);
+      assert.equal(page.url(), before, `reload changed route ${state.route}`);
     }
     await page.goto(`${origin}/#/`, { waitUntil: 'networkidle' });
     await page.getByRole('link', { name: 'حجوزاتي' }).click();

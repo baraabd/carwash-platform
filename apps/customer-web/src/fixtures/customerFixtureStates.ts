@@ -24,6 +24,8 @@ export interface CustomerFixtureState {
     | 'review';
 }
 
+export type CustomerBookingStepId = NonNullable<CustomerFixtureState['bookingStep']>;
+
 export const customerFixtureStates = [
   { id: 'home-default', surface: 'home', route: '/', shellKind: 'normal' },
   {
