@@ -1,6 +1,7 @@
 name: C002 customer shell acceptance
 on:
   pull_request:
+    branches: [develop]
     paths:
       - 'apps/customer-web/**'
       - 'scripts/c002/**'
