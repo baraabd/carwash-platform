@@ -13,6 +13,10 @@ const shell = readFileSync(
 const pkg = JSON.parse(
   readFileSync(new URL('../../apps/customer-web/package.json', import.meta.url), 'utf8'),
 );
+const css = readFileSync(
+  new URL('../../apps/customer-web/src/styles/customer-shell.css', import.meta.url),
+  'utf8',
+);
 
 test('C002 declares seven distinct booking route mount points', () => {
   for (const [index, id] of [
@@ -43,4 +47,24 @@ test('C002 uses the pinned stable React/Vite stack', () => {
 
 test('C002 does not claim backend persistence or payment success', () => {
   assert.doesNotMatch(shell, /localStorage|sessionStorage|paid_demo|fetch\(|axios/i);
+});
+
+test('C002 outer shell keeps approved customer reference geometry and tokens', () => {
+  for (const fragment of [
+    '--bg: #f6f7f2;',
+    '--ink: #16352b;',
+    '--green: #18533c;',
+    '--lime: #d1f58a;',
+    '--line: #e1e7dd;',
+    'padding: 16px 20px 10px;',
+    'min-height: 78px;',
+    'padding: 0 20px calc(108px + env(safe-area-inset-bottom));',
+    'width: 35px; height: 39px; border-radius: 15px 15px 15px 5px;',
+    'letter-spacing: -1.4px; font-size: 25px;',
+    'padding: 7px 10px calc(7px + env(safe-area-inset-bottom));',
+    'border-radius: 13px; width: 49px; height: 30px;',
+    'background: #e6f0d7;',
+  ]) {
+    assert.ok(css.includes(fragment), fragment);
+  }
 });
