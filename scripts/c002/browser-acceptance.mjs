@@ -43,7 +43,9 @@ try {
       assert.ok(shell.width <= 482);
       assert.ok(Math.abs(header.width - shell.width) <= 2);
       assert.ok(Math.abs(main.width - shell.width) <= 2);
-      const overflow = await page.evaluate(() => globalThis.document.documentElement.scrollWidth - globalThis.innerWidth);
+      const overflow = await page.evaluate(
+        () => globalThis.document.documentElement.scrollWidth - globalThis.innerWidth,
+      );
       assert.ok(overflow <= 1, `horizontal overflow at ${width}: ${overflow}`);
 
       const referencePage = await context.newPage();
@@ -78,7 +80,9 @@ try {
 
       await page.keyboard.press('Tab');
       assert.equal(
-        await page.evaluate(() => globalThis.document.activeElement?.classList.contains('skip')),
+        await page.evaluate(() =>
+          globalThis.document.activeElement?.classList.contains('skip'),
+        ),
         true,
       );
     } finally {
