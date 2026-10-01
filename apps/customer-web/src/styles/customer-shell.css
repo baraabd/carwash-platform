@@ -1,15 +1,15 @@
 :root {
-  --bg: #f6f7f2;
+  --bg: #f7f8f3;
   --paper: #fff;
-  --ink: #16352b;
-  --green: #18533c;
-  --lime: #d1f58a;
-  --muted: #65746b;
-  --line: #e1e7dd;
-  --soft: #edf3e6;
-  --radius: 24px;
+  --ink: #103f32;
+  --green: #144c39;
+  --lime: #d6fa91;
+  --muted: #657768;
+  --line: #dce6d8;
+  --soft: #eef4e5;
+  --radius: 26px;
   color-scheme: light;
-  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+  font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, Arial, sans-serif;
   font-synthesis: none;
 }
 * {
@@ -111,15 +111,15 @@ p {
   isolation: isolate;
 }
 .app-header {
-  padding: 16px 20px 10px;
+  padding: 18px 22px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 78px;
+  min-height: 83px;
 }
 .main {
-  padding: 0 20px calc(108px + env(safe-area-inset-bottom));
+  padding: 0 22px calc(132px + env(safe-area-inset-bottom));
   min-height: 72svh;
   overflow: clip;
   overflow-clip-margin: 12px;
@@ -202,7 +202,7 @@ p {
   left: 50%;
   transform: translateX(-50%);
   width: min(480px, 100%);
-  padding: 7px 10px calc(7px + env(safe-area-inset-bottom));
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   background: #ffffffed;
@@ -235,7 +235,7 @@ p {
   font-weight: 700;
 }
 .nav-btn.active .nav-icon {
-  background: #e6f0d7;
+  background: #e3efce;
 }
 .c002-deferred-footer {
   position: fixed;
