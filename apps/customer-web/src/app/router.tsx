@@ -1,18 +1,18 @@
 import { createHashRouter } from 'react-router-dom';
+import { AccountRoute } from '../features/account';
+import { BookingRoute } from '../features/booking';
+import { GarageRoute } from '../features/garage';
+import { HomeRoute } from '../features/home';
+import { OrdersRoute } from '../features/orders';
+import { PaymentRoute } from '../features/payment';
+import { TrackingRoute } from '../features/tracking';
+import { ShellPlaceholder } from '../shared/ShellPlaceholder';
 import { CustomerShell } from './CustomerShell';
-import { ShellPlaceholder } from './ShellPlaceholder';
 import { bookingSteps } from './routes';
 
 const bookingRoutes = bookingSteps.map((step) => ({
   path: step.path.slice(1),
-  element: (
-    <ShellPlaceholder
-      routeId={`booking-${step.id}`}
-      bookingStep={step.id}
-      title={step.label}
-      description="نقطة تركيب مستقلة لخطوة الحجز المعتمدة."
-    />
-  ),
+  element: <BookingRoute step={step.id} title={step.label} />,
 }));
 
 export const customerRouter = createHashRouter([
@@ -20,55 +20,13 @@ export const customerRouter = createHashRouter([
     path: '/',
     element: <CustomerShell />,
     children: [
-      {
-        index: true,
-        element: (
-          <ShellPlaceholder
-            routeId="home"
-            title="وقتك لك. واللمعة علينا."
-            description="نقطة تركيب الصفحة الرئيسية."
-          />
-        ),
-      },
+      { index: true, element: <HomeRoute /> },
       ...bookingRoutes,
-      {
-        path: 'orders',
-        element: (
-          <ShellPlaceholder routeId="orders" title="حجوزاتي." description="نقطة تركيب الحجوزات." />
-        ),
-      },
-      {
-        path: 'garage',
-        element: (
-          <ShellPlaceholder routeId="garage" title="سياراتي." description="نقطة تركيب السيارات." />
-        ),
-      },
-      {
-        path: 'account',
-        element: (
-          <ShellPlaceholder routeId="account" title="حسابي." description="نقطة تركيب الحساب." />
-        ),
-      },
-      {
-        path: 'pay/:orderId',
-        element: (
-          <ShellPlaceholder
-            routeId="payment"
-            title="الدفع، بكل وضوح."
-            description="نقطة تركيب الدفع."
-          />
-        ),
-      },
-      {
-        path: 'order/:orderId',
-        element: (
-          <ShellPlaceholder
-            routeId="tracking"
-            title="غسلتك خطوة بخطوة"
-            description="نقطة تركيب متابعة الحجز."
-          />
-        ),
-      },
+      { path: 'orders', element: <OrdersRoute /> },
+      { path: 'garage', element: <GarageRoute /> },
+      { path: 'account', element: <AccountRoute /> },
+      { path: 'pay/:orderId', element: <PaymentRoute /> },
+      { path: 'order/:orderId', element: <TrackingRoute /> },
       {
         path: '*',
         element: (
