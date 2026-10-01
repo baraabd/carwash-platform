@@ -43,19 +43,21 @@ test('X003 HTTP registry is versioned, bounded and source-linked', () => {
   const docs = JSON.parse(readFileSync(path.join(root, 'docs/api/contract-registry.json'), 'utf8'));
   assert.equal(docs.schemaVersion, 1);
   assert.deepEqual(
-    docs.contracts.map(({ id, domain, version, prefix, status }) => ({
+    docs.contracts.map(({ id, domain, version, prefix, status, openApi }) => ({
       id,
       domain,
       version,
       prefix,
       status,
+      openApi,
     })),
-    httpRegistry.HTTP_CONTRACTS.map(({ id, domain, version, prefix, status }) => ({
+    httpRegistry.HTTP_CONTRACTS.map(({ id, domain, version, prefix, status, openApi }) => ({
       id,
       domain,
       version,
       prefix,
       status,
+      openApi,
     })),
   );
   for (const entry of docs.contracts) assert.ok(existsSync(path.join(root, entry.openApi)));
