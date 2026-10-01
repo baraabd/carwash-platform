@@ -70,7 +70,10 @@ test('C001 rejects capability removal and owner reassignment', () => {
   assert.throws(() => validateCustomerBehaviorManifest(removed), /C001_CAPABILITY_SET/);
 
   const swapped = globalThis.structuredClone(loadCustomerManifest());
-  [swapped.capabilityOwnership.vehicles, swapped.capabilityOwnership.paymentVerificationAndRefund] = [
+  [
+    swapped.capabilityOwnership.vehicles,
+    swapped.capabilityOwnership.paymentVerificationAndRefund,
+  ] = [
     swapped.capabilityOwnership.paymentVerificationAndRefund,
     swapped.capabilityOwnership.vehicles,
   ];
