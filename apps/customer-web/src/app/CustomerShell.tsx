@@ -1,7 +1,14 @@
+import { useEffect, useRef } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Toast } from '../shared/Toast';
+import { inProgressOrderCount } from '../state/customerSession';
+import { useCustomerSession } from '../state/CustomerSessionProvider';
+import { CityNotice } from './CityNotice';
 import { Icon } from './Icon';
 
 function NormalHeader() {
+  const { state } = useCustomerSession();
+  const initial = state.profile.name.charAt(0);
   return (
     <>
       <NavLink className="brand" to="/" aria-label="WashGo الرئيسية">
@@ -12,11 +19,9 @@ function NormalHeader() {
           Wash<em>Go</em>
         </span>
       </NavLink>
-      <button className="city" type="button" aria-label="المدينة">
-        <Icon name="pin" small /> دمشق <Icon name="down" small />
-      </button>
+      <CityNotice />
       <NavLink className="icon-btn soft" to="/account" aria-label="حسابي">
-        <Icon name="user" small />
+        {initial || <Icon name="user" small />}
       </NavLink>
     </>
   );
@@ -24,9 +29,10 @@ function NormalHeader() {
 
 function ContextHeader({ kind }: { readonly kind: 'booking' | 'payment' | 'tracking' }) {
   const navigate = useNavigate();
+  const { state } = useCustomerSession();
   const config = {
     booking: {
-      title: 'غسلتك، على راحتك.',
+      title: state.bookingMode === 'repeat' ? 'مرة ثانية، بكل سهولة.' : 'غسلتك، على راحتك.',
       subtitle: 'تفصيلة واحدة في كل خطوة',
       action: <Icon name="close" small />,
       actionLabel: 'حفظ المسودة والخروج',
@@ -69,6 +75,8 @@ const tabs = [
 ];
 
 function BottomNavigation({ tracking }: { readonly tracking: boolean }) {
+  const { state } = useCustomerSession();
+  const inProgress = inProgressOrderCount(state);
   return (
     <nav className="bottom-nav" aria-label="التنقل الرئيسي">
       {tabs.map((tab) => (
@@ -85,6 +93,9 @@ function BottomNavigation({ tracking }: { readonly tracking: boolean }) {
             <Icon name={tab.icon} />
           </span>
           {tab.label}
+          {tab.id === 'orders' && inProgress > 0 ? (
+            <span className="nav-dot">{inProgress}</span>
+          ) : null}
         </NavLink>
       ))}
     </nav>
@@ -108,6 +119,18 @@ export function CustomerShell() {
   const payment = location.pathname.startsWith('/pay/');
   const tracking = location.pathname.startsWith('/order/');
   const kind = booking ? 'booking' : payment ? 'payment' : tracking ? 'tracking' : 'normal';
+  const { state } = useCustomerSession();
+
+  // After an in-app route change, start the new screen at its top and move focus to
+  // its heading, as the reference does. The first page load is left alone so the
+  // skip link stays the first keyboard stop.
+  const renderedLocation = useRef(location);
+  useEffect(() => {
+    if (renderedLocation.current === location) return;
+    renderedLocation.current = location;
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    document.querySelector<HTMLElement>('#main h1')?.focus({ preventScroll: true });
+  }, [location]);
 
   return (
     <>
@@ -128,7 +151,7 @@ export function CustomerShell() {
           <br />
           تجربة صُمّمت لراحتك.
         </p>
-        <span className="desktop-chip">تصميم للهاتف</span>
+        <span className="desktop-chip">تصميم للهاتف · تجربة محلية</span>
       </aside>
       <span className="desktop-number" aria-hidden="true">
         CAR CARE — SIMPLIFIED / 04
@@ -146,6 +169,7 @@ export function CustomerShell() {
           <BottomNavigation tracking={tracking} />
         )}
       </div>
+      <Toast message={state.notice?.message ?? null} sequence={state.notice?.sequence ?? 0} />
       <div className="sr-only" aria-live="polite" />
     </>
   );

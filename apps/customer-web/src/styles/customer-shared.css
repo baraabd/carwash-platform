@@ -1,0 +1,322 @@
+/*
+ * Primitives shared by customer screens, ported rule-for-rule from the approved
+ * reference (design/reference/approved/washgo-payments-interactive.html).
+ * Rule order follows the reference cascade; do not reorder or "tidy" values.
+ */
+:root {
+  --danger: #a13236;
+  --motion-fast: 160ms;
+  --motion-base: 300ms;
+  --ease-out: cubic-bezier(0.22, 0.8, 0.26, 1);
+}
+h1 {
+  font-size: 30px;
+  line-height: 1.55;
+  letter-spacing: -1px;
+  font-weight: 750;
+}
+h2 {
+  font-size: 22px;
+  line-height: 1.5;
+  letter-spacing: -0.5px;
+}
+h3 {
+  margin: 0;
+  font-size: 17px;
+}
+small {
+  font-size: 12px;
+}
+svg {
+  display: block;
+  flex-shrink: 0;
+}
+/* The reference renders these as <button>; links must match its box defaults. */
+.brand {
+  text-align: center;
+}
+.nav-btn,
+a.icon-btn {
+  text-align: center;
+  padding: 1px 6px;
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.ltr {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.between {
+  justify-content: space-between;
+}
+.full {
+  width: 100%;
+}
+.city .icon {
+  width: 15px;
+  height: 15px;
+}
+.currency {
+  font-size: 11px;
+  font-weight: 400;
+  margin-inline-start: 4px;
+}
+.text-btn {
+  background: none;
+  color: var(--green);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 5px 0;
+  font-size: 12px;
+  font-weight: 650;
+}
+.nav-btn .icon {
+  width: 25px;
+  height: 25px;
+}
+.nav-dot {
+  position: absolute;
+  top: 2px;
+  right: calc(50% - 17px);
+  background: var(--green);
+  color: white;
+  font-size: 8px;
+  border: 2px solid white;
+  border-radius: 12px;
+  min-width: 16px;
+  padding: 0 3px;
+  line-height: 13px;
+}
+.btn {
+  min-height: 56px;
+  border-radius: 20px;
+  background: var(--green);
+  color: white;
+  padding: 11px 17px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease;
+}
+.btn:hover {
+  background: #124630;
+}
+.btn:active {
+  transform: scale(0.97);
+}
+.art-scene {
+  width: 100%;
+  height: 100%;
+}
+.art-scene svg {
+  height: 100%;
+  width: 100%;
+}
+.scene-spark {
+  animation: spark 3s ease-in-out 1;
+}
+.chapter-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 57px;
+  height: 57px;
+  border-radius: 21px;
+  background: linear-gradient(145deg, #fff, #e2efd2);
+  border: 1px solid #d9e8ce;
+  box-shadow:
+    inset 0 2px 0 #fff,
+    0 8px 22px #30482106;
+  color: #25613e;
+  position: relative;
+}
+.chapter-icon .icon {
+  width: 31px;
+  height: 31px;
+  stroke-width: 1.55;
+}
+.sheet {
+  margin: auto auto 0;
+  position: fixed;
+  inset: auto 0 0;
+  max-height: 91svh;
+  width: min(480px, 100%);
+  max-width: 480px;
+  border: 1px solid #dce4d3;
+  border-bottom: 0;
+  border-radius: 30px 30px 0 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: 0 -15px 80px #122b2230;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.sheet::backdrop {
+  background: #10231b85;
+  backdrop-filter: blur(5px);
+}
+.sheet[open] {
+  animation: sheetIn 0.22s ease-out;
+}
+.sheet-inner {
+  padding: 10px 20px calc(22px + env(safe-area-inset-bottom));
+}
+.sheet-handle {
+  width: 39px;
+  height: 4px;
+  border-radius: 5px;
+  background: #cbd8be;
+  margin: 0 auto 13px;
+}
+.sheet-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.sheet h2 {
+  font-size: 23px;
+}
+.sheet-head .icon-btn {
+  width: 44px;
+  height: 44px;
+}
+.sheet-intro {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.9;
+  margin: 0 0 14px;
+}
+.toast {
+  position: fixed;
+  bottom: calc(138px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translate(-50%, 12px);
+  max-width: min(390px, calc(100vw - 40px));
+  width: max-content;
+  background: #173628f5;
+  color: #f4ffe9;
+  font-size: 12px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  box-shadow: 0 8px 35px #152d252e;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1000;
+  text-align: center;
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
+  line-height: 1.8;
+}
+.toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.icon-btn {
+  position: relative;
+  overflow: hidden;
+}
+.icon-btn,
+.text-btn {
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease;
+}
+.icon-btn:active {
+  transform: scale(0.97);
+}
+.tap-wave {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  animation: tap-wave 480ms ease-out;
+  mix-blend-mode: multiply;
+}
+.btn .tap-wave,
+.hero-cta .tap-wave {
+  background: white;
+  mix-blend-mode: normal;
+}
+/* A focused announcement heading is not an interactive control. */
+.main h1[tabindex='-1']:focus {
+  outline: none;
+}
+@keyframes sheetIn {
+  from {
+    transform: translateY(28px);
+    opacity: 0.5;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes spark {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+@keyframes tap-wave {
+  0% {
+    opacity: 0.08;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(22);
+  }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .btn:not(:disabled):hover {
+    filter: brightness(1.035);
+  }
+}
+@media (min-width: 800px) {
+  .sheet {
+    margin-bottom: 18px;
+    border: 1px solid #dce4d3;
+    max-height: 88svh;
+  }
+}
+@media (max-width: 359px) {
+  .sheet-inner {
+    padding-inline: 15px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  button:active {
+    transform: none !important;
+  }
+}
