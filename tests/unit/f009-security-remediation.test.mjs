@@ -24,14 +24,23 @@ const vex = JSON.parse(
   readFileSync(new URL('../../security/vex/CVE-2026-97399.openvex.json', import.meta.url), 'utf8'),
 );
 
-test('F009 CodeQL excludes only the two immutable customer HTML authorities', () => {
+test('F009 CodeQL excludes only immutable approved HTML authorities', () => {
   assert.match(workflow, /config-file: \.\/\.github\/codeql\/f009-codeql-config\.yml/);
   const ignored = [...codeqlConfig.matchAll(/^ {2}- (.+)$/gm)].map((match) => match[1]);
   assert.deepEqual(ignored, [
     'design/reference/approved/washgo-payments-interactive.html',
+    'design/reference/approved/washgo-technician-interactive.html',
+    'design/reference/approved/washgo-admin-prototype.html',
     'apps/customer-web/prototype/index.html',
   ]);
   assert.ok(ignored.every((path) => !path.includes('*')));
+  assert.ok(
+    ignored.every(
+      (path) =>
+        path.startsWith('design/reference/approved/') ||
+        path === 'apps/customer-web/prototype/index.html',
+    ),
+  );
   assert.doesNotMatch(codeqlConfig, /services\/|packages\/|scripts\/|tests\//);
 });
 
