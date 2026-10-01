@@ -15,13 +15,13 @@ test('C001 customer behavior manifest matches the immutable prototype authority'
 });
 
 test('C001 rejects an omitted customer action', () => {
-  const changed = structuredClone(loadCustomerManifest());
+  const changed = globalThis.structuredClone(loadCustomerManifest());
   changed.actions = changed.actions.slice(1);
   assert.throws(() => validateCustomerBehaviorManifest(changed), /C001_ACTION_INVENTORY/);
 });
 
 test('C001 rejects booking-flow reordering or relabeling', () => {
-  const changed = structuredClone(loadCustomerManifest());
+  const changed = globalThis.structuredClone(loadCustomerManifest());
   [changed.bookingFlow[0], changed.bookingFlow[1]] = [
     changed.bookingFlow[1],
     changed.bookingFlow[0],
@@ -31,7 +31,7 @@ test('C001 rejects booking-flow reordering or relabeling', () => {
     /C001_FLOW_INDEXES|C001_FLOW_LABELS/,
   );
 
-  const relabeled = structuredClone(loadCustomerManifest());
+  const relabeled = globalThis.structuredClone(loadCustomerManifest());
   relabeled.bookingFlow[5].label = 'دفع';
   assert.throws(() => validateCustomerBehaviorManifest(relabeled), /C001_FLOW_LABELS/);
 });
@@ -46,20 +46,20 @@ test('C001 rejects backend-readiness claims that the HTML prototype does not pro
     'authoritativePricing',
     'authoritativeAvailability',
   ]) {
-    const changed = structuredClone(loadCustomerManifest());
+    const changed = globalThis.structuredClone(loadCustomerManifest());
     changed.prototypeTruth[key] = true;
     assert.throws(() => validateCustomerBehaviorManifest(changed), /OVERCLAIM/);
   }
 });
 
 test('C001 rejects reference authority drift', () => {
-  const changed = structuredClone(loadCustomerManifest());
+  const changed = globalThis.structuredClone(loadCustomerManifest());
   changed.reference.sha256 = '0'.repeat(64);
   assert.throws(() => validateCustomerBehaviorManifest(changed), /C001_REFERENCE_SHA256/);
 });
 
 test('C001 rejects unowned capability removal', () => {
-  const changed = structuredClone(loadCustomerManifest());
+  const changed = globalThis.structuredClone(loadCustomerManifest());
   delete changed.capabilityOwnership.paymentVerificationAndRefund;
   assert.throws(() => validateCustomerBehaviorManifest(changed), /C001_OWNER_MISSING:billing/);
 });
