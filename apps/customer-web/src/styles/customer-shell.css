@@ -18,14 +18,14 @@
 }
 html {
   background: #e8eee4;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
 }
 body {
   margin: 0;
   color: var(--ink);
   background:
-    radial-gradient(ellipse at 10% 15%, #cedcc66b, transparent 45%),
-    radial-gradient(ellipse at 90% 80%, #d2dec86b, transparent 50%), #e8eee4;
+    radial-gradient(ellipse at 5% 8%, #dbe8d3, transparent 48%),
+    radial-gradient(ellipse at 95% 80%, #dae4d2, transparent 48%), #edf1e7;
   line-height: 1.65;
   font-size: 14px;
 }
@@ -138,21 +138,21 @@ p {
   place-items: center;
   background: var(--ink);
   color: var(--lime);
-  width: 35px;
-  height: 39px;
-  border-radius: 15px 15px 15px 5px;
+  width: 41px;
+  height: 43px;
+  border-radius: 17px 17px 17px 7px;
   transform: rotate(-6deg);
 }
 .brand-mark .icon {
-  width: 20px;
-  height: 20px;
+  width: 25px;
+  height: 25px;
   transform: rotate(6deg);
 }
 .wordmark {
   font-family: Arial, sans-serif;
   font-weight: 800;
-  letter-spacing: -1.4px;
-  font-size: 25px;
+  letter-spacing: -1.65px;
+  font-size: 28px;
 }
 .wordmark em {
   font-style: normal;
@@ -169,8 +169,8 @@ p {
   font-size: 12px;
 }
 .icon-btn {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   display: inline-grid;
   place-items: center;
   border-radius: 50%;
@@ -185,16 +185,16 @@ p {
 .header-title {
   text-align: center;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.7;
 }
 .header-title small {
   display: block;
   font-weight: 400;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.7;
   color: var(--muted);
-  margin-top: 1px;
+  margin-top: 4px;
 }
 .bottom-nav {
   position: fixed;
@@ -220,13 +220,13 @@ p {
   align-items: center;
   justify-content: center;
   font-size: 10px;
-  gap: 3px;
+  gap: 4px;
   color: #687368;
 }
 .nav-btn .nav-icon {
-  border-radius: 13px;
+  border-radius: 15px;
   width: 49px;
-  height: 30px;
+  height: 34px;
   display: grid;
   place-items: center;
 }
@@ -311,7 +311,7 @@ p {
     overflow: clip;
   }
   .app-header {
-    padding-top: 19px;
+    padding-top: 18px;
   }
   .bottom-nav,
   .c002-deferred-footer {
@@ -322,7 +322,8 @@ p {
     box-shadow: 0 10px 35px #182b2417;
   }
   .main {
-    padding-bottom: 120px;
+    padding-bottom: 132px;
+    min-height: 75svh;
   }
 }
 @media (min-width: 1200px) {
@@ -374,12 +375,12 @@ p {
     writing-mode: vertical-rl;
   }
 }
-@media (max-width: 359px) {
+@media (max-width: 374px) {
   .main {
-    padding-inline: 15px;
+    padding-inline: 17px;
   }
   .app-header {
-    padding-inline: 15px;
+    padding-inline: 17px;
     gap: 8px;
   }
 }
