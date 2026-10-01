@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "referenceSet": "washgo-three-apps-v1",
+  "owner": "baraabd",
+  "registeredAt": "2026-09-30",
+  "note": "Golden HTML references for parity tooling. They are design authorities, not proof of backend or production readiness.",
+  "references": {
+    "customer": {
+      "canonicalHtml": "design/reference/approved/washgo-payments-interactive.html",
+      "bytes": 263462,
+      "sha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549",
+      "language": "ar",
+      "direction": "rtl",
+      "surface": "customer"
+    },
+    "technician": {
+      "canonicalHtml": "design/reference/approved/washgo-technician-interactive.html",
+      "bytes": 122636,
+      "sha256": "d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc",
+      "language": "ar",
+      "direction": "rtl",
+      "surface": "technician"
+    },
+    "admin": {
+      "canonicalHtml": "design/reference/approved/washgo-admin-prototype.html",
+      "bytes": 40310,
+      "sha256": "b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273",
+      "language": "ar",
+      "direction": "rtl",
+      "surface": "admin"
+    }
+  },
+  "rendering": {
+    "viewports": [320, 390, 430, 768, 1024, 1440],
+    "height": 900,
+    "deviceScaleFactor": 1,
+    "locale": "ar-SY",
+    "timezoneId": "Asia/Damascus",
+    "colorScheme": "light",
+    "reducedMotion": "reduce",
+    "fixedTime": "2026-09-20T09:00:00.000Z",
+    "channelThreshold": 8,
+    "allowedDiffRatio": 0
+  }
+}

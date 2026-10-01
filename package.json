@@ -58,17 +58,23 @@
     "test:gateway": "node --test tests/gateway/unit.test.mjs",
     "acceptance:gateway": "node scripts/acceptance-identity.mjs --include-gateway",
     "check:gateway-contract": "node scripts/gateway-openapi.mjs --check",
-    "test:observability": "node --test --test-reporter=spec tests/observability/*.test.mjs"
+    "test:observability": "node --test --test-reporter=spec tests/observability/*.test.mjs",
+    "check:f010-references": "node scripts/f010/reference-registry.mjs --allow-registration",
+    "test:f010:unit": "node --test --test-reporter=spec tests/f010/*.test.mjs",
+    "test:f010:browser": "node scripts/f010/browser-acceptance.mjs",
+    "f010:fonts": "node scripts/f010/font-provenance.mjs",
+    "verify:f010": "pnpm check:design-reference && pnpm check:f010-references && pnpm test:f010:unit && pnpm test:f010:browser"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
     "@types/node": "24.13.6",
+    "axe-core": "4.13.0",
     "eslint": "10.11.0",
     "prettier": "3.9.8",
-    "typescript": "5.9.3",
-    "typescript-eslint": "8.70.0",
     "turbo": "2.11.4",
-    "@playwright/test": "1.63.0"
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.0"
   },
   "pnpm": {
     "overrides": {
