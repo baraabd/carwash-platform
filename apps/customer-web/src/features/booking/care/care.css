@@ -192,6 +192,67 @@
   font-size: 12px;
   font-weight: 700;
 }
+/* Add-ons sheet (extrasSheet() in the reference). */
+.addon-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: #fff;
+  padding: 13px;
+  min-height: 75px;
+  cursor: pointer;
+}
+.addon-option.selected {
+  border-color: #86a56b;
+  background: #f0f6e6;
+}
+.addon-option.included {
+  background: #eff2e8;
+  cursor: default;
+}
+.addon-option strong {
+  font-size: 12px;
+}
+.addon-option small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.addon-option:focus-within {
+  outline: 3px solid #337abd;
+  outline-offset: 3px;
+}
+.addon-price {
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.checkbox-ui {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 1.5px solid #b9c8ad;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.checkbox-ui svg {
+  display: none;
+  width: 13px;
+  height: 13px;
+}
+.selected .checkbox-ui,
+.included .checkbox-ui {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+}
+.selected .checkbox-ui svg,
+.included .checkbox-ui svg {
+  display: block;
+}
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .service-option:hover {
     border-color: #86a26d;

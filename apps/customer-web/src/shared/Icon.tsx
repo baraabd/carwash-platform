@@ -26,7 +26,10 @@ export type IconName =
   | 'up'
   | 'plus'
   | 'lock'
-  | 'trash';
+  | 'trash'
+  | 'seat'
+  | 'wheel'
+  | 'leaf';
 
 const paths: Record<IconName, ReactNode> = {
   check: <path d="m5 12 4 4L19 6" />,
@@ -46,6 +49,17 @@ const paths: Record<IconName, ReactNode> = {
     </>
   ),
   trash: <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7" />,
+  seat: (
+    <path d="m7 3-2 11a3 3 0 0 0 3 4h10a2 2 0 0 0 0-4h-8l2-9a2 2 0 0 0-5-2Zm1 15-1 4m11-4 1 4" />
+  ),
+  wheel: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 3v5m0 8v5M3 12h5m8 0h5m-11-2 2 2 2 2m0-4-4 4" />
+    </>
+  ),
+  leaf: <path d="M20 3C8 2 3 7 5 14s15 10 15-11ZM4 21l12-13" />,
   drop: (
     <>
       <path d="M12 3C9.5 7 5 11.6 5 15a7 7 0 0 0 14 0c0-3.4-4.5-8-7-12Z" />

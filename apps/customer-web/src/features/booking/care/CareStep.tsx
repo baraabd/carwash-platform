@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { packageFixtures } from '../../../fixtures/customerCatalogFixture';
 import { Icon } from '../../../shared/Icon';
-import type { CarePackageId } from '../../../state/bookingDraft';
+import type { CareExtraId, CarePackageId } from '../../../state/bookingDraft';
 import {
   CARE_STEP_INDEX,
   returnToVehicleStep,
@@ -10,12 +10,15 @@ import {
   submitCareStep,
 } from '../../../state/careStep';
 import { useCustomerSession } from '../../../state/CustomerSessionProvider';
+import { confirmExtras, setExtraSelected } from '../../../state/extrasStep';
 import { pathForIntent } from '../../../state/navigationPath';
 import { BookingFooter } from '../BookingFooter';
 import { BookingProgress } from '../BookingProgress';
 import { bookingFlow } from '../bookingFlow';
 import { buildPriceBreakdown } from '../priceBreakdown';
 import { CareContext, CarePackageList, ExtrasRow } from './components/CarePackageList';
+import { ExtrasSheet } from './components/ExtrasSheet';
+import { buildExtrasViewModel } from './extrasViewModel';
 import { buildCareStepViewModel } from './careViewModel';
 import './care.css';
 
@@ -31,6 +34,11 @@ export function CareStep() {
   const navigate = useNavigate();
   const view = useMemo(() => buildCareStepViewModel(state), [state]);
   const breakdown = useMemo(() => buildPriceBreakdown(state.draft), [state.draft]);
+  const extras = useMemo(() => buildExtrasViewModel(state.draft), [state.draft]);
+  // While the add-ons sheet is open the row behind it keeps what it showed when
+  // the sheet opened, as in the reference; it catches up when the sheet closes.
+  const [extrasOpen, setExtrasOpen] = useState(false);
+  const [rowWhileOpen, setRowWhileOpen] = useState({ summary: '', amount: '' });
   const root = useRef<HTMLDivElement>(null);
   const footerPrice = useRef<HTMLElement>(null);
   const animatedPackage = useRef(view.selectedPackage);
@@ -68,6 +76,27 @@ export function CareStep() {
     }));
   };
 
+  const openExtras = () => {
+    setRowWhileOpen({ summary: view.extrasSummary, amount: view.extrasAmount });
+    setExtrasOpen(true);
+  };
+
+  const toggleExtra = (extra: CareExtraId, selected: boolean) => {
+    run((current) => ({
+      state: setExtraSelected(
+        current,
+        extra,
+        selected,
+        packageFixtures[current.draft.service].includes,
+      ),
+    }));
+  };
+
+  const applyExtras = () => {
+    setExtrasOpen(false);
+    run((current) => ({ state: confirmExtras(current) }));
+  };
+
   const follow = (command: typeof submitCareStep) => {
     const { intent } = run(command);
     if (intent) navigate(pathForIntent(intent));
@@ -93,7 +122,18 @@ export function CareStep() {
       </div>
       <CareContext carLabel={view.carLabel} onChangeVehicle={() => follow(returnToVehicleStep)} />
       <CarePackageList options={view.options} onSelect={handleSelect} />
-      <ExtrasRow summary={view.extrasSummary} amount={view.extrasAmount} />
+      <ExtrasRow
+        summary={extrasOpen ? rowWhileOpen.summary : view.extrasSummary}
+        amount={extrasOpen ? rowWhileOpen.amount : view.extrasAmount}
+        onOpen={openExtras}
+      />
+      <ExtrasSheet
+        open={extrasOpen}
+        view={extras}
+        onToggle={toggleExtra}
+        onApply={applyExtras}
+        onClose={() => setExtrasOpen(false)}
+      />
       <BookingFooter
         total={view.footerTotal}
         minutes={view.footerMinutes}

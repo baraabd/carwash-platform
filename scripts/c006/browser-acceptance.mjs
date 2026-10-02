@@ -649,9 +649,9 @@ try {
           doneSteps: doc.querySelectorAll('.step-segment.done').length,
           headings: doc.querySelectorAll('.main h1').length,
           clickOnly: doc.querySelectorAll('.main [role="button"], .main div[onclick]').length,
-          extrasDeferred: doc
-            .querySelector('.main .disclosure-row')
-            .getAttribute('data-deferred-to'),
+          // C006 asserted this row was deferred to C007; C007 made it open the
+          // add-ons sheet, so it is now checked as a dialog opener.
+          extrasPopup: doc.querySelector('.main .disclosure-row').getAttribute('aria-haspopup'),
           totalPopup: doc.querySelector('.booking-total').getAttribute('aria-haspopup'),
           priceLive: doc.querySelector('#footer-price').getAttribute('aria-live'),
         };
@@ -668,7 +668,7 @@ try {
         doneSteps: 1,
         headings: 1,
         clickOnly: 0,
-        extrasDeferred: 'C007',
+        extrasPopup: 'dialog',
         totalPopup: 'dialog',
         priceLive: 'polite',
       });
