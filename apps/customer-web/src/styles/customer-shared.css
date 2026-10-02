@@ -350,3 +350,20 @@ a.icon-btn {
     transform: none !important;
   }
 }
+.info-note {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 13px;
+  border-radius: 16px;
+  background: #edf2e7;
+  font-size: 12px;
+  line-height: 1.9;
+  color: #536c49;
+  margin-top: 15px;
+}
+.info-note svg {
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+}

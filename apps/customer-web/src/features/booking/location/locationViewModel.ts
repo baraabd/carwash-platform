@@ -9,7 +9,16 @@ export interface PlaceShortcut {
   readonly selected: boolean;
 }
 
+export interface SavedAddressChoice {
+  readonly id: string;
+  readonly label: string;
+  /** The draft's address text equals this record's — the reference's own rule. */
+  readonly selected: boolean;
+}
+
 export interface LocationStepViewModel {
+  /** Saved addresses offered above the card; empty when the book is empty. */
+  readonly savedChoices: readonly SavedAddressChoice[];
   /** Whether the draft carries any address text. */
   readonly hasAddress: boolean;
   /** Accessible name of the card that opens the address sheet. */
@@ -37,6 +46,11 @@ export function buildLocationStepViewModel(state: CustomerSessionState): Locatio
   const placeKind = draft.place?.kind;
   const cost = illustrativeCost(draft);
   return {
+    savedChoices: state.addresses.map((record) => ({
+      id: record.id,
+      label: record.label,
+      selected: draft.address === record.address,
+    })),
     hasAddress,
     cardLabel: `${hasAddress ? 'تعديل' : 'تحديد'} مكان غسيل السيارة`,
     cardTitle: hasAddress ? draft.addressLabel || 'موقع الغسيل' : 'حدد مكان السيارة',

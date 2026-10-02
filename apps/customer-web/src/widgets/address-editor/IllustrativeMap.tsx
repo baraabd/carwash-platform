@@ -5,8 +5,8 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
-import { IllustrativeMapArt } from '../../../../shared/art/IllustrativeMapArt';
-import { Icon } from '../../../../shared/Icon';
+import { IllustrativeMapArt } from '../../shared/art/IllustrativeMapArt';
+import { Icon } from '../../shared/Icon';
 import {
   INITIAL_MAP_VIEW,
   MAP_DRAG_THRESHOLD,
@@ -18,7 +18,7 @@ import {
   pinchMapView,
   zoomMapView,
   type MapView,
-} from '../../../../state/locationStep';
+} from '../../state/locationStep';
 
 interface IllustrativeMapProps {
   /** Where the pin is drawn, in the drawing's own 700×500 space. */

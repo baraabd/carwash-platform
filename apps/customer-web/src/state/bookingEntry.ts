@@ -11,6 +11,7 @@ import {
   type CustomerSessionState,
   type SessionTransition,
 } from './customerSession.ts';
+import { prefillAddressFromBook } from './savedAddresses.ts';
 
 /**
  * Entry commands into the booking journey. Each one only prepares the local
@@ -38,8 +39,9 @@ export function startBooking(
           color: firstSaved.color,
         }
       : {};
+  // Likewise a draft with no address starts with the first saved one.
   const draft: BookingDraft = {
-    ...state.draft,
+    ...prefillAddressFromBook(state.draft, state.addresses),
     ...savedCar,
     service: service ?? state.draft.service,
     contactName: state.draft.contactName || state.profile.name,

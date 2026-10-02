@@ -34,7 +34,9 @@ export type IconName =
   | 'target'
   | 'work'
   | 'message'
-  | 'expand';
+  | 'expand'
+  | 'qr-pay'
+  | 'download';
 
 const paths: Record<IconName, ReactNode> = {
   check: <path d="m5 12 4 4L19 6" />,
@@ -68,6 +70,15 @@ const paths: Record<IconName, ReactNode> = {
     </>
   ),
   expand: <path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6" />,
+  'qr-pay': (
+    <>
+      <rect x="3" y="3" width="6" height="6" rx="1" />
+      <rect x="15" y="3" width="6" height="6" rx="1" />
+      <rect x="3" y="15" width="6" height="6" rx="1" />
+      <path d="M15 15h3v3h3m-6 3h3m3-8v2M3 12h2m4 0h3V3m0 13v5" />
+    </>
+  ),
+  download: <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" />,
   lock: (
     <>
       <rect x="5" y="10" width="14" height="11" rx="3" />
@@ -153,7 +164,7 @@ const paths: Record<IconName, ReactNode> = {
   help: (
     <>
       <circle cx="12" cy="12" r="9" />
-      <path d="M9.7 9a2.4 2.4 0 1 1 4.4 1.4c-.9 1.1-2.1 1.3-2.1 3.1m0 3.5v.1" />
+      <path d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .7-1.5 1-1.5 3m0 3h.1" />
     </>
   ),
   info: (

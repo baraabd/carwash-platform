@@ -1,7 +1,34 @@
 import { IllustrativeMapArt } from '../../../../shared/art/IllustrativeMapArt';
 import { Icon } from '../../../../shared/Icon';
 import type { SamplePlaceKind } from '../../../../state/locationStep';
-import type { PlaceShortcut } from '../locationViewModel';
+import type { PlaceShortcut, SavedAddressChoice } from '../locationViewModel';
+
+interface SavedAddressChipsProps {
+  readonly choices: readonly SavedAddressChoice[];
+  readonly onChoose: (addressId: string) => void;
+}
+
+/** Saved addresses as one-tap choices. Shown only when the address book holds any. */
+export function SavedAddressChips({ choices, onChoose }: SavedAddressChipsProps) {
+  if (choices.length === 0) return null;
+  return (
+    <div className="chips address-chips" role="group" aria-label="عناوين محفوظة">
+      {choices.map((choice) => (
+        <button
+          key={choice.id}
+          className={choice.selected ? 'chip selected' : 'chip'}
+          type="button"
+          data-saved-address={choice.id}
+          aria-pressed={choice.selected}
+          onClick={() => onChoose(choice.id)}
+        >
+          <Icon name="pin" />
+          {choice.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 interface LocationCardProps {
   readonly label: string;
