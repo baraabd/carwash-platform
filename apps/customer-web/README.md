@@ -6,6 +6,7 @@ C004 ports the first booking step, vehicle selection (`docs/customer/C004_VEHICL
 C005 ports the garage, saved vehicles and the shared vehicle editor (`docs/customer/C005_GARAGE_SAVED_VEHICLES.md`).
 C006 ports the care packages step, the price breakdown and Home's package details (`docs/customer/C006_CARE_PACKAGES_PRICING.md`).
 C007 ports the add-ons sheet of the care step (`docs/customer/C007_EXTRAS_ADDONS.md`).
+C008 ports the location step, its address sheet and the illustrative map (`docs/customer/C008_LOCATION_MAP.md`).
 
 ## Current executable surfaces
 

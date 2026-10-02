@@ -5,6 +5,7 @@
  */
 :root {
   --danger: #a13236;
+  --shadow: 0 14px 40px #18392c0a;
   --motion-fast: 160ms;
   --motion-base: 300ms;
   --ease-out: cubic-bezier(0.22, 0.8, 0.26, 1);

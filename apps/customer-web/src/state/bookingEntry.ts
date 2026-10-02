@@ -78,6 +78,9 @@ function draftFromOrder(order: CustomerOrderSnapshot, state: CustomerSessionStat
     address: order.address,
     addressLabel: order.addressLabel,
     locationNote: order.locationNote,
+    // An order keeps the written address only; the pin starts from the default.
+    place: null,
+    saveAddress: true,
     // The finished order's slot is in the past and is never reused.
     slot: state.nextAvailableSlot,
     contactName: order.contactName,
