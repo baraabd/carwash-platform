@@ -14,12 +14,13 @@ import {
   type SamplePlaceKind,
 } from '../../../state/locationStep';
 import { pathForIntent } from '../../../state/navigationPath';
+import { chooseSavedAddress } from '../../../state/savedAddresses';
+import { AddressEditorSheet } from '../../../widgets/address-editor/AddressEditor';
 import { BookingFooter } from '../BookingFooter';
 import { BookingProgress } from '../BookingProgress';
 import { bookingFlow } from '../bookingFlow';
 import { buildPriceBreakdown } from '../priceBreakdown';
-import { AddressSheet } from './components/AddressSheet';
-import { LocationCard, LocationShortcuts } from './components/LocationCard';
+import { LocationCard, LocationShortcuts, SavedAddressChips } from './components/LocationCard';
 import { buildLocationStepViewModel } from './locationViewModel';
 import './location.css';
 
@@ -69,6 +70,12 @@ export function LocationStep() {
         { duration: 290, easing: SELECTION_EASING },
       );
   }, [view.selectedShortcut]);
+
+  // Copies a saved address into the draft. Nothing is saved, booked or advanced.
+  const chooseSaved = (addressId: string) => {
+    run((current) => ({ state: chooseSavedAddress(current, addressId) }));
+    setAddressError(null);
+  };
 
   const chooseSample = (kind: SamplePlaceKind) => {
     run((current) => ({ state: chooseSampleLocation(current, kind) }));
@@ -121,6 +128,7 @@ export function LocationStep() {
           <Icon name="pin" />
         </span>
       </div>
+      <SavedAddressChips choices={view.savedChoices} onChoose={chooseSaved} />
       <LocationCard
         label={view.cardLabel}
         title={view.cardTitle}
@@ -145,9 +153,10 @@ export function LocationStep() {
           <Icon name="message" /> {view.locationNote}
         </div>
       ) : null}
-      <AddressSheet
+      <AddressEditorSheet
         open={sheetOpen}
         initialValues={addressSheetValuesForDraft(state.draft)}
+        savedAddresses={state.addresses}
         onSubmit={submitSheet}
         onNotice={(message) => run((current) => ({ state: notify(current, message) }))}
         onAnnounce={(message) => run((current) => ({ state: announce(current, message) }))}

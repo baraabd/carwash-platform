@@ -3,7 +3,7 @@ import {
   classifyDevicePosition,
   geolocationFailureOutcome,
   type GeolocationOutcome,
-} from '../../../state/locationStep.ts';
+} from '../../state/locationStep.ts';
 
 /**
  * Asks the browser for the device position once and answers only with what it

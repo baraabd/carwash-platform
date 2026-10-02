@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Icon } from '../../../../shared/Icon';
-import { Sheet } from '../../../../shared/Sheet';
-import { spawnTapWave } from '../../../../shared/tapWave';
+import { Icon } from '../../shared/Icon';
+import { Sheet } from '../../shared/Sheet';
+import { spawnTapWave } from '../../shared/tapWave';
 import {
   ADDRESS_LABEL_MAX_LENGTH,
   ADDRESS_MAX_LENGTH,
@@ -14,29 +14,53 @@ import {
   setSheetMapPoint,
   type AddressSheetValues,
   type SamplePlaceKind,
-} from '../../../../state/locationStep';
-import { requestDevicePositionClass } from '../deviceLocation';
+} from '../../state/locationStep';
+import { applySavedAddressToSheet, type SavedAddress } from '../../state/savedAddresses';
+import { requestDevicePositionClass } from './deviceLocation';
 import { IllustrativeMap } from './IllustrativeMap';
+import './address-editor.css';
 
-interface AddressFormProps {
+/** Sheet title shared by both contexts, as in the reference. */
+export const ADDRESS_EDITOR_TITLE = 'مكان سيارتك، بكل بساطة.';
+
+/**
+ * Where the editor is used. `booking` describes the place of the unsent draft:
+ * it offers the saved addresses and the save preference, and its button applies.
+ * `account` edits one saved address: no chips, no preference, its button saves.
+ */
+export type AddressEditorContext = 'booking' | 'account';
+
+export interface AddressEditorFormProps {
+  readonly context: AddressEditorContext;
   readonly initialValues: AddressSheetValues;
-  /** Applies the values to the draft; returns the address message when refused. */
+  /** Saved addresses offered as chips in the booking context. */
+  readonly savedAddresses?: readonly SavedAddress[];
+  /** Applies the values; returns the address message when they are refused. */
   readonly onSubmit: (values: AddressSheetValues) => string | null;
   readonly onNotice: (message: string) => void;
   readonly onAnnounce: (message: string) => void;
 }
 
 /**
- * The sheet's contents. Its values are temporary: they start from the draft each
- * time the sheet opens and reach the draft only through "اعتماد هذا المكان".
+ * The approved address form with its illustrative map. Its values are temporary:
+ * they start from `initialValues` when the form mounts and leave it only through
+ * the submit button, so unmounting it (close, Escape, another record) discards
+ * them. Mount it with a `key` per editing session.
  */
-function AddressForm({ initialValues, onSubmit, onNotice, onAnnounce }: AddressFormProps) {
+export function AddressEditorForm({
+  context,
+  initialValues,
+  savedAddresses = [],
+  onSubmit,
+  onNotice,
+  onAnnounce,
+}: AddressEditorFormProps) {
   const [values, setValues] = useState(initialValues);
   // The pin is drawn where it was put; the place keeps the rounded position.
   const [pin, setPin] = useState<{ readonly x: number; readonly y: number }>(
     initialValues.place ?? MAP_CENTRE,
   );
-  // A sample address redraws the map from scratch, as in the reference.
+  // A sample or saved address redraws the map from scratch, as in the reference.
   const [mapRound, setMapRound] = useState(0);
   const [error, setError] = useState('');
   // Bumped on every refused submission, so the field is focused again even when
@@ -44,6 +68,8 @@ function AddressForm({ initialValues, onSubmit, onNotice, onAnnounce }: AddressF
   const [refusals, setRefusals] = useState(0);
   const [locating, setLocating] = useState(false);
   const addressInput = useRef<HTMLInputElement>(null);
+  // True while this editing session is on screen. A location answer that arrives
+  // after it ended belongs to no editor and is dropped.
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -59,20 +85,24 @@ function AddressForm({ initialValues, onSubmit, onNotice, onAnnounce }: AddressF
     onAnnounce(MAP_POINT_ANNOUNCEMENT);
   };
 
-  const fillSample = (kind: SamplePlaceKind) => {
-    const next = applySampleToSheet(values, kind);
+  const refill = (next: AddressSheetValues) => {
     setValues(next);
     setPin(next.place ?? MAP_CENTRE);
     setMapRound((round) => round + 1);
     setError('');
   };
 
+  const fillSample = (kind: SamplePlaceKind) => refill(applySampleToSheet(values, kind));
+
+  // Fills the temporary values only; the draft changes when the form is submitted.
+  const fillSaved = (record: SavedAddress) => refill(applySavedAddressToSheet(values, record));
+
   // Runs only from the customer's tap on "موقعي الحالي": never on load, never
   // when the sheet opens. Only the outcome comes back — no coordinates.
   const locate = async () => {
     setLocating(true);
     const outcome = await requestDevicePositionClass();
-    // The sheet may have been closed while the browser was asking.
+    // The editor may have been closed or replaced while the browser was asking.
     if (!mounted.current) return;
     setLocating(false);
     // Applied to the latest values: the customer may have typed meanwhile.
@@ -96,9 +126,27 @@ function AddressForm({ initialValues, onSubmit, onNotice, onAnnounce }: AddressF
     if (refusals > 0) addressInput.current?.focus();
   }, [refusals]);
 
+  const booking = context === 'booking';
+
   return (
     <>
       <p className="sheet-intro">اكتب العنوان مباشرة، أو حرّك الخريطة وانقر لوضع الدبوس.</p>
+      {booking && savedAddresses.length > 0 ? (
+        <div className="chips" role="group" aria-label="عناوين محفوظة">
+          {savedAddresses.map((record) => (
+            <button
+              key={record.id}
+              type="button"
+              className="chip"
+              data-saved-address={record.id}
+              onClick={() => fillSaved(record)}
+            >
+              <Icon name="pin" />
+              {record.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <IllustrativeMap
         key={mapRound}
         pin={pin}
@@ -162,36 +210,38 @@ function AddressForm({ initialValues, onSubmit, onNotice, onAnnounce }: AddressF
             />
           </label>
         </div>
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
-            name="saveAddress"
-            checked={values.saveAddress}
-            onChange={(event) => setValues({ ...values, saveAddress: event.target.checked })}
-          />
-          احفظ العنوان على جهازي للحجز القادم.
-        </label>
+        {booking ? (
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              name="saveAddress"
+              checked={values.saveAddress}
+              onChange={(event) => setValues({ ...values, saveAddress: event.target.checked })}
+            />
+            احفظ العنوان على جهازي للحجز القادم.
+          </label>
+        ) : null}
         <p className="error" id="address-error" role="alert">
           {error}
         </p>
         <button className="btn full gap-top" type="submit" onPointerDown={spawnTapWave}>
-          اعتماد هذا المكان <Icon name="check" small />
+          {booking ? 'اعتماد هذا المكان' : 'حفظ العنوان'} <Icon name="check" small />
         </button>
       </form>
     </>
   );
 }
 
-interface AddressSheetProps extends AddressFormProps {
+interface AddressEditorSheetProps extends Omit<AddressEditorFormProps, 'context'> {
   readonly open: boolean;
   readonly onClose: () => void;
 }
 
-/** The approved "مكان سيارتك، بكل بساطة." sheet, in its booking context. */
-export function AddressSheet({ open, onClose, ...form }: AddressSheetProps) {
+/** The editor in its own sheet, describing the place of the booking draft. */
+export function AddressEditorSheet({ open, onClose, ...form }: AddressEditorSheetProps) {
   return (
-    <Sheet open={open} title="مكان سيارتك، بكل بساطة." onClose={onClose}>
-      <AddressForm {...form} />
+    <Sheet open={open} title={ADDRESS_EDITOR_TITLE} onClose={onClose}>
+      <AddressEditorForm context="booking" {...form} />
     </Sheet>
   );
 }

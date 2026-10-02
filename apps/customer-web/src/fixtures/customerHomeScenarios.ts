@@ -45,6 +45,8 @@ export function emptySession(): CustomerSessionState {
     orders: [],
     vehicles: [],
     vehicleSequence: 0,
+    addresses: [],
+    addressSequence: 0,
     draft: blankBookingDraft(),
     draftStep: 0,
     bookingMode: 'standard',

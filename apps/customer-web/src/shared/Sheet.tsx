@@ -6,6 +6,12 @@ interface SheetProps {
   readonly open: boolean;
   readonly title: string;
   readonly onClose: () => void;
+  /**
+   * Identifies what the sheet is showing when one open sheet moves between views
+   * (list → editor → confirmation). On a change the sheet starts again at its top
+   * and takes the focus the replaced view was holding, as a newly shown sheet would.
+   */
+  readonly contentKey?: string;
   readonly children: ReactNode;
 }
 
@@ -13,7 +19,7 @@ interface SheetProps {
  * Approved bottom sheet: a native modal <dialog>, so focus trapping, Escape and
  * the inert background come from the platform rather than from custom key handling.
  */
-export function Sheet({ open, title, onClose, children }: SheetProps) {
+export function Sheet({ open, title, onClose, contentKey, children }: SheetProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const openerRef = useRef<Element | null>(null);
 
@@ -29,6 +35,17 @@ export function Sheet({ open, title, onClose, children }: SheetProps) {
       dialog.close();
     }
   }, [open]);
+
+  const shownContent = useRef(contentKey);
+  useEffect(() => {
+    if (shownContent.current === contentKey) return;
+    shownContent.current = contentKey;
+    const dialog = dialogRef.current;
+    if (!dialog?.open) return;
+    dialog.scrollTop = 0;
+    // The control that was focused left with the old view; keep focus in the sheet.
+    if (!dialog.contains(document.activeElement)) dialog.focus({ preventScroll: true });
+  }, [contentKey]);
 
   // The `close` event arrives as a later task, by which time the customer may have
   // moved on or opened another sheet. The browser has already returned focus to
@@ -62,6 +79,7 @@ export function Sheet({ open, title, onClose, children }: SheetProps) {
     <dialog
       ref={dialogRef}
       className="sheet"
+      tabIndex={contentKey === undefined ? undefined : -1}
       // Several sheets can be mounted at once but only one is open, and only the
       // open one carries the title id, so the id stays unique in the document.
       aria-labelledby={open ? 'sheet-title' : undefined}

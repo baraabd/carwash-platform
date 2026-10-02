@@ -69,142 +69,6 @@
   border-radius: 10px;
   color: #556f49;
 }
-.info-note {
-  display: flex;
-  gap: 9px;
-  align-items: flex-start;
-  padding: 13px;
-  border-radius: 16px;
-  background: #edf2e7;
-  font-size: 11px;
-  line-height: 1.85;
-  color: #536c49;
-  margin-top: 15px;
-}
-.info-note svg {
-  width: 17px;
-  height: 17px;
-  margin-top: 2px;
-}
-.location-map {
-  height: 205px;
-  border-radius: 20px;
-  border: 1px solid #d6e2c7;
-  background: #e9efdf;
-  position: relative;
-  overflow: hidden;
-  touch-action: none;
-  margin: 12px 0;
-}
-.map-world {
-  width: 700px;
-  height: 500px;
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform-origin: 50% 50%;
-  will-change: transform;
-}
-.map-world > svg {
-  width: 100%;
-  height: 100%;
-}
-.map-pin {
-  position: absolute;
-  width: 36px;
-  height: 46px;
-  transform: translate(-50%, -100%);
-  filter: drop-shadow(0 3px 3px #1b302140);
-  pointer-events: none;
-}
-.map-pin svg {
-  width: 100%;
-  height: 100%;
-}
-.map-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  position: absolute;
-  left: 12px;
-  top: 12px;
-}
-.map-controls button {
-  width: 39px;
-  height: 39px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: white;
-  border: 1px solid #d6e1cc;
-  box-shadow: 0 4px 12px #2137220f;
-}
-.map-caption {
-  position: absolute;
-  bottom: 9px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #ffffffe6;
-  font-size: 9px;
-  border-radius: 12px;
-  padding: 3px 10px;
-  white-space: nowrap;
-  color: #5b704e;
-}
-.map-location-button {
-  position: absolute;
-  right: 10px;
-  top: 10px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border-radius: 12px;
-  background: white;
-  border: 1px solid #d6e1cc;
-  font-size: 10px;
-  min-height: 39px;
-  padding: 8px;
-  color: #315b3d;
-}
-.map-location-button svg {
-  width: 15px;
-  height: 15px;
-}
-.map-help {
-  font-size: 10px;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-.map-help svg {
-  width: 13px;
-  height: 13px;
-}
-.loading-dot {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border: 2px solid #adc698;
-  border-top-color: #315d34;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.map-controls button {
-  width: 44px;
-  height: 44px;
-}
-.map-location-button {
-  min-height: 44px;
-}
-.map-controls {
-  gap: 5px;
-}
 .location-picker {
   border-radius: 29px;
   text-align: start;
@@ -333,6 +197,9 @@
   background: #eff7e2;
   border-color: #789e4b;
 }
+.address-chips {
+  margin-bottom: 15px;
+}
 .location-tip {
   margin-top: 22px;
 }
@@ -360,10 +227,6 @@
 }
 .mini-title small {
   font-size: 10px;
-}
-.info-note {
-  font-size: 12px;
-  line-height: 1.9;
 }
 .place-shortcut {
   transition:
