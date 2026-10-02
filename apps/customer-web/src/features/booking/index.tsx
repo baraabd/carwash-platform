@@ -7,6 +7,7 @@ import { ShellPlaceholder } from '../../shared/ShellPlaceholder';
 import { useCustomerSession } from '../../state/CustomerSessionProvider';
 import { visitBookingStep } from '../../state/vehicleStep';
 import { bookingFlow } from './bookingFlow';
+import { CareStep } from './care/CareStep';
 import { VehicleStep } from './vehicle/VehicleStep';
 import './booking.css';
 
@@ -37,6 +38,7 @@ export function BookingRoute({ step, title }: BookingRouteProps) {
   }, [run, stepIndex]);
 
   if (step === 'vehicle') return <VehicleStep />;
+  if (step === 'care') return <CareStep />;
   return (
     <ShellPlaceholder
       routeId={`booking-${step}`}

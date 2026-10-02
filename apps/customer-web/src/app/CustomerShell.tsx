@@ -6,6 +6,7 @@ import { Toast } from '../shared/Toast';
 import { inProgressOrderCount } from '../state/customerSession';
 import { useCustomerSession } from '../state/CustomerSessionProvider';
 import { pathForIntent } from '../state/navigationPath';
+import { returnToVehicleStep } from '../state/careStep';
 import { leaveVehicleStep } from '../state/vehicleStep';
 import { BookingExitNotice } from './BookingExitNotice';
 import { CityNotice } from './CityNotice';
@@ -34,17 +35,21 @@ function NormalHeader() {
 
 interface ContextHeaderProps {
   readonly kind: 'booking' | 'payment' | 'tracking';
-  /** The vehicle step is ported; its header follows the reference exactly. */
-  readonly vehicleStep: boolean;
+  /**
+   * Index of the booking step when it is already ported (0 vehicle, 1 care); its
+   * header then follows the reference exactly. Null for the remaining mount points.
+   */
+  readonly portedStep: number | null;
 }
 
-function ContextHeader({ kind, vehicleStep }: ContextHeaderProps) {
+function ContextHeader({ kind, portedStep }: ContextHeaderProps) {
   const navigate = useNavigate();
   const { state, run } = useCustomerSession();
   // On the first step the reference leaves the journey for Home (the draft is kept)
   // instead of walking the browser history.
   const leaveBooking = () => {
-    const { intent } = run(leaveVehicleStep);
+    // First step: leave for Home. Later steps: one step back. The draft is kept.
+    const { intent } = run(portedStep === 0 ? leaveVehicleStep : returnToVehicleStep);
     if (intent) navigate(pathForIntent(intent));
   };
   const config = {
@@ -70,7 +75,7 @@ function ContextHeader({ kind, vehicleStep }: ContextHeaderProps) {
   const current = config[kind];
   return (
     <>
-      {vehicleStep ? (
+      {portedStep !== null ? (
         <button
           className="icon-btn"
           type="button"
@@ -151,7 +156,8 @@ export function CustomerShell() {
   const booking = location.pathname.startsWith('/book/');
   const payment = location.pathname.startsWith('/pay/');
   const tracking = location.pathname.startsWith('/order/');
-  const vehicleStep = location.pathname === '/book/0';
+  const portedStep =
+    location.pathname === '/book/0' ? 0 : location.pathname === '/book/1' ? 1 : null;
   const kind = booking ? 'booking' : payment ? 'payment' : tracking ? 'tracking' : 'normal';
   const { state } = useCustomerSession();
 
@@ -218,13 +224,13 @@ export function CustomerShell() {
           {kind === 'normal' ? (
             <NormalHeader />
           ) : (
-            <ContextHeader kind={kind} vehicleStep={vehicleStep} />
+            <ContextHeader kind={kind} portedStep={portedStep} />
           )}
         </header>
         <main className="main" id="main" tabIndex={-1}>
           <Outlet />
         </main>
-        {vehicleStep ? (
+        {portedStep !== null ? (
           // The ported step renders its own action bar into this slot.
           <div id={BOOKING_FOOTER_SLOT_ID} />
         ) : booking || payment ? (

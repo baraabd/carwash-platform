@@ -1,4 +1,5 @@
 import { bookingScenarioState, isBookingScenarioId } from '../fixtures/customerBookingScenarios.ts';
+import { careScenarioState, isCareScenarioId } from '../fixtures/customerCareScenarios.ts';
 import { garageScenarioState, isGarageScenarioId } from '../fixtures/customerGarageScenarios.ts';
 import {
   DEFAULT_HOME_SCENARIO,
@@ -21,5 +22,6 @@ export function initialSessionState(locationHash: string): CustomerSessionState 
       : new URLSearchParams(locationHash.slice(queryStart + 1)).get(HOME_SCENARIO_PARAM);
   if (isBookingScenarioId(requested)) return bookingScenarioState(requested);
   if (isGarageScenarioId(requested)) return garageScenarioState(requested);
+  if (isCareScenarioId(requested)) return careScenarioState(requested);
   return homeScenarioState(isHomeScenarioId(requested) ? requested : DEFAULT_HOME_SCENARIO);
 }
