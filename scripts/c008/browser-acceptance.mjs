@@ -128,6 +128,18 @@ const SAVE = 'input[name="saveAddress"]';
 const LOCATE = '.map-location-button';
 const SUBMIT = 'اعتماد هذا المكان';
 const shortcut = (kind) => `.place-shortcut[data-kind="${kind}"]`;
+// The approved prototype's next() ignores a Next that follows an accepted Next
+// by less than this (`if(now-lastNextAt<350)return;`), measured on the page's
+// own performance clock. It is a double-activation guard, not a failure.
+const REFERENCE_NEXT_GUARD_MS = 350;
+/** Resolves once a full guard interval has passed on the reference page's clock. */
+const pastReferenceNextGuard = async (page) => {
+  const from = await page.evaluate(() => globalThis.performance.now());
+  await page.waitForFunction(({ start, guard }) => globalThis.performance.now() - start >= guard, {
+    start: from,
+    guard: REFERENCE_NEXT_GUARD_MS,
+  });
+};
 const sheetOpen = (page) => page.locator('dialog.sheet[open]').waitFor();
 const sheetClosed = (page) => page.locator('dialog.sheet[open]').waitFor({ state: 'detached' });
 const openSheet = async (page) => {
@@ -935,8 +947,12 @@ try {
       await page.locator(CARD).waitFor();
       assert.deepEqual((await observe(page)).card, chosen.card);
 
-      // Next leads to the time step, which is still its placeholder.
+      // Next leads to the time step, which is still its placeholder. The reference
+      // already accepted one Next in this journey (care → location), so its
+      // double-activation guard has to be over before the second one counts.
+      await pastReferenceNextGuard(reference.page);
       await reference.page.locator(NEXT).click();
+      // The approved prototype writes its routes without the slash: `#book/3`.
       await reference.page.waitForURL(/#book[/]3$/);
       await page.locator(NEXT).click();
       await page.locator('[data-booking-step="time"]').waitFor();
