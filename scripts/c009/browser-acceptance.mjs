@@ -952,10 +952,28 @@ try {
         ]),
         ['true'],
       );
-      await page.locator('.settings-row', { hasText: 'بياناتي' }).click({ force: true });
-      await page.locator('.settings-row', { hasText: 'إعادة ضبط التجربة' }).click({ force: true });
+      // A customer can still point at, tap and focus a deferred control (it is
+      // marked unavailable, not removed). Real pointer input at its centre and
+      // Enter/Space on it must do nothing, and must leave it marked unavailable.
+      const before = await observe(page);
+      for (const title of ['بياناتي', 'إعادة ضبط التجربة']) {
+        const control = page.locator('.settings-row', { hasText: title });
+        await control.scrollIntoViewIfNeeded();
+        const box = await control.boundingBox();
+        await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+        await control.focus();
+        assert.equal(
+          await control.evaluate((node) => node === globalThis.document.activeElement),
+          true,
+          `${title}: reachable by keyboard`,
+        );
+        await page.keyboard.press('Enter');
+        await page.keyboard.press('Space');
+        assert.equal(await control.getAttribute('aria-disabled'), 'true');
+      }
       assert.equal(await page.locator('dialog.sheet[open]').count(), 0);
       assert.match(page.url(), /#\/account/);
+      assert.deepEqual(await observe(page), before, 'a deferred control changes nothing');
 
       const inSheet = () =>
         page.evaluate(() => {
