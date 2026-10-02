@@ -10,7 +10,7 @@
   --radius: 26px;
   color-scheme: light;
   font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, Arial, sans-serif;
-  font-synthesis: none;
+  font-synthesis: weight;
 }
 * {
   box-sizing: border-box;
@@ -69,7 +69,7 @@ p {
   height: 22px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.7;
+  stroke-width: 1.65;
   stroke-linecap: round;
   stroke-linejoin: round;
   display: block;
@@ -319,11 +319,19 @@ p {
     width: 450px;
     border: 1px solid #dde6d2;
     border-radius: 24px;
+  }
+  /* The reference's later base rule keeps the bottom navigation's own shadow at every width. */
+  .c002-deferred-footer {
     box-shadow: 0 10px 35px #182b2417;
   }
   .main {
     padding-bottom: 132px;
     min-height: 75svh;
+  }
+}
+@media (min-width: 600px) {
+  .app {
+    box-shadow: 0 10px 110px #123d2b16;
   }
 }
 @media (min-width: 1200px) {
