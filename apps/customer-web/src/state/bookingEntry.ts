@@ -3,6 +3,7 @@ import {
   BOOKING_REVIEW_STEP,
   resolveBookingEntryStep,
   type BookingDraft,
+  type BookingSlot,
   type CarePackageId,
 } from './bookingDraft.ts';
 import {
@@ -12,6 +13,8 @@ import {
   type SessionTransition,
 } from './customerSession.ts';
 import { prefillAddressFromBook } from './savedAddresses.ts';
+import { draftWithCurrentSchedule } from './scheduleStep.ts';
+import { defaultScheduleDay, earliestSlot } from './scheduling.ts';
 
 /**
  * Entry commands into the booking journey. Each one only prepares the local
@@ -23,7 +26,8 @@ import { prefillAddressFromBook } from './savedAddresses.ts';
 /** Primary CTA and package cards: begin (or continue editing) the draft at step one. */
 export function startBooking(
   state: CustomerSessionState,
-  service?: CarePackageId,
+  service: CarePackageId | undefined,
+  now: Date,
 ): SessionTransition {
   // A draft that describes no car yet starts with the first saved one, as in the
   // reference; a car the customer already chose or typed is never replaced.
@@ -40,8 +44,9 @@ export function startBooking(
         }
       : {};
   // Likewise a draft with no address starts with the first saved one.
+  // A day that is no longer offered is replaced by the default day, without a time.
   const draft: BookingDraft = {
-    ...prefillAddressFromBook(state.draft, state.addresses),
+    ...draftWithCurrentSchedule(prefillAddressFromBook(state.draft, state.addresses), now),
     ...savedCar,
     service: service ?? state.draft.service,
     contactName: state.draft.contactName || state.profile.name,
@@ -55,18 +60,22 @@ export function startBooking(
 }
 
 /** "أكمل": return to the step the saved draft was left at, never past missing input. */
-export function resumeBooking(state: CustomerSessionState): SessionTransition {
+export function resumeBooking(state: CustomerSessionState, now: Date): SessionTransition {
   if (!state.draft.touched) return { state, intent: null };
   return {
     state: { ...state, bookingMode: 'standard' },
     intent: {
       kind: 'booking-step',
-      step: resolveBookingEntryStep(state.draft, state.draftStep),
+      step: resolveBookingEntryStep(state.draft, state.draftStep, now),
     },
   };
 }
 
-function draftFromOrder(order: CustomerOrderSnapshot, state: CustomerSessionState): BookingDraft {
+function draftFromOrder(
+  order: CustomerOrderSnapshot,
+  now: Date,
+  slot: BookingSlot | null,
+): BookingDraft {
   return {
     vehicleType: order.vehicleType,
     // An order keeps its own copy of the car; it is not linked to a saved one.
@@ -83,8 +92,8 @@ function draftFromOrder(order: CustomerOrderSnapshot, state: CustomerSessionStat
     // An order keeps the written address only; the pin starts from the default.
     place: null,
     saveAddress: true,
-    // The finished order's slot is in the past and is never reused.
-    slot: state.nextAvailableSlot,
+    scheduleDay: slot?.date ?? defaultScheduleDay(now),
+    slot,
     contactName: order.contactName,
     contactPhone: order.contactPhone,
     note: order.note,
@@ -98,18 +107,33 @@ function draftFromOrder(order: CustomerOrderSnapshot, state: CustomerSessionStat
  * customer to review them. The order list is returned untouched: repeating
  * derives a draft only and the customer still has to confirm it themselves.
  */
-export function repeatOrder(state: CustomerSessionState, orderId: string): SessionTransition {
+export function repeatOrder(
+  state: CustomerSessionState,
+  orderId: string,
+  now: Date,
+  /**
+   * The appointment offered with the copy. The finished order's slot is in the past
+   * and is never reused: by default this is the earliest slot offered at `now`, or
+   * none. Passing it explicitly is a test seam for the "nothing offered" branch,
+   * which the demo catalog never reaches.
+   */
+  offeredSlot: BookingSlot | null = earliestSlot(now),
+): SessionTransition {
   const order = state.orders.find((candidate) => candidate.id === orderId);
   if (!order) return { state, intent: null };
-  const draft = draftFromOrder(order, state);
+  const draft = draftFromOrder(order, now, offeredSlot);
   return {
     state: {
       ...state,
       draft,
       bookingMode: 'repeat',
+      showAllTimes: false,
       notice: { message: REPEAT_BOOKING_NOTICE, sequence: (state.notice?.sequence ?? 0) + 1 },
     },
-    intent: { kind: 'booking-step', step: resolveBookingEntryStep(draft, BOOKING_REVIEW_STEP) },
+    intent: {
+      kind: 'booking-step',
+      step: resolveBookingEntryStep(draft, BOOKING_REVIEW_STEP, now),
+    },
   };
 }
 

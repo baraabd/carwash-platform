@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { currentInstant } from '../shared/clock';
 import type { CarePackageId } from './bookingDraft';
 import { repeatOrder, resumeBooking, startBooking, viewOrder } from './bookingEntry';
 import type { CustomerSessionState, NavigationIntent, SessionTransition } from './customerSession';
@@ -49,9 +50,9 @@ export function CustomerSessionProvider({ initialState, children }: ProviderProp
 
   const commands = useMemo<CustomerSessionCommands>(
     () => ({
-      startBooking: (service) => apply(startBooking(stateRef.current, service)),
-      resumeBooking: () => apply(resumeBooking(stateRef.current)),
-      repeatOrder: (orderId) => apply(repeatOrder(stateRef.current, orderId)),
+      startBooking: (service) => apply(startBooking(stateRef.current, service, currentInstant())),
+      resumeBooking: () => apply(resumeBooking(stateRef.current, currentInstant())),
+      repeatOrder: (orderId) => apply(repeatOrder(stateRef.current, orderId, currentInstant())),
       viewOrder: (orderId) => apply(viewOrder(stateRef.current, orderId)),
     }),
     [apply],

@@ -8,6 +8,7 @@ import { useCustomerSession } from '../state/CustomerSessionProvider';
 import { pathForIntent } from '../state/navigationPath';
 import { returnToVehicleStep } from '../state/careStep';
 import { returnToCareStep } from '../state/locationStep';
+import { returnToLocationStep } from '../state/scheduleStep';
 import { leaveVehicleStep } from '../state/vehicleStep';
 import { BookingExitNotice } from './BookingExitNotice';
 import { CityNotice } from './CityNotice';
@@ -37,7 +38,7 @@ function NormalHeader() {
 interface ContextHeaderProps {
   readonly kind: 'booking' | 'payment' | 'tracking';
   /**
-   * Index of the booking step when it is already ported (0 vehicle, 1 care, 2 location); its
+   * Index of the booking step when it is already ported (0 vehicle, 1 care, 2 location, 3 time); its
    * header then follows the reference exactly. Null for the remaining mount points.
    */
   readonly portedStep: number | null;
@@ -53,9 +54,11 @@ function ContextHeader({ kind, portedStep }: ContextHeaderProps) {
     const { intent } = run(
       portedStep === 0
         ? leaveVehicleStep
-        : portedStep === 2
-          ? returnToCareStep
-          : returnToVehicleStep,
+        : portedStep === 3
+          ? returnToLocationStep
+          : portedStep === 2
+            ? returnToCareStep
+            : returnToVehicleStep,
     );
     if (intent) navigate(pathForIntent(intent));
   };
@@ -170,7 +173,9 @@ export function CustomerShell() {
         ? 1
         : location.pathname === '/book/2'
           ? 2
-          : null;
+          : location.pathname === '/book/3'
+            ? 3
+            : null;
   const kind = booking ? 'booking' : payment ? 'payment' : tracking ? 'tracking' : 'normal';
   const { state } = useCustomerSession();
 

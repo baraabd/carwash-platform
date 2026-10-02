@@ -1,3 +1,5 @@
+import { isSlotAvailable } from './scheduling.ts';
+
 export type VehicleTypeId = 'sedan' | 'suv' | 'large' | 'pickup';
 export type CarePackageId = 'exterior' | 'complete' | 'premium';
 export type CareExtraId = 'seats' | 'wheels' | 'fresh';
@@ -44,6 +46,13 @@ export interface BookingDraft {
   readonly place: BookingPlace | null;
   /** The customer's wish to keep this address for next time. Nothing is saved here. */
   readonly saveAddress: boolean;
+  /**
+   * The day the time step highlights. It can be set while no time is chosen, and
+   * is null until scheduling first records one (the default is then derived from
+   * the clock). A non-null `slot` is always on this day.
+   */
+  readonly scheduleDay: string | null;
+  /** A complete appointment, or null. A day alone is not an appointment. */
   readonly slot: BookingSlot | null;
   readonly contactName: string;
   readonly contactPhone: string;
@@ -70,6 +79,7 @@ export function blankBookingDraft(): BookingDraft {
     locationNote: '',
     place: null,
     saveAddress: true,
+    scheduleDay: null,
     slot: null,
     contactName: '',
     contactPhone: '',
@@ -118,13 +128,20 @@ function isPhoneAcceptable(phone: string): boolean {
  * The furthest step a draft may be entered at. Resuming or repeating never drops
  * the customer past a step whose required input is still missing, so no screen is
  * skipped and nothing is confirmed on their behalf.
+ *
+ * The appointment is judged at `now`: a time that is missing, malformed or no
+ * longer offered sends the customer back to the time step.
  */
-export function resolveBookingEntryStep(draft: BookingDraft, requestedStep: number): number {
+export function resolveBookingEntryStep(
+  draft: BookingDraft,
+  requestedStep: number,
+  now: Date,
+): number {
   const requested = Number.isFinite(requestedStep) ? Math.trunc(requestedStep) : BOOKING_FIRST_STEP;
   const step = Math.max(BOOKING_FIRST_STEP, Math.min(BOOKING_REVIEW_STEP, requested));
   if (step > 0 && !isPlateAcceptable(draft.plate)) return 0;
   if (step > 2 && draft.address.trim().length < 4) return 2;
-  if (step > 3 && draft.slot === null) return 3;
+  if (step > 3 && !(draft.slot && isSlotAvailable(now, draft.slot.date, draft.slot.time))) return 3;
   if (step > 4 && (draft.contactName.trim().length < 2 || !isPhoneAcceptable(draft.contactPhone)))
     return 4;
   if (step > 5 && draft.paymentMethod === null) return 5;

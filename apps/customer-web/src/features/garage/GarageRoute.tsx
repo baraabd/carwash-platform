@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { currentInstant } from '../../shared/clock';
 import { Icon } from '../../shared/Icon';
 import { Sheet } from '../../shared/Sheet';
 import { ReferenceArtSprite } from '../../shared/art/ReferenceArt';
@@ -52,7 +53,7 @@ export function GarageRoute() {
   };
 
   const book = (vehicleId: string) => {
-    const { intent } = run((current) => bookSavedVehicle(current, vehicleId));
+    const { intent } = run((current) => bookSavedVehicle(current, vehicleId, currentInstant()));
     if (intent) navigate(pathForIntent(intent));
   };
 

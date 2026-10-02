@@ -222,10 +222,11 @@ export function chooseSavedVehicle(
 export function bookSavedVehicle(
   state: CustomerSessionState,
   vehicleId: string,
+  now: Date,
 ): SessionTransition {
   const vehicle = state.vehicles.find((candidate) => candidate.id === vehicleId);
   if (!vehicle) return { state, intent: null };
-  return startBooking({ ...state, draft: draftWithVehicle(state.draft, vehicle) });
+  return startBooking({ ...state, draft: draftWithVehicle(state.draft, vehicle) }, undefined, now);
 }
 
 /**
