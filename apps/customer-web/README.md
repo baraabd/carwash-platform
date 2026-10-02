@@ -2,6 +2,7 @@
 
 C002 introduces the React/Vite customer application shell on top of the immutable F010 HTML authority.
 C003 ports the approved Home screen with its resume, repeat and follow-up entries.
+C004 ports the first booking step, vehicle selection (`docs/customer/C004_VEHICLE_SELECTION.md`).
 
 ## Current executable surfaces
 

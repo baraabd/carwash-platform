@@ -31,7 +31,25 @@ svg {
   display: block;
   flex-shrink: 0;
 }
+/* The reference gives form controls the same focus ring as buttons and links. */
+summary,
+input,
+textarea,
+select {
+  outline-offset: 4px;
+}
+summary:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid #337abd;
+}
 /* The reference renders these as <button>; links must match its box defaults. */
+/* In the reference the skip link is a plain underlined link in the brand green. */
+.skip {
+  color: var(--green);
+  text-decoration: underline;
+}
 .brand {
   text-align: center;
 }
@@ -121,6 +139,17 @@ a.icon-btn {
 }
 .btn:active {
   transform: scale(0.97);
+}
+.btn.secondary {
+  background: #edf2e4;
+  color: var(--green);
+  font-size: 13px;
+}
+.btn + .btn.full {
+  margin-top: 10px;
+}
+[hidden] {
+  display: none !important;
 }
 .art-scene {
   width: 100%;

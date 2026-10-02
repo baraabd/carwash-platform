@@ -14,6 +14,14 @@ export interface CustomerSessionCommands {
 interface CustomerSessionValue {
   readonly state: CustomerSessionState;
   readonly commands: CustomerSessionCommands;
+  /**
+   * Applies a pure session command and returns its result, so a feature keeps its
+   * own commands (and their extra results, such as a validation message) without
+   * the provider having to know them.
+   */
+  readonly run: <Result extends { readonly state: CustomerSessionState }>(
+    command: (state: CustomerSessionState) => Result,
+  ) => Result;
 }
 
 const CustomerSessionContext = createContext<CustomerSessionValue | null>(null);
@@ -49,7 +57,14 @@ export function CustomerSessionProvider({ initialState, children }: ProviderProp
     [apply],
   );
 
-  const value = useMemo(() => ({ state, commands }), [state, commands]);
+  const run = useCallback<CustomerSessionValue['run']>((command) => {
+    const result = command(stateRef.current);
+    stateRef.current = result.state;
+    setState(result.state);
+    return result;
+  }, []);
+
+  const value = useMemo(() => ({ state, commands, run }), [state, commands, run]);
   return (
     <CustomerSessionContext.Provider value={value}>{children}</CustomerSessionContext.Provider>
   );

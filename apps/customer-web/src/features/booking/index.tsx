@@ -2,7 +2,15 @@ import type {
   CustomerBookingStepId,
   CustomerFixtureId,
 } from '../../fixtures/customerFixtureStates';
+import { useEffect } from 'react';
 import { ShellPlaceholder } from '../../shared/ShellPlaceholder';
+import { useCustomerSession } from '../../state/CustomerSessionProvider';
+import { visitBookingStep } from '../../state/vehicleStep';
+import { bookingFlow } from './bookingFlow';
+import { VehicleStep } from './vehicle/VehicleStep';
+import './booking.css';
+
+export { BOOKING_FOOTER_SLOT_ID } from './bookingFlow';
 
 const fixtureByStep: Record<CustomerBookingStepId, CustomerFixtureId> = {
   vehicle: 'booking-vehicle-default',
@@ -20,6 +28,15 @@ interface BookingRouteProps {
 }
 
 export function BookingRoute({ step, title }: BookingRouteProps) {
+  const { run } = useCustomerSession();
+  const stepIndex = bookingFlow.findIndex((item) => item.id === step);
+
+  // Remember where the draft is being edited so Home's "أكمل" returns here.
+  useEffect(() => {
+    run((current) => ({ state: visitBookingStep(current, stepIndex) }));
+  }, [run, stepIndex]);
+
+  if (step === 'vehicle') return <VehicleStep />;
   return (
     <ShellPlaceholder
       routeId={`booking-${step}`}

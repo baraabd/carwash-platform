@@ -185,13 +185,13 @@ p {
 .header-title {
   text-align: center;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.7;
 }
 .header-title small {
   display: block;
   font-weight: 400;
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.7;
   color: var(--muted);
   margin-top: 4px;

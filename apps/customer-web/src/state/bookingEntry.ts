@@ -55,6 +55,7 @@ function draftFromOrder(order: CustomerOrderSnapshot, state: CustomerSessionStat
     carName: order.carName,
     plate: order.plate,
     color: order.color,
+    saveVehicle: true,
     service: order.service,
     extras: [...order.extras],
     address: order.address,

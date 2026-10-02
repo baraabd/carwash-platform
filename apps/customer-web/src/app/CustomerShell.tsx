@@ -1,8 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { BOOKING_FOOTER_SLOT_ID } from '../features/booking';
+import { spawnTapWave } from '../shared/tapWave';
 import { Toast } from '../shared/Toast';
 import { inProgressOrderCount } from '../state/customerSession';
 import { useCustomerSession } from '../state/CustomerSessionProvider';
+import { pathForIntent } from '../state/navigationPath';
+import { leaveVehicleStep } from '../state/vehicleStep';
+import { BookingExitNotice } from './BookingExitNotice';
 import { CityNotice } from './CityNotice';
 import { Icon } from './Icon';
 
@@ -27,9 +32,21 @@ function NormalHeader() {
   );
 }
 
-function ContextHeader({ kind }: { readonly kind: 'booking' | 'payment' | 'tracking' }) {
+interface ContextHeaderProps {
+  readonly kind: 'booking' | 'payment' | 'tracking';
+  /** The vehicle step is ported; its header follows the reference exactly. */
+  readonly vehicleStep: boolean;
+}
+
+function ContextHeader({ kind, vehicleStep }: ContextHeaderProps) {
   const navigate = useNavigate();
-  const { state } = useCustomerSession();
+  const { state, run } = useCustomerSession();
+  // On the first step the reference leaves the journey for Home (the draft is kept)
+  // instead of walking the browser history.
+  const leaveBooking = () => {
+    const { intent } = run(leaveVehicleStep);
+    if (intent) navigate(pathForIntent(intent));
+  };
   const config = {
     booking: {
       title: state.bookingMode === 'repeat' ? 'مرة ثانية، بكل سهولة.' : 'غسلتك، على راحتك.',
@@ -53,16 +70,32 @@ function ContextHeader({ kind }: { readonly kind: 'booking' | 'payment' | 'track
   const current = config[kind];
   return (
     <>
-      <button className="icon-btn" type="button" onClick={() => navigate(-1)} aria-label="العودة">
-        <Icon name="right" />
-      </button>
+      {vehicleStep ? (
+        <button
+          className="icon-btn"
+          type="button"
+          onPointerDown={spawnTapWave}
+          onClick={leaveBooking}
+          aria-label="الخطوة السابقة"
+        >
+          <Icon name="right" />
+        </button>
+      ) : (
+        <button className="icon-btn" type="button" onClick={() => navigate(-1)} aria-label="العودة">
+          <Icon name="right" />
+        </button>
+      )}
       <div className="header-title">
         {current.title}
         <small>{current.subtitle}</small>
       </div>
-      <button className="icon-btn" type="button" aria-label={current.actionLabel}>
-        {current.action}
-      </button>
+      {kind === 'booking' ? (
+        <BookingExitNotice />
+      ) : (
+        <button className="icon-btn" type="button" aria-label={current.actionLabel}>
+          {current.action}
+        </button>
+      )}
     </>
   );
 }
@@ -118,6 +151,7 @@ export function CustomerShell() {
   const booking = location.pathname.startsWith('/book/');
   const payment = location.pathname.startsWith('/pay/');
   const tracking = location.pathname.startsWith('/order/');
+  const vehicleStep = location.pathname === '/book/0';
   const kind = booking ? 'booking' : payment ? 'payment' : tracking ? 'tracking' : 'normal';
   const { state } = useCustomerSession();
 
@@ -131,6 +165,29 @@ export function CustomerShell() {
     window.scrollTo({ top: 0, behavior: 'instant' });
     document.querySelector<HTMLElement>('#main h1')?.focus({ preventScroll: true });
   }, [location]);
+
+  // While a text field has focus on a short viewport (on-screen keyboard), the
+  // fixed action bar is released into the flow so it cannot cover the field.
+  useEffect(() => {
+    const root = document.documentElement;
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.matches('input:not([type="radio"]):not([type="checkbox"]),textarea')
+      ) {
+        root.classList.add('keyboard-entry');
+      }
+    };
+    const onFocusOut = () => root.classList.remove('keyboard-entry');
+    document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('focusout', onFocusOut);
+    return () => {
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('focusout', onFocusOut);
+      onFocusOut();
+    };
+  }, []);
 
   return (
     <>
@@ -158,19 +215,28 @@ export function CustomerShell() {
       </span>
       <div className="app" data-c002-shell data-shell-kind={kind}>
         <header className="app-header">
-          {kind === 'normal' ? <NormalHeader /> : <ContextHeader kind={kind} />}
+          {kind === 'normal' ? (
+            <NormalHeader />
+          ) : (
+            <ContextHeader kind={kind} vehicleStep={vehicleStep} />
+          )}
         </header>
         <main className="main" id="main" tabIndex={-1}>
           <Outlet />
         </main>
-        {booking || payment ? (
+        {vehicleStep ? (
+          // The ported step renders its own action bar into this slot.
+          <div id={BOOKING_FOOTER_SLOT_ID} />
+        ) : booking || payment ? (
           <DeferredFooter kind={booking ? 'booking' : 'payment'} />
         ) : (
           <BottomNavigation tracking={tracking} />
         )}
       </div>
       <Toast message={state.notice?.message ?? null} sequence={state.notice?.sequence ?? 0} />
-      <div className="sr-only" aria-live="polite" />
+      <div className="sr-only" aria-live="polite" key={state.announcement?.sequence ?? 0}>
+        {state.announcement?.message}
+      </div>
     </>
   );
 }

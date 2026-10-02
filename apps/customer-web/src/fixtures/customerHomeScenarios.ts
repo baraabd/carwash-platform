@@ -39,7 +39,7 @@ const sampleOrder: Omit<CustomerOrderSnapshot, 'id' | 'stage'> = {
 const runningOrder: CustomerOrderSnapshot = { ...sampleOrder, id: 'WG-DEMO-RUNNING', stage: 2 };
 const completedOrder: CustomerOrderSnapshot = { ...sampleOrder, id: 'WG-DEMO-DONE', stage: 4 };
 
-function emptySession(): CustomerSessionState {
+export function emptySession(): CustomerSessionState {
   return {
     profile: { name: '', phone: '' },
     orders: [],
@@ -48,6 +48,7 @@ function emptySession(): CustomerSessionState {
     bookingMode: 'standard',
     nextAvailableSlot: sampleSlot,
     notice: null,
+    announcement: null,
   };
 }
 

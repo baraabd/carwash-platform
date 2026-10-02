@@ -42,9 +42,12 @@ export interface CustomerSessionState {
   /** Next slot offered for a repeat. A fixture stand-in for a Scheduling answer. */
   readonly nextAvailableSlot: BookingSlot | null;
   readonly notice: { readonly message: string; readonly sequence: number } | null;
+  /** Polite screen-reader announcement; the sequence re-announces a repeated message. */
+  readonly announcement: { readonly message: string; readonly sequence: number } | null;
 }
 
 export type NavigationIntent =
+  | { readonly kind: 'home' }
   | { readonly kind: 'booking-step'; readonly step: number }
   | { readonly kind: 'order-tracking'; readonly orderId: string };
 
