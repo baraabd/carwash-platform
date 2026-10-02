@@ -5,6 +5,7 @@ C003 ports the approved Home screen with its resume, repeat and follow-up entrie
 C004 ports the first booking step, vehicle selection (`docs/customer/C004_VEHICLE_SELECTION.md`).
 C005 ports the garage, saved vehicles and the shared vehicle editor (`docs/customer/C005_GARAGE_SAVED_VEHICLES.md`).
 C006 ports the care packages step, the price breakdown and Home's package details (`docs/customer/C006_CARE_PACKAGES_PRICING.md`).
+C007 ports the add-ons sheet of the care step (`docs/customer/C007_EXTRAS_ADDONS.md`).
 
 ## Current executable surfaces
 

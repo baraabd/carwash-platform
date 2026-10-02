@@ -90,19 +90,18 @@ export function CareContext({ carLabel, onChangeVehicle }: CareContextProps) {
 interface ExtrasRowProps {
   readonly summary: string;
   readonly amount: string;
+  readonly onOpen: () => void;
 }
 
-/**
- * Entry to the add-ons sheet, which is the extras sprint (C007). It already shows
- * what a draft carries so the customer is not misled about the total.
- */
-export function ExtrasRow({ summary, amount }: ExtrasRowProps) {
+/** Opens the add-ons sheet and summarises what the draft already carries. */
+export function ExtrasRow({ summary, amount, onOpen }: ExtrasRowProps) {
   return (
     <button
       className="disclosure-row gap-top"
       type="button"
-      aria-disabled="true"
-      data-deferred-to="C007"
+      aria-haspopup="dialog"
+      data-care-action="extras"
+      onClick={onOpen}
     >
       <span className="soft-icon">
         <Icon name="plus" />

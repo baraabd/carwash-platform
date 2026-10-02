@@ -81,21 +81,43 @@ export const vehicleFixtures: Readonly<Record<VehicleTypeId, VehicleFixture>> = 
 /** Vehicle sizes in the approved display order of the vehicle step. */
 export const vehicleTypeIds: readonly VehicleTypeId[] = ['sedan', 'suv', 'large', 'pickup'];
 
+export type ExtraIconId = 'seat' | 'wheel' | 'leaf';
+
 export interface ExtraFixture {
   readonly name: string;
+  readonly hint: string;
   readonly price: number;
   readonly minutes: number;
+  readonly icon: ExtraIconId;
 }
 
-/**
- * Add-ons a draft may already carry. Choosing them is the extras sprint (C007);
- * they are listed here only so an existing draft is priced and described truthfully.
- */
+/** The approved add-ons. A package may already include one; it is then never charged. */
 export const extraFixtures: Readonly<Record<CareExtraId, ExtraFixture>> = {
-  seats: { name: 'تنظيف المقاعد', price: 350, minutes: 20 },
-  wheels: { name: 'تلميع الإطارات', price: 150, minutes: 10 },
-  fresh: { name: 'تعطير المقصورة', price: 100, minutes: 5 },
+  seats: {
+    name: 'تنظيف المقاعد',
+    hint: 'عناية إضافية بالقماش',
+    price: 350,
+    minutes: 20,
+    icon: 'seat',
+  },
+  wheels: {
+    name: 'تلميع الإطارات',
+    hint: 'لمسة أخيرة أجمل',
+    price: 150,
+    minutes: 10,
+    icon: 'wheel',
+  },
+  fresh: {
+    name: 'تعطير المقصورة',
+    hint: 'رائحة خفيفة ومنعشة',
+    price: 100,
+    minutes: 5,
+    icon: 'leaf',
+  },
 };
+
+/** The add-ons in the approved display order. */
+export const careExtraIds: readonly CareExtraId[] = ['seats', 'wheels', 'fresh'];
 
 /** Labels of the in-progress tracking stages shown on the Home follow-up card. */
 export const orderStageLabels: Readonly<Record<Exclude<OrderStage, -1>, string>> = {
