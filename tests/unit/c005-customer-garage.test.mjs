@@ -45,6 +45,9 @@ import {
   savedVehicleChoices,
 } from '../../apps/customer-web/src/widgets/vehicle-editor/vehicleEditorModel.ts';
 
+// The rendering contract's fixed instant (12:00 in Damascus, 2026-09-20). Booking-entry
+// commands judge the appointment at an explicit instant since C010.
+const NOW = new Date('2026-09-20T09:00:00.000Z');
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const APP_SRC = path.join(ROOT, 'apps/customer-web/src');
 const reference = readFileSync(
@@ -412,7 +415,7 @@ test('C005 booking editor writes to the draft only and never to the garage', () 
 
 test('C005 "book for this car" starts the journey with that car and creates no booking', () => {
   const state = three();
-  const { state: next, intent } = bookSavedVehicle(state, 'CAR-3');
+  const { state: next, intent } = bookSavedVehicle(state, 'CAR-3', NOW);
   assert.deepEqual(intent, { kind: 'booking-step', step: 0 });
   assert.equal(pathForIntent(intent), '/book/0');
   assert.equal(next.draft.carId, 'CAR-3');
@@ -421,24 +424,29 @@ test('C005 "book for this car" starts the journey with that car and creates no b
   assert.equal(next.draft.touched, true);
   assert.deepEqual(next.orders, [], 'a saved car never becomes an order');
   assert.equal(next.vehicles, state.vehicles);
-  assert.deepEqual(bookSavedVehicle(state, 'CAR-404'), { state, intent: null });
+  assert.deepEqual(bookSavedVehicle(state, 'CAR-404', NOW), { state, intent: null });
 });
 
 test('C005 starting a booking prefills the first saved car only when the draft describes none', () => {
-  const started = startBooking(three()).state;
+  const started = startBooking(three(), undefined, NOW).state;
   assert.equal(started.draft.carId, 'CAR-1');
   assert.equal(started.draft.plate, '4821 ب ج');
   assert.equal(started.draft.vehicleType, 'suv');
   // A plate the customer already typed is never replaced.
-  const typed = startBooking(changePlate(three(), '55 ه')).state;
+  const typed = startBooking(changePlate(three(), '55 ه'), undefined, NOW).state;
   assert.equal(typed.draft.carId, null);
   assert.equal(typed.draft.plate, '55 ه');
   // An already chosen car is kept.
-  const chosen = startBooking(chooseSavedVehicle(three(), 'CAR-2')).state;
+  const chosen = startBooking(chooseSavedVehicle(three(), 'CAR-2'), undefined, NOW).state;
   assert.equal(chosen.draft.carId, 'CAR-2');
   // Empty garage: C003/C004 behaviour is unchanged.
-  const none = startBooking(empty()).state;
-  assert.deepEqual(none.draft, { ...blankBookingDraft(), touched: true });
+  const none = startBooking(empty(), undefined, NOW).state;
+  // Since C010 starting also records the day the time step opens on.
+  assert.deepEqual(none.draft, {
+    ...blankBookingDraft(),
+    scheduleDay: '2026-09-20',
+    touched: true,
+  });
 });
 
 test('C005 manual C004 flow still works with and without saved cars', () => {
@@ -451,7 +459,7 @@ test('C005 manual C004 flow still works with and without saved cars', () => {
     assert.deepEqual(result.intent, { kind: 'booking-step', step: 1 });
     assert.equal(result.state.vehicles, state.vehicles, 'advancing does not save a car');
     assert.equal(result.state.orders, state.orders);
-    assert.deepEqual(resumeBooking(result.state).intent, { kind: 'booking-step', step: 1 });
+    assert.deepEqual(resumeBooking(result.state, NOW).intent, { kind: 'booking-step', step: 1 });
   }
   assert.deepEqual(buildVehicleStepViewModel(empty()).savedChoices, []);
 });

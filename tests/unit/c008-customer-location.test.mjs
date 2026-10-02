@@ -56,6 +56,9 @@ import { buildLocationStepViewModel } from '../../apps/customer-web/src/features
 import { buildHomeViewModel } from '../../apps/customer-web/src/features/home/homeViewModel.ts';
 import { illustrativeMapMarkup } from '../../apps/customer-web/src/shared/art/mapMarkup.ts';
 
+// The rendering contract's fixed instant (12:00 in Damascus, 2026-09-20). Booking-entry
+// commands judge the appointment at an explicit instant since C010.
+const NOW = new Date('2026-09-20T09:00:00.000Z');
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const APP_SRC = path.join(ROOT, 'apps/customer-web/src');
 const reference = readFileSync(
@@ -471,17 +474,17 @@ test('C008 step: Back returns to care and leaves the draft alone', () => {
 
 test('C008 resume: a draft without an address never enters past the location step', () => {
   const draft = { ...blankBookingDraft(), touched: true };
-  for (const step of [3, 4, 5, 6]) assert.equal(resolveBookingEntryStep(draft, step), 2);
-  assert.equal(resolveBookingEntryStep({ ...draft, address: 'abc' }, 3), 2);
-  assert.equal(resolveBookingEntryStep({ ...draft, address: 'دمشق، عنوان' }, 3), 3);
+  for (const step of [3, 4, 5, 6]) assert.equal(resolveBookingEntryStep(draft, step, NOW), 2);
+  assert.equal(resolveBookingEntryStep({ ...draft, address: 'abc' }, 3, NOW), 2);
+  assert.equal(resolveBookingEntryStep({ ...draft, address: 'دمشق، عنوان' }, 3, NOW), 3);
   const saved = { ...locationScenarioState('booking-location-sample-work'), draftStep: 2 };
-  assert.deepEqual(resumeBooking(saved).intent, { kind: 'booking-step', step: 2 });
+  assert.deepEqual(resumeBooking(saved, NOW).intent, { kind: 'booking-step', step: 2 });
 });
 
 test('C008 repeat: a repeat-derived draft owns its location and never alters the order', () => {
   const state = homeScenarioState('home-repeat-order');
   const snapshot = globalThis.structuredClone(state.orders);
-  const repeated = repeatOrder(state, state.orders[0].id).state;
+  const repeated = repeatOrder(state, state.orders[0].id, NOW).state;
   assert.equal(repeated.draft.address, state.orders[0].address);
   assert.equal(repeated.draft.place, null);
   const edited = chooseSampleLocation(repeated, 'work');
@@ -539,7 +542,7 @@ test('C008 home: a draft left on the location step is offered for resuming', () 
   const state = { ...locationScenarioState('booking-location-sample-work'), draftStep: 2 };
   const home = buildHomeViewModel(state);
   assert.ok(JSON.stringify(home).includes('لمعة سريعة'), 'the saved draft card is present');
-  assert.equal(pathForIntent(resumeBooking(state).intent), '/book/2');
+  assert.equal(pathForIntent(resumeBooking(state, NOW).intent), '/book/2');
 });
 
 test('C008 scenarios: deterministic, selectable and free of real data', () => {
@@ -624,12 +627,15 @@ test('C008 copy: every approved string of the step and the sheet is present', ()
 // Until C009 this test also asserted that no saved-address management existed.
 // C009 delivers it (tests/unit/c009-customer-saved-addresses.test.mjs), so only
 // the boundary that still holds is checked here.
-test('C008 scope: the time step (C010) stays a placeholder', () => {
+// Until C010 this test asserted that the time step was a placeholder. C010 owns it
+// now (tests/unit/c010-customer-scheduling.test.mjs); the boundary that still holds
+// for C008 is that the location step is mounted and the contact step is not ported.
+test('C008 scope: the location step is mounted and contact (C011) is not ported', () => {
   const route = read('features/booking/index.tsx');
   assert.match(route, /if \(step === 'location'\) return <LocationStep \/>;/);
-  assert.ok(!/step === 'time'/.test(route), 'the time step stays a placeholder');
+  assert.ok(!/step === 'contact'/.test(route), 'the contact step stays a placeholder');
   const shell = read('app/CustomerShell.tsx');
-  assert.ok(!shell.includes("'/book/3'"), 'the shell does not treat the time step as ported');
+  assert.ok(!shell.includes("'/book/4'"), 'the shell does not treat the contact step as ported');
 });
 
 test('C008 safety: customer text is rendered as text', () => {

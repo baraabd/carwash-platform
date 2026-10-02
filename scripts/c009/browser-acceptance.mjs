@@ -706,10 +706,13 @@ try {
       await pair.candidate.page.locator(NEXT).click();
       await pair.candidate.page.locator('[data-booking-step="time"]').waitFor();
       assert.match(pair.candidate.page.url(), /#\/book\/3$/);
+      // Until C010 the time step was a placeholder; it is now the real screen and
+      // names the saved address the booking started with.
+      await pair.candidate.page.locator('.dates').waitFor();
+      assert.equal(await pair.candidate.page.locator('.c002-deferred-footer').count(), 0);
       assert.equal(
-        await pair.candidate.page.locator('.c002-deferred-footer').count(),
-        1,
-        'the time step is still its placeholder',
+        (await pair.candidate.page.locator('.choice-context .grow').innerText()).trim(),
+        'بيتي',
       );
       assert.deepEqual(pair.candidate.problems, []);
       summary.interactions.push({ name: 'public entry, booking prefill, Care ↔ Location, Next' });

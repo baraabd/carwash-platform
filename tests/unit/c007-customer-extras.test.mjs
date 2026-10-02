@@ -40,6 +40,9 @@ import { buildPriceBreakdown } from '../../apps/customer-web/src/features/bookin
 import { bookingFlow } from '../../apps/customer-web/src/features/booking/bookingFlow.ts';
 import { buildHomeViewModel } from '../../apps/customer-web/src/features/home/homeViewModel.ts';
 
+// The rendering contract's fixed instant (12:00 in Damascus, 2026-09-20). Booking-entry
+// commands judge the appointment at an explicit instant since C010.
+const NOW = new Date('2026-09-20T09:00:00.000Z');
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const APP_SRC = path.join(ROOT, 'apps/customer-web/src');
 const reference = readFileSync(
@@ -388,9 +391,11 @@ test('C007 Next and Back of the care step are unchanged and carry the add-ons', 
 });
 
 test('C007 resume keeps the add-ons and Home shows a total that includes them', () => {
-  const advanced = submitCareStep(tick(startBooking(empty(), 'complete').state, 'seats')).state;
-  assert.deepEqual(resumeBooking(advanced).intent, { kind: 'booking-step', step: 2 });
-  assert.deepEqual(resumeBooking(advanced).state.draft.extras, ['seats']);
+  const advanced = submitCareStep(
+    tick(startBooking(empty(), 'complete', NOW).state, 'seats'),
+  ).state;
+  assert.deepEqual(resumeBooking(advanced, NOW).intent, { kind: 'booking-step', step: 2 });
+  assert.deepEqual(resumeBooking(advanced, NOW).state.draft.extras, ['seats']);
   assert.deepEqual(buildHomeViewModel(advanced).savedDraft, {
     packageName: 'نظافة متكاملة',
     total: 900 + 350,
@@ -405,7 +410,7 @@ test('C007 a repeat-derived draft copies the order add-ons into its own array', 
   const base = homeScenarioState('home-repeat-order');
   const order = { ...base.orders[0], service: 'premium', extras: ['wheels', 'seats'] };
   const state = { ...base, orders: [order] };
-  const { state: repeated, intent } = repeatOrder(state, order.id);
+  const { state: repeated, intent } = repeatOrder(state, order.id, NOW);
   assert.deepEqual(repeated.draft.extras, ['wheels', 'seats']);
   assert.notEqual(repeated.draft.extras, order.extras, 'the draft owns its array');
   assert.deepEqual(intent, { kind: 'booking-step', step: 6 });
@@ -418,7 +423,7 @@ test('C007 a repeat-derived draft copies the order add-ons into its own array', 
 
 test('C007 Home package entry and C006 pricing are unchanged', () => {
   for (const id of carePackageIds) {
-    const { state, intent } = startBooking(empty(), id);
+    const { state, intent } = startBooking(empty(), id, NOW);
     assert.deepEqual(intent, { kind: 'booking-step', step: 0 });
     assert.deepEqual(state.draft.extras, [], 'entering from Home preselects no add-on');
   }
