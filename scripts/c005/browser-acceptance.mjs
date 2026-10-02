@@ -904,7 +904,9 @@ try {
       await sheetClosed(page);
       assert.equal(await focusName(), 'إضافة سيارة');
       assert.equal((await observe(page)).cards.length, 1, 'nothing was saved');
-      assert.equal(await page.evaluate(() => globalThis.document.body.style.overflow), '');
+      // Scrolling is unlocked by the dialog's `close` event, which is dispatched as
+      // a task after the dialog has closed, so wait for it instead of sampling once.
+      await page.waitForFunction(() => globalThis.document.body.style.overflow === '');
 
       // Edit and delete return focus to their own buttons.
       await cardButton(page, 0, 'تعديل').focus();
