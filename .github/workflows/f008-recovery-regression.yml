@@ -1,0 +1,59 @@
+name: F008 recovery lifecycle regression
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'scripts/acceptance/lib/**'
+      - 'tests/integration/outbox-inbox.test.mjs'
+      - 'tests/unit/f008-recovery-scope.test.mjs'
+      - '.github/workflows/f008-recovery-regression.yml'
+      - '.prettierrc.json'
+      - '.nvmrc'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: f008-recovery-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  recovery-lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Pinned tools and frozen dependencies
+        run: |
+          corepack enable
+          corepack prepare --activate
+          pnpm install --frozen-lockfile
+          node scripts/verify-toolchain.mjs
+      - name: Cancellation and cleanup regressions on the pinned Node
+        run: node --test tests/unit/f008-recovery-scope.test.mjs
+      - name: Formatting with actionable diffs
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=0
+          output="$(mktemp)"
+          trap 'rm -f "$output"' EXIT
+          for source in \
+            scripts/acceptance/lib/infra.mjs \
+            scripts/acceptance/lib/recovery.mjs \
+            tests/integration/outbox-inbox.test.mjs \
+            tests/unit/f008-recovery-scope.test.mjs \
+            .github/workflows/f008-recovery-regression.yml; do
+            pnpm exec prettier "$source" > "$output"
+            diff -u --label "$source" --label "$source (formatted)" "$source" "$output" || status=1
+          done
+          exit "$status"
