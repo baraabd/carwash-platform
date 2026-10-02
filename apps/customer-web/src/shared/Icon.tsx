@@ -19,9 +19,22 @@ export type IconName =
   | 'history'
   | 'refresh'
   | 'help'
-  | 'info';
+  | 'info'
+  | 'check'
+  | 'clock'
+  | 'edit'
+  | 'up';
 
 const paths: Record<IconName, ReactNode> = {
+  check: <path d="m5 12 4 4L19 6" />,
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
+  edit: <path d="m14 5 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14l-1 7Z" />,
+  up: <path d="m6 15 6-6 6 6" />,
   drop: (
     <>
       <path d="M12 3C9.5 7 5 11.6 5 15a7 7 0 0 0 14 0c0-3.4-4.5-8-7-12Z" />

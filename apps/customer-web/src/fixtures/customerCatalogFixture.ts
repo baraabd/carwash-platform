@@ -43,14 +43,15 @@ export const packageFixtures: Readonly<Record<CarePackageId, PackageFixture>> = 
 export interface VehicleFixture {
   readonly name: string;
   readonly fee: number;
+  readonly minutes: number;
   readonly art: 'sedan' | 'suv' | 'pickup';
 }
 
 export const vehicleFixtures: Readonly<Record<VehicleTypeId, VehicleFixture>> = {
-  sedan: { name: 'سيدان', fee: 0, art: 'sedan' },
-  suv: { name: 'كروس أوفر', fee: 200, art: 'suv' },
-  large: { name: 'دفع رباعي', fee: 350, art: 'suv' },
-  pickup: { name: 'بيك أب', fee: 250, art: 'pickup' },
+  sedan: { name: 'سيدان', fee: 0, minutes: 0, art: 'sedan' },
+  suv: { name: 'كروس أوفر', fee: 200, minutes: 10, art: 'suv' },
+  large: { name: 'دفع رباعي', fee: 350, minutes: 20, art: 'suv' },
+  pickup: { name: 'بيك أب', fee: 250, minutes: 15, art: 'pickup' },
 };
 
 const extraPriceFixtures: Readonly<Record<CareExtraId, number>> = {
@@ -90,5 +91,27 @@ export function illustrativeDraftTotal(
     packageFixtures[draft.service].price +
     vehicleFixtures[draft.vehicleType].fee +
     extras.reduce((sum, extra) => sum + extraPriceFixtures[extra], 0)
+  );
+}
+
+const extraMinuteFixtures: Readonly<Record<CareExtraId, number>> = {
+  seats: 20,
+  wheels: 10,
+  fresh: 5,
+};
+
+/** Vehicle sizes in the approved display order of the vehicle step. */
+export const vehicleTypeIds: readonly VehicleTypeId[] = ['sedan', 'suv', 'large', 'pickup'];
+
+/** Illustrative duration shown in the booking footer. An estimate, not a reserved slot length. */
+export function illustrativeDraftMinutes(
+  draft: Pick<BookingDraft, 'service' | 'vehicleType' | 'extras'>,
+): number {
+  const included = extrasIncludedInPackage[draft.service];
+  const extras = [...new Set(draft.extras)].filter((extra) => !included.includes(extra));
+  return (
+    packageFixtures[draft.service].minutes +
+    vehicleFixtures[draft.vehicleType].minutes +
+    extras.reduce((sum, extra) => sum + extraMinuteFixtures[extra], 0)
   );
 }

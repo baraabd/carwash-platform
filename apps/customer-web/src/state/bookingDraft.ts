@@ -18,6 +18,8 @@ export interface BookingDraft {
   readonly carName: string;
   readonly plate: string;
   readonly color: string;
+  /** The customer's wish to keep this car for next time. Nothing is saved here. */
+  readonly saveVehicle: boolean;
   readonly service: CarePackageId;
   readonly extras: readonly CareExtraId[];
   readonly address: string;
@@ -40,6 +42,7 @@ export function blankBookingDraft(): BookingDraft {
     carName: '',
     plate: '',
     color: '',
+    saveVehicle: true,
     service: 'exterior',
     extras: [],
     address: '',
@@ -64,9 +67,24 @@ function toLatinDigits(value: string): string {
     .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - EASTERN_ARABIC_INDIC_ZERO));
 }
 
-/** The plate is optional in the approved journey; when present it must look like one. */
-function isPlateAcceptable(plate: string): boolean {
-  const value = toLatinDigits(plate).trim();
+export const PLATE_MAX_LENGTH = 20;
+
+/**
+ * What the draft stores for a typed plate: Arabic-Indic and Eastern Arabic-Indic
+ * digits become Latin digits and the value is capped. Letters, spaces and hyphens
+ * are kept exactly as typed, as in the approved reference.
+ */
+export function normalizePlateInput(value: string): string {
+  return toLatinDigits(value).slice(0, PLATE_MAX_LENGTH);
+}
+
+/**
+ * The plate is optional in the approved journey; when present it must look like
+ * one: 2–20 Latin/Arabic letters, digits, spaces or hyphens with at least one
+ * digit. Only a truly empty value counts as "left blank" — spaces alone do not.
+ */
+export function isPlateAcceptable(plate: string): boolean {
+  const value = toLatinDigits(plate);
   return value === '' || (/^[A-Za-zء-ي0-9\s-]{2,20}$/.test(value) && /\d/.test(value));
 }
 
