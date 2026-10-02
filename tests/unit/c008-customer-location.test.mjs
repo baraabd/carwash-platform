@@ -72,7 +72,12 @@ function sourceFiles(directory) {
 }
 const read = (relative) => readFileSync(path.join(APP_SRC, relative), 'utf8');
 const readAll = (files) => files.map((file) => readFileSync(file, 'utf8')).join('\n');
-const locationFiles = sourceFiles(path.join(APP_SRC, 'features/booking/location'));
+// C009 moved the address editor, its map and the device-location request into
+// the shared widgets layer; they are still covered by every check below.
+const locationFiles = [
+  ...sourceFiles(path.join(APP_SRC, 'features/booking/location')),
+  ...sourceFiles(path.join(APP_SRC, 'widgets/address-editor')),
+];
 const c008Files = [
   ...locationFiles,
   path.join(APP_SRC, 'state/locationStep.ts'),
@@ -242,9 +247,10 @@ test('C008 save-address: the wish is a draft flag and creates no saved-address r
   assert.deepEqual(
     Object.keys(result).sort(),
     Object.keys(state).sort(),
-    'no address collection is added to the session',
+    'applying a place adds no collection to the session',
   );
-  assert.equal('addresses' in result, false);
+  // C009 gave the session an address book; applying a booking place leaves it alone.
+  assert.equal(result.addresses, state.addresses, 'the address book is untouched');
   assert.equal(result.vehicles, state.vehicles, 'the garage is untouched');
   assert.equal(result.orders, state.orders, 'no order is created');
 });
@@ -387,12 +393,12 @@ test('C008 privacy: location is requested from one place, on the customer tap on
   );
   assert.deepEqual(
     users.map((file) => path.relative(APP_SRC, file).replaceAll('\\', '/')),
-    ['features/booking/location/deviceLocation.ts'],
+    ['widgets/address-editor/deviceLocation.ts'],
   );
   assert.ok(!/watchPosition/.test(allCode), 'the position is never tracked');
   assert.ok(!/permissions\s*\.\s*query/.test(allCode), 'permission state is never probed');
 
-  const device = withoutComments(read('features/booking/location/deviceLocation.ts'));
+  const device = withoutComments(read('widgets/address-editor/deviceLocation.ts'));
   assert.equal(device.match(/getCurrentPosition/g).length, 1);
   assert.ok(!/console\.|localStorage|sessionStorage|fetch\(/.test(device));
   // The coordinates go straight into the classifier and nowhere else.
@@ -402,7 +408,7 @@ test('C008 privacy: location is requested from one place, on the customer tap on
     /classifyDevicePosition\(position\.coords\.latitude, position\.coords\.longitude\)/,
   );
 
-  const sheet = withoutComments(read('features/booking/location/components/AddressSheet.tsx'));
+  const sheet = withoutComments(read('widgets/address-editor/AddressEditor.tsx'));
   assert.equal(sheet.match(/requestDevicePositionClass\(\)/g).length, 1);
   assert.match(sheet, /onLocate=\{\(\) => void locate\(\)\}/, 'called from the button handler');
   assert.ok(!/useEffect\([^)]*locate/.test(sheet), 'never requested from an effect');
@@ -615,18 +621,10 @@ test('C008 copy: every approved string of the step and the sheet is present', ()
   }
 });
 
-test('C008 scope: no saved-address management (C009) and no time step (C010)', () => {
-  const code = withoutComments(c008Code);
-  for (const pattern of [
-    /saved-address/,
-    /sheet-saved-address/,
-    /savedAddressesSheet/,
-    /add-address|edit-address|delete-address/,
-    /address-chips/,
-    /حفظ العنوان['"<]/,
-  ]) {
-    assert.ok(!pattern.test(code), `C008 must not implement ${pattern}`);
-  }
+// Until C009 this test also asserted that no saved-address management existed.
+// C009 delivers it (tests/unit/c009-customer-saved-addresses.test.mjs), so only
+// the boundary that still holds is checked here.
+test('C008 scope: the time step (C010) stays a placeholder', () => {
   const route = read('features/booking/index.tsx');
   assert.match(route, /if \(step === 'location'\) return <LocationStep \/>;/);
   assert.ok(!/step === 'time'/.test(route), 'the time step stays a placeholder');
@@ -660,7 +658,7 @@ test('C008 architecture: pure state, feature boundaries and semantic controls', 
   assert.match(card, /aria-haspopup="dialog"/);
   assert.match(card, /aria-pressed=\{shortcut\.selected\}/);
   assert.ok(!/role="button"|<div[^>]*onClick/.test(card), 'controls are native buttons');
-  const map = read('features/booking/location/components/IllustrativeMap.tsx');
+  const map = read('widgets/address-editor/IllustrativeMap.tsx');
   assert.match(map, /role="group"/);
   assert.match(map, /tabIndex=\{0\}/);
   assert.match(map, /passive: false/);

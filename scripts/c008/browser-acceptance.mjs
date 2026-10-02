@@ -1032,7 +1032,7 @@ try {
       await page.locator(CARD).waitFor();
       assert.equal((await observe(page)).card.title, 'حدد مكان السيارة');
 
-      // No saved-address UI (C009) leaked into this sprint.
+      // An empty address book shows no saved-address chips (populated: see C009).
       assert.equal(await page.locator('.address-chips').count(), 0);
       await openSheet(page);
       assert.deepEqual((await observe(page)).sheet.chips, ['منزل تجريبي', 'عمل تجريبي']);
