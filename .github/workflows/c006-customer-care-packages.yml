@@ -1,0 +1,105 @@
+name: C006 customer care packages and pricing parity acceptance
+# The C002-C005 browser acceptances run in the C003, C004 and C005 workflows, which trigger on
+# the same customer-web paths; this workflow adds the C006 browser acceptance and
+# re-runs the cheap static and unit gates of C001-C006 so it is green on its own.
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/customer-web/**'
+      - 'scripts/c001/**'
+      - 'scripts/c002/**'
+      - 'scripts/c004/**'
+      - 'scripts/c006/**'
+      - 'scripts/f010/**'
+      - 'tests/unit/c001-*.test.mjs'
+      - 'tests/unit/c002-*.test.mjs'
+      - 'tests/unit/c003-*.test.mjs'
+      - 'tests/unit/c004-*.test.mjs'
+      - 'tests/unit/c005-*.test.mjs'
+      - 'tests/unit/c006-*.test.mjs'
+      - 'design/reference/approved/washgo-payments-interactive.html'
+      - 'docs/design/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/c006-customer-care-packages.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/customer-web/**'
+      - 'scripts/c004/**'
+      - 'scripts/c006/**'
+      - 'tests/unit/c004-*.test.mjs'
+      - 'tests/unit/c005-*.test.mjs'
+      - 'tests/unit/c006-*.test.mjs'
+      - '.github/workflows/c006-customer-care-packages.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: c006-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  customer-care-packages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Frozen install and design authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          pnpm install --frozen-lockfile
+          pnpm check:design-reference
+          pnpm check:f010-references
+          node scripts/c001/customer-behavior-manifest.mjs
+      - name: Static, boundary and unit acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm format:check
+          pnpm lint
+          pnpm --filter @carwash/customer-web typecheck
+          pnpm --filter @carwash/customer-web build
+          node scripts/c002/check-feature-boundaries.mjs
+          node --test --test-reporter=spec \
+            tests/unit/c001-customer-behavior-manifest.test.mjs \
+            tests/unit/c002-customer-shell.test.mjs \
+            tests/unit/c002-state-boundaries.test.mjs \
+            tests/unit/c003-customer-home.test.mjs \
+            tests/unit/c004-customer-vehicle.test.mjs \
+            tests/unit/c005-customer-garage.test.mjs \
+            tests/unit/c006-customer-care-packages.test.mjs
+      - name: Browser parity against the approved reference
+        shell: bash
+        env:
+          C006_ORIGIN: http://127.0.0.1:4174
+          C006_EVIDENCE_DIR: ${{ runner.temp }}/c006-evidence
+        run: |
+          set -euo pipefail
+          pnpm exec playwright install --with-deps chromium
+          pnpm --filter @carwash/customer-web preview --host 127.0.0.1 --port 4174 --strictPort > "$RUNNER_TEMP/c006-vite.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for _ in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:4174/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:4174/ >/dev/null
+          node scripts/c006/browser-acceptance.mjs
+      - name: Upload reference/candidate/diff evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: c006-care-packages-parity-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/c006-evidence
+          if-no-files-found: error
+          retention-days: 14
