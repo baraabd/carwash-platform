@@ -7,6 +7,10 @@ import {
   homeScenarioState,
   isHomeScenarioId,
 } from '../fixtures/customerHomeScenarios.ts';
+import {
+  isLocationScenarioId,
+  locationScenarioState,
+} from '../fixtures/customerLocationScenarios.ts';
 import type { CustomerSessionState } from '../state/customerSession.ts';
 
 /**
@@ -23,5 +27,6 @@ export function initialSessionState(locationHash: string): CustomerSessionState 
   if (isBookingScenarioId(requested)) return bookingScenarioState(requested);
   if (isGarageScenarioId(requested)) return garageScenarioState(requested);
   if (isCareScenarioId(requested)) return careScenarioState(requested);
+  if (isLocationScenarioId(requested)) return locationScenarioState(requested);
   return homeScenarioState(isHomeScenarioId(requested) ? requested : DEFAULT_HOME_SCENARIO);
 }

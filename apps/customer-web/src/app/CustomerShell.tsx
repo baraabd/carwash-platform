@@ -7,6 +7,7 @@ import { inProgressOrderCount } from '../state/customerSession';
 import { useCustomerSession } from '../state/CustomerSessionProvider';
 import { pathForIntent } from '../state/navigationPath';
 import { returnToVehicleStep } from '../state/careStep';
+import { returnToCareStep } from '../state/locationStep';
 import { leaveVehicleStep } from '../state/vehicleStep';
 import { BookingExitNotice } from './BookingExitNotice';
 import { CityNotice } from './CityNotice';
@@ -36,7 +37,7 @@ function NormalHeader() {
 interface ContextHeaderProps {
   readonly kind: 'booking' | 'payment' | 'tracking';
   /**
-   * Index of the booking step when it is already ported (0 vehicle, 1 care); its
+   * Index of the booking step when it is already ported (0 vehicle, 1 care, 2 location); its
    * header then follows the reference exactly. Null for the remaining mount points.
    */
   readonly portedStep: number | null;
@@ -49,7 +50,13 @@ function ContextHeader({ kind, portedStep }: ContextHeaderProps) {
   // instead of walking the browser history.
   const leaveBooking = () => {
     // First step: leave for Home. Later steps: one step back. The draft is kept.
-    const { intent } = run(portedStep === 0 ? leaveVehicleStep : returnToVehicleStep);
+    const { intent } = run(
+      portedStep === 0
+        ? leaveVehicleStep
+        : portedStep === 2
+          ? returnToCareStep
+          : returnToVehicleStep,
+    );
     if (intent) navigate(pathForIntent(intent));
   };
   const config = {
@@ -157,7 +164,13 @@ export function CustomerShell() {
   const payment = location.pathname.startsWith('/pay/');
   const tracking = location.pathname.startsWith('/order/');
   const portedStep =
-    location.pathname === '/book/0' ? 0 : location.pathname === '/book/1' ? 1 : null;
+    location.pathname === '/book/0'
+      ? 0
+      : location.pathname === '/book/1'
+        ? 1
+        : location.pathname === '/book/2'
+          ? 2
+          : null;
   const kind = booking ? 'booking' : payment ? 'payment' : tracking ? 'tracking' : 'normal';
   const { state } = useCustomerSession();
 
@@ -173,7 +186,8 @@ export function CustomerShell() {
   }, [location]);
 
   // While a text field has focus on a short viewport (on-screen keyboard), the
-  // fixed action bar is released into the flow so it cannot cover the field.
+  // fixed action bar is released into the flow so it cannot cover the field,
+  // and the field is scrolled into view.
   useEffect(() => {
     const root = document.documentElement;
     const onFocusIn = (event: FocusEvent) => {
@@ -183,6 +197,13 @@ export function CustomerShell() {
         target.matches('input:not([type="radio"]):not([type="checkbox"]),textarea')
       ) {
         root.classList.add('keyboard-entry');
+        // Shortly after, the field is brought to the middle of its scroller, as in
+        // the reference, so an on-screen keyboard or a tall sheet cannot hide it.
+        window.setTimeout(() => {
+          if (!target.isConnected) return;
+          const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          target.scrollIntoView({ block: 'center', behavior: reduced ? 'instant' : 'smooth' });
+        }, 160);
       }
     };
     const onFocusOut = () => root.classList.remove('keyboard-entry');

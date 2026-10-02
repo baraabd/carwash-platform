@@ -9,6 +9,20 @@ export interface BookingSlot {
   readonly time: string;
 }
 
+export type BookingPlaceKind = 'home' | 'work' | 'map' | 'gps' | 'manual';
+
+/**
+ * Where the pin sits on the illustrative map. `x`/`y` are positions in the
+ * drawing (700×500), not geographic coordinates: the map is a picture, and a
+ * device location is never stored here or anywhere else.
+ */
+export interface BookingPlace {
+  readonly kind: BookingPlaceKind;
+  readonly x: number;
+  readonly y: number;
+  readonly label: string;
+}
+
 /**
  * The customer's unsent booking choices. A draft is never a booking: nothing is
  * created, reserved or charged until the review step is explicitly confirmed.
@@ -27,6 +41,9 @@ export interface BookingDraft {
   readonly address: string;
   readonly addressLabel: string;
   readonly locationNote: string;
+  readonly place: BookingPlace | null;
+  /** The customer's wish to keep this address for next time. Nothing is saved here. */
+  readonly saveAddress: boolean;
   readonly slot: BookingSlot | null;
   readonly contactName: string;
   readonly contactPhone: string;
@@ -51,6 +68,8 @@ export function blankBookingDraft(): BookingDraft {
     address: '',
     addressLabel: 'المنزل',
     locationNote: '',
+    place: null,
+    saveAddress: true,
     slot: null,
     contactName: '',
     contactPhone: '',

@@ -1,0 +1,391 @@
+/*
+ * Location step and address sheet, ported from the approved reference
+ * (design/reference/approved/washgo-payments-interactive.html, locationView(),
+ * renderAddressSheet(), mapMarkup()). Rules are kept in the reference's source
+ * order so its cascade resolves the same way; do not round, retheme or reorder.
+ */
+.mini-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 18px 0 10px;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 650;
+}
+.mini-title small {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.location-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.location-card .disclosure-row {
+  border: 0;
+  border-radius: 0;
+}
+.mini-map {
+  height: 84px;
+  overflow: hidden;
+  position: relative;
+  background: #e7eedc;
+}
+.mini-map > svg {
+  width: 100%;
+  height: 150%;
+  object-fit: cover;
+}
+.mini-map-pin {
+  position: absolute;
+  top: 22px;
+  left: 51%;
+  background: var(--green);
+  color: #e3fac2;
+  width: 35px;
+  height: 35px;
+  border: 3px solid white;
+  border-radius: 50% 50% 50% 7px;
+  transform: rotate(-45deg);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 8px #23402b26;
+}
+.mini-map-pin svg {
+  width: 17px;
+  transform: rotate(45deg);
+}
+.map-mini-note {
+  position: absolute;
+  bottom: 7px;
+  right: 10px;
+  font-size: 9px;
+  background: #ffffffe8;
+  padding: 1px 8px;
+  border-radius: 10px;
+  color: #556f49;
+}
+.info-note {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 13px;
+  border-radius: 16px;
+  background: #edf2e7;
+  font-size: 11px;
+  line-height: 1.85;
+  color: #536c49;
+  margin-top: 15px;
+}
+.info-note svg {
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+}
+.location-map {
+  height: 205px;
+  border-radius: 20px;
+  border: 1px solid #d6e2c7;
+  background: #e9efdf;
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  margin: 12px 0;
+}
+.map-world {
+  width: 700px;
+  height: 500px;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.map-world > svg {
+  width: 100%;
+  height: 100%;
+}
+.map-pin {
+  position: absolute;
+  width: 36px;
+  height: 46px;
+  transform: translate(-50%, -100%);
+  filter: drop-shadow(0 3px 3px #1b302140);
+  pointer-events: none;
+}
+.map-pin svg {
+  width: 100%;
+  height: 100%;
+}
+.map-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: absolute;
+  left: 12px;
+  top: 12px;
+}
+.map-controls button {
+  width: 39px;
+  height: 39px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: white;
+  border: 1px solid #d6e1cc;
+  box-shadow: 0 4px 12px #2137220f;
+}
+.map-caption {
+  position: absolute;
+  bottom: 9px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ffffffe6;
+  font-size: 9px;
+  border-radius: 12px;
+  padding: 3px 10px;
+  white-space: nowrap;
+  color: #5b704e;
+}
+.map-location-button {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 12px;
+  background: white;
+  border: 1px solid #d6e1cc;
+  font-size: 10px;
+  min-height: 39px;
+  padding: 8px;
+  color: #315b3d;
+}
+.map-location-button svg {
+  width: 15px;
+  height: 15px;
+}
+.map-help {
+  font-size: 10px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.map-help svg {
+  width: 13px;
+  height: 13px;
+}
+.loading-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #adc698;
+  border-top-color: #315d34;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.map-controls button {
+  width: 44px;
+  height: 44px;
+}
+.map-location-button {
+  min-height: 44px;
+}
+.map-controls {
+  gap: 5px;
+}
+.location-picker {
+  border-radius: 29px;
+  text-align: start;
+  background: #fff;
+  overflow: hidden;
+  padding: 0;
+}
+.signature-map {
+  height: 230px;
+  position: relative;
+}
+.signature-map > svg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.mini-map-pin {
+  width: 46px;
+  height: 46px;
+  color: #efffca;
+  background: #154d3a;
+  z-index: 3;
+  box-shadow: 0 5px 20px #19443130;
+  left: 50%;
+  top: 49%;
+  transform: translate(-50%, -50%);
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+}
+.mini-map-pin .icon {
+  width: 26px;
+  height: 26px;
+}
+.map-radius {
+  position: absolute;
+  left: 50%;
+  top: 49%;
+  transform: translate(-50%, -50%);
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  border: 1px solid #24533428;
+  background: #6c9b6630;
+  box-shadow: 0 0 0 22px #6c9b660c;
+}
+.map-open-icon {
+  position: absolute;
+  left: 14px;
+  bottom: 13px;
+  width: 38px;
+  height: 38px;
+  background: #fff;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: #31553d;
+}
+.map-open-icon .icon {
+  width: 19px;
+  height: 19px;
+}
+.map-mini-note {
+  font-size: 9px;
+  bottom: auto;
+  top: 12px;
+  right: 12px;
+  left: auto;
+  background: #fff9;
+  border-radius: 12px;
+  padding: 3px 8px;
+}
+.location-picker .disclosure-row {
+  border: 0;
+  border-radius: 0;
+  display: flex;
+}
+.address-preview {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.9;
+  margin-top: 3px;
+}
+.location-shortcuts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.place-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 14px 12px;
+  min-height: 85px;
+  text-align: start;
+}
+.place-shortcut .chapter-icon {
+  width: 42px;
+  height: 45px;
+  border-radius: 15px;
+}
+.place-shortcut .chapter-icon .icon {
+  width: 24px;
+  height: 24px;
+}
+.place-shortcut strong {
+  display: block;
+  font-size: 14px;
+}
+.place-shortcut small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+}
+.place-shortcut > .icon {
+  width: 16px;
+  height: 16px;
+  margin-inline-start: auto;
+}
+.place-shortcut.selected {
+  background: #eff7e2;
+  border-color: #789e4b;
+}
+.location-tip {
+  margin-top: 22px;
+}
+.selection-summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 53px;
+  padding: 12px;
+  background: #edf1e7;
+  border-radius: 18px;
+  margin: 20px 0 0;
+  font-size: 12px;
+  color: #637957;
+}
+.selection-summary .icon {
+  width: 18px;
+  height: 18px;
+}
+.mini-title {
+  font-size: 14px;
+  margin-top: 21px;
+  margin-bottom: 12px;
+}
+.mini-title small {
+  font-size: 10px;
+}
+.info-note {
+  font-size: 12px;
+  line-height: 1.9;
+}
+.place-shortcut {
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease;
+}
+@media (max-width: 374px) {
+  .location-shortcuts {
+    gap: 8px;
+  }
+  .place-shortcut {
+    padding: 12px 9px;
+    gap: 7px;
+  }
+  .place-shortcut > .icon {
+    display: none;
+  }
+}
+.mini-title {
+  font-size: 13px;
+}
+.mini-title small {
+  font-size: 9px;
+}
