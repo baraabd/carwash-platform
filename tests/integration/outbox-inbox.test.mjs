@@ -204,10 +204,9 @@ test('Case A2: the same consumer process reconnects after a RabbitMQ restart', a
   });
 
   const first = await step('initial consumer connection', () =>
-    consumer.waitFor(
-      (line) => line.event === 'consumer_started' && line.connectionNumber === 1,
-      { description: 'initial consumer connection' },
-    ),
+    consumer.waitFor((line) => line.event === 'consumer_started' && line.connectionNumber === 1, {
+      description: 'initial consumer connection',
+    }),
   );
   assert.equal(first.reconnected, false);
 
@@ -224,10 +223,10 @@ test('Case A2: the same consumer process reconnects after a RabbitMQ restart', a
   );
 
   const second = await step('same consumer reconnects', () =>
-    consumer.waitFor(
-      (line) => line.event === 'consumer_started' && line.connectionNumber >= 2,
-      { description: 'consumer reconnected after broker restart', timeoutMs: 90_000 },
-    ),
+    consumer.waitFor((line) => line.event === 'consumer_started' && line.connectionNumber >= 2, {
+      description: 'consumer reconnected after broker restart',
+      timeoutMs: 90_000,
+    }),
   );
   assert.equal(second.reconnected, true);
   assert.equal(consumer.child.pid, consumerPid, 'the original consumer process must reconnect');

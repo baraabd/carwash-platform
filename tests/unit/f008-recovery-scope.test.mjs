@@ -62,7 +62,10 @@ test('a cancelled test cannot start another mutation', async () => {
   const step = recoveryScope(ctx.t, async () => {});
   ctx.controller.abort();
   let called = false;
-  await assert.rejects(step('start broker', async () => (called = true)), { name: 'AbortError' });
+  await assert.rejects(
+    step('start broker', async () => (called = true)),
+    { name: 'AbortError' },
+  );
   assert.equal(called, false);
 });
 
