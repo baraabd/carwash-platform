@@ -15,6 +15,8 @@ export interface BookingSlot {
  */
 export interface BookingDraft {
   readonly vehicleType: VehicleTypeId;
+  /** The saved car these fields were copied from, if any. A link, not ownership. */
+  readonly carId: string | null;
   readonly carName: string;
   readonly plate: string;
   readonly color: string;
@@ -39,6 +41,7 @@ export const BOOKING_REVIEW_STEP = 6;
 export function blankBookingDraft(): BookingDraft {
   return {
     vehicleType: 'sedan',
+    carId: null,
     carName: '',
     plate: '',
     color: '',

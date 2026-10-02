@@ -1,5 +1,6 @@
 import './styles/customer-shell.css';
 import './styles/customer-shared.css';
+import './styles/customer-forms.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';

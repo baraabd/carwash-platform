@@ -1,0 +1,179 @@
+/*
+ * Headings, form fields and chips shared by customer screens, ported rule-for-rule
+ * from the approved reference (design/reference/approved/washgo-payments-interactive.html).
+ * Values are the reference's resolved cascade; do not round, retheme or reorder.
+ */
+.page-heading {
+  margin: 24px 0 21px;
+}
+.eyebrow {
+  font-size: 10px;
+  color: #527238;
+  font-weight: 600;
+  letter-spacing: 0.15px;
+  margin-bottom: 7px;
+}
+.page-heading p {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 9px;
+  line-height: 1.9;
+}
+.plate-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #b1cf8f;
+  border-inline-start: 5px solid #8aab57;
+  border-radius: 8px;
+  background: #fefff9;
+  min-height: 30px;
+  font-size: 13px;
+  letter-spacing: 1px;
+  padding: 4px 8px;
+  color: #184a37;
+  max-width: 160px;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.plate-mini:before {
+  content: '';
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: #709569;
+  margin-inline-start: -4px;
+}
+.choice {
+  position: absolute;
+  opacity: 0;
+  left: 12px;
+  top: 12px;
+  width: 1px;
+  height: 1px;
+}
+.field {
+  display: block;
+  margin-top: 16px;
+}
+.field-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 650;
+  margin-bottom: 7px;
+  min-height: 25px;
+}
+.field-label small {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 400;
+}
+.input {
+  display: block;
+  width: 100%;
+  min-height: 57px;
+  border: 1px solid #d3dfcf;
+  border-radius: 19px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.55;
+  padding: 13px 15px;
+  scroll-margin: 130px;
+}
+.input::placeholder {
+  color: #839079;
+  font-size: 13px;
+}
+.input[aria-invalid='true'] {
+  border-color: var(--danger);
+  background: #fffafa;
+}
+.input:focus {
+  border-color: #4c7a3a;
+}
+.input:focus-visible {
+  outline: 2px solid #357665;
+  outline-offset: 2px;
+}
+.input-note {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.85;
+  margin: 8px 0;
+}
+.error {
+  color: var(--danger);
+  font-size: 12px;
+  margin: 6px 0;
+  line-height: 1.8;
+  scroll-margin: 160px;
+}
+.checkbox-row {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin: 16px 0;
+  font-size: 11px;
+  color: #586f4d;
+  cursor: pointer;
+  line-height: 1.9;
+}
+.checkbox-row input {
+  accent-color: var(--green);
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  flex-shrink: 0;
+}
+.chips {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  border: 1px solid #dce5d2;
+  border-radius: 13px;
+  background: white;
+  padding: 8px 11px;
+  font-size: 11px;
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease;
+}
+.chip.active {
+  border-color: #426c37;
+  background: #edf5e0;
+  color: #305929;
+}
+.chip svg {
+  width: 16px;
+  height: 16px;
+}
+.gap-top {
+  margin-top: 18px;
+}
+.btn.outline {
+  background: transparent;
+  color: var(--green);
+  border: 1px solid #d4dfca;
+}
+.btn.danger {
+  background: #a13b3d;
+  color: white;
+}
+@media (max-width: 374px) {
+  .page-heading p {
+    font-size: 11px;
+  }
+}

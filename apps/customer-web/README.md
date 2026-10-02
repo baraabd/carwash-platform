@@ -3,6 +3,7 @@
 C002 introduces the React/Vite customer application shell on top of the immutable F010 HTML authority.
 C003 ports the approved Home screen with its resume, repeat and follow-up entries.
 C004 ports the first booking step, vehicle selection (`docs/customer/C004_VEHICLE_SELECTION.md`).
+C005 ports the garage, saved vehicles and the shared vehicle editor (`docs/customer/C005_GARAGE_SAVED_VEHICLES.md`).
 
 ## Current executable surfaces
 
@@ -22,4 +23,5 @@ The approved HTML under `design/reference/approved/` and the byte-identical prot
 - `src/features/<name>` — one public entry point each; no cross-feature or app-layer imports
 - `src/state` — pure session/draft model and its React provider
 - `src/fixtures` — deterministic sample data, isolated from production data
+- `src/widgets` — UI composed for more than one feature; never imports a feature or the app layer
 - `src/shared` — presentation primitives only

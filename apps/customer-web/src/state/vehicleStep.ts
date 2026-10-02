@@ -42,7 +42,10 @@ export function selectVehicleType(
   vehicleType: VehicleTypeId,
   announcement: string,
 ): CustomerSessionState {
-  return announce(withDraft(state, { vehicleType, carName: '', color: '' }), announcement);
+  return announce(
+    withDraft(state, { vehicleType, carId: null, carName: '', color: '' }),
+    announcement,
+  );
 }
 
 export function changePlate(state: CustomerSessionState, typed: string): CustomerSessionState {

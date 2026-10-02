@@ -333,6 +333,9 @@ p {
   .app {
     box-shadow: 0 10px 110px #123d2b16;
   }
+  .main {
+    min-height: 75svh;
+  }
 }
 @media (min-width: 1200px) {
   .desktop-note {

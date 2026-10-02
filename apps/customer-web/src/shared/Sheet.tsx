@@ -30,11 +30,19 @@ export function Sheet({ open, title, onClose, children }: SheetProps) {
     }
   }, [open]);
 
+  // The `close` event arrives as a later task, by which time the customer may have
+  // moved on or opened another sheet. The browser has already returned focus to
+  // the opener; this only covers the case where it could not, and never takes
+  // focus from a control or unlocks scrolling under a sheet that is open now.
   const handleClose = () => {
-    document.body.style.overflow = '';
-    const opener = openerRef.current;
-    if (opener instanceof HTMLElement && opener.isConnected) {
-      opener.focus({ preventScroll: true });
+    const anotherSheetOpen = document.querySelector('dialog.sheet[open]') !== null;
+    if (!anotherSheetOpen) {
+      document.body.style.overflow = '';
+      const opener = openerRef.current;
+      const focusIsLost = !document.activeElement || document.activeElement === document.body;
+      if (focusIsLost && opener instanceof HTMLElement && opener.isConnected) {
+        opener.focus({ preventScroll: true });
+      }
     }
     onClose();
   };
@@ -54,14 +62,16 @@ export function Sheet({ open, title, onClose, children }: SheetProps) {
     <dialog
       ref={dialogRef}
       className="sheet"
-      aria-labelledby="sheet-title"
+      // Several sheets can be mounted at once but only one is open, and only the
+      // open one carries the title id, so the id stays unique in the document.
+      aria-labelledby={open ? 'sheet-title' : undefined}
       onClose={handleClose}
       onClick={handleBackdropClick}
     >
       <div className="sheet-inner">
         <div className="sheet-handle" />
         <div className="sheet-head">
-          <h2 id="sheet-title">{title}</h2>
+          <h2 id={open ? 'sheet-title' : undefined}>{title}</h2>
           <button
             className="icon-btn"
             type="button"

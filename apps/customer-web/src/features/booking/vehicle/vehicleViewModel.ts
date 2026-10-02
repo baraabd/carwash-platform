@@ -18,8 +18,17 @@ export interface VehicleOption {
   readonly selected: boolean;
 }
 
+export interface SavedChoice {
+  readonly id: string;
+  readonly name: string;
+  /** True when the draft was filled from this saved car. */
+  readonly selected: boolean;
+}
+
 export interface VehicleStepViewModel {
   readonly options: readonly VehicleOption[];
+  /** Saved cars offered above the stage; empty when the garage is empty. */
+  readonly savedChoices: readonly SavedChoice[];
   readonly selectedType: VehicleTypeId;
   readonly stageArt: CarArtId;
   /** The car's own name when the customer gave one, otherwise its size name. */
@@ -43,6 +52,11 @@ export function buildVehicleStepViewModel(state: CustomerSessionState): VehicleS
       priceLabel: vehicleFixtures[id].fee ? `+${vehicleFixtures[id].fee} ل.س` : 'السعر الأساسي',
       art: vehicleFixtures[id].art,
       selected: id === draft.vehicleType,
+    })),
+    savedChoices: state.vehicles.map((vehicle) => ({
+      id: vehicle.id,
+      name: vehicle.name,
+      selected: vehicle.id === draft.carId,
     })),
     selectedType: draft.vehicleType,
     stageArt: selected.art,

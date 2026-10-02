@@ -52,17 +52,19 @@ export function PlateField({ value, error, inputRef, onChange, onSubmit }: Plate
   );
 }
 
-/**
- * Entry to the optional name-and-colour editor. That editor is the shared vehicle
- * sheet the garage also uses, so it is delivered with the garage sprint (C005).
- */
-export function VehicleDetailsRow({ summary }: { readonly summary: string | null }) {
+interface VehicleDetailsRowProps {
+  readonly summary: string | null;
+  readonly onOpen: () => void;
+}
+
+/** Opens the shared vehicle editor for the car's optional name and colour. */
+export function VehicleDetailsRow({ summary, onOpen }: VehicleDetailsRowProps) {
   return (
     <button
       className="disclosure-row car-more"
       type="button"
-      aria-disabled="true"
-      data-deferred-to="C005"
+      aria-haspopup="dialog"
+      onClick={onOpen}
     >
       <span className="soft-icon">
         <Icon name="edit" />
@@ -93,5 +95,40 @@ export function SaveVehicleCheck({ checked, onChange }: SaveVehicleCheckProps) {
       />
       احفظ السيارة على جهازي للحجز القادم.
     </label>
+  );
+}
+
+interface SavedVehicleChipsProps {
+  readonly choices: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly selected: boolean;
+  }[];
+  readonly onChoose: (vehicleId: string) => void;
+  readonly onOther: () => void;
+}
+
+/** Saved cars as one-tap choices. Shown only when the garage holds cars. */
+export function SavedVehicleChips({ choices, onChoose, onOther }: SavedVehicleChipsProps) {
+  if (choices.length === 0) return null;
+  return (
+    <div className="saved-car-chips chips" role="group" aria-label="سيارات محفوظة">
+      {choices.map((choice) => (
+        <button
+          key={choice.id}
+          className={choice.selected ? 'chip selected' : 'chip'}
+          type="button"
+          aria-pressed={choice.selected}
+          onClick={() => onChoose(choice.id)}
+        >
+          <Icon name="car" />
+          {choice.name}
+        </button>
+      ))}
+      <button className="chip" type="button" aria-haspopup="dialog" onClick={onOther}>
+        <Icon name="plus" />
+        أخرى
+      </button>
+    </div>
   );
 }

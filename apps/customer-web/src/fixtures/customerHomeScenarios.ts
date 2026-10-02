@@ -43,6 +43,8 @@ export function emptySession(): CustomerSessionState {
   return {
     profile: { name: '', phone: '' },
     orders: [],
+    vehicles: [],
+    vehicleSequence: 0,
     draft: blankBookingDraft(),
     draftStep: 0,
     bookingMode: 'standard',

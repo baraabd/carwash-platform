@@ -6,6 +6,7 @@ import type {
   PaymentMethodId,
   VehicleTypeId,
 } from './bookingDraft';
+import type { SavedVehicle } from './savedVehicles';
 
 /** -1 cancelled, 0–3 in progress, 4 completed — the approved tracking stages. */
 export type OrderStage = -1 | 0 | 1 | 2 | 3 | 4;
@@ -35,6 +36,10 @@ export type BookingMode = 'standard' | 'repeat';
 export interface CustomerSessionState {
   readonly profile: { readonly name: string; readonly phone: string };
   readonly orders: readonly CustomerOrderSnapshot[];
+  /** The customer's garage. Saved cars are descriptions, never bookings. */
+  readonly vehicles: readonly SavedVehicle[];
+  /** Last number used for a saved-car id, so ids stay deterministic. */
+  readonly vehicleSequence: number;
   readonly draft: BookingDraft;
   /** The booking step the draft was last left at. */
   readonly draftStep: number;
