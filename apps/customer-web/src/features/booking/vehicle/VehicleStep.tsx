@@ -24,6 +24,7 @@ import {
 import { BookingFooter } from '../BookingFooter';
 import { BookingProgress } from '../BookingProgress';
 import { bookingFlow } from '../bookingFlow';
+import { buildPriceBreakdown } from '../priceBreakdown';
 import { VehicleStage, VehicleTypeGrid } from './components/VehicleChoice';
 import {
   PlateField,
@@ -44,6 +45,7 @@ export function VehicleStep() {
   const { state, run } = useCustomerSession();
   const navigate = useNavigate();
   const view = useMemo(() => buildVehicleStepViewModel(state), [state]);
+  const breakdown = useMemo(() => buildPriceBreakdown(state.draft), [state.draft]);
 
   // The field shows the customer's own typing; the draft holds the normalised plate.
   const [typedPlate, setTypedPlate] = useState(view.plate);
@@ -207,6 +209,7 @@ export function VehicleStep() {
         total={view.footerTotal}
         minutes={view.footerMinutes}
         nextLabel={bookingFlow[VEHICLE_STEP].nextLabel}
+        breakdown={breakdown}
         priceRef={footerPrice}
         onNext={handleNext}
       />

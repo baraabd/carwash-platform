@@ -54,6 +54,7 @@ export function HomeRoute() {
       <PaymentPreviewLink />
       <HomePackages
         packages={view.packages}
+        details={view.packageDetails}
         onStartWithPackage={(id) => follow(commands.startBooking(id))}
       />
       <ResultTeaser />

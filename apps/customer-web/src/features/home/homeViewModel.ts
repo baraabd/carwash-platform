@@ -1,4 +1,5 @@
 import {
+  carePackageIds,
   homePackageIds,
   illustrativeDraftTotal,
   orderStageLabels,
@@ -22,6 +23,15 @@ export interface HomePackageCard {
   readonly featured: boolean;
 }
 
+export interface HomePackageDetail {
+  readonly id: CarePackageId;
+  readonly name: string;
+  /** Price for the smallest size; the size surcharge is added in the journey. */
+  readonly price: number;
+  readonly featuresLine: string;
+  readonly durationLine: string;
+}
+
 export interface HomeViewModel {
   /** Customer's first name for the greeting, or null for the anonymous tagline. */
   readonly greetingName: string | null;
@@ -38,6 +48,8 @@ export interface HomeViewModel {
   /** Unsent draft the customer can continue, if they started one. */
   readonly savedDraft: { readonly packageName: string; readonly total: number } | null;
   readonly packages: readonly HomePackageCard[];
+  /** All packages, for the "تفاصيل الباقات" sheet. */
+  readonly packageDetails: readonly HomePackageDetail[];
 }
 
 /** Derives everything Home shows from the session. Pure: same state, same screen. */
@@ -71,6 +83,13 @@ export function buildHomeViewModel(state: CustomerSessionState): HomeViewModel {
       price: packageFixtures[id].price,
       icon: packageFixtures[id].icon,
       featured: index > 0,
+    })),
+    packageDetails: carePackageIds.map((id) => ({
+      id,
+      name: packageFixtures[id].name,
+      price: packageFixtures[id].price,
+      featuresLine: packageFixtures[id].features.join(' · '),
+      durationLine: `${packageFixtures[id].minutes} دقيقة تقديرية`,
     })),
   };
 }
