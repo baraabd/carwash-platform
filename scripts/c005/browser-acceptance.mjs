@@ -179,7 +179,11 @@ function observe(page) {
     };
     const sheet = doc.querySelector('dialog.sheet[open]');
     const form = sheet?.querySelector('#vehicle-form');
-    const toast = doc.querySelector('.toast.show');
+    // The last notice raised, whether or not it is still on screen: a toast hides
+    // itself after four seconds, and the two pages are driven one after the other,
+    // so "currently visible" would compare timing rather than behaviour. That a
+    // notice is actually shown is asserted separately on the candidate.
+    const toast = doc.querySelector('.toast');
     const stagePlate = doc.querySelector('#stage-plate');
     // The route only: the candidate's `?scenario=` query must not be read as a screen.
     const route = globalThis.location.hash.split('?')[0];
@@ -199,7 +203,7 @@ function observe(page) {
         clean(button.textContent),
         button.classList.contains('outline'),
       ]),
-      toast: toast ? clean(toast.textContent) : null,
+      toast: (toast && clean(toast.textContent)) || null,
       sheet: sheet
         ? {
             title: text('.sheet-head h2', sheet),
@@ -737,6 +741,10 @@ try {
         await addVehicle(target, { type: 'sedan', plate: '55 ه', name: hostile, color: '"><i>x' });
         await sheetClosed(target);
       }
+      // The save is confirmed to the customer with a visible, polite status notice.
+      await page.locator('.toast.show').waitFor();
+      assert.equal(await page.locator('.toast.show').getAttribute('role'), 'status');
+      assert.equal(await page.locator('.toast.show').getAttribute('aria-live'), 'polite');
       const seen = await observe(page);
       assert.deepEqual(seen, await observe(reference.page), 'hostile values render alike');
       assert.equal(seen.cards[2].name, '<b>كامري</b> & "تجربة"');
