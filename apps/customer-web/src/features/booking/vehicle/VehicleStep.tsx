@@ -6,6 +6,15 @@ import type { VehicleTypeId } from '../../../state/bookingDraft';
 import { useCustomerSession } from '../../../state/CustomerSessionProvider';
 import { pathForIntent } from '../../../state/navigationPath';
 import {
+  applyEditorToDraft,
+  blankEditorValues,
+  chooseSavedVehicle,
+  editorValuesForDraft,
+  type VehicleEditorValues,
+} from '../../../state/savedVehicles';
+import { VehicleEditorSheet } from '../../../widgets/vehicle-editor/VehicleEditorSheet';
+import { savedVehicleChoices } from '../../../widgets/vehicle-editor/vehicleEditorModel';
+import {
   VEHICLE_STEP,
   changePlate,
   selectVehicleType,
@@ -16,7 +25,12 @@ import { BookingFooter } from '../BookingFooter';
 import { BookingProgress } from '../BookingProgress';
 import { bookingFlow } from '../bookingFlow';
 import { VehicleStage, VehicleTypeGrid } from './components/VehicleChoice';
-import { PlateField, SaveVehicleCheck, VehicleDetailsRow } from './components/VehicleDetails';
+import {
+  PlateField,
+  SaveVehicleCheck,
+  SavedVehicleChips,
+  VehicleDetailsRow,
+} from './components/VehicleDetails';
 import { buildVehicleStepViewModel, vehicleSelectionAnnouncement } from './vehicleViewModel';
 
 const DOCUMENT_TITLE = `${bookingFlow[VEHICLE_STEP].label} — WashGo Signature`;
@@ -95,6 +109,31 @@ export function VehicleStep() {
     run((current) => ({ state: changePlate(current, typed) }));
   };
 
+  // 'draft' edits the car the draft describes; 'new' starts from a blank car.
+  const [editor, setEditor] = useState<'draft' | 'new' | null>(null);
+  const [editorRound, setEditorRound] = useState(0);
+
+  const openEditor = (mode: 'draft' | 'new') => {
+    setEditorRound((round) => round + 1);
+    setEditor(mode);
+  };
+
+  // Copies a saved car into the draft. Nothing is booked, saved or submitted.
+  const handleChoose = (vehicleId: string) => {
+    const { state: next } = run((current) => ({ state: chooseSavedVehicle(current, vehicleId) }));
+    setTypedPlate(next.draft.plate);
+    setEditor(null);
+  };
+
+  const submitEditor = (values: VehicleEditorValues) => {
+    const carId = editor === 'draft' ? state.draft.carId : null;
+    const result = run((current) => applyEditorToDraft(current, carId, values));
+    if (result.error) return result.error;
+    setTypedPlate(result.state.draft.plate);
+    setEditor(null);
+    return null;
+  };
+
   const handleNext = () => {
     const result = run(submitVehicleStep);
     if (result.intent) {
@@ -134,6 +173,11 @@ export function VehicleStep() {
           <Icon name="car" />
         </span>
       </div>
+      <SavedVehicleChips
+        choices={view.savedChoices}
+        onChoose={handleChoose}
+        onOther={() => openEditor('new')}
+      />
       <VehicleStage art={view.stageArt} name={view.stageName} plate={view.plate} stageRef={stage} />
       <VehicleTypeGrid options={view.options} onSelect={handleSelect} />
       <PlateField
@@ -143,10 +187,21 @@ export function VehicleStep() {
         onChange={handlePlateChange}
         onSubmit={handleNext}
       />
-      <VehicleDetailsRow summary={view.detailsSummary} />
+      <VehicleDetailsRow summary={view.detailsSummary} onOpen={() => openEditor('draft')} />
       <SaveVehicleCheck
         checked={view.saveVehicle}
         onChange={(checked) => run((current) => ({ state: setSaveVehicle(current, checked) }))}
+      />
+      <VehicleEditorSheet
+        open={editor !== null}
+        formKey={`${editor}-${editorRound}`}
+        context="booking"
+        initialValues={editor === 'new' ? blankEditorValues : editorValuesForDraft(state.draft)}
+        choices={savedVehicleChoices(state.vehicles, state.draft.carId)}
+        onChoose={handleChoose}
+        onStartNew={() => openEditor('new')}
+        onSubmit={submitEditor}
+        onClose={() => setEditor(null)}
       />
       <BookingFooter
         total={view.footerTotal}

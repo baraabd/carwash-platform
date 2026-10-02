@@ -24,8 +24,23 @@ export function startBooking(
   state: CustomerSessionState,
   service?: CarePackageId,
 ): SessionTransition {
+  // A draft that describes no car yet starts with the first saved one, as in the
+  // reference; a car the customer already chose or typed is never replaced.
+  const firstSaved = state.vehicles[0];
+  const describesNoCar = !state.draft.carId && !state.draft.carName && !state.draft.plate;
+  const savedCar =
+    firstSaved && describesNoCar
+      ? {
+          vehicleType: firstSaved.type,
+          carId: firstSaved.id,
+          carName: firstSaved.name,
+          plate: firstSaved.plate,
+          color: firstSaved.color,
+        }
+      : {};
   const draft: BookingDraft = {
     ...state.draft,
+    ...savedCar,
     service: service ?? state.draft.service,
     contactName: state.draft.contactName || state.profile.name,
     contactPhone: state.draft.contactPhone || state.profile.phone,
@@ -52,6 +67,8 @@ export function resumeBooking(state: CustomerSessionState): SessionTransition {
 function draftFromOrder(order: CustomerOrderSnapshot, state: CustomerSessionState): BookingDraft {
   return {
     vehicleType: order.vehicleType,
+    // An order keeps its own copy of the car; it is not linked to a saved one.
+    carId: null,
     carName: order.carName,
     plate: order.plate,
     color: order.color,

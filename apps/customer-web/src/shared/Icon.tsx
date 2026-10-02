@@ -23,7 +23,10 @@ export type IconName =
   | 'check'
   | 'clock'
   | 'edit'
-  | 'up';
+  | 'up'
+  | 'plus'
+  | 'lock'
+  | 'trash';
 
 const paths: Record<IconName, ReactNode> = {
   check: <path d="m5 12 4 4L19 6" />,
@@ -35,6 +38,14 @@ const paths: Record<IconName, ReactNode> = {
   ),
   edit: <path d="m14 5 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14l-1 7Z" />,
   up: <path d="m6 15 6-6 6 6" />,
+  plus: <path d="M12 5v14M5 12h14" />,
+  lock: (
+    <>
+      <rect x="5" y="10" width="14" height="11" rx="3" />
+      <path d="M8 10V6a4 4 0 0 1 8 0v4m-4 5v2" />
+    </>
+  ),
+  trash: <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7" />,
   drop: (
     <>
       <path d="M12 3C9.5 7 5 11.6 5 15a7 7 0 0 0 14 0c0-3.4-4.5-8-7-12Z" />
