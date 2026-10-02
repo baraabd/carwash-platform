@@ -310,18 +310,16 @@ test('C006 a package that includes an add-on drops it; other add-ons stay', () =
   assert.deepEqual(back.draft.extras, ['fresh']);
 });
 
-test('C006 care step shows the extras a draft already carries without offering to change them', () => {
+// C006 shipped the add-ons row inactive (`data-deferred-to="C007"`) and asserted
+// that here. C007 delivered the add-ons sheet, so the deferral assertions were
+// retired with it; what C006 owns — showing and pricing the add-ons a draft
+// already carries — is still checked.
+test('C006 care step shows and prices the extras a draft already carries', () => {
   const view = buildCareStepViewModel(careScenarioState('booking-care-with-extras'));
   assert.equal(view.extrasSummary, 'تلميع الإطارات، تعطير المقصورة');
   assert.equal(view.extrasAmount, '+250 ل.س');
   assert.equal(view.footerTotal, 1500);
   assert.equal(view.footerMinutes, 60 + 20 + 10 + 5);
-  const component = readFileSync(
-    path.join(APP_SRC, 'features/booking/care/components/CarePackageList.tsx'),
-    'utf8',
-  );
-  assert.match(component, /data-deferred-to="C007"/, 'the add-ons sheet stays with C007');
-  assert.doesNotMatch(c006Source, /name="extra"|type="checkbox"[^>]*extra/, 'no extras selection');
 });
 
 test('C006 price breakdown view model lists package, size, extras, visit and total', () => {
