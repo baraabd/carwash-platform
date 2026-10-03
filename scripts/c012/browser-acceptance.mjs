@@ -63,8 +63,8 @@ const SELECTORS = [
 ];
 const GUARD = 350;
 async function guard(page) {
-  const start = await page.evaluate(() => performance.now());
-  await page.waitForFunction(({ start, guard }) => performance.now() - start >= guard, {
+  const start = await page.evaluate(() => globalThis.performance.now());
+  await page.waitForFunction(({ start, guard }) => globalThis.performance.now() - start >= guard, {
     start,
     guard: GUARD,
   });
@@ -94,13 +94,13 @@ async function openPair(context, server, scenario) {
 }
 function observe(page) {
   return page.evaluate(() => {
-    const d = document,
+    const d = globalThis.document,
       clean = (v) => (v ?? '').replace(/\s+/g, ' ').trim(),
       text = (s) => clean(d.querySelector(s)?.textContent);
     const checked = d.querySelector('input[name="paymentMethod"]:checked'),
       active = d.activeElement;
     return {
-      route: location.hash.replace('#/', '#').split('?')[0],
+      route: globalThis.location.hash.replace('#/', '#').split('?')[0],
       heading: text('.main h1'),
       total: text('.pay-hero strong'),
       selected: checked?.value ?? null,
@@ -127,7 +127,7 @@ const visuals = [
     prepare: async (page, ref) => {
       await next(page, ref);
       await page.locator('#error-paymentMethod').waitFor();
-      await page.waitForFunction(() => document.activeElement?.id === 'paymentMethod');
+      await page.waitForFunction(() => globalThis.document.activeElement?.id === 'paymentMethod');
     },
   },
   {
@@ -286,10 +286,10 @@ try {
         assert.equal(await candidate.page.locator('.pay-hero strong').innerText(), quote);
       }
       const state = await candidate.page.evaluate(() => ({
-        local: localStorage.length,
-        session: sessionStorage.length,
-        cookies: document.cookie,
-        qr: document.querySelectorAll('.qr-button,img[src^="data:image"]').length,
+        local: globalThis.localStorage.length,
+        session: globalThis.sessionStorage.length,
+        cookies: globalThis.document.cookie,
+        qr: globalThis.document.querySelectorAll('.qr-button,img[src^="data:image"]').length,
       }));
       assert.deepEqual(state, { local: 0, session: 0, cookies: '', qr: 0 });
       assert.deepEqual(candidate.problems, []);
