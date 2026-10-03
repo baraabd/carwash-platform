@@ -947,7 +947,7 @@ try {
       await page.locator(CARD).waitFor();
       assert.deepEqual((await observe(page)).card, chosen.card);
 
-      // Next leads to the time step, which is still its placeholder. The reference
+      // Next leads to the time step (ported by C010). The reference
       // already accepted one Next in this journey (care → location), so its
       // double-activation guard has to be over before the second one counts.
       await pastReferenceNextGuard(reference.page);
@@ -957,7 +957,16 @@ try {
       await page.locator(NEXT).click();
       await page.locator('[data-booking-step="time"]').waitFor();
       assert.match(page.url(), /#\/book\/3$/);
-      assert.equal(await page.locator('.c002-deferred-footer').count(), 1, 'time is not ported');
+      // Until C010 the time step was a placeholder; it is now the real screen, with
+      // the booking footer and the place chosen here as its context.
+      await page.locator('.dates').waitFor();
+      assert.equal(await page.locator('.c002-deferred-footer').count(), 0);
+      assert.equal(await page.locator('.booking-footer').count(), 1);
+      assert.equal(
+        (await page.locator('.choice-context .grow').innerText()).trim(),
+        chosen.card.title,
+        'the time step shows the place chosen here',
+      );
       await page.goBack();
       await page.locator(CARD).waitFor();
       assert.deepEqual((await observe(page)).card, chosen.card);

@@ -9,6 +9,7 @@ import { visitBookingStep } from '../../state/vehicleStep';
 import { bookingFlow } from './bookingFlow';
 import { CareStep } from './care/CareStep';
 import { LocationStep } from './location/LocationStep';
+import { ScheduleStep } from './schedule/ScheduleStep';
 import { VehicleStep } from './vehicle/VehicleStep';
 import './booking.css';
 
@@ -41,6 +42,7 @@ export function BookingRoute({ step, title }: BookingRouteProps) {
   if (step === 'vehicle') return <VehicleStep />;
   if (step === 'care') return <CareStep />;
   if (step === 'location') return <LocationStep />;
+  if (step === 'time') return <ScheduleStep />;
   return (
     <ShellPlaceholder
       routeId={`booking-${step}`}

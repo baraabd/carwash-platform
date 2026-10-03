@@ -47,6 +47,9 @@ import {
   vehicleSelectionAnnouncement,
 } from '../../apps/customer-web/src/features/booking/vehicle/vehicleViewModel.ts';
 
+// The rendering contract's fixed instant (12:00 in Damascus, 2026-09-20). Booking-entry
+// commands judge the appointment at an explicit instant since C010.
+const NOW = new Date('2026-09-20T09:00:00.000Z');
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const APP_SRC = path.join(ROOT, 'apps/customer-web/src');
 const reference = readFileSync(
@@ -282,7 +285,7 @@ test('C004 prefilled draft shows its car, plate, details and preference', () => 
 
 test('C004 a repeat-derived draft is prefilled when it is routed through step 0', () => {
   const state = homeScenarioState('home-repeat-order');
-  const { state: repeated } = repeatOrder(state, 'WG-DEMO-DONE');
+  const { state: repeated } = repeatOrder(state, 'WG-DEMO-DONE', NOW);
   const view = buildVehicleStepViewModel(repeated);
   assert.equal(view.selectedType, 'sedan');
   assert.equal(view.stageName, 'سيارتي التجريبية');
@@ -296,25 +299,31 @@ test('C004 a repeat-derived draft is prefilled when it is routed through step 0'
 
 test('C004 keeps the C003 entry contracts unchanged', () => {
   // CTA and package cards → step 0.
-  assert.deepEqual(startBooking(empty()).intent, { kind: 'booking-step', step: 0 });
-  assert.deepEqual(startBooking(empty(), 'complete').intent, { kind: 'booking-step', step: 0 });
-  assert.equal(startBooking(empty(), 'complete').state.draft.service, 'complete');
+  assert.deepEqual(startBooking(empty(), undefined, NOW).intent, { kind: 'booking-step', step: 0 });
+  assert.deepEqual(startBooking(empty(), 'complete', NOW).intent, {
+    kind: 'booking-step',
+    step: 0,
+  });
+  assert.equal(startBooking(empty(), 'complete', NOW).state.draft.service, 'complete');
   // Saved draft → its resolved step.
-  assert.deepEqual(resumeBooking(homeScenarioState('home-saved-draft')).intent, {
+  assert.deepEqual(resumeBooking(homeScenarioState('home-saved-draft'), NOW).intent, {
     kind: 'booking-step',
     step: 2,
   });
   // Repeat → review.
-  assert.deepEqual(repeatOrder(homeScenarioState('home-repeat-order'), 'WG-DEMO-DONE').intent, {
-    kind: 'booking-step',
-    step: 6,
-  });
+  assert.deepEqual(
+    repeatOrder(homeScenarioState('home-repeat-order'), 'WG-DEMO-DONE', NOW).intent,
+    {
+      kind: 'booking-step',
+      step: 6,
+    },
+  );
   // After the vehicle step, resume returns to the care step.
-  const advanced = submitVehicleStep(startBooking(empty()).state).state;
-  assert.deepEqual(resumeBooking(advanced).intent, { kind: 'booking-step', step: 1 });
+  const advanced = submitVehicleStep(startBooking(empty(), undefined, NOW).state).state;
+  assert.deepEqual(resumeBooking(advanced, NOW).intent, { kind: 'booking-step', step: 1 });
   // An unacceptable stored plate still sends every later entry back to step 0.
-  assert.equal(resolveBookingEntryStep({ ...blankBookingDraft(), plate: 'ب ج د' }, 6), 0);
-  assert.equal(resolveBookingEntryStep({ ...blankBookingDraft(), plate: '   ' }, 6), 0);
+  assert.equal(resolveBookingEntryStep({ ...blankBookingDraft(), plate: 'ب ج د' }, 6, NOW), 0);
+  assert.equal(resolveBookingEntryStep({ ...blankBookingDraft(), plate: '   ' }, 6, NOW), 0);
   assert.deepEqual(homeScenarioIds.length, 5, 'Home scenarios are untouched');
 });
 

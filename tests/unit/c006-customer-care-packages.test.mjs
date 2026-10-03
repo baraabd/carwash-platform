@@ -47,6 +47,9 @@ import { bookingFlow } from '../../apps/customer-web/src/features/booking/bookin
 import { buildHomeViewModel } from '../../apps/customer-web/src/features/home/homeViewModel.ts';
 import { formatAmount } from '../../apps/customer-web/src/shared/formatAmount.ts';
 
+// The rendering contract's fixed instant (12:00 in Damascus, 2026-09-20). Booking-entry
+// commands judge the appointment at an explicit instant since C010.
+const NOW = new Date('2026-09-20T09:00:00.000Z');
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const APP_SRC = path.join(ROOT, 'apps/customer-web/src');
 const reference = readFileSync(
@@ -384,7 +387,7 @@ test('C006 Home package details view model lists all three packages for the smal
 
 test('C006 Home package entry is unchanged: preselect the package, enter at the vehicle step', () => {
   for (const id of carePackageIds) {
-    const { state, intent } = startBooking(empty(), id);
+    const { state, intent } = startBooking(empty(), id, NOW);
     assert.deepEqual(intent, { kind: 'booking-step', step: VEHICLE_STEP_INDEX }, id);
     assert.equal(pathForIntent(intent), '/book/0');
     assert.equal(state.draft.service, id);
@@ -394,7 +397,7 @@ test('C006 Home package entry is unchanged: preselect the package, enter at the 
     assert.equal(buildCareStepViewModel(atCare).selectedPackage, id);
   }
   // The primary CTA keeps whatever the draft already has.
-  assert.equal(startBooking(empty()).state.draft.service, 'exterior');
+  assert.equal(startBooking(empty(), undefined, NOW).state.draft.service, 'exterior');
 });
 
 test('C006 works however the draft reached the care step', () => {
@@ -413,13 +416,13 @@ test('C006 works however the draft reached the care step', () => {
   const manual = submitVehicleStep(selectVehicleType(empty(), 'pickup', 'a')).state;
   assert.equal(buildCareStepViewModel(manual).carLabel, 'بيك أب');
   // Repeat-derived draft.
-  const repeated = repeatOrder(homeScenarioState('home-repeat-order'), 'WG-DEMO-DONE').state;
+  const repeated = repeatOrder(homeScenarioState('home-repeat-order'), 'WG-DEMO-DONE', NOW).state;
   const repeatedView = buildCareStepViewModel(repeated);
   assert.equal(repeatedView.selectedPackage, 'complete');
   assert.equal(repeatedView.carLabel, 'سيارتي التجريبية');
   // Returning customer resumes at the care step.
   const returning = homeScenarioState('home-returning-customer');
-  assert.deepEqual(resumeBooking(returning).intent, { kind: 'booking-step', step: 1 });
+  assert.deepEqual(resumeBooking(returning, NOW).intent, { kind: 'booking-step', step: 1 });
   assert.equal(buildCareStepViewModel(returning).selectedPackage, 'premium');
 });
 
@@ -431,7 +434,7 @@ test('C006 Next goes to the location step, Back to the vehicle step, nothing is 
   assert.equal(next.state.draftStep, 2);
   assert.equal(next.state.draft.service, 'complete');
   assert.equal(next.state.orders, state.orders);
-  assert.deepEqual(resumeBooking(next.state).intent, { kind: 'booking-step', step: 2 });
+  assert.deepEqual(resumeBooking(next.state, NOW).intent, { kind: 'booking-step', step: 2 });
 
   const back = returnToVehicleStep(state);
   assert.equal(back.state, state, 'going back changes nothing');

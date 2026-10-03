@@ -36,7 +36,8 @@ export type IconName =
   | 'message'
   | 'expand'
   | 'qr-pay'
-  | 'download';
+  | 'download'
+  | 'bolt';
 
 const paths: Record<IconName, ReactNode> = {
   check: <path d="m5 12 4 4L19 6" />,
@@ -78,6 +79,7 @@ const paths: Record<IconName, ReactNode> = {
       <path d="M15 15h3v3h3m-6 3h3m3-8v2M3 12h2m4 0h3V3m0 13v5" />
     </>
   ),
+  bolt: <path d="m13 2-9 12h7l-1 8 10-13h-7l1-7Z" />,
   download: <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" />,
   lock: (
     <>

@@ -1,4 +1,4 @@
-import { blankBookingDraft, type BookingSlot } from '../state/bookingDraft.ts';
+import { blankBookingDraft } from '../state/bookingDraft.ts';
 import type { CustomerOrderSnapshot, CustomerSessionState } from '../state/customerSession.ts';
 
 /**
@@ -16,8 +16,6 @@ export type HomeScenarioId =
   | 'home-repeat-order'
   | 'home-saved-draft'
   | 'home-returning-customer';
-
-const sampleSlot: BookingSlot = { date: '2026-09-21', time: '10:00' };
 
 const sampleOrder: Omit<CustomerOrderSnapshot, 'id' | 'stage'> = {
   vehicleType: 'sedan',
@@ -50,7 +48,7 @@ export function emptySession(): CustomerSessionState {
     draft: blankBookingDraft(),
     draftStep: 0,
     bookingMode: 'standard',
-    nextAvailableSlot: sampleSlot,
+    showAllTimes: false,
     notice: null,
     announcement: null,
   };

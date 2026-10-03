@@ -47,6 +47,9 @@ import {
 import { bookingFlow } from '../../apps/customer-web/src/features/booking/bookingFlow.ts';
 import { buildLocationStepViewModel } from '../../apps/customer-web/src/features/booking/location/locationViewModel.ts';
 
+// The rendering contract's fixed instant (12:00 in Damascus, 2026-09-20). Booking-entry
+// commands judge the appointment at an explicit instant since C010.
+const NOW = new Date('2026-09-20T09:00:00.000Z');
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const APP_SRC = path.join(ROOT, 'apps/customer-web/src');
 const reference = readFileSync(
@@ -419,8 +422,8 @@ test('C009 save preference: Apply, Next, Exit and Resume never save an address',
   const steps = [
     submitLocationStep(state).state,
     saveDraftAndExit(state).state,
-    resumeBooking(state).state,
-    startBooking(state).state,
+    resumeBooking(state, NOW).state,
+    startBooking(state, undefined, NOW).state,
   ];
   for (const next of steps) assert.equal(next.addresses, book);
   const callers = sourceFiles(APP_SRC).filter((file) =>
@@ -434,7 +437,7 @@ test('C009 save preference: Apply, Next, Exit and Resume never save an address',
 });
 
 test('C009 prefill: starting a booking uses the first saved address only for an empty draft', () => {
-  const started = startBooking(three()).state;
+  const started = startBooking(three(), undefined, NOW).state;
   assert.equal(started.draft.address, 'دمشق، المزة، شارع تجريبي 12');
   assert.equal(started.draft.addressLabel, 'المنزل');
   assert.notEqual(started.draft.place, three().addresses[0].place);
@@ -442,15 +445,19 @@ test('C009 prefill: starting a booking uses the first saved address only for an 
   assert.equal(started.addresses.length, 3, 'prefill saves nothing');
 
   const written = addressScenarioState('addresses-draft-from-book');
-  assert.equal(startBooking(written).state.draft.address, written.draft.address);
+  assert.equal(startBooking(written, undefined, NOW).state.draft.address, written.draft.address);
   assert.equal(prefillAddressFromBook(written.draft, written.addresses), written.draft);
-  assert.equal(startBooking(empty()).state.draft.address, '', 'an empty book prefills nothing');
+  assert.equal(
+    startBooking(empty(), undefined, NOW).state.draft.address,
+    '',
+    'an empty book prefills nothing',
+  );
 
   // Resume and repeat never prefill.
   const resumable = { ...three(), draft: { ...blankBookingDraft(), touched: true } };
-  assert.equal(resumeBooking(resumable).state.draft.address, '');
+  assert.equal(resumeBooking(resumable, NOW).state.draft.address, '');
   const repeat = { ...homeScenarioState('home-repeat-order'), addresses: three().addresses };
-  const repeated = repeatOrder(repeat, repeat.orders[0].id).state;
+  const repeated = repeatOrder(repeat, repeat.orders[0].id, NOW).state;
   assert.equal(repeated.draft.address, repeat.orders[0].address);
   assert.ok(reference.includes('if(!d.address&&S.addresses.length)'));
 });

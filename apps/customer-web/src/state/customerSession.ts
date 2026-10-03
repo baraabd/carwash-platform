@@ -49,8 +49,8 @@ export interface CustomerSessionState {
   /** The booking step the draft was last left at. */
   readonly draftStep: number;
   readonly bookingMode: BookingMode;
-  /** Next slot offered for a repeat. A fixture stand-in for a Scheduling answer. */
-  readonly nextAvailableSlot: BookingSlot | null;
+  /** Whether the time step lists every offered time. Presentation only. */
+  readonly showAllTimes: boolean;
   readonly notice: { readonly message: string; readonly sequence: number } | null;
   /** Polite screen-reader announcement; the sequence re-announces a repeated message. */
   readonly announcement: { readonly message: string; readonly sequence: number } | null;

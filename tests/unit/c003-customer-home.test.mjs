@@ -17,6 +17,7 @@ import {
   REPEAT_BOOKING_NOTICE,
   inProgressOrderCount,
 } from '../../apps/customer-web/src/state/customerSession.ts';
+import { earliestSlot } from '../../apps/customer-web/src/state/scheduling.ts';
 import { pathForIntent } from '../../apps/customer-web/src/state/navigationPath.ts';
 import {
   DEFAULT_HOME_SCENARIO,
@@ -32,6 +33,9 @@ import {
   referenceCarSymbols,
 } from '../../apps/customer-web/src/shared/art/artMarkup.ts';
 
+// The rendering contract's fixed instant (12:00 in Damascus, 2026-09-20). Booking-entry
+// commands judge the appointment at an explicit instant since C010.
+const NOW = new Date('2026-09-20T09:00:00.000Z');
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const APP_SRC = path.join(ROOT, 'apps/customer-web/src');
 const reference = readFileSync(
@@ -53,7 +57,8 @@ const homeSource = readAll(homeSources);
 const c003Source = readAll([
   ...homeSources,
   ...sourceFiles(path.join(APP_SRC, 'state')),
-  ...sourceFiles(path.join(APP_SRC, 'shared')),
+  // C010 added the app's one sanctioned clock reader; it is checked separately below.
+  ...sourceFiles(path.join(APP_SRC, 'shared')).filter((file) => !file.endsWith('clock.ts')),
   path.join(APP_SRC, 'fixtures/customerHomeScenarios.ts'),
   path.join(APP_SRC, 'fixtures/customerCatalogFixture.ts'),
   path.join(APP_SRC, 'app/CityNotice.tsx'),
@@ -112,7 +117,7 @@ test('C003 only a completed order is repeatable; cancelled and running ones are 
 test('C003 repeat derives a draft only and never creates or submits a booking', () => {
   const state = homeScenarioState('home-repeat-order');
   const ordersBefore = globalThis.structuredClone(state.orders);
-  const { state: next, intent } = repeatOrder(state, 'WG-DEMO-DONE');
+  const { state: next, intent } = repeatOrder(state, 'WG-DEMO-DONE', NOW);
 
   assert.equal(next.orders, state.orders, 'the order list is the same object');
   assert.deepEqual(next.orders, ordersBefore, 'no order was added, removed or changed');
@@ -127,7 +132,10 @@ test('C003 repeat derives a draft only and never creates or submits a booking', 
   assert.equal(next.draft.paymentMethod, order.paymentMethod);
   assert.notEqual(next.draft.extras, order.extras, 'the draft owns its own extras array');
 
-  assert.deepEqual(next.draft.slot, state.nextAvailableSlot, 'a new slot is offered');
+  // C010: the offer is the earliest slot of the demo schedule at the given instant
+  // (it used to be a fixed fixture field, `nextAvailableSlot`).
+  assert.deepEqual(next.draft.slot, earliestSlot(NOW), 'a new slot is offered');
+  assert.deepEqual(next.draft.slot, { date: '2026-09-20', time: '13:00' });
   assert.notDeepEqual(next.draft.slot, order.slot, 'the finished slot is never reused');
 
   assert.equal(next.bookingMode, 'repeat');
@@ -138,15 +146,17 @@ test('C003 repeat derives a draft only and never creates or submits a booking', 
 });
 
 test('C003 repeat without an offered slot stops at the time step instead of review', () => {
-  const state = { ...homeScenarioState('home-repeat-order'), nextAvailableSlot: null };
-  const { state: next, intent } = repeatOrder(state, 'WG-DEMO-DONE');
+  // Nothing is offered: unreachable with the demo catalog, so the offer is passed
+  // through the command's declared test seam instead of a fixture field.
+  const state = homeScenarioState('home-repeat-order');
+  const { state: next, intent } = repeatOrder(state, 'WG-DEMO-DONE', NOW, null);
   assert.equal(next.draft.slot, null);
   assert.deepEqual(intent, { kind: 'booking-step', step: 3 });
 });
 
 test('C003 repeat of an unknown order is a no-op', () => {
   const state = homeScenarioState('home-repeat-order');
-  const result = repeatOrder(state, 'WG-NOT-MINE');
+  const result = repeatOrder(state, 'WG-NOT-MINE', NOW);
   assert.equal(result.state, state);
   assert.equal(result.intent, null);
 });
@@ -157,16 +167,16 @@ test('C003 resume returns to the saved step and never skips missing input', () =
     packageName: 'نظافة متكاملة',
     total: 900,
   });
-  assert.deepEqual(resumeBooking(state).intent, { kind: 'booking-step', step: 2 });
-  assert.equal(resumeBooking(state).state.orders, state.orders);
+  assert.deepEqual(resumeBooking(state, NOW).intent, { kind: 'booking-step', step: 2 });
+  assert.equal(resumeBooking(state, NOW).state.orders, state.orders);
 
   // A draft left at review but missing an address is sent back to the place step.
-  assert.deepEqual(resumeBooking({ ...state, draftStep: 6 }).intent, {
+  assert.deepEqual(resumeBooking({ ...state, draftStep: 6 }, NOW).intent, {
     kind: 'booking-step',
     step: 2,
   });
   // No draft, nothing to resume.
-  assert.equal(resumeBooking(homeScenarioState('home-empty')).intent, null);
+  assert.equal(resumeBooking(homeScenarioState('home-empty'), NOW).intent, null);
 });
 
 test('C003 booking entry guard mirrors the approved step requirements', () => {
@@ -179,24 +189,24 @@ test('C003 booking entry guard mirrors the approved step requirements', () => {
     contactPhone: '0900000000',
     paymentMethod: 'cash',
   };
-  assert.equal(resolveBookingEntryStep(complete, 6), 6);
-  assert.equal(resolveBookingEntryStep({ ...complete, plate: 'x' }, 6), 0);
-  assert.equal(resolveBookingEntryStep({ ...complete, plate: '' }, 6), 6, 'plate is optional');
-  assert.equal(resolveBookingEntryStep({ ...complete, address: 'ab' }, 6), 2);
-  assert.equal(resolveBookingEntryStep({ ...complete, slot: null }, 6), 3);
-  assert.equal(resolveBookingEntryStep({ ...complete, contactPhone: '12' }, 6), 4);
-  assert.equal(resolveBookingEntryStep({ ...complete, contactName: 'س' }, 6), 4);
-  assert.equal(resolveBookingEntryStep({ ...complete, paymentMethod: null }, 6), 5);
+  assert.equal(resolveBookingEntryStep(complete, 6, NOW), 6);
+  assert.equal(resolveBookingEntryStep({ ...complete, plate: 'x' }, 6, NOW), 0);
+  assert.equal(resolveBookingEntryStep({ ...complete, plate: '' }, 6, NOW), 6, 'plate is optional');
+  assert.equal(resolveBookingEntryStep({ ...complete, address: 'ab' }, 6, NOW), 2);
+  assert.equal(resolveBookingEntryStep({ ...complete, slot: null }, 6, NOW), 3);
+  assert.equal(resolveBookingEntryStep({ ...complete, contactPhone: '12' }, 6, NOW), 4);
+  assert.equal(resolveBookingEntryStep({ ...complete, contactName: 'س' }, 6, NOW), 4);
+  assert.equal(resolveBookingEntryStep({ ...complete, paymentMethod: null }, 6, NOW), 5);
   // Out-of-range and non-numeric requests are clamped, never trusted.
-  assert.equal(resolveBookingEntryStep(complete, 99), 6);
-  assert.equal(resolveBookingEntryStep(complete, -4), 0);
-  assert.equal(resolveBookingEntryStep(complete, Number.NaN), 0);
-  assert.equal(resolveBookingEntryStep(complete, 2.9), 2);
+  assert.equal(resolveBookingEntryStep(complete, 99, NOW), 6);
+  assert.equal(resolveBookingEntryStep(complete, -4, NOW), 0);
+  assert.equal(resolveBookingEntryStep(complete, Number.NaN, NOW), 0);
+  assert.equal(resolveBookingEntryStep(complete, 2.9, NOW), 2);
 });
 
 test('C003 primary CTA starts a draft at step one without touching orders', () => {
   const state = homeScenarioState('home-returning-customer');
-  const { state: next, intent } = startBooking(state, 'exterior');
+  const { state: next, intent } = startBooking(state, 'exterior', NOW);
   assert.deepEqual(intent, { kind: 'booking-step', step: 0 });
   assert.equal(next.draft.service, 'exterior');
   assert.equal(next.draft.touched, true);
@@ -204,7 +214,7 @@ test('C003 primary CTA starts a draft at step one without touching orders', () =
   assert.equal(next.bookingMode, 'standard');
   assert.equal(next.orders, state.orders);
   // Starting without a package keeps the draft's current choice.
-  assert.equal(startBooking(state).state.draft.service, 'premium');
+  assert.equal(startBooking(state, undefined, NOW).state.draft.service, 'premium');
 });
 
 test('C003 returning-customer Home combines greeting, follow-up, repeat and resume', () => {
@@ -311,7 +321,16 @@ test('C003 artwork is byte-identical to the approved reference', () => {
 test('C003 keeps Home deterministic: no storage, network, clock or randomness', () => {
   assert.doesNotMatch(
     c003Source,
-    /localStorage|sessionStorage|indexedDB|fetch\(|XMLHttpRequest|axios|WebSocket|sendBeacon|Math\.random|Date\.now|new Date\(/,
+    /localStorage|sessionStorage|indexedDB|fetch\(|XMLHttpRequest|axios|WebSocket|sendBeacon|Math\.random|Date\.now|new Date\(\)/,
+  );
+  // The wall clock is read in one place only (C010). Building a date from a
+  // calendar key, as the schedule does, is not a clock read.
+  const clockReaders = sourceFiles(APP_SRC).filter((file) =>
+    /new Date\(\)|Date\.now\(/.test(readFileSync(file, 'utf8')),
+  );
+  assert.deepEqual(
+    clockReaders.map((file) => path.relative(APP_SRC, file).replaceAll('\\', '/')),
+    ['shared/clock.ts'],
   );
 });
 
