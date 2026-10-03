@@ -43,8 +43,9 @@ export const PAYMENT_METHODS: readonly PaymentMethodDefinition[] = [
   },
 ] as const;
 
-const methodById = Object.fromEntries(PAYMENT_METHODS.map((method) => [method.id, method])) as
-  Readonly<Record<PaymentMethodId, PaymentMethodDefinition>>;
+const methodById = Object.fromEntries(
+  PAYMENT_METHODS.map((method) => [method.id, method]),
+) as Readonly<Record<PaymentMethodId, PaymentMethodDefinition>>;
 
 export function isPaymentMethodId(value: unknown): value is PaymentMethodId {
   return typeof value === 'string' && Object.hasOwn(methodById, value);

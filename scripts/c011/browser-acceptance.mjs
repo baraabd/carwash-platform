@@ -708,8 +708,16 @@ try {
       await page.locator('[data-booking-step="payment"]').waitFor();
       await page.locator('.booking-payment-step').waitFor();
       assert.match(page.url(), /#\/book\/5$/);
-      assert.equal(await page.locator('.c002-deferred-footer').count(), 0, 'payment owns its footer');
-      assert.equal(await page.locator('.booking-footer').count(), 1, 'payment renders the booking footer');
+      assert.equal(
+        await page.locator('.c002-deferred-footer').count(),
+        0,
+        'payment owns its footer',
+      );
+      assert.equal(
+        await page.locator('.booking-footer').count(),
+        1,
+        'payment renders the booking footer',
+      );
       await page.goBack();
       await page.locator(NAME).waitFor();
       assert.equal((await observe(page)).name.value, '  ريم  ');
