@@ -407,7 +407,8 @@ test('C011 architecture: one rule source, pure state, no verification, storage o
   assert.match(component, /<details className="optional-details"/);
   const route = read('features/booking/index.tsx');
   assert.match(route, /if \(step === 'contact'\) return <ContactStep \/>;/);
-  assert.ok(!/step === 'payment'/.test(route), 'payment (C012) is not ported');
+  assert.match(route, /if \(step === 'payment'\) return <PaymentStep \/>;/);
+  assert.ok(!/step === 'review'/.test(route), 'review (C013) is not ported');
   const clockReaders = sourceFiles(APP_SRC).filter((file) =>
     /new Date\(\)|Date\.now\(/.test(readFileSync(file, 'utf8')),
   );
