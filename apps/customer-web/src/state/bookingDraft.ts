@@ -120,7 +120,22 @@ export function isPlateAcceptable(plate: string): boolean {
   return value === '' || (/^[A-Za-zء-ي0-9\s-]{2,20}$/.test(value) && /\d/.test(value));
 }
 
-function isPhoneAcceptable(phone: string): boolean {
+/**
+ * Booking name rule of the reference (`str(d.name).length<2`): at least two
+ * characters once surrounding whitespace is removed. No other identity check.
+ */
+export function isContactNameAcceptable(name: string): boolean {
+  return name.trim().length >= 2;
+}
+
+/**
+ * Booking contact-number rule of the reference (`phoneOK`): after Arabic-Indic
+ * and Eastern Arabic-Indic digits become Latin and spaces, parentheses and
+ * hyphens are removed, an optional leading `+` and 8–15 digits. A demo format
+ * check only — not reachability, ownership or E.164 validity. The typed value is
+ * never rewritten by it.
+ */
+export function isContactPhoneAcceptable(phone: string): boolean {
   return /^\+?\d{8,15}$/.test(toLatinDigits(phone).replace(/[\s()-]/g, ''));
 }
 
@@ -142,7 +157,10 @@ export function resolveBookingEntryStep(
   if (step > 0 && !isPlateAcceptable(draft.plate)) return 0;
   if (step > 2 && draft.address.trim().length < 4) return 2;
   if (step > 3 && !(draft.slot && isSlotAvailable(now, draft.slot.date, draft.slot.time))) return 3;
-  if (step > 4 && (draft.contactName.trim().length < 2 || !isPhoneAcceptable(draft.contactPhone)))
+  if (
+    step > 4 &&
+    (!isContactNameAcceptable(draft.contactName) || !isContactPhoneAcceptable(draft.contactPhone))
+  )
     return 4;
   if (step > 5 && draft.paymentMethod === null) return 5;
   return step;

@@ -16,6 +16,7 @@ import {
   isScheduleScenarioId,
   scheduleScenarioState,
 } from '../fixtures/customerScheduleScenarios.ts';
+import { contactScenarioState, isContactScenarioId } from '../fixtures/customerContactScenarios.ts';
 import type { CustomerSessionState } from '../state/customerSession.ts';
 
 /**
@@ -35,5 +36,6 @@ export function initialSessionState(locationHash: string): CustomerSessionState 
   if (isLocationScenarioId(requested)) return locationScenarioState(requested);
   if (isAddressScenarioId(requested)) return addressScenarioState(requested);
   if (isScheduleScenarioId(requested)) return scheduleScenarioState(requested);
+  if (isContactScenarioId(requested)) return contactScenarioState(requested);
   return homeScenarioState(isHomeScenarioId(requested) ? requested : DEFAULT_HOME_SCENARIO);
 }

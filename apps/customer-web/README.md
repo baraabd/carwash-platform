@@ -9,6 +9,7 @@ C007 ports the add-ons sheet of the care step (`docs/customer/C007_EXTRAS_ADDONS
 C008 ports the location step, its address sheet and the illustrative map (`docs/customer/C008_LOCATION_MAP.md`).
 C009 ports the account screen entry, the saved-addresses sheet and the shared address editor (`docs/customer/C009_SAVED_ADDRESSES.md`).
 C010 ports the time step: days, arrival times and the earliest appointment (`docs/customer/C010_SCHEDULING_TIME_SELECTION.md`).
+C011 ports the contact step: name, contact number and the technician note (`docs/customer/C011_CONTACT_DETAILS.md`).
 
 ## Current executable surfaces
 
