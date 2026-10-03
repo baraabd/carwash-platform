@@ -28,9 +28,16 @@ import {
   openCandidate,
   openReference,
   referenceStorageFor,
+  screenshotOptions,
   settle,
   snapshot,
 } from '../c004/parity-harness.mjs';
+import {
+  demoFilled,
+  fillConfirmed,
+  focusLanded,
+  withFailureEvidence,
+} from './contact-input-helpers.mjs';
 
 const origin = process.env.C011_ORIGIN ?? 'http://127.0.0.1:4174';
 const evidence = process.env.C011_EVIDENCE_DIR
@@ -115,8 +122,24 @@ const paste = (selector, text) => async (page) => {
   await page.keyboard.insertText(text);
 };
 const demo = (page) => page.locator(DEMO).click();
+
 const toggleNote = (page) => page.locator(SUMMARY).click();
-const refusedNext = (page) => page.locator(NEXT).click();
+/**
+ * A Next that the page refuses. Both pages move focus to the first invalid field
+ * a frame after showing the messages; the next action waits for that focus so it
+ * cannot race it (see contact-input-helpers.mjs).
+ */
+const refusedNext = async (page) => {
+  await page.locator(NEXT).click();
+  await page.waitForFunction(
+    () => {
+      const first = globalThis.document.querySelector('.main .error');
+      return first !== null && globalThis.document.activeElement?.id === first.id.slice(6);
+    },
+    undefined,
+    { timeout: 5000 },
+  );
+};
 const sheetOpen = (page) => page.locator('dialog.sheet[open]').waitFor();
 const sheetClosed = (page) => page.locator('dialog.sheet[open]').waitFor({ state: 'detached' });
 
@@ -220,10 +243,7 @@ const visualStates = [
     scenario: 'booking-contact-ready',
     prepare: async (page) => {
       await demo(page);
-      await page
-        .locator(`${NAME}[value="سامر التجريبي"]`)
-        .waitFor()
-        .catch(() => {});
+      await demoFilled(page);
       await noticeGone(page);
     },
   },
@@ -257,8 +277,8 @@ const visualStates = [
     id: 'contact-phone-error',
     scenario: 'booking-contact-ready',
     prepare: async (page) => {
-      await fill(NAME, 'سامر')(page);
-      await fill(PHONE, '12345')(page);
+      await fillConfirmed(NAME, 'سامر', { errorShown: false })(page);
+      await fillConfirmed(PHONE, '12345', { errorShown: false })(page);
       await refusedNext(page);
       await page.locator('#error-phone').waitFor();
       await page.waitForTimeout(500);
@@ -270,8 +290,11 @@ const visualStates = [
     prepare: async (page) => {
       await refusedNext(page);
       await page.locator('#error-phone').waitFor();
-      await fill(NAME, 'سامر')(page);
-      await fill(PHONE, '0912 345 678')(page);
+      // The refusal moves focus to the first invalid field in a later frame; let it
+      // land before typing so it cannot move focus away during the fills.
+      await focusLanded(page, 'name');
+      await fillConfirmed(NAME, 'سامر', { errorShown: false })(page);
+      await fillConfirmed(PHONE, '0912 345 678', { errorShown: false })(page);
       await page.locator(NEXT).focus();
       await page.waitForTimeout(500);
     },
@@ -291,6 +314,23 @@ const shortStates = [
 ];
 const SHORT_HEIGHT = 560;
 
+/** Screenshots and observed state of both pages, for a failure before the pixel stage. */
+async function writeFailureEvidence(label, referencePage, candidatePage) {
+  for (const [side, page] of [
+    ['reference', referencePage],
+    ['candidate', candidatePage],
+  ]) {
+    writeFileSync(
+      resolve(evidence, `${label}.${side}.failure.png`),
+      await page.screenshot(screenshotOptions),
+    );
+    writeFileSync(
+      resolve(evidence, `${label}.${side}.failure.json`),
+      `${JSON.stringify(await observe(page), null, 2)}\n`,
+    );
+  }
+}
+
 async function compareVisual(browser, server, visual, width, height, summary) {
   const label = `${visual.id}@${width}`;
   const context = await newContext(browser, width, height ? { height } : {});
@@ -307,15 +347,21 @@ async function compareVisual(browser, server, visual, width, height, summary) {
 
     const referenceSnapshot = await snapshot(reference.page, PARITY_SELECTORS);
     const candidateSnapshot = await snapshot(candidate.page, PARITY_SELECTORS);
-    assert.equal(candidateSnapshot.lang, 'ar', `${label}: lang`);
-    assert.equal(candidateSnapshot.dir, 'rtl', `${label}: dir`);
-    const overflow = candidateSnapshot.scrollWidth - candidateSnapshot.innerWidth;
-    assert.ok(overflow <= 0, `${label}: horizontal overflow ${overflow}px`);
-    compareSnapshots(referenceSnapshot, candidateSnapshot, PARITY_SELECTORS, label);
-    assert.deepEqual(
-      await observe(candidate.page),
-      await observe(reference.page),
-      `${label}: observable state`,
+    await withFailureEvidence(
+      async () => {
+        assert.equal(candidateSnapshot.lang, 'ar', `${label}: lang`);
+        assert.equal(candidateSnapshot.dir, 'rtl', `${label}: dir`);
+        const overflow = candidateSnapshot.scrollWidth - candidateSnapshot.innerWidth;
+        assert.ok(overflow <= 0, `${label}: horizontal overflow ${overflow}px`);
+        compareSnapshots(referenceSnapshot, candidateSnapshot, PARITY_SELECTORS, label);
+        assert.deepEqual(
+          await observe(candidate.page),
+          await observe(reference.page),
+          `${label}: observable state`,
+        );
+      },
+      () => writeFailureEvidence(label, reference.page, candidate.page),
+      (message) => console.error(`${label}: ${message}`),
     );
     const pixels = await comparePixels(browser, reference.page, candidate.page, evidence, label);
     summary.visual.push({ state: visual.id, width, height: height ?? contract.height, ...pixels });
