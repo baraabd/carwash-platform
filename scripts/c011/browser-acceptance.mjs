@@ -585,6 +585,80 @@ try {
   }
 
   // 4. Session semantics on the candidate.
+  // Direct links and browser history must not bypass the prerequisite screens.
+  for (const [scenario, destination, ready] of [
+    ['home-empty', 2, '.location-picker'],
+    ['booking-vehicle-invalid-plate', 0, '.signature-car'],
+    ['booking-time-ready', 3, '.dates'],
+    ['booking-time-day-chosen', 3, '.dates'],
+    ['booking-contact-prefilled', 4, NAME],
+  ]) {
+    const context = await newContext(browser, 390);
+    try {
+      const { page, problems } = await openCandidate(
+        context,
+        origin,
+        `/book/4?scenario=${scenario}`,
+        ready,
+      );
+      assert.equal(new URL(page.url()).hash.split('?')[0], `#/book/${destination}`);
+      assert.equal(await page.locator(NAME).count(), destination === 4 ? 1 : 0);
+      // A replaced invalid entry must stay corrected on reload and forward.
+      if (destination !== 4) {
+        await page.reload({ waitUntil: 'networkidle' });
+        await page.locator(ready).first().waitFor();
+        assert.equal(new URL(page.url()).hash, `#/book/${destination}`);
+        await page.goto(`${origin}/#/`, { waitUntil: 'networkidle' });
+        await page.goBack();
+        await page.goForward();
+        await page.goBack();
+        await page.locator(ready).first().waitFor();
+        assert.equal(new URL(page.url()).hash, `#/book/${destination}`);
+      }
+      assert.deepEqual(problems, []);
+      summary.interactions.push({
+        name: `direct Contact entry: ${scenario} reaches ${destination}`,
+      });
+    } finally {
+      await context.close();
+    }
+  }
+  {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: contract.height },
+      locale: contract.locale,
+      timezoneId: contract.timezoneId,
+      reducedMotion: contract.reducedMotion,
+    });
+    try {
+      await context.addInitScript(() => {
+        const NativeDate = globalThis.Date;
+        const expired = '2026-09-30T09:00:00.000Z';
+        class FixedDate extends NativeDate {
+          constructor(...args) {
+            super(...(args.length ? args : [expired]));
+          }
+          static now() {
+            return new NativeDate(expired).getTime();
+          }
+        }
+        globalThis.Date = FixedDate;
+      });
+      const { page, problems } = await openCandidate(
+        context,
+        origin,
+        '/book/4?scenario=booking-contact-prefilled',
+        '.dates',
+      );
+      // The bookmarked draft's appointment is no longer offered at this instant.
+      assert.equal(new URL(page.url()).hash, '#/book/3');
+      assert.equal(await page.locator(NAME).count(), 0);
+      assert.deepEqual(problems, []);
+      summary.interactions.push({ name: 'expired Contact bookmark returns to scheduling' });
+    } finally {
+      await context.close();
+    }
+  }
   {
     const context = await newContext(browser, 390);
     try {
