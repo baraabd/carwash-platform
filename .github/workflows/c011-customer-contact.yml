@@ -200,6 +200,7 @@ jobs:
             sleep 1
           done
           curl --fail --silent http://127.0.0.1:4174/ >/dev/null
+          node scripts/stability/negative-regressions.mjs
           node scripts/stability/c008-c011-repeat-batch.mjs
       - name: Upload repeat-batch evidence
         if: always()

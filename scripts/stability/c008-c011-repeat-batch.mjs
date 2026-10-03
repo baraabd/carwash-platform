@@ -9,7 +9,8 @@
 // context, with no retry of a failed repetition. Every repetition's result and
 // diagnostics are kept in `repeat-batch.json`; the batch fails if any repetition
 // fails. It does not import the acceptance runners (no side effects); it restates
-// the exact steps of the two states.
+// the exact steps of the two states and applies the repaired procedures as the
+// pass criterion, while recording the unrepaired behaviour as diagnostics.
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -29,6 +30,8 @@ import {
   snapshot,
 } from '../c004/parity-harness.mjs';
 import { comparePngBuffers } from '../f010/pixel-compare.mjs';
+import { captureStable } from '../c004/stable-capture.mjs';
+import { fillConfirmed, focusLanded } from '../c011/contact-input-helpers.mjs';
 
 const origin = process.env.STABILITY_ORIGIN ?? 'http://127.0.0.1:4174';
 const REPEATS = Number(process.env.STABILITY_REPEATS ?? 10);
@@ -116,15 +119,20 @@ async function contactCase(page) {
   await page.evaluate(instrument);
   await page.locator('.primary-next').click();
   await page.locator('#error-phone').waitFor();
+  // Diagnostic, recorded before the repair waits: is the page's own focus move
+  // to the first invalid field still pending when the message is already shown?
   await record('after refused Next');
   // Mark the elements so a replacement before or after filling is visible.
   await page.evaluate(() => {
     globalThis.document.querySelector('#name').dataset.traceMark = 'name-1';
     globalThis.document.querySelector('#phone').dataset.traceMark = 'phone-1';
   });
-  await page.locator('#name').fill('سامر');
+  // The repaired procedure of the acceptance: wait for that focus, then fill once
+  // each and require the value and the cleared message.
+  await focusLanded(page, 'name');
+  await fillConfirmed('#name', 'سامر', { errorShown: false })(page);
   await record('after name fill');
-  await page.locator('#phone').fill('0912 345 678');
+  await fillConfirmed('#phone', '0912 345 678', { errorShown: false })(page);
   await record('after phone fill');
   await page.locator('.primary-next').focus();
   await page.waitForTimeout(500);
@@ -319,10 +327,52 @@ try {
         shots.candidate[0],
         contract.channelThreshold,
       );
-      entry.passed = entry.cross[0] === 0;
+      // Diagnostic only: did the FIRST raw captures differ (the original failure)?
+      entry.firstCaptureDiffered = entry.cross[0] !== 0;
+      if (entry.firstCaptureDiffered) {
+        writeFileSync(resolve(evidence, `map-${index}.reference.first.png`), shots.reference[0]);
+        writeFileSync(resolve(evidence, `map-${index}.candidate.first.png`), shots.candidate[0]);
+      }
+      // Pass criterion: the repaired procedure — each page settles on its own, then
+      // one strict comparison of the two settled frames.
+      const unchanged = async (previous, next) => {
+        const compared = await comparePngBuffers(
+          browser,
+          previous,
+          next,
+          contract.channelThreshold,
+        );
+        return compared.sameDimensions && compared.changedPixels === 0;
+      };
+      const settledReference = await captureStable(
+        () => pair.reference.page.screenshot(screenshotOptions),
+        { unchanged },
+      );
+      const settledCandidate = await captureStable(
+        () => pair.candidate.page.screenshot(screenshotOptions),
+        { unchanged },
+      );
+      const settled = await comparePngBuffers(
+        browser,
+        settledReference.image,
+        settledCandidate.image,
+        contract.channelThreshold,
+      );
+      entry.settled = {
+        referenceCaptures: settledReference.captures,
+        candidateCaptures: settledCandidate.captures,
+        changedPixels: settled.changedPixels,
+      };
+      entry.passed = settled.sameDimensions && settled.changedPixels === 0;
       if (!entry.passed) {
-        writeFileSync(resolve(evidence, `map-${index}.reference.png`), shots.reference[0]);
-        writeFileSync(resolve(evidence, `map-${index}.candidate.png`), shots.candidate[0]);
+        writeFileSync(
+          resolve(evidence, `map-${index}.reference.settled.png`),
+          settledReference.image,
+        );
+        writeFileSync(
+          resolve(evidence, `map-${index}.candidate.settled.png`),
+          settledCandidate.image,
+        );
       }
     } catch (error) {
       entry.passed = false;
