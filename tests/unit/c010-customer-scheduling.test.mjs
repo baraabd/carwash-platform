@@ -678,5 +678,5 @@ test('C010 architecture: one clock reader, pure rules, no reservation, storage o
   assert.match(route, /if \(step === 'time'\) return <ScheduleStep \/>;/);
   // C011 and C012 ported Contact and Payment; Review (C013) is still a placeholder.
   assert.match(route, /if \(step === 'payment'\) return <PaymentStep \/>;/);
-  assert.ok(!/<ReviewStep\\b/.test(route), 'review (C013) component is not mounted');
+  assert.ok(!route.includes('<ReviewStep'), 'review (C013) component is not mounted');
 });
