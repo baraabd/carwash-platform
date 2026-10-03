@@ -160,13 +160,15 @@ jobs:
           retention-days: 14
 
   format-suggestion:
+    permissions:
+      contents: write
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          persist-credentials: false
+          persist-credentials: true
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version-file: .nvmrc
@@ -184,6 +186,19 @@ jobs:
             scripts/c011/browser-acceptance.mjs \
             scripts/c012/browser-acceptance.mjs \
             tests/unit/c012-customer-payment-method.test.mjs
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            apps/customer-web/src/features/booking/payment/payment.css \
+            apps/customer-web/src/features/booking/payment/PaymentStep.tsx \
+            apps/customer-web/src/state/paymentStep.ts \
+            scripts/c011/browser-acceptance.mjs \
+            scripts/c012/browser-acceptance.mjs \
+            tests/unit/c012-customer-payment-method.test.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m "style(C012): apply canonical formatting"
+            git push origin HEAD:feat/C012-payment-method-selection
+          fi
       - name: Upload canonical formatted files
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
