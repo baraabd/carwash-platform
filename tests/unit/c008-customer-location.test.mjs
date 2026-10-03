@@ -630,12 +630,14 @@ test('C008 copy: every approved string of the step and the sheet is present', ()
 // Until C010 this test asserted that the time step was a placeholder. C010 owns it
 // now (tests/unit/c010-customer-scheduling.test.mjs); the boundary that still holds
 // for C008 is that the location step is mounted and the contact step is not ported.
-test('C008 scope: the location step is mounted and contact (C011) is not ported', () => {
+// C010 took over the time step and C011 the contact step; the boundary that still
+// holds here is that payment (C012) is not ported.
+test('C008 scope: the location step is mounted and payment (C012) is not ported', () => {
   const route = read('features/booking/index.tsx');
   assert.match(route, /if \(step === 'location'\) return <LocationStep \/>;/);
-  assert.ok(!/step === 'contact'/.test(route), 'the contact step stays a placeholder');
+  assert.ok(!/step === 'payment'/.test(route), 'the payment step stays a placeholder');
   const shell = read('app/CustomerShell.tsx');
-  assert.ok(!shell.includes("'/book/4'"), 'the shell does not treat the contact step as ported');
+  assert.ok(!shell.includes("'/book/5'"), 'the shell does not treat the payment step as ported');
 });
 
 test('C008 safety: customer text is rendered as text', () => {

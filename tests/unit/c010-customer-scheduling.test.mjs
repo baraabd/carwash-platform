@@ -676,5 +676,6 @@ test('C010 architecture: one clock reader, pure rules, no reservation, storage o
   assert.ok(!/role="button"|<div[^>]*onClick/.test(component), 'native buttons only');
   const route = read('features/booking/index.tsx');
   assert.match(route, /if \(step === 'time'\) return <ScheduleStep \/>;/);
-  assert.ok(!/step === 'contact'/.test(route), 'contact (C011) is not ported');
+  // C011 ported the contact step; payment (C012) is still a placeholder.
+  assert.ok(!/step === 'payment'/.test(route), 'payment (C012) is not ported');
 });
