@@ -21,6 +21,7 @@ on:
       - 'scripts/c009/**'
       - 'scripts/c010/**'
       - 'scripts/c011/**'
+      - 'scripts/stability/**'
       - 'scripts/f010/**'
       - 'tests/unit/c001-*.test.mjs'
       - 'tests/unit/c002-*.test.mjs'
@@ -158,5 +159,53 @@ jobs:
         with:
           name: c011-contact-parity-${{ github.event.pull_request.head.sha || github.sha }}
           path: ${{ runner.temp }}/c011-evidence
+          if-no-files-found: error
+          retention-days: 14
+  # Predeclared repeat batch for the two intermittent cases investigated in PR #36
+  # (C011 contact-errors-corrected@320, C008 sheet-map-zoomed-panned-tapped@768):
+  # 20 sequential repetitions each, fresh contexts, no retry; every result kept.
+  stability-batch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Frozen install and build
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          pnpm install --frozen-lockfile
+          pnpm --filter @carwash/customer-web build
+      - name: Repeat batch
+        shell: bash
+        env:
+          STABILITY_ORIGIN: http://127.0.0.1:4174
+          STABILITY_REPEATS: '20'
+          STABILITY_EVIDENCE_DIR: ${{ runner.temp }}/stability-evidence
+        run: |
+          set -euo pipefail
+          pnpm exec playwright install --with-deps chromium
+          pnpm --filter @carwash/customer-web preview --host 127.0.0.1 --port 4174 --strictPort > "$RUNNER_TEMP/stability-vite.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for _ in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:4174/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:4174/ >/dev/null
+          node scripts/stability/c008-c011-repeat-batch.mjs
+      - name: Upload repeat-batch evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: stability-batch-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/stability-evidence
           if-no-files-found: error
           retention-days: 14
