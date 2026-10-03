@@ -4,10 +4,12 @@ Status: React port of the approved contact step (`#/book/4`; `#book/4` in the pr
 the in-memory draft and deterministic fixtures. It does **not** authenticate anyone, create an
 account, verify a number, send a message or call, or write the account profile.
 
-**Delivery mode:** stacked on C010. C011 branches from the C010 head
-`8995b36f5f1bbee34228c28e4b565f34b8b7ba31` (PR #33, ready for review, not merged) and its pull
-request targets `feat/C010-scheduling-time-selection`. Do not merge it into the parent branch; it
-is retargeted to `main` after C010 is merged and revalidated.
+**Delivery history:** C011 was developed stacked on C010, from the C010 head
+`8995b36f5f1bbee34228c28e4b565f34b8b7ba31`. Its PR #34 (reviewed head
+`714dfb36bfbdad4c79465f7bc296116880cf9940`) was merged into `feat/C010-scheduling-time-selection`
+(merge `1f874fc`) rather than `main`, after C010 itself had reached `main` through PR #33. A
+separate integration PR (`integrate/C011-main`) promotes that reviewed result to `main` without
+changing the implementation.
 
 ## Authority
 
@@ -113,6 +115,6 @@ Payment (C012), review and confirmation, the account profile editor, authenticat
 ## Known limitations
 
 - The draft, including contact details, does not survive a reload.
-- While stacked, the main/develop-filtered workflows do not run on this PR; the C011 workflow runs
-  the C002–C011 browser suites to cover that gap, but the other repository gates run only after
-  retargeting to `main`.
+- The C011 workflow also runs the C002–C010 browser suites. That was added while the PR was
+  stacked (the main/develop-filtered workflows did not run then); on `main` it is redundant with
+  those workflows but harmless.

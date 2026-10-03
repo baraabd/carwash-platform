@@ -2,9 +2,9 @@ name: C011 customer contact parity acceptance
 # The C002-C010 browser acceptances run in the C003-C010 workflows, which trigger on
 # the same customer-web paths; this workflow adds the C011 browser acceptance and
 # re-runs the cheap static and unit gates of C001-C011 so it is green on its own.
-# While C011 is stacked on the unmerged C010 branch, its pull requests target that
-# branch, which the other workflows' main/develop filters do not cover; this workflow
-# also runs the C002-C010 browser acceptances so those regressions are not skipped.
+# It also runs the C002-C010 browser acceptances. That was added while C011 was stacked
+# on the C010 branch (PR #34), which the other workflows' main/develop filters did not
+# cover; on main-target PRs it overlaps with those workflows.
 on:
   pull_request:
     branches: [main, develop, feat/C010-scheduling-time-selection]
@@ -65,7 +65,7 @@ concurrency:
 jobs:
   customer-contact:
     runs-on: ubuntu-24.04
-    # Up to ten browser suites run in this job while the PR is stacked (see above).
+    # Up to ten browser suites run in this job (see above).
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
