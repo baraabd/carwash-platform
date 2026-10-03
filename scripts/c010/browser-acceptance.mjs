@@ -700,7 +700,10 @@ try {
       await page.locator(NEXT).click();
       await page.locator('[data-booking-step="contact"]').waitFor();
       assert.match(page.url(), /#\/book\/4$/);
-      assert.equal(await page.locator('.c002-deferred-footer').count(), 1, 'contact is not ported');
+      // Until C011 the contact step was a placeholder; it is now the real screen.
+      await page.locator('#name').waitFor();
+      assert.equal(await page.locator('.c002-deferred-footer').count(), 0);
+      assert.equal(await page.locator('.booking-footer').count(), 1);
       await page.goBack();
       await page.locator('.dates').waitFor();
       state = await observe(page);
