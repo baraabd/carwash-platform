@@ -6,6 +6,7 @@ import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ROOT, loadRegistry } from '../f010/reference-registry.mjs';
 import { comparePngBuffers } from '../f010/pixel-compare.mjs';
+import { captureStable } from './stable-capture.mjs';
 
 export const contract = loadRegistry(ROOT).rendering;
 
@@ -320,10 +321,30 @@ export function compareSnapshots(reference, candidate, selectors, label) {
   assert.deepEqual(drift, [], `${label}: drift against the approved reference`);
 }
 
-/** Full-page pixel comparison under the F010 thresholds; writes the three PNGs. */
+/**
+ * Full-page pixel comparison under the F010 thresholds; writes the three PNGs.
+ * Each page is captured until it settles on its own (see stable-capture.mjs);
+ * the two settled frames are then compared once, strictly.
+ */
 export async function comparePixels(browser, reference, candidate, evidence, label) {
-  const referencePng = await reference.screenshot(screenshotOptions);
-  const candidatePng = await candidate.screenshot(screenshotOptions);
+  // A page has settled when two consecutive captures of THAT page have no pixel
+  // the unchanged comparator would classify as different.
+  const unchanged = async (previous, next) => {
+    const compared = await comparePngBuffers(browser, previous, next, contract.channelThreshold);
+    return compared.sameDimensions && compared.changedPixels === 0;
+  };
+  const referenceFrame = await captureStable(() => reference.screenshot(screenshotOptions), {
+    unchanged,
+  }).catch((error) => {
+    throw new Error(`${label}: reference ${error.message}`);
+  });
+  const candidateFrame = await captureStable(() => candidate.screenshot(screenshotOptions), {
+    unchanged,
+  }).catch((error) => {
+    throw new Error(`${label}: candidate ${error.message}`);
+  });
+  const referencePng = referenceFrame.image;
+  const candidatePng = candidateFrame.image;
   const pixels = await comparePngBuffers(
     browser,
     referencePng,
@@ -338,5 +359,10 @@ export async function comparePixels(browser, reference, candidate, evidence, lab
     pixels.diffRatio <= contract.allowedDiffRatio,
     `${label}: ${pixels.changedPixels} pixels differ from the approved reference`,
   );
-  return { changedPixels: pixels.changedPixels, diffRatio: pixels.diffRatio };
+  return {
+    changedPixels: pixels.changedPixels,
+    diffRatio: pixels.diffRatio,
+    referenceCaptures: referenceFrame.captures,
+    candidateCaptures: candidateFrame.captures,
+  };
 }

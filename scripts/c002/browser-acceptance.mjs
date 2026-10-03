@@ -10,7 +10,9 @@ const routeFixtures = [
   { route: '/book/1', fixture: 'booking-care-default', shellKind: 'booking' },
   { route: '/book/2', fixture: 'booking-location-default', shellKind: 'booking' },
   { route: '/book/3', fixture: 'booking-time-default', shellKind: 'booking' },
-  { route: '/book/4', fixture: 'booking-contact-default', shellKind: 'booking' },
+  // An empty draft entering Contact is redirected to the missing location.
+  // C011 verifies Contact itself with complete prerequisites under a fixed clock.
+  { route: '/book/4', fixture: 'booking-location-default', shellKind: 'booking' },
   { route: '/book/5', fixture: 'booking-payment-default', shellKind: 'booking' },
   { route: '/book/6', fixture: 'booking-review-default', shellKind: 'booking' },
   { route: '/orders', fixture: 'orders-default', shellKind: 'normal' },
