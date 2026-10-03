@@ -1,0 +1,48 @@
+/*
+ * Contact step, ported from the approved reference
+ * (design/reference/approved/washgo-payments-interactive.html, contactView()).
+ * Rules are kept in the reference's source order; do not round, retheme or reorder.
+ */
+.muted {
+  color: var(--muted);
+}
+.tiny {
+  font-size: 11px;
+}
+.optional-details {
+  margin: 18px 0 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  padding: 0 13px;
+}
+.optional-details summary {
+  min-height: 49px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  list-style: none;
+}
+.optional-details summary::-webkit-details-marker {
+  display: none;
+}
+.optional-details summary:after {
+  content: '+';
+  font-size: 21px;
+  color: var(--green);
+  font-weight: 300;
+}
+.optional-details[open] summary:after {
+  content: '−';
+}
+.optional-details[open] {
+  padding-bottom: 13px;
+}
+.optional-details .field {
+  margin-top: 6px;
+}
+.optional-details summary {
+  min-height: 47px;
+}

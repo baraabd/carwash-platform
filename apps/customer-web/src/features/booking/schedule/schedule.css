@@ -1,0 +1,208 @@
+/*
+ * Time step, ported from the approved reference
+ * (design/reference/approved/washgo-payments-interactive.html, scheduleView()).
+ * Rules are kept in the reference's source order so its cascade resolves the
+ * same way; do not round, retheme or reorder.
+ */
+.center {
+  text-align: center;
+}
+.earliest {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  background: #edf5df;
+  border: 1px solid #d7e8bf;
+  border-radius: 20px;
+  width: 100%;
+  text-align: start;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.earliest strong {
+  font-size: 13px;
+}
+.earliest p {
+  font-size: 11px;
+  color: #5f7751;
+  margin-top: 2px;
+}
+.dates {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 7px;
+  margin: 10px 0 13px;
+}
+.date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 77px;
+  padding: 8px 2px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.date small {
+  font-size: 10px;
+}
+.date strong {
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 650;
+  margin: 4px 0;
+}
+.date span {
+  font-size: 9px;
+  color: var(--muted);
+}
+.date.selected {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+.date.selected span {
+  color: #dbeaca;
+}
+.times {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.time {
+  border-radius: 12px;
+  background: white;
+  border: 1px solid var(--line);
+  min-height: 45px;
+  font-size: 12px;
+}
+.time.selected {
+  background: #e8f2d9;
+  border: 1.5px solid #456d37;
+  color: #2c5326;
+}
+@media (max-width: 359px) {
+  .dates {
+    gap: 5px;
+  }
+}
+.signature-earliest {
+  border-radius: 25px;
+  padding: 17px;
+  gap: 12px;
+  border: 1px solid #d2e3bc;
+  background: linear-gradient(125deg, #edf6df, #f5f9ed);
+  margin: 0 0 23px;
+}
+.signature-earliest .chapter-icon {
+  width: 50px;
+  height: 53px;
+  border-radius: 18px;
+}
+.signature-earliest strong {
+  font-size: 16px;
+}
+.signature-earliest p {
+  font-size: 12px;
+}
+.signature-earliest[aria-pressed='true'] {
+  border-color: #779e4b;
+  box-shadow: inset 0 0 0 0.5px #779e4b;
+}
+.dates {
+  gap: 8px;
+  margin: 12px 0 22px;
+}
+.date {
+  border-radius: 21px;
+  min-height: 97px;
+  padding: 12px 3px;
+  position: relative;
+  overflow: hidden;
+}
+.date strong {
+  font-size: 25px;
+}
+.date small {
+  font-size: 11px;
+}
+.date span {
+  font-size: 10px;
+}
+.date.selected {
+  background: #184d39;
+  color: white;
+  border-color: #184d39;
+}
+.date.selected > * {
+  color: inherit;
+}
+.times {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.time {
+  border-radius: 18px;
+  min-height: 55px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  position: relative;
+  overflow: hidden;
+}
+.time.selected {
+  background: #e6f3d2;
+  color: #154c32;
+  border-color: #6e9844;
+  box-shadow: inset 0 0 0 0.5px #6e9844;
+}
+.time .icon {
+  width: 14px;
+  height: 14px;
+}
+.selection-summary.has-value {
+  background: #e8f1dd;
+  color: #305d38;
+}
+@media (max-width: 374px) {
+  .date {
+    min-height: 86px;
+  }
+  .date strong {
+    font-size: 23px;
+  }
+  .time {
+    font-size: 12px;
+    min-height: 51px;
+  }
+}
+.signature-earliest strong {
+  font-size: 15px;
+}
+.signature-earliest p {
+  font-size: 11px;
+}
+.date {
+  min-height: 91px;
+}
+.date strong {
+  font-family: Arial, sans-serif;
+  line-height: 1.4;
+}
+.date small {
+  font-size: 10px;
+}
+.date span {
+  font-size: 9px;
+}
+.time {
+  font-size: 13px;
+}
+@media (max-width: 374px) {
+  .time {
+    font-size: 11px;
+  }
+}
