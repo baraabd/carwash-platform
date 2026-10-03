@@ -37,7 +37,9 @@ export type IconName =
   | 'expand'
   | 'qr-pay'
   | 'download'
-  | 'bolt';
+  | 'bolt'
+  | 'banknote'
+  | 'signal-pay';
 
 const paths: Record<IconName, ReactNode> = {
   check: <path d="m5 12 4 4L19 6" />,
@@ -80,6 +82,19 @@ const paths: Record<IconName, ReactNode> = {
     </>
   ),
   bolt: <path d="m13 2-9 12h7l-1 8 10-13h-7l1-7Z" />,
+  banknote: (
+    <>
+      <rect x="2.5" y="5.5" width="19" height="13" rx="3" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M6 9H5v2m13-2h1v2M6 15H5m13 0h1" />
+    </>
+  ),
+  'signal-pay': (
+    <>
+      <path d="M4 17v3m5-7v7m5-11v11m5-15v15M3 7a13 13 0 0 1 13-4" />
+      <path d="M3 11a9 9 0 0 1 7-5" />
+    </>
+  ),
   download: <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" />,
   lock: (
     <>

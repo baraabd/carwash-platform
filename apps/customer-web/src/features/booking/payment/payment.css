@@ -1,0 +1,348 @@
+/*
+ * C012 payment-method choice, ported from the approved paymentChoiceView().
+ * Selection only: no checkout, QR generation, transfer or verification lives here.
+ */
+.pay-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 22px;
+  border-radius: 28px;
+  background: linear-gradient(128deg, #173e30, #0c2922);
+  color: #f6ffed;
+  margin: 8px 0 19px;
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pay-hero:before {
+  content: '';
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border: 1px solid #d1f58a25;
+  border-radius: 50%;
+  left: -100px;
+  top: -75px;
+  box-shadow:
+    0 0 0 28px #d1f58a08,
+    0 0 0 58px #d1f58a04;
+  z-index: -1;
+}
+.pay-hero small {
+  color: #c0d6bb;
+  font-size: 11px;
+}
+.pay-hero strong {
+  display: block;
+  line-height: 1.15;
+  font-size: 39px;
+  letter-spacing: -1px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin: 7px 0;
+}
+.pay-hero strong .currency {
+  font-size: 15px;
+  letter-spacing: 0;
+}
+.pay-hero p {
+  font-size: 11px;
+  color: #c9d9c3;
+  max-width: 225px;
+}
+.pay-hero-art {
+  width: 96px;
+  height: 104px;
+  flex-shrink: 0;
+  margin-inline-start: auto;
+  transform: rotate(-7deg);
+  filter: drop-shadow(0 12px 12px #0003);
+}
+.pay-choices {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+.pay-option {
+  display: block;
+  position: relative;
+  cursor: pointer;
+  border: 1.5px solid var(--line);
+  border-radius: 23px;
+  background: #fff;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s;
+  overflow: hidden;
+  min-width: 0;
+}
+.pay-option.selected {
+  border-color: #678e3b;
+  background: #f0f7e4;
+  box-shadow: 0 3px 0 #d8e5be;
+}
+.pay-option:focus-within {
+  outline: none;
+}
+.pay-option:has(input:focus-visible) {
+  outline: 3px solid #337abd;
+  outline-offset: 3px;
+}
+.pay-option input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.pay-option-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+}
+.pay-option-text {
+  min-width: 0;
+  flex: 1;
+}
+.pay-option-text strong {
+  font-size: 17px;
+  display: block;
+}
+.pay-option-text p {
+  font-size: 11px;
+  color: #627062;
+  line-height: 1.7;
+  margin-top: 3px;
+}
+.pay-logo {
+  width: 58px;
+  height: 62px;
+  flex-shrink: 0;
+  border-radius: 21px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dce7d3;
+  position: relative;
+  isolation: isolate;
+  box-shadow: inset 0 2px 0 #fff9;
+}
+.pay-logo .icon {
+  width: 31px;
+  height: 31px;
+  stroke-width: 1.5;
+}
+.pay-logo.cash {
+  background: linear-gradient(145deg, #edf4df, #dceaba);
+  color: #31502c;
+}
+.pay-logo.sham {
+  background: linear-gradient(145deg, #e1f9f8, #cde7ed);
+  border-color: #d1e9e9;
+  color: #135e70;
+}
+.pay-logo.syriatel {
+  background: linear-gradient(145deg, #fcebea, #f5dcd5);
+  border-color: #eddad5;
+  color: #993829;
+}
+.pay-logo:after {
+  content: '';
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  background: currentColor;
+  opacity: 0.4;
+  border-radius: 50%;
+  bottom: 9px;
+  left: 10px;
+}
+.pay-tick {
+  width: 23px;
+  height: 23px;
+  border: 1.5px solid #ced9c6;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: transparent;
+  background: #fff;
+}
+.selected .pay-tick {
+  background: #26553a;
+  color: #fff;
+  border-color: #26553a;
+}
+.pay-tick .icon {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.4;
+}
+.pay-selected-note {
+  padding: 11px 17px;
+  border-top: 1px solid #dde9cb;
+  color: #3e5c34;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: #eaf3da;
+}
+.pay-selected-note .icon {
+  width: 17px;
+  height: 17px;
+}
+.pay-safe {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: flex-start;
+  font-size: 11px;
+  color: #64705e;
+  line-height: 1.8;
+  margin: 17px 0 7px;
+}
+.pay-safe .icon {
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+}
+.pay-how {
+  margin: 18px 0 10px;
+  background: #eef3e8;
+  border-radius: 19px;
+  border: 1px solid #e0e8d7;
+  padding: 0 15px;
+}
+.pay-how summary {
+  cursor: pointer;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  list-style: none;
+}
+.pay-how summary::-webkit-details-marker {
+  display: none;
+}
+.pay-how summary .icon {
+  width: 18px;
+  height: 18px;
+}
+.pay-how summary .icon:last-child {
+  margin-inline-start: auto;
+  transition: transform 0.2s;
+}
+.pay-how[open] summary .icon:last-child {
+  transform: rotate(180deg);
+}
+.pay-proof-note {
+  font-size: 11px;
+  color: #65735d;
+  line-height: 1.9;
+  margin: 13px 0;
+}
+.pay-reveal {
+  animation: pay-reveal 0.26s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+@keyframes pay-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-width: 359px) {
+  .pay-option-row {
+    padding: 13px;
+    gap: 10px;
+  }
+  .pay-logo {
+    width: 49px;
+    height: 55px;
+    border-radius: 18px;
+  }
+  .pay-option-text strong {
+    font-size: 15px;
+  }
+  .pay-hero {
+    padding: 18px;
+    gap: 5px;
+  }
+  .pay-hero-art {
+    width: 79px;
+  }
+  .pay-hero strong {
+    font-size: 34px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pay-reveal {
+    animation: none;
+  }
+  .pay-option,
+  .pay-how summary .icon {
+    transition: none;
+  }
+}
+.booking-payment-step .focused-heading {
+  margin: 14px 0 15px;
+}
+.booking-payment-step .focused-heading h1 {
+  font-size: 27px;
+}
+.booking-payment-step .focused-heading p {
+  margin-top: 4px;
+}
+.booking-payment-step .pay-hero {
+  min-height: 121px;
+  padding: 16px 20px;
+  margin: 0 0 15px;
+}
+.booking-payment-step .pay-hero strong {
+  font-size: 34px;
+  margin: 4px 0;
+}
+.booking-payment-step .pay-hero-art {
+  width: 80px;
+  height: 85px;
+}
+.booking-payment-step .pay-hero p {
+  font-size: 10px;
+}
+.booking-payment-step .pay-option-row {
+  padding: 12px 14px;
+  gap: 12px;
+}
+.booking-payment-step .pay-logo {
+  width: 51px;
+  height: 54px;
+  border-radius: 18px;
+}
+.booking-payment-step .pay-option-text strong {
+  font-size: 16px;
+}
+.booking-payment-step .pay-option-text p {
+  font-size: 10px;
+}
+.booking-payment-step .pay-selected-note {
+  padding: 8px 14px;
+  font-size: 10px;
+}
+.booking-payment-step .pay-choices {
+  gap: 10px;
+}
+.booking-payment-step .pay-safe {
+  margin: 13px 0 6px;
+  font-size: 10px;
+}

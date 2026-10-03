@@ -1,0 +1,161 @@
+name: C012 customer payment-method parity acceptance
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/customer-web/**'
+      - 'scripts/c001/**'
+      - 'scripts/c002/**'
+      - 'scripts/c003/**'
+      - 'scripts/c004/**'
+      - 'scripts/c005/**'
+      - 'scripts/c006/**'
+      - 'scripts/c007/**'
+      - 'scripts/c008/**'
+      - 'scripts/c009/**'
+      - 'scripts/c010/**'
+      - 'scripts/c011/**'
+      - 'scripts/c012/**'
+      - 'scripts/stability/**'
+      - 'scripts/f010/**'
+      - 'tests/unit/c001-*.test.mjs'
+      - 'tests/unit/c002-*.test.mjs'
+      - 'tests/unit/c003-*.test.mjs'
+      - 'tests/unit/c004-*.test.mjs'
+      - 'tests/unit/c005-*.test.mjs'
+      - 'tests/unit/c006-*.test.mjs'
+      - 'tests/unit/c007-*.test.mjs'
+      - 'tests/unit/c008-*.test.mjs'
+      - 'tests/unit/c009-*.test.mjs'
+      - 'tests/unit/c010-*.test.mjs'
+      - 'tests/unit/c011-*.test.mjs'
+      - 'tests/unit/c012-*.test.mjs'
+      - 'design/reference/approved/washgo-payments-interactive.html'
+      - 'docs/design/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/c012-customer-payment-method.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/customer-web/**'
+      - 'scripts/c004/**'
+      - 'scripts/c008/**'
+      - 'scripts/c009/**'
+      - 'scripts/c010/**'
+      - 'scripts/c011/**'
+      - 'scripts/c012/**'
+      - 'tests/unit/c008-*.test.mjs'
+      - 'tests/unit/c009-*.test.mjs'
+      - 'tests/unit/c010-*.test.mjs'
+      - 'tests/unit/c011-*.test.mjs'
+      - 'tests/unit/c012-*.test.mjs'
+      - '.github/workflows/c012-customer-payment-method.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: c012-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  customer-payment-method:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Frozen install and design authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          pnpm install --frozen-lockfile
+          pnpm check:design-reference
+          pnpm check:f010-references
+          node scripts/c001/customer-behavior-manifest.mjs
+      - name: Static, boundary and unit acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm format:check
+          pnpm lint
+          pnpm --filter @carwash/customer-web typecheck
+          pnpm --filter @carwash/customer-web build
+          node scripts/c002/check-feature-boundaries.mjs
+          node --test --test-reporter=spec \
+            tests/unit/c001-customer-behavior-manifest.test.mjs \
+            tests/unit/c002-customer-shell.test.mjs \
+            tests/unit/c002-state-boundaries.test.mjs \
+            tests/unit/c003-customer-home.test.mjs \
+            tests/unit/c004-customer-vehicle.test.mjs \
+            tests/unit/c005-customer-garage.test.mjs \
+            tests/unit/c006-customer-care-packages.test.mjs \
+            tests/unit/c007-customer-extras.test.mjs \
+            tests/unit/c008-customer-location.test.mjs \
+            tests/unit/c009-customer-saved-addresses.test.mjs \
+            tests/unit/c010-customer-scheduling.test.mjs \
+            tests/unit/c011-customer-contact.test.mjs \
+            tests/unit/c012-customer-payment-method.test.mjs \
+            tests/unit/f008-recovery-scope.test.mjs
+      - name: Browser parity against the approved reference
+        shell: bash
+        env:
+          C002_ORIGIN: http://127.0.0.1:4174
+          C002_EVIDENCE_DIR: ${{ runner.temp }}/c012-evidence/c002
+          C003_ORIGIN: http://127.0.0.1:4174
+          C003_EVIDENCE_DIR: ${{ runner.temp }}/c012-evidence/c003
+          C004_ORIGIN: http://127.0.0.1:4174
+          C004_EVIDENCE_DIR: ${{ runner.temp }}/c012-evidence/c004
+          C005_ORIGIN: http://127.0.0.1:4174
+          C005_EVIDENCE_DIR: ${{ runner.temp }}/c012-evidence/c005
+          C006_ORIGIN: http://127.0.0.1:4174
+          C006_EVIDENCE_DIR: ${{ runner.temp }}/c012-evidence/c006
+          C007_ORIGIN: http://127.0.0.1:4174
+          C007_EVIDENCE_DIR: ${{ runner.temp }}/c012-evidence/c007
+          C008_ORIGIN: http://127.0.0.1:4174
+          C008_EVIDENCE_DIR: ${{ runner.temp }}/c012-evidence/c008
+          C009_ORIGIN: http://127.0.0.1:4174
+          C009_EVIDENCE_DIR: ${{ runner.temp }}/c012-evidence/c009
+          C010_ORIGIN: http://127.0.0.1:4174
+          C010_EVIDENCE_DIR: ${{ runner.temp }}/c012-evidence/c010
+          C011_ORIGIN: http://127.0.0.1:4174
+          C011_EVIDENCE_DIR: ${{ runner.temp }}/c012-evidence/c011
+          C012_ORIGIN: http://127.0.0.1:4174
+          C012_EVIDENCE_DIR: ${{ runner.temp }}/c012-evidence/c012
+        run: |
+          set -euo pipefail
+          pnpm exec playwright install --with-deps chromium
+          pnpm --filter @carwash/customer-web preview --host 127.0.0.1 --port 4174 --strictPort > "$RUNNER_TEMP/c012-vite.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for _ in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:4174/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:4174/ >/dev/null
+          node scripts/c012/browser-acceptance.mjs
+          node scripts/c011/browser-acceptance.mjs
+          node scripts/c010/browser-acceptance.mjs
+          node scripts/c009/browser-acceptance.mjs
+          node scripts/c008/browser-acceptance.mjs
+          node scripts/c007/browser-acceptance.mjs
+          node scripts/c006/browser-acceptance.mjs
+          node scripts/c005/browser-acceptance.mjs
+          node scripts/c004/browser-acceptance.mjs
+          node scripts/c003/browser-acceptance.mjs
+          node scripts/c002/browser-acceptance.mjs
+      - name: Upload reference/candidate/diff evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: c012-payment-method-parity-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/c012-evidence
+          if-no-files-found: error
+          retention-days: 14
+
