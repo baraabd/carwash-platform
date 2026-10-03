@@ -627,17 +627,15 @@ test('C008 copy: every approved string of the step and the sheet is present', ()
 // Until C009 this test also asserted that no saved-address management existed.
 // C009 delivers it (tests/unit/c009-customer-saved-addresses.test.mjs), so only
 // the boundary that still holds is checked here.
-// Until C010 this test asserted that the time step was a placeholder. C010 owns it
-// now (tests/unit/c010-customer-scheduling.test.mjs); the boundary that still holds
-// for C008 is that the location step is mounted and the contact step is not ported.
-// C010 took over the time step and C011 the contact step; the boundary that still
-// holds here is that payment (C012) is not ported.
-test('C008 scope: the location step is mounted and payment (C012) is not ported', () => {
+// C010, C011 and C012 now own Time, Contact and Payment. Review (C013) remains deferred.
+test('C008 scope: location and later owned steps mount; review (C013) stays deferred', () => {
   const route = read('features/booking/index.tsx');
   assert.match(route, /if \(step === 'location'\) return <LocationStep \/>;/);
-  assert.ok(!/step === 'payment'/.test(route), 'the payment step stays a placeholder');
+  assert.match(route, /if \(step === 'payment'\) return <PaymentStep \/>;/);
+  assert.ok(!/<ReviewStep\b/.test(route), 'review (C013) component is not mounted');
   const shell = read('app/CustomerShell.tsx');
-  assert.ok(!shell.includes("'/book/5'"), 'the shell does not treat the payment step as ported');
+  assert.ok(shell.includes("'/book/5'"), 'the shell treats payment as ported');
+  assert.ok(!shell.includes("'/book/6'"), 'the shell does not treat review as ported');
 });
 
 test('C008 safety: customer text is rendered as text', () => {

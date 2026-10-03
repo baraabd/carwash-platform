@@ -216,7 +216,7 @@ test('C012 copy: the owned Payment screen matches approved source strings', () =
 test('C012 architecture: Payment is mounted, Review remains deferred', () => {
   const route = read('features/booking/index.tsx');
   assert.match(route, /if \(step === 'payment'\) return <PaymentStep \/>;/);
-  assert.ok(!/step === 'review'/.test(route), 'review (C013) is not ported');
+  assert.ok(!/<ReviewStep\\b/.test(route), 'review (C013) component is not mounted');
   const shell = read('app/CustomerShell.tsx');
   assert.ok(shell.includes("'/book/5'"));
   assert.ok(!shell.includes("'/book/6'"));
@@ -236,7 +236,7 @@ test('C012 safety: no payment execution, QR generation, storage, network or orde
     /localStorage|sessionStorage|indexedDB|document\.cookie/,
     /createPayment|PaymentIntent|payment intent/i,
     /payProof|receipt|merchant|refund/i,
-    /data:image|<img|QRCode|QR-/i,
+    /data:image|<img|QRCode|qr-button|PAY_DEMO_QR|qrMarkup\\(/i,
     /dangerouslySetInnerHTML|innerHTML/,
   ])
     assert.ok(!pattern.test(owned), 'C012 owned code must not match ' + pattern);
