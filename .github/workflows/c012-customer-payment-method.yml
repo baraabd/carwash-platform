@@ -158,3 +158,42 @@ jobs:
           path: ${{ runner.temp }}/c012-evidence
           if-no-files-found: error
           retention-days: 14
+
+  format-suggestion:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Produce canonical Prettier output
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          pnpm install --frozen-lockfile
+          pnpm exec prettier --write \
+            apps/customer-web/src/features/booking/payment/payment.css \
+            apps/customer-web/src/features/booking/payment/PaymentStep.tsx \
+            apps/customer-web/src/state/paymentStep.ts \
+            scripts/c011/browser-acceptance.mjs \
+            scripts/c012/browser-acceptance.mjs \
+            tests/unit/c012-customer-payment-method.test.mjs
+      - name: Upload canonical formatted files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: c012-prettier-files-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            apps/customer-web/src/features/booking/payment/payment.css
+            apps/customer-web/src/features/booking/payment/PaymentStep.tsx
+            apps/customer-web/src/state/paymentStep.ts
+            scripts/c011/browser-acceptance.mjs
+            scripts/c012/browser-acceptance.mjs
+            tests/unit/c012-customer-payment-method.test.mjs
+          if-no-files-found: error
+          retention-days: 1
