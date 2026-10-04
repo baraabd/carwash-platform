@@ -112,15 +112,14 @@ function carName(draft: Pick<BookingDraft, 'carName' | 'vehicleType'>): string {
 }
 
 /**
- * The add-ons the receipt lists. The reference's draft is always clean — known
- * ids, once each, none the package already includes — so the same rules are
- * applied here to whatever the draft carries (a repeated order may be dirty).
+ * The add-ons the receipt lists: the draft's add-ons as they are, in order, as the
+ * reference's `summary()` lists `d.extras`. Only ids without a catalog entry are
+ * skipped, because they have no name to show. What is CHARGED is decided by the
+ * bill (`illustrativeCost`), which counts each add-on once and never one the package
+ * includes; the receipt does not hide a choice to make the two lists agree.
  */
-function receiptExtras(draft: Pick<BookingDraft, 'service' | 'extras'>): readonly CareExtraId[] {
-  const included = packageFixtures[draft.service].includes;
-  return [...new Set(draft.extras)].filter(
-    (extra) => Object.hasOwn(extraFixtures, extra) && !included.includes(extra),
-  );
+function receiptExtras(draft: Pick<BookingDraft, 'extras'>): readonly CareExtraId[] {
+  return draft.extras.filter((extra) => Object.hasOwn(extraFixtures, extra));
 }
 
 export function buildReviewViewModel(draft: BookingDraft, mode: BookingMode): ReviewViewModel {

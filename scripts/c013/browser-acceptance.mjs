@@ -228,7 +228,7 @@ function observe(page) {
  * focus alone so the skip link stays the first keyboard stop (an inherited C002
  * decision, not a C013 one). Focus is compared after every in-app action instead.
  */
-const withoutLoadFocus = ({ focused, ...rest }) => rest;
+const withoutLoadFocus = ({ focused: _focused, ...rest }) => rest;
 
 /** Opens both pages on one scenario at a booking step (or Home when step is null). */
 async function openPair(context, server, scenario, step) {
@@ -295,7 +295,7 @@ async function compareReviewDom(reference, candidate, label, selectors = SELECTO
     a.mainText.replace(REFERENCE_SENTENCE, DISCLOSURE),
     label + ': main text differs only by the declared disclosure',
   );
-  const normalised = structuredClone(b);
+  const normalised = globalThis.structuredClone(b);
   normalised.mainText = a.mainText;
   assert.equal(b.elements['.primary-next'].length, 1, label + ': one footer action');
   for (const [property, values] of Object.entries(DECLARED_STYLE)) {
@@ -482,6 +482,41 @@ try {
       } finally {
         await context.close();
       }
+    }
+  }
+
+  // 1b. Negative regressions: the Review comparison is not lenient. The declared
+  //     difference is required (the reference compared with itself fails, so a
+  //     candidate repeating the unsupported claim would fail), and any other change of
+  //     text, or of geometry, still fails.
+  {
+    const context = await newContext(browser, 390);
+    try {
+      const pair = await openPair(context, server, 'booking-review-cash', 6);
+      await quiesce(pair);
+      await assert.rejects(
+        compareReviewDom(pair.reference.page, pair.reference.page, 'negative: claim kept'),
+        /reference sentence present|differs only by the declared disclosure|AssertionError/,
+      );
+      await pair.candidate.page.evaluate(() => {
+        globalThis.document.querySelector('.receipt-line strong').textContent += ' ×';
+      });
+      await assert.rejects(
+        compareReviewDom(pair.reference.page, pair.candidate.page, 'negative: text'),
+        /differs only by the declared disclosure/,
+      );
+      await pair.candidate.page.evaluate(() => {
+        const strong = globalThis.document.querySelector('.receipt-line strong');
+        strong.textContent = strong.textContent.replace(' ×', '');
+        globalThis.document.querySelector('.receipt-top').style.paddingTop = '17px';
+      });
+      await assert.rejects(
+        compareReviewDom(pair.reference.page, pair.candidate.page, 'negative: geometry'),
+        /drift against the approved reference/,
+      );
+      summary.interactions.push({ name: 'negative: claim, text and geometry drift all fail' });
+    } finally {
+      await context.close();
     }
   }
 
@@ -1038,8 +1073,59 @@ try {
       await page.keyboard.press('Escape');
       await page.waitForFunction(() => !globalThis.document.querySelector('dialog[open]'));
       assert.equal(await page.evaluate(() => globalThis.document.body.style.overflow), '');
+      // Rapid reopen: the sheet is reopened after it closed but before its close event
+      // arrives. The stale event must neither close the new sheet nor unlock it (on
+      // ac4fec6 it closed it again: two close events, sheet closed, scroll unlocked).
+      await page.locator('.booking-total').click();
+      await page.locator('dialog.sheet[open]').waitFor();
+      const trace = await page.evaluate(async () => {
+        const log = [];
+        const dialog = globalThis.document.querySelector('dialog.sheet[open]');
+        dialog.addEventListener('close', () => log.push('close open=' + dialog.open));
+        const observer = new globalThis.MutationObserver(() => {
+          if (dialog.open) return;
+          observer.disconnect();
+          log.push('closed, reopening');
+          globalThis.document.querySelector('.booking-total').click();
+        });
+        observer.observe(dialog, { attributes: true, attributeFilter: ['open'] });
+        dialog.querySelector('.btn.full').click();
+        await new Promise((done) => globalThis.setTimeout(done, 500));
+        const overflow = globalThis.document.body.style.overflow;
+        log.push('final open=' + dialog.open + ' overflow=' + overflow);
+        return log;
+      });
+      assert.equal(trace[0], 'closed, reopening', JSON.stringify(trace));
+      assert.equal(trace.at(-1), 'final open=true overflow=hidden', JSON.stringify(trace));
+      assert.equal(
+        trace.filter((line) => line.startsWith('close ')).length,
+        1,
+        JSON.stringify(trace),
+      );
+      // A platform close of that sheet (backdrop) still reaches its owner and unlocks.
+      await page.mouse.click(195, 5);
+      await page.waitForFunction(() => !globalThis.document.querySelector('dialog[open]'));
+      assert.equal(await page.evaluate(() => globalThis.document.body.style.overflow), '');
+      assert.equal(
+        await page.evaluate(() => globalThis.document.activeElement?.matches('.booking-total')),
+        true,
+        'focus returns to the opener',
+      );
+      // The × control; the sheet then opens and closes again normally.
+      await page.locator('.booking-total').click();
+      await page.locator('dialog.sheet[open]').waitFor();
+      await page.getByRole('button', { name: 'إغلاق النافذة' }).click();
+      await page.waitForFunction(() => !globalThis.document.querySelector('dialog[open]'));
+      assert.equal(await page.evaluate(() => globalThis.document.body.style.overflow), '');
+      await page.locator('.booking-total').click();
+      await page.locator('dialog.sheet[open]').waitFor();
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(() => !globalThis.document.querySelector('dialog[open]'));
+      assert.equal(await page.evaluate(() => globalThis.document.body.style.overflow), '');
       assert.deepEqual(problems, []);
-      summary.interactions.push({ name: 'sheet scroll lock: unmount, replacement, Escape' });
+      summary.interactions.push({
+        name: 'sheet lifecycle: unmount, replacement, Escape, rapid reopen, backdrop, close button',
+      });
     } finally {
       await context.close();
     }

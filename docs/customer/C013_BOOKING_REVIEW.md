@@ -73,9 +73,16 @@ used in both places. Each bill line now has a stable identity (`package`, `vehic
 added. A payment choice never changes the total or the duration; vehicle and package choices
 change them only through the existing rules. Amounts remain illustrative fixture figures.
 
-Receipt add-ons list the draft's known add-ons once each and never one the package includes —
-what the reference's always-cleaned draft contains — so the receipt never names an add-on the
-bill does not charge.
+Displayed and chargeable add-ons are separate lists, as in the reference. The receipt lists the
+draft's add-ons as they are, in order (`summary()` lists `d.extras`); only an id with no catalog
+entry is skipped, because it has no name. The bill charges each add-on once and never one the
+package includes (`cost()`). The receipt invents no omission to make the two lists agree; in the
+reference's always-cleaned draft they coincide.
+
+`illustrativeCost` now keeps only ids with a catalog entry, as `cost()` keeps only `EXTRAS[k]`.
+Before, an unknown id (reachable by repeating a stored order) threw `Cannot read properties of
+undefined (reading 'price')` and `__proto__` totalled `null` (probe on `58c18b5`); a unit test
+covers `polish`, `__proto__` and `constructor`.
 
 ## Deliberate differences from the reference
 
@@ -121,9 +128,26 @@ fires `close`.
   cleanup releases it (owner close or unmount); the `close` event releases it too (idempotent).
   The previous overflow returns only when the last lock is released, so a late close never unlocks
   another open sheet. StrictMode's mount → cleanup → mount replay re-acquires the lock.
-- **Evidence**: red on `bd72661` by the probe; green after the fix (same probe, `scrollY` 182);
-  browser check "sheet scroll lock: unmount, replacement, Escape"; unit "shared Sheet lock: close,
-  Escape, unmount, replacement and StrictMode replay".
+- **Evidence**: red on `bd72661` by the probe; green after the fix (same probe, `scrollY` 182).
+
+A second lifecycle defect was then reproduced on `ac4fec6` (pre-existing, not introduced by C013):
+**rapid reopen**. When the owner closes a sheet (`open` → false) and the customer reopens it before
+the old `close` event arrives, that stale event called `onClose` and cancelled the newer open
+request: two close events, sheet closed, scroll unlocked (probe trace: `later open=false`).
+
+- **Fix**: the close the owner requested is marked; its `close` event is an echo and does not call
+  `onClose` again. A `close` event for a sheet that is open again is ignored entirely (no release,
+  no focus move). A platform close (Escape, backdrop, the × control) still releases the lock,
+  returns focus to the opener when focus was lost, and reports `onClose`. Every `Sheet` owner's
+  `onClose` only sets its own closed state, so skipping the echo changes nothing else.
+- **A first attempt was wrong** and is recorded: it left the echo mark set when the stale event
+  returned early, so the next Escape was taken for an echo and the sheet could not be reopened
+  (probe: timeout waiting for the sheet). The mark is now cleared when consumed and on every open.
+- **Evidence**: probe after the fix — `close open=true`, final `open=true overflow=hidden`, Escape
+  and backdrop restore `overflow` and focus. Browser check "sheet lifecycle: unmount, replacement,
+  Escape, rapid reopen, backdrop, close button"; unit "shared Sheet lock: close, Escape, unmount,
+  replacement and StrictMode replay". A production build does not replay effects, so StrictMode's
+  mount → cleanup → mount is covered by the unit test on the lock itself, not in the browser.
 
 The second finding — `VEHICLE_SAVED_NOTICE` («السيارة ولوحتها محفوظتان على جهازك.») claims device
 storage while the garage is in memory — is unrelated to Review and is **not** fixed here. It
@@ -132,11 +156,12 @@ remains tracked for the Garage owner. Review repeats no device-storage claim; th
 
 ## Tracked, not changed
 
-- `draftFromOrder` (repeat, C003) copies an order's add-ons as stored, while the reference's
-  `cleanDraft()` drops unknown, duplicate and package-included ones. Every order fixture is clean,
-  and Review lists and bills a dirty draft correctly, but a dirty stored order could keep an
-  included add-on in the draft until the package changes. Fixing it needs the package catalog in
-  the state layer; it is left to the repeat/Booking owner.
+- `draftFromOrder` (repeat, C003) copies an order's add-ons, package and vehicle size as stored,
+  while the reference's `cleanDraft()` drops unknown, duplicate and package-included add-ons and
+  rejects an unknown package or size. Every order fixture is clean and the bill now ignores unknown
+  add-ons, but a stored order with an unknown package or size would still fail its catalog lookup.
+  Sanitising needs the catalog in the state layer (which never imports fixtures today); it is left
+  to the repeat/Booking owner.
 
 ## Deterministic scenarios
 
@@ -161,7 +186,11 @@ data. They are selected only through the existing allowlisted `?scenario=` mecha
   Home → six decisions → Review → six edits; keyboard; Sheet lock; expiry with the lead-time
   boundary; direct entry and reload; motion allowed. Review states record a full-screen pixel
   comparison (not claimed as zero) and compare the owned area (declared regions masked on both
-  pages) strictly.
+  pages) strictly. Negative checks prove the Review comparison is not lenient: the reference
+  compared with itself fails (the declared difference is required), and an injected text or
+  geometry change fails. Before every visual capture both pages wait for timed toasts to end,
+  move the pointer off controls and finish running transitions; thresholds and the stable-capture
+  rule are unchanged.
 
 ### Superseded earlier assertions
 

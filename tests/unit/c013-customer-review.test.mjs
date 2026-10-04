@@ -256,19 +256,21 @@ test('C013 summary: optional values absent use the approved fallbacks, never err
   }
 });
 
-test('C013 summary: present optional values, clean add-ons and the separate notes', () => {
+test('C013 summary: present optional values, displayed add-ons and the separate notes', () => {
   const state = reviewScenarioState('booking-review-full');
   const view = buildReviewViewModel(state.draft, 'standard');
   assert.equal(view.vehicle.carLine, 'سيارة العائلة · رمادي');
   assert.equal(view.vehicle.plate, '4567 دمشق');
   assert.equal(view.care.extras, 'تنظيف المقاعد، تعطير المقصورة');
-  // A draft carrying a duplicate and an add-on the package includes (premium includes
-  // wheels) lists each chargeable add-on once, as the reference's cleaned draft would.
-  const dirty = { ...state.draft, extras: ['seats', 'wheels', 'seats', 'fresh'] };
+  // Displayed add-ons are the draft's, in order, as summary() lists d.extras; the
+  // receipt invents no omission. Only an id with no catalog name is skipped. What is
+  // charged is the bill's decision (see the bill tests).
+  const dirty = { ...state.draft, extras: ['seats', 'wheels', 'seats', 'fresh', 'polish'] };
   assert.equal(
     buildReviewViewModel(dirty, 'standard').care.extras,
-    'تنظيف المقاعد، تعطير المقصورة',
+    'تنظيف المقاعد، تلميع الإطارات، تنظيف المقاعد، تعطير المقصورة',
   );
+  assert.ok(reference.includes("d.extras.map(k=>EXTRAS[k].name).join('، ')"));
   assert.equal(view.place.accessNote, 'أمام البوابة');
   assert.equal(view.technicianNote, 'السيارة بجانب المدخل الخلفي');
   assert.notEqual(view.place.accessNote, view.technicianNote, 'locationNote and note stay apart');
@@ -328,6 +330,17 @@ test('C013 bill: an included or repeated add-on is charged once or not at all', 
       extraFixtures.seats.price +
       extraFixtures.fresh.price,
   );
+  // An id with no catalog entry is never priced and never breaks the bill (it threw,
+  // or totalled NaN for `__proto__`, before C013).
+  for (const unknown of ['polish', '__proto__', 'constructor']) {
+    const hostile = { ...full, extras: ['seats', unknown] };
+    assert.deepEqual(illustrativeCost(hostile).extraIds, ['seats'], unknown);
+    assert.equal(
+      illustrativeCost(hostile).total,
+      illustrativeCost({ ...full, extras: ['seats'] }).total,
+    );
+    assert.equal(buildReviewViewModel(hostile, 'standard').care.extras, 'تنظيف المقاعد');
+  }
 });
 
 test('C013 price: a payment choice never changes it; vehicle and care change it by the rules', () => {
@@ -660,6 +673,14 @@ test('C013 shared Sheet lock: close, Escape, unmount, replacement and StrictMode
 
   const sheet = read('shared/Sheet.tsx');
   assert.ok(sheet.includes('return () => pageScroll.release(lockOwner);'), 'released on cleanup');
-  assert.match(sheet, /const handleClose = \(\) => \{\n\s+pageScroll\.release\(lockOwner\);/);
+  // A close event for a sheet reopened since is stale: no release, no onClose.
+  assert.match(
+    sheet,
+    /if \(dialogRef\.current\?\.open\) \{\n\s+closedByOwner\.current = false;\n\s+return;/,
+  );
+  // The echo of an owner-requested close never re-sends onClose (it could cancel a
+  // newer reopen); a platform close (Escape, backdrop, ×) still reports it.
+  assert.match(sheet, /closedByOwner\.current = true;\n\s+dialog\.close\(\);/);
+  assert.match(sheet, /if \(!echo\) onClose\(\);/);
   assert.ok(!sheet.includes('document.body.style.overflow ='), 'no direct, blanket unlock');
 });
