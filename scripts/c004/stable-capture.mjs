@@ -7,12 +7,15 @@
 // when it was first captured.
 //
 // Evidence (main push run 37127326124, C011 job, `sheet-map-zoomed-panned-tapped@768`):
-// two consecutive reference captures held that same transient pixel (255,255,255
-// instead of 246,249,247 at the pin edge), so "two equal captures" accepted it. The
-// stability batch of that run (repeat 18) also shows the reference deviating for one
-// capture AFTER two equal captures. The candidate never showed the transient. The
-// cause is not proven; the supported hypothesis is compositor re-rasterisation of the
-// scaled `will-change: transform` map layer in the reference page.
+// the reference frame the rule accepted had (255,255,255) at the pin edge (301,353)
+// where the candidate had (246,249,247). By the rule's definition that frame equalled
+// the capture before it, so the differing state lasted at least two captures; whether
+// it would have changed later in that run is not observable. In the retained stability
+// batches the reference returns to the candidate's value after such deviations, also
+// once AFTER two equal captures (run 37127326124 repeat 18, run 37188703216 repeat
+// 14); the candidate never deviated. Why the reference deviates is not proven; the
+// supported hypothesis is compositor re-rasterisation of its scaled
+// `will-change: transform` map layer.
 //
 // This helper waits for a page to settle by its own output only:
 //
