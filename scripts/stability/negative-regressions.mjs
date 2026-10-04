@@ -9,7 +9,8 @@
 //      a second attempt;
 //   5. a message that is not removed fails the confirmed fill;
 //   6. an error while keeping diagnostics cannot hide the primary failure;
-//   7. the stable capture of one page never depends on another page.
+//   7. the stable capture of one page never depends on another page;
+//   8. a transient held for two captures (main push run 37127326124) is not accepted.
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -40,22 +41,42 @@ try {
     let frame = 0;
     await assert.rejects(
       captureStable(async () => Buffer.from([frame++])),
-      /did not settle: no two consecutive captures matched in 6/,
+      /did not settle: no 3 consecutive captures matched in 8/,
     );
-    assert.equal(frame, 6, 'bounded at six captures');
+    assert.equal(frame, 8, 'bounded at eight captures');
   });
 
   await check('a page that settles returns the first repeated frame', async () => {
-    const frames = [Buffer.from('a'), Buffer.from('b'), Buffer.from('b'), Buffer.from('c')];
+    const frames = ['a', 'b', 'b', 'b', 'c'].map((value) => Buffer.from(value));
     let index = 0;
     const settled = await captureStable(async () => frames[index++]);
     assert.equal(settled.image.toString(), 'b');
-    assert.equal(settled.captures, 3);
+    assert.equal(settled.captures, 4);
+  });
+
+  await check('a transient held for two captures is not accepted', async () => {
+    // The shape of main push run 37127326124: two equal transient frames, then the
+    // settled frame. Two equal captures would have accepted the transient.
+    const frames = ['settled', 'transient', 'transient', 'settled', 'settled', 'settled'].map(
+      (value) => Buffer.from(value),
+    );
+    let index = 0;
+    const settled = await captureStable(async () => frames[index++]);
+    assert.equal(settled.image.toString(), 'settled');
+    assert.equal(settled.captures, 6);
+    await assert.rejects(
+      captureStable(async () => Buffer.from('x'), { settledFrames: 1 }),
+      /settledFrames must be an integer of at least 2/,
+    );
+    await assert.rejects(
+      captureStable(async () => Buffer.from('x'), { maxCaptures: 2 }),
+      /maxCaptures must be an integer of at least settledFrames/,
+    );
   });
 
   await check('the stable frame of one page ignores the other page', async () => {
     // The capture function only ever sees its own page's frames.
-    const own = [Buffer.from('x'), Buffer.from('x')];
+    const own = [Buffer.from('x'), Buffer.from('x'), Buffer.from('x')];
     let index = 0;
     const settled = await captureStable(async () => own[index++]);
     assert.equal(settled.image.toString(), 'x');
@@ -87,7 +108,7 @@ try {
       },
       { unchanged },
     );
-    assert.equal(settled.captures, 3, 'settled only once two captures agree');
+    assert.equal(settled.captures, 4, 'settled only once three captures agree');
   });
 
   await check('stable but different pages fail', async () => {
