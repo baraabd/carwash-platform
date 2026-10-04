@@ -11,6 +11,12 @@
 ## Truthful evidence on final commit
 Commands, environment, failures/skips and missing evidence:
 
+## Incident and root-cause analysis (repair PRs only; otherwise "not applicable")
+Failing event/branch/SHA/run/attempt/job and primary assertion; proven cause or proven
+acceptance weakness versus hypothesis; regression failing before and passing after; negative
+checks that real mismatches still fail; final tested source/tree and environment; this PR's role
+(implements / promotes / consumes); residual uncertainty:
+
 ## Microservice, security and data impact
 Owner, contracts, migrations, failure/compensation, idempotency, rollback:
 
