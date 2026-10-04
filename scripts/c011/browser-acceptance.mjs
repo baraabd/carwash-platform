@@ -6,8 +6,8 @@
 // reference is served read-only and is never modified.
 //
 // Ownership declared before any comparison: C011 owns the whole contact step
-// (`#/book/4`; `#book/4` in the prototype), compared full-page. The payment step
-// (`#/book/5`) is still a placeholder and is only checked as a destination.
+// (`#/book/4`; `#book/4` in the prototype), compared full-page. C012 owns the
+// Payment screen; C011 checks it only as the destination of a valid Contact Next.
 //
 // Booking time is the rendering contract's fixed instant (12:00 in Damascus,
 // 2026-09-20), under which the fixtures' appointment is offered. Interaction
@@ -389,7 +389,7 @@ async function compareSteps(reference, candidate, name, steps) {
   }
 }
 
-// The payment step is not ported (C012): only the destination is compared.
+// C012 owns Payment: this earlier suite compares only the destination route.
 const toPayment = {
   only: ['route'],
   run: async (page, isReference) => {
@@ -703,11 +703,21 @@ try {
       assert.equal(state.name.value, '  ريم  ', 'the name is kept as typed');
       assert.equal(state.phone.value, '+963 (11) 000-0000', 'the number keeps its formatting');
 
-      // Valid Next reaches the payment placeholder; Back keeps everything.
+      // Valid Next reaches the real C012 Payment screen; Back keeps everything.
       await page.locator(NEXT).click();
       await page.locator('[data-booking-step="payment"]').waitFor();
+      await page.locator('.booking-payment-step').waitFor();
       assert.match(page.url(), /#\/book\/5$/);
-      assert.equal(await page.locator('.c002-deferred-footer').count(), 1, 'payment is not ported');
+      assert.equal(
+        await page.locator('.c002-deferred-footer').count(),
+        0,
+        'payment owns its footer',
+      );
+      assert.equal(
+        await page.locator('.booking-footer').count(),
+        1,
+        'payment renders the booking footer',
+      );
       await page.goBack();
       await page.locator(NAME).waitFor();
       assert.equal((await observe(page)).name.value, '  ريم  ');

@@ -10,6 +10,7 @@ C008 ports the location step, its address sheet and the illustrative map (`docs/
 C009 ports the account screen entry, the saved-addresses sheet and the shared address editor (`docs/customer/C009_SAVED_ADDRESSES.md`).
 C010 ports the time step: days, arrival times and the earliest appointment (`docs/customer/C010_SCHEDULING_TIME_SELECTION.md`).
 C011 ports the contact step: name, contact number and the technician note (`docs/customer/C011_CONTACT_DETAILS.md`).
+C012 ports payment-method selection only: cash, Sham Cash and Syriatel Cash (`docs/customer/C012_PAYMENT_METHOD_SELECTION.md`).
 
 ## Current executable surfaces
 

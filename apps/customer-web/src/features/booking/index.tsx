@@ -13,6 +13,7 @@ import { bookingFlow } from './bookingFlow';
 import { CareStep } from './care/CareStep';
 import { ContactStep } from './contact/ContactStep';
 import { LocationStep } from './location/LocationStep';
+import { PaymentStep } from './payment/PaymentStep';
 import { ScheduleStep } from './schedule/ScheduleStep';
 import { VehicleStep } from './vehicle/VehicleStep';
 import './booking.css';
@@ -40,7 +41,7 @@ export function BookingRoute({ step, title }: BookingRouteProps) {
   // Contact must not mount from a bookmark until location and time are chosen.
   // Reuse the same prerequisite rules as resume/rebook, including expired slots.
   const entryStep =
-    step === 'contact'
+    step === 'contact' || step === 'payment' || step === 'review'
       ? resolveBookingEntryStep(state.draft, stepIndex, currentInstant())
       : stepIndex;
 
@@ -58,6 +59,7 @@ export function BookingRoute({ step, title }: BookingRouteProps) {
   if (step === 'location') return <LocationStep />;
   if (step === 'time') return <ScheduleStep />;
   if (step === 'contact') return <ContactStep />;
+  if (step === 'payment') return <PaymentStep />;
   return (
     <ShellPlaceholder
       routeId={`booking-${step}`}

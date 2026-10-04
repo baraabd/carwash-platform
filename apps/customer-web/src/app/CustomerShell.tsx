@@ -9,6 +9,7 @@ import { pathForIntent } from '../state/navigationPath';
 import { returnToVehicleStep } from '../state/careStep';
 import { returnToCareStep } from '../state/locationStep';
 import { returnToTimeStep } from '../state/contactStep';
+import { returnToContactStep } from '../state/paymentStep';
 import { returnToLocationStep } from '../state/scheduleStep';
 import { leaveVehicleStep } from '../state/vehicleStep';
 import { BookingExitNotice } from './BookingExitNotice';
@@ -39,7 +40,7 @@ function NormalHeader() {
 interface ContextHeaderProps {
   readonly kind: 'booking' | 'payment' | 'tracking';
   /**
-   * Index of the booking step when it is already ported (0 vehicle, 1 care, 2 location, 3 time, 4 contact); its
+   * Index of the booking step when it is already ported (0 vehicle, 1 care, 2 location, 3 time, 4 contact, 5 payment); its
    * header then follows the reference exactly. Null for the remaining mount points.
    */
   readonly portedStep: number | null;
@@ -55,13 +56,15 @@ function ContextHeader({ kind, portedStep }: ContextHeaderProps) {
     const { intent } = run(
       portedStep === 0
         ? leaveVehicleStep
-        : portedStep === 4
-          ? returnToTimeStep
-          : portedStep === 3
-            ? returnToLocationStep
-            : portedStep === 2
-              ? returnToCareStep
-              : returnToVehicleStep,
+        : portedStep === 5
+          ? returnToContactStep
+          : portedStep === 4
+            ? returnToTimeStep
+            : portedStep === 3
+              ? returnToLocationStep
+              : portedStep === 2
+                ? returnToCareStep
+                : returnToVehicleStep,
     );
     if (intent) navigate(pathForIntent(intent));
   };
@@ -180,7 +183,9 @@ export function CustomerShell() {
             ? 3
             : location.pathname === '/book/4'
               ? 4
-              : null;
+              : location.pathname === '/book/5'
+                ? 5
+                : null;
   const kind = booking ? 'booking' : payment ? 'payment' : tracking ? 'tracking' : 'normal';
   const { state } = useCustomerSession();
 
