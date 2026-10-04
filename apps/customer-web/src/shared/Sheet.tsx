@@ -27,15 +27,22 @@ export function Sheet({ open, title, onClose, contentKey, children }: SheetProps
   const dialogRef = useRef<HTMLDialogElement>(null);
   const openerRef = useRef<Element | null>(null);
   const [lockOwner] = useState(() => ({}));
+  // Set when the owner asked for the close, so its later `close` event is known to
+  // be an echo rather than a dismissal the owner has not heard about.
+  const closedByOwner = useRef(false);
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
     if (!open) {
-      if (dialog.open) dialog.close();
+      if (dialog.open) {
+        closedByOwner.current = true;
+        dialog.close();
+      }
       return;
     }
     if (!dialog.open) {
+      closedByOwner.current = false;
       openerRef.current = document.activeElement;
       dialog.showModal();
       dialog.scrollTop = 0;
@@ -59,10 +66,18 @@ export function Sheet({ open, title, onClose, contentKey, children }: SheetProps
   }, [contentKey]);
 
   // The `close` event arrives as a later task, by which time the customer may have
-  // moved on or opened another sheet. The browser has already returned focus to
-  // the opener; this only covers the case where it could not, and never takes
-  // focus from a control or unlocks scrolling under a sheet that is open now.
+  // moved on, reopened this sheet or opened another one. The browser has already
+  // returned focus to the opener; this only covers the case where it could not, and
+  // never takes focus from a control or unlocks scrolling under a sheet open now.
   const handleClose = () => {
+    // This sheet was opened again before its old close event arrived: stale. The
+    // echo is consumed, so the next close is judged on its own.
+    if (dialogRef.current?.open) {
+      closedByOwner.current = false;
+      return;
+    }
+    const echo = closedByOwner.current;
+    closedByOwner.current = false;
     pageScroll.release(lockOwner);
     const anotherSheetOpen = document.querySelector('dialog.sheet[open]') !== null;
     if (!anotherSheetOpen) {
@@ -72,7 +87,9 @@ export function Sheet({ open, title, onClose, contentKey, children }: SheetProps
         opener.focus({ preventScroll: true });
       }
     }
-    onClose();
+    // The owner already set `open` to false; telling it again could cancel a newer
+    // request to reopen that has not rendered yet.
+    if (!echo) onClose();
   };
 
   // Only the backdrop area above/beside the sheet dismisses it, as in the reference.
