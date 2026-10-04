@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "inspected": "2026-10-04",
+  "scope": "PRs #22-#38; main first-parent history 90fd8d2..6013d16; CI of main 6013d16, PR #37 and PR #38 head 75f50c5",
+  "refs": {
+    "main": "6013d161bbe9200b9ee6a6ba3dbd5f0cfc63d396",
+    "mainTree": "b3502dfe17172711d043a456d67fafd6fa10eea0",
+    "develop": "320200cf5da05892424016e262ed1c209caa6480",
+    "developTree": "7194edd12fba0e1219c088dc1d2a6e54fc309c61",
+    "aheadBehindDevelopMain": [0, 44]
+  },
+  "defects": [
+    {
+      "id": "R-001",
+      "severity": "medium",
+      "category": "STALE_BRANCH",
+      "observed": "develop is 44 commits behind main with no unique commits",
+      "expected": "develop carries the verified main source",
+      "affectedBranch": "develop",
+      "rootCause": "proven: feature PRs #25-#36 targeted main under the agreed workflow; no promotion after #24",
+      "chosenRepair": "existing PR #37 promotes main 6013d16 unchanged (recovery branch A)",
+      "owningPr": 37,
+      "evidence": "PR #37 checks on 6013d16: runs 37130767051-37130767288, all success",
+      "status": "RECOVERY_CANDIDATE_VERIFIED",
+      "remainingObligation": "owner merge of PR #37; post-merge develop verification"
+    },
+    {
+      "id": "R-002",
+      "severity": "low",
+      "category": "WRONG_PR_TARGET",
+      "observed": "PR #34 merged C011 into feat/C010-scheduling-time-selection (1f874fc) after #33 merged C010 to main",
+      "expected": "C011 PR targets main",
+      "rootCause": "proven from PR metadata",
+      "impact": "none on content: C011 reached main via #35; tree of 6013d16 equals reviewed head d10907f",
+      "chosenRepair": "none required; recorded",
+      "status": "RESOLVED_NO_CHANGE"
+    },
+    {
+      "id": "R-003",
+      "severity": "medium",
+      "category": "TEST_DEFECT",
+      "observed": "sheet-map-zoomed-panned-tapped@768: 1 pixels differ (reference 255,255,255 vs candidate 246,249,247 at 301,353)",
+      "expected": "settled pages compare equal",
+      "affectedBranch": "main (and every branch running the C008 suite)",
+      "testedSha": "6013d161bbe9200b9ee6a6ba3dbd5f0cfc63d396",
+      "firstFailing": "run 37050062833 (main push, 8c3f144); also 37105992192 and 37127326124 job customer-contact",
+      "affectedFile": "scripts/c004/stable-capture.mjs captureStable",
+      "reproduction": "node scripts/c008/browser-acceptance.mjs on Linux CI (intermittent)",
+      "rootCause": "supported hypothesis: compositor re-raster timing of the reference's scaled will-change map layer; the stability rule accepted a transient held for two captures",
+      "repairAlternatives": [
+        "raise tolerance (rejected: weakens comparison)",
+        "mask the pin (rejected)",
+        "search captures for a match (rejected)",
+        "require three consecutive equal captures of the same page (chosen)"
+      ],
+      "chosenRepair": "settledFrames 3, maxCaptures 8; comparator unchanged",
+      "negativeRegression": "scripts/stability/negative-regressions.mjs: a transient held for two captures is not accepted (previous helper returns the transient)",
+      "owningBranch": "fix/parity-settle-confirmation",
+      "status": "HARDENING_IMPLEMENTED_PENDING_CI_AND_MERGE",
+      "remainingObligation": "CI evidence on the fix PR, owner merge, promotion to develop via PR #37"
+    },
+    {
+      "id": "R-004",
+      "severity": "high",
+      "category": "BUILD_OR_TOOLCHAIN",
+      "observed": "F001 diff-whitespace failed: new blank line at EOF in .github/workflows/c012-customer-payment-method.yml:161",
+      "dependentFailures": ["F007 run 37132857551", "F009 run 37132857498"],
+      "firstFailing": "run 37132857491 job 111231276000",
+      "rootCause": "proven",
+      "owningPr": 38,
+      "status": "FIXED_ON_FEATURE_BRANCH"
+    },
+    {
+      "id": "R-005",
+      "severity": "medium",
+      "category": "OBSOLETE_PLACEHOLDER_ASSERTION",
+      "observed": "C002 shell suite expected booking-payment-default at /book/5; the C012 guard redirects an empty draft to location",
+      "firstFailing": "run 37132857530 job 111231276540; run 37132857477",
+      "rootCause": "proven: superseded invariant",
+      "owningPr": 38,
+      "status": "FIXED_ON_FEATURE_BRANCH"
+    },
+    {
+      "id": "R-006",
+      "severity": "medium",
+      "category": "PRODUCT_DEFECT",
+      "observed": "payment-cash@320 text drift: extra aria-hidden span with the selected short name",
+      "firstFailing": "run 37132857555 job 111231276497",
+      "rootCause": "proven",
+      "owningPr": 38,
+      "status": "FIXED_ON_FEATURE_BRANCH"
+    },
+    {
+      "id": "R-007",
+      "severity": "high",
+      "category": "PRODUCT_DEFECT",
+      "observed": "Review guard admitted unknown/prototype method ids; definition lookup returned Object.prototype; repeat copied unknown ids",
+      "rootCause": "proven by local probe on 75f50c5",
+      "owningPr": 38,
+      "status": "FIXED_ON_FEATURE_BRANCH"
+    },
+    {
+      "id": "R-008",
+      "severity": "medium",
+      "category": "TEST_DEFECT",
+      "observed": "C012 test called browser Forward after a header Back push; radios selected with check() on a covered hidden input",
+      "rootCause": "proven",
+      "owningPr": 38,
+      "status": "FIXED_ON_FEATURE_BRANCH"
+    },
+    {
+      "id": "R-009",
+      "severity": "low",
+      "category": "EXECUTOR_RESOURCE_OR_NETWORK",
+      "observed": "local Docker engine returns HTTP 500",
+      "impact": "PostgreSQL/RabbitMQ acceptance not runnable locally",
+      "status": "LOCAL_LIMITATION",
+      "remainingObligation": "rely on Linux CI F006-F009 evidence"
+    },
+    {
+      "id": "R-010",
+      "severity": "low",
+      "category": "TEST_DEFECT",
+      "observed": "historical C011 contact-errors-corrected@390 drift (run 37105854905)",
+      "rootCause": "addressed by 30b90a1/7b6823a before main",
+      "evidence": "stability batch on main run 37127326124: contact 20/20",
+      "status": "RESOLVED_BEFORE_INSPECTION"
+    }
+  ]
+}
