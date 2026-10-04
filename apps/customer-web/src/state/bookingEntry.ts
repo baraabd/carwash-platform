@@ -55,7 +55,8 @@ export function startBooking(
     touched: true,
   };
   return {
-    state: { ...state, draft, bookingMode: 'standard' },
+    // Every entry starts outside Review's edit mode, as the reference's `go()` does.
+    state: { ...state, draft, bookingMode: 'standard', reviewEditing: false },
     intent: { kind: 'booking-step', step: BOOKING_FIRST_STEP },
   };
 }
@@ -64,7 +65,7 @@ export function startBooking(
 export function resumeBooking(state: CustomerSessionState, now: Date): SessionTransition {
   if (!state.draft.touched) return { state, intent: null };
   return {
-    state: { ...state, bookingMode: 'standard' },
+    state: { ...state, bookingMode: 'standard', reviewEditing: false },
     intent: {
       kind: 'booking-step',
       step: resolveBookingEntryStep(state.draft, state.draftStep, now),
@@ -130,6 +131,7 @@ export function repeatOrder(
       draft,
       bookingMode: 'repeat',
       showAllTimes: false,
+      reviewEditing: false,
       notice: { message: REPEAT_BOOKING_NOTICE, sequence: (state.notice?.sequence ?? 0) + 1 },
     },
     intent: {

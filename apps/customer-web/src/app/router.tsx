@@ -12,7 +12,7 @@ import { bookingSteps } from './routes';
 
 const bookingRoutes = bookingSteps.map((step) => ({
   path: step.path.slice(1),
-  element: <BookingRoute step={step.id} title={step.label} />,
+  element: <BookingRoute step={step.id} />,
 }));
 
 export const customerRouter = createHashRouter([

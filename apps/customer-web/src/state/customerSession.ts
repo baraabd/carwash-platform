@@ -51,6 +51,11 @@ export interface CustomerSessionState {
   readonly bookingMode: BookingMode;
   /** Whether the time step lists every offered time. Presentation only. */
   readonly showAllTimes: boolean;
+  /**
+   * A step was opened from Review's «تعديل» (the reference's `S.editing`): its Next
+   * and header Back return to Review instead of moving through the journey.
+   */
+  readonly reviewEditing: boolean;
   readonly notice: { readonly message: string; readonly sequence: number } | null;
   /** Polite screen-reader announcement; the sequence re-announces a repeated message. */
   readonly announcement: { readonly message: string; readonly sequence: number } | null;

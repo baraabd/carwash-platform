@@ -49,6 +49,7 @@ export function emptySession(): CustomerSessionState {
     draftStep: 0,
     bookingMode: 'standard',
     showAllTimes: false,
+    reviewEditing: false,
     notice: null,
     announcement: null,
   };

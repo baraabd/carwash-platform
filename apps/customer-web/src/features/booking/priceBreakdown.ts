@@ -7,6 +7,8 @@ import {
 import type { BookingDraft } from '../../state/bookingDraft.ts';
 
 export interface PriceBreakdownLine {
+  /** What the line charges for (`package`, `vehicle`, `extra:<id>`, `visit`). Unique per bill. */
+  readonly id: string;
   readonly label: string;
   /** Already formatted for display, e.g. "500 ل.س", "+200 ل.س" or "ضمن السعر". */
   readonly value: string;
@@ -30,16 +32,22 @@ export function buildPriceBreakdown(
   const cost = illustrativeCost(draft);
   return {
     lines: [
-      { label: packageFixtures[draft.service].name, value: `${grouped.format(cost.base)} ل.س` },
       {
+        id: 'package',
+        label: packageFixtures[draft.service].name,
+        value: `${grouped.format(cost.base)} ل.س`,
+      },
+      {
+        id: 'vehicle',
         label: `حجم السيارة · ${vehicleFixtures[draft.vehicleType].name}`,
         value: cost.vehicle ? `+${cost.vehicle} ل.س` : 'ضمن السعر',
       },
       ...cost.extraIds.map((extra) => ({
+        id: `extra:${extra}`,
         label: extraFixtures[extra].name,
         value: `+${extraFixtures[extra].price} ل.س`,
       })),
-      { label: 'الوصول إلى الموقع', value: 'ضمن سعر التجربة' },
+      { id: 'visit', label: 'الوصول إلى الموقع', value: 'ضمن سعر التجربة' },
     ],
     total: cost.total,
   };

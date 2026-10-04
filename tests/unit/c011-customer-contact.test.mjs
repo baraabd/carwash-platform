@@ -408,7 +408,8 @@ test('C011 architecture: one rule source, pure state, no verification, storage o
   const route = read('features/booking/index.tsx');
   assert.match(route, /if \(step === 'contact'\) return <ContactStep \/>;/);
   assert.match(route, /if \(step === 'payment'\) return <PaymentStep \/>;/);
-  assert.ok(!route.includes('<ReviewStep'), 'review (C013) component is not mounted');
+  // C013 replaced the Review placeholder; its confirmation stays unavailable.
+  assert.match(route, /return <ReviewStep \/>;/, 'review (C013) is mounted');
   const clockReaders = sourceFiles(APP_SRC).filter((file) =>
     /new Date\(\)|Date\.now\(/.test(readFileSync(file, 'utf8')),
   );

@@ -219,13 +219,16 @@ test('C012 copy: the owned Payment screen matches approved source strings', () =
   }
 });
 
-test('C012 architecture: Payment is mounted, Review remains deferred', () => {
+// C013 superseded "Review remains deferred": Review is mounted and ported; its
+// confirmation stays unavailable (tests/unit/c013-customer-review.test.mjs).
+test('C012 architecture: Payment is mounted; Review (C013) follows it', () => {
   const route = read('features/booking/index.tsx');
   assert.match(route, /if \(step === 'payment'\) return <PaymentStep \/>;/);
-  assert.ok(!route.includes('<ReviewStep'), 'review (C013) component is not mounted');
+  assert.match(route, /return <ReviewStep \/>;/);
   const shell = read('app/CustomerShell.tsx');
   assert.ok(shell.includes("'/book/5'"));
-  assert.ok(!shell.includes("'/book/6'"));
+  assert.ok(shell.includes("'/book/6'"));
+  assert.match(read('features/booking/review/ReviewStep.tsx'), /unavailableReasonId=/);
 });
 
 test('C012 safety: no payment execution, QR generation, storage, network or order creation', () => {
