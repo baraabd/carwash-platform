@@ -407,6 +407,17 @@ async function quiesce(pair) {
   }
 }
 
+/**
+ * Scrolling is unlocked again. Closing a dialog removes `open` at once, but its
+ * `close` event (which releases a sheet's lock) is a later task, so this waits for
+ * the release, bounded: a lock that is never released still fails.
+ */
+async function pageUnlocked(page) {
+  await page.waitForFunction(() => globalThis.document.body.style.overflow === '', null, {
+    timeout: 5_000,
+  });
+}
+
 async function compareReview(browser, pair, label, record) {
   await quiesce(pair);
   await settle(pair.reference.page);
@@ -558,10 +569,7 @@ try {
         true,
         label + ': focus returns to the price button',
       );
-      assert.equal(
-        await pair.candidate.page.evaluate(() => globalThis.document.body.style.overflow),
-        '',
-      );
+      await pageUnlocked(pair.candidate.page);
       assertClean(pair, label);
       summary.interactions.push({ name: 'price sheet on Review: ' + width });
     } finally {
@@ -800,10 +808,7 @@ try {
         },
         'exit: save and exit',
       );
-      assert.equal(
-        await pair.candidate.page.evaluate(() => globalThis.document.body.style.overflow),
-        '',
-      );
+      await pageUnlocked(pair.candidate.page);
       assert.equal(await pair.candidate.page.locator('.nav-dot').count(), 0, 'no order created');
       await both(
         pair,
@@ -1072,7 +1077,7 @@ try {
       assert.equal(await page.evaluate(() => globalThis.document.body.style.overflow), 'hidden');
       await page.keyboard.press('Escape');
       await page.waitForFunction(() => !globalThis.document.querySelector('dialog[open]'));
-      assert.equal(await page.evaluate(() => globalThis.document.body.style.overflow), '');
+      await pageUnlocked(page);
       // Rapid reopen: the sheet is reopened after it closed but before its close event
       // arrives. The stale event must neither close the new sheet nor unlock it (on
       // ac4fec6 it closed it again: two close events, sheet closed, scroll unlocked).
@@ -1105,7 +1110,7 @@ try {
       // A platform close of that sheet (backdrop) still reaches its owner and unlocks.
       await page.mouse.click(195, 5);
       await page.waitForFunction(() => !globalThis.document.querySelector('dialog[open]'));
-      assert.equal(await page.evaluate(() => globalThis.document.body.style.overflow), '');
+      await pageUnlocked(page);
       assert.equal(
         await page.evaluate(() => globalThis.document.activeElement?.matches('.booking-total')),
         true,
@@ -1116,12 +1121,12 @@ try {
       await page.locator('dialog.sheet[open]').waitFor();
       await page.getByRole('button', { name: 'إغلاق النافذة' }).click();
       await page.waitForFunction(() => !globalThis.document.querySelector('dialog[open]'));
-      assert.equal(await page.evaluate(() => globalThis.document.body.style.overflow), '');
+      await pageUnlocked(page);
       await page.locator('.booking-total').click();
       await page.locator('dialog.sheet[open]').waitFor();
       await page.keyboard.press('Escape');
       await page.waitForFunction(() => !globalThis.document.querySelector('dialog[open]'));
-      assert.equal(await page.evaluate(() => globalThis.document.body.style.overflow), '');
+      await pageUnlocked(page);
       assert.deepEqual(problems, []);
       summary.interactions.push({
         name: 'sheet lifecycle: unmount, replacement, Escape, rapid reopen, backdrop, close button',
