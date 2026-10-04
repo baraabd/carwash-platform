@@ -5,6 +5,22 @@ export type CarePackageId = 'exterior' | 'complete' | 'premium';
 export type CareExtraId = 'seats' | 'wheels' | 'fresh';
 export type PaymentMethodId = 'cash' | 'sham' | 'syriatel';
 
+/** The approved payment choices, in source order. The one closed list every check uses. */
+export const PAYMENT_METHOD_IDS: readonly PaymentMethodId[] = Object.freeze([
+  'cash',
+  'sham',
+  'syriatel',
+]);
+
+/**
+ * Runtime check of a method id (the reference's `methodOf`). The type alone does
+ * not protect a value read from a link or an old draft: unknown ids and prototype
+ * keys such as `__proto__` are rejected.
+ */
+export function isPaymentMethodId(value: unknown): value is PaymentMethodId {
+  return typeof value === 'string' && (PAYMENT_METHOD_IDS as readonly string[]).includes(value);
+}
+
 /** A slot the customer picked or was offered. Its availability is owned by Scheduling. */
 export interface BookingSlot {
   readonly date: string;
@@ -162,6 +178,6 @@ export function resolveBookingEntryStep(
     (!isContactNameAcceptable(draft.contactName) || !isContactPhoneAcceptable(draft.contactPhone))
   )
     return 4;
-  if (step > 5 && draft.paymentMethod === null) return 5;
+  if (step > 5 && !isPaymentMethodId(draft.paymentMethod)) return 5;
   return step;
 }

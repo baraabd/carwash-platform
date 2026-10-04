@@ -1,4 +1,4 @@
-import type { PaymentMethodId } from './bookingDraft.ts';
+import { isPaymentMethodId, type PaymentMethodId } from './bookingDraft.ts';
 import type { CustomerSessionState, SessionTransition } from './customerSession.ts';
 
 export const CONTACT_STEP_INDEX = 4;
@@ -47,12 +47,11 @@ const methodById = Object.fromEntries(
   PAYMENT_METHODS.map((method) => [method.id, method]),
 ) as Readonly<Record<PaymentMethodId, PaymentMethodDefinition>>;
 
-export function isPaymentMethodId(value: unknown): value is PaymentMethodId {
-  return typeof value === 'string' && Object.hasOwn(methodById, value);
-}
+export { isPaymentMethodId };
 
-export function paymentMethodDefinition(id: PaymentMethodId | null) {
-  return id ? methodById[id] : null;
+/** The approved definition of a method, or null for a missing, unknown or prototype key. */
+export function paymentMethodDefinition(id: unknown): PaymentMethodDefinition | null {
+  return isPaymentMethodId(id) ? methodById[id] : null;
 }
 
 export function selectPaymentMethod(

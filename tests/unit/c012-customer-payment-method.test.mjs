@@ -10,7 +10,13 @@ import {
 import { initialSessionState } from '../../apps/customer-web/src/app/initialSession.ts';
 import { bookingSteps } from '../../apps/customer-web/src/app/routes.ts';
 import { bookingFlow } from '../../apps/customer-web/src/features/booking/bookingFlow.ts';
-import { resolveBookingEntryStep } from '../../apps/customer-web/src/state/bookingDraft.ts';
+import {
+  PAYMENT_METHOD_IDS,
+  isPaymentMethodId as isDraftPaymentMethodId,
+  resolveBookingEntryStep,
+} from '../../apps/customer-web/src/state/bookingDraft.ts';
+import { repeatOrder, resumeBooking } from '../../apps/customer-web/src/state/bookingEntry.ts';
+import { homeScenarioState } from '../../apps/customer-web/src/fixtures/customerHomeScenarios.ts';
 import {
   PAYMENT_METHODS,
   PAYMENT_REQUIRED_MESSAGE,
@@ -241,4 +247,90 @@ test('C012 safety: no payment execution, QR generation, storage, network or orde
   ])
     assert.ok(!pattern.test(owned), 'C012 owned code must not match ' + pattern);
   assert.ok(!/new Date\(\)|Date\.now\(/.test(owned), 'C012 adds no wall-clock read');
+});
+
+// Hostile runtime values: the type union does not protect values from links or old drafts.
+const HOSTILE_METHODS = [
+  'card',
+  '',
+  '__proto__',
+  'constructor',
+  'toString',
+  'hasOwnProperty',
+  1,
+  {},
+  undefined,
+];
+
+test('C012 one closed method rule is shared by the catalog, selector, guard and lookup', () => {
+  assert.deepEqual(
+    PAYMENT_METHODS.map((method) => method.id),
+    PAYMENT_METHOD_IDS,
+  );
+  assert.equal(isPaymentMethodId, isDraftPaymentMethodId, 'payment step reuses the draft rule');
+  for (const value of HOSTILE_METHODS) {
+    assert.equal(isPaymentMethodId(value), false, String(value));
+    assert.equal(paymentMethodDefinition(value), null, 'no definition for ' + String(value));
+  }
+});
+
+test('C012 an unknown or prototype method cannot pass Payment or enter Review', () => {
+  const ready = paymentScenarioState('booking-payment-cash');
+  for (const value of HOSTILE_METHODS) {
+    const draft = { ...ready.draft, paymentMethod: value };
+    assert.equal(resolveBookingEntryStep(draft, 6, NOW), 5, 'guard rejects ' + String(value));
+    const state = { ...ready, draft };
+    const result = submitPaymentStep(state);
+    assert.equal(result.intent, null, 'Next refuses ' + String(value));
+    assert.equal(result.error, PAYMENT_REQUIRED_MESSAGE);
+    assert.equal(selectPaymentMethod(state, value, 900), state, 'select ignores ' + String(value));
+  }
+});
+
+test('C012 guard priority: earlier prerequisites win, a valid method cannot bypass them', () => {
+  const ready = paymentScenarioState('booking-payment-syriatel').draft;
+  const EXPIRED = new Date('2026-09-21T07:00:00.000Z');
+  // Every prerequisite broken at once: the vehicle plate is reported first.
+  const broken = {
+    ...ready,
+    plate: '!!',
+    address: '',
+    slot: null,
+    contactName: '',
+    contactPhone: '1',
+    paymentMethod: null,
+  };
+  assert.equal(resolveBookingEntryStep(broken, 6, NOW), 0);
+  assert.equal(resolveBookingEntryStep({ ...broken, plate: '' }, 6, NOW), 2);
+  assert.equal(
+    resolveBookingEntryStep({ ...broken, plate: '', address: ready.address }, 6, NOW),
+    3,
+  );
+  assert.equal(
+    resolveBookingEntryStep({ ...ready, contactName: '', paymentMethod: null }, 6, NOW),
+    4,
+  );
+  // The same complete draft is valid at the fixed instant and refused once its slot has passed.
+  assert.equal(resolveBookingEntryStep(ready, 5, NOW), 5);
+  assert.equal(resolveBookingEntryStep(ready, 6, NOW), 6);
+  assert.equal(resolveBookingEntryStep(ready, 5, EXPIRED), 3);
+  assert.equal(resolveBookingEntryStep(ready, 6, EXPIRED), 3);
+});
+
+test('C012 resume returns to Payment with the chosen method; repeat never carries an unknown one', () => {
+  const left = { ...paymentScenarioState('booking-payment-sham'), draftStep: 5 };
+  const resumed = resumeBooking(left, NOW);
+  assert.equal(pathForIntent(resumed.intent), '/book/5');
+  assert.equal(resumed.state.draft.paymentMethod, 'sham');
+  assert.equal(resumed.state.draft, left.draft, 'resume does not rewrite the draft');
+
+  const home = homeScenarioState('home-repeat-order');
+  const order = home.orders[0];
+  const valid = repeatOrder(home, order.id, NOW);
+  assert.equal(valid.state.draft.paymentMethod, order.paymentMethod);
+  assert.equal(valid.state.orders, home.orders, 'repeating creates no order');
+  const hostile = { ...home, orders: [{ ...order, paymentMethod: '__proto__' }] };
+  const repeated = repeatOrder(hostile, order.id, NOW);
+  assert.equal(repeated.state.draft.paymentMethod, null);
+  assert.equal(pathForIntent(repeated.intent), '/book/5', 'the customer chooses again');
 });

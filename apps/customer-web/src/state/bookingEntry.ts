@@ -1,6 +1,7 @@
 import {
   BOOKING_FIRST_STEP,
   BOOKING_REVIEW_STEP,
+  isPaymentMethodId,
   resolveBookingEntryStep,
   type BookingDraft,
   type BookingSlot,
@@ -97,7 +98,8 @@ function draftFromOrder(
     contactName: order.contactName,
     contactPhone: order.contactPhone,
     note: order.note,
-    paymentMethod: order.paymentMethod,
+    // As the reference's `cleanDraft`: an unknown method is not carried over.
+    paymentMethod: isPaymentMethodId(order.paymentMethod) ? order.paymentMethod : null,
     touched: true,
   };
 }
