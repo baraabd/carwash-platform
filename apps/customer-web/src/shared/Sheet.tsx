@@ -1,6 +1,7 @@
-import { useEffect, useRef, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
+import { createScrollLock } from './scrollLock';
 
 interface SheetProps {
   readonly open: boolean;
@@ -15,6 +16,9 @@ interface SheetProps {
   readonly children: ReactNode;
 }
 
+/** One lock per open sheet on the page's scrolling (see scrollLock.ts). */
+const pageScroll = createScrollLock(() => document.body.style);
+
 /**
  * Approved bottom sheet: a native modal <dialog>, so focus trapping, Escape and
  * the inert background come from the platform rather than from custom key handling.
@@ -22,19 +26,26 @@ interface SheetProps {
 export function Sheet({ open, title, onClose, contentKey, children }: SheetProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const openerRef = useRef<Element | null>(null);
+  const [lockOwner] = useState(() => ({}));
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    if (open && !dialog.open) {
+    if (!open) {
+      if (dialog.open) dialog.close();
+      return;
+    }
+    if (!dialog.open) {
       openerRef.current = document.activeElement;
       dialog.showModal();
-      document.body.style.overflow = 'hidden';
       dialog.scrollTop = 0;
-    } else if (!open && dialog.open) {
-      dialog.close();
     }
-  }, [open]);
+    pageScroll.lock(lockOwner);
+    // Runs when the owner closes the sheet or when it is unmounted while open, e.g.
+    // when browser Back leaves the route that rendered it. A removed dialog never
+    // fires `close`, so the lock must not depend on that event alone.
+    return () => pageScroll.release(lockOwner);
+  }, [open, lockOwner]);
 
   const shownContent = useRef(contentKey);
   useEffect(() => {
@@ -52,9 +63,9 @@ export function Sheet({ open, title, onClose, contentKey, children }: SheetProps
   // the opener; this only covers the case where it could not, and never takes
   // focus from a control or unlocks scrolling under a sheet that is open now.
   const handleClose = () => {
+    pageScroll.release(lockOwner);
     const anotherSheetOpen = document.querySelector('dialog.sheet[open]') !== null;
     if (!anotherSheetOpen) {
-      document.body.style.overflow = '';
       const opener = openerRef.current;
       const focusIsLost = !document.activeElement || document.activeElement === document.body;
       if (focusIsLost && opener instanceof HTMLElement && opener.isConnected) {
