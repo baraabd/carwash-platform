@@ -11,6 +11,12 @@
 // fails. It does not import the acceptance runners (no side effects); it restates
 // the exact steps of the two states and applies the repaired procedures as the
 // pass criterion, while recording the unrepaired behaviour as diagnostics.
+//
+// Case B also records a paired rule evaluation (PR #39): at the runner's timing,
+// eight captures of each page are replayed through the previous stop rule (two
+// equal captures of six) and the current one (three of eight). Only the current
+// rule is part of the pass criterion; the previous rule's outcome is a diagnostic.
+// A passing batch is finite evidence about this runner, not proof of stability.
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -30,7 +36,7 @@ import {
   snapshot,
 } from '../c004/parity-harness.mjs';
 import { comparePngBuffers } from '../f010/pixel-compare.mjs';
-import { captureStable } from '../c004/stable-capture.mjs';
+import { DEFAULT_MAX_CAPTURES, captureStable } from '../c004/stable-capture.mjs';
 import { fillConfirmed, focusLanded } from '../c011/contact-input-helpers.mjs';
 
 const origin = process.env.STABILITY_ORIGIN ?? 'http://127.0.0.1:4174';
@@ -292,6 +298,78 @@ try {
         reference: await mapGeometry(pair.reference.page),
         candidate: await mapGeometry(pair.candidate.page),
       };
+      // Paired rule evaluation, at the acceptance runner's timing (right after its
+      // waits, before any other capture): eight back-to-back captures of each page,
+      // reference first as in comparePixels, with the comparator call between
+      // captures that captureStable makes. Both stop rules are replayed on the SAME
+      // recorded sequences, so they differ only in the rule. The rule only reads a
+      // prefix of the sequence, so a replay returns what a live call would have
+      // returned from those captures.
+      const unchangedPair = async (previous, next) => {
+        const compared = await comparePngBuffers(
+          browser,
+          previous,
+          next,
+          contract.channelThreshold,
+        );
+        return compared.sameDimensions && compared.changedPixels === 0;
+      };
+      const record = async (page) => {
+        const frames = [await page.screenshot(screenshotOptions)];
+        for (let shot = 1; shot < DEFAULT_MAX_CAPTURES; shot += 1) {
+          frames.push(await page.screenshot(screenshotOptions));
+          await unchangedPair(frames[shot - 1], frames[shot]);
+        }
+        return frames;
+      };
+      const recorded = {
+        reference: await record(pair.reference.page),
+        candidate: await record(pair.candidate.page),
+      };
+      const replay = (frames) => {
+        let next = 0;
+        return async () => frames[next++];
+      };
+      const evaluateRule = async (options) => {
+        const outcome = {};
+        try {
+          const reference = await captureStable(replay(recorded.reference), {
+            unchanged: unchangedPair,
+            ...options,
+          });
+          const candidate = await captureStable(replay(recorded.candidate), {
+            unchanged: unchangedPair,
+            ...options,
+          });
+          const compared = await comparePngBuffers(
+            browser,
+            reference.image,
+            candidate.image,
+            contract.channelThreshold,
+          );
+          Object.assign(outcome, {
+            referenceCaptures: reference.captures,
+            candidateCaptures: candidate.captures,
+            changedPixels: compared.changedPixels,
+            passed: compared.sameDimensions && compared.changedPixels === 0,
+          });
+        } catch (error) {
+          Object.assign(outcome, { passed: false, error: String(error.message).slice(0, 500) });
+        }
+        return outcome;
+      };
+      entry.paired = {
+        previousRule: await evaluateRule({ settledFrames: 2, maxCaptures: 6 }),
+        currentRule: await evaluateRule({}),
+      };
+      if (!entry.paired.previousRule.passed || !entry.paired.currentRule.passed) {
+        recorded.reference.forEach((frame, shot) =>
+          writeFileSync(resolve(evidence, `map-${index}.paired.reference.${shot}.png`), frame),
+        );
+        recorded.candidate.forEach((frame, shot) =>
+          writeFileSync(resolve(evidence, `map-${index}.paired.candidate.${shot}.png`), frame),
+        );
+      }
       // Four back-to-back captures of each page: is each page stable on its own?
       const shots = { reference: [], candidate: [] };
       for (let shot = 0; shot < 4; shot += 1) {
@@ -363,7 +441,8 @@ try {
         candidateCaptures: settledCandidate.captures,
         changedPixels: settled.changedPixels,
       };
-      entry.passed = settled.sameDimensions && settled.changedPixels === 0;
+      entry.passed =
+        entry.paired.currentRule.passed && settled.sameDimensions && settled.changedPixels === 0;
       if (!entry.passed) {
         writeFileSync(
           resolve(evidence, `map-${index}.reference.settled.png`),
@@ -385,8 +464,17 @@ try {
     save();
   }
   results.failures = failures;
+  const count = (rule) => results.cases.map.filter((entry) => entry.paired?.[rule]?.passed).length;
+  results.paired = {
+    repetitions: results.cases.map.length,
+    previousRulePassed: count('previousRule'),
+    currentRulePassed: count('currentRule'),
+  };
   save();
   console.log(`Repeat batch: ${REPEATS} × 2 cases, ${failures} failed. Evidence: ${evidence}`);
+  console.log(
+    `Paired map rules: previous ${results.paired.previousRulePassed}/${results.paired.repetitions}, current ${results.paired.currentRulePassed}/${results.paired.repetitions}`,
+  );
   assert.equal(failures, 0, `${failures} repetitions failed; see repeat-batch.json`);
 } finally {
   await server.close();

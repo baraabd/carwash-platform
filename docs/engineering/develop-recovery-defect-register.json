@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 1,
+  "inspected": "2026-10-04",
+  "scope": "PRs #22-#39; main first-parent history 90fd8d2..6013d16; check runs of 6013d16, PR #38 head e1545a0 and PR #39 head eacccde",
+  "refs": {
+    "main": "6013d161bbe9200b9ee6a6ba3dbd5f0cfc63d396",
+    "mainTree": "b3502dfe17172711d043a456d67fafd6fa10eea0",
+    "develop": "320200cf5da05892424016e262ed1c209caa6480",
+    "developTree": "7194edd12fba0e1219c088dc1d2a6e54fc309c61",
+    "aheadBehindDevelopMain": [
+      0,
+      44
+    ]
+  },
+  "defects": [
+    {
+      "id": "R-001",
+      "severity": "medium",
+      "category": "STALE_BRANCH",
+      "observed": "develop is 44 commits behind main with no unique commits",
+      "expected": "develop carries the verified main source",
+      "affectedBranch": "develop",
+      "rootCause": "proven: feature PRs #25-#36 targeted main under the agreed workflow; no promotion after #24",
+      "chosenRepair": "existing PR #37 promotes main 6013d16 unchanged (recovery branch A)",
+      "owningPr": 37,
+      "evidence": "PR #37 pull_request runs on 6013d16 (2026-10-03, attempt 1): 19 workflows success, runs 37130767051-37130767288. The main push of the same source has a failed C011 run (R-003); the PR runs are samples and do not exclude it.",
+      "status": "RECOVERY_CANDIDATE_VERIFIED",
+      "remainingObligation": "after PR #39 merges: fast-forward sync/develop-from-main to the verified main, rerun PR #37 checks, owner merge, verify develop tree and push runs"
+    },
+    {
+      "id": "R-002",
+      "severity": "low",
+      "category": "WRONG_PR_TARGET",
+      "observed": "PR #34 merged C011 into feat/C010-scheduling-time-selection (1f874fc) after #33 merged C010 to main",
+      "expected": "C011 PR targets main",
+      "rootCause": "proven from PR metadata",
+      "impact": "none on content: C011 reached main via #35; tree of 6013d16 equals reviewed head d10907f",
+      "chosenRepair": "none required; recorded",
+      "status": "RESOLVED_NO_CHANGE"
+    },
+    {
+      "id": "R-003",
+      "severity": "medium",
+      "category": "TEST_DEFECT",
+      "observed": "C008 runner (inside the C011 workflow, after C011/C010/C009 passed) failed comparePixels: sheet-map-zoomed-panned-tapped@768: 1 pixels differ; raw artifact 11276230152: pixel (301,353) reference 255,255,255 vs candidate 246,249,247",
+      "expected": "settled pages compare equal",
+      "affectedBranch": "main (and every branch running the C008 suite)",
+      "testedSha": "6013d161bbe9200b9ee6a6ba3dbd5f0cfc63d396",
+      "firstFailing": "run 37050062833 (main push, 8c3f144); also 37105992192 and 37127326124 job customer-contact",
+      "affectedFile": "scripts/c004/stable-capture.mjs captureStable",
+      "reproduction": "node scripts/c008/browser-acceptance.mjs on Linux CI (intermittent)",
+      "rootCause": "acceptance weakness demonstrated; rendering cause is a supported hypothesis",
+      "repairAlternatives": [
+        "raise tolerance (rejected: weakens comparison)",
+        "mask the pin (rejected)",
+        "search captures for a match (rejected)",
+        "require three consecutive equal captures of the same page (chosen)"
+      ],
+      "chosenRepair": "settledFrames 3, maxCaptures 8; comparator unchanged",
+      "negativeRegression": "scripts/stability/negative-regressions.mjs: early plateau, two-capture transient, alternation, immediate stability, capture bound, error propagation, dimension mismatch, slow drift, stable-but-different, above-threshold pixel (17 cases)",
+      "owningBranch": "fix/parity-settle-confirmation",
+      "status": "VERIFIED_WITH_DOCUMENTED_HARDENING (pending final-head CI)",
+      "remainingObligation": "final-head CI of PR #39 incl. paired rule evaluation; owner merge; promotion through PR #37",
+      "failingEvent": "push, branch main, SHA 6013d161bbe9200b9ee6a6ba3dbd5f0cfc63d396, run 37127326124 attempt 1, job 111215178681 customer-contact",
+      "causeLevels": {
+        "observed": "one comparator-classified pixel at the map pin edge; identical pin/world geometry on both pages",
+        "demonstratedWeakness": "the two-frame stop rule returns an early plateau (synthetic A,A,B,B,B returns A at capture 2 on main’s helper); in the failing run the accepted reference state lasted at least two captures",
+        "hypothesis": "compositor re-raster timing of the reference’s scaled will-change map layer; not established by any experiment"
+      },
+      "verification": "PR #39 head eacccde: 16 workflows / 41 check runs success, including the full C011 browser order (C011 -> C010 -> C009 -> C008 -> ... -> C002) in run 37188703216 and its repeat batch (contact 20/20, map 20/20); the batch could not distinguish the rules (see R-011)"
+    },
+    {
+      "id": "R-004",
+      "severity": "high",
+      "category": "BUILD_OR_TOOLCHAIN",
+      "observed": "F001 diff-whitespace failed: new blank line at EOF in .github/workflows/c012-customer-payment-method.yml:161",
+      "dependentFailures": [
+        "F007 run 37132857551",
+        "F009 run 37132857498"
+      ],
+      "firstFailing": "run 37132857491 job 111231276000",
+      "rootCause": "proven",
+      "owningPr": 38,
+      "status": "FIXED_ON_FEATURE_BRANCH (PR #38 head e1545a0: all checks success)"
+    },
+    {
+      "id": "R-005",
+      "severity": "medium",
+      "category": "OBSOLETE_PLACEHOLDER_ASSERTION",
+      "observed": "C002 shell suite expected booking-payment-default at /book/5; the C012 guard redirects an empty draft to location",
+      "firstFailing": "run 37132857530 job 111231276540; run 37132857477",
+      "rootCause": "proven: superseded invariant",
+      "owningPr": 38,
+      "status": "FIXED_ON_FEATURE_BRANCH"
+    },
+    {
+      "id": "R-006",
+      "severity": "medium",
+      "category": "PRODUCT_DEFECT",
+      "observed": "payment-cash@320 text drift: extra aria-hidden span with the selected short name",
+      "firstFailing": "run 37132857555 job 111231276497",
+      "rootCause": "proven",
+      "owningPr": 38,
+      "status": "FIXED_ON_FEATURE_BRANCH"
+    },
+    {
+      "id": "R-007",
+      "severity": "high",
+      "category": "PRODUCT_DEFECT",
+      "observed": "Review guard admitted unknown/prototype method ids; definition lookup returned Object.prototype; repeat copied unknown ids",
+      "rootCause": "proven by local probe on 75f50c5",
+      "owningPr": 38,
+      "status": "FIXED_ON_FEATURE_BRANCH"
+    },
+    {
+      "id": "R-008",
+      "severity": "medium",
+      "category": "TEST_DEFECT",
+      "observed": "C012 test called browser Forward after a header Back push; radios selected with check() on a covered hidden input",
+      "rootCause": "proven",
+      "owningPr": 38,
+      "status": "FIXED_ON_FEATURE_BRANCH"
+    },
+    {
+      "id": "R-009",
+      "severity": "low",
+      "category": "EXECUTOR_RESOURCE_OR_NETWORK",
+      "observed": "local Docker engine returns HTTP 500",
+      "impact": "PostgreSQL/RabbitMQ acceptance not runnable locally",
+      "status": "LOCAL_LIMITATION",
+      "remainingObligation": "rely on Linux CI F006-F009 evidence"
+    },
+    {
+      "id": "R-010",
+      "severity": "low",
+      "category": "TEST_DEFECT",
+      "observed": "historical C011 contact-errors-corrected@390 drift (run 37105854905)",
+      "rootCause": "addressed by 30b90a1/7b6823a before main",
+      "evidence": "stability batch on main run 37127326124: contact 20/20",
+      "status": "RESOLVED_BEFORE_INSPECTION"
+    },
+    {
+      "id": "R-011",
+      "severity": "medium",
+      "category": "TEST_DEFECT",
+      "observed": "repeat batch applied its pass criterion only after eight diagnostic captures, later than the acceptance runner settles; 20/20 passes on main (two-frame rule) and PR #39 (three-frame rule) cannot distinguish the rules",
+      "affectedFile": "scripts/stability/c008-c011-repeat-batch.mjs",
+      "rootCause": "proven by reading the batch and its recorded diagnostics",
+      "chosenRepair": "paired evaluation at runner timing: eight captures per page replayed through both rules; current rule joins the pass criterion; previous rule recorded as diagnostic",
+      "owningPr": 39,
+      "status": "IMPLEMENTED_PENDING_CI",
+      "remainingObligation": "Linux CI results; a local Linux run is BLOCKED_PREPUSH_RENDERING_EVIDENCE"
+    },
+    {
+      "id": "R-012",
+      "severity": "none",
+      "category": "WORKFLOW_TRIGGER_OR_CHECKOUT",
+      "observed": "Sprint 0.2 push run 37130792061 on 6013d16 (feat/C012 branch) cancelled",
+      "rootCause": "proven: concurrency cancellation when the branch received its next push",
+      "impact": "none; the same source passed Sprint 0.2 on main push 37127326130 and PR #37 run 37130767158",
+      "status": "NOT_A_DEFECT"
+    }
+  ],
+  "revised": "2026-10-04 (after PR #39 CI on eacccde)"
+}
