@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { currentInstant } from '../../../shared/clock';
 import { Icon } from '../../../shared/Icon';
 import { ReferenceArtSprite } from '../../../shared/art/ReferenceArt';
 import type { VehicleTypeId } from '../../../state/bookingDraft';
 import { useCustomerSession } from '../../../state/CustomerSessionProvider';
 import { pathForIntent } from '../../../state/navigationPath';
+import { completeReviewEdit } from '../../../state/reviewStep';
 import {
   applyEditorToDraft,
   blankEditorValues,
@@ -23,7 +25,7 @@ import {
 } from '../../../state/vehicleStep';
 import { BookingFooter } from '../BookingFooter';
 import { BookingProgress } from '../BookingProgress';
-import { bookingFlow } from '../bookingFlow';
+import { bookingFlow, decisionNextLabel } from '../bookingFlow';
 import { buildPriceBreakdown } from '../priceBreakdown';
 import { VehicleStage, VehicleTypeGrid } from './components/VehicleChoice';
 import {
@@ -137,7 +139,9 @@ export function VehicleStep() {
   };
 
   const handleNext = () => {
-    const result = run(submitVehicleStep);
+    const result = run((current) =>
+      completeReviewEdit(submitVehicleStep(current), currentInstant()),
+    );
     if (result.intent) {
       navigate(pathForIntent(result.intent));
       return;
@@ -208,7 +212,7 @@ export function VehicleStep() {
       <BookingFooter
         total={view.footerTotal}
         minutes={view.footerMinutes}
-        nextLabel={bookingFlow[VEHICLE_STEP].nextLabel}
+        nextLabel={decisionNextLabel(VEHICLE_STEP, state.reviewEditing)}
         breakdown={breakdown}
         priceRef={footerPrice}
         onNext={handleNext}

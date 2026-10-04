@@ -5,38 +5,30 @@ import { Price } from '../../shared/Price';
 import { Sheet } from '../../shared/Sheet';
 import { spawnTapWave } from '../../shared/tapWave';
 import { BOOKING_FOOTER_SLOT_ID } from './bookingFlow';
+import { PriceBill } from './PriceBill';
 import type { PriceBreakdown } from './priceBreakdown';
 
-interface BookingFooterProps {
+/**
+ * The footer's primary action: an active step action, or an action that is shown
+ * but honestly unavailable (natively disabled and described by a visible reason).
+ * There is no third shape, so an apparently working button cannot be wired to nothing.
+ */
+type FooterAction =
+  | { readonly onNext: () => void; readonly unavailableReasonId?: never }
+  | { readonly onNext?: never; readonly unavailableReasonId: string };
+
+type BookingFooterProps = FooterAction & {
   readonly total: number;
   readonly minutes: number;
   readonly nextLabel: string;
   /** The bill behind the total, shown when the customer asks for it. */
   readonly breakdown: PriceBreakdown;
   readonly priceRef?: Ref<HTMLElement>;
-  readonly onNext: () => void;
-}
-
-/** The approved "السعر، بدون مفاجآت." bill. Display only; the figures arrive computed. */
-function PriceBill({ breakdown }: { readonly breakdown: PriceBreakdown }) {
-  return (
-    <div className="bill">
-      <h3>السعر، بدون مفاجآت.</h3>
-      {breakdown.lines.map((line) => (
-        <div className="bill-line" key={line.label}>
-          <span>{line.label}</span>
-          <span>{line.value}</span>
-        </div>
-      ))}
-      <div className="bill-line total">
-        <span>الإجمالي</span>
-        <strong>
-          <Price amount={breakdown.total} />
-        </strong>
-      </div>
-    </div>
-  );
-}
+  /** «السعر الحالي» on the decision steps; Review shows «إجمالي التجربة». */
+  readonly totalCaption?: string;
+  /** The arrow on the decision steps; Review's final action carries a check. */
+  readonly nextIcon?: 'arrow' | 'check';
+};
 
 /**
  * Persistent booking action bar. It renders into the slot the shell keeps after
@@ -51,7 +43,10 @@ export function BookingFooter({
   nextLabel,
   breakdown,
   priceRef,
+  totalCaption = 'السعر الحالي',
+  nextIcon = 'arrow',
   onNext,
+  unavailableReasonId,
 }: BookingFooterProps) {
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [breakdownOpen, setBreakdownOpen] = useState(false);
@@ -83,23 +78,37 @@ export function BookingFooter({
           onClick={() => setBreakdownOpen(true)}
         >
           <small>
-            السعر الحالي <Icon name="up" small />
+            {totalCaption} <Icon name="up" small />
           </small>
           <strong id="footer-price" aria-live="polite" ref={priceRef}>
             <Price amount={total} />
           </strong>
         </button>
-        <button
-          className="btn primary-next"
-          type="button"
-          onPointerDown={spawnTapWave}
-          onClick={onNext}
-        >
-          <span>{nextLabel}</span>
-          <span className="button-arrow">
-            <Icon name="arrow" />
-          </span>
-        </button>
+        {unavailableReasonId === undefined ? (
+          <button
+            className="btn primary-next"
+            type="button"
+            onPointerDown={spawnTapWave}
+            onClick={onNext}
+          >
+            <span>{nextLabel}</span>
+            <span className="button-arrow">
+              <Icon name={nextIcon} />
+            </span>
+          </button>
+        ) : (
+          <button
+            className="btn primary-next"
+            type="button"
+            disabled
+            aria-describedby={unavailableReasonId}
+          >
+            <span>{nextLabel}</span>
+            <span className="button-arrow">
+              <Icon name={nextIcon} />
+            </span>
+          </button>
+        )}
       </div>
       <Sheet open={breakdownOpen} title="السعر، بكل وضوح." onClose={() => setBreakdownOpen(false)}>
         <PriceBill breakdown={breakdown} />

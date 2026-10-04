@@ -627,15 +627,18 @@ test('C008 copy: every approved string of the step and the sheet is present', ()
 // Until C009 this test also asserted that no saved-address management existed.
 // C009 delivers it (tests/unit/c009-customer-saved-addresses.test.mjs), so only
 // the boundary that still holds is checked here.
-// C010, C011 and C012 now own Time, Contact and Payment. Review (C013) remains deferred.
-test('C008 scope: location and later owned steps mount; review (C013) stays deferred', () => {
+// C010, C011 and C012 own Time, Contact and Payment. C013 superseded the assertion
+// that Review stays deferred: Review is mounted, and its confirmation stays
+// unavailable (tests/unit/c013-customer-review.test.mjs).
+test('C008 scope: location and later owned steps mount; review confirmation stays unavailable', () => {
   const route = read('features/booking/index.tsx');
   assert.match(route, /if \(step === 'location'\) return <LocationStep \/>;/);
   assert.match(route, /if \(step === 'payment'\) return <PaymentStep \/>;/);
-  assert.ok(!/<ReviewStep\b/.test(route), 'review (C013) component is not mounted');
+  assert.match(route, /return <ReviewStep \/>;/, 'review (C013) is mounted');
   const shell = read('app/CustomerShell.tsx');
   assert.ok(shell.includes("'/book/5'"), 'the shell treats payment as ported');
-  assert.ok(!shell.includes("'/book/6'"), 'the shell does not treat review as ported');
+  assert.ok(shell.includes("'/book/6'"), 'the shell treats review as ported');
+  assert.match(read('features/booking/review/ReviewStep.tsx'), /unavailableReasonId=/);
 });
 
 test('C008 safety: customer text is rendered as text', () => {
