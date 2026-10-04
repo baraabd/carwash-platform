@@ -7,7 +7,6 @@ import {
   PAYMENT_METHODS,
   PAYMENT_REQUIRED_MESSAGE,
   PAYMENT_STEP_INDEX,
-  paymentMethodDefinition,
   selectPaymentMethod,
   submitPaymentStep,
 } from '../../../state/paymentStep';
@@ -78,7 +77,10 @@ export function PaymentStep() {
   }, []);
 
   const select = (method: PaymentMethodId) => {
-    run((current) => ({ state: selectPaymentMethod(current, method, cost.total) }));
+    // The announced total is the one of the draft this transition applies to.
+    run((current) => ({
+      state: selectPaymentMethod(current, method, illustrativeCost(current.draft).total),
+    }));
     setError(null);
   };
 
@@ -95,8 +97,6 @@ export function PaymentStep() {
       choices.current?.focus({ preventScroll: true });
     });
   };
-
-  const selected = paymentMethodDefinition(state.draft.paymentMethod);
 
   return (
     <div
@@ -216,10 +216,6 @@ export function PaymentStep() {
         breakdown={breakdown}
         onNext={handleNext}
       />
-
-      <span className="sr-only" aria-hidden="true">
-        {selected?.short ?? ''}
-      </span>
     </div>
   );
 }
