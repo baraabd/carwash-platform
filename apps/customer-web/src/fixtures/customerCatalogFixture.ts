@@ -153,7 +153,11 @@ export interface IllustrativeCost {
 export function illustrativeCost(draft: PricedDraft): IllustrativeCost {
   const pack = packageFixtures[draft.service];
   const vehicle = vehicleFixtures[draft.vehicleType];
-  const extraIds = [...new Set(draft.extras)].filter((extra) => !pack.includes.includes(extra));
+  // As `cost()` keeps only `EXTRAS[k]`: an id with no catalog entry (from an old or
+  // repeated order, or a prototype key such as `__proto__`) is never priced.
+  const extraIds = [...new Set(draft.extras)].filter(
+    (extra) => Object.hasOwn(extraFixtures, extra) && !pack.includes.includes(extra),
+  );
   const extras = extraIds.reduce((sum, extra) => sum + extraFixtures[extra].price, 0);
   return {
     base: pack.price,
