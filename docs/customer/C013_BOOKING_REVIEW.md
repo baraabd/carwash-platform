@@ -199,6 +199,7 @@ data. They are selected only through the existing allowlisted `?scenario=` mecha
 | C008/C010/C011 unit: Review (C013) is not mounted | C013 mounts Review | Review is mounted (`return <ReviewStep />`); C008 also checks the unavailable confirmation |
 | C012 unit: Review remains deferred, shell does not treat `/book/6` as ported | C013 | Review mounted, `/book/6` ported, confirmation unavailable |
 | C006 unit: bill lines are `{ label, value }` | shared bill identity | lines are `{ id, label, value }`; labels, values, order and total unchanged |
+| C003 browser: after repeat, the placeholder header «العودة» (history back) returns Home | C013 Review header (Back → Payment, as the reference) | Home is reached with browser history Back; the same no-new-order, saved-draft and URL assertions follow |
 
 Empty-draft redirects, earlier validation, Contact input synchronization, Location/Map, Saved
 Addresses, Garage, time boundaries, Payment behavior and the public journeys are kept and re-run.
