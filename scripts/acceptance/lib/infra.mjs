@@ -142,23 +142,28 @@ export async function composeExec(context, service, argv, options = {}) {
   });
 }
 
-export async function stopService(context, service, timeoutSeconds = 20) {
+export async function stopService(context, service, timeoutSeconds = 20, options = {}) {
+  options.signal?.throwIfAborted();
   return runOrThrow(
     'docker',
     [...composeArgs(context), 'stop', '-t', String(timeoutSeconds), service],
     {
       cwd: context.root,
       env: childEnv(context),
-      timeoutMs: 3 * 60 * 1000,
+      // Leave time for recovery before the 180-second test deadline.
+      timeoutMs: options.timeoutMs ?? (timeoutSeconds + 20) * 1000,
+      signal: options.signal,
     },
   );
 }
 
-export async function startService(context, service) {
+export async function startService(context, service, options = {}) {
+  options.signal?.throwIfAborted();
   return runOrThrow('docker', [...composeArgs(context), 'start', service], {
     cwd: context.root,
     env: childEnv(context),
-    timeoutMs: 3 * 60 * 1000,
+    timeoutMs: options.timeoutMs ?? 30_000,
+    signal: options.signal,
   });
 }
 
@@ -166,36 +171,46 @@ export async function startService(context, service) {
  * Wait for an observable condition rather than sleeping a guessed interval.
  * A fixed sleep either wastes time or hides a race; this polls the real state.
  */
-export async function waitFor(description, probe, { timeoutMs = 120_000, intervalMs = 500 } = {}) {
+export async function waitFor(
+  description,
+  probe,
+  { timeoutMs = 120_000, intervalMs = 500, signal } = {},
+) {
   const deadline = Date.now() + timeoutMs;
   let lastError;
   while (Date.now() < deadline) {
+    signal?.throwIfAborted();
     try {
-      const value = await probe();
+      // Subprocess probes must use this remaining budget, not start a fresh
+      // 60-second timeout at the end of the enclosing readiness deadline.
+      const value = await probe(Math.max(1, deadline - Date.now()));
+      signal?.throwIfAborted();
       if (value) return value;
     } catch (error) {
+      signal?.throwIfAborted();
       lastError = error;
     }
-    await delay(intervalMs);
+    const remaining = deadline - Date.now();
+    if (remaining > 0) await delay(Math.min(intervalMs, remaining), undefined, { signal });
   }
   const error = new Error(`WAIT_TIMEOUT: ${description}`);
   error.cause = lastError;
   throw error;
 }
 
-export async function waitForRabbitReady(context, signal) {
+export async function waitForRabbitReady(context, signal, { timeoutMs = 180_000 } = {}) {
   return waitFor(
     'rabbitmq check_running',
-    async () => {
+    async (remainingMs) => {
       const result = await composeExec(
         context,
         'rabbitmq',
         ['rabbitmq-diagnostics', '-q', 'check_running'],
-        { timeoutMs: 60_000, signal },
+        { timeoutMs: Math.min(10_000, remainingMs), signal },
       );
-      return result.code === 0;
+      return result.code === 0 && result.outcome === 'exited';
     },
-    { timeoutMs: 180_000, intervalMs: 2000 },
+    { timeoutMs, intervalMs: 2000, signal },
   );
 }
 

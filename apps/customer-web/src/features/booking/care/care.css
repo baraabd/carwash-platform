@@ -1,0 +1,297 @@
+/*
+ * Care (package) step, ported from the approved reference
+ * (design/reference/approved/washgo-payments-interactive.html, serviceView()).
+ * Values are the reference's resolved cascade; do not round, retheme or reorder.
+ */
+.choice-context {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--muted);
+  padding: 0 0 14px;
+}
+.choice-context > .icon {
+  color: #487348;
+}
+.choice-context > .text-btn {
+  margin-inline-start: auto;
+  font-size: 10px;
+  min-height: 30px;
+  min-width: 44px;
+}
+.context-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #9cab91;
+}
+.service-list {
+  display: grid;
+  gap: 12px;
+}
+.service-option {
+  position: relative;
+  overflow: hidden;
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: white;
+  padding: 14px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease;
+}
+.service-option.selected {
+  background: #f0f6e7;
+  border-color: #2a6443;
+  box-shadow: inset 0 0 0 1px #2a6443;
+}
+.service-option:focus-within {
+  outline: 2px solid #27756b;
+  outline-offset: 3px;
+}
+.service-option:active {
+  transform: scale(0.99);
+}
+.signature-services .service-option {
+  border-radius: 27px;
+  padding: 14px 14px 12px;
+  overflow: hidden;
+  min-height: 132px;
+  background: #fff;
+  border-color: #dde6d7;
+  isolation: isolate;
+}
+.signature-services .service-option.selected {
+  background: #eff6e2;
+  border-color: #769c49;
+  box-shadow: inset 0 0 0 0.5px #769c49;
+}
+.service-line {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.service-line h3 {
+  font-size: 14px;
+}
+.signature-services h3 {
+  font-size: 15px;
+  line-height: 1.7;
+  margin-top: 2px;
+}
+.service-line p {
+  font-size: 9px;
+  line-height: 1.7;
+  color: #667761;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+}
+.service-line p .icon {
+  width: 12px;
+  height: 12px;
+}
+.service-emblem {
+  width: 53px;
+  height: 55px;
+  border-radius: 19px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: linear-gradient(145deg, #fff, #e3eed7);
+  border: 1px solid #d8e6cb;
+  box-shadow: inset 0 2px 0 #fff;
+}
+.service-emblem .icon {
+  width: 31px;
+  height: 31px;
+  stroke-width: 1.4;
+  filter: drop-shadow(0 2px 0 #23542212);
+  color: #275d3a;
+}
+.emblem-complete {
+  background: linear-gradient(145deg, #fff, #e0eccd);
+}
+.emblem-premium {
+  background: linear-gradient(145deg, #204f3c, #113a2b);
+  border-color: #265e44;
+  box-shadow: inset 0 1px 0 #74976b;
+}
+.emblem-premium .icon {
+  color: #daff9c;
+}
+.service-kicker {
+  font-family: Arial, sans-serif;
+  font-size: 7px;
+  letter-spacing: 1.05px;
+  line-height: 1.4;
+  color: #688352;
+}
+.service-side {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 9px;
+}
+.service-side .radio-circle {
+  width: 18px;
+  height: 18px;
+  position: static;
+  margin: 0;
+}
+.service-option.selected .service-side .radio-circle {
+  background: #285e40;
+  border-color: #285e40;
+  box-shadow: none;
+  color: white;
+}
+.service-amount {
+  font-size: 23px;
+  font-weight: 650;
+  line-height: 1.15;
+  text-align: center;
+  font-family: Arial, sans-serif;
+}
+.service-amount small {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  margin-top: 6px;
+  font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+}
+.service-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 9px;
+  border-top: 1px solid #2049230c;
+  padding-top: 10px;
+  margin-top: 10px;
+  font-size: 9px;
+  line-height: 1.6;
+  color: #667957;
+}
+.service-features span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.service-features .icon {
+  height: 11px;
+  width: 11px;
+  stroke-width: 2;
+  color: #728f56;
+}
+.disclosure-row .amount {
+  font-size: 12px;
+  font-weight: 700;
+}
+/* Add-ons sheet (extrasSheet() in the reference). */
+.addon-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: #fff;
+  padding: 13px;
+  min-height: 75px;
+  cursor: pointer;
+}
+.addon-option.selected {
+  border-color: #86a56b;
+  background: #f0f6e6;
+}
+.addon-option.included {
+  background: #eff2e8;
+  cursor: default;
+}
+.addon-option strong {
+  font-size: 12px;
+}
+.addon-option small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.addon-option:focus-within {
+  outline: 3px solid #337abd;
+  outline-offset: 3px;
+}
+.addon-price {
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.checkbox-ui {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 1.5px solid #b9c8ad;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.checkbox-ui svg {
+  display: none;
+  width: 13px;
+  height: 13px;
+}
+.selected .checkbox-ui,
+.included .checkbox-ui {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+}
+.selected .checkbox-ui svg,
+.included .checkbox-ui svg {
+  display: block;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .service-option:hover {
+    border-color: #86a26d;
+  }
+}
+@media (max-width: 374px) {
+  .service-line {
+    gap: 7px;
+  }
+  .signature-services .service-option {
+    padding: 13px 11px 11px;
+  }
+  .service-emblem {
+    width: 45px;
+    height: 51px;
+    border-radius: 17px;
+  }
+  .service-emblem .icon {
+    width: 27px;
+    height: 27px;
+  }
+  .signature-services h3 {
+    font-size: 13px;
+  }
+  .service-features {
+    font-size: 8px;
+    gap: 4px 6px;
+  }
+  .service-kicker {
+    font-size: 6px;
+    letter-spacing: 0.8px;
+  }
+  .service-amount {
+    font-size: 21px;
+  }
+  .service-line p {
+    font-size: 8px;
+  }
+  .choice-context {
+    font-size: 9px;
+  }
+}

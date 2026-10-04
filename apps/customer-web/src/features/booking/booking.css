@@ -1,0 +1,509 @@
+/*
+ * Booking journey chrome and the vehicle step, ported from the approved reference
+ * (design/reference/approved/washgo-payments-interactive.html: bookingView(),
+ * vehicleView(), bookingFooter()). Values are the reference's resolved cascade;
+ * do not round, retheme or reorder.
+ */
+.journey-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: #577248;
+  margin-top: 13px;
+}
+.journey-number {
+  color: #798a72;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  font-family: Arial, sans-serif;
+}
+.journey-number strong {
+  font-size: 19px;
+  font-weight: 750;
+  color: var(--ink);
+}
+.stepper {
+  display: flex;
+  gap: 5px;
+  margin: 9px 0 0;
+  direction: rtl;
+}
+.step-segment {
+  flex: 1;
+  text-align: center;
+  color: #72826e;
+  font-size: 10px;
+}
+.step-segment i {
+  display: block;
+  height: 4px;
+  border-radius: 6px;
+  background: #dfe7d9;
+  margin-bottom: 7px;
+}
+.step-segment.current {
+  color: var(--green);
+  font-weight: 700;
+}
+.step-segment.current i {
+  background: #83a64d;
+}
+.step-segment.done i {
+  background: #245f40;
+}
+.focused-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 21px 0 20px;
+}
+.focused-heading .eyebrow {
+  display: none;
+}
+.focused-heading h1 {
+  font-size: 28px;
+  line-height: 1.5;
+  font-weight: 750;
+}
+.focused-heading p {
+  margin-top: 7px;
+  font-size: 11px;
+  line-height: 1.85;
+}
+.focused-heading .chapter-icon {
+  width: 55px;
+  height: 56px;
+}
+.saved-car-chips {
+  margin-bottom: 14px;
+}
+/* Selection: generous hit areas and no expanding content that moves the next card. */
+.vehicle-stage {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 135px;
+  border-radius: 28px;
+  border: 1px solid #d9e6ce;
+  background:
+    radial-gradient(ellipse at 12% 0, #e5f1d8, transparent 62%),
+    linear-gradient(130deg, #eef5e4, #f4f8eb);
+  margin: 0 0 15px;
+  padding: 11px 15px;
+}
+.stage-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: Arial, sans-serif;
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  color: #5e805a;
+  direction: ltr;
+}
+.stage-top .icon {
+  width: 16px;
+  height: 16px;
+}
+.vehicle-stage > .car-art {
+  position: absolute;
+  width: 220px;
+  height: 99px;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 6px 4px #244b3020);
+  z-index: 1;
+}
+.stage-orbit {
+  position: absolute;
+  width: 216px;
+  height: 48px;
+  border: 1px solid #a6c68430;
+  border-radius: 50%;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-8deg);
+}
+.stage-caption {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 61px;
+  gap: 6px;
+  z-index: 2;
+}
+.stage-caption strong {
+  font-size: 14px;
+  display: block;
+  line-height: 1.5;
+}
+.stage-caption small {
+  font-size: 9px;
+  display: block;
+  color: #6b815b;
+  line-height: 1.5;
+}
+.signature-car-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.signature-car {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 10px;
+  background: #fff;
+  border: 1px solid #d9e4d4;
+  border-radius: 23px;
+  min-height: 90px;
+  cursor: pointer;
+  isolation: isolate;
+  touch-action: manipulation;
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease;
+}
+.signature-car > .car-art {
+  width: 76px;
+  height: 51px;
+  flex-shrink: 1;
+}
+.signature-car .car-label {
+  flex: 1;
+  min-width: 0;
+}
+.signature-car strong {
+  display: block;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.signature-car small {
+  display: block;
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 3px;
+  white-space: nowrap;
+  line-height: 1.6;
+}
+.radio-circle {
+  width: 17px;
+  height: 17px;
+  border: 1.5px solid #b4c1a9;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.selected .radio-circle {
+  border: 5px solid var(--green);
+  background: #f6ffe9;
+}
+.signature-car .radio-circle {
+  position: absolute;
+  top: 9px;
+  left: 9px;
+  width: 17px;
+  height: 17px;
+  background: #fff;
+}
+.signature-car.selected {
+  background: #eff7de;
+  border-color: #729d43;
+  box-shadow: inset 0 0 0 0.5px #729d43;
+}
+.signature-car.selected .radio-circle {
+  background: #245f3d;
+  border-color: #245f3d;
+  box-shadow: none;
+  color: white;
+}
+.radio-circle .icon {
+  width: 12px;
+  height: 12px;
+  margin: auto;
+  stroke-width: 2.4;
+}
+.signature-car:focus-within {
+  outline: 2px solid #27756b;
+  outline-offset: 3px;
+}
+.signature-car:active {
+  transform: scale(0.99);
+}
+.plate-field {
+  margin-top: 16px;
+}
+.input-icon-wrap {
+  display: block;
+  position: relative;
+}
+.input-icon-wrap > .icon {
+  position: absolute;
+  right: 16px;
+  top: 17px;
+  z-index: 1;
+  width: 22px;
+  height: 22px;
+  color: #77995b;
+}
+.plate-input {
+  padding-inline-start: 48px;
+  text-align: start;
+}
+.plate-field .input-note {
+  font-size: 10px;
+  line-height: 1.7;
+}
+.disclosure-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  text-align: start;
+  padding: 14px 15px;
+  min-height: 62px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 21px;
+}
+.disclosure-row strong {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.disclosure-row p {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+  line-height: 1.7;
+}
+.soft-icon {
+  width: 37px;
+  height: 37px;
+  border-radius: 12px;
+  background: #edf3e3;
+  color: #3a6845;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.soft-icon .icon {
+  width: 19px;
+  height: 19px;
+}
+.disclosure-row .soft-icon {
+  background: #ebf1e2;
+}
+.car-more {
+  margin-top: 15px;
+  padding: 11px 14px;
+}
+.car-more .soft-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 14px;
+}
+.car-more strong {
+  font-size: 12px;
+}
+.car-more p {
+  font-size: 10px;
+}
+.save-car-check {
+  font-size: 10px;
+  min-height: 44px;
+  margin-top: 13px;
+}
+.save-car-check input {
+  width: 20px;
+  height: 20px;
+}
+/* Persistent primary action. Controls stay at least 44px except inline explanatory links. */
+.booking-footer {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(480px, 100%);
+  z-index: 21;
+  background: #fffffff5;
+  border-top: 1px solid #e1e9da;
+  box-shadow: 0 -8px 25px #173e2904;
+  backdrop-filter: blur(18px);
+  padding: 10px 20px calc(13px + env(safe-area-inset-bottom));
+}
+.booking-footer .btn {
+  flex: 1;
+  max-width: 250px;
+}
+.footer-assurance {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9px;
+  line-height: 1.7;
+  gap: 6px;
+  color: #6c7e60;
+  margin-bottom: 9px;
+}
+.footer-assurance span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.footer-assurance .icon {
+  width: 12px;
+  height: 12px;
+}
+.booking-footer .row {
+  gap: 14px;
+  align-items: stretch;
+}
+.booking-total {
+  background: none;
+  min-width: 78px;
+  text-align: start;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.booking-total small {
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #65785b;
+}
+.booking-total small .icon {
+  width: 11px;
+  height: 11px;
+}
+.booking-total strong {
+  font-size: 27px;
+  line-height: 1.3;
+  font-weight: 650;
+  white-space: nowrap;
+  font-family: Arial, sans-serif;
+}
+.booking-total .currency {
+  font-size: 10px;
+  font-family: 'Noto Sans Arabic', Tahoma, sans-serif;
+}
+.primary-next {
+  flex: 1;
+  padding: 9px 12px 9px 15px;
+  min-height: 59px;
+  justify-content: space-between;
+  gap: 8px;
+  background: #144834;
+  box-shadow: inset 0 1px 0 #ffffff0c;
+}
+.primary-next > span:first-child {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.button-arrow {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: #ffffff12;
+  flex-shrink: 0;
+}
+.button-arrow .icon {
+  width: 20px;
+  height: 20px;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .signature-car:hover {
+    border-color: #86a26d;
+  }
+}
+@media (min-width: 800px) {
+  .booking-footer {
+    bottom: 18px;
+    border: 1px solid #d9e2cf;
+    border-top-color: #e1e9da;
+    border-radius: 23px;
+  }
+}
+@media (max-width: 374px) {
+  .focused-heading h1 {
+    font-size: 24px;
+  }
+  .focused-heading p {
+    font-size: 10px;
+  }
+  .focused-heading .chapter-icon {
+    width: 48px;
+    height: 50px;
+    border-radius: 18px;
+  }
+  .focused-heading .chapter-icon .icon {
+    width: 27px;
+    height: 27px;
+  }
+  .signature-car {
+    padding: 11px 8px;
+    gap: 3px;
+  }
+  .signature-car > .car-art {
+    width: 62px;
+  }
+  .signature-car strong {
+    font-size: 11px;
+  }
+  .signature-car small {
+    font-size: 8px;
+  }
+  .booking-footer {
+    padding-inline: 16px;
+  }
+  .primary-next > span:first-child {
+    font-size: 12px;
+  }
+  .booking-total strong {
+    font-size: 25px;
+  }
+  .primary-next {
+    padding: 9px 10px;
+  }
+  .button-arrow {
+    width: 30px;
+    height: 34px;
+    border-radius: 12px;
+  }
+  .footer-assurance {
+    font-size: 8px;
+  }
+  .plate-mini {
+    max-width: 130px;
+  }
+  .stage-caption .plate-mini {
+    font-size: 11px;
+  }
+}
+@media (max-width: 359px) {
+  .booking-footer .btn {
+    font-size: 12px;
+    gap: 7px;
+  }
+}
+@media (max-height: 520px) {
+  .keyboard-entry .booking-footer {
+    position: static;
+    transform: none;
+    margin: auto;
+  }
+  .keyboard-entry .main {
+    padding-bottom: 22px;
+  }
+}

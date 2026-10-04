@@ -24,6 +24,7 @@ import {
   stopService,
   waitForRabbitReady,
 } from '../../scripts/acceptance/lib/infra.mjs';
+import { recoveryScope } from '../../scripts/acceptance/lib/recovery.mjs';
 
 /**
  * Outbox/Inbox failure behaviour against real PostgreSQL and real RabbitMQ.
@@ -171,38 +172,82 @@ test('Case A: an event committed while the broker is down is published once it r
 
 /* ------------------- Case A2: consumer broker reconnect ------------------- */
 
-test('Case A2: the same consumer process reconnects after a RabbitMQ restart', async () => {
+test('Case A2: the same consumer process reconnects after a RabbitMQ restart', async (t) => {
   const consumer = spawnWorker(
     consumerArgs('reporting', ['--reconnect-min-ms', '100', '--reconnect-max-ms', '500']),
     consumerEnv('reporting'),
     { label: 'consumer:broker-restart' },
   );
+  const consumerPid = consumer.child.pid;
+  let relay;
 
-  try {
-    const first = await consumer.waitFor(
-      (line) => line.event === 'consumer_started' && line.connectionNumber === 1,
-      { description: 'initial consumer connection' },
-    );
-    assert.equal(first.reconnected, false);
+  const step = recoveryScope(t, async () => {
+    // An after hook, not the timed-out body's finally: the next beforeEach
+    // must never reset queues while this case is still restoring the broker.
+    const failures = [];
+    for (const worker of [relay, consumer]) {
+      if (!worker) continue;
+      try {
+        await worker.stop(5_000);
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    try {
+      // Recovery deliberately has its own budget and no cancelled test signal.
+      await startService(context, 'rabbitmq', { timeoutMs: 20_000 });
+      await waitForRabbitReady(context, undefined, { timeoutMs: 25_000 });
+    } catch (error) {
+      failures.push(error);
+    }
+    if (failures.length > 0) throw new AggregateError(failures, 'A2_RECOVERY_FAILED');
+  });
 
-    await stopService(context, 'rabbitmq', 10);
-    await consumer.waitFor((line) => line.event === 'consumer_disconnected', {
+  const first = await step('initial consumer connection', () =>
+    consumer.waitFor((line) => line.event === 'consumer_started' && line.connectionNumber === 1, {
+      description: 'initial consumer connection',
+    }),
+  );
+  assert.equal(first.reconnected, false);
+
+  await step('stop broker', (signal) => stopService(context, 'rabbitmq', 10, { signal }));
+  await step('observe consumer disconnect', () =>
+    consumer.waitFor((line) => line.event === 'consumer_disconnected', {
       description: 'consumer observed broker disconnect',
-    });
+    }),
+  );
 
-    await startService(context, 'rabbitmq');
-    await waitForRabbitReady(context);
+  await step('start broker', (signal) => startService(context, 'rabbitmq', { signal }));
+  await step('broker readiness', (signal) =>
+    waitForRabbitReady(context, signal, { timeoutMs: 45_000 }),
+  );
 
-    const second = await consumer.waitFor(
-      (line) => line.event === 'consumer_started' && line.connectionNumber >= 2,
-      { description: 'consumer reconnected after broker restart', timeoutMs: 90_000 },
+  const second = await step('same consumer reconnects', () =>
+    consumer.waitFor((line) => line.event === 'consumer_started' && line.connectionNumber >= 2, {
+      description: 'consumer reconnected after broker restart',
+      timeoutMs: 90_000,
+    }),
+  );
+  assert.equal(second.reconnected, true);
+  assert.equal(consumer.child.pid, consumerPid, 'the original consumer process must reconnect');
+  assert.equal(consumer.child.exitCode, null, 'the consumer must still be alive');
+
+  const created = await step('commit probe after reconnect', () =>
+    createProbe(clients.catalog, { label: 'probe-consumer-reconnect' }),
+  );
+  await step('publish probe after reconnect', async () => {
+    relay = spawnWorker(
+      relayArgs(['--once', '--worker-id', 'consumer-reconnect-relay']),
+      relayEnv(),
+      { label: 'relay:consumer-reconnect' },
     );
-    assert.equal(second.reconnected, true);
+    const exit = await relay.exited;
+    assert.equal(exit.code, 0, 'the relay must exit successfully');
+    assert.equal(exit.signal, null);
+  });
 
-    const created = await createProbe(clients.catalog, { label: 'probe-consumer-reconnect' });
-    await runRelayOnce('consumer-reconnect-relay');
-
-    await eventually(
+  await step('effect applied once after reconnect', () =>
+    eventually(
       async () =>
         (
           await clients.reporting.probeProjection.findUnique({
@@ -210,12 +255,8 @@ test('Case A2: the same consumer process reconnects after a RabbitMQ restart', a
           })
         )?.applyCount === 1,
       { description: 'event consumed after reconnect', timeoutMs: 90_000 },
-    );
-  } finally {
-    await startService(context, 'rabbitmq').catch(() => {});
-    await waitForRabbitReady(context).catch(() => {});
-    await consumer.stop().catch(() => {});
-  }
+    ),
+  );
 });
 
 /* -------- Case A3: broker-persistent bounded transient delivery budget -------- */

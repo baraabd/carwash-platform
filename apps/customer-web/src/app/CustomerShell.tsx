@@ -1,7 +1,24 @@
+import { useEffect, useRef } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { BOOKING_FOOTER_SLOT_ID } from '../features/booking';
+import { spawnTapWave } from '../shared/tapWave';
+import { Toast } from '../shared/Toast';
+import { inProgressOrderCount } from '../state/customerSession';
+import { useCustomerSession } from '../state/CustomerSessionProvider';
+import { pathForIntent } from '../state/navigationPath';
+import { returnToVehicleStep } from '../state/careStep';
+import { returnToCareStep } from '../state/locationStep';
+import { returnToTimeStep } from '../state/contactStep';
+import { returnToContactStep } from '../state/paymentStep';
+import { returnToLocationStep } from '../state/scheduleStep';
+import { leaveVehicleStep } from '../state/vehicleStep';
+import { BookingExitNotice } from './BookingExitNotice';
+import { CityNotice } from './CityNotice';
 import { Icon } from './Icon';
 
 function NormalHeader() {
+  const { state } = useCustomerSession();
+  const initial = state.profile.name.charAt(0);
   return (
     <>
       <NavLink className="brand" to="/" aria-label="WashGo الرئيسية">
@@ -12,21 +29,48 @@ function NormalHeader() {
           Wash<em>Go</em>
         </span>
       </NavLink>
-      <button className="city" type="button" aria-label="المدينة">
-        <Icon name="pin" small /> دمشق <Icon name="down" small />
-      </button>
+      <CityNotice />
       <NavLink className="icon-btn soft" to="/account" aria-label="حسابي">
-        <Icon name="user" small />
+        {initial || <Icon name="user" small />}
       </NavLink>
     </>
   );
 }
 
-function ContextHeader({ kind }: { readonly kind: 'booking' | 'payment' | 'tracking' }) {
+interface ContextHeaderProps {
+  readonly kind: 'booking' | 'payment' | 'tracking';
+  /**
+   * Index of the booking step when it is already ported (0 vehicle, 1 care, 2 location, 3 time, 4 contact, 5 payment); its
+   * header then follows the reference exactly. Null for the remaining mount points.
+   */
+  readonly portedStep: number | null;
+}
+
+function ContextHeader({ kind, portedStep }: ContextHeaderProps) {
   const navigate = useNavigate();
+  const { state, run } = useCustomerSession();
+  // On the first step the reference leaves the journey for Home (the draft is kept)
+  // instead of walking the browser history.
+  const leaveBooking = () => {
+    // First step: leave for Home. Later steps: one step back. The draft is kept.
+    const { intent } = run(
+      portedStep === 0
+        ? leaveVehicleStep
+        : portedStep === 5
+          ? returnToContactStep
+          : portedStep === 4
+            ? returnToTimeStep
+            : portedStep === 3
+              ? returnToLocationStep
+              : portedStep === 2
+                ? returnToCareStep
+                : returnToVehicleStep,
+    );
+    if (intent) navigate(pathForIntent(intent));
+  };
   const config = {
     booking: {
-      title: 'غسلتك، على راحتك.',
+      title: state.bookingMode === 'repeat' ? 'مرة ثانية، بكل سهولة.' : 'غسلتك، على راحتك.',
       subtitle: 'تفصيلة واحدة في كل خطوة',
       action: <Icon name="close" small />,
       actionLabel: 'حفظ المسودة والخروج',
@@ -47,16 +91,32 @@ function ContextHeader({ kind }: { readonly kind: 'booking' | 'payment' | 'track
   const current = config[kind];
   return (
     <>
-      <button className="icon-btn" type="button" onClick={() => navigate(-1)} aria-label="العودة">
-        <Icon name="right" />
-      </button>
+      {portedStep !== null ? (
+        <button
+          className="icon-btn"
+          type="button"
+          onPointerDown={spawnTapWave}
+          onClick={leaveBooking}
+          aria-label="الخطوة السابقة"
+        >
+          <Icon name="right" />
+        </button>
+      ) : (
+        <button className="icon-btn" type="button" onClick={() => navigate(-1)} aria-label="العودة">
+          <Icon name="right" />
+        </button>
+      )}
       <div className="header-title">
         {current.title}
         <small>{current.subtitle}</small>
       </div>
-      <button className="icon-btn" type="button" aria-label={current.actionLabel}>
-        {current.action}
-      </button>
+      {kind === 'booking' ? (
+        <BookingExitNotice />
+      ) : (
+        <button className="icon-btn" type="button" aria-label={current.actionLabel}>
+          {current.action}
+        </button>
+      )}
     </>
   );
 }
@@ -69,6 +129,8 @@ const tabs = [
 ];
 
 function BottomNavigation({ tracking }: { readonly tracking: boolean }) {
+  const { state } = useCustomerSession();
+  const inProgress = inProgressOrderCount(state);
   return (
     <nav className="bottom-nav" aria-label="التنقل الرئيسي">
       {tabs.map((tab) => (
@@ -85,6 +147,9 @@ function BottomNavigation({ tracking }: { readonly tracking: boolean }) {
             <Icon name={tab.icon} />
           </span>
           {tab.label}
+          {tab.id === 'orders' && inProgress > 0 ? (
+            <span className="nav-dot">{inProgress}</span>
+          ) : null}
         </NavLink>
       ))}
     </nav>
@@ -107,7 +172,64 @@ export function CustomerShell() {
   const booking = location.pathname.startsWith('/book/');
   const payment = location.pathname.startsWith('/pay/');
   const tracking = location.pathname.startsWith('/order/');
+  const portedStep =
+    location.pathname === '/book/0'
+      ? 0
+      : location.pathname === '/book/1'
+        ? 1
+        : location.pathname === '/book/2'
+          ? 2
+          : location.pathname === '/book/3'
+            ? 3
+            : location.pathname === '/book/4'
+              ? 4
+              : location.pathname === '/book/5'
+                ? 5
+                : null;
   const kind = booking ? 'booking' : payment ? 'payment' : tracking ? 'tracking' : 'normal';
+  const { state } = useCustomerSession();
+
+  // After an in-app route change, start the new screen at its top and move focus to
+  // its heading, as the reference does. The first page load is left alone so the
+  // skip link stays the first keyboard stop.
+  const renderedLocation = useRef(location);
+  useEffect(() => {
+    if (renderedLocation.current === location) return;
+    renderedLocation.current = location;
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    document.querySelector<HTMLElement>('#main h1')?.focus({ preventScroll: true });
+  }, [location]);
+
+  // While a text field has focus on a short viewport (on-screen keyboard), the
+  // fixed action bar is released into the flow so it cannot cover the field,
+  // and the field is scrolled into view.
+  useEffect(() => {
+    const root = document.documentElement;
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.matches('input:not([type="radio"]):not([type="checkbox"]),textarea')
+      ) {
+        root.classList.add('keyboard-entry');
+        // Shortly after, the field is brought to the middle of its scroller, as in
+        // the reference, so an on-screen keyboard or a tall sheet cannot hide it.
+        window.setTimeout(() => {
+          if (!target.isConnected) return;
+          const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          target.scrollIntoView({ block: 'center', behavior: reduced ? 'instant' : 'smooth' });
+        }, 160);
+      }
+    };
+    const onFocusOut = () => root.classList.remove('keyboard-entry');
+    document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('focusout', onFocusOut);
+    return () => {
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('focusout', onFocusOut);
+      onFocusOut();
+    };
+  }, []);
 
   return (
     <>
@@ -128,25 +250,35 @@ export function CustomerShell() {
           <br />
           تجربة صُمّمت لراحتك.
         </p>
-        <span className="desktop-chip">تصميم للهاتف</span>
+        <span className="desktop-chip">تصميم للهاتف · تجربة محلية</span>
       </aside>
       <span className="desktop-number" aria-hidden="true">
         CAR CARE — SIMPLIFIED / 04
       </span>
       <div className="app" data-c002-shell data-shell-kind={kind}>
         <header className="app-header">
-          {kind === 'normal' ? <NormalHeader /> : <ContextHeader kind={kind} />}
+          {kind === 'normal' ? (
+            <NormalHeader />
+          ) : (
+            <ContextHeader kind={kind} portedStep={portedStep} />
+          )}
         </header>
         <main className="main" id="main" tabIndex={-1}>
           <Outlet />
         </main>
-        {booking || payment ? (
+        {portedStep !== null ? (
+          // The ported step renders its own action bar into this slot.
+          <div id={BOOKING_FOOTER_SLOT_ID} />
+        ) : booking || payment ? (
           <DeferredFooter kind={booking ? 'booking' : 'payment'} />
         ) : (
           <BottomNavigation tracking={tracking} />
         )}
       </div>
-      <div className="sr-only" aria-live="polite" />
+      <Toast message={state.notice?.message ?? null} sequence={state.notice?.sequence ?? 0} />
+      <div className="sr-only" aria-live="polite" key={state.announcement?.sequence ?? 0}>
+        {state.announcement?.message}
+      </div>
     </>
   );
 }
