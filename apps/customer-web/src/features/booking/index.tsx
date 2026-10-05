@@ -5,6 +5,7 @@ import { currentInstant } from '../../shared/clock';
 import { useCustomerSession } from '../../state/CustomerSessionProvider';
 import { visitBookingStep } from '../../state/vehicleStep';
 import { resolveBookingEntryStep } from '../../state/bookingDraft';
+import { pathForIntent } from '../../state/navigationPath';
 import { bookingFlow } from './bookingFlow';
 import { CareStep } from './care/CareStep';
 import { ContactStep } from './contact/ContactStep';
@@ -38,6 +39,11 @@ export function BookingRoute({ step }: BookingRouteProps) {
     }
   }, [run, stepIndex, entryStep]);
 
+  // A confirmation was just accepted on Review: go to its order (replacing Review in
+  // history) rather than guard the reset draft. The shell clears the handoff after.
+  if (step === 'review' && state.pendingHandoff) {
+    return <Navigate to={pathForIntent(state.pendingHandoff)} replace />;
+  }
   if (entryStep !== stepIndex) return <Navigate to={`/book/${entryStep}`} replace />;
 
   if (step === 'vehicle') return <VehicleStep />;

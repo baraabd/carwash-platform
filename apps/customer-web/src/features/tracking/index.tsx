@@ -1,12 +1,6 @@
-import { ShellPlaceholder } from '../../shared/ShellPlaceholder';
+import { OrderHandoff } from '../../widgets/order-handoff/OrderHandoff';
 
+/** `/order/:orderId`: the C014 handoff for a session order. Full tracking is deferred. */
 export function TrackingRoute() {
-  return (
-    <ShellPlaceholder
-      routeId="tracking"
-      fixtureId="tracking-default"
-      title="غسلتك خطوة بخطوة"
-      description="نقطة تركيب متابعة الحجز."
-    />
-  );
+  return <OrderHandoff kind="tracking" />;
 }

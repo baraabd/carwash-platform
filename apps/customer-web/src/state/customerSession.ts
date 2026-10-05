@@ -1,5 +1,6 @@
 import type {
   BookingDraft,
+  BookingPlace,
   BookingSlot,
   CareExtraId,
   CarePackageId,
@@ -12,7 +13,45 @@ import type { SavedVehicle } from './savedVehicles';
 /** -1 cancelled, 0–3 in progress, 4 completed — the approved tracking stages. */
 export type OrderStage = -1 | 0 | 1 | 2 | 3 | 4;
 
-/** A read-only snapshot of an existing order. The session never creates or mutates one. */
+/**
+ * Initial payment description of an order confirmed in this session (the
+ * reference's createPayment(), without merchant, QR or proof fields). Unpaid by
+ * construction: a confirmed booking does not mean money was collected or received.
+ */
+export interface InitialOrderPayment {
+  readonly method: PaymentMethodId;
+  /** «كاش بعد الغسيل» is due, or a wallet transfer is awaited. Never a paid state. */
+  readonly status: 'cash_due' | 'awaiting_transfer';
+  /** The confirmed illustrative total, in Syrian pounds. Not an invoice. */
+  readonly amount: number;
+  readonly currency: 'SYP';
+  readonly submittedAt: null;
+  readonly verifiedAt: null;
+}
+
+/**
+ * What an explicit confirmation in THIS session recorded with an order. Orders
+ * that came with the session (the demo fixtures) have none: their dates, totals
+ * and payment states are unknown and are not invented.
+ */
+export interface OrderConfirmationRecord {
+  /** The instant the customer confirmed, as an ISO string. */
+  readonly createdAt: string;
+  /** The illustrative total and duration quoted at that instant; never recomputed. */
+  readonly total: number;
+  readonly minutes: number;
+  /** The saved car the order was linked to, when one was saved or chosen. */
+  readonly carId: string | null;
+  readonly place: BookingPlace | null;
+  readonly payment: InitialOrderPayment;
+}
+
+/**
+ * A read-only snapshot of an order. Existing snapshots are never mutated; the
+ * session adds one only through an explicit booking confirmation (C014), and
+ * that order exists in this page's memory only — it is not a booking with any
+ * service.
+ */
 export interface CustomerOrderSnapshot {
   readonly id: string;
   readonly stage: OrderStage;
@@ -30,6 +69,20 @@ export interface CustomerOrderSnapshot {
   readonly contactPhone: string;
   readonly note: string;
   readonly paymentMethod: PaymentMethodId | null;
+  /** Present only on an order confirmed in this session. */
+  readonly confirmation?: OrderConfirmationRecord;
+}
+
+/**
+ * The accepted confirmation of one draft generation, kept so that replaying the
+ * same command returns the recorded order instead of creating another one.
+ */
+export interface ConfirmationReceipt {
+  /** The draft generation that was confirmed. */
+  readonly key: number;
+  /** The reviewed draft's fingerprint at confirmation. */
+  readonly fingerprint: string;
+  readonly orderId: string;
 }
 
 export type BookingMode = 'standard' | 'repeat';
@@ -59,12 +112,32 @@ export interface CustomerSessionState {
   readonly notice: { readonly message: string; readonly sequence: number } | null;
   /** Polite screen-reader announcement; the sequence re-announces a repeated message. */
   readonly announcement: { readonly message: string; readonly sequence: number } | null;
+  /** Last number used for a session order id; advanced only by an accepted confirmation. */
+  readonly orderSequence: number;
+  /**
+   * Identity of the current draft. A confirmation is accepted at most once per
+   * generation; the reset draft after it starts a new generation.
+   */
+  readonly draftGeneration: number;
+  /** Recent accepted confirmations, newest first (bounded). */
+  readonly confirmationReceipts: readonly ConfirmationReceipt[];
+  /**
+   * Where a just-accepted confirmation sends the customer. Review hands over to it
+   * (with history replacement) instead of applying its entry guard to the reset
+   * draft; the shell clears it once the route has left Review.
+   */
+  readonly pendingHandoff: OrderHandoffIntent | null;
 }
+
+export type OrderHandoffIntent =
+  | { readonly kind: 'order-tracking'; readonly orderId: string }
+  | { readonly kind: 'order-payment'; readonly orderId: string };
 
 export type NavigationIntent =
   | { readonly kind: 'home' }
   | { readonly kind: 'booking-step'; readonly step: number }
-  | { readonly kind: 'order-tracking'; readonly orderId: string };
+  | { readonly kind: 'order-tracking'; readonly orderId: string }
+  | { readonly kind: 'order-payment'; readonly orderId: string };
 
 export interface SessionTransition {
   readonly state: CustomerSessionState;

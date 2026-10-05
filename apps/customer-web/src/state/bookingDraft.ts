@@ -21,6 +21,31 @@ export function isPaymentMethodId(value: unknown): value is PaymentMethodId {
   return typeof value === 'string' && (PAYMENT_METHOD_IDS as readonly string[]).includes(value);
 }
 
+/** Vehicle sizes, packages and add-ons the catalog knows, in source order. */
+export const VEHICLE_TYPE_IDS: readonly VehicleTypeId[] = Object.freeze([
+  'sedan',
+  'suv',
+  'large',
+  'pickup',
+]);
+export const CARE_PACKAGE_IDS: readonly CarePackageId[] = Object.freeze([
+  'exterior',
+  'complete',
+  'premium',
+]);
+export const CARE_EXTRA_IDS: readonly CareExtraId[] = Object.freeze(['seats', 'wheels', 'fresh']);
+
+/** Runtime checks of catalog ids read from an order or an old draft (no prototype keys). */
+export function isVehicleTypeId(value: unknown): value is VehicleTypeId {
+  return typeof value === 'string' && (VEHICLE_TYPE_IDS as readonly string[]).includes(value);
+}
+export function isCarePackageId(value: unknown): value is CarePackageId {
+  return typeof value === 'string' && (CARE_PACKAGE_IDS as readonly string[]).includes(value);
+}
+export function isCareExtraId(value: unknown): value is CareExtraId {
+  return typeof value === 'string' && (CARE_EXTRA_IDS as readonly string[]).includes(value);
+}
+
 /** A slot the customer picked or was offered. Its availability is owned by Scheduling. */
 export interface BookingSlot {
   readonly date: string;
@@ -153,6 +178,22 @@ export function isContactNameAcceptable(name: string): boolean {
  */
 export function isContactPhoneAcceptable(phone: string): boolean {
   return /^\+?\d{8,15}$/.test(toLatinDigits(phone).replace(/[\s()-]/g, ''));
+}
+
+/**
+ * Confirmation-time normalisation, as the reference's confirmOrder(): the plate's
+ * digits become Latin and its spaces collapse; the number keeps a leading `+` and
+ * its leading zeroes but loses spaces, parentheses and hyphens; the name is trimmed
+ * and capped at 60. Editing never applies these; only an accepted confirmation does.
+ */
+export function confirmedPlate(plate: string): string {
+  return toLatinDigits(plate).trim().replace(/\s+/g, ' ');
+}
+export function confirmedContactPhone(phone: string): string {
+  return toLatinDigits(phone).replace(/[\s()-]/g, '');
+}
+export function confirmedContactName(name: string): string {
+  return name.trim().slice(0, 60);
 }
 
 /**

@@ -52,6 +52,10 @@ export function emptySession(): CustomerSessionState {
     reviewEditing: false,
     notice: null,
     announcement: null,
+    orderSequence: 0,
+    draftGeneration: 0,
+    confirmationReceipts: [],
+    pendingHandoff: null,
   };
 }
 

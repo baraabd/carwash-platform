@@ -630,7 +630,7 @@ test('C008 copy: every approved string of the step and the sheet is present', ()
 // C010, C011 and C012 own Time, Contact and Payment. C013 superseded the assertion
 // that Review stays deferred: Review is mounted, and its confirmation stays
 // unavailable (tests/unit/c013-customer-review.test.mjs).
-test('C008 scope: location and later owned steps mount; review confirmation stays unavailable', () => {
+test('C008 scope: location and later owned steps mount; Review confirms explicitly (C014)', () => {
   const route = read('features/booking/index.tsx');
   assert.match(route, /if \(step === 'location'\) return <LocationStep \/>;/);
   assert.match(route, /if \(step === 'payment'\) return <PaymentStep \/>;/);
@@ -638,7 +638,9 @@ test('C008 scope: location and later owned steps mount; review confirmation stay
   const shell = read('app/CustomerShell.tsx');
   assert.ok(shell.includes("'/book/5'"), 'the shell treats payment as ported');
   assert.ok(shell.includes("'/book/6'"), 'the shell treats review as ported');
-  assert.match(read('features/booking/review/ReviewStep.tsx'), /unavailableReasonId=/);
+  // C014 superseded "confirmation stays unavailable": Review's action is the explicit
+  // demo confirmation (tests/unit/c014-booking-confirmation.test.mjs).
+  assert.match(read('features/booking/review/ReviewStep.tsx'), /onNext={confirm}/);
 });
 
 test('C008 safety: customer text is rendered as text', () => {

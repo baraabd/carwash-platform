@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { currentInstant } from '../../../shared/clock';
 import { Icon } from '../../../shared/Icon';
-import { CarArt, ReferenceArtSprite } from '../../../shared/art/ReferenceArt';
+import { ReferenceArtSprite } from '../../../shared/art/ReferenceArt';
+import { confirmBooking, draftFingerprint } from '../../../state/bookingConfirmation';
 import { useCustomerSession } from '../../../state/CustomerSessionProvider';
 import { pathForIntent } from '../../../state/navigationPath';
 import { REVIEW_STEP_INDEX, openReviewEdit } from '../../../state/reviewStep';
@@ -10,29 +11,45 @@ import { BookingFooter } from '../BookingFooter';
 import { BookingProgress } from '../BookingProgress';
 import { bookingFlow } from '../bookingFlow';
 import { PriceBill } from '../PriceBill';
+import { Receipt } from '../../../widgets/order-receipt/Receipt';
+import { confirmationCatalog } from './confirmationCatalog';
 import {
-  CONFIRMATION_UNAVAILABLE_TEXT,
+  CONFIRMATION_DISCLOSURE_TEXT,
   REVIEW_EDIT_ACTIONS,
-  TECHNICIAN_NOTE_HEADING,
-  NO_PLATE_TEXT,
   buildReviewViewModel,
 } from './reviewViewModel';
 import './review.css';
 
 const DOCUMENT_TITLE = `${bookingFlow[REVIEW_STEP_INDEX].label} — WashGo Signature`;
-const CONFIRMATION_REASON_ID = 'review-confirmation-unavailable';
+const CONFIRMATION_DISCLOSURE_ID = 'review-confirmation-disclosure';
 
 /**
  * Seventh booking screen (the reference's `reviewView()`): the whole draft, the bill
- * and a «تعديل» control per decision. The final action is shown but unavailable:
- * confirmation belongs to the booking confirmation sprint, so nothing on this
- * screen creates an order, reserves a time, saves a preference or starts a payment.
+ * and a «تعديل» control per decision. Its final action is the explicit demo
+ * confirmation (C014): one command creates an order in this session's memory —
+ * not a booking with any service, not a reservation and not a payment.
  */
 export function ReviewStep() {
   const { state, run } = useCustomerSession();
   const navigate = useNavigate();
   // Derived from the current draft on every render; there is no summary snapshot.
   const view = buildReviewViewModel(state.draft, state.bookingMode);
+  // What the customer is looking at: the command carries it, and the session accepts
+  // it at most once and only while the draft is still exactly this one.
+  const reviewed = { key: state.draftGeneration, fingerprint: draftFingerprint(state.draft) };
+
+  const confirm = () => {
+    const now = currentInstant();
+    const result = run((current) =>
+      confirmBooking(current, { ...reviewed, now, catalog: confirmationCatalog }),
+    );
+    // A created order is followed by the route (state.pendingHandoff), in the same
+    // render that applies it. A refusal returns to the owning step, replacing Review
+    // in history as the reference's updateRoute(true).
+    if (result.outcome.kind === 'refused' && result.intent) {
+      navigate(pathForIntent(result.intent), { replace: true });
+    }
+  };
 
   useEffect(() => {
     const previousTitle = document.title;
@@ -81,80 +98,14 @@ export function ReviewStep() {
         </span>
       </div>
 
-      <div className="receipt">
-        <div className="receipt-top">
-          <CarArt art={view.vehicle.art} />
-          <div className="grow">
-            <h3>{view.vehicle.packageName}</h3>
-            <p>{view.vehicle.carLine}</p>
-            {view.vehicle.plate !== null ? (
-              <span className="plate-mini" dir="auto">
-                {view.vehicle.plate}
-              </span>
-            ) : (
-              <small className="tiny muted">{NO_PLATE_TEXT}</small>
-            )}
-          </div>
-          {editButton(0)}
-        </div>
-        <div className="receipt-line">
-          <Icon name="spark" />
-          <div className="grow">
-            <strong>{view.care.packageName}</strong>
-            <p>{view.care.extras}</p>
-          </div>
-          {editButton(1)}
-        </div>
-        <div className="receipt-line">
-          <Icon name="pin" />
-          <div className="grow">
-            <strong>{view.place.label}</strong>
-            <p>{view.place.address}</p>
-            {view.place.accessNote !== null ? <p>{view.place.accessNote}</p> : null}
-          </div>
-          {editButton(2)}
-        </div>
-        <div className="receipt-line">
-          <Icon name="calendar" />
-          <div className="grow">
-            <strong>{view.time.when}</strong>
-            <p>{view.time.detail}</p>
-          </div>
-          {editButton(3)}
-        </div>
-        <div className="receipt-line">
-          <Icon name="user" />
-          <div className="grow">
-            <strong>{view.contact.name}</strong>
-            <p className="ltr">{view.contact.phone}</p>
-          </div>
-          {editButton(4)}
-        </div>
-        <div className="receipt-line">
-          <Icon name={view.payment.icon} />
-          <div className="grow">
-            <strong>{view.payment.name}</strong>
-            <p>{view.payment.detail}</p>
-          </div>
-          {editButton(5)}
-        </div>
-        {view.technicianNote !== null ? (
-          <div className="receipt-line">
-            <Icon name="message" />
-            <div className="grow">
-              <strong>{TECHNICIAN_NOTE_HEADING}</strong>
-              <p>{view.technicianNote}</p>
-            </div>
-          </div>
-        ) : null}
-      </div>
+      <Receipt view={view} action={editButton} />
 
       <PriceBill breakdown={view.breakdown} />
 
       <p className="review-note">
         {view.paymentNote}
         <br />
-        <span id={CONFIRMATION_REASON_ID}>{CONFIRMATION_UNAVAILABLE_TEXT}</span>
+        <span id={CONFIRMATION_DISCLOSURE_ID}>{CONFIRMATION_DISCLOSURE_TEXT}</span>
       </p>
 
       <BookingFooter
@@ -164,7 +115,8 @@ export function ReviewStep() {
         totalCaption="إجمالي التجربة"
         nextIcon="check"
         breakdown={view.breakdown}
-        unavailableReasonId={CONFIRMATION_REASON_ID}
+        describedBy={CONFIRMATION_DISCLOSURE_ID}
+        onNext={confirm}
       />
     </div>
   );

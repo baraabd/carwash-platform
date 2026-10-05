@@ -1,12 +1,6 @@
-import { ShellPlaceholder } from '../../shared/ShellPlaceholder';
+import { OrderHandoff } from '../../widgets/order-handoff/OrderHandoff';
 
+/** `/pay/:orderId`: the C014 handoff for a wallet order. Checkout, QR and proof are deferred. */
 export function PaymentRoute() {
-  return (
-    <ShellPlaceholder
-      routeId="payment"
-      fixtureId="payment-default"
-      title="الدفع، بكل وضوح."
-      description="نقطة تركيب الدفع."
-    />
-  );
+  return <OrderHandoff kind="payment" />;
 }

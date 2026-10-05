@@ -429,10 +429,12 @@ test('C009 save preference: Apply, Next, Exit and Resume never save an address',
   const callers = sourceFiles(APP_SRC).filter((file) =>
     /saveAddressRecord\(/.test(withoutComments(readFileSync(file, 'utf8'))),
   );
+  // C014 owns confirmation, the one booking path that may save the address; every
+  // earlier step above still saves nothing (tests/unit/c014-booking-confirmation.test.mjs).
   assert.deepEqual(
-    callers.map((file) => path.relative(APP_SRC, file).replaceAll('\\', '/')),
-    ['state/savedAddresses.ts'],
-    'the save rule is called only by the account command; confirmation is a later sprint',
+    callers.map((file) => path.relative(APP_SRC, file).replaceAll('\\', '/')).sort(),
+    ['state/bookingConfirmation.ts', 'state/savedAddresses.ts'],
+    'the save rule is called only by the account command and by booking confirmation',
   );
 });
 
