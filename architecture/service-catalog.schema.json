@@ -275,8 +275,19 @@
         "deployment": {
           "$ref": "#/$defs/deployment"
         },
+        "acceptedCapabilities": {
+          "type": "array",
+          "items": { "enum": ["identity-security-v1", "gateway-routing-v1"] },
+          "minItems": 1,
+          "uniqueItems": true
+        },
         "runtimeImplementation": {
-          "enum": ["existing-health-only-shell", "directory-and-typescript-skeleton-only"]
+          "enum": [
+            "existing-health-only-shell",
+            "directory-and-typescript-skeleton-only",
+            "onboarded-foundation-runtime",
+            "implemented-capability-runtime"
+          ]
         }
       },
       "required": [
@@ -359,8 +370,19 @@
         "deployment": {
           "$ref": "#/$defs/deployment"
         },
+        "acceptedCapabilities": {
+          "type": "array",
+          "items": { "enum": ["identity-security-v1", "gateway-routing-v1"] },
+          "minItems": 1,
+          "uniqueItems": true
+        },
         "runtimeImplementation": {
-          "enum": ["existing-health-only-shell", "directory-and-typescript-skeleton-only"]
+          "enum": [
+            "existing-health-only-shell",
+            "directory-and-typescript-skeleton-only",
+            "onboarded-foundation-runtime",
+            "implemented-capability-runtime"
+          ]
         }
       },
       "required": [
@@ -408,9 +430,12 @@
         },
         "reviewer": {
           "const": "baraabd"
+        },
+        "runtimeLifecycle": {
+          "enum": ["directory-and-typescript-skeleton-only", "onboarded-foundation-web-runtime"]
         }
       },
-      "required": ["id", "audience", "path", "packageName", "owner", "reviewer"],
+      "required": ["id", "audience", "path", "packageName", "owner", "reviewer", "runtimeLifecycle"],
       "additionalProperties": false
     },
     "shared": {

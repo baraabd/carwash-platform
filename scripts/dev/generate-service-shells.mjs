@@ -1,51 +1,62 @@
 #!/usr/bin/env node
-/**
- * Materialises the deterministic F003 shell for every declared service.
- *
- * Only template-owned files are written. Existing business/domain files and the
- * F002 messaging slice are preserved. --check is read-only and fails on drift.
- */
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+/** Service-scoped, non-destructive shell bootstrap; --check verifies runtime invariants. */
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { ROOT } from '../acceptance/lib/context.mjs';
-import { renderServiceFiles, selectFoundationShellServices } from './service-template.mjs';
+import {
+  renderServiceFiles,
+  generationOptions,
+  generationServices,
+  writeGeneratedFiles,
+  checkGeneratedFiles,
+} from './service-template.mjs';
 
-const checkOnly = process.argv.includes('--check');
-const drift = [];
+const options = generationOptions(process.argv.slice(2), ROOT);
 const catalog = JSON.parse(
-  await readFile(path.join(ROOT, 'architecture/service-catalog.json'), 'utf8'),
+  await readFile(path.join(options.root, 'architecture/service-catalog.json'), 'utf8'),
 );
-const services = selectFoundationShellServices(catalog);
-
+const services = generationServices(catalog, options);
+const files = new Map();
 for (const service of services) {
-  const root = path.join(ROOT, 'services', service);
-  // F006 opts Identity into its own versioned composition adapter. The default
-  // renderer remains the original F003 contract for all foundation-only users.
-  const httpRuntime = service === 'identity' ? 'identity-security-v1' : 'foundation';
-  for (const [relative, expected] of renderServiceFiles(service, { httpRuntime })) {
-    const target = path.join(root, relative);
-    if (checkOnly) {
-      let actual;
-      try {
-        actual = await readFile(target, 'utf8');
-      } catch {
-        drift.push(`missing ${path.relative(ROOT, target)}`);
-        continue;
-      }
-      if (actual !== expected) drift.push(`drift ${path.relative(ROOT, target)}`);
-      continue;
-    }
-    await mkdir(path.dirname(target), { recursive: true });
-    await writeFile(target, expected, 'utf8');
-    console.log(`wrote ${path.relative(ROOT, target)}`);
+  const httpRuntime = service.id === 'identity' ? 'identity-security-v1' : 'foundation';
+  for (const [relative, expected] of renderServiceFiles(service.id, { httpRuntime })) {
+    files.set(`services/${service.id}/${relative}`, expected);
   }
 }
-
-if (checkOnly) {
-  if (drift.length > 0) {
-    console.error('SERVICE_TEMPLATE_DRIFT');
-    for (const item of drift) console.error(`  ${item}`);
-    process.exit(1);
-  }
-  console.log(`Service template check passed: ${services.length} service shell(s), no drift.`);
+if (options.checkOnly) {
+  await checkGeneratedFiles(options.root, files, (relative, source) => {
+    if (
+      relative.endsWith('/src/app.module.ts') &&
+      !/export const BUSINESS_READY = false;/.test(source)
+    ) {
+      throw new Error(`UNREADY_RUNTIME_REQUIRED: ${relative}`);
+    }
+    if (
+      relative.endsWith('/src/app.module.ts') &&
+      !source.includes(`export const SERVICE_NAME = '${relative.split('/')[1]}';`)
+    ) {
+      throw new Error(`SERVICE_RUNTIME_IDENTITY_REQUIRED: ${relative}`);
+    }
+    if (
+      relative.endsWith('/src/infrastructure/persistence/prisma.service.ts') &&
+      !/from ['"]\.\.\/\.\.\/generated\/prisma\/client['"]/.test(source)
+    ) {
+      throw new Error(`OWNER_LOCAL_PRISMA_REQUIRED: ${relative}`);
+    }
+    if (
+      relative === 'services/identity/src/transport/http/create-app.ts' &&
+      !source.includes('createIdentityHttpApplication')
+    ) {
+      throw new Error('IDENTITY_CAPABILITY_ADAPTER_REQUIRED');
+    }
+  });
+  console.log(
+    `Service template check passed: ${services.length} service runtime(s), invariants verified; owner evolution preserved.`,
+  );
+} else {
+  const written = await writeGeneratedFiles(options.root, files);
+  for (const file of written) console.log(`wrote ${file}`);
+  console.log(
+    `Scoped shell generation passed: ${services.length} service(s), ${written.length} new file(s); no overwrites.`,
+  );
 }

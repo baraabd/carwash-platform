@@ -1,0 +1,605 @@
+{
+  "schemaVersion": 1,
+  "wave": "W01",
+  "lane": "E",
+  "task": "W01-E",
+  "status": "INTEGRATION_PENDING",
+  "inventory": {
+    "observedOn": "2026-10-05",
+    "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+    "basis": "Immutable repository source; model names read independently from each service schema, not copied from shared status.",
+    "coordinatorGitHubObservation": {
+      "pullRequest41": "merged",
+      "openPullRequests": 0,
+      "mainChecksObserved": 44,
+      "mainCheckConclusion": "success",
+      "limitation": "Historical initial observation: zero open PRs then. Inherited target source only; not current proposal intake, W01 candidate, independent review, branch protection or BASE_W02 acceptance.",
+      "observationPhase": "initial-source-audit-before-peer-publication"
+    }
+  },
+  "bases": {
+    "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+    "BASE_W02": null
+  },
+  "packagesAtSource": {
+    "@carwash/contracts": "0.0.2",
+    "@carwash/event-contracts": "0.0.2",
+    "@carwash/api-clients": "0.0.1"
+  },
+  "existingHttpContracts": [
+    {
+      "id": "identity.v1",
+      "domain": "identity",
+      "version": 1,
+      "prefix": "/internal/v1/identity",
+      "status": "foundation-runtime",
+      "openApi": "docs/contracts/gateway.openapi.json",
+      "scope": "Identity-owned routes represented through the current gateway routing discovery document; not a complete standalone Identity business OpenAPI."
+    },
+    {
+      "id": "gateway.v1",
+      "domain": "gateway",
+      "version": 1,
+      "prefix": "/api/v1",
+      "status": "routing-contract-only",
+      "openApi": "docs/contracts/gateway.openapi.json",
+      "scope": "Gateway/BFF routing discovery. Route presence does not claim the owning business endpoint is implemented."
+    }
+  ],
+  "existingEventContracts": [
+    {
+      "id": "foundation.probe.created.v1",
+      "producer": "catalog",
+      "schemaVersion": 1,
+      "status": "foundation-runtime",
+      "asyncApi": "docs/asyncapi/foundation-probe.yaml"
+    },
+    {
+      "id": "booking.confirmed.v1",
+      "producer": "booking",
+      "schemaVersion": 1,
+      "status": "contract-only",
+      "asyncApi": "docs/asyncapi/booking-confirmed-v1.yaml"
+    }
+  ],
+  "existingClientContracts": [],
+  "clientRegistryStatus": "api-clients-export-empty-skeleton",
+  "unpublishedBusinessDomainsAtSource": [
+    "customer",
+    "vehicle",
+    "catalog",
+    "pricing",
+    "booking",
+    "scheduling",
+    "dispatch",
+    "workforce",
+    "billing",
+    "wallet",
+    "subscription",
+    "media",
+    "communications",
+    "reviews",
+    "support",
+    "geo",
+    "reporting",
+    "configuration"
+  ],
+  "acceptedNextWaveContracts": [],
+  "nextWaveContractRelease": {
+    "wave": "W02",
+    "status": "pending-bootstrap-acceptance-and-owner-proposal-review",
+    "sourceSha": null,
+    "reviewRecord": null,
+    "publishedPackageVersions": {},
+    "packetRequests": [
+      {
+        "lane": "A",
+        "domains": ["customer", "vehicle", "geo"],
+        "requiredSemantics": [
+          "profileContactAddressConsentOwnership",
+          "vehicleRevisionOptionalPlateAndSaveDeleteRules",
+          "AleppoZoneCoverageCoordinatePrecisionManualFallbackAndProviderProvenance"
+        ],
+        "status": "requested-not-received",
+        "packetPath": null,
+        "acceptedContractIds": [],
+        "reviewRecord": null
+      },
+      {
+        "lane": "B",
+        "domains": ["catalog", "pricing"],
+        "requiredSemantics": [
+          "packageAddonRevisionCompatibilityDurationAndPublication",
+          "quoteOwnerImmutableItemsMoneyCurrencyPrecisionPriceVersionExpiryRoundingTaxAndRevalidation"
+        ],
+        "status": "received-proposal-review-pending",
+        "packetPath": "docs/parallel/B/W01/W02_CONTRACT_PACKET.md",
+        "acceptedContractIds": [],
+        "reviewRecord": null,
+        "packetSourceSha": "2b5042caa6902b911f01ae5b9d41725a1b79fcf7",
+        "pullRequest": 44
+      },
+      {
+        "lane": "C",
+        "domains": ["media", "workforce"],
+        "requiredSemantics": [
+          "privateObjectReservationPurposeClassificationAuthorizationExpiryQuarantineScanProcessFinalizeChecksumReplayRetentionDeletion",
+          "operatorTeamVanEquipmentIdentityRevisionCurrentWorkGrantEligibilityRevocationShiftsEmploymentModel"
+        ],
+        "status": "received-proposal-review-pending",
+        "packetPath": "docs/parallel/C/W01/CONTRACT_REQUESTS.md",
+        "acceptedContractIds": [],
+        "reviewRecord": null,
+        "packetSourceSha": "15e5b224d122a995bbe932725c1b3a71d7a06aeb",
+        "pullRequest": 43
+      },
+      {
+        "lane": "D",
+        "domains": ["configuration"],
+        "requiredSemantics": [
+          "marketRevisionCurrencyPrecisionTimezoneHoursZonesPolicyVersionEffectiveTimeInputOwnerAuthorizationAuditRollback"
+        ],
+        "status": "received-proposal-review-pending",
+        "packetPath": "docs/parallel/D/W01/CONTRACT_PROPOSALS.md",
+        "acceptedContractIds": [],
+        "reviewRecord": null,
+        "packetSourceSha": "edb8a0392e3c3ad926cdb35d17c9c0e54b2dac00",
+        "pullRequest": 42
+      },
+      {
+        "lane": "E",
+        "domains": ["identity", "api-gateway"],
+        "requiredSemantics": [
+          "existingIdentityV1Compatibility",
+          "reviewedGuestCapabilityOwnershipLinkageExpiryAbuseProtection",
+          "publicRouteMappingVerifiedCredentialAndCsrfTransport"
+        ],
+        "status": "requested-not-accepted",
+        "packetPath": null,
+        "acceptedContractIds": [],
+        "reviewRecord": null
+      }
+    ],
+    "commonRequiredPacketFields": [
+      "providerOwnerAndConsumer",
+      "contractIdAndVersion",
+      "requestResponseEventSchemas",
+      "requiredNullableUnknownFields",
+      "actorAndGuestOwnershipAuthorization",
+      "idsRevisionsAndImmutableSnapshots",
+      "moneyCurrencyPrecision",
+      "utcLocalTimeAndExpiry",
+      "allowedTransitions",
+      "idempotencyScopeKeyFingerprintConflictReplayLifetime",
+      "errorsDeadlinesUnknownOutcomeRecovery",
+      "durableCompensationReconciliation",
+      "backwardCompatibilityDeprecation",
+      "providerConsumerTestsRealVersusFixtures",
+      "packagesDependenciesConfiguration",
+      "approvedReferenceMappingExternalDecisionOwners"
+    ],
+    "deadline": "Before W01-E-CONTRACTS acceptance and any dependent W02 write; no calendar date has been approved."
+  },
+  "modelInventoryAtSource": [
+    {
+      "service": "identity",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/identity/prisma/schema.prisma",
+      "schemaPresent": true,
+      "schemaSha256": "22b3951f5332a9856752dd567d5960a4ebcaa3e6993c57e58b4b23a90b3182d7",
+      "models": [
+        "ServiceMarker",
+        "IdentityAccount",
+        "IdentityChallenge",
+        "IdentitySession",
+        "IdentityRefresh",
+        "IdentityAudit"
+      ],
+      "migrationIds": ["20260920000000_sprint_02_foundation", "20260926040000_identity_security"],
+      "catalogRuntimeClassificationAtSource": "existing-health-only-shell",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "customer",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/customer/prisma/schema.prisma",
+      "schemaPresent": true,
+      "schemaSha256": "4e5de4585ce931835ee32b51000a1d44ca2999a91e286deb5fe8e76e7925f443",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20260920000000_sprint_02_foundation"],
+      "catalogRuntimeClassificationAtSource": "existing-health-only-shell",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "vehicle",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/vehicle/prisma/schema.prisma",
+      "schemaPresent": false,
+      "schemaSha256": null,
+      "models": [],
+      "migrationIds": [],
+      "catalogRuntimeClassificationAtSource": "directory-and-typescript-skeleton-only",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "catalog",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/catalog/prisma/schema.prisma",
+      "schemaPresent": true,
+      "schemaSha256": "19ab178b6d32fafd460ce1c8d737af00cb8196f6f84c5a2ff573e48b77b4678b",
+      "models": ["ServiceMarker", "FoundationProbe", "OutboxMessage"],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation",
+        "20260927143000_f008_outbox_trace_context"
+      ],
+      "catalogRuntimeClassificationAtSource": "existing-health-only-shell",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "pricing",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/pricing/prisma/schema.prisma",
+      "schemaPresent": false,
+      "schemaSha256": null,
+      "models": [],
+      "migrationIds": [],
+      "catalogRuntimeClassificationAtSource": "directory-and-typescript-skeleton-only",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "booking",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/booking/prisma/schema.prisma",
+      "schemaPresent": true,
+      "schemaSha256": "9ea3d6dd78593cafafc97320e392e2bdd4e5394adcca768e303d20c2146d7622",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20260920000000_sprint_02_foundation"],
+      "catalogRuntimeClassificationAtSource": "existing-health-only-shell",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "scheduling",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/scheduling/prisma/schema.prisma",
+      "schemaPresent": false,
+      "schemaSha256": null,
+      "models": [],
+      "migrationIds": [],
+      "catalogRuntimeClassificationAtSource": "directory-and-typescript-skeleton-only",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "dispatch",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/dispatch/prisma/schema.prisma",
+      "schemaPresent": false,
+      "schemaSha256": null,
+      "models": [],
+      "migrationIds": [],
+      "catalogRuntimeClassificationAtSource": "directory-and-typescript-skeleton-only",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "workforce",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/workforce/prisma/schema.prisma",
+      "schemaPresent": true,
+      "schemaSha256": "8dd9765f9634bcda0bb241902220a72390fadb059639bda67c12f4171fdcad19",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20260920000000_sprint_02_foundation"],
+      "catalogRuntimeClassificationAtSource": "existing-health-only-shell",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "billing",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/billing/prisma/schema.prisma",
+      "schemaPresent": true,
+      "schemaSha256": "82aa2c8382d9a1b5a345f75065407c213da829acd58e92c1331b3d9bfed4c3a1",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20260920000000_sprint_02_foundation"],
+      "catalogRuntimeClassificationAtSource": "existing-health-only-shell",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "wallet",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/wallet/prisma/schema.prisma",
+      "schemaPresent": false,
+      "schemaSha256": null,
+      "models": [],
+      "migrationIds": [],
+      "catalogRuntimeClassificationAtSource": "directory-and-typescript-skeleton-only",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "subscription",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/subscription/prisma/schema.prisma",
+      "schemaPresent": false,
+      "schemaSha256": null,
+      "models": [],
+      "migrationIds": [],
+      "catalogRuntimeClassificationAtSource": "directory-and-typescript-skeleton-only",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "media",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/media/prisma/schema.prisma",
+      "schemaPresent": true,
+      "schemaSha256": "5ed0b388edc04c68f6a3e5e0eaed14a5918632b6f74c0a6bfae11c57b413fbbb",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20260920000000_sprint_02_foundation"],
+      "catalogRuntimeClassificationAtSource": "existing-health-only-shell",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "communications",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/communications/prisma/schema.prisma",
+      "schemaPresent": true,
+      "schemaSha256": "115eb2e4ee9cccf95be35358e0faf822b52d632444ffe381a1969cc3f2aa1c3c",
+      "models": ["ServiceMarker", "InboxMessage", "ProbeNotification"],
+      "migrationIds": ["20260920000000_sprint_02_foundation"],
+      "catalogRuntimeClassificationAtSource": "existing-health-only-shell",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "reviews",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/reviews/prisma/schema.prisma",
+      "schemaPresent": false,
+      "schemaSha256": null,
+      "models": [],
+      "migrationIds": [],
+      "catalogRuntimeClassificationAtSource": "directory-and-typescript-skeleton-only",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "support",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/support/prisma/schema.prisma",
+      "schemaPresent": true,
+      "schemaSha256": "00ffe22bae2fb6fd2b9aa8a0f0a4b592b9411622b8cc58e3bc0d745b63c80580",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20260920000000_sprint_02_foundation"],
+      "catalogRuntimeClassificationAtSource": "existing-health-only-shell",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "geo",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/geo/prisma/schema.prisma",
+      "schemaPresent": false,
+      "schemaSha256": null,
+      "models": [],
+      "migrationIds": [],
+      "catalogRuntimeClassificationAtSource": "directory-and-typescript-skeleton-only",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "reporting",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/reporting/prisma/schema.prisma",
+      "schemaPresent": true,
+      "schemaSha256": "6732c59b6368f3a41b058f3ebf445e5ff88acbd995ea76299fe2a5207e6ea4fc",
+      "models": ["ServiceMarker", "InboxMessage", "ProbeProjection"],
+      "migrationIds": ["20260920000000_sprint_02_foundation"],
+      "catalogRuntimeClassificationAtSource": "existing-health-only-shell",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    },
+    {
+      "service": "configuration",
+      "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "schemaPath": "services/configuration/prisma/schema.prisma",
+      "schemaPresent": false,
+      "schemaSha256": null,
+      "models": [],
+      "migrationIds": [],
+      "catalogRuntimeClassificationAtSource": "directory-and-typescript-skeleton-only",
+      "businessApiAccepted": false,
+      "deploymentVerified": false
+    }
+  ],
+  "identityCapability": {
+    "status": "implemented-security-foundation",
+    "source": "services/identity/src/transport/http/auth.controller.ts",
+    "mustPreserve": true,
+    "guestContractAccepted": false,
+    "otpDeliverySource": "services/identity/src/infrastructure/otp/webhook-delivery.ts",
+    "otpChannelAtSource": "email",
+    "smsCapabilityProven": false
+  },
+  "approvedReferences": {
+    "registry": "docs/design/f010-reference-manifest.json",
+    "customer": "design/reference/approved/washgo-payments-interactive.html",
+    "technician": "design/reference/approved/washgo-technician-interactive.html",
+    "admin": "design/reference/approved/washgo-admin-prototype.html",
+    "scope": "Frozen approved prototypes and parity harness, not production application acceptance."
+  },
+  "productDecisions": {
+    "privacyExportResetDeleteProductionMeaning": "pending-owner-decision",
+    "privacyCoordinatingOwner": null,
+    "retentionAnonymizationPolicy": null,
+    "walletReferencePurpose": "Team cash custody and settlement visibility with Billing posting references; exact account holders and hold reasons pending B/product decision.",
+    "walletIsCheckoutMethod": false,
+    "customerStoredValueFundingWithdrawalApproved": false,
+    "payrollMarketplaceOrAutomaticRecurringDebitApproved": false,
+    "approvedCheckoutMethods": ["cash", "sham", "syriatel"],
+    "paymeraScope": "pending-owner-decision-and-actual-provider-documentation",
+    "workforceEmploymentModel": "pending-owner-decision",
+    "financialPolicy": "pending-owner-input",
+    "AleppoCoverageHoursPrices": "pending-owner-input",
+    "peakLoad": null,
+    "performanceTargets": null,
+    "recoveryTargets": null
+  },
+  "children": [
+    {
+      "id": "W01-E-BOOTSTRAP",
+      "status": "candidate-in-progress",
+      "dependsOn": [],
+      "scope": "Cohesive technical provider: ownership/lifecycle prerequisites, nine empty runtimes, minimal operator/admin boots and isolated resource allocation; no business contract acceptance."
+    },
+    {
+      "id": "W01-E-CONTRACTS",
+      "status": "blocked-A-packet-owner-review-and-bootstrap-acceptance",
+      "dependsOn": ["W01-E-BOOTSTRAP", "reviewed-A-D-W01-packets"],
+      "scope": "Provider/consumer-reviewed W02 HTTP/event/client release; guest prerequisite and policy decisions resolved for affected contracts."
+    },
+    {
+      "id": "W01-E-BARRIER",
+      "status": "pending-serialized-candidate-and-target-acceptance",
+      "dependsOn": ["W01-E-BOOTSTRAP", "W01-E-CONTRACTS", "required-independent-review"],
+      "scope": "All required final-source gates, unchanged refs, authorized merge process and actual resulting main checks before BASE_W02 publication."
+    }
+  ],
+  "nextPacketDeadline": {
+    "wave": "W03",
+    "owners": {
+      "quoteAndFinancial": "B",
+      "slotHoldAndBooking": "C",
+      "customerConsumer": "A",
+      "adminConsumer": "D",
+      "releaseAndCommonBase": "E"
+    },
+    "condition": "Reviewed quote/slot/booking/financial packets accepted before the W02 contract-release barrier publishes BASE_W03.",
+    "calendarDeadline": null
+  },
+  "acceptance": {
+    "independentReviewVerified": false,
+    "reviewerIdentity": null,
+    "BASE_W02Verified": false,
+    "businessIntegrationAccepted": false,
+    "stagingAccepted": false,
+    "productionReady": false,
+    "deployed": false,
+    "leaseExpiryCondition": "Only verified resulting BASE_W02 expires the W01 bootstrap lease; child merge alone does not."
+  },
+  "handoffDocuments": [
+    "docs/parallel/E/W01/INPUTS_AND_CONTRACTS.md",
+    "docs/parallel/E/W01/CHILD_SPRINTS.md"
+  ],
+  "proposedPacketIntake": {
+    "observedAtUtc": "2026-10-05T06:56:13Z",
+    "source": "GitHub plugin open-PR metadata and immutable packet indexes/contract documents",
+    "mainSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+    "openPullRequests": 3,
+    "laneA": "not-received-in-observed-open-PRs-or-inventoried-base",
+    "receivedPackets": [
+      {
+        "lane": "B",
+        "pullRequest": 44,
+        "headSha": "2b5042caa6902b911f01ae5b9d41725a1b79fcf7",
+        "treeSha": "236d0e9e55ad2d3fc8b9db4d73dd5feff0dd20f8",
+        "indexPath": "docs/parallel/B/W01/README.md",
+        "contractPath": "docs/parallel/B/W01/W02_CONTRACT_PACKET.md",
+        "scope": "Catalog/Pricing W02 and later financial reservations; proposal revision 0.1.0, not an accepted package/wire release",
+        "baseSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+        "status": "received-proposal-review-pending",
+        "draft": true,
+        "merged": false,
+        "accepted": false,
+        "migrationIds": [],
+        "indexUrl": "https://github.com/baraabd/carwash-platform/blob/2b5042caa6902b911f01ae5b9d41725a1b79fcf7/docs/parallel/B/W01/README.md",
+        "currentHeadCheckObservation": {
+          "observedAtUtc": "2026-10-05T06:58:54Z",
+          "source": "GitHub plugin commits/<immutable-head>/check-runs?per_page=100",
+          "totalChecks": 32,
+          "limitation": "Snapshot of this proposal head only; not latest-target candidate, merge target, independent review or wave acceptance.",
+          "success": 29,
+          "failure": 2,
+          "inProgress": 1,
+          "failedChecks": [
+            {
+              "name": "security",
+              "url": "https://github.com/baraabd/carwash-platform/actions/runs/37274562450/job/111648782044"
+            },
+            {
+              "name": "Foundation release gate",
+              "url": "https://github.com/baraabd/carwash-platform/actions/runs/37274562450/job/111650241278"
+            }
+          ],
+          "disposition": "Current-head security/release gate failures block acceptance; B owns investigation/fix and rerun. No peer changes made by E."
+        }
+      },
+      {
+        "lane": "C",
+        "pullRequest": 43,
+        "headSha": "15e5b224d122a995bbe932725c1b3a71d7a06aeb",
+        "treeSha": "ea5bab042ec7fc39163dc605b7f6a0fd07875859",
+        "indexPath": "docs/parallel/C/W01/README.md",
+        "contractPath": "docs/parallel/C/W01/CONTRACT_REQUESTS.md",
+        "scope": "Media/Workforce W02 and Booking-owned Work/location roadmap; requested contracts only",
+        "baseSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+        "status": "received-proposal-review-pending",
+        "draft": true,
+        "merged": false,
+        "accepted": false,
+        "migrationIds": [],
+        "indexUrl": "https://github.com/baraabd/carwash-platform/blob/15e5b224d122a995bbe932725c1b3a71d7a06aeb/docs/parallel/C/W01/README.md",
+        "currentHeadCheckObservation": {
+          "observedAtUtc": "2026-10-05T06:58:54Z",
+          "source": "GitHub plugin commits/<immutable-head>/check-runs?per_page=100",
+          "totalChecks": 32,
+          "limitation": "Snapshot of this proposal head only; not latest-target candidate, merge target, independent review or wave acceptance.",
+          "success": 32,
+          "failure": 0,
+          "inProgress": 0
+        }
+      },
+      {
+        "lane": "D",
+        "pullRequest": 42,
+        "headSha": "edb8a0392e3c3ad926cdb35d17c9c0e54b2dac00",
+        "treeSha": "7e1fdf90f881d5b7c3f3ad588a129860af5b6299",
+        "indexPath": "docs/parallel/D/W01/README.md",
+        "contractPath": "docs/parallel/D/W01/CONTRACT_PROPOSALS.md",
+        "scope": "CP-D-001..006: Identity V2, Configuration, Communications, Support/privacy, Reviews, Reporting; unaccepted proposals",
+        "baseSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+        "status": "received-proposal-review-pending",
+        "draft": true,
+        "merged": false,
+        "accepted": false,
+        "migrationIds": [],
+        "indexUrl": "https://github.com/baraabd/carwash-platform/blob/edb8a0392e3c3ad926cdb35d17c9c0e54b2dac00/docs/parallel/D/W01/README.md",
+        "currentHeadCheckObservation": {
+          "observedAtUtc": "2026-10-05T06:58:54Z",
+          "source": "GitHub plugin commits/<immutable-head>/check-runs?per_page=100",
+          "totalChecks": 32,
+          "limitation": "Snapshot of this proposal head only; not latest-target candidate, merge target, independent review or wave acceptance.",
+          "success": 32,
+          "failure": 0,
+          "inProgress": 0
+        }
+      }
+    ],
+    "disposition": "Received for review only; reconcile against the E bootstrap candidate and latest accepted target. No domain policy, registry export, contract version or wave base is accepted by intake.",
+    "requiredReconciliation": [
+      "B/C/D propose different money field names and currency-policy revision types; owners and E must settle versioned adapters/shared wire vocabulary.",
+      "Guest/delegation, scoped grants and Gateway routes/errors are unpublished. Preserve real Identity V1 and strict booking.confirmed.v1 compatibility; D Identity V2 governance must close any legacy mutation bypass.",
+      "C requires real Workforce binding before Media, then Workforce review/eligibility; every other Media purpose needs its real authority producer. Later Booking Work binding precedes Media Work-purpose integration and full Work.",
+      "Configuration validation consumes actual domain validators; D supporting domains consume real A/B/C producers. Bootstrap technical readiness does not satisfy those business providers.",
+      "Electronic-payment work-start/unpaid-closure conflict, custody actor/purpose, retention/replay lifetimes, deadlines, provider/Paymera scope and privacy fulfillment remain owner decisions, not accepted defaults."
+    ]
+  }
+}

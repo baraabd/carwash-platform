@@ -54,10 +54,10 @@ test('path-aware fast feedback selects owners and fails conservatively', () => {
 });
 test('inventory discovers every actual service image and explicitly lists planned shells', () => {
   const scope = inventory();
-  assert.equal(scope.targets.length, 11);
-  assert.equal(scope.targets.filter((t) => t.database).length, 10);
+  assert.equal(scope.targets.length, 23);
+  assert.equal(scope.targets.filter((t) => t.database).length, 19);
   assert.equal(scope.apps.length, 3);
-  assert.equal(scope.plannedServices.length, 9);
+  assert.equal(scope.plannedServices.length, 0);
 });
 const expected = {
   ids: ['static'],

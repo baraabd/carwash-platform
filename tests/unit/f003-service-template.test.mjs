@@ -89,16 +89,16 @@ test('F008 generated adapters bind only their owner-local pool and dispose it', 
   }
 });
 
-test('F003 committed service shells exactly match the generator', () => {
+test('F003 committed runtimes pass non-destructive lifecycle validation', () => {
   const result = run('scripts/dev/generate-service-shells.mjs', ['--check']);
   assert.equal(result.code, 0, result.output);
-  assert.match(result.output, /10 service shell\(s\), no drift/);
+  assert.match(result.output, /19 service runtime/);
 });
 
 test('F003 clean-layer guard passes the committed services', () => {
   const result = run('scripts/check-layers.mjs');
   assert.equal(result.code, 0, result.output);
-  assert.match(result.output, /Layer guard passed: 10 service\(s\)/);
+  assert.match(result.output, /Layer guard passed: 19 service\(s\)/);
 });
 
 async function withLayerFixture(applicationSource, body, extraServices = []) {

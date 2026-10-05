@@ -1,14 +1,15 @@
 {
   "$schema": "./implementation-status.schema.json",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "asOf": {
-    "date": "2026-10-01",
-    "mainSha": "f364792d78cf572444df8093c2e4c6315becdae9"
+    "date": "2026-10-05",
+    "mainSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+    "scope": "candidate-source-inventory"
   },
   "product": {
-    "readiness": "foundation-accepted-product-not-implemented",
+    "readiness": "foundation-accepted-business-integration-pending",
     "productionReady": false,
-    "summary": "F001-F010 foundation capabilities are merged and verified, but the customer, technician and admin product applications and most business-domain APIs/persistence remain unimplemented."
+    "summary": "F001-F010 historical foundation acceptance is retained with source provenance. C002-C014 implement a partial customer React session demo; business backend integration, complete technician/admin surfaces and production operation remain pending. W01 runtime onboarding is a source inventory, not current-candidate acceptance."
   },
   "foundation": {
     "F001": {
@@ -18,82 +19,56 @@
         "PR #3",
         "architecture/service-catalog.json",
         ".github/workflows/f001-ownership.yml"
-      ]
+      ],
+      "verificationRecord": "foundation-2026-10-01"
     },
     "F002": {
       "status": "merged-and-verified",
       "capability": "Pinned Node/pnpm toolchain and frozen dependency discipline.",
-      "evidence": [
-        "PR #1",
-        ".nvmrc",
-        "pnpm-lock.yaml",
-        "scripts/verify-toolchain.mjs"
-      ]
+      "evidence": ["PR #1", ".nvmrc", "pnpm-lock.yaml", "scripts/verify-toolchain.mjs"],
+      "verificationRecord": "foundation-2026-10-01"
     },
     "F003": {
       "status": "merged-and-verified",
       "capability": "Clean-architecture service template and layer enforcement for foundation runtimes.",
-      "evidence": [
-        "PR #4",
-        "PR #5",
-        "packages/service-kit",
-        "scripts/check-layers.mjs"
-      ]
+      "evidence": ["PR #4", "PR #5", "packages/service-kit", "scripts/check-layers.mjs"],
+      "verificationRecord": "foundation-2026-10-01"
     },
     "F004": {
       "status": "merged-and-verified",
       "capability": "PostgreSQL ownership, migration-role isolation and schema-drift acceptance.",
-      "evidence": [
-        "PR #7",
-        "scripts/check-migrations.mjs",
-        "scripts/acceptance"
-      ]
+      "evidence": ["PR #7", "scripts/check-migrations.mjs", "scripts/acceptance"],
+      "verificationRecord": "foundation-2026-10-01"
     },
     "F005": {
       "status": "merged-and-verified",
       "capability": "RabbitMQ foundation with durable Outbox/Inbox delivery semantics.",
-      "evidence": [
-        "PR #6",
-        "packages/platform-messaging",
-        "tests/integration"
-      ]
+      "evidence": ["PR #6", "packages/platform-messaging", "tests/integration"],
+      "verificationRecord": "foundation-2026-10-01"
     },
     "F006": {
       "status": "merged-and-verified",
       "capability": "Identity-owned authentication, sessions, Redis-backed browser security and authorization foundation.",
-      "evidence": [
-        "PR #8",
-        "services/identity",
-        "scripts/acceptance-identity.mjs"
-      ]
+      "evidence": ["PR #8", "services/identity", "scripts/acceptance-identity.mjs"],
+      "verificationRecord": "foundation-2026-10-01"
     },
     "F007": {
       "status": "merged-and-verified",
       "capability": "Stateless API gateway with verified authentication and BFF routing contracts.",
-      "evidence": [
-        "PR #10",
-        "PR #13",
-        "apps/api-gateway",
-        ".github/workflows/f007-gateway.yml"
-      ]
+      "evidence": ["PR #10", "PR #13", "apps/api-gateway", ".github/workflows/f007-gateway.yml"],
+      "verificationRecord": "foundation-2026-10-01"
     },
     "F008": {
       "status": "merged-and-verified",
       "capability": "Correlated redacted observability with durable HTTP-to-message trace propagation.",
-      "evidence": [
-        "PR #14",
-        "packages/observability",
-        ".github/workflows/f008-observability.yml"
-      ]
+      "evidence": ["PR #14", "packages/observability", ".github/workflows/f008-observability.yml"],
+      "verificationRecord": "foundation-2026-10-01"
     },
     "F009": {
       "status": "merged-and-verified",
       "capability": "Fail-closed CI/security, CodeQL, dependency/secret scanning and independently verified runtime images.",
-      "evidence": [
-        "PR #16",
-        ".github/workflows/f009-foundation.yml",
-        "scripts/ci"
-      ]
+      "evidence": ["PR #16", ".github/workflows/f009-foundation.yml", "scripts/ci"],
+      "verificationRecord": "foundation-2026-10-01"
     },
     "F010": {
       "status": "merged-and-verified",
@@ -103,14 +78,16 @@
         ".github/workflows/f010-html-parity.yml",
         "docs/design/f010-reference-manifest.json",
         "scripts/f010"
-      ]
+      ],
+      "verificationRecord": "foundation-2026-10-01"
     }
   },
   "services": [
     {
       "id": "identity",
       "path": "services/identity",
-      "runtimeImplementation": "existing-health-only-shell",
+      "runtimeImplementation": "implemented-capability-runtime",
+      "acceptedCapabilities": ["identity-security-v1"],
       "database": "cw_identity",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
@@ -123,265 +100,311 @@
         "IdentityRefresh",
         "IdentityAudit"
       ],
-      "productDomainStatus": "identity-security-foundation-only"
+      "productDomainStatus": "identity-security-foundation-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "customer",
       "path": "services/customer",
       "runtimeImplementation": "existing-health-only-shell",
+      "acceptedCapabilities": [],
       "database": "cw_customer",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [
-        "ServiceMarker"
-      ],
-      "productDomainStatus": "foundation-shell-only"
+      "persistenceModels": ["ServiceMarker"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "vehicle",
       "path": "services/vehicle",
-      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedCapabilities": [],
       "database": "cw_vehicle",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [],
-      "productDomainStatus": "typescript-skeleton-only"
+      "persistenceModels": ["ServiceMarker"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "catalog",
       "path": "services/catalog",
       "runtimeImplementation": "existing-health-only-shell",
+      "acceptedCapabilities": [],
       "database": "cw_catalog",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [
-        "ServiceMarker",
-        "FoundationProbe",
-        "OutboxMessage"
-      ],
-      "productDomainStatus": "foundation-shell-only"
+      "persistenceModels": ["ServiceMarker", "FoundationProbe", "OutboxMessage"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "pricing",
       "path": "services/pricing",
-      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedCapabilities": [],
       "database": "cw_pricing",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [],
-      "productDomainStatus": "typescript-skeleton-only"
+      "persistenceModels": ["ServiceMarker"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "booking",
       "path": "services/booking",
       "runtimeImplementation": "existing-health-only-shell",
+      "acceptedCapabilities": [],
       "database": "cw_booking",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [
-        "ServiceMarker"
-      ],
-      "productDomainStatus": "foundation-shell-only"
+      "persistenceModels": ["ServiceMarker"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "scheduling",
       "path": "services/scheduling",
-      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedCapabilities": [],
       "database": "cw_scheduling",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [],
-      "productDomainStatus": "typescript-skeleton-only"
+      "persistenceModels": ["ServiceMarker"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "dispatch",
       "path": "services/dispatch",
-      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedCapabilities": [],
       "database": "cw_dispatch",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [],
-      "productDomainStatus": "typescript-skeleton-only"
+      "persistenceModels": ["ServiceMarker"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "workforce",
       "path": "services/workforce",
       "runtimeImplementation": "existing-health-only-shell",
+      "acceptedCapabilities": [],
       "database": "cw_workforce",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [
-        "ServiceMarker"
-      ],
-      "productDomainStatus": "foundation-shell-only"
+      "persistenceModels": ["ServiceMarker"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "billing",
       "path": "services/billing",
       "runtimeImplementation": "existing-health-only-shell",
+      "acceptedCapabilities": [],
       "database": "cw_billing",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [
-        "ServiceMarker"
-      ],
-      "productDomainStatus": "foundation-shell-only"
+      "persistenceModels": ["ServiceMarker"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "wallet",
       "path": "services/wallet",
-      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedCapabilities": [],
       "database": "cw_wallet",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [],
-      "productDomainStatus": "typescript-skeleton-only"
+      "persistenceModels": ["ServiceMarker"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "subscription",
       "path": "services/subscription",
-      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedCapabilities": [],
       "database": "cw_subscription",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [],
-      "productDomainStatus": "typescript-skeleton-only"
+      "persistenceModels": ["ServiceMarker"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "media",
       "path": "services/media",
       "runtimeImplementation": "existing-health-only-shell",
+      "acceptedCapabilities": [],
       "database": "cw_media",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [
-        "ServiceMarker"
-      ],
-      "productDomainStatus": "foundation-shell-only"
+      "persistenceModels": ["ServiceMarker"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "communications",
       "path": "services/communications",
       "runtimeImplementation": "existing-health-only-shell",
+      "acceptedCapabilities": [],
       "database": "cw_communications",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [
-        "ServiceMarker",
-        "InboxMessage",
-        "ProbeNotification"
-      ],
-      "productDomainStatus": "foundation-shell-only"
+      "persistenceModels": ["ServiceMarker", "InboxMessage", "ProbeNotification"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "reviews",
       "path": "services/reviews",
-      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedCapabilities": [],
       "database": "cw_reviews",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [],
-      "productDomainStatus": "typescript-skeleton-only"
+      "persistenceModels": ["ServiceMarker"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "support",
       "path": "services/support",
       "runtimeImplementation": "existing-health-only-shell",
+      "acceptedCapabilities": [],
       "database": "cw_support",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [
-        "ServiceMarker"
-      ],
-      "productDomainStatus": "foundation-shell-only"
+      "persistenceModels": ["ServiceMarker"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "geo",
       "path": "services/geo",
-      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedCapabilities": [],
       "database": "cw_geo",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [],
-      "productDomainStatus": "typescript-skeleton-only"
+      "persistenceModels": ["ServiceMarker"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "reporting",
       "path": "services/reporting",
       "runtimeImplementation": "existing-health-only-shell",
+      "acceptedCapabilities": [],
       "database": "cw_reporting",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [
-        "ServiceMarker",
-        "InboxMessage",
-        "ProbeProjection"
-      ],
-      "productDomainStatus": "foundation-shell-only"
+      "persistenceModels": ["ServiceMarker", "InboxMessage", "ProbeProjection"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     },
     {
       "id": "configuration",
       "path": "services/configuration",
-      "runtimeImplementation": "directory-and-typescript-skeleton-only",
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedCapabilities": [],
       "database": "cw_configuration",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": [],
-      "productDomainStatus": "typescript-skeleton-only"
+      "persistenceModels": ["ServiceMarker"],
+      "productDomainStatus": "foundation-shell-only",
+      "runtimeAcceptance": "not-verified-on-current-candidate"
     }
   ],
   "applications": {
     "customer-web": {
-      "status": "golden-html-prototype-only",
+      "status": "react-session-demo-partially-implemented",
       "evidence": [
-        "apps/customer-web/README.md",
-        "apps/customer-web/prototype/index.html",
-        "design/reference/approved/washgo-payments-interactive.html"
-      ]
+        "apps/customer-web/src/app/CustomerShell.tsx",
+        "docs/customer/C014_BOOKING_CONFIRMATION.md",
+        "docs/customer/C013_BOOKING_REVIEW.md",
+        "apps/customer-web/prototype/index.html"
+      ],
+      "businessIntegration": "not-implemented",
+      "productionReady": false,
+      "currentCandidateAcceptance": "not-verified-on-current-candidate"
     },
     "operator-web": {
-      "status": "planned-boundary-only",
+      "status": "technical-boot-shell-only",
       "evidence": [
+        "apps/operator-web/src/index.ts",
         "apps/operator-web/README.md",
         "design/reference/approved/washgo-technician-interactive.html"
-      ]
+      ],
+      "businessIntegration": "not-implemented",
+      "productionReady": false,
+      "currentCandidateAcceptance": "not-verified-on-current-candidate"
     },
     "admin-web": {
-      "status": "planned-boundary-only",
+      "status": "technical-boot-shell-only",
       "evidence": [
+        "apps/admin-web/src/index.ts",
         "apps/admin-web/README.md",
         "design/reference/approved/washgo-admin-prototype.html"
-      ]
+      ],
+      "businessIntegration": "not-implemented",
+      "productionReady": false,
+      "currentCandidateAcceptance": "not-verified-on-current-candidate"
     },
     "api-gateway": {
       "status": "foundation-gateway-runtime",
-      "evidence": [
-        "apps/api-gateway",
-        ".github/workflows/f007-gateway.yml"
-      ]
+      "evidence": ["apps/api-gateway", ".github/workflows/f007-gateway.yml"],
+      "businessIntegration": "not-implemented",
+      "productionReady": false,
+      "currentCandidateAcceptance": "not-verified-on-current-candidate"
     }
   },
   "governance": {
     "branchProtection": "not-enforced",
     "rulesets": 0,
-    "note": "Observed from the GitHub repository API on 2026-10-01: main reports protected=false and the repository ruleset collection is empty. This is external repository state and requires X001 administration capability to change."
+    "note": "Observed through GitHub on 2026-10-05: main protected=false and no repository rulesets. The branch-administration endpoint returns 403 for the available connector. This external observation is not proof that branch protection was configured by W01-E.",
+    "observedAt": "2026-10-05"
+  },
+  "currentCandidateAcceptance": "not-verified-on-current-candidate",
+  "verificationRecords": {
+    "foundation-2026-10-01": {
+      "date": "2026-10-01",
+      "sourceSha": "f364792d78cf572444df8093c2e4c6315becdae9",
+      "scope": "historical-F001-F010-foundation",
+      "appliesToCurrentCandidate": false,
+      "evidence": ["docs/VERIFICATION.md", "docs/F010_IMPLEMENTATION.md"],
+      "note": "Preserves the source-dated X002 foundation record. Historical F001-F010 acceptance does not certify the W01 runtime onboarding candidate or product integration."
+    }
+  },
+  "runtimeInventory": {
+    "services": 19,
+    "runtimeServices": 19,
+    "foundationShells": 18,
+    "legacyFoundationShells": 9,
+    "onboardedFoundationShells": 9,
+    "capabilityRuntimes": 1,
+    "skeletons": 0
   }
 }

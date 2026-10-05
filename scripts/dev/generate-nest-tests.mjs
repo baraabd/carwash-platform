@@ -6,10 +6,16 @@
  * compiles, the real HTTP adapter boots, liveness/readiness stay distinct and a
  * foundation shell refuses to advertise business readiness.
  */
-import { mkdir, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
+import {
+  generationOptions,
+  generationServices,
+  writeGeneratedFiles,
+  checkGeneratedFiles,
+} from './service-template.mjs';
 import path from 'node:path';
 import { format } from 'prettier';
-import { ROOT, SERVICES } from '../acceptance/lib/context.mjs';
+import { ROOT } from '../acceptance/lib/context.mjs';
 
 const spec = (service) => `import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -170,9 +176,12 @@ test('${service}: the postgres probe is wired to this service own client', async
 });
 `;
 
-for (const service of SERVICES) {
-  const dir = path.join(ROOT, 'services', service, 'test');
-  await mkdir(dir, { recursive: true });
+const options = generationOptions(process.argv.slice(2), ROOT);
+const catalog = JSON.parse(
+  await readFile(path.join(options.root, 'architecture/service-catalog.json'), 'utf8'),
+);
+const files = new Map();
+for (const { id: service } of generationServices(catalog, options)) {
   const output = await format(spec(service), {
     parser: 'typescript',
     singleQuote: true,
@@ -182,6 +191,12 @@ for (const service of SERVICES) {
     arrowParens: 'always',
     endOfLine: 'lf',
   });
-  await writeFile(path.join(dir, `${service}.nest.spec.ts`), output, 'utf8');
-  console.log(`wrote services/${service}/test/${service}.nest.spec.ts`);
+  files.set(`services/${service}/test/${service}.nest.spec.ts`, output);
+}
+
+if (options.checkOnly) {
+  await checkGeneratedFiles(options.root, files);
+  console.log(`Nest test layout check passed: ${files.size} service(s); owner tests preserved.`);
+} else {
+  for (const file of await writeGeneratedFiles(options.root, files)) console.log(`wrote ${file}`);
 }

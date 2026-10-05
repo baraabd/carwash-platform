@@ -8,7 +8,10 @@ await stage('plan', async (step) => {
   if (!/^[a-f0-9]{40}$/.test(base ?? '') || /^0+$/.test(base)) base = git('rev-parse', 'HEAD^');
   git('cat-file', '-e', `${base}^{commit}`);
   const files = git('diff', '--name-only', base, 'HEAD').split('\n').filter(Boolean);
-  const affected = affectedTargets(files, [...scope.targets, ...scope.apps]);
+  const owners = [
+    ...new Map([...scope.targets, ...scope.apps].map((owner) => [owner.id, owner])).values(),
+  ];
+  const affected = affectedTargets(files, owners);
   const targets = [...scope.targets].sort(
     (a, b) =>
       Number(affected.some((s) => s.id === b.id)) - Number(affected.some((s) => s.id === a.id)) ||

@@ -10,10 +10,13 @@
  */
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer } from 'node:net';
+import { readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registerSecret } from './exec.mjs';
+import { selectRuntimeServices } from '../../../architecture/runtime-lifecycle.mjs';
+import { validateActiveAllocation } from '../../parallel/E/allocate-environment.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -24,18 +27,25 @@ export const IMAGES = {
   node: 'node:24.21.0-bookworm-slim',
 };
 
-export const SERVICES = [
-  'identity',
-  'customer',
-  'catalog',
-  'workforce',
-  'booking',
-  'billing',
-  'media',
-  'communications',
-  'support',
-  'reporting',
-];
+const catalog = JSON.parse(
+  readFileSync(path.join(ROOT, 'architecture/service-catalog.json'), 'utf8'),
+);
+
+export function runtimeDatabaseServices(value) {
+  return selectRuntimeServices(value).map((service) => service.id);
+}
+
+export const SERVICES = Object.freeze(runtimeDatabaseServices(catalog));
+const databaseIdentities = Object.fromEntries(
+  selectRuntimeServices(catalog).map((service) => [
+    service.id,
+    {
+      database: service.database,
+      runtimeRole: service.runtimeRole,
+      migrationRole: service.migrationRole,
+    },
+  ]),
+);
 
 /** Services that take part in the Sprint 0.2 messaging slice. */
 export const BROKER_SERVICES = ['catalog', 'communications', 'reporting'];
@@ -61,16 +71,27 @@ async function freePort() {
 }
 
 export async function createRunContext(options = {}) {
+  const allocationFile = options.parallelAllocation ?? process.env.CW_PARALLEL_ALLOCATION;
+  const allocation = allocationFile
+    ? await validateActiveAllocation(allocationFile, options.parallelIdentity)
+    : null;
+  if (
+    allocation &&
+    options.runId &&
+    ![allocation.run, allocation.namespace].includes(options.runId)
+  ) {
+    throw new Error('PARALLEL_ALLOCATION_RUN_MISMATCH');
+  }
   const runId =
+    allocation?.namespace ??
     options.runId ??
     `${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${randomUUID().slice(0, 8)}`;
-  const project = `cw-s02-${runId}`.toLowerCase();
+  if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) throw new Error('INVALID_ACCEPTANCE_RUN_ID');
+  const project = allocation?.composeProject ?? `cw-s02-${runId}`.toLowerCase();
 
-  const [pgPort, rabbitPort, rabbitMgmtPort] = await Promise.all([
-    freePort(),
-    freePort(),
-    freePort(),
-  ]);
+  const [pgPort, rabbitPort, rabbitMgmtPort] = allocation
+    ? [allocation.ports.postgres, allocation.ports.rabbitmq, allocation.ports.rabbitmqManagement]
+    : await Promise.all([freePort(), freePort(), freePort()]);
 
   const credentials = {
     postgresBootstrap: password(),
@@ -86,8 +107,9 @@ export async function createRunContext(options = {}) {
   }
   for (const value of Object.values(credentials)) registerSecret(value);
 
-  const workDir = path.join(ROOT, '.acceptance', runId);
-  const evidenceDir = path.join(ROOT, 'evidence', 'acceptance', runId);
+  const workDir = allocation?.paths.temporary ?? path.join(ROOT, '.acceptance', runId);
+  const evidenceDir =
+    allocation?.paths.artifacts ?? path.join(ROOT, 'evidence', 'acceptance', runId);
   await mkdir(workDir, { recursive: true });
   await mkdir(path.join(evidenceDir, 'logs'), { recursive: true });
 
@@ -104,10 +126,28 @@ export async function createRunContext(options = {}) {
     images: { ...IMAGES },
     resolvedDigests: {},
     ports: { postgres: pgPort, rabbitmq: rabbitPort, rabbitmqManagement: rabbitMgmtPort },
-    vhost: 'washgo-acceptance',
+    vhost: allocation?.broker.vhost ?? 'washgo-acceptance',
     credentials,
-    services: SERVICES,
-    brokerServices: BROKER_SERVICES,
+    services: [...SERVICES],
+    brokerServices: [...BROKER_SERVICES],
+    // Catalog role names are local to this run's isolated PostgreSQL container.
+    // No shared cluster or planned allocator test database is provisioned here.
+    effectiveDbIdentities: globalThis.structuredClone(databaseIdentities),
+    databaseScope: 'isolated-compose-project',
+    parallelAllocation: allocation
+      ? {
+          manifest: allocationFile,
+          namespace: allocation.namespace,
+          lane: allocation.lane,
+          wave: allocation.wave,
+          run: allocation.run,
+          browserProfile: allocation.paths.browserProfile,
+          queuePrefix: allocation.broker.queuePrefix,
+          objectPrefix: allocation.objectStore.prefix,
+          redisKeyPrefix: allocation.redis.keyPrefix,
+          evidenceScope: allocation.evidenceScope,
+        }
+      : null,
   };
 
   await writeEnvFile(context);
@@ -141,14 +181,18 @@ export async function writeEnvFile(context) {
 
 /** DSN for a service's APPLICATION identity (DML only, own database only). */
 export function appDsn(context, service) {
+  const identity = context.effectiveDbIdentities?.[service] ?? databaseIdentities[service];
+  if (!identity) throw new Error('UNKNOWN_DATABASE_SERVICE');
   const pw = encodeURIComponent(context.credentials[`${service}_db`]);
-  return `postgresql://cw_${service}_app:${pw}@127.0.0.1:${context.ports.postgres}/cw_${service}?schema=app`;
+  return `postgresql://${identity.runtimeRole}:${pw}@127.0.0.1:${context.ports.postgres}/${identity.database}?schema=app`;
 }
 
 /** DSN for a service's MIGRATION identity. Used only by migration jobs. */
 export function migrationDsn(context, service) {
+  const identity = context.effectiveDbIdentities?.[service] ?? databaseIdentities[service];
+  if (!identity) throw new Error('UNKNOWN_DATABASE_SERVICE');
   const pw = encodeURIComponent(context.credentials[`${service}_migration`]);
-  return `postgresql://cw_${service}_migrate:${pw}@127.0.0.1:${context.ports.postgres}/cw_${service}?schema=app`;
+  return `postgresql://${identity.migrationRole}:${pw}@127.0.0.1:${context.ports.postgres}/${identity.database}?schema=app`;
 }
 
 /** DSN for an arbitrary role/database pair, used by the negative isolation tests. */

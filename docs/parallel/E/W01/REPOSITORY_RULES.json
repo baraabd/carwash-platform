@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "status": "prepared-not-applied",
+  "observed": {
+    "mainProtected": false,
+    "rulesets": [],
+    "administrationEndpoint403": true
+  },
+  "target": "main",
+  "branchProtectionProposal": {
+    "required_status_checks": {
+      "strict": true,
+      "contexts": [
+        "Foundation release gate",
+        "F001 final-source acceptance",
+        "Frozen design reference",
+        "F010 parity harness gate",
+        "Static gates, builds and offline tests",
+        "Real PostgreSQL and RabbitMQ acceptance",
+        "Service image build and boot contract",
+        "Dependency and secret scanning",
+        "identity-security",
+        "gateway",
+        "F008 redaction trace metrics and runtime acceptance",
+        "customer-home",
+        "customer-vehicle",
+        "customer-garage",
+        "customer-care-packages",
+        "customer-extras",
+        "customer-location",
+        "customer-saved-addresses",
+        "customer-scheduling",
+        "customer-contact",
+        "customer-payment-method",
+        "customer-review",
+        "booking-confirmation"
+      ]
+    },
+    "enforce_admins": true,
+    "required_pull_request_reviews": {
+      "dismiss_stale_reviews": true,
+      "require_code_owner_reviews": true,
+      "required_approving_review_count": 1,
+      "require_last_push_approval": true
+    },
+    "restrictions": null,
+    "required_conversation_resolution": true,
+    "allow_force_pushes": false,
+    "allow_deletions": false
+  },
+  "ownerGuardRequiredWorkflow": {
+    "status": "not-configured",
+    "independentBootstrapPolicySHA": null,
+    "independentRegistrySHA256": null,
+    "independentWriterPlanSHA256": null,
+    "note": "Use an externally protected workflow/policy source; never trust this candidate to approve its own owner map. The initial registry proposal needs independent review before enforcement."
+  },
+  "reviewer": {
+    "login": null,
+    "status": "independent-human-required",
+    "sameAuthorApproval": false
+  },
+  "codeowners": "Existing .github/CODEOWNERS is frozen and preserved; no rewrite authorized.",
+  "ciCapacity": {
+    "oneHeavySlotPerWorkstation": true,
+    "hostedRunners": "Confirm current account capacity; each matrix runner is isolated."
+  }
+}
