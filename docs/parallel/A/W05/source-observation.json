@@ -1,0 +1,289 @@
+{
+  "schemaVersion": 1,
+  "task": "W05-A",
+  "phase": "ENTRY_PROPOSAL",
+  "implementationStatus": "BLOCKED",
+  "parentAcceptance": "NOT_ACCEPTED",
+  "observedTarget": {
+    "sha": "3ce756cd39a9b0c1013043cee0ca1bb183466da7",
+    "tree": "cc3517ec85525c7310fe340397506ef6be3fe0a9",
+    "observedAtUtc": "2026-10-05T18:03:35.605Z",
+    "acceptedWaveBase": false
+  },
+  "branch": "proposal/w05-A-payment-entry",
+  "sourceDeltaSinceW04Entry": {
+    "from": "1ec9d8aebf4470a2815471116643fa6ebe0d5a95",
+    "addedFiles": 31,
+    "insertions": 5168,
+    "deletions": 0,
+    "productSharedSchemaMigrationRegistryWorkflowChanges": 0,
+    "mergedProposalPRs": [56, 57, 58, 59, 60]
+  },
+  "priorA": {
+    "c014": {
+      "pr": 41,
+      "merge": "69d81a83a3409d0693272efeb19ebeb9805750f5"
+    },
+    "w04": {
+      "pr": 59,
+      "head": "71cb83eed14bfa2aa63dd000dddefe7af4782392",
+      "merge": "fd6aaf9e5f9bb2deba35ae176ffb830cca4e7ee0"
+    },
+    "registryAIntake": "stale; merged A packets are present but semantics remain unaccepted"
+  },
+  "registry": {
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "BASE_W02": null,
+    "BASE_W03": "ABSENT",
+    "BASE_W04": "ABSENT",
+    "BASE_W05": "ABSENT",
+    "acceptedNextWaveContracts": [],
+    "guestContractAccepted": false,
+    "writerRegistryStatus": "proposal-pending-independent-review",
+    "bootstrapLease": "expired by current user instruction, stale registry does not renew E permission"
+  },
+  "packages": {
+    "@carwash/contracts": "0.0.2",
+    "@carwash/event-contracts": "0.0.2",
+    "@carwash/api-clients": "0.0.1"
+  },
+  "businessClients": "export {}; no published business clients",
+  "currentProduct": {
+    "payment": "C014 session OrderHandoff",
+    "qrProofCancellationRefundReschedule": "no actual product implementation",
+    "relevantOwnerProductSchemas": "ServiceMarker only",
+    "operatorAdmin": "technical boots; businessReady false",
+    "productionReady": false
+  },
+  "paymera": {
+    "scope": "W01 B-02 OPEN; approved infrastructure/requirement relationship not supplied",
+    "visibleMethods": ["cash", "sham", "syriatel"],
+    "providerDossiers": "DOCUMENTATION_AND_ACCESS_PENDING; no actual test facility accepted",
+    "source": "docs/parallel/B/W01/POLICY_DECISIONS.md and B/E W04 W05 requests"
+  },
+  "publicProviderGetInspection": {
+    "dateUtc": "2026-10-05",
+    "sources": [
+      {
+        "url": "https://paymera.net/",
+        "result": "retrieved; partner API access advertised only"
+      },
+      {
+        "url": "https://shamcash.sy/",
+        "result": "retrieval timeout; no protocol claim"
+      },
+      {
+        "url": "https://www.syriatel.sy/services/syriatel-cash",
+        "result": "retrieved; public QR and merchant-history description only"
+      }
+    ],
+    "limit": "No accepted versioned protocols, scope, merchant access, status/refund connector or designated test facilities; no login/contact/account/credential/payment/refund operations."
+  },
+  "localToolchain": {
+    "expected": {
+      "node": "24.21.0",
+      "pnpm": "10.32.1"
+    },
+    "actual": {
+      "node": "24.19.0",
+      "pnpm": "11.25.0"
+    },
+    "verification": "FAIL 38/40, two runtime mismatches",
+    "configOnly": "PASS 39/39, runtime skipped"
+  },
+  "formatter": {
+    "version": "3.9.8",
+    "location": "standalone scratch archive, not repository dependency installation",
+    "archiveSha256": "c33e1990a784e5a4cbc357b0755dac69868eb80a4893940db483cbab4e8aa44f",
+    "repositoryDependencyFilesChanged": false
+  },
+  "localDiagnostics": [
+    {
+      "command": "node scripts/check-design-reference.mjs --base-ref 3ce756cd39a9b0c1013043cee0ca1bb183466da7",
+      "result": "PASS before and after edits, 10 artifacts/base comparison; exact reference preservation only",
+      "limit": "byte preservation, not pixels"
+    },
+    {
+      "command": "node scripts/f010/reference-registry.mjs --base-ref 3ce756cd39a9b0c1013043cee0ca1bb183466da7",
+      "result": "PASS three references and base comparison"
+    },
+    {
+      "command": "node architecture/implementation-status.mjs --self-test",
+      "result": "PASS source inventory + 9 adversarial; productionReady false"
+    },
+    {
+      "command": "node scripts/parallel/E/check-owners.mjs --inventory",
+      "result": "PASS proposal-inventory-only; historical source69d81a83"
+    }
+  ],
+  "existingCustomerUnitDiagnostic": {
+    "command": [
+      "node",
+      "--test",
+      "--test-reporter=tap",
+      "tests/unit/c001-customer-behavior-manifest.test.mjs",
+      "tests/unit/c002-customer-shell.test.mjs",
+      "tests/unit/c002-state-boundaries.test.mjs",
+      "tests/unit/c003-customer-home.test.mjs",
+      "tests/unit/c004-customer-vehicle.test.mjs",
+      "tests/unit/c005-customer-garage.test.mjs",
+      "tests/unit/c006-customer-care-packages.test.mjs",
+      "tests/unit/c007-customer-extras.test.mjs",
+      "tests/unit/c008-customer-location.test.mjs",
+      "tests/unit/c009-customer-saved-addresses.test.mjs",
+      "tests/unit/c010-customer-scheduling.test.mjs",
+      "tests/unit/c011-customer-contact.test.mjs",
+      "tests/unit/c012-customer-payment-method.test.mjs",
+      "tests/unit/c013-customer-review.test.mjs",
+      "tests/unit/c014-booking-confirmation.test.mjs"
+    ],
+    "exitCode": 0,
+    "source": "3ce756cd39a9b0c1013043cee0ca1bb183466da7",
+    "scope": "existing C001-C014 fixture/session unit diagnostics; not W05 business acceptance",
+    "summary": "1..304\n# tests 304\n# suites 0\n# pass 304\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 1325.536002"
+  },
+  "targetWorkflowSnapshot": {
+    "observedAtUtc": "2026-10-05T18:13:36.938Z",
+    "headSha": "3ce756cd39a9b0c1013043cee0ca1bb183466da7",
+    "runs": [
+      {
+        "id": 37352669631,
+        "name": "Reference guard (not release CI)",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37352669631"
+      },
+      {
+        "id": 37352669654,
+        "name": "F010 golden HTML parity",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37352669654"
+      },
+      {
+        "id": 37352669745,
+        "name": "F001 ownership and workspace acceptance",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37352669745"
+      },
+      {
+        "id": 37352669742,
+        "name": "F006 identity security acceptance",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37352669742"
+      },
+      {
+        "id": 37352669696,
+        "name": "F008 observability acceptance",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37352669696"
+      },
+      {
+        "id": 37352669679,
+        "name": "Sprint 0.2 CI",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37352669679"
+      },
+      {
+        "id": 37352669976,
+        "name": "F007 gateway contract acceptance",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37352669976"
+      },
+      {
+        "id": 37352669544,
+        "name": "F009 foundation verification",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37352669544"
+      }
+    ],
+    "scope": "all eight completed/success at this dated foundation snapshot; not W05 acceptance or independent approval"
+  },
+  "targetSecurityJobObservation": {
+    "observedAtUtc": "2026-10-05T18:11:37.857Z",
+    "headSha": "3ce756cd39a9b0c1013043cee0ca1bb183466da7",
+    "runId": 37352669544,
+    "jobId": 111907287552,
+    "name": "security",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/baraabd/carwash-platform/actions/runs/37352669544/job/111907287552",
+    "limit": "Supported run-jobs metadata only, not logs/provider evidence/whole release acceptance; no inherited historical failure."
+  },
+  "openPRSnapshot": {
+    "observedAtUtc": "2026-10-05T18:03:35.461Z",
+    "prs": [],
+    "limit": "dated entry snapshot, not current perpetual absence"
+  },
+  "w05Acceptance": {
+    "executedNewCases": 0,
+    "status": "ALL UNEXECUTED",
+    "productionAcceptancePasses": 0,
+    "proposedCaseFamilies": 38,
+    "caseIdRange": "W05-A-001 through W05-A-038"
+  },
+  "w06Requests": {
+    "status": "PROPOSED_NOT_ACCEPTED",
+    "executedNewCases": 0,
+    "proposedGateFamilies": 7,
+    "caseIdRange": "W06-PC-01 through W06-PC-07"
+  },
+  "migrations": [],
+  "ownedRuntimeResources": [],
+  "appBuildBrowserVisualDeviceBusinessDatabaseBrokerProviderStagingLiveMoneyDeployment": "NOT_RUN",
+  "nextAction": "Reviewed predecessor bases/contracts/policies/provider facilities, real narrow producers then consumers and E serialized gates; no W06 implementation.",
+  "proposalChangedPaths": [
+    "docs/parallel/A/W05/README.md",
+    "docs/parallel/A/W05/PAYMENT_RECOVERY_AND_ACTIONS.md",
+    "docs/parallel/A/W05/W06_CONTRACT_REQUESTS.md",
+    "docs/parallel/A/W05/CHECKPOINT.md",
+    "docs/parallel/A/W05/source-observation.json",
+    "tests/parallel/A/W05/ACCEPTANCE_SPECIFICATIONS.md"
+  ],
+  "proposalFileChecks": {
+    "observedAtUtc": "2026-10-05T18:13:04.886Z",
+    "scope": {
+      "command": "node scripts/parallel/E/check-owners.mjs --base-ref 3ce756cd39a9b0c1013043cee0ca1bb183466da7 --worktree --lane A",
+      "exitCode": 0,
+      "result": "six permanent A paths, zero findings; no base/independent approval"
+    },
+    "formatter": {
+      "command": "node /workspace/scratch/6a9547568741/w05-tools/package/bin/prettier.cjs --check --ignore-path /dev/null docs/parallel/A/W05/README.md docs/parallel/A/W05/PAYMENT_RECOVERY_AND_ACTIONS.md docs/parallel/A/W05/W06_CONTRACT_REQUESTS.md docs/parallel/A/W05/CHECKPOINT.md docs/parallel/A/W05/source-observation.json tests/parallel/A/W05/ACCEPTANCE_SPECIFICATIONS.md",
+      "exitCode": 0,
+      "result": "all six files conform; write used same explicit files and --write in place of --check"
+    },
+    "whitespace": {
+      "command": "git diff --cached --check",
+      "exitCode": 0
+    },
+    "documentInventory": {
+      "command": "python - <<'PY'\nimport json,re\nfrom pathlib import Path\ns=Path('tests/parallel/A/W05/ACCEPTANCE_SPECIFICATIONS.md').read_text()\nids=re.findall(r'\\| (W05-A-\\d{3})',s)\nassert ids==[f'W05-A-{i:03d}' for i in range(1,39)]\nw=Path('docs/parallel/A/W05/W06_CONTRACT_REQUESTS.md').read_text()\nwids=re.findall(r'\\| (W06-PC-\\d{2})',w)\nassert wids==[f'W06-PC-{i:02d}' for i in range(1,8)]\nd=json.loads(Path('docs/parallel/A/W05/source-observation.json').read_text())\nassert d['w05Acceptance']['executedNewCases']==0 and d['w06Requests']['executedNewCases']==0\nassert d['targetSecurityJobObservation']['conclusion']=='success'\nprint('PASS: JSON parse;38 unique W05/7 W06 proposed families;all UNEXECUTED. Document inventory only, not a runtime test.')\nPY",
+      "exitCode": 0,
+      "scope": "one-off JSON/ID document inventory, no runtime acceptance"
+    }
+  },
+  "latestPreSubmissionRemoteObservation": {
+    "observedAtUtc": "2026-10-05T18:12:18.765Z",
+    "targetSha": "3ce756cd39a9b0c1013043cee0ca1bb183466da7",
+    "openPRsObservedAtUtc": "2026-10-05T18:12:19.215Z",
+    "openPRNumbers": [],
+    "branchNameAbsentObservedAtUtc": "2026-10-05T18:12:19.660Z",
+    "acceptedBASE_W05": false
+  },
+  "prBinding": {
+    "headAndTree": "Exact final full SHAs bound by draft PR, not embedded self-referentially.",
+    "candidateAcceptance": "NONE",
+    "eligibleIndependentReview": "PENDING"
+  },
+  "proposalQA": {
+    "scope": "read-only agent QA, not eligible independent approval",
+    "changes": "Separated internal Identity conversation membership binding from minimal public participant view; narrowed reschedule-UI absence to inspected source."
+  }
+}
