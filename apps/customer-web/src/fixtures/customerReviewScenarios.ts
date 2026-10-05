@@ -17,7 +17,8 @@ export type ReviewScenarioId =
   | 'booking-review-full'
   | 'booking-review-long'
   | 'booking-review-repeat'
-  | 'booking-review-expired-slot';
+  | 'booking-review-expired-slot'
+  | 'booking-review-collections-full';
 
 /** The valid Contact fixture (place, appointment, name, number, both notes) with a method. */
 function review(changes: Partial<BookingDraft>, mode: 'standard' | 'repeat' = 'standard') {
@@ -79,6 +80,30 @@ const builders: Readonly<Record<ReviewScenarioId, () => CustomerSessionState>> =
     scheduleDay: '2026-09-20',
     slot: { date: '2026-09-20', time: '12:00' },
   }),
+  // C014: a full garage (30) and address book (20). Confirming still creates the
+  // order; neither save happens and the customer is told so.
+  'booking-review-collections-full': () => {
+    const state = review({ plate: '9999 حمص', addressLabel: 'عنوان جديد' })();
+    return {
+      ...state,
+      vehicles: Array.from({ length: 30 }, (_, index) => ({
+        id: `CAR-${index + 1}`,
+        type: 'sedan' as const,
+        name: `سيارة تجريبية ${index + 1}`,
+        plate: `${1000 + index}`,
+        color: '',
+      })),
+      vehicleSequence: 30,
+      addresses: Array.from({ length: 20 }, (_, index) => ({
+        id: `ADR-${index + 1}`,
+        label: 'عنوان محفوظ',
+        address: `دمشق، عنوان تجريبي رقم ${index + 1}`,
+        locationNote: '',
+        place: null,
+      })),
+      addressSequence: 20,
+    };
+  },
 };
 
 export const reviewScenarioIds = Object.keys(builders) as readonly ReviewScenarioId[];

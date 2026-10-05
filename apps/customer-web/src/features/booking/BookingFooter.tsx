@@ -14,8 +14,13 @@ import type { PriceBreakdown } from './priceBreakdown';
  * There is no third shape, so an apparently working button cannot be wired to nothing.
  */
 type FooterAction =
-  | { readonly onNext: () => void; readonly unavailableReasonId?: never }
-  | { readonly onNext?: never; readonly unavailableReasonId: string };
+  | {
+      readonly onNext: () => void;
+      readonly unavailableReasonId?: never;
+      /** A visible explanation of what the action does (Review's confirmation). */
+      readonly describedBy?: string;
+    }
+  | { readonly onNext?: never; readonly unavailableReasonId: string; readonly describedBy?: never };
 
 type BookingFooterProps = FooterAction & {
   readonly total: number;
@@ -47,6 +52,7 @@ export function BookingFooter({
   nextIcon = 'arrow',
   onNext,
   unavailableReasonId,
+  describedBy,
 }: BookingFooterProps) {
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [breakdownOpen, setBreakdownOpen] = useState(false);
@@ -88,6 +94,7 @@ export function BookingFooter({
           <button
             className="btn primary-next"
             type="button"
+            aria-describedby={describedBy}
             onPointerDown={spawnTapWave}
             onClick={onNext}
           >

@@ -11,6 +11,7 @@ import { returnToVehicleStep } from '../state/careStep';
 import { returnToCareStep } from '../state/locationStep';
 import { returnToTimeStep } from '../state/contactStep';
 import { returnToContactStep } from '../state/paymentStep';
+import { clearPendingHandoff } from '../state/bookingConfirmation';
 import { endReviewEdit, leaveReviewEdit, returnToPaymentStep } from '../state/reviewStep';
 import { returnToLocationStep } from '../state/scheduleStep';
 import { leaveVehicleStep } from '../state/vehicleStep';
@@ -121,7 +122,9 @@ function ContextHeader({ kind, portedStep }: ContextHeaderProps) {
       {kind === 'booking' ? (
         <BookingExitNotice />
       ) : (
-        <button className="icon-btn" type="button" aria-label={current.actionLabel}>
+        // Order details and payment help belong to the later tracking and checkout
+        // sprints; until then the control is shown but natively unavailable.
+        <button className="icon-btn" type="button" aria-label={current.actionLabel} disabled>
           {current.action}
         </button>
       )}
@@ -207,6 +210,13 @@ export function CustomerShell() {
   useLayoutEffect(() => {
     if (navigationType === 'POP' || !booking) run((current) => ({ state: endReviewEdit(current) }));
   }, [location, navigationType, booking, run]);
+
+  // A confirmation's handoff is followed once the route has left Review.
+  useLayoutEffect(() => {
+    if (location.pathname !== '/book/6') {
+      run((current) => ({ state: clearPendingHandoff(current) }));
+    }
+  }, [location, run]);
 
   // After an in-app route change, start the new screen at its top and move focus to
   // its heading, as the reference does. The first page load is left alone so the
