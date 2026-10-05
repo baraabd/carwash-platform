@@ -1,7 +1,11 @@
 import {
+  blankBookingDraft,
   BOOKING_FIRST_STEP,
   BOOKING_REVIEW_STEP,
+  isCareExtraId,
+  isCarePackageId,
   isPaymentMethodId,
+  isVehicleTypeId,
   resolveBookingEntryStep,
   type BookingDraft,
   type BookingSlot,
@@ -78,21 +82,27 @@ function draftFromOrder(
   now: Date,
   slot: BookingSlot | null,
 ): BookingDraft {
+  // A stored order is read like the reference's cleanDraft(): an unknown size or
+  // package falls back to the blank draft's, unknown add-ons are dropped and each
+  // add-on is kept once. Review shows the result before anything is confirmed.
+  const blank = blankBookingDraft();
+  const place = order.confirmation?.place ?? null;
   return {
-    vehicleType: order.vehicleType,
+    vehicleType: isVehicleTypeId(order.vehicleType) ? order.vehicleType : blank.vehicleType,
     // An order keeps its own copy of the car; it is not linked to a saved one.
     carId: null,
     carName: order.carName,
     plate: order.plate,
     color: order.color,
     saveVehicle: true,
-    service: order.service,
-    extras: [...order.extras],
+    service: isCarePackageId(order.service) ? order.service : blank.service,
+    extras: Array.isArray(order.extras) ? [...new Set(order.extras.filter(isCareExtraId))] : [],
     address: order.address,
     addressLabel: order.addressLabel,
     locationNote: order.locationNote,
-    // An order keeps the written address only; the pin starts from the default.
-    place: null,
+    // An order confirmed in this session recorded its pin; older orders keep the
+    // written address only and the pin starts from the default.
+    place: place ? { ...place } : null,
     saveAddress: true,
     scheduleDay: slot?.date ?? defaultScheduleDay(now),
     slot,
