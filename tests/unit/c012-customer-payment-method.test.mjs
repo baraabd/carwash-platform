@@ -228,7 +228,9 @@ test('C012 architecture: Payment is mounted; Review (C013) follows it', () => {
   const shell = read('app/CustomerShell.tsx');
   assert.ok(shell.includes("'/book/5'"));
   assert.ok(shell.includes("'/book/6'"));
-  assert.match(read('features/booking/review/ReviewStep.tsx'), /unavailableReasonId=/);
+  // C014 superseded "confirmation stays unavailable": Review's action is the explicit
+  // demo confirmation (tests/unit/c014-booking-confirmation.test.mjs).
+  assert.match(read('features/booking/review/ReviewStep.tsx'), /onNext={confirm}/);
 });
 
 test('C012 safety: no payment execution, QR generation, storage, network or order creation', () => {

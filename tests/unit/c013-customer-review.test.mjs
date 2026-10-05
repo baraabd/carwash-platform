@@ -24,8 +24,9 @@ import {
 } from '../../apps/customer-web/src/features/booking/bookingFlow.ts';
 import { buildPriceBreakdown } from '../../apps/customer-web/src/features/booking/priceBreakdown.ts';
 import {
-  CONFIRMATION_UNAVAILABLE_TEXT,
+  CONFIRMATION_DISCLOSURE_TEXT,
   REVIEW_EDIT_ACTIONS,
+  WALLET_PAYMENT_NOTE,
   buildReviewViewModel,
 } from '../../apps/customer-web/src/features/booking/review/reviewViewModel.ts';
 import {
@@ -203,13 +204,17 @@ test('C013 summary: source order, labels and values of a standard cash review', 
   assert.equal(view.confirmLabel, 'تأكيد الحجز التجريبي');
 });
 
-test('C013 summary: wallet methods use the source wording; the repeat mode its heading', () => {
+// C014 superseded the wallet wording: the reference promises a QR after review and
+// confirmation; none is shown in this build, so a wallet keeps no QR promise and the
+// one confirm label is «تأكيد الحجز التجريبي» (docs/customer/C014_BOOKING_CONFIRMATION.md).
+test('C013 summary: wallet methods make no QR promise; the repeat mode its heading', () => {
   for (const id of ['booking-review-sham', 'booking-review-syriatel']) {
     const state = reviewScenarioState(id);
     const view = buildReviewViewModel(state.draft, state.bookingMode);
-    assert.equal(view.payment.detail, 'QR بعد المراجعة · التحقق قبل بدء الخدمة');
-    assert.equal(view.paymentNote, 'يظهر QR بعد التأكيد. الدفع لا يُعتمد دون مطابقة.');
-    assert.equal(view.confirmLabel, 'تأكيد الحجز وعرض QR');
+    assert.equal(view.payment.detail, 'المحفظة غير مفعّلة بعد · لا تحويل الآن');
+    assert.equal(view.paymentNote, WALLET_PAYMENT_NOTE);
+    assert.equal(view.confirmLabel, 'تأكيد الحجز التجريبي');
+    assert.ok(!/QR بعد|وعرض QR/.test(JSON.stringify(view)), 'no QR promise');
   }
   assert.equal(
     buildReviewViewModel(reviewScenarioState('booking-review-sham').draft, 'standard').payment.icon,
@@ -592,24 +597,25 @@ test('C013 review commands never touch orders, garage, address book or profile',
   }
 });
 
-test('C013 confirmation stays unavailable: no order, payment, storage or network', () => {
+// C014 superseded "confirmation stays unavailable": Review's action is now the explicit
+// demo confirmation, owned and tested by C014 (tests/unit/c014-booking-confirmation.test.mjs).
+// What remains C013's: Review's own code creates, saves and sends nothing; the one
+// effect is the confirm command it hands to the session.
+test('C013 Review has no side effect of its own; its action is the C014 confirm command', () => {
   const step = read('features/booking/review/ReviewStep.tsx');
-  assert.match(step, /unavailableReasonId=\{CONFIRMATION_REASON_ID\}/);
-  assert.match(
-    step,
-    /<span id=\{CONFIRMATION_REASON_ID\}>\{CONFIRMATION_UNAVAILABLE_TEXT\}<\/span>/,
+  assert.ok(step.includes('onNext={confirm}'));
+  assert.ok(
+    step.includes('confirmBooking(current, { ...reviewed, now, catalog: confirmationCatalog })'),
   );
-  assert.ok(!/onNext=/.test(step), 'Review passes no Next handler');
-  assert.equal(
-    CONFIRMATION_UNAVAILABLE_TEXT,
-    'مسودة تجريبية لهذه الجلسة فقط. تأكيد الحجز غير متاح بعد.',
+  assert.ok(
+    step.includes('<span id={CONFIRMATION_DISCLOSURE_ID}>{CONFIRMATION_DISCLOSURE_TEXT}</span>'),
   );
-  assert.ok(!reference.includes(CONFIRMATION_UNAVAILABLE_TEXT), 'a C013 disclosure, not a quote');
+  assert.ok(!reference.includes(CONFIRMATION_DISCLOSURE_TEXT), 'a C014 disclosure, not a quote');
   const footer = read('features/booking/BookingFooter.tsx');
   assert.match(
     footer,
     /type="button"\s+disabled\s+aria-describedby=\{unavailableReasonId\}/,
-    'native disabled with a described reason',
+    'the unavailable footer action is still native disabled with a described reason',
   );
   const owned = [
     step,
@@ -635,8 +641,11 @@ test('C013 accessibility: one H1, native edit buttons with descriptive names, LT
   assert.equal(step.match(/<h1\b/g)?.length, 1);
   assert.match(step, /<h1 tabIndex=\{-1\}>/);
   assert.match(step, /className="edit"\s+type="button"\s+aria-label=\{action\.label\}/);
-  assert.match(step, /<p className="ltr">\{view\.contact\.phone\}<\/p>/);
-  assert.match(step, /<span className="plate-mini" dir="auto">/);
+  // C014 moved the receipt markup into the shared widget, unchanged.
+  const receipt = read('widgets/order-receipt/Receipt.tsx');
+  assert.ok(step.includes('<Receipt view={view} action={editButton} />'));
+  assert.ok(receipt.includes('<p className="ltr">{view.contact.phone}</p>'));
+  assert.ok(receipt.includes('<span className="plate-mini" dir="auto">'));
   assert.ok(!/role="button"|<div[^>]*onClick/.test(step), 'native buttons only');
 });
 

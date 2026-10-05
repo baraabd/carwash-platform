@@ -1,0 +1,110 @@
+name: C014 customer booking confirmation acceptance
+# The C002-C012 browser suites run in the C012 workflow and the Review suite in the
+# C013 workflow, both triggered by every apps/customer-web/** change; this workflow
+# adds the confirmation transition, its units and its browser journeys.
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/customer-web/**'
+      - 'scripts/c004/**'
+      - 'scripts/c011/**'
+      - 'scripts/c014/**'
+      - 'scripts/f010/**'
+      - 'tests/unit/c009-*.test.mjs'
+      - 'tests/unit/c013-*.test.mjs'
+      - 'tests/unit/c014-*.test.mjs'
+      - 'design/reference/approved/washgo-payments-interactive.html'
+      - 'docs/design/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/c014-booking-confirmation.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/customer-web/**'
+      - 'scripts/c004/**'
+      - 'scripts/c011/**'
+      - 'scripts/c014/**'
+      - 'tests/unit/c014-*.test.mjs'
+      - '.github/workflows/c014-booking-confirmation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: c014-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  booking-confirmation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Frozen install and design authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          pnpm install --frozen-lockfile
+          pnpm check:design-reference
+          pnpm check:f010-references
+          node scripts/c001/customer-behavior-manifest.mjs
+      - name: Static, boundary and unit acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm format:check
+          pnpm lint
+          pnpm --filter @carwash/customer-web typecheck
+          pnpm --filter @carwash/customer-web build
+          node scripts/c002/check-feature-boundaries.mjs
+          node --test --test-reporter=spec \
+            tests/unit/c001-customer-behavior-manifest.test.mjs \
+            tests/unit/c002-customer-shell.test.mjs \
+            tests/unit/c002-state-boundaries.test.mjs \
+            tests/unit/c003-customer-home.test.mjs \
+            tests/unit/c004-customer-vehicle.test.mjs \
+            tests/unit/c005-customer-garage.test.mjs \
+            tests/unit/c006-customer-care-packages.test.mjs \
+            tests/unit/c007-customer-extras.test.mjs \
+            tests/unit/c008-customer-location.test.mjs \
+            tests/unit/c009-customer-saved-addresses.test.mjs \
+            tests/unit/c010-customer-scheduling.test.mjs \
+            tests/unit/c011-customer-contact.test.mjs \
+            tests/unit/c012-customer-payment-method.test.mjs \
+            tests/unit/c013-customer-review.test.mjs \
+            tests/unit/c014-booking-confirmation.test.mjs \
+            tests/unit/f008-recovery-scope.test.mjs
+      - name: Confirmation journeys against the approved reference
+        shell: bash
+        env:
+          C014_ORIGIN: http://127.0.0.1:4174
+          C014_EVIDENCE_DIR: ${{ runner.temp }}/c014-evidence
+          C014_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          pnpm exec playwright install --with-deps chromium
+          pnpm --filter @carwash/customer-web preview --host 127.0.0.1 --port 4174 --strictPort > "$RUNNER_TEMP/c014-vite.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for _ in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:4174/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:4174/ >/dev/null
+          node scripts/c014/browser-acceptance.mjs
+      - name: Upload candidate and handoff evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: c014-booking-confirmation-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/c014-evidence
+          if-no-files-found: error
+          retention-days: 14

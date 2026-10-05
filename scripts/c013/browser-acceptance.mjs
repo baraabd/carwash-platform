@@ -2,21 +2,26 @@
 // compared with the read-only approved prototype under the F010 rendering contract.
 //
 // DECLARED DIFFERENCES (fixed before any comparison runs; see
-// docs/customer/C013_BOOKING_REVIEW.md). They apply to the Review screen only:
+// docs/customer/C013_BOOKING_REVIEW.md and, since C014 enabled confirmation,
+// docs/customer/C014_BOOKING_CONFIRMATION.md). They apply to the Review screen only:
 //
-//   1. The second line of `.review-note`. The reference says the confirm button
-//      creates a request on the device; confirmation is not available in this
-//      build, so the candidate shows C013's disclosure instead (DISCLOSURE below).
-//   2. `.primary-next` on Review is natively disabled, so it carries the
-//      reference's own `button:disabled` rule (opacity .45, cursor not-allowed;
-//      the cursor is inherited by the button's contents).
+//   1. The second line of `.review-note`: the reference says the confirm button
+//      creates a request on the device; the candidate states that confirmation
+//      creates an order for this session only (DISCLOSURE below).
+//   2. Wallet methods only (C014): no QR is shown in this build, so the reference's
+//      QR promises are replaced — the note's first line, the payment line's detail
+//      and the footer label «تأكيد الحجز وعرض QR» (WALLET_TEXT, FOOTER_TEXT).
 //
-// For a Review state the DOM comparison is strict except for exactly these two
-// differences, which must be present as declared. Pixels are recorded twice:
+// C013's disabled-button difference ended with C014: the action is enabled and
+// its computed style must equal the reference's again.
+//
+// For a Review state the DOM comparison is strict except for exactly these
+// replacements; the disclosure must be present. Pixels are recorded twice:
 //   - FULL SCREEN, unmasked: recorded with its changed-pixel count, never claimed
 //     as zero difference;
-//   - OWNED AREA: the same full-page capture with `.review-note` and `.primary-next`
-//     masked on BOTH pages, compared with the unchanged strict F010 thresholds.
+//   - OWNED AREA: the same full-page capture with `.review-note`, `.primary-next`
+//     and, for a wallet, the payment receipt line masked on BOTH pages, compared
+//     with the unchanged strict F010 thresholds.
 // Every other state (each step opened for editing, the journey) is compared
 // strictly and in full with the shared harness.
 import assert from 'node:assert/strict';
@@ -50,12 +55,27 @@ const evidence = process.env.C013_EVIDENCE_DIR
 mkdirSync(evidence, { recursive: true });
 
 const REFERENCE_SENTENCE = 'زر التأكيد ينشئ طلبًا على جهازك، وليس فاتورة أو حجزًا فعليًا.';
-const DISCLOSURE = 'مسودة تجريبية لهذه الجلسة فقط. تأكيد الحجز غير متاح بعد.';
-const DECLARED_STYLE = {
-  opacity: { reference: '1', candidate: '0.45' },
-  cursor: { reference: 'pointer', candidate: 'not-allowed' },
-};
+const DISCLOSURE = 'ينشئ التأكيد طلبًا تجريبيًا لهذه الجلسة فقط، بلا حجز أو دفع.';
+/** [reference, candidate] for a wallet method (C014). */
+const WALLET_TEXT = [
+  [
+    'يظهر QR بعد التأكيد. الدفع لا يُعتمد دون مطابقة.',
+    'لا يظهر QR في هذا النموذج. لا يُحصَّل أي مبلغ.',
+  ],
+  ['QR بعد المراجعة · التحقق قبل بدء الخدمة', 'المحفظة غير مفعّلة بعد · لا تحويل الآن'],
+];
+const FOOTER_TEXT = ['تأكيد الحجز وعرض QR', 'تأكيد الحجز التجريبي'];
 const OWNED_AREA_MASK = ['.review-note', '.primary-next'];
+/**
+ * The payment receipt line (the receipt's sixth child), masked for a wallet only.
+ * First declared as the detail `<p>` alone; run review-sham@320 then showed one
+ * owned pixel at (252, 757) one column right of that box (x 89–252 on both pages,
+ * identical geometry): ink of the replaced reference text's first glyph overhanging
+ * its own box. The whole line is masked instead; its icon and method name stay
+ * strictly compared in the DOM snapshot.
+ */
+const WALLET_DETAIL_MASK = '.receipt > :nth-child(6)';
+const isWalletReview = (mainText) => mainText.includes(WALLET_TEXT[1][0]);
 const RETURN_LABEL = 'العودة إلى المراجعة';
 const EDIT_LABELS = [
   'تعديل السيارة',
@@ -137,8 +157,10 @@ const summary = {
   source: { head: process.env.GITHUB_SHA ?? process.env.C013_SOURCE_SHA ?? 'local' },
   declaredDifferences: {
     reviewNoteSecondLine: { reference: REFERENCE_SENTENCE, candidate: DISCLOSURE },
-    disabledConfirmStyle: DECLARED_STYLE,
+    walletText: WALLET_TEXT,
+    walletFooterLabel: FOOTER_TEXT,
     ownedAreaMask: OWNED_AREA_MASK,
+    walletOwnedAreaMask: WALLET_DETAIL_MASK,
   },
   reviewVisual: [],
   strictVisual: [],
@@ -230,6 +252,20 @@ function observe(page) {
  */
 const withoutLoadFocus = ({ focused: _focused, ...rest }) => rest;
 
+/**
+ * The reference's observable state as the candidate is declared to show it: the
+ * wallet payment line and the wallet label replaced (C014 declared differences 2).
+ * Nothing else is rewritten.
+ */
+function asDeclared(observation) {
+  const [detailFrom, detailTo] = WALLET_TEXT[1];
+  return {
+    ...observation,
+    receipt: observation.receipt.map((line) => line.replace(detailFrom, detailTo)),
+    nextLabel: observation.nextLabel === FOOTER_TEXT[0] ? FOOTER_TEXT[1] : observation.nextLabel,
+  };
+}
+
 /** Opens both pages on one scenario at a booking step (or Home when step is null). */
 async function openPair(context, server, scenario, step) {
   const state = initialSessionState('#/?scenario=' + scenario);
@@ -268,7 +304,7 @@ async function both(pair, action, label, { focus = true } = {}) {
   const pick = focus ? (state) => state : withoutLoadFocus;
   assert.deepEqual(
     pick(await observe(pair.candidate.page)),
-    pick(await observe(pair.reference.page)),
+    pick(asDeclared(await observe(pair.reference.page))),
     label + ': observable state',
   );
 }
@@ -290,28 +326,23 @@ async function compareReviewDom(reference, candidate, label, selectors = SELECTO
   const a = await snapshot(reference, selectors);
   const b = await snapshot(candidate, selectors);
   assert.ok(a.mainText.includes(REFERENCE_SENTENCE), label + ': reference sentence present');
-  assert.equal(
-    b.mainText,
-    a.mainText.replace(REFERENCE_SENTENCE, DISCLOSURE),
-    label + ': main text differs only by the declared disclosure',
-  );
+  const wallet = isWalletReview(a.mainText);
+  let expectedMain = a.mainText.replace(REFERENCE_SENTENCE, DISCLOSURE);
+  let expectedFooter = a.footerText;
+  if (wallet) {
+    for (const [from, to] of WALLET_TEXT) {
+      assert.ok(expectedMain.includes(from), label + ': reference wallet text present');
+      expectedMain = expectedMain.replace(from, to);
+    }
+    assert.ok(expectedFooter.includes(FOOTER_TEXT[0]), label + ': reference wallet label');
+    expectedFooter = expectedFooter.replace(FOOTER_TEXT[0], FOOTER_TEXT[1]);
+  }
+  assert.equal(b.mainText, expectedMain, label + ': main text differs only as declared');
+  assert.equal(b.footerText, expectedFooter, label + ': footer text differs only as declared');
   const normalised = globalThis.structuredClone(b);
   normalised.mainText = a.mainText;
+  normalised.footerText = a.footerText;
   assert.equal(b.elements['.primary-next'].length, 1, label + ': one footer action');
-  for (const [property, values] of Object.entries(DECLARED_STYLE)) {
-    assert.equal(a.elements['.primary-next'][0].style[property], values.reference, label);
-    assert.equal(b.elements['.primary-next'][0].style[property], values.candidate, label);
-    normalised.elements['.primary-next'][0].style[property] = values.reference;
-  }
-  // The disabled button's cursor is inherited by its contents; nothing else is.
-  for (const selector of selectors.filter((item) => item.startsWith('.primary-next '))) {
-    normalised.elements[selector].forEach((element, index) => {
-      const { cursor } = DECLARED_STYLE;
-      assert.equal(a.elements[selector][index].style.cursor, cursor.reference, label);
-      assert.equal(element.style.cursor, cursor.candidate, label);
-      element.style.cursor = cursor.reference;
-    });
-  }
   compareSnapshots(a, normalised, selectors, label);
   assert.equal(b.lang, 'ar');
   assert.equal(b.dir, 'rtl');
@@ -330,6 +361,11 @@ async function stableCapture(browser, page, options, label) {
 
 /** Full-screen record plus the strict owned-area comparison (declared regions masked). */
 async function compareReviewPixels(browser, reference, candidate, label) {
+  const wallet = isWalletReview(
+    await reference.evaluate(() =>
+      (globalThis.document.querySelector('.main')?.innerText ?? '').replace(/\s+/g, ' '),
+    ),
+  );
   const full = [
     await stableCapture(browser, reference, screenshotOptions, label + ' reference'),
     await stableCapture(browser, candidate, screenshotOptions, label + ' candidate'),
@@ -350,7 +386,9 @@ async function compareReviewPixels(browser, reference, candidate, label) {
 
   const masked = (page) => ({
     ...screenshotOptions,
-    mask: OWNED_AREA_MASK.map((selector) => page.locator(selector)),
+    mask: [...OWNED_AREA_MASK, ...(wallet ? [WALLET_DETAIL_MASK] : [])].map((selector) =>
+      page.locator(selector),
+    ),
     maskColor: '#ff00ff',
   });
   const owned = [
@@ -481,7 +519,7 @@ try {
         const pair = await openPair(context, server, scenario, 6);
         assert.deepEqual(
           withoutLoadFocus(await observe(pair.candidate.page)),
-          withoutLoadFocus(await observe(pair.reference.page)),
+          withoutLoadFocus(asDeclared(await observe(pair.reference.page))),
           label,
         );
         await compareReview(browser, pair, label, {
@@ -936,17 +974,8 @@ try {
           'journey edit ' + step + ' returned',
         );
       }
-      const loaded = pair.candidate.requests.length;
-      await pair.candidate.page.mouse.click(
-        ...(await pair.candidate.page.locator(NEXT).evaluate((node) => {
-          const rect = node.getBoundingClientRect();
-          return [rect.x + rect.width / 2, rect.y + rect.height / 2];
-        })),
-      );
-      await pair.candidate.page.waitForTimeout(250);
-      assert.equal(route(pair.candidate.page), '#book/6', 'the unavailable action does nothing');
-      assert.equal(await pair.candidate.page.locator('.toast.show').count(), 0);
-      assert.deepEqual(pair.candidate.requests.slice(loaded), [], 'no request');
+      // C014 owns what the final action does (scripts/c014/browser-acceptance.mjs);
+      // C013's "the unavailable action does nothing" check was superseded there.
       assertClean(pair, 'journey');
       summary.interactions.push({
         name: 'public journey Home → six decisions → Review → six edits',
@@ -958,8 +987,8 @@ try {
   save();
 
   // 11. Candidate-only checks that have no reference counterpart.
-  // 11a. The unavailable confirmation: native disabled, described, out of the Tab order;
-  //      the six edit controls work from the keyboard with visible focus.
+  // 11a. The confirm action (C014) is described by the disclosure; the six edit
+  //      controls work from the keyboard with visible focus. Activating it is C014's.
   {
     const context = await newContext(browser, 390);
     try {
@@ -977,10 +1006,10 @@ try {
         label: node.textContent.trim(),
       }));
       assert.deepEqual(confirm, {
-        disabled: true,
-        describedBy: 'review-confirmation-unavailable',
+        disabled: false,
+        describedBy: 'review-confirmation-disclosure',
         reason: DISCLOSURE,
-        label: 'تأكيد الحجز وعرض QR',
+        label: 'تأكيد الحجز التجريبي',
       });
       assert.equal(await page.locator('#main h1').count(), 1);
       for (const [step, name] of EDIT_LABELS.entries()) {
@@ -991,11 +1020,6 @@ try {
           reached = await page.evaluate(
             (wanted) => globalThis.document.activeElement?.getAttribute('aria-label') === wanted,
             name,
-          );
-          assert.equal(
-            await page.evaluate(() => globalThis.document.activeElement?.matches('.primary-next')),
-            false,
-            'the disabled action is not a Tab stop',
           );
         }
         assert.ok(reached, name + ' is reachable with Tab');
@@ -1028,7 +1052,7 @@ try {
         'only the loopback page load',
       );
       assert.deepEqual(problems, []);
-      summary.interactions.push({ name: 'keyboard: six edits, disabled confirmation, storage' });
+      summary.interactions.push({ name: 'keyboard: six edits, described confirmation, storage' });
     } finally {
       await context.close();
     }
