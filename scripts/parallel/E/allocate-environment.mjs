@@ -1,19 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import {
-  mkdir,
-  lstat,
-  readFile,
-  readdir,
-  rename,
-  rmdir,
-  unlink,
-  writeFile,
-} from 'node:fs/promises';
+import { mkdir, lstat, readdir, rename, rmdir, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
+import { readRegularFile } from '../../lib/read-regular-file.mjs';
 
 // All worktrees on a workstation must use this SAME root. A filesystem lease
 // does not reserve a listening socket or provision any database/broker resource.
@@ -166,9 +158,10 @@ async function ensureDirectory(path) {
 }
 
 async function readJson(path) {
-  const stat = await lstat(path);
-  if (!stat.isFile() || stat.isSymbolicLink()) fail('STATE_FILE_UNSAFE');
-  return JSON.parse(await readFile(path, 'utf8'));
+  // One bounded descriptor keeps the checked object and the bytes identical.
+  // The shared reader rejects final symlinks and replaced pathname identities;
+  // state directories remain caller-owned, private workstation resources.
+  return JSON.parse(readRegularFile(path, 1024 * 1024).toString('utf8'));
 }
 
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;

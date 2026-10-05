@@ -102,7 +102,8 @@
     "Independent review and enforced protected ownership policy",
     "A packet receipt and affected-owner review of received B/C/D proposals; bootstrap prerequisite and exact contract compatibility acceptance",
     "Final resulting main SHA checks and BASE_W02 release",
-    "B proposal current-head security and Foundation release gate failures resolved with owner-scoped fixes and required reruns"
+    "B proposal current-head security and Foundation release gate failures resolved with owner-scoped fixes and required reruns",
+    "Inherited all-ref Gitleaks failure on unmerged B documentation history requires reviewed B/repository-owner remediation; no E allowlist or ref exclusion"
   ],
   "localEvidence": {
     "f001": {

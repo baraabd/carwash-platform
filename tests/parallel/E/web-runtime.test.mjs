@@ -15,6 +15,30 @@ const runtimes = [
   ['admin-web', adminRuntime],
 ];
 
+function checkedAssetRequestUrl(serverOrigin, assetPath) {
+  // Built HTML is input, not authority to read an arbitrary file or choose a
+  // request destination. Match the exact flat static asset surface the server
+  // exposes before using the path for either operation.
+  if (!/^\/assets\/[a-zA-Z0-9][a-zA-Z0-9._-]*\.(?:js|css|svg|png|webp)$/.test(assetPath)) {
+    throw new Error('UNSAFE_BUILT_ASSET_PATH');
+  }
+  const expectedOrigin = new URL(serverOrigin);
+  const requestUrl = new URL(assetPath, expectedOrigin);
+  if (
+    requestUrl.protocol !== 'http:' ||
+    requestUrl.hostname !== '127.0.0.1' ||
+    requestUrl.origin !== expectedOrigin.origin ||
+    requestUrl.username !== '' ||
+    requestUrl.password !== '' ||
+    requestUrl.pathname !== assetPath ||
+    requestUrl.search !== '' ||
+    requestUrl.hash !== ''
+  ) {
+    throw new Error('BUILT_ASSET_ORIGIN_MISMATCH');
+  }
+  return requestUrl;
+}
+
 async function withServer(createRuntime, documentRoot, run) {
   const server = createRuntime({ documentRoot });
   server.listen(0, '127.0.0.1');
@@ -111,8 +135,24 @@ for (const [app, createRuntime] of runtimes) {
       assert.equal(await page.text(), builtHtml);
       assert.equal(page.headers.get('x-content-type-options'), 'nosniff');
       assert.match(page.headers.get('content-security-policy'), /frame-ancestors 'none'/);
+      for (const forbidden of [
+        '/assets/../index.html',
+        '/assets/%2e%2e%2fpackage.json',
+        '/assets/index.js?destination=https://example.invalid',
+        '/assets/index.js#fragment',
+        '/assets/index.js.map',
+        '//example.invalid/assets/index.js',
+        'https://example.invalid/assets/index.js',
+      ]) {
+        assert.throws(() => checkedAssetRequestUrl(url, forbidden), /UNSAFE_BUILT_ASSET_PATH/);
+      }
+      assert.throws(
+        () => checkedAssetRequestUrl('http://example.invalid', '/assets/index.js'),
+        /BUILT_ASSET_ORIGIN_MISMATCH/,
+      );
       for (const asset of new Set(assets)) {
-        const response = await fetch(url + asset);
+        const requestUrl = checkedAssetRequestUrl(url, asset);
+        const response = await fetch(requestUrl, { redirect: 'error' });
         assert.equal(response.status, 200, asset);
         const builtAsset = await readFile(path.join(documentRoot, asset.slice(1)));
         assert.deepEqual(Buffer.from(await response.arrayBuffer()), builtAsset);

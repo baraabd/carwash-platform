@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import fs from 'node:fs';
+import { mkdtemp, mkdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import test from 'node:test';
 import {
@@ -309,6 +311,100 @@ test('read-only validation rejects revoked, foreign, copied and forged allocatio
   );
   await assert.rejects(validateActiveAllocation('relative.json'), /ABSOLUTE/);
 });
+
+test('allocation reader rejects symlinks, nonregular files and oversized manifests', async (t) => {
+  const options = await isolated(t);
+  const allocation = await allocateEnvironment(options);
+  const original = join(allocation.paths.runRoot, 'original.json');
+  await rename(allocation.paths.manifest, original);
+  await symlink(original, allocation.paths.manifest);
+  await assert.rejects(
+    validateActiveAllocation(allocation.paths.manifest),
+    /ELOOP|FILE_IDENTITY_CHANGED/,
+  );
+  await rm(allocation.paths.manifest);
+  await mkdir(allocation.paths.manifest);
+  await assert.rejects(validateActiveAllocation(allocation.paths.manifest), /NOT_A_REGULAR_FILE/);
+  await rm(allocation.paths.manifest, { recursive: true });
+  await writeFile(allocation.paths.manifest, ' '.repeat(1024 * 1024 + 1));
+  await assert.rejects(validateActiveAllocation(allocation.paths.manifest), /FILE_LIMIT_EXCEEDED/);
+  await rm(allocation.paths.manifest);
+  await rename(original, allocation.paths.manifest);
+  assert.equal((await validateActiveAllocation(allocation.paths.manifest)).token, allocation.token);
+});
+
+test('manifest replacement after open is refused before any descriptor content is read', async (t) => {
+  const options = await isolated(t);
+  const allocation = await allocateEnvironment(options);
+  const original = join(allocation.paths.runRoot, 'retained.json');
+  const replacement = join(allocation.paths.runRoot, 'replacement.json');
+  await writeFile(replacement, JSON.stringify({ foreign: 'must-never-be-read' }));
+  const originalFstat = fs.fstatSync;
+  const originalRead = fs.readSync;
+  let replaced = false;
+  let readCount = 0;
+  const statMock = t.mock.method(fs, 'fstatSync', (descriptor) => {
+    const stat = originalFstat(descriptor);
+    if (!replaced) {
+      replaced = true;
+      fs.renameSync(allocation.paths.manifest, original);
+      fs.renameSync(replacement, allocation.paths.manifest);
+    }
+    return stat;
+  });
+  const readMock = t.mock.method(fs, 'readSync', (...args) => {
+    readCount++;
+    return originalRead(...args);
+  });
+  syncBuiltinESMExports();
+  try {
+    await assert.rejects(
+      validateActiveAllocation(allocation.paths.manifest),
+      /FILE_IDENTITY_CHANGED/,
+    );
+    assert.equal(replaced, true);
+    assert.equal(readCount, 0, 'Changed pathname must never trigger content reading');
+  } finally {
+    statMock.mock.restore();
+    readMock.mock.restore();
+    syncBuiltinESMExports();
+  }
+  await rm(allocation.paths.manifest);
+  await rename(original, allocation.paths.manifest);
+  assert.equal((await validateActiveAllocation(allocation.paths.manifest)).token, allocation.token);
+});
+
+test(
+  'Linux FIFO substitution fails promptly instead of blocking before fstat',
+  {
+    skip:
+      process.platform !== 'linux' &&
+      'Linux FIFO behavior requires Linux; Windows runtime acceptance remains separate',
+  },
+  async (t) => {
+    const options = await isolated(t);
+    const allocation = await allocateEnvironment(options);
+    await rm(allocation.paths.manifest);
+    await exec('mkfifo', [allocation.paths.manifest]);
+    const outcome = await exec(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        'const module = await import(process.argv[1]); await module.validateActiveAllocation(process.argv[2]);',
+        pathToFileURL(script).href,
+        allocation.paths.manifest,
+      ],
+      { timeout: 2000 },
+    ).then(
+      () => null,
+      (error) => error,
+    );
+    assert.ok(outcome, 'A FIFO is not an allocation manifest');
+    assert.equal(outcome.killed, false, 'FIFO open hung until the subprocess deadline');
+    assert.match(outcome.stderr, /NOT_A_REGULAR_FILE/);
+  },
+);
 
 test('heavy runner records its direct child and retains the slot until that child closes', async (t) => {
   const options = await isolated(t);
