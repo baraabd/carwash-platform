@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "task": "W02-E",
+  "child": "W02-E-ENTRY-PROPOSAL",
+  "phase": "ENTRY_BLOCKED",
+  "parentImplementationStatus": "NOT_STARTED",
+  "observedAtUtc": "2026-10-05T09:29:26Z",
+  "repository": "baraabd/carwash-platform",
+  "source": {
+    "observedMainSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+    "treeSha": "5b51ed5f1779a2cbefc359fdbdc4720779989b4b",
+    "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+    "BASE_W02": null,
+    "branch": "sprint/w02-E-entry-proposal",
+    "branchPurpose": "lane-local documentation proposal from observed target; not accepted wave implementation"
+  },
+  "bootstrap": {
+    "pullRequest": 45,
+    "state": "externally-merged",
+    "headSha": "680f06e82dc5364d734390c41efeff6b8683fc98",
+    "mergeSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+    "independentHumanApprovalObserved": false,
+    "reviewStatesObserved": ["COMMENTED"],
+    "reviewActorsObserved": ["github-advanced-security[bot]"],
+    "mergeDoesNotPublishWaveBase": true
+  },
+  "entry": {
+    "acceptedBasePublished": false,
+    "acceptedGuestContract": false,
+    "acceptedNextWaveContracts": [],
+    "guestRecoveryAndCopyEstablished": false,
+    "otpDeliveryChannelAtSource": "email",
+    "operationalDeliveryVerified": false,
+    "smsCapabilityVerified": false,
+    "privilegedBootstrapImplemented": false,
+    "privilegedActorAssignedInInspectedSource": false,
+    "stagingAccessVerified": false
+  },
+  "ownership": {
+    "status": "proposal-pending-independent-review",
+    "registryWave": "W01",
+    "verifiedBaseW02": null,
+    "leaseCount": 11,
+    "exactLeasedPathCount": 165,
+    "expiresAt": "verified-BASE_W02",
+    "scopeThisChild": "docs/parallel/E/W02/**",
+    "noBootstrapRegeneration": true,
+    "registryExpiryEstablished": false,
+    "effectiveBootstrapPermission": "expired-by-current-W02-user-instruction",
+    "bootstrapWritesPermitted": false,
+    "currentTaskInstructionPrecedesOldLeaseRecord": true,
+    "publicationReconciliationPending": true
+  },
+  "contracts": {
+    "versions": {
+      "@carwash/contracts": "0.0.2",
+      "@carwash/event-contracts": "0.0.2",
+      "@carwash/api-clients": "0.0.1"
+    },
+    "apiClientExports": "empty-skeleton",
+    "releaseStatus": "INTEGRATION_PENDING",
+    "publishedNextWaveVersions": {},
+    "releaseSourceSha": null,
+    "releaseReviewRecord": null,
+    "ownerPackets": {
+      "A": "requested-not-received",
+      "B": "externally-merged-proposal-review-pending",
+      "C": "externally-merged-proposal-review-pending",
+      "D": "externally-merged-proposal-review-pending",
+      "E": "requested-not-accepted"
+    }
+  },
+  "governance": {
+    "mainProtected": false,
+    "rulesets": [],
+    "eligibleIndependentReviewerEstablished": false,
+    "administrativeEnforcement": "not-applied"
+  },
+  "targetCheckSnapshot": {
+    "sourceSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+    "observedAtUtc": "2026-10-05T09:29:26Z",
+    "observedCount": 56,
+    "completedSuccess": 55,
+    "other": [
+      {
+        "name": "customer-payment-method",
+        "status": "in_progress",
+        "conclusion": null,
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032190/job/111688262459"
+      }
+    ],
+    "scope": "Resulting technical target only, dated snapshot; not W02 contract/policy/guest acceptance or proposal-head evidence."
+  },
+  "sourceEvidencePaths": [
+    "docs/parallel/E/W01/BASE_W01.json",
+    "architecture/parallel-contract-release.json",
+    "architecture/parallel-ownership.json",
+    "packages/contracts/src/identity.ts",
+    "packages/contracts/src/gateway.ts",
+    "packages/api-clients/src/index.ts",
+    "services/identity/src/identity-runtime.ts",
+    "services/identity/src/infrastructure/otp/webhook-delivery.ts",
+    "apps/api-gateway/src/application/gateway.service.ts",
+    "scripts/ci/run.mjs",
+    "tests/parallel/E/web-runtime.test.mjs"
+  ],
+  "githubEvidence": {
+    "mainCommit": "https://github.com/baraabd/carwash-platform/commit/3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+    "bootstrapPr": "https://github.com/baraabd/carwash-platform/pull/45",
+    "reviews": "https://api.github.com/repos/baraabd/carwash-platform/pulls/45/reviews?per_page=100",
+    "targetChecks": "https://api.github.com/repos/baraabd/carwash-platform/commits/3db1afdd04c6ec65a38ca83f3993c964a1bf7587/check-runs?per_page=100"
+  },
+  "execution": {
+    "migrationsAdded": [],
+    "runtimeChanges": [],
+    "runtimeTestsRunLocally": [],
+    "browserOrProviderTestsRunLocally": [],
+    "ownedHandles": [],
+    "toolchain": {
+      "node": "24.21.0",
+      "pnpm": "10.32.1",
+      "verificationChecksPassed": 40
+    },
+    "productionReady": false,
+    "stagingAccepted": false,
+    "waveAccepted": false,
+    "BASE_W03": null
+  }
+}
