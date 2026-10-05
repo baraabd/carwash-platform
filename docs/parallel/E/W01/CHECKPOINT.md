@@ -1,9 +1,10 @@
 # W01-E bootstrap checkpoint
 
-Task: `W01-E-BOOTSTRAP`. Parent: `INTEGRATION_PENDING`. No merge or deployment.
+Task: `W01-E-BOOTSTRAP`. Parent: `INTEGRATION_PENDING`. No PR merge by E or production deployment.
 
-`BASE_W01` and observed target: `69d81a83a3409d0693272efeb19ebeb9805750f5`.
+Frozen `BASE_W01`: `69d81a83a3409d0693272efeb19ebeb9805750f5`.
 Base tree: `1988caa3f882bc0c6007ae830950b7f34f53d294`.
+Latest observed target: `30086fa22d27b5ea861a8f2c047c789f9795b3b6`, tree `9db65fd4b0e82535def4d75e9b3ebd875ad64551`; see the target refresh below. This does not publish a new wave base.
 Branch: `sprint/w01-E-bootstrap`. Exact candidate head/tree are recorded in the draft PR and final-source CI evidence; the handoff file cannot contain its own commit SHA.
 PR #41 is already merged. Its 33 W01 A-owned paths remain protected. Identity source and all ten original schemas remain unchanged.
 
@@ -36,7 +37,15 @@ CodeQL found a blocking allocator file race. JSON reads now use one bounded chec
 
 The follow-up CodeQL run removed those three findings but flagged the read-only descriptor open as an insecure temporary-file creation because its query requires an explicit third-argument mode irrespective of open flags. The reader now passes owner-only mode `0o600` while retaining `O_RDONLY`, no-follow/nonblocking fallbacks and all descriptor checks. A regression test proves that reading never creates a missing file or rewrites existing permissions. The required query and its threshold remain unchanged.
 
-The initial F009 all-ref Gitleaks gate failed on `generic-api-key` in unrelated, unmerged B commit `2b5042caa6902b911f01ae5b9d41725a1b79fcf7`, `docs/parallel/B/W01/POLICY_DECISIONS.md:19` (B-11 prose). Pinned reproduction found zero findings before adding B's branch and exactly one afterward; that commit is not ancestral to the accepted base or E head. The row supplies no credential literal and appears to be a documentation false positive, but the inherited `--all` gate still blocks. B and the repository owner must choose reviewed remediation; a wording-only follow-up retains the old history. E changed no peer source, scanner allowlist or ref scope. [Failed security job](https://github.com/baraabd/carwash-platform/actions/runs/37275286841/job/111650910450). No matched value is reproduced here.
+The initial F009 all-ref Gitleaks gate failed on `generic-api-key` in unrelated, then-unmerged B commit `2b5042caa6902b911f01ae5b9d41725a1b79fcf7`, `docs/parallel/B/W01/POLICY_DECISIONS.md:19` (B-11 prose). Pinned reproduction found zero findings before adding B's branch and exactly one afterward; that commit was not ancestral to the accepted base or E head. The row supplies no credential literal and appeared to be a documentation false positive, but the inherited `--all` gate blocked those initial runs. This is historical evidence: the later security run described below passed without an E scanner change. E changed no peer source, scanner allowlist or ref scope. [Initial failed security job](https://github.com/baraabd/carwash-platform/actions/runs/37275286841/job/111650910450). No matched value is reproduced here.
+
+## Target refresh and prior-source verified evidence
+
+During E validation, repository activity outside this session merged B #44 at `2026-10-05T07:38:20Z`, C #43 at `07:38:45Z` and D #42 at `07:39:26Z`. Current target is `30086fa22d27b5ea861a8f2c047c789f9795b3b6`. It adds 29 lane-local documents/declarative specifications relative to frozen `BASE_W01`, with no overlap against E's 267 changed paths. The latest target plus previous E head merged without conflict. The proposal documents are now on main; their review lists were empty, package versions are unchanged and no E contract/policy acceptance or `BASE_W02` is inferred from those merges. Exact immutable packet heads and path inventory are recorded in the intake document and contract registry.
+
+Previous E head `9575eeb4b7786ae10b67f075efa8255d625c66b1`, tree `eced6725caa4f59b8f4cde168e970ca1f731c5c6`, passed F001's 17 gates and the [F009 foundation run](https://github.com/baraabd/carwash-platform/actions/runs/37277976237). Downloaded evidence verified 94 platform/34 CI tests, 553 unit, 171 Nest, 49 observability and 22 Gateway cases; 338 real database and 26 Identity/Gateway/browser cases; all 19 migration owners; all ten two-stack phases and successful scoped cleanup/lease release. All 23 independent image archives matched their published digests, bound that exact clean source and passed all 17 image steps. CodeQL 2.27.1 found zero findings/blocking results; Gitleaks history/source and dependency advisories were zero. These are previous-source results. The target refresh and handoff edits require a fresh exact-source run; the draft PR records its actual head/tree and artifacts. Old or cancelled jobs do not certify the new candidate. Actual Windows/device evidence remains NOT_RUN.
+
+Repository enforcement remains prepared, not applied. Globally required path-filtered contexts need an independently approved always-running protected producer on an eligible PR/push event or a trusted external App. Manual workflow-dispatch job results cannot substitute for required PR ruleset checks. Preserve the separate inherited `recovery-lifecycle` and `stability-batch` jobs. Frozen CODEOWNERS currently names the PR author for protected paths; an eligible independent code owner requires an explicitly approved policy change. The administrator, reviewer identity and immutable policy/digest inputs remain pending; no CODEOWNERS or workflow edit is part of this refresh.
 
 ## Release boundary and dependencies
 

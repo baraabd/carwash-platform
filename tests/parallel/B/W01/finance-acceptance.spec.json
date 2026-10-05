@@ -1,0 +1,423 @@
+{
+  "specificationVersion": "0.1.0",
+  "task": "W01-B",
+  "status": "NOT_RUN_SPECIFICATION_ONLY",
+  "sourceSha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+  "acceptedWaveBase": null,
+  "notes": [
+    "Declarative scenarios only; no runnable test code, implemented money feature or payment evidence.",
+    "All fixtures must remain labeled isolated test configuration; production policy/provider and full real journeys required.",
+    "No gate skip/cancellation counts as success. Cases are expanded at each owner implementation after E contract acceptance."
+  ],
+  "cases": [
+    {
+      "id": "FIN-01",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Client amount/owner tampering",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Accepted policy, Catalog revision and verified owner.",
+      "when": "Inject unitPrice/total/tax/fee/discount/owner fields, substitute another owner quote or change stored reference.",
+      "then": "Strict unknown-field/object authorization rejection; no quote/outbox/payment effect; authoritative price unchanged.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization"
+      ],
+      "blockedBy": ["B-01", "B-03", "B-04", "B-15"]
+    },
+    {
+      "id": "FIN-02",
+      "wave": "W02",
+      "owners": ["pricing", "billing"],
+      "title": "Unsupported precision/currency",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Explicit approved currency/exponent/limits.",
+      "when": "Submit fractional/exponential/signed/whitespace/leading-zero amountMinor, JSON number, unsupported currency or supplied exponent.",
+      "then": "Reject losslessly; no default currency/precision or truncation; no financial mutation.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization"
+      ],
+      "blockedBy": ["B-03"]
+    },
+    {
+      "id": "FIN-03",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Exact large amounts and rounding",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Approved test currency policy/rounding boundaries; values above JS safe integer.",
+      "when": "Issue/read/render quotes around rounding ties, max value and overflow, including discounts/fees/taxes.",
+      "then": "Exact integer sums/string transport; approved rounding order; above-policy maximum rejected; no float conversion.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization",
+        "merged real providers and complete affected browser journey",
+        "pinned Linux reference/candidate/diff and separate interaction/accessibility evidence"
+      ],
+      "blockedBy": ["B-03", "B-04"]
+    },
+    {
+      "id": "FIN-04",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Concurrent identical idempotent command",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Same verified owner/operation/key and accepted canonical selection.",
+      "when": "Send concurrent identical requests with reordered JSON/addon IDs.",
+      "then": "One quote/receipt/outbox effect; same response/ID/expiry; canonical ordering produces same fingerprint.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization"
+      ],
+      "blockedBy": ["B-01", "B-05", "B-15"]
+    },
+    {
+      "id": "FIN-05",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Conflicting key and owner isolation",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Receipt exists for owner A.",
+      "when": "Use same key with changed revision/zone/package; owner B reuses that key.",
+      "then": "A receives conflict without mutation; B is isolated to own receipt; no A data disclosed.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization"
+      ],
+      "blockedBy": ["B-05", "B-15"]
+    },
+    {
+      "id": "FIN-06",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Lost response and expired replay",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Quote commits before HTTP response is lost.",
+      "when": "Retry same key/request before and after quote expiry; separately read quote.",
+      "then": "Replay original success/ID/snapshot/expiry; read reports current expired state; no fresh effect or silent TTL renewal.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization"
+      ],
+      "blockedBy": ["B-05"]
+    },
+    {
+      "id": "FIN-07",
+      "wave": "W02",
+      "owners": ["catalog", "pricing"],
+      "title": "Included/invalid add-ons and revisions",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Real Catalog compatibility and published PriceSnapshot.",
+      "when": "Select included add-on, duplicate/unknown/incompatible add-on, disabled category, stale revision; update Catalog after quote. Vary approved category surcharge and extra duration with package/addon selection.",
+      "then": "Included add-on incremental cost zero; invalid/duplicate selection refused; historical snapshot immutable; fresh booking requotes. Preserve the separate vehicle surcharge bill line and category extra duration from Catalog/Pricing revisions.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization",
+        "merged real providers and complete affected browser journey",
+        "pinned Linux reference/candidate/diff and separate interaction/accessibility evidence"
+      ],
+      "blockedBy": ["B-04", "B-14"]
+    },
+    {
+      "id": "FIN-08",
+      "wave": "W02",
+      "owners": ["identity", "pricing", "catalog"],
+      "title": "Guest authorization and optional plates",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Accepted guest capability contract and public Catalog mode.",
+      "when": "Use forged owner/headers, another guest quote, expired/revoked capability or guest claim race; quote with no plate.",
+      "then": "Non-enumerating denial for foreign objects; live revoke/CSRF enforced; claim follows accepted atomic design; missing plate does not block.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization"
+      ],
+      "blockedBy": ["B-01", "B-15"]
+    },
+    {
+      "id": "FIN-09",
+      "wave": "W02",
+      "owners": ["pricing", "configuration"],
+      "title": "Policy/dependency failure",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Approved policy/Catalog is absent, stale or unavailable.",
+      "when": "Request price publication/quote during failure.",
+      "then": "Fail closed unavailable; no zero-fee/tax/mock price fallback; no usable quote minted under missing policy.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization"
+      ],
+      "blockedBy": ["B-03", "B-04"]
+    },
+    {
+      "id": "FIN-10",
+      "wave": "W03",
+      "owners": ["billing", "scheduling", "booking"],
+      "title": "Late payment after capacity expiry",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Real Billing obligation, Scheduling hold and durable Booking saga.",
+      "when": "Race hold expiry against independently verified payment; replay payment event.",
+      "then": "Billing records money once; expired capacity not resurrected; Booking records exception and explicit approved compensation/new allocation.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization",
+        "real owner DB and RabbitMQ",
+        "deterministic crash/replay checkpoints with row/event/audit evidence"
+      ],
+      "blockedBy": ["B-05", "B-06", "B-11"]
+    },
+    {
+      "id": "FIN-11",
+      "wave": "W03",
+      "owners": ["billing", "scheduling", "booking"],
+      "title": "Coordinator compensation crash",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Deadline expires with obligation/capacity state spanning services.",
+      "when": "Crash after each compensation commit and before response/ACK.",
+      "then": "Stable child keys and durable saga resume; no duplicate release/refund; unknown payment status stays unresolved until owner evidence.",
+      "requiredEvidence": [
+        "real owner DB and RabbitMQ",
+        "deterministic crash/replay checkpoints with row/event/audit evidence"
+      ],
+      "blockedBy": ["B-01", "B-06"]
+    },
+    {
+      "id": "FIN-12",
+      "wave": "W05",
+      "owners": ["billing"],
+      "title": "Provider verification mismatch",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Genuine provider sandbox or approved independent merchant evidence.",
+      "when": "Wrong signature, recipient/account/reference/amount/currency/status; replay external transaction with changed payload.",
+      "then": "No verified settlement; mismatch quarantined/audited; one credit allocation by provider+merchant+external ID; conflicts rejected.",
+      "requiredEvidence": [
+        "genuine provider evidence source/protocol/version",
+        "real Billing DB/HTTP/audit"
+      ],
+      "blockedBy": ["B-02", "B-03", "B-11"]
+    },
+    {
+      "id": "FIN-13",
+      "wave": "W05",
+      "owners": ["billing", "media"],
+      "title": "Proof/return are not received money",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Owned pending obligation and private Media proof.",
+      "when": "Upload proof or follow success return URL with no independent receipt; try unauthorized proof access.",
+      "then": "Only verification-pending; no payment posting; object-level upload/process/read denied to others.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization",
+        "merged real providers and complete affected browser journey",
+        "pinned Linux reference/candidate/diff and separate interaction/accessibility evidence"
+      ],
+      "blockedBy": ["B-11", "B-12"]
+    },
+    {
+      "id": "FIN-14",
+      "wave": "W05",
+      "owners": ["billing"],
+      "title": "Concurrent refunds cannot exceed receipt",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Verified refundable payment plus pending/confirmed refund amounts.",
+      "when": "Race multiple partial/full refunds above remaining allowance; repeat same key/event.",
+      "then": "Atomic reservation plus confirmed total never exceeds verified refundable amount; unique business effect; no duplicate reversal journal.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization"
+      ],
+      "blockedBy": ["B-06", "B-11"]
+    },
+    {
+      "id": "FIN-15",
+      "wave": "W05",
+      "owners": ["billing"],
+      "title": "Refund timeout after provider success",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Refund reserved; provider processes it but response/confirmation is lost.",
+      "when": "Retry/query/reconcile; crash before and after final confirmation; definitive provider failure.",
+      "then": "Unknown outcome retains reservation/pending; confirmation resolves once; only definitive failure releases reservation; independently verified refund evidence required.",
+      "requiredEvidence": [
+        "provider sandbox or authorized independent status evidence",
+        "real owner DB and RabbitMQ",
+        "deterministic crash/replay checkpoints with row/event/audit evidence"
+      ],
+      "blockedBy": ["B-06", "B-11"]
+    },
+    {
+      "id": "FIN-16",
+      "wave": "W04",
+      "owners": ["billing", "dispatch", "workforce"],
+      "title": "Assigned cash collection",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Actual assigned eligible technician/work state, obligation and approved cash policy.",
+      "when": "Collect once, double-submit, supply tampered amount/reference, invoke as other technician/guest/ungranted actor or after suspension.",
+      "then": "Only current authorized collection records immutable receipt/posting once; mismatch/unauthorized rejected; completion alone never records cash.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization",
+        "merged real providers and complete affected browser journey",
+        "pinned Linux reference/candidate/diff and separate interaction/accessibility evidence"
+      ],
+      "blockedBy": ["B-06", "B-07", "B-13"]
+    },
+    {
+      "id": "FIN-17",
+      "wave": "W04",
+      "owners": ["wallet", "billing"],
+      "title": "Custody handover and treasury reconciliation",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Custody backed by Billing receipts for approved individual/team.",
+      "when": "Submit handover; independently authorized treasury recipient accepts; replay; short/over or wrong holder.",
+      "then": "Collection and handover separate; pending/held/settled state truthful; discrepancy explicit; posting references reconcile; no unauthorized self-accept.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization",
+        "merged real providers and complete affected browser journey",
+        "pinned Linux reference/candidate/diff and separate interaction/accessibility evidence"
+      ],
+      "blockedBy": ["B-07", "B-08"]
+    },
+    {
+      "id": "FIN-18",
+      "wave": "W04",
+      "owners": ["billing", "wallet", "reporting"],
+      "title": "Custody broker/reordering recovery",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Billing receipt commit precedes Wallet receipt projection.",
+      "when": "Broker outage, producer/consumer crash before/after commit/ACK, duplicate/reordered events or Wallet unavailable.",
+      "then": "Durable Outbox/Inbox recover; one posting/movement effect; latest state never regresses; gap refetch; pending custody not called settled.",
+      "requiredEvidence": [
+        "real owner DB and RabbitMQ",
+        "deterministic crash/replay checkpoints with row/event/audit evidence"
+      ],
+      "blockedBy": ["B-01", "B-07"]
+    },
+    {
+      "id": "FIN-19",
+      "wave": "W03",
+      "owners": ["billing"],
+      "title": "Posted journal constraints",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Real migration-owned accounts/currencies/journals and posting roles.",
+      "when": "Attempt unbalanced/invalid-account/cross-currency posting, update/delete posted rows, reuse business ref or direct runtime-role bypass.",
+      "then": "DB constraints/privileges reject; balance per currency; immutable posted history; correction is linked reversal; no mixed-currency total.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization"
+      ],
+      "blockedBy": ["B-03", "B-04"]
+    },
+    {
+      "id": "FIN-20",
+      "wave": "W06",
+      "owners": ["wallet", "billing", "booking"],
+      "title": "Approved wallet holds only",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Recorded actor/purpose/funding policy and Billing posting refs.",
+      "when": "Concurrent reserve/consume/release/cancel, timeout/replay; unauthorized/unapproved customer funding or withdrawal.",
+      "then": "No overspend/duplicate hold effect; balances reconcile Billing; approved custody handled; unapproved product operations absent/refused.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization",
+        "real owner DB and RabbitMQ",
+        "deterministic crash/replay checkpoints with row/event/audit evidence"
+      ],
+      "blockedBy": ["B-08", "B-06"]
+    },
+    {
+      "id": "FIN-21",
+      "wave": "W06",
+      "owners": ["subscription", "booking"],
+      "title": "Last entitlement race and release",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "One entitlement remains under approved plan/lifecycle policy.",
+      "when": "Two bookings reserve/consume last unit; expiration/cancellation/crash/replay; frozen plan.",
+      "then": "At most one reservation/consumption; durable release/compensate; frozen/expired plan rejects; rebooking revalidates current terms/capacity.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization",
+        "real owner DB and RabbitMQ",
+        "deterministic crash/replay checkpoints with row/event/audit evidence"
+      ],
+      "blockedBy": ["B-09", "B-05"]
+    },
+    {
+      "id": "FIN-22",
+      "wave": "W07",
+      "owners": ["pricing", "booking"],
+      "title": "Promotion limits and redemption",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Approved stacking/budget/actor/date policy and current time.",
+      "when": "Concurrent final-use redemption, quote-only calls, replay, stacking/ineligible code and boundary expiry.",
+      "then": "No oversubscription; quote not redemption; one committed use with compensation; policy limits/date-zone enforced.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization",
+        "real owner DB and RabbitMQ",
+        "deterministic crash/replay checkpoints with row/event/audit evidence"
+      ],
+      "blockedBy": ["B-10"]
+    },
+    {
+      "id": "FIN-23",
+      "wave": "W07",
+      "owners": ["billing", "wallet", "subscription", "support", "identity"],
+      "title": "Privacy intake vs fulfillment",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Approved export/deletion/redaction/retention/hold policies and verified requester.",
+      "when": "Export another owner, anonymous link, delete posted history, anonymize permitted fields, retry request, inspect backup/legal-hold result.",
+      "then": "No unauthorized disclosure; exact audited fulfillment vs intake state; journals/references preserved; approved anonymization/retention only.",
+      "requiredEvidence": [
+        "real owner PostgreSQL migration/upgrade and constraints",
+        "real HTTP with accepted Identity/guest authorization"
+      ],
+      "blockedBy": ["B-12"]
+    },
+    {
+      "id": "FIN-24",
+      "wave": "W04-W07",
+      "owners": ["customer-web", "operator-web", "admin-web"],
+      "title": "Financial UI facts and stale reconnect",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Actual quote/booking/capacity/payment/work/custody/refund providers.",
+      "when": "Proof submitted, work completed, cash recorded, custody accepted, refund pending/confirmed; reload/reconnect stale reporting.",
+      "then": "Separate owner-derived states; no optimistic paid/refunded/settled; same-key recovery, source/as-of data, locked RTL/focus/motion and approved copy.",
+      "requiredEvidence": [
+        "merged real providers and complete affected browser journey",
+        "pinned Linux reference/candidate/diff and separate interaction/accessibility evidence"
+      ],
+      "blockedBy": ["B-14", "B-01"]
+    },
+    {
+      "id": "FIN-25",
+      "wave": "W02-W07",
+      "owners": ["all-finance-providers"],
+      "title": "Migration upgrade and physical isolation",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "E-allocated disposable service DB/roles and previously accepted schema version.",
+      "when": "Apply append-only migrations, repeat deploy, test wrong-service access/runtime DDL, restore checkpoint and run real constraints.",
+      "then": "Upgrade/redeploy safe; source schema mirrors migrations; no cross-service DB permissions/imports; recovery evidence preserves financial refs.",
+      "requiredEvidence": [
+        "real allocated PostgreSQL upgrade/restore",
+        "role/constraint evidence on final source"
+      ],
+      "blockedBy": ["B-01"]
+    },
+    {
+      "id": "FIN-26",
+      "wave": "W02-W07",
+      "owners": ["all-finance-providers"],
+      "title": "Contracts and negative compatibility",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "given": "Accepted package/event versions and authorized provider/consumer pair.",
+      "when": "Validate good/unknown/extra fields, malformed UTC/IDs, stale aggregate version, conflicting event ID; attempt unmerged/old consumer contract.",
+      "then": "Structural rejection and safe errors; broker producer ACL/inbox enforced; unsupported version not silently accepted; all changed consumers tested.",
+      "requiredEvidence": [
+        "real provider/consumer conformance",
+        "negative schema fixtures plus real HTTP/broker"
+      ],
+      "blockedBy": ["B-01"]
+    }
+  ]
+}

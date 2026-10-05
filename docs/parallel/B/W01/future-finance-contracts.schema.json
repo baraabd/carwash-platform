@@ -1,0 +1,1814 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carwash:proposal:w01-b:future:0.1.0",
+  "title": "Unaccepted W03-W07 financial contract reservations",
+  "description": "Declarative proposal only; register this document and the W02 URN resource for references. FinancialResult is a common result skeleton; each accepted contract must constrain state/required money and references before publication. No provider/actor/policy acceptance or runtime implied.",
+  "$defs": {
+    "QuoteBindCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "quoteId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "bookingId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "expectedPriceVersion": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+        },
+        "expectedPolicyRevision": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+        },
+        "delegationRef": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "quoteId",
+        "bookingId",
+        "expectedPriceVersion",
+        "expectedPolicyRevision",
+        "delegationRef"
+      ]
+    },
+    "ObligationCreateCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "quoteBindingId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "bookingId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "delegationRef": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        }
+      },
+      "required": ["schemaVersion", "quoteBindingId", "bookingId", "delegationRef"]
+    },
+    "CashRecordCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "obligationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "assignmentId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "collectedMoney": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Money"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "obligationId",
+        "assignmentId",
+        "expectedRevision",
+        "collectedMoney"
+      ]
+    },
+    "CashReverseCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "receiptId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approvalRef": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        }
+      },
+      "required": ["schemaVersion", "receiptId", "expectedRevision", "reason", "approvalRef"]
+    },
+    "CustodyHandoverCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "holderId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "recipientId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "receiptIds": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "postingIds": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "declaredMoney": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Money"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "holderId",
+        "recipientId",
+        "receiptIds",
+        "postingIds",
+        "expectedRevision",
+        "declaredMoney"
+      ]
+    },
+    "CustodyAcceptCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "handoverId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "treasuryEvidenceRef": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        }
+      },
+      "required": ["schemaVersion", "handoverId", "expectedRevision", "treasuryEvidenceRef"]
+    },
+    "PaymentIntentCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "obligationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "method": {
+          "enum": ["shamcash", "syriatel"]
+        }
+      },
+      "required": ["schemaVersion", "obligationId", "expectedRevision", "method"]
+    },
+    "ProofSubmitCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "obligationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "providerTransactionHint": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9\\u0621-\\u064A _-]{4,64}$",
+          "not": {
+            "pattern": "^ *$"
+          }
+        },
+        "mediaObjectId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        }
+      },
+      "required": ["schemaVersion", "obligationId"],
+      "anyOf": [
+        {
+          "required": ["providerTransactionHint"]
+        },
+        {
+          "required": ["mediaObjectId"]
+        }
+      ]
+    },
+    "SettlementVerifyCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "obligationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "merchantRef": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "externalTransactionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "independentEvidenceRef": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "observedMoney": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Money"
+        },
+        "providerOccurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "obligationId",
+        "provider",
+        "merchantRef",
+        "externalTransactionId",
+        "independentEvidenceRef",
+        "observedMoney",
+        "providerOccurredAt"
+      ]
+    },
+    "RefundReserveCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "paymentId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "requestedMoney": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Money"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supportDecisionRef": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        }
+      },
+      "required": ["schemaVersion", "paymentId", "expectedRevision", "requestedMoney", "reason"]
+    },
+    "RefundResolveCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "refundId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "independentEvidenceRef": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "result": {
+          "enum": ["CONFIRMED", "DEFINITIVELY_FAILED"]
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "refundId",
+        "expectedRevision",
+        "independentEvidenceRef",
+        "result"
+      ]
+    },
+    "WalletHoldReserveCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "balanceHolderId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "purposePolicyRevision": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+        },
+        "bookingId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "money": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Money"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "balanceHolderId",
+        "purposePolicyRevision",
+        "bookingId",
+        "expectedRevision",
+        "money"
+      ]
+    },
+    "WalletHoldResolveCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "holdId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "action": {
+          "enum": ["CONSUME", "RELEASE"]
+        },
+        "billingPostingIds": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": ["schemaVersion", "holdId", "expectedRevision", "action", "billingPostingIds"]
+    },
+    "EntitlementReserveCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "subscriptionId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "bookingId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "units": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": ["schemaVersion", "subscriptionId", "bookingId", "expectedRevision", "units"]
+    },
+    "EntitlementResolveCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "reservationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "action": {
+          "enum": ["CONSUME", "RELEASE"]
+        },
+        "bookingId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "policyRevision": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "reservationId",
+        "expectedRevision",
+        "action",
+        "bookingId",
+        "policyRevision"
+      ]
+    },
+    "PromotionPublishCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "expectedRevision": {
+          "oneOf": [
+            {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "promotionPolicyRevision": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+        }
+      },
+      "required": ["schemaVersion", "expectedRevision", "promotionPolicyRevision"]
+    },
+    "PrivacyFulfillCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "intakeRequestId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "subjectAuthorityRef": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "policyRevision": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+        },
+        "action": {
+          "enum": ["EXPORT", "DELETE", "ANONYMIZE"]
+        },
+        "resourceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "intakeRequestId",
+        "subjectAuthorityRef",
+        "policyRevision",
+        "action",
+        "resourceIds"
+      ]
+    },
+    "FinancialResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "resourceId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "policyRevision": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relatedResourceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+          },
+          "uniqueItems": true
+        },
+        "postingIds": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+          },
+          "uniqueItems": true
+        },
+        "money": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Money"
+        },
+        "evaluatedAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "resourceId",
+        "aggregateVersion",
+        "policyRevision",
+        "state",
+        "relatedResourceIds",
+        "postingIds",
+        "evaluatedAt"
+      ]
+    },
+    "QuoteBoundEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "pricing.quote-bound.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "pricing"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "quoteId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "bindingId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "bookingId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "quoteId", "bindingId", "bookingId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "ObligationOpenedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "billing.obligation-opened.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "billing"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "obligationId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "bookingId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "obligationId", "bookingId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "CashRecordedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "billing.cash-recorded.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "billing"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "receiptId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "obligationId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "postingId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "receiptId", "obligationId", "postingId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "CashReversedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "billing.cash-reversed.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "billing"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "receiptId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "reversalPostingId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "receiptId", "reversalPostingId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "CustodyPendingEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "wallet.custody-handover-pending.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "wallet"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "handoverId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "receiptIds": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          },
+          "required": ["policyRevision", "handoverId", "receiptIds"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "CustodySettledEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "wallet.custody-settled.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "wallet"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "handoverId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "treasuryReceiptRef": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "postingIds": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          },
+          "required": ["policyRevision", "handoverId", "treasuryReceiptRef", "postingIds"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "PaymentIntentCreatedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "billing.payment-intent-created.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "billing"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "intentId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "obligationId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "intentId", "obligationId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "ProofReviewRequestedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "billing.proof-review-requested.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "billing"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "reviewCaseId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "obligationId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "reviewCaseId", "obligationId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "PaymentVerifiedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "billing.payment-verified.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "billing"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "paymentId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "obligationId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "postingId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "paymentId", "obligationId", "postingId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "RefundReservedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "billing.refund-reserved.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "billing"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "refundId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "paymentId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "refundId", "paymentId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "RefundConfirmedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "billing.refund-confirmed.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "billing"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "refundId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "paymentId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "reversalPostingId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "refundId", "paymentId", "reversalPostingId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "RefundFailedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "billing.refund-failed.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "billing"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "refundId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "paymentId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "refundId", "paymentId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "WalletHoldReservedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "wallet.hold-reserved.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "wallet"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "holdId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "bookingId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "holdId", "bookingId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "WalletHoldConsumedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "wallet.hold-consumed.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "wallet"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "holdId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "postingIds": {
+              "type": "array",
+              "items": {
+                "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          },
+          "required": ["policyRevision", "holdId", "postingIds"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "WalletHoldReleasedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "wallet.hold-released.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "wallet"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "holdId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "holdId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "EntitlementReservedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "subscription.entitlement-reserved.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "subscription"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "reservationId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "subscriptionId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "bookingId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "reservationId", "subscriptionId", "bookingId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "EntitlementConsumedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "subscription.entitlement-consumed.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "subscription"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "reservationId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "bookingId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "reservationId", "bookingId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "EntitlementReleasedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "subscription.entitlement-released.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "subscription"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "reservationId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "bookingId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "reservationId", "bookingId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "PromotionPublishedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "pricing.promotion-published.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "pricing"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "promotionId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "promotionPolicyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            }
+          },
+          "required": ["policyRevision", "promotionId", "promotionPolicyRevision"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "BillingPrivacyFulfilledEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "billing.privacy-fulfilled.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "billing"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "fulfillmentId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "intakeRequestId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "fulfillmentId", "intakeRequestId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "WalletPrivacyFulfilledEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "wallet.privacy-fulfilled.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "wallet"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "fulfillmentId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "intakeRequestId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "fulfillmentId", "intakeRequestId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "SubscriptionPrivacyFulfilledEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "eventType": {
+          "const": "subscription.privacy-fulfilled.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "subscription"
+        },
+        "occurredAt": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "policyRevision": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Revision"
+            },
+            "fulfillmentId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            },
+            "intakeRequestId": {
+              "$ref": "urn:carwash:proposal:w01-b:w02:0.1.0#/$defs/Id"
+            }
+          },
+          "required": ["policyRevision", "fulfillmentId", "intakeRequestId"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    }
+  }
+}

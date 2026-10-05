@@ -112,12 +112,14 @@
           "packageAddonRevisionCompatibilityDurationAndPublication",
           "quoteOwnerImmutableItemsMoneyCurrencyPrecisionPriceVersionExpiryRoundingTaxAndRevalidation"
         ],
-        "status": "received-proposal-review-pending",
+        "status": "externally-merged-proposal-review-pending",
         "packetPath": "docs/parallel/B/W01/W02_CONTRACT_PACKET.md",
         "acceptedContractIds": [],
         "reviewRecord": null,
-        "packetSourceSha": "2b5042caa6902b911f01ae5b9d41725a1b79fcf7",
-        "pullRequest": 44
+        "packetSourceSha": "15e8a2916b6260564ef3d26cd5d27c4519b0514c",
+        "pullRequest": 44,
+        "packetMergeSha": "0bec363355aa7eefff56fee4a8d6704253c86ba7",
+        "packetMergedAtUtc": "2026-10-05T07:38:20Z"
       },
       {
         "lane": "C",
@@ -126,12 +128,14 @@
           "privateObjectReservationPurposeClassificationAuthorizationExpiryQuarantineScanProcessFinalizeChecksumReplayRetentionDeletion",
           "operatorTeamVanEquipmentIdentityRevisionCurrentWorkGrantEligibilityRevocationShiftsEmploymentModel"
         ],
-        "status": "received-proposal-review-pending",
+        "status": "externally-merged-proposal-review-pending",
         "packetPath": "docs/parallel/C/W01/CONTRACT_REQUESTS.md",
         "acceptedContractIds": [],
         "reviewRecord": null,
         "packetSourceSha": "15e5b224d122a995bbe932725c1b3a71d7a06aeb",
-        "pullRequest": 43
+        "pullRequest": 43,
+        "packetMergeSha": "317613e98784e660e7ed29bc74343aedc1a0fd7e",
+        "packetMergedAtUtc": "2026-10-05T07:38:45Z"
       },
       {
         "lane": "D",
@@ -139,12 +143,14 @@
         "requiredSemantics": [
           "marketRevisionCurrencyPrecisionTimezoneHoursZonesPolicyVersionEffectiveTimeInputOwnerAuthorizationAuditRollback"
         ],
-        "status": "received-proposal-review-pending",
+        "status": "externally-merged-proposal-review-pending",
         "packetPath": "docs/parallel/D/W01/CONTRACT_PROPOSALS.md",
         "acceptedContractIds": [],
         "reviewRecord": null,
         "packetSourceSha": "edb8a0392e3c3ad926cdb35d17c9c0e54b2dac00",
-        "pullRequest": 42
+        "pullRequest": 42,
+        "packetMergeSha": "30086fa22d27b5ea861a8f2c047c789f9795b3b6",
+        "packetMergedAtUtc": "2026-10-05T07:39:26Z"
       },
       {
         "lane": "E",
@@ -600,6 +606,113 @@
       "C requires real Workforce binding before Media, then Workforce review/eligibility; every other Media purpose needs its real authority producer. Later Booking Work binding precedes Media Work-purpose integration and full Work.",
       "Configuration validation consumes actual domain validators; D supporting domains consume real A/B/C producers. Bootstrap technical readiness does not satisfy those business providers.",
       "Electronic-payment work-start/unpaid-closure conflict, custody actor/purpose, retention/replay lifetimes, deadlines, provider/Paymera scope and privacy fulfillment remain owner decisions, not accepted defaults."
-    ]
+    ],
+    "observationPhase": "historical-before-external-peer-merges"
+  },
+  "latestTargetObservation": {
+    "observedAtUtc": "2026-10-05T08:01:53Z",
+    "source": "GitHub plugin PR/review metadata and immutable target/package reads; local exact Git target-tree/diff verification",
+    "targetSha": "30086fa22d27b5ea861a8f2c047c789f9795b3b6",
+    "targetTree": "9db65fd4b0e82535def4d75e9b3ebd875ad64551",
+    "frozenBASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+    "mainProtected": false,
+    "mergedPeerProposals": [
+      {
+        "lane": "B",
+        "pullRequest": 44,
+        "headSha": "15e8a2916b6260564ef3d26cd5d27c4519b0514c",
+        "treeSha": "5dfb270202c4d7de9503355f4e176bf9e2356300",
+        "mergeSha": "0bec363355aa7eefff56fee4a8d6704253c86ba7",
+        "mergedAtUtc": "2026-10-05T07:38:20Z",
+        "contractPath": "docs/parallel/B/W01/W02_CONTRACT_PACKET.md",
+        "publicationStatus": "externally-merged",
+        "semanticStatus": "proposal-review-pending-not-accepted",
+        "independentReviewVerified": false,
+        "reviewSubmissionsObserved": 0,
+        "acceptedContractIds": [],
+        "indexPath": "docs/parallel/B/W01/README.md",
+        "indexUrl": "https://github.com/baraabd/carwash-platform/blob/15e8a2916b6260564ef3d26cd5d27c4519b0514c/docs/parallel/B/W01/README.md"
+      },
+      {
+        "lane": "C",
+        "pullRequest": 43,
+        "headSha": "15e5b224d122a995bbe932725c1b3a71d7a06aeb",
+        "treeSha": "ea5bab042ec7fc39163dc605b7f6a0fd07875859",
+        "mergeSha": "317613e98784e660e7ed29bc74343aedc1a0fd7e",
+        "mergedAtUtc": "2026-10-05T07:38:45Z",
+        "contractPath": "docs/parallel/C/W01/CONTRACT_REQUESTS.md",
+        "publicationStatus": "externally-merged",
+        "semanticStatus": "proposal-review-pending-not-accepted",
+        "independentReviewVerified": false,
+        "reviewSubmissionsObserved": 0,
+        "acceptedContractIds": [],
+        "indexPath": "docs/parallel/C/W01/README.md",
+        "indexUrl": "https://github.com/baraabd/carwash-platform/blob/15e5b224d122a995bbe932725c1b3a71d7a06aeb/docs/parallel/C/W01/README.md"
+      },
+      {
+        "lane": "D",
+        "pullRequest": 42,
+        "headSha": "edb8a0392e3c3ad926cdb35d17c9c0e54b2dac00",
+        "treeSha": "7e1fdf90f881d5b7c3f3ad588a129860af5b6299",
+        "mergeSha": "30086fa22d27b5ea861a8f2c047c789f9795b3b6",
+        "mergedAtUtc": "2026-10-05T07:39:26Z",
+        "contractPath": "docs/parallel/D/W01/CONTRACT_PROPOSALS.md",
+        "publicationStatus": "externally-merged",
+        "semanticStatus": "proposal-review-pending-not-accepted",
+        "independentReviewVerified": false,
+        "reviewSubmissionsObserved": 0,
+        "acceptedContractIds": [],
+        "indexPath": "docs/parallel/D/W01/README.md",
+        "indexUrl": "https://github.com/baraabd/carwash-platform/blob/edb8a0392e3c3ad926cdb35d17c9c0e54b2dac00/docs/parallel/D/W01/README.md"
+      }
+    ],
+    "addedLaneDocumentSpecificationPaths": [
+      "docs/parallel/B/W01/DEPENDENCY_HANDOFF.md",
+      "docs/parallel/B/W01/FUTURE_FINANCE_CONTRACTS.md",
+      "docs/parallel/B/W01/OWNERSHIP_AND_STATES.md",
+      "docs/parallel/B/W01/POLICY_DECISIONS.md",
+      "docs/parallel/B/W01/PROVIDER_ACCEPTANCE.md",
+      "docs/parallel/B/W01/README.md",
+      "docs/parallel/B/W01/SOURCE_INVENTORY.md",
+      "docs/parallel/B/W01/W02_CONTRACT_PACKET.md",
+      "docs/parallel/B/W01/WORKFLOW_REPAIR.md",
+      "docs/parallel/B/W01/future-finance-contracts.schema.json",
+      "docs/parallel/B/W01/w02-contracts.schema.json",
+      "docs/parallel/C/W01/CHECKPOINT.md",
+      "docs/parallel/C/W01/CONTRACT_REQUESTS.md",
+      "docs/parallel/C/W01/DEPENDENCIES.md",
+      "docs/parallel/C/W01/OPERATIONS_BLUEPRINT.md",
+      "docs/parallel/C/W01/README.md",
+      "docs/parallel/C/W01/TECHNICIAN_INVENTORY.md",
+      "docs/parallel/D/W01/ADMIN_SURFACE_MATRIX.md",
+      "docs/parallel/D/W01/BASE_CI_OBSERVATION.json",
+      "docs/parallel/D/W01/CONTRACT_PROPOSALS.md",
+      "docs/parallel/D/W01/DECISIONS.md",
+      "docs/parallel/D/W01/HANDOFF.md",
+      "docs/parallel/D/W01/README.md",
+      "docs/parallel/D/W01/SOURCE_AUDIT.md",
+      "tests/parallel/B/W01/contract-shape-examples.spec.json",
+      "tests/parallel/B/W01/finance-acceptance.spec.json",
+      "tests/parallel/C/W01/acceptance-specifications.md",
+      "tests/parallel/C/W01/contract-examples.md",
+      "tests/parallel/D/W01/ACCEPTANCE_SPEC.md"
+    ],
+    "addedPathCount": 29,
+    "changesOutsidePeerDocumentSpecificationPaths": false,
+    "contractPackageVersions": {
+      "@carwash/contracts": "0.0.2",
+      "@carwash/event-contracts": "0.0.2",
+      "@carwash/api-clients": "0.0.1"
+    },
+    "apiClientStatus": "export-empty-skeleton",
+    "AStatus": "not-received-in-inventoried-base-or-new-target",
+    "contractReleaseAccepted": false,
+    "BASE_W02": null,
+    "disposition": "External merges publish proposal documents only; no E contract, domain policy, independent review or wave-base acceptance follows. Prior initial/draft intake snapshots remain historical.",
+    "previousECiEvidence": {
+      "headSha": "9575eeb4b7786ae10b67f075efa8255d625c66b1",
+      "status": "previous-source-only-final-source-rerun-pending",
+      "reason": "Latest-target merge and subsequent E intake edits change candidate source/tree; rerun all mandatory and affected gates on the final latest-target-plus-head candidate."
+    }
   }
 }
