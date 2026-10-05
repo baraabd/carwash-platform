@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "task": "W03-E",
+  "lane": "E",
+  "phase": "ENTRY_BLOCKED",
+  "parentRuntime": "NOT_STARTED",
+  "proposalChild": "W03-E-ENTRY-PROPOSAL",
+  "observation": {
+    "atUtc": "2026-10-05T11:39:51.768Z",
+    "repository": "baraabd/carwash-platform",
+    "targetSha": "82e7402ed9ab6cc4f565f423441cd0655f2d627a",
+    "targetTree": "050b4b8a03be2bc671cbaa00151ea7105891e2d4",
+    "basis": "Immutable GitHub resources and fresh isolated local clone; current owner proposals reviewed read-only."
+  },
+  "expectedWaveBase": {
+    "name": "BASE_W03",
+    "published": false,
+    "sha": null
+  },
+  "publishedRegistry": {
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+    "BASE_W02": null,
+    "BASE_W03FieldPresent": false,
+    "acceptedNextWaveContracts": [],
+    "nextWaveSourceSha": null,
+    "nextWaveReviewRecord": null,
+    "publishedPackageVersions": {}
+  },
+  "contracts": {
+    "@carwash/contracts": "0.0.2",
+    "@carwash/event-contracts": "0.0.2",
+    "@carwash/api-clients": "0.0.1",
+    "apiClientExports": "empty-skeleton",
+    "bookingConfirmedV1": "strict-contract-only"
+  },
+  "ownership": {
+    "registryStatus": "proposal-pending-independent-review",
+    "registryVerifiedBaseW02": null,
+    "effectiveBootstrapPermission": "expired-by-current-W03-user-instruction",
+    "bootstrapWritesPermitted": false,
+    "currentTaskInstructionPrecedesOldLeaseRecord": true,
+    "publicationReconciliationPending": true,
+    "permanentOwners": {
+      "A": ["customer", "vehicle", "geo", "customer-web"],
+      "B": ["catalog", "pricing", "billing", "wallet", "subscription"],
+      "C": ["media", "workforce", "scheduling", "booking", "dispatch", "operator-web"],
+      "D": ["communications", "reviews", "support", "reporting", "configuration", "admin-web"],
+      "E": ["identity", "api-gateway", "reserved-shared-paths", "E-lane-local-paths"]
+    }
+  },
+  "externallyMergedProposalIntake": [
+    {
+      "pullRequest": 46,
+      "head": "87ccf62758f06c9512928233bea529e2235cb4cc",
+      "merge": "0a667b23027970f81abfe00f79f65d832c19181f",
+      "mergedAtUtc": "2026-10-05T11:29:00Z",
+      "semanticAcceptance": "unverified-proposal-only"
+    },
+    {
+      "pullRequest": 47,
+      "head": "d8dc74c0e1c48099764fb727807ad45e6ddc9c5f",
+      "merge": "838a6096407767b451c659ffe669d7176e5ae7b2",
+      "mergedAtUtc": "2026-10-05T11:30:11Z",
+      "semanticAcceptance": "unverified-proposal-only"
+    },
+    {
+      "pullRequest": 48,
+      "head": "a13c2748924a0ed084c0ff060fadde3c9aa267af",
+      "merge": "0df9469c41f62c35235291fa7402cc132d690a25",
+      "mergedAtUtc": "2026-10-05T11:30:41Z",
+      "semanticAcceptance": "unverified-proposal-only"
+    },
+    {
+      "pullRequest": 49,
+      "head": "35e72d57b7ed46c15155191a500962954ea4732a",
+      "merge": "5893ce294336daa934be334b078f0099c5f382b7",
+      "mergedAtUtc": "2026-10-05T11:29:37Z",
+      "semanticAcceptance": "unverified-proposal-only"
+    }
+  ],
+  "EPreviousProposal": {
+    "pullRequest": 50,
+    "head": "fee6896ac51276f68b7ae05fc477cafaa2d34bb5",
+    "merge": "82e7402ed9ab6cc4f565f423441cd0655f2d627a",
+    "mergedAtUtc": "2026-10-05T11:31:03Z",
+    "semanticAcceptance": "documentation-only-no-wave-acceptance"
+  },
+  "targetChecksSnapshot": {
+    "sourceSha": "82e7402ed9ab6cc4f565f423441cd0655f2d627a",
+    "total": 43,
+    "success": 41,
+    "pending": [
+      {
+        "name": "Foundation release gate",
+        "status": "queued"
+      },
+      {
+        "name": "gateway",
+        "status": "in_progress"
+      }
+    ],
+    "nonSuccessTerminal": [],
+    "limitation": "Dated target foundation snapshot only; terminal proposal-head outcomes are recorded in the live PR. Not W03 business acceptance."
+  },
+  "governance": {
+    "mainProtected": false,
+    "rulesets": [],
+    "PR50ReviewSubmissions": 0,
+    "independentApprovalVerified": false,
+    "administratorEnforcement": "unapplied"
+  },
+  "localEnvironment": {
+    "node": "24.21.0",
+    "pnpm": "10.32.1",
+    "prettier": "3.9.8",
+    "platform": "linux/x64",
+    "dockerAvailable": false,
+    "dependencyInstallRun": false,
+    "runtimeStackStarted": false,
+    "resourceAllocation": null,
+    "ownedHandles": []
+  },
+  "acceptance": {
+    "W02RuntimeAccepted": false,
+    "W03RuntimeAccepted": false,
+    "W03OwnerTests": "BLOCKED_NOT_RUN",
+    "actualProviderOperations": "NOT_RUN",
+    "staging": "NOT_RUN",
+    "windowsDevices": "NOT_RUN",
+    "BASE_W04Published": false
+  },
+  "nextAction": "Review received owner/E proposals; complete prerequisite contract/policy/provider acceptance and resulting-target barriers, publish real BASE_W02 then BASE_W03 and accepted versions before dependent W03 runtime writes."
+}
