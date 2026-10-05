@@ -4,8 +4,8 @@
  * Deliberate properties, each of which has a regression test:
  *   - No shell. Arguments are passed as an argv array, so a value that contains
  *     spaces, quotes or shell metacharacters can never be re-parsed as syntax.
- *     `pnpm` on Windows is resolved to its .CMD shim explicitly rather than by
- *     switching the spawn to `shell: true`.
+ *     Windows package-manager shims are resolved to their known JavaScript CLI
+ *     entrypoints and run with Node; batch files never enter cmd.exe.
  *   - Process-TREE termination. Killing `pnpm` alone leaves `tsc`/`node`/`docker`
  *     children alive and the harness hangs; on Windows we use `taskkill /T /F`,
  *     elsewhere we signal the whole process group.
@@ -17,7 +17,7 @@
  *   - Secret redaction on everything that is written to a log or a report.
  */
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import { once } from 'node:events';
 import path from 'node:path';
 
@@ -95,29 +95,90 @@ export function killTree(child) {
 }
 
 /**
- * Resolve a command to something spawnable without a shell.
- * On Windows, .CMD/.BAT shims are not executable images, so they are run through
- * cmd.exe with an argv array (NOT a concatenated command string).
+ * Resolve known Windows package-manager layouts without interpreting a shim.
+ * cmd.exe reparses argv as shell syntax, so an argv array cannot make .CMD/.BAT
+ * invocation safe. A missing JavaScript entrypoint is an explicit failure.
+ * The optional platform/filesystem parameters support portable resolver tests;
+ * production callers always use the actual platform and filesystem.
  */
-function resolveCommand(command, args, env) {
-  if (process.platform !== 'win32') return { file: command, argv: args, windowsVerbatim: false };
-  if (command === 'pnpm' || command === 'npm' || command === 'npx' || command === 'corepack') {
-    const dir = (env.PATH ?? process.env.PATH ?? '')
-      .split(path.delimiter)
-      .find((entry) => entry && safeExists(path.join(entry, `${command}.CMD`)));
-    const shim = dir ? path.join(dir, `${command}.CMD`) : `${command}.CMD`;
-    return {
-      file: process.env.ComSpec ?? 'cmd.exe',
-      argv: ['/d', '/s', '/c', shim, ...args],
-      windowsVerbatim: false,
-    };
+export function resolveCommand(command, args, env = process.env, options = {}) {
+  const platform = options.platform ?? process.platform;
+  const fileExists = options.fileExists ?? safeFileExists;
+  const nodeExecutable = options.nodeExecutable ?? process.execPath;
+  const name = path.win32.basename(command).toLowerCase();
+  const batch = /\.(?:cmd|bat)$/i.test(name);
+  const manager = batch ? name.replace(/\.(?:cmd|bat)$/i, '') : name;
+  const layouts = {
+    pnpm: ['node_modules/pnpm/bin/pnpm.cjs', 'node_modules/corepack/dist/pnpm.js', 'pnpm.cjs'],
+    npm: ['node_modules/npm/bin/npm-cli.js', 'node_modules/corepack/dist/npm.js', 'npm-cli.js'],
+    npx: ['node_modules/npm/bin/npx-cli.js', 'node_modules/corepack/dist/npx.js', 'npx-cli.js'],
+    corepack: ['node_modules/corepack/dist/corepack.js', 'corepack.js'],
+  };
+  if (batch && !Object.hasOwn(layouts, manager)) {
+    throw new Error('UNSUPPORTED_BATCH_COMMAND');
   }
-  return { file: command, argv: args, windowsVerbatim: false };
+  if (platform !== 'win32') {
+    if (batch) throw new Error('UNSUPPORTED_BATCH_COMMAND');
+    return { file: command, argv: args };
+  }
+  if (!Object.hasOwn(layouts, manager)) return { file: command, argv: args };
+
+  // npm_execpath is a normal package-manager launch context. Accept only the
+  // exact known CLI basename for the requested tool, never a .cmd/.bat path or
+  // a command string. Its bytes remain an argv entry, including % and &.
+  const entryNames = {
+    pnpm: ['pnpm.cjs', 'pnpm.js'],
+    npm: ['npm-cli.js', 'npm.js'],
+    npx: ['npx-cli.js', 'npx.js'],
+    corepack: ['corepack.js'],
+  };
+  const currentCli = windowsEnvValue(env, 'npm_execpath');
+  const explicitShim = batch && /[\\/]/.test(command);
+  if (
+    !explicitShim &&
+    currentCli &&
+    path.win32.isAbsolute(currentCli) &&
+    entryNames[manager].includes(path.win32.basename(currentCli).toLowerCase()) &&
+    fileExists(currentCli)
+  ) {
+    return { file: nodeExecutable, argv: [currentCli, ...args] };
+  }
+
+  const directories = explicitShim
+    ? [path.win32.dirname(command)]
+    : (windowsEnvValue(env, 'PATH') ?? '').split(';').filter(Boolean);
+  // Node's standard Windows install also hosts npm/Corepack. This fallback
+  // does not apply to an explicitly named shim from a different installation.
+  if (!explicitShim) directories.push(path.win32.dirname(nodeExecutable));
+  for (const directory of [...new Set(directories)]) {
+    const native = path.win32.join(directory, `${manager}.exe`);
+    if (!batch && fileExists(native)) return { file: native, argv: args };
+    for (const relative of layouts[manager]) {
+      const candidate = path.win32.join(directory, ...relative.split('/'));
+      if (fileExists(candidate)) return { file: nodeExecutable, argv: [candidate, ...args] };
+    }
+    // Do not silently bypass an earlier unknown shim with a later install.
+    if (
+      fileExists(path.win32.join(directory, `${manager}.cmd`)) ||
+      fileExists(path.win32.join(directory, `${manager}.bat`))
+    ) {
+      throw new Error(`PACKAGE_MANAGER_JS_CLI_NOT_FOUND: ${manager}`);
+    }
+  }
+  throw new Error(`PACKAGE_MANAGER_JS_CLI_NOT_FOUND: ${manager}`);
 }
 
-function safeExists(p) {
+function windowsEnvValue(env, name) {
+  // Match Node's first lexicographic key when PATH/Path aliases coexist.
+  const key = Object.keys(env)
+    .sort()
+    .find((entry) => entry.toLowerCase() === name.toLowerCase());
+  return key === undefined ? undefined : env[key];
+}
+
+function safeFileExists(p) {
   try {
-    return existsSync(p);
+    return statSync(p).isFile();
   } catch {
     return false;
   }
@@ -143,6 +204,8 @@ export async function run(command, args, options = {}) {
     env,
     // A process group on POSIX so the whole tree can be signalled at once.
     detached: process.platform !== 'win32',
+    shell: false,
+    windowsVerbatimArguments: false,
     windowsHide: true,
     stdio: ['pipe', 'pipe', 'pipe'],
   });

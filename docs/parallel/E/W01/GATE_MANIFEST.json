@@ -1,0 +1,284 @@
+{
+  "schemaVersion": 1,
+  "task": "W01-E-BOOTSTRAP",
+  "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+  "scope": "Technical onboarding only. Pending gates are never passed by this manifest.",
+  "toolchain": {
+    "node": "24.21.0",
+    "pnpm": "10.32.1"
+  },
+  "localCommands": [
+    [
+      "node",
+      "scripts/verify-toolchain.mjs"
+    ],
+    [
+      "pnpm",
+      "install",
+      "--frozen-lockfile"
+    ],
+    [
+      "node",
+      "scripts/check-design-reference.mjs"
+    ],
+    [
+      "node",
+      "scripts/parallel/E/check-owners.mjs",
+      "--inventory"
+    ],
+    [
+      "node",
+      "architecture/implementation-status.mjs",
+      "--self-test"
+    ],
+    [
+      "node",
+      "scripts/f001/acceptance.mjs",
+      "--base-ref",
+      "69d81a83a3409d0693272efeb19ebeb9805750f5"
+    ],
+    [
+      "pnpm",
+      "generate"
+    ],
+    [
+      "pnpm",
+      "build"
+    ],
+    [
+      "pnpm",
+      "typecheck"
+    ],
+    [
+      "pnpm",
+      "lint"
+    ],
+    [
+      "pnpm",
+      "format:check"
+    ],
+    [
+      "pnpm",
+      "--filter",
+      "@carwash/customer-web",
+      "typecheck"
+    ],
+    [
+      "pnpm",
+      "--filter",
+      "@carwash/customer-web",
+      "build"
+    ],
+    [
+      "pnpm",
+      "--filter",
+      "@carwash/operator-web",
+      "typecheck"
+    ],
+    [
+      "pnpm",
+      "--filter",
+      "@carwash/operator-web",
+      "build"
+    ],
+    [
+      "pnpm",
+      "--filter",
+      "@carwash/admin-web",
+      "typecheck"
+    ],
+    [
+      "pnpm",
+      "--filter",
+      "@carwash/admin-web",
+      "build"
+    ],
+    [
+      "node",
+      "--test",
+      "--test-reporter=tap",
+      "tests/parallel/E/*.test.mjs"
+    ],
+    [
+      "pnpm",
+      "test:unit"
+    ],
+    [
+      "pnpm",
+      "test:gateway"
+    ],
+    [
+      "pnpm",
+      "test:observability"
+    ],
+    [
+      "pnpm",
+      "build:tests"
+    ],
+    [
+      "pnpm",
+      "test:nest"
+    ],
+    [
+      "pnpm",
+      "check:gateway-contract"
+    ],
+    [
+      "node",
+      "scripts/check-migrations.mjs",
+      "--base-ref",
+      "69d81a83a3409d0693272efeb19ebeb9805750f5"
+    ],
+    [
+      "node",
+      "scripts/check-design-reference.mjs"
+    ]
+  ],
+  "ci": {
+    "requiredJobs": [
+      "plan",
+      "targeted",
+      "static",
+      "integration",
+      "images",
+      "security",
+      "codeql"
+    ],
+    "preserveExistingWorkflows": true,
+    "webCommandsAndParallelTests": "scripts/ci/run.mjs static",
+    "actualArtifactDiscovery": "scripts/ci/policy.mjs inventory()",
+    "images": "scripts/ci/image.mjs <catalog target id>; all 23 artifacts retain native, UID, health, no-shell, scan and SBOM gates",
+    "realDatabaseBrokerIdentityBrowser": "scripts/ci/run.mjs integration",
+    "integrationExecution": "Hosted integration runs on its isolated CI runner. For local workstation acceptance, use with-heavy around scripts/acceptance.mjs --run and run two-stack separately after that lease releases. Do not wrap the full CI integration command in with-heavy: its two-stack subgate acquires its own exclusive lease.",
+    "canonicalPixels": "Existing C002-C014 and F010 pinned Linux workflows",
+    "windowsDeviceEvidence": "Required separately; not executed in this Linux environment",
+    "twoStackIsolation": {
+      "command": [
+        "node",
+        "scripts/parallel/E/two-stack-acceptance.mjs",
+        "--evidence-dir",
+        "<absolute-unique-evidence-dir>"
+      ],
+      "wrapper": "Acquires its own heavy lease; do not wrap in with-heavy.",
+      "scope": "Two simultaneous real PostgreSQL containers, volumes, ports, cluster IDs, credentials and sentinel data; not broker/browser isolation."
+    },
+    "inheritedSeparateJobs": [
+      "recovery-lifecycle",
+      "stability-batch"
+    ]
+  },
+  "ownershipTrust": {
+    "status": "pending-independent-bootstrap-policy-review",
+    "checkerFrom": "independently reviewed immutable policy commit / protected workflow",
+    "registryFrom": "exact protected base, or externally reviewed SHA256 for the first promotion",
+    "writerPlanFrom": "separately reviewed policy commit + protected SHA256, binding exact base/head/path writers",
+    "doNotUse": "A PR-selected checker, candidate-generated approval digest, or shared GitHub author approval"
+  },
+  "heavyGate": {
+    "allocator": "scripts/parallel/E/allocate-environment.mjs",
+    "mode": "one with-heavy wrapper per workstation; all worktrees use one absolute state-root",
+    "command": [
+      "node",
+      "scripts/parallel/E/allocate-environment.mjs",
+      "with-heavy",
+      "--lane",
+      "E",
+      "--wave",
+      "W01",
+      "--run",
+      "<allocated-run>",
+      "--state-root",
+      "<shared-absolute-state-root>",
+      "--token",
+      "<local-allocation-token>",
+      "--",
+      "node",
+      "scripts/acceptance.mjs",
+      "--run"
+    ]
+  },
+  "blockedUntilVerified": [
+    "Fresh exact-source migration/upgrade/broker and two-stack acceptance after latest-target refresh",
+    "Fresh 23 non-root independent container/security/SBOM checks after latest-target refresh",
+    "Fresh source/security/CodeQL and affected canonical browser checks",
+    "Independent review and enforced protected ownership policy with an eligible independent code owner",
+    "A packet receipt and affected-owner review of merged B/C/D proposal documents; bootstrap prerequisite and exact contract compatibility acceptance",
+    "Final resulting main SHA checks and BASE_W02 release"
+  ],
+  "localEvidence": {
+    "f001": {
+      "verdict": "ACCEPTED",
+      "testedSha": "116ebf67a00641612d67e5a14b6ebc0ba63750c5",
+      "testedTree": "9c59004c2fecddf833281a9cd41b792d2e951639",
+      "sourceDirty": false,
+      "generatedAt": "2026-10-05T06:51:37.775Z",
+      "passedGates": 17,
+      "blockers": [],
+      "report": "/workspace/scratch/baf0b620615a/f001-final-evidence/report.json",
+      "limitation": "Complete local F001 code-candidate scope only. Later documentation/source changes require affected reruns; final-source CI and independent review remain pending."
+    },
+    "finalSourceStatus": "latest-target-candidate-exact-source-reruns-pending"
+  },
+  "proposalIntake": {
+    "observation": "2026-10-05T06:56:13Z",
+    "registry": "architecture/parallel-contract-release.json#proposedPacketIntake",
+    "A": "not-received",
+    "B": "draft-44-received-review-pending",
+    "C": "draft-43-received-review-pending",
+    "D": "draft-42-received-review-pending",
+    "acceptedContracts": [],
+    "currentHeadCheckObservation": "2026-10-05T06:58:54Z",
+    "BChecks": {
+      "status": "acceptance-blocked-current-head-security-and-release-gate-failures",
+      "security": "https://github.com/baraabd/carwash-platform/actions/runs/37274562450/job/111648782044",
+      "releaseGate": "https://github.com/baraabd/carwash-platform/actions/runs/37274562450/job/111650241278",
+      "owner": "B",
+      "limitation": "Snapshot only; refresh after owner investigation/reruns, no peer edits or log disclosure."
+    }
+  },
+  "latestTargetObservation": {
+    "targetSha": "30086fa22d27b5ea861a8f2c047c789f9795b3b6",
+    "targetTree": "9db65fd4b0e82535def4d75e9b3ebd875ad64551",
+    "frozenWaveBaseUnchanged": true,
+    "externalMergedProposalPRs": [
+      44,
+      43,
+      42
+    ],
+    "newLaneLocalPaths": 29,
+    "overlapWithEOwnedDiff": 0,
+    "independentReviewsObserved": 0,
+    "contractAcceptance": [],
+    "BASE_W02": null,
+    "limitation": "Merged proposal documents are not approved contract or policy release. Candidate source changed; prior checks require exact-source reruns."
+  },
+  "previousSourceHostedEvidence": {
+    "sourceSha": "9575eeb4b7786ae10b67f075efa8255d625c66b1",
+    "sourceTree": "eced6725caa4f59b8f4cde168e970ca1f731c5c6",
+    "sourceDirty": false,
+    "run": "https://github.com/baraabd/carwash-platform/actions/runs/37277976237",
+    "F001PassedGates": 17,
+    "staticSuitePassCounts": {
+      "ci": 34,
+      "platform": 94,
+      "unit": 553,
+      "nest": 171,
+      "observability": 49,
+      "gateway": 22
+    },
+    "realDatabasePass": 338,
+    "identityGatewayBrowserPass": 26,
+    "migrationOwners": 19,
+    "twoStackPhasesPass": 10,
+    "cleanupAndLeaseRelease": "PASS",
+    "independentImagesPass": 23,
+    "requiredStepsPerImage": 17,
+    "imageArchiveDigests": "all-23-verified",
+    "codeqlFindings": 0,
+    "codeqlBlocking": 0,
+    "gitleaksHistoryFindings": 0,
+    "gitleaksSourceFindings": 0,
+    "dependencyAdvisories": 0,
+    "limitation": "Prior source only; latest-target merge and evidence edits require fresh checks. No independent review, business completion, Windows/device or resulting-main acceptance."
+  }
+}

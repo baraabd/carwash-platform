@@ -7,7 +7,13 @@ import { constants, closeSync, fstatSync, lstatSync, openSync, readSync } from '
 export function readRegularFile(file, maxBytes) {
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 64 * 1024 * 1024)
     throw new Error('INVALID_FILE_LIMIT');
-  const descriptor = openSync(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  // Reject special files after opening without allowing a substituted FIFO to
+  // block before fstat. Nonblocking does not change regular-file reads.
+  const descriptor = openSync(
+    file,
+    constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0),
+    0o600,
+  );
   try {
     const opened = fstatSync(descriptor);
     if (!opened.isFile()) throw new Error('NOT_A_REGULAR_FILE');

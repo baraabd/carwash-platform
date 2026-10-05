@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "status": "prepared-not-applied",
+  "observed": {
+    "mainProtected": false,
+    "rulesets": [],
+    "administrationEndpoint403": true
+  },
+  "target": "main",
+  "branchProtectionProposal": {
+    "required_status_checks": {
+      "strict": true,
+      "contexts": [
+        "Foundation release gate",
+        "F001 final-source acceptance",
+        "Frozen design reference",
+        "F010 parity harness gate",
+        "Static gates, builds and offline tests",
+        "Real PostgreSQL and RabbitMQ acceptance",
+        "Service image build and boot contract",
+        "Dependency and secret scanning",
+        "identity-security",
+        "gateway",
+        "F008 redaction trace metrics and runtime acceptance",
+        "customer-home",
+        "customer-vehicle",
+        "customer-garage",
+        "customer-care-packages",
+        "customer-extras",
+        "customer-location",
+        "customer-saved-addresses",
+        "customer-scheduling",
+        "customer-contact",
+        "customer-payment-method",
+        "customer-review",
+        "booking-confirmation",
+        "recovery-lifecycle",
+        "stability-batch"
+      ]
+    },
+    "enforce_admins": true,
+    "required_pull_request_reviews": {
+      "dismiss_stale_reviews": true,
+      "require_code_owner_reviews": true,
+      "required_approving_review_count": 1,
+      "require_last_push_approval": true
+    },
+    "restrictions": null,
+    "required_conversation_resolution": true,
+    "allow_force_pushes": false,
+    "allow_deletions": false,
+    "activationStatus": "blocked-until-all-activation-prerequisites-are-satisfied"
+  },
+  "ownerGuardRequiredWorkflow": {
+    "status": "not-configured",
+    "independentBootstrapPolicySHA": null,
+    "independentRegistrySHA256": null,
+    "independentWriterPlanSHA256": null,
+    "note": "NOT_CONFIGURED. A reviewer-controlled producer must execute protected checker code, read the exact protected target registry, and verify an independently approved registry bootstrap digest when needed. Load the writer plan from a separate approved immutable policy commit and independently approved SHA-256 pin; bind its complete writer map to the exact known target/head SHA. Never trust candidate-provided policy refs, pins, plans or checker code. A manual workflow_dispatch run is not a substitute for an eligible required PR/ruleset check.",
+    "eligibleProducers": [
+      "reviewer-controlled always-on pull_request or push workflow",
+      "trusted external GitHub App with its expected check producer configured"
+    ],
+    "manualDispatchSubstitute": false,
+    "independentWriterPlanPolicySHA": null
+  },
+  "reviewer": {
+    "login": null,
+    "status": "independent-human-required",
+    "sameAuthorApproval": false
+  },
+  "codeowners": "Existing .github/CODEOWNERS is frozen and preserved; no rewrite authorized.",
+  "ciCapacity": {
+    "oneHeavySlotPerWorkstation": true,
+    "hostedRunners": "Confirm current account capacity; each matrix runner is isolated."
+  },
+  "mandatoryInheritedContextInventory": [
+    {
+      "context": "recovery-lifecycle",
+      "workflow": ".github/workflows/f008-recovery-regression.yml",
+      "topLevelPathFiltered": true,
+      "coverage": "Acceptance cleanup/cancellation regressions; preserve this job and exact-source results at the integration barrier."
+    },
+    {
+      "context": "stability-batch",
+      "workflow": ".github/workflows/c011-customer-contact.yml",
+      "topLevelPathFiltered": true,
+      "coverage": "Declared repeated customer browser regressions; preserve this job and exact-source results at the integration barrier."
+    }
+  ],
+  "activationPrerequisites": [
+    {
+      "id": "administration-access",
+      "status": "pending",
+      "owner": "repository administrator",
+      "requirement": "Obtain actual administration permission; the observed administration endpoint returns 403. No branch protection or ruleset has been applied."
+    },
+    {
+      "id": "eligible-protected-check-producer",
+      "status": "pending",
+      "owner": "repository administrator and independent policy reviewer",
+      "requirement": "Install a reviewer-controlled always-on eligible pull_request/push producer or trusted external GitHub App. Required check provenance must be independent of candidate-controlled workflow/code. Configure the expected producer rather than trusting context names alone; manual workflow_dispatch is not a replacement."
+    },
+    {
+      "id": "path-filter-required-check-reconciliation",
+      "status": "pending",
+      "owner": "workflow owners A/E and independent reviewer",
+      "affectedContexts": [
+        "customer-home",
+        "customer-vehicle",
+        "customer-garage",
+        "customer-care-packages",
+        "customer-extras",
+        "customer-location",
+        "customer-saved-addresses",
+        "customer-scheduling",
+        "customer-contact",
+        "customer-payment-method",
+        "customer-review",
+        "booking-confirmation",
+        "recovery-lifecycle",
+        "stability-batch"
+      ],
+      "requirement": "C003-C014, recovery-lifecycle and stability-batch currently have top-level path filters. Do not activate this global context list until every required context is guaranteed to produce an honest eligible result on all covered changes. A workflow omitted by path/branch filtering remains Pending and can block unrelated service/docs PRs. Preserve all mandatory tests/jobs; do not substitute skipped/neutral results, fake no-op successes or old-head evidence."
+    },
+    {
+      "id": "independent-registry-and-writer-plan-trust",
+      "status": "pending",
+      "owner": "independent policy reviewer",
+      "requirement": "Independently approve the initial registry digest, protected checker/policy source, separate immutable writer-plan policy commit and plan SHA-256 digest. The plan must name the already-known exact base/head and exactly one writer for every changed path, including deletes and both rename paths. The separate policy commit avoids a self-referential Git SHA cycle; changed registry/checker/plan bytes cannot authorize their own diff."
+    },
+    {
+      "id": "eligible-independent-reviewer",
+      "status": "pending",
+      "owner": "repository owner and independent human reviewer",
+      "requirement": "Designate an eligible independent reviewer with required repository access. Current frozen CODEOWNERS names only baraabd for protected paths, while the PR author is baraabd; that author cannot satisfy their own code-owner approval. Enabling require_code_owner_reviews therefore needs an explicitly approved reviewer/policy change before it can be satisfied. Do not rewrite frozen CODEOWNERS or weaken review settings as part of this proposal."
+    },
+    {
+      "id": "serialized-exact-source-barrier",
+      "status": "pending",
+      "owner": "Lane E integration owner",
+      "requirement": "For each PR, recompute the latest-target/head candidate and prove all mandatory and affected gates, including recovery-lifecycle and stability-batch. Require successful exact-source evidence, not cancelled/skipped/missing results. Verify refs did not move, preserve required independent approval, and check the actual resulting target before publishing the next verified wave base."
+    },
+    {
+      "id": "capacity-and-post-activation-verification",
+      "status": "pending",
+      "owner": "repository administrator and Lane E",
+      "requirement": "Confirm runner capacity for all mandatory browser/runtime/image gates. After an authorized administrator applies the approved policy, read back branch protection/rulesets and verify checks/review enforcement on covered and otherwise path-filtered changes. Until this succeeds, status remains prepared-not-applied and main remains observed as unprotected."
+    }
+  ],
+  "primarySources": [
+    "https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks",
+    "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches"
+  ]
+}

@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+import {
+  classifyServiceRuntime,
+  classifyWebRuntime,
+  selectRuntimeServices,
+} from '../../architecture/runtime-lifecycle.mjs';
 
 export const REQUIRED_JOBS = [
   'plan',
@@ -15,14 +20,10 @@ export const ROOT = path.resolve(import.meta.dirname, '../..');
 export const readJson = (file) => JSON.parse(readFileSync(file, 'utf8'));
 export function inventory(root = ROOT) {
   const catalog = readJson(path.join(root, 'architecture/service-catalog.json'));
+  const runtime = selectRuntimeServices(catalog);
   for (const service of catalog.services) {
-    assert.ok(
-      ['existing-health-only-shell', 'directory-and-typescript-skeleton-only'].includes(
-        service.runtimeImplementation,
-      ),
-      'Unclassified runtime state',
-    );
-    if (service.runtimeImplementation === 'directory-and-typescript-skeleton-only') {
+    assert.equal(service.path, `services/${service.id}`, 'Invalid service artifact path');
+    if (!classifyServiceRuntime(service).runtime) {
       assert.ok(
         !existsSync(path.join(root, service.path, 'Dockerfile')),
         'Unclassified runtime image',
@@ -31,32 +32,55 @@ export function inventory(root = ROOT) {
         !existsSync(path.join(root, service.path, 'prisma/schema.prisma')),
         'Unclassified database owner',
       );
+      assert.ok(
+        !existsSync(path.join(root, service.path, 'src/main.ts')),
+        'Unclassified runtime entry point',
+      );
     }
   }
-  for (const app of catalog.apps)
-    assert.ok(
-      !existsSync(path.join(root, app.path, 'Dockerfile')),
-      'New app image requires explicit runtime acceptance policy',
-    );
-  const runtime = catalog.services.filter(
-    (s) => s.runtimeImplementation === 'existing-health-only-shell',
+  assert.equal(
+    classifyServiceRuntime(catalog.gateway).runtime,
+    true,
+    'Gateway runtime must be classified',
   );
+  const runtimeApps = [];
+  for (const app of catalog.apps) {
+    assert.equal(app.path, `apps/${app.id}`, 'Invalid app artifact path');
+    if (classifyWebRuntime(app).runtime) runtimeApps.push(app);
+    else
+      assert.ok(
+        !existsSync(path.join(root, app.path, 'Dockerfile')),
+        'Unclassified app runtime image',
+      );
+  }
   assert.ok(runtime.length > 0, 'No runtime services discovered');
   const targets = [
     ...runtime.map((s) => ({
       id: s.id,
       path: s.path,
       packageName: s.packageName,
+      kind: 'service',
       port: 3000,
       database: s.database,
+      runtimeRole: s.runtimeRole,
+      migrationRole: s.migrationRole,
     })),
     {
       id: catalog.gateway.id,
       path: catalog.gateway.path,
       packageName: catalog.gateway.packageName,
+      kind: 'gateway',
       port: 4000,
       database: null,
     },
+    ...runtimeApps.map((app) => ({
+      id: app.id,
+      path: app.path,
+      packageName: app.packageName,
+      kind: 'web-app',
+      port: 3000,
+      database: null,
+    })),
   ];
   for (const target of targets) {
     assert.match(target.id, /^[a-z][a-z0-9-]*$/);
@@ -64,6 +88,50 @@ export function inventory(root = ROOT) {
       existsSync(path.join(root, target.path, 'Dockerfile')),
       `Missing runtime Dockerfile: ${target.id}`,
     );
+  }
+  // An unknown directory or a new Dockerfile variant cannot bypass the image gate.
+  const acceptedImages = new Set(targets.map((target) => `${target.path}/Dockerfile`));
+  const acceptedImageContexts = new Set(
+    targets.map((target) => `${target.path}/Dockerfile.dockerignore`),
+  );
+  function scanImages(directory) {
+    if (!existsSync(directory)) return;
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (['node_modules', 'dist', 'dist-tests', 'generated', '.git'].includes(entry.name))
+        continue;
+      const file = path.join(directory, entry.name);
+      const relative = path.relative(root, file).split(path.sep).join('/');
+      assert.ok(!entry.isSymbolicLink(), `Unclassified runtime artifact symlink: ${relative}`);
+      if (entry.isDirectory()) scanImages(file);
+      else if (/^Dockerfile(?:\.|$)/.test(entry.name)) {
+        assert.ok(
+          acceptedImages.has(relative) || acceptedImageContexts.has(relative),
+          `Unclassified runtime image: ${relative}`,
+        );
+      }
+    }
+  }
+  scanImages(path.join(root, 'services'));
+  scanImages(path.join(root, 'apps'));
+  const declaredPaths = new Set([
+    ...catalog.services.map((service) => service.path),
+    catalog.gateway.path,
+    ...catalog.apps.map((app) => app.path),
+  ]);
+  for (const directory of ['services', 'apps']) {
+    const parent = path.join(root, directory);
+    if (!existsSync(parent)) continue;
+    for (const entry of readdirSync(parent, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const ownerPath = `${directory}/${entry.name}`;
+      if (declaredPaths.has(ownerPath)) continue;
+      for (const artifact of ['src/main.ts', 'prisma/schema.prisma']) {
+        assert.ok(
+          !existsSync(path.join(parent, entry.name, artifact)),
+          `Unclassified runtime or database owner: ${ownerPath}/${artifact}`,
+        );
+      }
+    }
   }
   assert.equal(new Set(targets.map((t) => t.id)).size, targets.length);
   return {
@@ -230,6 +298,7 @@ export function auditSummary(report) {
 // Runtime identity comes from the catalog's ownership, not a guessed directory id.
 export function runtimeEnvironment(target) {
   const env = ['-e', `PORT=${target.port}`, '-e', 'LOG_LEVEL=warn'];
+  if (target.kind === 'web-app') return env;
   if (target.database === null)
     env.push(
       '-e',
@@ -244,7 +313,7 @@ export function runtimeEnvironment(target) {
   else
     env.push(
       '-e',
-      `DATABASE_URL=postgresql://cw_${target.id}_app:changeme@127.0.0.1:9/cw_${target.id}?schema=app`,
+      `DATABASE_URL=postgresql://${target.runtimeRole}:changeme@127.0.0.1:9/${target.database}?schema=app`,
     );
   return env;
 }
