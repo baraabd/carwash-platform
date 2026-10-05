@@ -545,14 +545,14 @@ try {
       await quiesce(pair);
       await assert.rejects(
         compareReviewDom(pair.reference.page, pair.reference.page, 'negative: claim kept'),
-        /reference sentence present|differs only by the declared disclosure|AssertionError/,
+        /main text differs only as declared/,
       );
       await pair.candidate.page.evaluate(() => {
         globalThis.document.querySelector('.receipt-line strong').textContent += ' ×';
       });
       await assert.rejects(
         compareReviewDom(pair.reference.page, pair.candidate.page, 'negative: text'),
-        /differs only by the declared disclosure/,
+        /main text differs only as declared/,
       );
       await pair.candidate.page.evaluate(() => {
         const strong = globalThis.document.querySelector('.receipt-line strong');
