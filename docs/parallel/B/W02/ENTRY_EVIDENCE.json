@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "task": "W02-B",
+  "phase": "ENTRY_BLOCKED_PROPOSAL_READY",
+  "observedAtUtc": "2026-10-05T09:30:59.515959Z",
+  "observedSourceSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+  "observedSourceTree": "5b51ed5f1779a2cbefc359fdbdc4720779989b4b",
+  "acceptedWaveBase": null,
+  "acceptedBusinessContractIds": [],
+  "existingHttpContractIds": ["identity.v1", "gateway.v1"],
+  "sourcePackageVersions": {
+    "@carwash/contracts": "0.0.2",
+    "@carwash/event-contracts": "0.0.2",
+    "@carwash/api-clients": "0.0.1"
+  },
+  "approvedMoneyPolicy": null,
+  "approvedPricePolicy": null,
+  "approvedQuoteLifetimePolicy": null,
+  "resourceAllocation": null,
+  "migrationIdsAdded": [],
+  "runtimeExecuted": false,
+  "financeAcceptanceStatus": "NOT_RUN_SPECIFICATION_ONLY",
+  "localEnvironment": {
+    "dockerExecutableAvailable": false,
+    "validationNode": "24.21.0",
+    "validationPnpm": "10.32.1",
+    "ownedRunningResourceHandles": []
+  },
+  "sourceFiles": [
+    {
+      "path": "architecture/parallel-contract-release.json",
+      "sha256": "aec04eeb6c3d893e4e0b401bab0a550c517f1e32709a5e0189f4a3ddb0ce4db9"
+    },
+    {
+      "path": "architecture/parallel-ownership.json",
+      "sha256": "2b696da4f8ed6d0fbb6234e33dc207e92c9e91f72e56e6f8777aac62c4f8e144"
+    },
+    {
+      "path": "architecture/service-catalog.json",
+      "sha256": "34462fbfb90c6a221524905aa21f7a4022c28a1b21d2243381a1b07582eac9b8"
+    },
+    {
+      "path": "packages/contracts/src/index.ts",
+      "sha256": "0aae653cf5528fba4b9f464f8ab2f59c02d2a62ff50d3b3fef46f5f3ccb18ae1"
+    },
+    {
+      "path": "packages/contracts/src/identity.ts",
+      "sha256": "0e122d3e0e148e1df23e54a0f4fa619d1529e7c187f430e6f6c4833de50642ae"
+    },
+    {
+      "path": "packages/contracts/src/gateway.ts",
+      "sha256": "28d73b02d8c31724c2b0537259a9f84e05ba440766116d35993ae1514c45cc40"
+    },
+    {
+      "path": "packages/api-clients/src/index.ts",
+      "sha256": "9c5162feffe8bbe37bdf5adde98f993d3d2169c1156a6ed5265cc6b7e4585c1d"
+    },
+    {
+      "path": "services/catalog/package.json",
+      "sha256": "6f941eadd03edfb6bae03577e4d75ae389172265c6f67a284240ece48042ccb5"
+    },
+    {
+      "path": "services/catalog/src/app.module.ts",
+      "sha256": "c2141f20ff2e04ccdbf3753bb5d5881f44eb1e387210b9cd31cdd00dd5d87b26"
+    },
+    {
+      "path": "services/catalog/prisma/schema.prisma",
+      "sha256": "19ab178b6d32fafd460ce1c8d737af00cb8196f6f84c5a2ff573e48b77b4678b"
+    },
+    {
+      "path": "services/pricing/package.json",
+      "sha256": "eddd3b4922dde5d020087f6a256346bf2ee6706b6834cd155216e9df2598656b"
+    },
+    {
+      "path": "services/pricing/src/app.module.ts",
+      "sha256": "9494e66c9f545f0beddb56245448a6fec960f46901af2815f56e1a2d1dfa268c"
+    },
+    {
+      "path": "services/pricing/prisma/schema.prisma",
+      "sha256": "5e8251634c057bb4656d0b050d52e04cd02734a3ca541d1a2667df7f73bb6686"
+    },
+    {
+      "path": "docs/parallel/B/W01/POLICY_DECISIONS.md",
+      "sha256": "c31659de750f97eaf57faacd9591665ed1d94e73c9bbb35250c311091562f344"
+    },
+    {
+      "path": "docs/parallel/B/W01/w02-contracts.schema.json",
+      "sha256": "8c2ff3b6b2c690c4db6eaf2a92b12ec04ec5321766e3942d1a2830375754c386"
+    },
+    {
+      "path": "docs/parallel/D/W01/CONTRACT_PROPOSALS.md",
+      "sha256": "4cadf7cea46b6164924a5a49468caa11c6aeccd10dcbad457a5267eeb6906697"
+    },
+    {
+      "path": "docs/design/reference-manifest.json",
+      "sha256": "985a98d76516c2443ad8c9a716d6d35225feb54a05b84d0fd7a004561223545a"
+    },
+    {
+      "path": "docs/design/f010-reference-manifest.json",
+      "sha256": "94c3c99206169e66dd0a1161b5b7968c098f1e3ee29af3d5e1c7789be4ba44f3"
+    },
+    {
+      "path": "design/reference/approved/washgo-payments-interactive.html",
+      "sha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549"
+    },
+    {
+      "path": "design/reference/approved/washgo-technician-interactive.html",
+      "sha256": "d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc"
+    },
+    {
+      "path": "design/reference/approved/washgo-admin-prototype.html",
+      "sha256": "b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273"
+    },
+    {
+      "path": "apps/customer-web/src/fixtures/customerCatalogFixture.ts",
+      "sha256": "0eefe744567ab8e077293025e1889f75e98d2e820bc06f4e8ce592005158230e"
+    }
+  ],
+  "historicalDelivery": {
+    "w01BPr": 44,
+    "w01BHead": "15e8a2916b6260564ef3d26cd5d27c4519b0514c",
+    "w01BMerge": "0bec363355aa7eefff56fee4a8d6704253c86ba7",
+    "w01EPr": 45,
+    "w01EMerge": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+    "limitation": "Merged proposal/bootstrap and historical green checks do not publish accepted W02 contracts or imply finance runtime acceptance."
+  },
+  "limitation": "Source/readiness provenance only. The observed source is not a substitute for BASE_W02. Final delivery head/tree and actually executed checks are recorded in the PR."
+}

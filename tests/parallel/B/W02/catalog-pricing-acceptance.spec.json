@@ -1,0 +1,1070 @@
+{
+  "specificationVersion": "0.1.0",
+  "task": "W02-B",
+  "lane": "B",
+  "status": "NOT_RUN_SPECIFICATION_ONLY",
+  "observedSourceSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+  "observedSourceTree": "5b51ed5f1779a2cbefc359fdbdc4720779989b4b",
+  "acceptedWaveBase": null,
+  "runtimeExecuted": false,
+  "evidenceScope": "Declarative acceptance specification only; no Catalog/Pricing business implementation, real database/broker/browser execution, accepted contract release or finance readiness is asserted.",
+  "notes": [
+    "Current main is an audit observation, not a published BASE_W02. Source writes depend on the verified wave barrier and bootstrap lease release.",
+    "All monetary, quantity, rounding, expiry, replay and timeout boundaries are parameters from explicit accepted policy revisions; no numerical production defaults or prices are supplied here.",
+    "Any component fixtures must remain labeled isolated test configuration. They never become production fallbacks or close real provider/consumer integration.",
+    "Given/when/then describe future required observations. Every case is NOT_RUN_SPECIFICATION_ONLY and runtimeExecuted=false.",
+    "Broker cases apply when accepted event surfaces are enabled; their pending producer/client/ACL prerequisites remain visible rather than being counted as passing or silently skipped.",
+    "Account, guest and admin-on-behalf authorization use accepted real Identity contracts. Role names and forwarded headers alone establish no new privilege.",
+    "Global CI/infra/contracts/manifests remain E-owned; actual customer/admin consumers remain A/D-owned. This file changes no other owner's source.",
+    "No failed, cancelled, missing or skipped required acceptance case counts as success; provider-only evidence keeps the parent INTEGRATION_PENDING."
+  ],
+  "blockerReferences": [
+    {
+      "id": "W02-B-ENTRY-01",
+      "meaning": "Verified BASE_W02, barrier and effective bootstrap lease-release evidence."
+    },
+    {
+      "id": "W02-B-ENTRY-02",
+      "meaning": "Accepted business wire contracts including Catalog lifecycle, quantities, quote snapshots and compatibility."
+    },
+    {
+      "id": "W02-B-ENTRY-03",
+      "meaning": "Approved monetary, Catalog, expiry, replay and applicable operating policies."
+    },
+    {
+      "id": "W02-B-ENTRY-04",
+      "meaning": "Actual Identity guest/admin grants, beneficiary/delegation and independently verified ownership."
+    },
+    {
+      "id": "W02-B-ENTRY-05",
+      "meaning": "E-owned manifests/clients/Gateway/broker wiring and usable accepted provider dependencies."
+    },
+    {
+      "id": "W02-B-ENTRY-06",
+      "meaning": "E-allocated and actually provisioned isolated runtime, pinned toolchain and owned process/resource evidence."
+    },
+    {
+      "id": "W02-B-ENTRY-07",
+      "meaning": "Actual provider/consumer integration on E's serialized candidate with owner-approved affected journeys."
+    }
+  ],
+  "cases": [
+    {
+      "id": "CATPR-01",
+      "wave": "W02",
+      "owners": ["catalog", "pricing"],
+      "title": "Fresh database and W01 upgrade preserve schema history",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "Committed W01 migrations and only the owner's new append-only migrations are available on the immutable candidate.",
+        "E has provisioned distinct disposable service databases and migration identities."
+      ],
+      "when": [
+        "Deploy migrations into a fresh database and separately upgrade an existing W01 ServiceMarker database with retained marker data.",
+        "Replay migrate deploy and compare the actual migrated schema with the committed service-local schema."
+      ],
+      "then": [
+        "Each database reaches the candidate schema with no drift and no cross-owner objects; existing migration checksums and retained rows remain unchanged.",
+        "A repeat deploy performs no unintended data change; schema mirrors, new migration IDs and applied history match the candidate."
+      ],
+      "requiredEvidence": [
+        "real PostgreSQL fresh and W01-upgrade migration records, checksums and schema diff",
+        "candidate SHA/tree, owned migration identities and retained-data comparison"
+      ],
+      "blockedBy": ["W02-B-ENTRY-01", "W02-B-ENTRY-02", "W02-B-ENTRY-06"]
+    },
+    {
+      "id": "CATPR-02",
+      "wave": "W02",
+      "owners": ["catalog", "pricing"],
+      "title": "Database constraints protect immutable business records",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "Accepted schemas define owned Catalog definitions/revisions and Pricing versions/quotes/receipts/audit/Outbox constraints.",
+        "The real migration job has created the candidate tables in their owned schema."
+      ],
+      "when": [
+        "Attempt duplicate revision or scoped receipt identity, invalid owned references, invalid time ordering and invalid canonical stored money under the accepted constraints.",
+        "Attempt mutation of immutable historical versions through the actual authorized service command paths."
+      ],
+      "then": [
+        "Declared database uniqueness and consistency constraints reject invalid writes without partial effects.",
+        "Historical snapshot rows remain unchanged; cross-service revision evidence is validated through contracts, without foreign-database joins."
+      ],
+      "requiredEvidence": [
+        "real PostgreSQL constraint failures and transaction outcomes",
+        "authorized HTTP attempts with before/after immutable row evidence"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-03",
+      "wave": "W02",
+      "owners": ["catalog", "pricing"],
+      "title": "Runtime and migration identities remain isolated",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "Catalog and Pricing each use their E-provisioned runtime identity and a separate migration identity in a disposable stack.",
+        "Actual database names, roles, container/volume identifiers and allocation provenance are recorded."
+      ],
+      "when": [
+        "Perform ordinary owned DML and attempt runtime DDL, migration-history access, role escalation and connections to another service database.",
+        "Attempt cross-owner access with each migration identity and verify only allocated resources are cleaned up."
+      ],
+      "then": [
+        "Owned DML works while unauthorized DDL/history/role/cross-database access is denied by PostgreSQL.",
+        "No shared database or another run's resource is used or altered; cleanup is limited to resources created by this invocation."
+      ],
+      "requiredEvidence": [
+        "real PostgreSQL privilege and connection denial results",
+        "E allocation and provisioned database/role/container inventory plus scoped cleanup log"
+      ],
+      "blockedBy": ["W02-B-ENTRY-01", "W02-B-ENTRY-05", "W02-B-ENTRY-06"]
+    },
+    {
+      "id": "CATPR-04",
+      "wave": "W02",
+      "owners": ["catalog"],
+      "title": "Catalog publication is versioned, audited and concurrency-safe",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "An actual accepted publisher grant, definitions contract and current Catalog revision exist.",
+        "The Catalog service uses its own migrated database and a validated current Identity principal."
+      ],
+      "when": [
+        "Publish an audited update and concurrently publish two distinct updates against the same expected revision.",
+        "Read both the current definition view and the retained prior revision after one accepted update."
+      ],
+      "then": [
+        "Only the permitted publication advances the current revision; the competing stale revision returns the accepted conflict outcome with no extra effect.",
+        "Actor, command, prior/new revision and accepted audit evidence are durable; historical descriptions and retirement state remain explainable."
+      ],
+      "requiredEvidence": [
+        "real Catalog PostgreSQL and authorized HTTP publication/read results",
+        "concurrent revision conflict, durable receipt/audit and historical revision comparison"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-05",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Quote survives service restart with its original calculation",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "A real authorized quote was committed against accepted Catalog, price and policy revisions in Pricing's owned PostgreSQL database.",
+        "The persisted snapshot and receipt contain the accepted immutable explanation evidence."
+      ],
+      "when": [
+        "Stop only the owned Pricing process and restart it against the same isolated database.",
+        "Read the quote and replay its original accepted command through the real service after restart."
+      ],
+      "then": [
+        "Quote ID, subject binding, item identities/description references, quantities, adjustments, currency/precision, totals, issue time and expiry remain identical.",
+        "Replay returns the recorded outcome; no process-memory reconstruction, current-price recalculation or renewed quote lifetime occurs."
+      ],
+      "requiredEvidence": [
+        "real PostgreSQL persisted snapshot/receipt before and after restart",
+        "owned process handles and authorized HTTP read/replay response comparison"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-06",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Competing price changes yield coherent immutable quotes",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "A real Catalog revision and approved monetary policy back a current price version.",
+        "Accepted publication semantics define revision conflicts and how quote issuance selects an authoritative version."
+      ],
+      "when": [
+        "Race price publications with the same expected version and race quote issuance with an accepted price change.",
+        "Read quotes created before and after the change and then edit current rates again."
+      ],
+      "then": [
+        "Each accepted quote captures one coherent Catalog/price/policy revision set and the amounts resolved from that set.",
+        "Stale publications conflict durably; prior quote snapshots never change or contain mixed old/new rates."
+      ],
+      "requiredEvidence": [
+        "real PostgreSQL concurrent transaction and version records",
+        "authorized publication/quote HTTP results with exact independent expected totals"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-07",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Equivalent concurrent commands share one canonical outcome",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "Accepted idempotency scope binds verified actor, beneficiary where applicable, operation and key.",
+        "One valid unique selection is represented with differing JSON key order and allowed add-on order."
+      ],
+      "when": [
+        "Send concurrent same-key equivalent requests through distinct real HTTP connections.",
+        "Repeat the request after the first response and inspect durable quote/receipt/audit/Outbox effects."
+      ],
+      "then": [
+        "Canonical fingerprints treat only accepted semantically equivalent forms as identical, without retaining secrets or unverified actor headers.",
+        "One quote and the accepted audit/event effects commit; every response replays the same recorded ID, immutable snapshot, status and expiry."
+      ],
+      "requiredEvidence": [
+        "real concurrent HTTP requests and candidate-defined canonical fingerprint examples",
+        "real PostgreSQL uniqueness and exact effect counts across quote/receipt/audit/Outbox"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-08",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Changed payload conflicts while actors and operations remain isolated",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "A durable receipt exists for a verified actor, beneficiary, operation and key.",
+        "Another authorized actor and a distinct accepted operation are available."
+      ],
+      "when": [
+        "Reuse the first scope/key with a different package, quantity, revision, zone or beneficiary.",
+        "Use the same key under a different actor or operation and attempt to read another subject's receipt/quote."
+      ],
+      "then": [
+        "Different canonical payload in the original scope returns the accepted idempotency conflict without additional quote/event effects.",
+        "Accepted scope boundaries prevent collisions and cross-owner disclosure; beneficiary selection does not bypass delegation checks."
+      ],
+      "requiredEvidence": [
+        "real PostgreSQL receipt scope, fingerprints and effect-count comparisons",
+        "authorized and forbidden HTTP replay/resource-read results"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-09",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Lost response and expired replay never renew validity",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "A quote command commits before its response is lost and its terminal receipt is durable.",
+        "The accepted quote lifetime and receipt retention/tombstone policy are supplied explicitly."
+      ],
+      "when": [
+        "Retry the identical key/request before expiry, after expiry and after an owned Pricing restart.",
+        "Read the quote separately and exercise receipt retention boundaries in the isolated environment."
+      ],
+      "then": [
+        "Replay preserves the original recorded success, quote ID, snapshot and expiry while the read view evaluates current validity under the accepted contract.",
+        "No response loss, restart or cleanup makes the key silently reusable or extends quote validity."
+      ],
+      "requiredEvidence": [
+        "real HTTP response-loss fault injection and before/after restart replay",
+        "real PostgreSQL retained receipt/tombstone and quote expiry evidence"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-10",
+      "wave": "W02",
+      "owners": ["catalog", "pricing"],
+      "title": "Receipt policy distinguishes terminal rejection from preflight and transient failures",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "Accepted contracts define malformed, unauthorized, terminal domain and transient infrastructure outcomes.",
+        "Real service-local receipt persistence exists with an accepted replay lifetime."
+      ],
+      "when": [
+        "Submit malformed and unauthorized requests, a valid command rejected by a terminal domain rule, and a command interrupted before commit.",
+        "Retry the terminal rejection unchanged, retry the transient failure unchanged and submit a changed rejected payload under the original key."
+      ],
+      "then": [
+        "Malformed/unauthorized requests create no business receipt or effects; terminal rejection retains its approved canonical fingerprint/result and replays consistently.",
+        "Precommit transient failure can recover safely; changing a terminal command conflicts under the accepted scope rather than rewriting its recorded result."
+      ],
+      "requiredEvidence": [
+        "real HTTP negative/retry results with accepted error/status mapping",
+        "real PostgreSQL receipt and business/audit/Outbox rows before and after each failure"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-11",
+      "wave": "W02",
+      "owners": ["catalog", "pricing"],
+      "title": "Business state, receipts, audit and Outbox commit atomically",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "Candidate application transactions include every required owned publication/quote, terminal receipt, audit and Outbox effect.",
+        "The isolated test environment permits deterministic fault injection without changing production policy."
+      ],
+      "when": [
+        "Inject failures between each required write and immediately before commit for Catalog publication, price publication and quote issuance.",
+        "Retry precommit failures with the same canonical request/key and separately simulate response loss after commit."
+      ],
+      "then": [
+        "Every failed transaction leaves no partial business record, orphan audit, replay success or event; a safe same-key retry can commit one complete effect.",
+        "A committed transaction survives response loss and replays its recorded outcome, without a second quote/publication/event."
+      ],
+      "requiredEvidence": [
+        "real PostgreSQL transaction rollback and exact multi-table before/after evidence",
+        "fault-injection points and authorized HTTP retry/replay results"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-12",
+      "wave": "W02",
+      "owners": ["catalog", "pricing"],
+      "title": "Outbox publication recovers from crashes and competing relays",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "Accepted event contracts and E-owned broker identities/routes are provisioned for the real producer.",
+        "Business state and its Outbox event have committed together in the owned PostgreSQL database."
+      ],
+      "when": [
+        "Crash an owned relay before publication, after broker confirmation and before marking the event published.",
+        "Restart the relay and run competing relays while inspecting event IDs and consumer effects."
+      ],
+      "then": [
+        "The accepted event is eventually published with authenticated producer authority and no lost committed event.",
+        "At-least-once publication may duplicate delivery, but replay-safe consumers apply one business effect; relay leases and durable errors remain visible."
+      ],
+      "requiredEvidence": [
+        "real RabbitMQ publisher confirms, deliveries and producer ACL evidence",
+        "real PostgreSQL Outbox lease/attempt/result records and crash/restart handles"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-13",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Inbox consumption handles replay, conflicting IDs and revision gaps",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "Pricing consumes only an accepted Catalog event contract when that integration is enabled.",
+        "The real consumer has a service-local Inbox and accepted projection/refetch recovery semantics."
+      ],
+      "when": [
+        "Deliver the same event repeatedly, reuse an event ID with conflicting content, deliver stale versions and create a version gap.",
+        "Crash after local commit before ACK and retry owner refetch while Catalog is unavailable."
+      ],
+      "then": [
+        "Inbox/projection state commits before ACK; duplicate delivery creates no duplicate effect and conflicting identity/content is rejected visibly.",
+        "Stale events do not regress state; gaps follow accepted bounded recovery/DLQ/refetch behavior without fabricated current Catalog state."
+      ],
+      "requiredEvidence": [
+        "real broker delivery/ACK/crash/replay and authenticated producer tests",
+        "real PostgreSQL Inbox/projection transactions plus real Catalog refetch/recovery evidence"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-14",
+      "wave": "W02",
+      "owners": ["catalog"],
+      "title": "Catalog graph validates identities, compatibility and durations",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "The accepted definitions contract covers vehicle categories, packages, add-ons, included add-ons, applicability and versioned descriptions.",
+        "Actual publisher authorization and owned relational/semantic constraints are available."
+      ],
+      "when": [
+        "Publish duplicate identities, missing references, inconsistent included add-ons, incompatible category/package/add-on relations and invalid durations.",
+        "Publish a valid graph and read its exact revision through the accepted public/service boundary."
+      ],
+      "then": [
+        "Invalid graphs reject before publication without partial revision/audit/event effects.",
+        "The valid revision preserves accepted identities, descriptions, applicability, base/additional/category duration and included membership without authoritative monetary prices."
+      ],
+      "requiredEvidence": [
+        "real Catalog HTTP graph publication/read cases",
+        "real owned PostgreSQL constraints, retained revision and atomic effect evidence"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-15",
+      "wave": "W02",
+      "owners": ["catalog", "pricing"],
+      "title": "Disabled and retired offerings preserve history while enforcing new eligibility",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "A valid quote and historical definitions/price/policy evidence exist for an offering that can be disabled or retired.",
+        "Accepted policy defines new issuance, quote honouring and any revocation boundary."
+      ],
+      "when": [
+        "Disable or retire the offering using an authorized audited publication, then request a new quote.",
+        "Read/replay the earlier quote and evaluate its status at the accepted retirement/revocation boundaries."
+      ],
+      "then": [
+        "New issuance follows current accepted eligibility and never silently substitutes another product or price.",
+        "Historical identity, description/version evidence and calculation remain immutable; old validity changes only under explicit accepted policy."
+      ],
+      "requiredEvidence": [
+        "real Catalog-to-Pricing HTTP/event eligibility propagation",
+        "historical quote/revision comparisons and accepted policy boundary evidence"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06",
+        "W02-B-ENTRY-07"
+      ]
+    },
+    {
+      "id": "CATPR-16",
+      "wave": "W02",
+      "owners": ["catalog", "pricing"],
+      "title": "Catalog revision evidence remains explainable without cross-owner access",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "A real immutable Catalog revision can be read using the accepted service-read contract.",
+        "Pricing's accepted snapshot design specifies sufficient retained description, applicability and revision evidence."
+      ],
+      "when": [
+        "Issue a quote using the real Catalog API/events, change current descriptions and restart Pricing.",
+        "Attempt substitution of an unknown revision and verify source imports/database access against ownership boundaries."
+      ],
+      "then": [
+        "The quote remains explainable from its retained immutable evidence and authorized historical contract reads under accepted retention semantics.",
+        "Unknown or inconsistent revisions fail closed; Pricing neither imports Catalog implementation/Prisma nor reads Catalog tables."
+      ],
+      "requiredEvidence": [
+        "real Catalog API/event consumer conformance and historical read results",
+        "Pricing persisted explanation evidence after restart and source/database boundary checks"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06",
+        "W02-B-ENTRY-07"
+      ]
+    },
+    {
+      "id": "CATPR-17",
+      "wave": "W02",
+      "owners": ["catalog", "pricing"],
+      "title": "Selection rejects duplicates and preserves included add-ons and category breakdown",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "The real Catalog graph and accepted prices identify package inclusions, add-on/category applicability and separate vehicle surcharges.",
+        "An accepted quote command defines selection canonicalization and duplicate handling."
+      ],
+      "when": [
+        "Request duplicate or unknown add-on IDs, incompatible selections and an included add-on alongside the chosen package.",
+        "Issue a valid quote including category-specific duration and vehicle surcharge."
+      ],
+      "then": [
+        "Unknown, duplicated or incompatible selections reject explicitly without silently stripping requested values.",
+        "Included add-ons have the accepted zero incremental charge and are not charged twice; package, vehicle and add-on amounts/durations preserve the approved breakdown."
+      ],
+      "requiredEvidence": [
+        "real Catalog/Pricing authorized HTTP negative and valid selections",
+        "independent exact totals/duration oracle and persisted immutable line evidence"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-18",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Quantity boundaries follow accepted limits without invented defaults",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "An accepted quantity contract and approved minimum/maximum policy exist for each relevant item.",
+        "Test fixtures are explicitly isolated and derive boundary values from that policy."
+      ],
+      "when": [
+        "Exercise zero, accepted minimum, accepted maximum, one above the maximum, negatives, fractions and unsafe/nonfinite JSON quantity representations.",
+        "Attempt arithmetic overflow through otherwise valid accepted quantities."
+      ],
+      "then": [
+        "Zero and every boundary outcome match the explicit accepted policy; invalid quantity representations reject without coercion.",
+        "No legacy helper bound becomes a production default; accepted quantities persist and arithmetic overflow creates no partial quote."
+      ],
+      "requiredEvidence": [
+        "parameterized domain boundary oracle tied to approved quantity policy revision",
+        "real HTTP and PostgreSQL outcome/rollback evidence for accepted and rejected quantities"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-19",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Canonical amount parsing rejects malformed and oversized input",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "Accepted amount wire syntax, payload bounds and approved amount limits are published.",
+        "The real authorized price publication surface accepts monetary input only from a permitted publisher."
+      ],
+      "when": [
+        "Submit signed, fractional, exponential, whitespace-padded, leading-zero, empty and JSON-number amount forms.",
+        "Submit values at policy limits and adversarial digit strings/payload sizes beyond accepted resource bounds."
+      ],
+      "then": [
+        "Only canonical integer decimal strings within approved bounds are accepted losslessly; invalid forms are not normalized into money.",
+        "Oversized requests reject safely before unbounded work or mutation; no credential/request payload leaks through errors."
+      ],
+      "requiredEvidence": [
+        "policy-bound domain parsing/resource-limit tests",
+        "real authorized HTTP publication results and real PostgreSQL zero-effect negative evidence"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-20",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Currency and precision require current approved configuration",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "Accepted immutable currency policy identifies supported codes, minor-unit exponents and effective revisions.",
+        "The real Configuration producer/client is available for the candidate."
+      ],
+      "when": [
+        "Publish or quote with unsupported currency, unsupported precision, mismatched currency-policy revision and missing applicable configuration.",
+        "Attempt to use an unapproved display/example currency or client-supplied exponent as authoritative."
+      ],
+      "then": [
+        "Each unsupported/missing/mismatched input returns its accepted explicit failure and creates no monetary effect.",
+        "No default currency, exponent, zero tax/fee or prototype/helper setting is substituted for the approved policy."
+      ],
+      "requiredEvidence": [
+        "real Configuration-to-Pricing provider/client conformance and fault results",
+        "real authorized HTTP, exact persisted revision evidence and negative effect counts"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06",
+        "W02-B-ENTRY-07"
+      ]
+    },
+    {
+      "id": "CATPR-21",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Exact arithmetic handles zero, large totals and approved maximum",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "Approved policy supplies monetary limits and the accepted rate/quantity/adjustment rules.",
+        "An independent exact-integer oracle and clearly labeled isolated fixtures derive test amounts from the supplied policy."
+      ],
+      "when": [
+        "Exercise policy-defined zero outcomes, representable amounts beyond JavaScript safe integer, the approved maximum and one above it; amounts outside the supplied policy are rejection cases, not assumed supported prices.",
+        "Exercise intermediate multiplication/addition and adjustment combinations that can exceed an approved bound."
+      ],
+      "then": [
+        "Accepted calculations are exact and serialize as canonical decimal strings without floating-point or precision loss.",
+        "Every bound is checked at the accepted calculation boundaries; overflow or invalid negative totals reject atomically."
+      ],
+      "requiredEvidence": [
+        "independent exact-integer domain oracle including intermediate-bound cases",
+        "real HTTP decimal-string transport and PostgreSQL stored totals/rollback evidence"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-22",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Rounding order and ties match the accepted policy revision",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "The approved policy explicitly defines rounding mode, calculation order and each rounding boundary for applicable adjustments.",
+        "No rounding rule is inferred from the historical Catalog helper."
+      ],
+      "when": [
+        "Exercise values below, exactly at and above each relevant rounding tie and multi-line combinations sensitive to rounding order.",
+        "Compare persisted and returned subtotal, discount, fee, tax and total against the independent accepted-policy oracle."
+      ],
+      "then": [
+        "Every amount follows the approved rule at the prescribed boundary with exact integer arithmetic.",
+        "Persisted policy/rule references explain the result; absent rules fail closed rather than guessing a tie rule."
+      ],
+      "requiredEvidence": [
+        "parameterized accepted-policy exact rounding oracle and negative missing-rule results",
+        "real quote HTTP and persisted snapshot/adjustment comparison"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-23",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Hostile browser totals and admin overrides cannot set authoritative price",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "The accepted customer/admin quote request permits only authoritative selection inputs and validated beneficiary/delegation where applicable.",
+        "Real Catalog, price and policy producers are used."
+      ],
+      "when": [
+        "Inject unit prices, browser totals, discounts, tax, travel/provider surcharges, fees, currency policy or owner/role overrides and unknown fields.",
+        "Repeat attempts under a valid admin actor while separately requesting a valid authorized quote."
+      ],
+      "then": [
+        "Strict accepted request validation rejects unauthorized monetary/identity overrides before persistence.",
+        "An admin grant changes only permitted actor/beneficiary scope; the valid quote follows the same server calculation and immutable totals as other accepted issuance."
+      ],
+      "requiredEvidence": [
+        "real authorized/forbidden customer and admin HTTP payload tests",
+        "real PostgreSQL no-effect tampering evidence and independent server-total comparison"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-24",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Account authorization and object ownership are independently enforced",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "Actual Identity credentials and live account/session validation are available to the service independently of Gateway metadata.",
+        "Two distinct registered subjects own separate valid quotes."
+      ],
+      "when": [
+        "Call Pricing with missing, forged, expired or revoked credentials, suspended account or mismatched authVersion/session.",
+        "Read/replay another subject's quote/receipt and forge forwarded subject/session/role headers."
+      ],
+      "then": [
+        "Unauthorized requests fail closed before business/receipt mutation; valid signed-but-revoked credentials do not remain authorized.",
+        "Object-level checks prevent disclosure and follow accepted non-enumerating errors; forwarded headers never establish authority."
+      ],
+      "requiredEvidence": [
+        "real Identity/PostgreSQL and Pricing HTTP authorization/revocation tests",
+        "owned quote/receipt privacy comparisons and zero-effect negative evidence"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-25",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Guest capabilities are isolated and optional plates remain optional",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "E has accepted and implemented guest capability ownership, expiry, revocation and any account-claim semantics.",
+        "Two real guest capabilities and a valid catalog/category selection without a vehicle plate exist."
+      ],
+      "when": [
+        "Issue/read/replay a quote with the valid guest capability and no plate, then use another guest's capability or forged guest ID.",
+        "Exercise capability expiry/revocation and any approved claim/transfer path with retained quote history."
+      ],
+      "then": [
+        "The accepted guest can use the scoped quote without a fabricated customer account or newly mandatory plate.",
+        "Wrong, revoked or expired capability rejects; any approved claim preserves immutable history and does not grant unrelated resource access."
+      ],
+      "requiredEvidence": [
+        "real Identity guest-capability provider and Pricing HTTP tests",
+        "real PostgreSQL subject binding/history and capability boundary evidence"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-26",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Admin quote binds distinct actor and beneficiary with audited authority",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "An accepted quote-on-behalf contract and current admin delegation/grant authorize one distinct account or guest beneficiary.",
+        "Identity and beneficiary/capability validation use actual accepted providers."
+      ],
+      "when": [
+        "Issue a quote for that beneficiary, attempt an unauthorized beneficiary or expired/revoked grant, and replay a permitted command.",
+        "Compare actor, beneficiary, delegation and calculation evidence with the equivalent accepted server selection."
+      ],
+      "then": [
+        "Only the verified permitted actor can create the scoped quote, and ownership binds the validated beneficiary rather than the admin.",
+        "Immutable snapshot/receipt/audit retain required actor-versus-beneficiary authority evidence; no admin unit-price override or fabricated beneficiary is accepted."
+      ],
+      "requiredEvidence": [
+        "real Identity/grant/guest and Pricing HTTP on-behalf positive/negative tests",
+        "real PostgreSQL actor, beneficiary, replay and audit evidence plus independent total comparison"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-27",
+      "wave": "W02",
+      "owners": ["catalog", "pricing"],
+      "title": "Direct service and Gateway commands retain CSRF and safe transport semantics",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "Accepted Gateway aliases, direct service credential validation and cookie/bearer command semantics are published.",
+        "Actual Identity CSRF/session endpoints and approved error compatibility are available."
+      ],
+      "when": [
+        "Call unsafe commands through Gateway and directly using valid cookies without/with valid CSRF, forbidden origins and forged auth metadata.",
+        "Exercise accepted bearer behavior, malformed idempotency keys and upstream error/timeout mapping."
+      ],
+      "then": [
+        "Accepted CSRF/auth/idempotency rules are enforced before mutation at the applicable boundaries; direct service exposure cannot bypass authority.",
+        "Errors expose only accepted safe codes and request/correlation metadata; Gateway forwards commands once without inventing an owner outcome."
+      ],
+      "requiredEvidence": [
+        "real Identity, Gateway and owner HTTP transport/CSRF conformance",
+        "safe error/header forwarding and zero-effect rejected-command evidence"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06",
+        "W02-B-ENTRY-07"
+      ]
+    },
+    {
+      "id": "CATPR-28",
+      "wave": "W02",
+      "owners": ["catalog", "pricing"],
+      "title": "Catalog failure and recovery produce truthful quote and readiness states",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "Accepted Catalog dependency, timeout/recovery policy and readiness requirements are configured.",
+        "Owned service/process/database handles are recorded in an E-allocated isolated environment."
+      ],
+      "when": [
+        "Make the actual Catalog HTTP/event revision source unavailable or exceed its accepted deadline while requesting a new quote.",
+        "Restore the producer and recover unknown outcomes through the accepted same-key/resource-read flow."
+      ],
+      "then": [
+        "New issuance never substitutes a fixture, browser total or fabricated current revision; its error/readiness state reflects the actual required dependency.",
+        "No partial effect occurs before commit; committed unknown outcomes replay safely, and recovery uses explicit accepted rules."
+      ],
+      "requiredEvidence": [
+        "real Catalog process/network fault injection, health and quote HTTP responses",
+        "real PostgreSQL rollback/replay evidence with owned process cleanup"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06",
+        "W02-B-ENTRY-07"
+      ]
+    },
+    {
+      "id": "CATPR-29",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Configuration and zone failures cannot silently change policy",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "Accepted Configuration and applicable location/zone contracts define immutable effective policy revisions and eligibility inputs.",
+        "Real dependency clients, deadlines and approved required-versus-optional behavior exist."
+      ],
+      "when": [
+        "Remove required policy, use inconsistent effective revisions, make the actual Configuration/zone provider unavailable and submit an unknown/ineligible zone.",
+        "Recover the dependency and read existing quotes before requesting a new one."
+      ],
+      "then": [
+        "Missing or inconsistent applicable inputs remain explicit failures with truthful readiness; no zero-fee/tax, alternate zone or stale policy fallback is invented.",
+        "Previously committed immutable quotes retain original calculation evidence; new issuance uses coherent accepted current inputs."
+      ],
+      "requiredEvidence": [
+        "real Configuration/location-to-Pricing contract and outage cases",
+        "real HTTP/readiness states and PostgreSQL immutable/current revision comparison"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06",
+        "W02-B-ENTRY-07"
+      ]
+    },
+    {
+      "id": "CATPR-30",
+      "wave": "W02",
+      "owners": ["pricing"],
+      "title": "Expiry and W03 validation handoff preserve quote authority boundaries",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "Accepted quote/read contracts define issue/expiry ordering and server-time status; approved revocation/consumption policy is supplied where applicable.",
+        "The W03 Billing/Booking handoff identifies immutable references, total/currency, subject authority, failure and replay semantics as a proposal unless separately accepted."
+      ],
+      "when": [
+        "Read an owned quote immediately before, at and after its accepted expiry/revocation boundary and replay its original command.",
+        "Validate W03 handoff examples against the declared proposal shapes and review unknown-outcome and rebooking semantics."
+      ],
+      "then": [
+        "Server-evaluated validity is explicit; replay does not renew expiry and rebooking cannot rewrite historical totals.",
+        "The handoff never equates a quote with Booking, capacity hold, payment, entitlement consumption or an accepted future contract; structural examples are not runtime Booking evidence."
+      ],
+      "requiredEvidence": [
+        "real Pricing HTTP/server-time and persisted expiry/replay evidence",
+        "clearly labeled W03 structural conformance examples and reviewed producer/consumer semantics"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06"
+      ]
+    },
+    {
+      "id": "CATPR-31",
+      "wave": "W02",
+      "owners": ["catalog", "pricing"],
+      "title": "Serialized real customer journey consumes authoritative persistent quotes",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "E has constructed the latest-target-plus-head candidate using merged real Catalog, Pricing, Identity/guest and required policy/location providers.",
+        "A's actual customer consumer uses accepted contracts and the frozen seven-step design; all mandatory and affected gates are enabled."
+      ],
+      "when": [
+        "Run the complete affected customer quote journey with valid account/guest, optional absent plate, edits, failures/recovery and exact server totals.",
+        "Restart the owned Pricing process, change current definitions/prices and repeat quote read/requote behavior in the real browser."
+      ],
+      "then": [
+        "Customer rendering and submitted references match the immutable server snapshot losslessly; edits obtain current authoritative quotes without mutating old ones.",
+        "The real integrated journey preserves approved UI/focus/RTL/accessibility behavior and cannot be declared passed using contract fixtures or skipped cases."
+      ],
+      "requiredEvidence": [
+        "serialized candidate base/head/tree and actual merged provider/consumer source inventory",
+        "real database/HTTP/event and customer browser journey evidence",
+        "pinned Linux reference/candidate/diff plus separate interaction/accessibility evidence",
+        "all mandatory and affected final-source gate results with no skipped acceptance cases"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06",
+        "W02-B-ENTRY-07"
+      ]
+    },
+    {
+      "id": "CATPR-32",
+      "wave": "W02",
+      "owners": ["catalog", "pricing"],
+      "title": "Serialized real admin consumer proves on-behalf quoting separately",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "given": [
+        "E's candidate includes real Catalog/Pricing/Identity authority and D's actual approved admin consumer.",
+        "Accepted admin quote-on-behalf scope and immutable actor/beneficiary audit semantics are implemented; no unapproved screen is inferred."
+      ],
+      "when": [
+        "Run the complete affected admin quote journey for a distinct account and guest beneficiary, including forbidden authority, rate edits, replay and dependency failures.",
+        "Read the beneficiary's quote through its authorized owner context and compare exact total and immutable audit/snapshot evidence."
+      ],
+      "then": [
+        "The admin consumer cannot bypass the same server rules or expose another beneficiary's quote through a role toggle.",
+        "Real admin integration and audit pass separately from customer acceptance; local fixtures and green provider-only checks do not close the parent task."
+      ],
+      "requiredEvidence": [
+        "serialized candidate and actual D admin/real provider source provenance",
+        "real Identity/grant/guest, PostgreSQL, HTTP/event and admin browser journey evidence",
+        "approved admin reference parity and interaction/accessibility evidence",
+        "all mandatory and affected final-source gate results with exact actor/beneficiary audit comparison"
+      ],
+      "blockedBy": [
+        "W02-B-ENTRY-01",
+        "W02-B-ENTRY-02",
+        "W02-B-ENTRY-03",
+        "W02-B-ENTRY-04",
+        "W02-B-ENTRY-05",
+        "W02-B-ENTRY-06",
+        "W02-B-ENTRY-07"
+      ]
+    }
+  ]
+}
