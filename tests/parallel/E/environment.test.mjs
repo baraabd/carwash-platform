@@ -315,10 +315,11 @@ test('read-only validation rejects revoked, foreign, copied and forged allocatio
 
 test('descriptor reader neither creates missing files nor changes existing permissions', async (t) => {
   const options = await isolated(t);
-  const file = join(options.stateRoot, 'read-only.json');
-  assert.throws(() => readRegularFile(file, 1024), /ENOENT/);
-  assert.equal(fs.existsSync(file), false, 'A read cannot create an allocation file');
-  await writeFile(file, 'existing state', { mode: 0o640 });
+  const missingFile = join(options.stateRoot, 'missing-read-only.json');
+  assert.throws(() => readRegularFile(missingFile, 1024), /ENOENT/);
+  assert.equal(fs.existsSync(missingFile), false, 'A read cannot create an allocation file');
+  const file = join(options.stateRoot, 'existing-read-only.json');
+  await writeFile(file, 'existing state', { flag: 'wx', mode: 0o640 });
   const permissions = fs.statSync(file).mode;
   assert.equal(readRegularFile(file, 1024).toString('utf8'), 'existing state');
   assert.equal(fs.statSync(file).mode, permissions, 'A read cannot rewrite permissions');
