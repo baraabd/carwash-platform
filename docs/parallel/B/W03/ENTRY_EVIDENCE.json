@@ -1,0 +1,308 @@
+{
+  "schemaVersion": 1,
+  "task": "W03-B",
+  "lane": "B",
+  "proposalRevision": "0.1.0",
+  "phase": "ENTRY_BLOCKED",
+  "parentImplementation": "NOT_STARTED",
+  "observation": {
+    "sourceSha": "82e7402ed9ab6cc4f565f423441cd0655f2d627a",
+    "sourceTree": "050b4b8a03be2bc671cbaa00151ea7105891e2d4",
+    "observedAtUtc": "2026-10-05T11:40:35+00:00",
+    "sourceMeaning": "Observed main audit source only, not BASE_W03 or accepted W02 business behavior.",
+    "initialIntakeOpenPullRequests": 0
+  },
+  "acceptedWaveBase": null,
+  "publishedBasesAtSource": {
+    "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+    "BASE_W02": null,
+    "BASE_W03": null
+  },
+  "acceptedBusinessContractIds": [],
+  "packagesAtSource": {
+    "contracts": "0.0.2",
+    "event-contracts": "0.0.2",
+    "api-clients": "0.0.1"
+  },
+  "mergedProposalProvenance": {
+    "W02B": {
+      "pullRequest": 49,
+      "head": "35e72d57b7ed46c15155191a500962954ea4732a",
+      "mergeSha": "5893ce294336daa934be334b078f0099c5f382b7",
+      "mergedAtUtc": "2026-10-05T11:29:37Z",
+      "meaning": "Merged readiness/contract/specification proposal only; no Catalog/Pricing business implementation or wave acceptance."
+    },
+    "W02E": {
+      "pullRequest": 50,
+      "mergeSha": "82e7402ed9ab6cc4f565f423441cd0655f2d627a",
+      "meaning": "Merged E entry/prerequisite documentation, not a base or contract release."
+    }
+  },
+  "writerBoundary": {
+    "permanentLane": "B",
+    "bootstrapPermission": "Expired by current task and E W02 interpretation; old registry conditional expiry requires reconciliation, no renewed grant.",
+    "effectiveChangedPrefixes": ["docs/parallel/B/W03/", "tests/parallel/B/W03/"],
+    "serviceSourceWrites": false,
+    "sharedSourceWrites": false
+  },
+  "approvedInputs": {
+    "moneyPolicy": null,
+    "accountingPolicy": null,
+    "accountCategoriesAndAuthorizedUse": null,
+    "journalRecognitionTriggers": null,
+    "quoteUseAndCommitPolicy": null,
+    "cancellationCompensationPolicy": null,
+    "guestCriticalOperationContract": null,
+    "retentionReplayPolicy": null
+  },
+  "environment": {
+    "localDockerAvailable": false,
+    "provisionedAllocation": null,
+    "financeRuntimeExecuted": false,
+    "realBillingDatabaseTestExecuted": false,
+    "realQuoteBookingCashFlowExecuted": false,
+    "ownedActiveResources": [],
+    "limitation": "Source/proposal integrity checks and hosted foundation CI cannot close declarative W03 finance cases."
+  },
+  "runtimeExecuted": false,
+  "migrationsAdded": [],
+  "entryBlockerIds": [
+    "ENTRY-01",
+    "ENTRY-02",
+    "ENTRY-03",
+    "ENTRY-04",
+    "ENTRY-05",
+    "ENTRY-06",
+    "ENTRY-07"
+  ],
+  "sourceDerivedSchemaInventory": [
+    {
+      "service": "catalog",
+      "schemaPath": "services/catalog/prisma/schema.prisma",
+      "schemaSha256": "19ab178b6d32fafd460ce1c8d737af00cb8196f6f84c5a2ff573e48b77b4678b",
+      "models": ["ServiceMarker", "FoundationProbe", "OutboxMessage"],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation",
+        "20260927143000_f008_outbox_trace_context"
+      ],
+      "businessAcceptanceProved": false
+    },
+    {
+      "service": "pricing",
+      "schemaPath": "services/pricing/prisma/schema.prisma",
+      "schemaSha256": "5e8251634c057bb4656d0b050d52e04cd02734a3ca541d1a2667df7f73bb6686",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20261005060000_w01_foundation"],
+      "businessAcceptanceProved": false
+    },
+    {
+      "service": "billing",
+      "schemaPath": "services/billing/prisma/schema.prisma",
+      "schemaSha256": "82aa2c8382d9a1b5a345f75065407c213da829acd58e92c1331b3d9bfed4c3a1",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20260920000000_sprint_02_foundation"],
+      "businessAcceptanceProved": false
+    },
+    {
+      "service": "booking",
+      "schemaPath": "services/booking/prisma/schema.prisma",
+      "schemaSha256": "9ea3d6dd78593cafafc97320e392e2bdd4e5394adcca768e303d20c2146d7622",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20260920000000_sprint_02_foundation"],
+      "businessAcceptanceProved": false
+    },
+    {
+      "service": "scheduling",
+      "schemaPath": "services/scheduling/prisma/schema.prisma",
+      "schemaSha256": "3b660e8a2c16783757df16e5c9c253874927d7cf3e658b1e94135fd7741a552c",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20261005060000_w01_foundation"],
+      "businessAcceptanceProved": false
+    },
+    {
+      "service": "wallet",
+      "schemaPath": "services/wallet/prisma/schema.prisma",
+      "schemaSha256": "e6e9b6017244473a152de02d8441d14c6e71acc4dce61fdafd4fe50bef422db2",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20261005060000_w01_foundation"],
+      "businessAcceptanceProved": false
+    },
+    {
+      "service": "configuration",
+      "schemaPath": "services/configuration/prisma/schema.prisma",
+      "schemaSha256": "0891923f7b6b2df9166e0a673d8738fba5b46c908750c553873f37768df1c43c",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20261005060000_w01_foundation"],
+      "businessAcceptanceProved": false
+    }
+  ],
+  "sourceFingerprints": [
+    {
+      "path": "AGENTS.md",
+      "bytes": 3138,
+      "sha256": "9a36dcbe805425931884abedb1b1efefdaafa39a0a73c13837bcec71d4eb489f"
+    },
+    {
+      "path": "architecture/service-catalog.json",
+      "bytes": 43887,
+      "sha256": "34462fbfb90c6a221524905aa21f7a4022c28a1b21d2243381a1b07582eac9b8"
+    },
+    {
+      "path": "architecture/parallel-contract-release.json",
+      "bytes": 31335,
+      "sha256": "aec04eeb6c3d893e4e0b401bab0a550c517f1e32709a5e0189f4a3ddb0ce4db9"
+    },
+    {
+      "path": "architecture/parallel-ownership.json",
+      "bytes": 59599,
+      "sha256": "2b696da4f8ed6d0fbb6234e33dc207e92c9e91f72e56e6f8777aac62c4f8e144"
+    },
+    {
+      "path": "architecture/adr/F001-monorepo-and-data-ownership.md",
+      "bytes": 7220,
+      "sha256": "46309b8de279fbccb99716b240a429a79abd1b5699e809947429d9726ece67d7"
+    },
+    {
+      "path": "docs/parallel/E/W02/ENTRY_AUDIT.json",
+      "bytes": 4775,
+      "sha256": "b2cfc9e0db5e1837dd30bcd596b0bd5e7d6090547a48090dcef737807982cbf1"
+    },
+    {
+      "path": "docs/parallel/E/W02/README.md",
+      "bytes": 6112,
+      "sha256": "55451ef52e463a1d2163de13c2f495623eaa72bac284218b6e8bf3acc256b40c"
+    },
+    {
+      "path": "docs/parallel/B/W01/POLICY_DECISIONS.md",
+      "bytes": 9149,
+      "sha256": "c31659de750f97eaf57faacd9591665ed1d94e73c9bbb35250c311091562f344"
+    },
+    {
+      "path": "docs/parallel/B/W01/future-finance-contracts.schema.json",
+      "bytes": 50919,
+      "sha256": "1b5d9f1243b853274d2f43181a0f9aa09fc50953d8e530e069669a30295e21a9"
+    },
+    {
+      "path": "docs/parallel/B/W02/W03_CONTRACT_PACKET.md",
+      "bytes": 7534,
+      "sha256": "d31d750449e9d2af0f9f00b358c76b0c6664a59f669f34a5f1562c89dc5e4611"
+    },
+    {
+      "path": "docs/parallel/C/W02/W03_CONTRACT_PROPOSAL.md",
+      "bytes": 10545,
+      "sha256": "9a9aaebae5697e3b3849ed4a4da034411fe2c02534e7e040e4251d18b79da914"
+    },
+    {
+      "path": "docs/parallel/D/W01/CONTRACT_PROPOSALS.md",
+      "bytes": 61268,
+      "sha256": "4cadf7cea46b6164924a5a49468caa11c6aeccd10dcbad457a5267eeb6906697"
+    },
+    {
+      "path": "services/billing/prisma/schema.prisma",
+      "bytes": 921,
+      "sha256": "82aa2c8382d9a1b5a345f75065407c213da829acd58e92c1331b3d9bfed4c3a1"
+    },
+    {
+      "path": "services/billing/prisma/migrations/20260920000000_sprint_02_foundation/migration.sql",
+      "bytes": 480,
+      "sha256": "853bd2d8015602528a48cbbed1f58c3cf92e7c1a0d1319381fa1671161f05487"
+    },
+    {
+      "path": "services/billing/src/domain/ledger.ts",
+      "bytes": 1299,
+      "sha256": "90dc25a443edb96154f725bb1df781932a08664547f677fade08d33badb3f696"
+    },
+    {
+      "path": "services/billing/src/app.module.ts",
+      "bytes": 1090,
+      "sha256": "7d0a5be630d96794e8603af930151d7218222330994cb6cbaab0bc7466256a5f"
+    },
+    {
+      "path": "services/billing/package.json",
+      "bytes": 895,
+      "sha256": "27f996405ca473a9b7fdb12c9f4146744f4ef51097df1116cffd847dd06659b0"
+    },
+    {
+      "path": "services/pricing/prisma/schema.prisma",
+      "bytes": 921,
+      "sha256": "5e8251634c057bb4656d0b050d52e04cd02734a3ca541d1a2667df7f73bb6686"
+    },
+    {
+      "path": "services/catalog/prisma/schema.prisma",
+      "bytes": 2307,
+      "sha256": "19ab178b6d32fafd460ce1c8d737af00cb8196f6f84c5a2ff573e48b77b4678b"
+    },
+    {
+      "path": "services/booking/prisma/schema.prisma",
+      "bytes": 921,
+      "sha256": "9ea3d6dd78593cafafc97320e392e2bdd4e5394adcca768e303d20c2146d7622"
+    },
+    {
+      "path": "services/scheduling/prisma/schema.prisma",
+      "bytes": 924,
+      "sha256": "3b660e8a2c16783757df16e5c9c253874927d7cf3e658b1e94135fd7741a552c"
+    },
+    {
+      "path": "packages/contracts/src/registry.ts",
+      "bytes": 1106,
+      "sha256": "a823495f3038c4c4a27c323194f86e51665b0f263ac39ec40afaa0b24f3fa97d"
+    },
+    {
+      "path": "packages/contracts/src/identity.ts",
+      "bytes": 2562,
+      "sha256": "0e122d3e0e148e1df23e54a0f4fa619d1529e7c187f430e6f6c4833de50642ae"
+    },
+    {
+      "path": "packages/contracts/src/gateway.ts",
+      "bytes": 5732,
+      "sha256": "28d73b02d8c31724c2b0537259a9f84e05ba440766116d35993ae1514c45cc40"
+    },
+    {
+      "path": "packages/api-clients/src/index.ts",
+      "bytes": 94,
+      "sha256": "9c5162feffe8bbe37bdf5adde98f993d3d2169c1156a6ed5265cc6b7e4585c1d"
+    },
+    {
+      "path": "packages/event-contracts/src/registry.ts",
+      "bytes": 1163,
+      "sha256": "9150079692bf7945d3532bdf9b3f3af07f0f085a346f0ae11ebbe3bea6fe6a6f"
+    },
+    {
+      "path": "packages/platform-messaging/src/inbox-consumer.ts",
+      "bytes": 8044,
+      "sha256": "cab0a274385e9c264f1f87731f02b160fa50dec1be7a38fa2c9f31f8459462c0"
+    },
+    {
+      "path": "infra/postgres/provision.sh",
+      "bytes": 5800,
+      "sha256": "ce19ea0642cf33a662dfce416eadee0abd7647226f211dda2966df5d56e1ad2b"
+    },
+    {
+      "path": "tests/integration/postgres-privileges.test.mjs",
+      "bytes": 13247,
+      "sha256": "3b4140f3d156a8fa6e5a312ea1880461624c1d90a905ad9b42e669792623611f"
+    },
+    {
+      "path": "design/reference/approved/washgo-payments-interactive.html",
+      "bytes": 263462,
+      "sha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549"
+    },
+    {
+      "path": "design/reference/approved/washgo-technician-interactive.html",
+      "bytes": 122636,
+      "sha256": "d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc"
+    },
+    {
+      "path": "design/reference/approved/washgo-admin-prototype.html",
+      "bytes": 40310,
+      "sha256": "b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273"
+    }
+  ],
+  "databaseRestrictionGap": {
+    "source": "infra/postgres/provision.sh",
+    "fact": "Blanket runtime SELECT/INSERT/UPDATE/DELETE grant is repeated by provisioning. Marker privilege tests do not prove ledger append-only behavior.",
+    "requiredProof": "Owner-local transactional/immutable enforcement or reviewed E privilege changes remain effective after provisioning replay and raw runtime SQL bypass attempts.",
+    "implementationSelected": false
+  },
+  "deliveryEvidence": "Final head/tree, local commands/results and hosted CI belong in the draft PR after execution; no invented self-referential commit or business acceptance result."
+}

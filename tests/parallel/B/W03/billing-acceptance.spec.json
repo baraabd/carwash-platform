@@ -1,0 +1,975 @@
+{
+  "schemaVersion": 1,
+  "proposalRevision": "0.1.0",
+  "task": "W03-B",
+  "lane": "B",
+  "status": "NOT_RUN_SPECIFICATION_ONLY",
+  "observedSourceSha": "82e7402ed9ab6cc4f565f423441cd0655f2d627a",
+  "observedSourceTree": "050b4b8a03be2bc671cbaa00151ea7105891e2d4",
+  "acceptedWaveBase": null,
+  "acceptedBusinessContractIds": [],
+  "runtimeExecuted": false,
+  "scope": {
+    "provider": [
+      "Billing-owned payment intents, cash obligations, accounts, immutable posted journals/lines and unique business references",
+      "B-owned Pricing quote-validation integration only when accepted contracts and verified W02 producers are available"
+    ],
+    "integration": [
+      "Serialized real Pricing-to-Booking-to-cash-obligation acceptance with A/C/E and actual merged providers",
+      "Failure, compensation, replay, broker and authorized consumer evidence on the immutable combined candidate"
+    ],
+    "excluded": [
+      "Live money collection, external verification, refunds and production provider operations",
+      "W04 cash receipts, custody/settlement implementation and Wallet runtime",
+      "Private peer DTOs, cross-owner source/database access, E-owned manifests/contracts/Gateway/CI/infra and unapproved production financial policy"
+    ]
+  },
+  "evidenceScope": "Declarative acceptance specification only. No Billing persistence, business HTTP, PostgreSQL constraint, broker recovery, browser flow or W03 acceptance is executed or established by this file.",
+  "entryBlockerIds": [
+    "ENTRY-01",
+    "ENTRY-02",
+    "ENTRY-03",
+    "ENTRY-04",
+    "ENTRY-05",
+    "ENTRY-06",
+    "ENTRY-07"
+  ],
+  "entryBlockers": [
+    {
+      "id": "ENTRY-01",
+      "meaning": "E-published verified BASE_W03 and accepted W02 Catalog/Pricing behavior; reconcile the base/ownership/lease records before dependent writes."
+    },
+    {
+      "id": "ENTRY-02",
+      "meaning": "Accepted Billing/Booking/Pricing commands, quote references, responses, errors, event envelopes and compatible client exports."
+    },
+    {
+      "id": "ENTRY-03",
+      "meaning": "Approved accounting/financial policy, account categories/posting triggers, money/currency/precision, quote validity, cancellation, reversal and replay/time semantics."
+    },
+    {
+      "id": "ENTRY-04",
+      "meaning": "Accepted and implemented service identity, current actor/guest ownership, delegation and critical-operation authorization."
+    },
+    {
+      "id": "ENTRY-05",
+      "meaning": "E-owned package dependencies/exports, Gateway transport, broker permissions and published executable gates/provider wiring."
+    },
+    {
+      "id": "ENTRY-06",
+      "meaning": "E-allocated and actually provisioned isolated PostgreSQL/broker/runtime resources, pinned toolchain and scoped ownership/cleanup evidence."
+    },
+    {
+      "id": "ENTRY-07",
+      "meaning": "Downstream serialized real provider/consumer integration and unchanged-ref candidate/target acceptance; not a prerequisite that makes the first provider child depend on its unbuilt consumer."
+    }
+  ],
+  "notes": [
+    "Observed main is an audit source, not BASE_W03. All cases remain NOT_RUN_SPECIFICATION_ONLY and runtimeExecuted=false.",
+    "Billing currently has only ServiceMarker persistence and a historical pure assertBalancedJournal helper. Its regex/entry limits and successful unit assertions are not approved accounting policy or database enforcement.",
+    "Policy-derived valid/invalid test vectors must come from explicitly accepted revisions. No currency code, exponent, price, account number, lifetime, deadline, fee, tax or numerical production limit is selected here.",
+    "Account categories and journal-producing events must be approved before implementation. Creating an intent or recording an amount due never establishes money collection, custody, settlement or earned revenue by itself.",
+    "Database constraints, row privileges, immutable posting controls and transactional posting interfaces described below are implementation requirements for B with E-owned technical provisioning/wiring. They are not present or executed at the observed source.",
+    "Provider children use real owned PostgreSQL, Identity and accepted merged dependencies before downstream Booking/app integration. Integration evidence cannot be replaced by fixture schemas or a circular prerequisite.",
+    "Test-only policies and Booking/Pricing fixtures remain labeled isolated fixtures; never production defaults or evidence of real Booking, capacity or financial acceptance.",
+    "The accepted quote-validity/consumption contract must resolve the time between Pricing verification and Billing commit; no unaccepted lock, exclusive consumption rule or fabricated distributed transaction is introduced.",
+    "Compensation within W03 cancels due obligations or reverses approved W03 accounting effects. It never executes cash collection, provider refunds, Wallet settlement or next-wave business work.",
+    "Every executed future case must record exact command, result, source/tree and allocated runtime identity. Missing, skipped, failed, cancelled or fixture-only required evidence keeps the relevant child/parent gate open."
+  ],
+  "cases": [
+    {
+      "id": "BILL-01",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Fresh migrations and foundation upgrade agree with the owned schema",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "The immutable provider candidate contains existing foundation migrations and new append-only Billing migrations plus the matching service-local schema.",
+        "E has provisioned distinct disposable fresh and foundation-upgrade Billing databases with migration identities."
+      ],
+      "when": [
+        "Deploy migrations into a fresh database and separately upgrade a retained foundation database.",
+        "Repeat migrate deploy and inspect applied IDs/checksums, tables, constraints, indexes, functions and grants against the committed candidate."
+      ],
+      "then": [
+        "Both paths produce the intended Billing-only schema with no drift, retained foundation rows and unchanged old migration checksums.",
+        "Repeated deploy makes no unintended data change; new financial persistence is proven by real applied schema evidence, not the ServiceMarker alone."
+      ],
+      "requiredEvidence": [
+        "Real PostgreSQL fresh/upgrade deployment records and repeat-deploy result",
+        "Candidate SHA/tree, migration IDs/checksums and source-derived versus actual schema/privilege diff"
+      ]
+    },
+    {
+      "id": "BILL-02",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Runtime identities cannot bypass financial enforcement or cross owners",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Billing runtime and migration identities are separately provisioned under the recorded E allocation.",
+        "The accepted posting design identifies the minimum runtime privileges and controlled transaction boundary."
+      ],
+      "when": [
+        "Use the actual runtime identity for permitted business writes and attempt DDL, privilege escalation, migration-history mutation and another service database connection.",
+        "Attempt unauthorized direct writes around the controlled posting path and verify cleanup affects only this invocation's allocation.",
+        "Replay provisioning only within the owned disposable allocation, then repeat raw runtime journal/line update/delete/late-insertion and unbalanced-posting bypass attempts."
+      ],
+      "then": [
+        "PostgreSQL denies unauthorized schema/role/cross-owner access and bypass writes while the accepted owned path works.",
+        "No Booking, Scheduling, Pricing, customer or Wallet database is read or modified; resource identifiers and cleanup are traceable.",
+        "Ledger restrictions remain effective after provisioning replay; a one-time revoke undone by blanket runtime DML grants is not accepted."
+      ],
+      "requiredEvidence": [
+        "Real role/grant and connection-denial results using runtime credentials",
+        "Posting privilege/bypass results, E allocation provenance and owned process/resource cleanup records",
+        "Before/after scoped provisioning-replay grants and identical journal immutability/balance denial evidence"
+      ]
+    },
+    {
+      "id": "BILL-03",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Owned references and uniqueness reject inconsistent financial rows",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Migrated Billing persistence defines local intent/obligation/account/journal/line and receipt/reference constraints under accepted policy.",
+        "External Booking/quote references are evidence validated through public contracts, not foreign-database joins."
+      ],
+      "when": [
+        "Attempt nonexistent local journal/account links, duplicate journal effect references, invalid accepted local relationship/cardinality and partial orphan insertion.",
+        "Exercise duplicate intent/obligation operation identities using actual transaction paths."
+      ],
+      "then": [
+        "Declared local foreign keys, uniqueness and consistency constraints reject invalid writes atomically.",
+        "A valid local aggregate remains complete and explainable; cross-owner facts do not gain false validity from a local string reference alone."
+      ],
+      "requiredEvidence": [
+        "Real PostgreSQL constraint failures and no-partial-row comparisons",
+        "Schema/index/constraint inventory and accepted cross-owner validation traces without peer DB access"
+      ]
+    },
+    {
+      "id": "BILL-04",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Posting balances exactly per currency under approved money policy",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Accepted money policy supplies currencies, precision, canonical encoding, bounds and valid accounting test vectors.",
+        "The real posting transaction and database enforcement apply to every allowed journal-producing event."
+      ],
+      "when": [
+        "Post balanced valid vectors and attempt per-currency imbalance, currency/account mismatch, malformed or unsupported money, invalid side and out-of-policy amounts.",
+        "If mixed-currency journals are permitted, attempt a journal whose combined numeric net is zero but individual currencies do not balance; otherwise exercise the accepted mixed-currency rejection.",
+        "Use accepted large exact values and boundary vectors, rejecting out-of-policy values rather than assuming the helper's numeric limit.",
+        "Race independent posting/line transactions and adverse commit ordering around the controlled journal-finalization boundary, including partial and competing line sets."
+      ],
+      "then": [
+        "Valid journals balance in each currency using exact arithmetic with no JSON floating-point coercion or implicit currency conversion.",
+        "Invalid postings cannot commit any successful header, line, business state, success receipt, success audit or outbox fact; any separately retained rejected outcome/failure audit follows the accepted contract.",
+        "The database/controlled posting boundary independently enforces invariants; invoking the historical assertion helper is insufficient evidence.",
+        "Only complete authorized journals balanced in every permitted currency commit; losing or invalid concurrent paths leave no partial successful journal or associated effect."
+      ],
+      "requiredEvidence": [
+        "Real PostgreSQL transactional posting outcomes and exact per-currency sums",
+        "Accepted policy revisions/vector provenance and direct bypass attempt results",
+        "Real PostgreSQL independent-connection journal-finalization races, commit-order trace and complete balanced versus rejected effect counts"
+      ]
+    },
+    {
+      "id": "BILL-05",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Posted headers and lines remain immutable after commit and restart",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "A policy-authorized journal is posted through the real controlled Billing transaction.",
+        "Runtime privileges and schema protections cover both header and lines and distinguish any approved draft path."
+      ],
+      "when": [
+        "Attempt header/line update, delete, late line insertion, reparenting and business-reference replacement using runtime SQL and accepted application paths.",
+        "Restart the service and read the original journal and audit evidence."
+      ],
+      "then": [
+        "Posted journal content and references remain unchanged; unauthorized edits/deletes/additions are rejected by the actual storage boundary.",
+        "An approved correction appends linked reversal/new evidence instead of editing historical rows.",
+        "No elevated migration identity is used as the normal business execution identity."
+      ],
+      "requiredEvidence": [
+        "Real PostgreSQL denial/rollback records and byte-equivalent posted content before/after restart",
+        "Actual privileges/immutable controls and authorized read/audit evidence"
+      ]
+    },
+    {
+      "id": "BILL-06",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Account usage requires current authority and approved category rules",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Accepted accounting configuration publishes account categories, allowed posting relationships and current active account rules.",
+        "Identity and service authorization bind the caller to permitted operation and subject."
+      ],
+      "when": [
+        "Try another subject's account, an unauthorized account category, disabled/ineligible account, nonexistent account and a forged body-supplied account/owner.",
+        "Exercise valid authorized usage through the accepted provider boundary."
+      ],
+      "then": [
+        "Only currently authorized, policy-compatible local accounts participate in posting; schema-valid IDs do not grant authority.",
+        "Denials leave no intent, obligation, journal, audit-of-success or outbox effect and disclose only the accepted safe error information."
+      ],
+      "requiredEvidence": [
+        "Real Billing HTTP/service authorization outcomes plus PostgreSQL no-effect checks",
+        "Accepted accounting/Identity policy revisions and live account eligibility evidence"
+      ]
+    },
+    {
+      "id": "BILL-07",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Intents and cash due remain distinct from collected money",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "An authorized request references a real verified immutable quote and the accepted Booking/subject binding.",
+        "Approved policy determines whether this W03 event produces a due-related journal; it does not infer a cash receipt or settlement."
+      ],
+      "when": [
+        "Create a cash obligation and an allowed electronic-method intent through frozen interfaces.",
+        "Read resulting financial facts, any policy-authorized journal references and emitted events."
+      ],
+      "then": [
+        "Cash begins due/unpaid and electronic methods begin pending according to accepted wire states; intent success is never payment success.",
+        "Amount due, collected funds, custody and settlement remain independent; no receipt, provider success, payment-confirmed event or revenue recognition is fabricated.",
+        "W03 creates only approved W03 accounting effects and does not call live collection/refund/provider settlement operations."
+      ],
+      "requiredEvidence": [
+        "Real persisted intent/obligation states and authorized status responses",
+        "Accepted accounting posting-trigger mapping plus complete outbox/event inspection proving no fabricated money confirmation"
+      ]
+    },
+    {
+      "id": "BILL-08",
+      "wave": "W03",
+      "owners": ["billing", "pricing"],
+      "phase": "provider",
+      "title": "Quote-derived binding supplies the obligation amount and beneficiary",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Real merged Pricing supplies an immutable quote and its accepted validation/binding evidence.",
+        "Accepted service identity and actor/guest/delegation authority establish the requester and beneficiary independently."
+      ],
+      "when": [
+        "Create an intent/obligation using its frozen quote and Booking references.",
+        "Change current Catalog/price definitions after issuance and read the retained quote and resulting financial record."
+      ],
+      "then": [
+        "Billing persists quote ID/revision, approved policy provenance, bound Booking/beneficiary/method and exact authoritative amount/currency.",
+        "The caller cannot choose a different beneficiary or overwrite the quote total; historical financial/quote evidence remains unchanged after later price edits.",
+        "Quote verification gives only the accepted use/binding result and never promises capacity or work assignment."
+      ],
+      "requiredEvidence": [
+        "Real Pricing HTTP validation and Billing PostgreSQL/HTTP evidence with accepted contract versions",
+        "Immutable quote and Billing snapshot/reference comparisons before/after definition changes"
+      ]
+    },
+    {
+      "id": "BILL-09",
+      "wave": "W03",
+      "owners": ["billing", "pricing"],
+      "phase": "provider",
+      "title": "Quote validity at expiry and across commit follows accepted semantics",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Accepted policy defines expiry boundary, revocation, honoring and validation/consumption semantics using authoritative server time.",
+        "Real Pricing and Billing expose the accepted mechanism that covers validation-to-commit races."
+      ],
+      "when": [
+        "Exercise before, exactly at and after the accepted expiry boundary using controlled test clocks.",
+        "Race expiry/revocation or approved binding-state changes between validation and Billing commit; retry an already committed original request."
+      ],
+      "then": [
+        "Acceptance/rejection matches the published rule; no client clock, cached success or numerical default extends validity.",
+        "No obligation commits from evidence that the accepted protocol makes invalid at commit; durable successful replay does not issue a new quote or reset expiry.",
+        "Exclusive quote use or consumption is enforced only if that policy was accepted; no distributed atomicity is claimed."
+      ],
+      "requiredEvidence": [
+        "Real Pricing/Billing boundary and race results with accepted policy/server-time evidence",
+        "PostgreSQL effect/replay checks and contract-defined validation/binding trace"
+      ]
+    },
+    {
+      "id": "BILL-10",
+      "wave": "W03",
+      "owners": ["billing", "pricing"],
+      "phase": "provider",
+      "title": "Mismatched or forged quote assertions fail without effects",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Frozen interfaces define required quote, revision, subject, Booking, method and monetary consistency assertions.",
+        "A valid authoritative quote is available to compare negative vectors."
+      ],
+      "when": [
+        "Send nonexistent/wrong-owner/expired/revoked quotes, wrong revisions or bindings and mismatched currency/amount/method assertions.",
+        "Try forged browser totals, fabricated Pricing evidence, private DTO fields and unsupported contract versions."
+      ],
+      "then": [
+        "Billing rejects invalid or unauthorized evidence through accepted non-enumerating errors without partial financial or message effects.",
+        "Authoritative Pricing values are neither overridden nor silently normalized by unaccepted adapters; schema validity alone is insufficient."
+      ],
+      "requiredEvidence": [
+        "Actual contract/HTTP negative results and Pricing verification traces",
+        "Real Billing PostgreSQL/outbox/receipt no-effect comparisons for each negative vector"
+      ]
+    },
+    {
+      "id": "BILL-11",
+      "wave": "W03",
+      "owners": ["billing", "pricing"],
+      "phase": "provider",
+      "title": "Unavailable Pricing and missing policy fail closed without replacement effects",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Real Billing depends on the accepted Pricing and policy providers using published timeout/status semantics.",
+        "No local policy or quote fixture is configured as a production fallback."
+      ],
+      "when": [
+        "Remove or corrupt applicable approved policy evidence and interrupt Pricing before response and after an accepted mutation may have committed.",
+        "Recover by accepted same-operation replay or status lookup and restore the real upstream."
+      ],
+      "then": [
+        "Unavailable authority leaves an honest rejected/pending/unknown outcome per contract, never a default total, invented quote or assumed zero tax/fee.",
+        "Uncertain mutation outcome is reconciled with the original operation; an unrelated replacement financial effect is not created.",
+        "A cached quote is used only within accepted validity/authorization semantics."
+      ],
+      "requiredEvidence": [
+        "Real upstream interruption/policy-unavailable HTTP traces and recovery results",
+        "Billing effect counts and any Pricing durable operation evidence before/after recovery"
+      ]
+    },
+    {
+      "id": "BILL-12",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Concurrent identical scoped keys produce one durable effect",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Accepted actor/operation-scoped key syntax, canonical fingerprint and replay contract are published.",
+        "The real Billing database stores durable operation receipts and business-effect uniqueness."
+      ],
+      "when": [
+        "Issue concurrent identical authorized create requests with the same scoped key from separate connections/replicas.",
+        "Read operation state and repeat the request after completion and restart."
+      ],
+      "then": [
+        "Exactly one permitted intent/obligation effect and its policy-required journal/outbox effects commit.",
+        "Contenders receive only accepted in-progress or original terminal replay results with stable resource references; no process-local cache is the authority.",
+        "Pending outcomes are not counted as completed effects or fabricated failures."
+      ],
+      "requiredEvidence": [
+        "Real PostgreSQL competing request/unique-conflict evidence and per-effect counts",
+        "Authorized HTTP race/replay responses and restart-stable durable receipt data"
+      ]
+    },
+    {
+      "id": "BILL-13",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Key payload conflicts and canonical fingerprints remain deterministic",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "E freezes the exact canonical fields, normalization and scope including command/version, actor/subject and authoritative resource references.",
+        "A recorded operation with a canonical request and stable outcome exists."
+      ],
+      "when": [
+        "Reuse the scoped key with changed accepted quote/Booking/method/subject assertions or other effect-bearing fields.",
+        "Exercise contract-defined semantically equivalent encoding and distinct actor/operation scopes without inventing normalization."
+      ],
+      "then": [
+        "Changed canonical payload conflicts without replacing the receipt or creating a second financial effect.",
+        "Only accepted canonical equivalence replays; key isolation across scopes follows the frozen rule and cannot bypass unique business effects.",
+        "Sensitive raw credentials/proof/contact fields are absent from safe fingerprints/log evidence."
+      ],
+      "requiredEvidence": [
+        "Contract-derived canonical test vectors and actual conflicting/equivalent HTTP outcomes",
+        "Real PostgreSQL receipt/fingerprint/effect comparisons with sanitized audit/log inspection"
+      ]
+    },
+    {
+      "id": "BILL-14",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Unique business references survive different keys and competing replicas",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Accepted contracts define the unique Booking obligation/business-effect identity and permitted distinct intent attempts.",
+        "Durable uniqueness is enforced independently of the request key."
+      ],
+      "when": [
+        "Race requests under different keys for the same obligation effect/business reference and repeat through separate replicas.",
+        "If accepted policy allows distinct intentional intent attempts, distinguish those attempts from duplicate creation of the same financial effect."
+      ],
+      "then": [
+        "The same obligation/effect cannot be charged or journaled twice even when request keys differ.",
+        "Accepted conflict/replay/reference results remain explainable; uniqueness does not silently prohibit a separately approved legitimate operation.",
+        "No unaccepted one-quote/one-Booking rule is inferred from this uniqueness test."
+      ],
+      "requiredEvidence": [
+        "Real PostgreSQL unique-business-reference race evidence and exact effect counts",
+        "Accepted identity/intent-attempt semantics and authorized response/reference comparison"
+      ]
+    },
+    {
+      "id": "BILL-15",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Response loss followed by restart replays the original committed result",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "A real create transaction commits business state, receipt, audit and outbox under one operation identity.",
+        "A controlled transport failure prevents the client receiving the original response."
+      ],
+      "when": [
+        "Lose the response after commit, terminate only the owned Billing process, restart it and retry the same scoped key/request.",
+        "Compare authorized operation status and all returned references to the original committed receipt."
+      ],
+      "then": [
+        "The original response outcome and resource references remain stable across restart; no second intent, obligation, posting or outbox business effect appears.",
+        "Timeout is reported as uncertain until reconciled and never treated as proof that no write occurred.",
+        "Only explicitly allocated process handles are stopped."
+      ],
+      "requiredEvidence": [
+        "Real post-commit response-loss/restart logs with owned process handles",
+        "Persisted receipt and stable replay/status/effect comparisons"
+      ]
+    },
+    {
+      "id": "BILL-16",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Replay retention and live authorization cannot revive expired authority",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Accepted policy specifies replay/retention/tombstone rules and how current authorization gates replay.",
+        "An original terminal receipt exists for an account or guest whose authority can be revoked under real Identity."
+      ],
+      "when": [
+        "Retry after authority revocation and at accepted replay/retention boundaries with controlled time.",
+        "Exercise retained tombstone/original operation semantics after any allowed receipt compaction."
+      ],
+      "then": [
+        "Unauthorized callers cannot obtain another subject's replay or recreate its effect; live authorization follows the accepted rule.",
+        "A forgotten key or compacted receipt does not permit duplication of the unique financial effect.",
+        "Replay never extends quote validity, creates a new charge or silently changes policy revisions."
+      ],
+      "requiredEvidence": [
+        "Real Identity revocation plus Billing replay/status denial results",
+        "Accepted retention vectors and durable receipt/tombstone/business-reference evidence"
+      ]
+    },
+    {
+      "id": "BILL-17",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Operation status resolves uncertainty with scoped non-enumerating reads",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Frozen operation-status interfaces define current pending/terminal/unknown semantics and ownership.",
+        "Real operations include pre-commit failure, committed response loss and unresolved upstream outcome."
+      ],
+      "when": [
+        "Query status as the authorized actor/service/guest and as unrelated or revoked principals.",
+        "Reconcile using the original operation identity while competing clients request status."
+      ],
+      "then": [
+        "Authorized status reports only durable known facts and safe unresolved states; absence/timeout is not fabricated cancellation or success.",
+        "Unrelated callers cannot enumerate operation references or retrieve financial history.",
+        "Recovery uses the accepted same-operation path, without an unrelated replacement charge."
+      ],
+      "requiredEvidence": [
+        "Real HTTP/Identity status authorization matrix and uncertainty timelines",
+        "Durable operation state/effect comparisons across query/retry/restart"
+      ]
+    },
+    {
+      "id": "BILL-18",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Account and guest resource ownership is checked on every operation",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Real accepted Identity/guest capabilities bind financial resources to their authorized beneficiary.",
+        "Guest expiry/revocation/claim semantics are published; no body/header supplied owner is trusted."
+      ],
+      "when": [
+        "Create/read/replay/cancel permitted owned resources and attempt another account/guest's quote, obligation or operation.",
+        "Exercise expired/revoked/missing capabilities and any accepted account-claim transfer using actual Identity contracts."
+      ],
+      "then": [
+        "Only the accepted resource authority grants access; a valid unrelated login or possession of an ID/key is insufficient.",
+        "Guest booking remains supported under accepted grants and does not require an optional plate.",
+        "Denials preserve durable history and emit no success financial effects or sensitive enumeration."
+      ],
+      "requiredEvidence": [
+        "Real Identity/Gateway/Billing account/guest authorization results",
+        "Object-level PostgreSQL no-effect checks and accepted claim/expiry policy evidence"
+      ]
+    },
+    {
+      "id": "BILL-19",
+      "wave": "W03",
+      "owners": ["billing", "pricing"],
+      "phase": "provider",
+      "title": "Services and delegated critical actors require actual current grants",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "E provides producer/service authentication and current operation-specific actor/delegation grants.",
+        "Accepted critical-operation/session controls define permitted administrator actions and verification requirements."
+      ],
+      "when": [
+        "Exercise approved Booking-service creation and explicitly approved delegated administrator status/cancellation operations.",
+        "Attempt forged forwarded identity, missing/wrong service audience, role-name-only grants, revoked sessions and self-issued delegation; exercise applicable browser CSRF/re-authentication controls."
+      ],
+      "then": [
+        "Billing and Pricing independently validate service and resource/actor authority; Gateway transport does not create a financial permission.",
+        "Delegation distinguishes actor from beneficiary and preserves accepted audit evidence.",
+        "Unauthorized critical operations fail closed, without granting W04 collection/settlement privileges by implication."
+      ],
+      "requiredEvidence": [
+        "Actual service/Identity/Gateway/Billing/Pricing authentication and critical-operation negative matrix",
+        "Sanitized delegation/audit traces and real PostgreSQL no-effect checks"
+      ]
+    },
+    {
+      "id": "BILL-20",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Business state, receipts, audits and outbox commit or roll back together",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "The accepted Billing transaction encloses business state, any required posting, durable response receipt, audit and outbox.",
+        "Real database failure injection can target every write boundary without disabling constraints."
+      ],
+      "when": [
+        "Inject failure after individual inserts, journal-line validation, receipt/outbox insertion and immediately before commit.",
+        "Retry the identical operation after rollback and verify its terminal outcome."
+      ],
+      "then": [
+        "Every failed transaction leaves zero partial successful effects or falsely replayable success; only legitimate failure audit policy may retain separate explicitly labeled evidence.",
+        "Contract-permitted retry after a nonterminal rollback commits one complete effect and required messages; a retained terminal rejection replays that rejection rather than silently becoming success.",
+        "No message is published before its durable business commit."
+      ],
+      "requiredEvidence": [
+        "Real PostgreSQL injected transaction rollback and before/after row-count/content evidence",
+        "Receipt/outbox/journal consistency and authorized retry outcome"
+      ]
+    },
+    {
+      "id": "BILL-21",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Outbox relay recovers broker outage and publish-confirm crash windows",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "A committed Billing outbox fact uses an accepted event schema and real allocated RabbitMQ permissions.",
+        "The relay has accepted retry/confirm/error semantics and retained event identity."
+      ],
+      "when": [
+        "Make the broker unavailable after business commit, restore it and restart the relay.",
+        "Crash the owned relay after broker acceptance but before durable delivery marking; replay the pending outbox record."
+      ],
+      "then": [
+        "Committed business facts remain durable and observable as pending delivery; no lost message or invented confirmation completes the financial operation.",
+        "Republish retains event identity and causal references so consumer deduplication prevents a second business effect.",
+        "Exactly-once delivery is not claimed; no payment-confirmed event is generated by due/pending creation."
+      ],
+      "requiredEvidence": [
+        "Real RabbitMQ outage/confirm/restart traces and retained outbox state",
+        "Actual emitted envelope/schema/reference checks and consumer effect counts"
+      ]
+    },
+    {
+      "id": "BILL-22",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Inbox deduplication and owned state commit before acknowledgment",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Accepted producer-authenticated events are consumed using real RabbitMQ and Billing inbox/state transactions.",
+        "The allocation supports controlled consumer crashes and duplicate redelivery."
+      ],
+      "when": [
+        "Crash before local commit, after local commit before ACK and after ACK, then restart and redeliver the same event.",
+        "Deliver concurrent copies of the same valid event to separate consumers."
+      ],
+      "then": [
+        "Pre-commit failure retries without partial effects; committed inbox plus owned state prevent duplicate effects after ACK loss.",
+        "Acknowledgment never precedes the successful durable transaction; exactly one accepted financial/compensation effect survives.",
+        "A framework message-adapter unit test alone cannot close this crash-recovery case."
+      ],
+      "requiredEvidence": [
+        "Real broker delivery/ACK/crash traces linked to PostgreSQL inbox/state commits",
+        "Concurrent redelivery effect counts and restart-stable deduplication evidence"
+      ]
+    },
+    {
+      "id": "BILL-23",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Conflicting and out-of-order events cannot invent financial facts",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Frozen event contracts define identity/fingerprint, revisions, permitted producer and reconciliation/error semantics.",
+        "Actual owner-state queries are available for accepted revision-gap recovery."
+      ],
+      "when": [
+        "Deliver the same event ID with conflicting content, forged producer identity, unsupported schema and stale/gapped aggregate revisions.",
+        "Exercise accepted quarantine/retry/DLQ and owner-state reconciliation without reading peer databases."
+      ],
+      "then": [
+        "Conflicting or unauthenticated events do not overwrite inbox facts or create financial success; rejected evidence is safely auditable.",
+        "Stale/gapped events follow accepted ordering/recovery rules and never roll back newer state or infer missing collection.",
+        "Replay/quarantine metrics/logs contain references rather than credentials, private proof, contact or plate data."
+      ],
+      "requiredEvidence": [
+        "Real RabbitMQ negative/order/recovery traces and PostgreSQL state/inbox comparisons",
+        "Accepted producer/ACL/envelope evidence and sanitized observability inspection"
+      ]
+    },
+    {
+      "id": "BILL-24",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Cancellation and linked reversal preserve posted history",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Approved W03 policy specifies cancellable due/pending states and which W03 journal effects require a linked reversal.",
+        "An authorized existing obligation and any approved original posting exist."
+      ],
+      "when": [
+        "Cancel/compensate through frozen interfaces and replay the same operation.",
+        "Attempt invalid transitions or direct historical edits and inspect linked reversal evidence when policy requires it."
+      ],
+      "then": [
+        "Exactly one allowed cancellation outcome and any required balanced linked reversal persist; original journal/lines remain immutable.",
+        "Due cancellation does not fabricate a receipt, execute a provider refund or settle custody.",
+        "Disallowed/uncertain outcomes remain explicit under policy rather than inventing a refunded/paid state."
+      ],
+      "requiredEvidence": [
+        "Real HTTP/PostgreSQL cancellation/replay/transition outcomes",
+        "Immutable original plus approved reversal linkage/per-currency balance and outbox evidence"
+      ]
+    },
+    {
+      "id": "BILL-25",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Create and cancel races produce one valid financial transition",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Accepted operation/revision rules define racing creation/cancellation and terminal-state behavior.",
+        "Durable effect/reference uniqueness and transaction constraints are active in real PostgreSQL."
+      ],
+      "when": [
+        "Race duplicate cancellation, create versus cancel and stale expected-revision commands through separate connections.",
+        "Lose a compensation response and retry its original child key after restart."
+      ],
+      "then": [
+        "Only permitted serialized transitions commit; stale/conflicting commands receive the published outcome without duplicate reversals or obligations.",
+        "A terminal cancelled obligation is not silently reopened by a delayed retry, and original replay remains consistent with accepted receipt semantics.",
+        "Every committed transition has matching audit, receipt and outbox evidence."
+      ],
+      "requiredEvidence": [
+        "Real PostgreSQL competing transition/locking/uniqueness outcomes",
+        "Authorized revision conflicts, durable child-key replay and exact effect counts"
+      ]
+    },
+    {
+      "id": "BILL-26",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Failed orchestration and late replies remain durable without peer writes",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Booking owns saga deadlines and Scheduling owns capacity; their frozen interfaces define failure/compensation references.",
+        "Billing has accepted commands to record owned failure outcomes and cancel/reverse applicable W03 effects."
+      ],
+      "when": [
+        "Interrupt the saga after Billing commit, replay its stable compensation child key and introduce delayed creation/success responses.",
+        "Leave compensation outcome temporarily unknown and recover it using accepted status/replay."
+      ],
+      "then": [
+        "Billing retains financial facts, failed orchestration references and durable compensation outcomes under accepted transitions.",
+        "No delayed response revives cancelled obligations or expired capacity, fabricates collection, or writes Booking/Scheduling/customer state.",
+        "Uncertain compensation remains queryable/recoverable; no optimistic duplicate or unsupported cross-service transaction is used."
+      ],
+      "requiredEvidence": [
+        "Real Billing PostgreSQL/HTTP failure/compensation/restart evidence",
+        "Accepted Booking/Scheduling contract traces, no cross-owner access evidence and original/child operation linkage"
+      ]
+    },
+    {
+      "id": "BILL-27",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Financial status and audit expose independent facts with safe access",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Accepted status schemas distinguish due, pending, collected and settled facts with authoritative revisions/as-of semantics.",
+        "Approved audit/privacy rules specify allowed immutable references and actor/subject visibility."
+      ],
+      "when": [
+        "Read status for due/pending/cancelled/failed/unknown W03 operations as authorized actors and attempt cross-owner reads.",
+        "Inspect result, events, traces and structured logs during success and error paths."
+      ],
+      "then": [
+        "Server responses expose only accepted known financial states and safe references; Booking/work state never substitutes for payment.",
+        "No W03 operation fabricates collected/settled data or exposes private media, merchant credentials or another subject's financial history.",
+        "Audits identify actual actor/service, beneficiary, policy, quote/Booking/operation and posting linkage without invented retention/deletion rules."
+      ],
+      "requiredEvidence": [
+        "Actual authorized/denied HTTP status matrix and durable audit/reference evidence",
+        "Accepted response mapping and sanitized event/log/trace inspection"
+      ]
+    },
+    {
+      "id": "BILL-28",
+      "wave": "W03",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Missing accounting configuration cannot default to helper assumptions",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "D/E publish actual approved accounting/currency/amount/cancellation/replay revisions required by Billing.",
+        "The existing helper's uppercase-currency regex, amount length and entry count remain historical prototype behavior."
+      ],
+      "when": [
+        "Start or execute applicable operations with missing, unknown, revoked or inconsistent policy revisions.",
+        "Present accepted policy boundary vectors that differ from historical helper assumptions and inspect readiness/error behavior."
+      ],
+      "then": [
+        "Unavailable mandatory policy prevents dependent financial writes through explicit accepted configuration/readiness outcomes.",
+        "No default currency, two-decimal precision, account category, posting trigger, fee, deadline or helper numeric bound is promoted to approved policy.",
+        "Valid historical evidence remains readable only under accepted authorization/read semantics; policy errors do not rewrite old records."
+      ],
+      "requiredEvidence": [
+        "Actual policy-provider/HTTP/readiness results and PostgreSQL no-effect evidence",
+        "Approved revision provenance and candidate source/configuration inspection showing no production fallback"
+      ]
+    },
+    {
+      "id": "BILL-29",
+      "wave": "W03",
+      "owners": ["billing", "pricing"],
+      "phase": "provider",
+      "title": "Billing consumes the real accepted Pricing contract and published clients",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "The immutable provider candidate includes accepted W02 Catalog/Pricing behavior and E-published quote validation/client/service identity contracts.",
+        "Provider tests identify real merged producer SHAs, routes/exports and package versions rather than lane-local private DTOs."
+      ],
+      "when": [
+        "Run Billing conformance against actual Pricing over the accepted transport and exercise bounded errors/revisions/authorization.",
+        "Compare the source-derived business schema inventory and deployed provider boundaries to accepted contract/migration evidence."
+      ],
+      "then": [
+        "Billing depends only on public versioned contracts and authoritative provider facts, without importing peer implementations or Prisma clients.",
+        "Actual quote behavior is proved on the provider candidate; shape fixtures do not close Pricing or Billing integration acceptance.",
+        "Any B-owned integration defect is repaired within effective scope; E-owned exports/manifests/Gateway changes remain requests to E."
+      ],
+      "requiredEvidence": [
+        "Real merged Pricing/Catalog/Identity/configuration provider SHAs and Billing contract/HTTP results",
+        "Exact versions, source-derived schema/migration inventory and dependency-boundary evidence"
+      ]
+    },
+    {
+      "id": "BILL-30",
+      "wave": "W03",
+      "owners": ["billing", "pricing"],
+      "phase": "integration",
+      "title": "Real quote-to-Booking-to-cash flow creates exactly one unpaid obligation",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": [
+        "ENTRY-01",
+        "ENTRY-02",
+        "ENTRY-03",
+        "ENTRY-04",
+        "ENTRY-05",
+        "ENTRY-06",
+        "ENTRY-07"
+      ],
+      "given": [
+        "E constructs the latest-target-plus-head immutable candidate after Billing and Scheduling providers and Booking coordinator are accepted in order.",
+        "A/C/E supply actual customer/guest access, Pricing/Catalog, Scheduling, Booking, Identity and Gateway; no Booking or quote stubs serve this journey."
+      ],
+      "when": [
+        "Complete the real approved customer journey with account and accepted guest variants, optional plate and cash selection.",
+        "Submit the Booking operation, recover a lost response with the same operation and inspect each authoritative owner through public interfaces."
+      ],
+      "then": [
+        "Real Booking references exactly one durable Billing obligation at the immutable quoted amount/currency/beneficiary while payment remains unpaid.",
+        "Capacity and Booking states are their own facts; the financial fact does not invent receipt, settlement, payment-confirmed event or collected money.",
+        "The seven frozen Arabic RTL steps and approved payment methods remain intact; no fourth method or production demo fallback is introduced."
+      ],
+      "requiredEvidence": [
+        "Real serialized candidate SHA/tree, provider/consumer SHAs and unchanged head/target refs",
+        "Actual browser/HTTP journey, authoritative Booking/Pricing/Scheduling/Billing results and exact Billing PostgreSQL/outbox effect counts",
+        "Affected A/C/E journey and required design/accessibility/runtime gate outputs with labeled environments"
+      ]
+    },
+    {
+      "id": "BILL-31",
+      "wave": "W03",
+      "owners": ["billing", "pricing"],
+      "phase": "integration",
+      "title": "Real duplicate delivery and unavailable capacity preserve unpaid failure outcomes",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": [
+        "ENTRY-01",
+        "ENTRY-02",
+        "ENTRY-03",
+        "ENTRY-04",
+        "ENTRY-05",
+        "ENTRY-06",
+        "ENTRY-07"
+      ],
+      "given": [
+        "The accepted combined candidate runs actual Pricing, Booking, Scheduling and Billing with real allocated PostgreSQL/RabbitMQ.",
+        "Scheduling and Booking expose contract-defined unavailable-capacity, deadline and compensation behavior."
+      ],
+      "when": [
+        "Deliver duplicate Booking/Billing events and requests during the real cash-obligation journey.",
+        "Make capacity unavailable before commitment and expire/fail a real hold after Billing has committed; crash/restart actual owners at accepted recovery boundaries.",
+        "Recover uncertain create/compensation operations through original identities and inspect late replies."
+      ],
+      "then": [
+        "Repeated delivery creates no duplicate obligation/posting; inbox/outbox and journal invariants survive actual broker and process failures.",
+        "Before-Billing failures leave no financial effect; after-Billing failures retain only the accepted obligation cancellation/reversal and durable failed-saga outcome.",
+        "No capacity, booking success, payment-confirmed event, cash collection or refunded provider operation is fabricated; unresolved compensation keeps parent acceptance pending."
+      ],
+      "requiredEvidence": [
+        "Actual Scheduling unavailable/expiry and Booking saga timelines with real owner status results",
+        "Real broker replay/ACK/crash traces and Billing PostgreSQL obligation/receipt/journal/inbox/outbox counts",
+        "Serialized candidate source/refs and accepted compensation-policy provenance"
+      ]
+    },
+    {
+      "id": "BILL-32",
+      "wave": "W03",
+      "owners": ["billing", "pricing"],
+      "phase": "integration",
+      "title": "Fixture boundaries and final evidence prevent false parent acceptance",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": [
+        "ENTRY-01",
+        "ENTRY-02",
+        "ENTRY-03",
+        "ENTRY-04",
+        "ENTRY-05",
+        "ENTRY-06",
+        "ENTRY-07"
+      ],
+      "given": [
+        "Provider-only or shape tests may use explicitly isolated test fixtures while real integrated acceptance is still missing.",
+        "The evidence manifest identifies every required case, executable command, environment, source/tree, contract version and actual result."
+      ],
+      "when": [
+        "Inspect test/runtime wiring and final handoff for fixture fallback, non-executed cases, skipped gates and old or changed candidate refs.",
+        "Verify A/C/D affected consumer reads/mappings against real accepted providers at their serialized consumer gates and verify mandatory resulting-target checks."
+      ],
+      "then": [
+        "Fixtures remain labeled and excluded from production; they never count as real Booking/capacity/collection/provider acceptance.",
+        "Provider children may be accepted on their real bounded evidence, while W03-B remains INTEGRATION_PENDING until every required full-flow case and actual combined-source gate succeeds.",
+        "Missing/failed/skipped/cancelled evidence or changed target/head requires the applicable rerun; no W04 execution, self-approval, auto-merge, deployment or DONE claim is implied."
+      ],
+      "requiredEvidence": [
+        "Source/configuration fixture audit and evidence-to-case matrix distinguishing real/mocked/not-run environments",
+        "Actual affected consumer and required candidate/resulting-target gate results with exact refs and independent review provenance",
+        "Owned runtime/process cleanup evidence and explicit external blocker/next-wave handoff list"
+      ]
+    }
+  ]
+}
