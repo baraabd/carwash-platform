@@ -1,0 +1,1095 @@
+{
+  "schemaVersion": 1,
+  "proposalRevision": "0.1.0",
+  "task": "W04-B",
+  "lane": "B",
+  "status": "NOT_RUN_SPECIFICATION_ONLY",
+  "observedSourceSha": "1ec9d8aebf4470a2815471116643fa6ebe0d5a95",
+  "observedSourceTree": "9f04d674056041bbc810a62e4cc7f275c32581b8",
+  "acceptedWaveBase": null,
+  "acceptedBusinessContractIds": [],
+  "runtimeExecuted": false,
+  "scope": {
+    "provider": [
+      "Billing-owned collection business identities, balanced postings, immutable customer-safe cash receipts, audit and settlement evidence against real persisted W03 obligations",
+      "Minimal Wallet-owned approved cash-custody records, purpose-specific holds and projections linked to authoritative Billing postings without a second ledger",
+      "Current Identity and C assignment/work authority, independent treasury approval and A account/guest receipt access through accepted public contracts"
+    ],
+    "integration": [
+      "Billing collection provider followed by Wallet custody provider against accepted merged dependencies, then A/C/D consumers",
+      "E-serialized actual customer/operator/admin completion-to-collection-to-downloadable-receipt-to-custody-to-settlement journey and failure recovery on the immutable combined candidate"
+    ],
+    "excluded": [
+      "Live money collection, production treasury exercises, external payment verification, live provider refunds and deployment",
+      "Customer stored-value funding or withdrawal, a fourth checkout method, payroll, marketplace balances or unapproved custody holders/purposes",
+      "Cross-owner source/database access, private peer DTOs, E-owned manifests/contracts/clients/Gateway/broker/CI/infra edits and W05 business execution"
+    ]
+  },
+  "evidenceScope": "Declarative acceptance specification only. No cash collection, business receipt, journal, Wallet custody/hold, settlement, PostgreSQL constraint, HTTP authority, broker recovery, downloadable artifact or three-app acceptance is executed or established by this file.",
+  "entryBlockerIds": [
+    "ENTRY-01",
+    "ENTRY-02",
+    "ENTRY-03",
+    "ENTRY-04",
+    "ENTRY-05",
+    "ENTRY-06",
+    "ENTRY-07"
+  ],
+  "entryBlockers": [
+    {
+      "id": "ENTRY-01",
+      "meaning": "E-published verified BASE_W04, reconciled ownership/base records and functioning accepted W03 Billing obligations with immutable quote/amount/subject references."
+    },
+    {
+      "id": "ENTRY-02",
+      "meaning": "Frozen Billing/Wallet cash commands, receipts, settlement/status/query/event/recovery contracts and compatible A/C/D assignment/completion, customer/guest and reconciliation interfaces."
+    },
+    {
+      "id": "ENTRY-03",
+      "meaning": "Approved collection timing, partial/overpayment, discrepancy, custody holder/hold purpose, money/accounting/posting, handover/treasury acceptance, cancellation/refund and replay/time/privacy policies."
+    },
+    {
+      "id": "ENTRY-04",
+      "meaning": "Actual current assignment/completion and collector grants, distinct independent treasury authority, service delegation and customer/guest receipt object-access grants."
+    },
+    {
+      "id": "ENTRY-05",
+      "meaning": "E-published manifests/dependencies, client/parser exports, Gateway routes/errors, broker producer/consumer permissions and executable provider/consumer gates."
+    },
+    {
+      "id": "ENTRY-06",
+      "meaning": "E-allocated and actually provisioned isolated Billing/Wallet PostgreSQL, RabbitMQ, browser/runtime resources, pinned toolchain and owned process/cleanup evidence."
+    },
+    {
+      "id": "ENTRY-07",
+      "meaning": "Downstream serialized actual three-app cash-flow and unchanged-ref candidate/resulting-target acceptance; the first provider child does not depend on an unbuilt consumer."
+    }
+  ],
+  "notes": [
+    "Observed main is an audit source, not BASE_W04. All cases remain NOT_RUN_SPECIFICATION_ONLY and runtimeExecuted=false; accepted business contracts and executable cash providers are absent at this source.",
+    "Billing and Wallet persistence currently consists of ServiceMarker foundation tables. The historical Billing assertBalancedJournal helper is unconnected pure code, not an accounting-policy decision or database posting control.",
+    "Creating an obligation, completing work, accepting customer cash and settling business custody are separate authoritative facts. None is inferred from navigation, local state, a proof image or another fact's success.",
+    "Policy-derived positive/negative vectors must come from accepted revisions. No account number/category, currency/exponent/bound, fee/tax, holder, merchant, tolerance, hold purpose, replay period, deadline, endpoint or receipt format is selected here.",
+    "Approved full-only versus partial-collection rules must freeze the unique collection identity grain and permitted installment references. No private identity scheme is introduced to permit partial collection or reject an approved partial policy.",
+    "Runtime-role SQL tests must prove the permitted posting boundary and append-only facts, including E-owned provisioning/grant replay. Superuser or migration-role success is not runtime immutability evidence.",
+    "Wallet has no independent financial ledger and never reads Billing tables. Custody projections and purpose-specific holds are reconciled through accepted authoritative Billing receipt/posting/status references.",
+    "Provider children first prove real owned DB/HTTP/Identity/constraints and accepted dependencies. Wallet consumes merged Billing; A/C/D consumers and full-flow acceptance follow in serialized order without a mutual fixture dependency.",
+    "No distributed transaction or exactly-once delivery is asserted. Owner-local atomic commits, stable logical identities and Inbox/Outbox recovery must produce one accepted business effect under repeat delivery.",
+    "Private downloadable receipt access uses the accepted account or guest capability and object authorization. A downloadable document cannot disclose ledger secrets or serve as authority for changing financial state.",
+    "Fixtures remain explicitly isolated test fixtures, never production fallbacks or proof of real assignment/work/obligations/treasury/provider operations. Missing/failed/skipped/cancelled required evidence keeps the relevant parent gate open.",
+    "Future execution records exact commands, source/tree, contract/policy versions, real versus mocked resources, owned process handles, results and cleanup. W04 implementation never automatically starts W05 or authorizes merge/deployment/live money."
+  ],
+  "cases": [
+    {
+      "id": "CASH-01",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Fresh install and upgrade preserve real W03 obligations and append-only migrations",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Verified BASE_W04 includes functioning accepted W03 obligations and E provisions separate Billing/Wallet runtime and migration identities.",
+        "The upgrade fixture is a real prior accepted database containing representative immutable obligations/journals and source-provenance evidence."
+      ],
+      "when": [
+        "Apply only new owner-local migrations to fresh isolated databases and upgrade copies of the accepted predecessor without reset or db push.",
+        "Replay the actual migration/provisioning procedure and inspect schemas, migration histories and predecessor business rows."
+      ],
+      "then": [
+        "Fresh and upgraded schemas enforce accepted collection/receipt/posting/custody/hold/recovery invariants and retain identical historical amount/currency/subject/posting references.",
+        "Migration identities alone perform DDL; runtime replicas do not migrate or alter schemas and no existing migration is edited.",
+        "No shared financial database, destructive history rewrite or unapproved production seed is introduced."
+      ],
+      "requiredEvidence": [
+        "Real PostgreSQL fresh/upgrade migration logs, exact new migration IDs and predecessor/candidate SHA/tree",
+        "Separate runtime/migration identities, schema/constraint inventory and before/after historical row/reference comparisons"
+      ]
+    },
+    {
+      "id": "CASH-02",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Database constraints enforce exact money, unique effects and valid owned references",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Accepted policy vectors define supported canonical money and allowed account/receipt/posting/custody reference relationships.",
+        "Real PostgreSQL constraints and accepted transactional posting interfaces are active under the actual runtime identities."
+      ],
+      "when": [
+        "Attempt duplicate collection/receipt/settlement business identities, orphan owned references, invalid monetary encodings and unauthorized posting accounts through HTTP and allowed runtime SQL paths.",
+        "Submit unbalanced and mixed-currency journals, including journals whose aggregate total balances only by offsetting different currencies."
+      ],
+      "then": [
+        "Database enforcement refuses invalid states even when a request validator or historical pure helper is bypassed; each posted currency independently balances.",
+        "Immutable unique business references prevent duplicate financial effects, and Wallet cannot accept an assertion as proof of a Billing posting.",
+        "Approved valid boundary vectors retain exact minor units with no floating-point conversion or implicit exponent."
+      ],
+      "requiredEvidence": [
+        "Real runtime-role HTTP/SQL positive and negative results, constraint names and transaction/effect counts",
+        "Accepted accounting/currency vectors with lossless persisted and serialized values"
+      ]
+    },
+    {
+      "id": "CASH-03",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Posted journals and accepted receipt/custody history resist raw SQL edits",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "A real accepted cash collection has immutable journals/lines and receipt evidence plus linked Wallet custody history.",
+        "Approved mutable projections and append-only factual history are separately identified in the owner schema."
+      ],
+      "when": [
+        "As each actual runtime role, attempt UPDATE, DELETE, TRUNCATE, direct bypass inserts and privilege/trigger/DDL bypass against posted history.",
+        "Execute an authorized policy-defined correction through the accepted command and inspect original and linked adjustment records."
+      ],
+      "then": [
+        "Runtime privileges and database controls preserve posted journals/lines, accepted receipts and factual custody history independently of application code.",
+        "An approved correction creates linked append-only facts and any required balanced reversal; it never mutates original evidence.",
+        "Projection updates remain possible only within their permitted owner boundary and cannot erase the underlying financial history."
+      ],
+      "requiredEvidence": [
+        "Actual runtime-role SQL privilege/trigger outcomes and unchanged original row hashes/references",
+        "Authorized correction HTTP result with immutable original, linked adjustment and per-currency balance evidence"
+      ]
+    },
+    {
+      "id": "CASH-04",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Provisioning replay preserves posting privileges and physical owner isolation",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "E publishes the real isolated provisioning/grant replay command and the accepted owner-local posting permission boundary.",
+        "Billing and Wallet have distinct provisioned databases/roles and broker identities under the lane/wave/run allocation."
+      ],
+      "when": [
+        "Run the actual supported provisioning/grant replay and restart runtime processes before repeating mutation/bypass tests.",
+        "Attempt Wallet access to Billing tables and Billing access to Wallet or other owner databases using their runtime credentials."
+      ],
+      "then": [
+        "Provisioning does not accidentally restore broad write/delete privileges or bypass immutable posting controls.",
+        "Cross-owner database access remains denied; services exchange public authorized references rather than shared SQL or peer Prisma clients.",
+        "Runtime resources and cleanup affect only the allocated run, with no global resets or shared-stack disruption."
+      ],
+      "requiredEvidence": [
+        "Before/after real grants and bypass-denial results linked to exact E provisioning source/commands",
+        "Actual role/database/broker ACL isolation matrix and owned runtime/process cleanup evidence"
+      ]
+    },
+    {
+      "id": "CASH-05",
+      "wave": "W04",
+      "owners": ["billing", "pricing"],
+      "phase": "provider",
+      "title": "Collection uses the actual historical obligation without repricing the order",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "The real accepted W03 producer persisted a Billing obligation tied to immutable quoted amount/currency/policy/beneficiary and Booking references.",
+        "A later accepted Catalog/Pricing publication changes current display prices while the historic obligation remains valid under its approved collection policy."
+      ],
+      "when": [
+        "Collect using the accepted obligation and query its receipt/status through published interfaces.",
+        "Try replacing quote, Booking, subject, method, amount or currency references with different or foreign current resources."
+      ],
+      "then": [
+        "Accepted collection and customer-safe receipt retain the authoritative historic obligation values and source revisions.",
+        "Today's catalog/prices, client totals or a newly generated quote never overwrite old financial facts; inconsistent or foreign references are refused without effects.",
+        "Pricing participation is bounded to public historic reference/conformance evidence, not a new pricing or Booking implementation."
+      ],
+      "requiredEvidence": [
+        "Actual W03 obligation and quote producer SHAs, immutable before/after references and collection HTTP/PostgreSQL results",
+        "Real published-contract mismatch/foreign-reference denials and no-effect evidence"
+      ]
+    },
+    {
+      "id": "CASH-06",
+      "wave": "W04",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Same-key duplicate clicks, offline retries and lost responses replay one collection",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "A currently authorized collector submits one valid cash operation using the frozen key scope, logical command identity and canonical fingerprint.",
+        "Durable operation receipts and unique collection identities exist in real PostgreSQL with accepted concurrency/replay semantics."
+      ],
+      "when": [
+        "Send simultaneous same-key copies, queue identical offline retries and lose the response immediately after commit.",
+        "Restart Billing and replay the original operation under current authority; exercise the approved replay-lifetime boundary without inventing its duration."
+      ],
+      "then": [
+        "Exactly one allowed collection posting and one authoritative receipt persist; all successful same-operation responses preserve original IDs and accepted values.",
+        "Concurrent pending and expired replay outcomes follow the frozen contract while permanent business uniqueness prevents another collection effect.",
+        "A transport timeout is resolved through original replay/status, never interpreted as evidence that collection did not commit."
+      ],
+      "requiredEvidence": [
+        "Real concurrent HTTP/offline queue/restart traces with original key/identity/fingerprint correlation",
+        "Exact PostgreSQL collection/receipt/journal/audit/outbox effect counts and stable replay responses"
+      ]
+    },
+    {
+      "id": "CASH-07",
+      "wave": "W04",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "A reused collection key with conflicting amount or references cannot overwrite its outcome",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "A real persisted collection operation has the accepted canonical fingerprint and durable replay result.",
+        "Frozen normalization rules distinguish meaningful field changes from permitted wire-equivalent forms."
+      ],
+      "when": [
+        "Reuse its scoped key while changing declared amount/currency, obligation, collection identity, assignment, beneficiary, policy or expected revision.",
+        "Race the original and conflicting commands and repeat after restart and response loss."
+      ],
+      "then": [
+        "Different meaningful payloads receive the published key-conflict outcome and never replace the original operation receipt or create additional financial effects.",
+        "Accepted wire-equivalent forms replay only under the frozen canonicalization rules; arrays and references are not silently normalized privately.",
+        "Conflict responses disclose safe reasons/references without another actor's financial evidence."
+      ],
+      "requiredEvidence": [
+        "Actual conflicting/concurrent/restart HTTP matrix and published parser/fingerprint vectors",
+        "Unchanged durable original result and exact no-extra-effect PostgreSQL counts"
+      ]
+    },
+    {
+      "id": "CASH-08",
+      "wave": "W04",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Different retry keys cannot bypass the unique collection business identity",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Approved collection policy freezes the permanent identity grain, obligation amount bounds and full-only or explicitly approved installment behavior.",
+        "The intended collection has an authoritative unique business identity independent of HTTP idempotency keys."
+      ],
+      "when": [
+        "Repeat that business collection with distinct keys and operation IDs, including after the original replay response expires.",
+        "Try changing the caller-supplied collection reference to bypass the accepted obligation/collection uniqueness and due limits."
+      ],
+      "then": [
+        "The same intended financial effect cannot produce a second journal or receipt despite new transport keys.",
+        "Different-key replay/conflict behavior follows the frozen response contract; a caller cannot create arbitrary installment identities or double-charge a fully collected obligation.",
+        "If partial collection is approved, only its accepted distinct installment identities and remaining-due constraints are allowed; absent identity rules keep implementation blocked."
+      ],
+      "requiredEvidence": [
+        "Real PostgreSQL uniqueness/concurrency outcomes and accepted collection identity/policy provenance",
+        "Distinct-key HTTP results and durable per-obligation/per-collection financial effect counts"
+      ]
+    },
+    {
+      "id": "CASH-09",
+      "wave": "W04",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Competing collectors and amounts serialize to valid authorized collection outcomes",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Actual Identity and C providers supply current assignment/work references and accepted collector authority.",
+        "A real obligation is collectible under the approved policy and concurrent commands use separate runtime connections."
+      ],
+      "when": [
+        "Race two collectors using different keys/business-reference assertions, including conflicting amounts and stale expected revisions.",
+        "Change assignment or revoke collector authority after provider preflight but before Billing commit, under the accepted authority fence/validity/linearization rules."
+      ],
+      "then": [
+        "Only commands with actual current authority and a permitted serialized transition commit; exactly one full collection effect survives when full-only policy applies.",
+        "Approved partial-policy races obey the accepted remaining-due/identity rules and cannot overcollect through lost updates.",
+        "Losing or stale commands receive safe published conflict/denial outcomes and never transfer custody to an unauthorized collector.",
+        "Reassignment fences future collection according to accepted authority semantics and never automatically transfers already collected custody to the newly assigned technician/team."
+      ],
+      "requiredEvidence": [
+        "Real PostgreSQL competing transaction/locking/effect counts and actual Identity/C authorization timelines",
+        "Authorized and rejected HTTP results with actor/assignment/operation audit linkage"
+      ]
+    },
+    {
+      "id": "CASH-10",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Financial arithmetic and serialized receipts remain exact under approved money boundaries",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Approved money/currency/exponent/bound policies supply valid and invalid vectors, including supported values outside safe floating-point range only if permitted.",
+        "Billing and Wallet use the frozen lossless money vocabulary and per-currency posting/projection rules."
+      ],
+      "when": [
+        "Persist, sum, reconcile, read and render policy-derived collection/settlement values through real provider contracts.",
+        "Submit floats, scientific notation, malformed/noncanonical strings, unsupported precision/currency and amounts outside approved bounds."
+      ],
+      "then": [
+        "Supported values retain identical canonical minor units throughout journal, receipt, custody, settlement and serialization without precision loss.",
+        "Unsupported values are refused without effects; an unsupported large amount is rejected rather than assumed mandatory.",
+        "No mixed-currency netting, default two-decimal exponent, implicit exchange conversion or client-derived financial total is used."
+      ],
+      "requiredEvidence": [
+        "Approved vector provenance and actual PostgreSQL/HTTP exact-value comparisons",
+        "Per-currency balance and custody-to-posting reconciliation results with negative no-effect cases"
+      ]
+    },
+    {
+      "id": "CASH-11",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Partial and overpayment follow explicit policy without invented tolerance or change handling",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Accepted revisions explicitly allow or reject partial collection and overpayment and define remaining due, approved installment grain and any permitted change/adjustment treatment.",
+        "A persisted obligation has immutable amount/currency references and real current collector authority."
+      ],
+      "when": [
+        "Submit exact due, policy-derived partial, overpaid and boundary amounts, and race permitted installments where the policy allows them.",
+        "Replay each accepted operation and inspect receipt, remaining due and linked custody evidence."
+      ],
+      "then": [
+        "Allowed outcomes match approved amount rules and exact due arithmetic; rejected amounts create no receipt/journal/custody effect.",
+        "Partial collection does not display fully paid prematurely, and overpayment is not silently accepted, clipped or converted into customer funds.",
+        "Absent decisions block dependent writes; no arbitrary shortage/overage tolerance or cash-change account is introduced."
+      ],
+      "requiredEvidence": [
+        "Approved full/partial/overpayment policy and actual HTTP/PostgreSQL transition matrix",
+        "Exact receipt/posting/remaining-due/custody counts and replay/race results"
+      ]
+    },
+    {
+      "id": "CASH-12",
+      "wave": "W04",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Actual assignment and work state enforce the approved collection timing",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "C's accepted merged providers expose current assignment/completion revisions, the approved precise service-eligibility policy and frozen authority evidence validity/fence/linearization semantics.",
+        "Billing has the accepted service identity/delegation to validate these facts without peer database access."
+      ],
+      "when": [
+        "Attempt collection in each policy-defined eligible/ineligible work state, after reassignment and with old work/assignment revisions.",
+        "Make the actual authority provider unavailable or return an unknown/conflicting outcome at the collection boundary.",
+        "Reassign/revoke between remote authorization and local collection commit, then exercise the published stale-authority rejection or durable recovery rule."
+      ],
+      "then": [
+        "Billing commits only under accepted current authority/timing evidence and refuses a client-supplied completed/assigned flag as proof.",
+        "Unavailable or unknown eligibility follows the frozen bounded error/recovery contract without optimistic financial success.",
+        "Work completion alone never implies customer paid status or treasury settlement, and collecting cash never changes C's work state.",
+        "Accepted authority fencing resolves the preflight-to-commit race without inventing a shared transaction or treating a remote lookup as indefinite permission; missing semantics block this write."
+      ],
+      "requiredEvidence": [
+        "Actual C/Identity service SHAs, HTTP authority/state/revision matrix and provider outage traces",
+        "Billing no-effect/committed-effect counts and immutable eligibility audit references"
+      ]
+    },
+    {
+      "id": "CASH-13",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Unrelated technicians, stale grants and foreign Booking references are denied",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Real Identity sessions/service principals and C assignment/work ownership bind critical commands to current authorized actors.",
+        "The test allocation contains separate authorized and foreign obligations/Bookings/custody holders."
+      ],
+      "when": [
+        "Submit collection, handover, status and replay requests as unrelated technicians, revoked/expired sessions, stale auth versions and wrong-audience service delegates.",
+        "Substitute another Booking/obligation/holder or replay a formerly authorized result after current authority is removed."
+      ],
+      "then": [
+        "Critical writes and protected replay/status evidence enforce current accepted grants plus object ownership before returning financial results.",
+        "Foreign identifiers and body assertions never expand authority; denials leak no other beneficiary's receipt or account evidence.",
+        "No denied request changes journals, receipts, custody, operation results or financial state."
+      ],
+      "requiredEvidence": [
+        "Actual real-session/service-grant/object-authorization denial matrix through published HTTP",
+        "Before/after owner PostgreSQL state and safely audited denial/reference evidence"
+      ]
+    },
+    {
+      "id": "CASH-14",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Published transport contracts reject forged authority and unsafe command shapes",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "E publishes exact command parsers, supported versions, route/error mapping, key syntax and Identity/Gateway delegation/CSRF requirements.",
+        "Services independently validate accepted transport/service authority at the owner boundary."
+      ],
+      "when": [
+        "Exercise malformed/unknown fields, unsupported contract versions, missing keys and caller-written journal lines/state/account assertions.",
+        "Attempt direct owner calls with forged actor headers, foreign service audience and invalid/missing browser CSRF under the accepted access model."
+      ],
+      "then": [
+        "Only the frozen public command shape and verified current actor/service envelope can reach the authorized owner operation.",
+        "Gateway detail/coarse status adapters preserve accepted safe recovery semantics and never expose private source exceptions or credentials.",
+        "A Gateway pass, DTO fixture or local header is not proof of owner authorization; all rejected calls have no financial effect."
+      ],
+      "requiredEvidence": [
+        "Actual parser/client/Gateway/owner HTTP conformance and direct-bypass denial results",
+        "Accepted versions/routes/error mapping and source/SQL no-effect evidence"
+      ]
+    },
+    {
+      "id": "CASH-15",
+      "wave": "W04",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Collection posts balanced effects and a stable receipt in one local transaction",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "The approved collection trigger/accounting policy and actual obligation/authority permit one cash collection.",
+        "Billing's transactional boundary covers accepted collection state, balanced journals, immutable receipt, operation result, audit and committed-event outbox."
+      ],
+      "when": [
+        "Execute collection through the real published command and read its authoritative receipt/status.",
+        "Inspect owner-local committed rows and the accepted emitted event references without deriving facts from client state."
+      ],
+      "then": [
+        "Exactly one valid balanced posting, collection receipt and replayable operation outcome commit with matching audit/outbox references.",
+        "The customer-safe receipt retains accepted historic amount/currency, obligation/Booking and stable receipt identifiers.",
+        "No receipt or collection event exists without its required durable financial facts, and custody remains separately reconciled."
+      ],
+      "requiredEvidence": [
+        "Real HTTP result and PostgreSQL transaction/journal/receipt/audit/outbox linkage and per-currency balance",
+        "Actual accepted event envelope/receipt parser conformance and immutable source references"
+      ]
+    },
+    {
+      "id": "CASH-16",
+      "wave": "W04",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Journal, receipt, audit and outbox failures roll back the collection atomically",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "A disposable allocation allows precise failures before and during each required Billing local write and immediately before/after commit.",
+        "One valid logical collection and its original idempotency/business identities are retained for recovery."
+      ],
+      "when": [
+        "Inject journal/line, receipt, audit, operation-result and outbox insert failures and crash before the transaction commits.",
+        "Separately crash after commit before response, restart and resolve the original operation through accepted replay/status."
+      ],
+      "then": [
+        "Pre-commit failures leave no partial collected status, journal, receipt or committed event; safe retries can produce only one valid complete outcome.",
+        "Post-commit response loss preserves all required facts and returns the original durable receipt under current authority.",
+        "Recovery never deletes history, substitutes a new collection identity or reports a rolled-back transaction as received cash."
+      ],
+      "requiredEvidence": [
+        "Real PostgreSQL/process fault-injection locations and before/after row/effect counts",
+        "Restart/replay results and exact receipt/journal/audit/outbox atomicity evidence"
+      ]
+    },
+    {
+      "id": "CASH-17",
+      "wave": "W04",
+      "owners": ["billing"],
+      "phase": "provider",
+      "title": "Receipt downloads are stable, customer-safe and object-authorized for account and guest",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "A real committed receipt has the frozen safe representation/download contract, accepted privacy rules and actual A/E beneficiary or guest capability access.",
+        "The approved downloadable format/content and access/replay behavior are published without copying ledger/private proof data into the client."
+      ],
+      "when": [
+        "Read/download the receipt as its account beneficiary and accepted guest, repeat after Billing restart and price publication, and exercise optional plate absence.",
+        "Attempt another account/guest capability, expired/revoked authority, guessed receipt ID and any object storage/download bypass supported by the actual architecture.",
+        "Inject download/rendering delivery failure and retry the accepted artifact operation without recollecting cash."
+      ],
+      "then": [
+        "Authorized retries preserve the authoritative receipt ID and immutable financial content; the artifact never regenerates historic totals from today's prices.",
+        "Every private download/read enforces accepted object access and safe fields; raw guest tokens, contact/plate/private proof and ledger-account secrets are not leaked.",
+        "Delivery failure is explicit and recoverable, does not change paid state or create another receipt/collection, and never fabricates an available document."
+      ],
+      "requiredEvidence": [
+        "Actual account/guest/object-access HTTP/download denial and success results with immutable receipt content comparisons",
+        "Real download fault/retry traces, approved representation/access provenance and unchanged financial effect counts"
+      ]
+    },
+    {
+      "id": "CASH-18",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Authorized status and reconciliation queries keep payment, work and custody distinct",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Frozen read contracts expose independent due/collected/customer-paid and custody/handover/treasury facts with accepted revisions/as-of/staleness semantics.",
+        "Actual collector, customer/guest and D reconciliation grants have different safe query visibility."
+      ],
+      "when": [
+        "Query real due, collected-but-unsettled, pending handover, settled and disputed records through accepted operator/admin/customer interfaces.",
+        "Attempt foreign filters, unauthorized audit detail and stale/unknown projection reads."
+      ],
+      "then": [
+        "The customer can be paid while technician custody remains unsettled; work completion and assignment are never financial status aliases.",
+        "Operator due/collected/handover and admin reconciliation results expose only authorized owner facts and safe audit references.",
+        "Stale or missing projection evidence is explicit under the frozen schema and cannot be displayed or acted on as authoritative settlement, zero custody, unpaid or a complete total."
+      ],
+      "requiredEvidence": [
+        "Actual published HTTP status/query/authorization matrix and source-revision/as-of comparisons",
+        "Owner PostgreSQL fact linkage, foreign-query no-disclosure evidence and accepted consumer field mappings"
+      ]
+    },
+    {
+      "id": "CASH-19",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Wallet creates only approved posting-linked custody without a second ledger",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Billing's accepted merged collection provider exposes immutable receipt/posting/status references through public contracts.",
+        "Approved custody policy defines the actual holder and minimal record/projection scope."
+      ],
+      "when": [
+        "Apply real committed collection evidence to Wallet and read the resulting approved holder custody projection.",
+        "Attempt arbitrary holder assignment, caller-written balance, missing/unposted/reversed Billing references and customer-fund or payroll movements."
+      ],
+      "then": [
+        "Wallet persists only accepted custody facts/projections linked to authoritative Billing references, with exact approved holder/amount/currency provenance.",
+        "It creates no independent double-entry financial ledger, stored-value funding, fourth checkout method or money derived from a body-supplied success flag.",
+        "Unsupported/missing source evidence leaves no spendable/settled fact and is explicitly rejected or reconciliation-pending under the frozen contract."
+      ],
+      "requiredEvidence": [
+        "Real Billing-to-Wallet HTTP/event conformance and PostgreSQL source-reference/holder linkage",
+        "Schema/source inventory demonstrating the bounded Wallet model and unauthorized/missing-source no-effect results"
+      ]
+    },
+    {
+      "id": "CASH-20",
+      "wave": "W04",
+      "owners": ["wallet"],
+      "phase": "provider",
+      "title": "Purpose-specific custody holds serialize competing reserve, release and consume commands",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Approved custody policy explicitly requires a defined hold purpose, amount/source constraints and allowed reserve/release/consume transitions, or explicitly declares holds unnecessary.",
+        "Actual Wallet custody records and accepted runtime grant/revision semantics are active."
+      ],
+      "when": [
+        "For an approved required hold, race duplicate reserve, competing handovers, insufficient available custody, release versus consume and stale expected revisions; replay after restart.",
+        "Attempt an unapproved purpose/holder and any hold operation when policy declares no hold use."
+      ],
+      "then": [
+        "Only approved purpose-specific transitions commit, with one logical hold effect and exact source-linked amounts; custody cannot be reserved or consumed twice.",
+        "An already consumed hold cannot silently release or fund customer balances, and absent/no-hold policy does not cause an invented hold workflow.",
+        "Unknown recovery or disallowed transitions remain explicit and preserve immutable hold/custody evidence."
+      ],
+      "requiredEvidence": [
+        "Approved purpose/no-hold decision and actual PostgreSQL hold/availability race/replay results",
+        "Published authorization/revision outcomes and source-linked custody/hold transition audit"
+      ]
+    },
+    {
+      "id": "CASH-21",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Handover and deposit replay cannot transfer the same custody twice",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Approved handover/deposit contracts define holder/recipient authority, deduplicated source references and permanent business identities.",
+        "Real collected cash is in approved Wallet custody with authoritative Billing posting references."
+      ],
+      "when": [
+        "Race same-key and different-key repetitions, overlapping posting sets, reordered/duplicated source lists and two recipient handovers of the same custody.",
+        "Lose the pending-handover/deposit response, restart and replay using the accepted original operation identity."
+      ],
+      "then": [
+        "Only permitted nonoverlapping custody transitions commit once; replay follows frozen list normalization/identity rules rather than private sorting.",
+        "The holder's declaration records the accepted pending state and never proves independent treasury receipt or settlement.",
+        "Approved recipient/source/amount constraints and expected revisions prevent duplicated transfer or custody disappearing on timeout."
+      ],
+      "requiredEvidence": [
+        "Actual PostgreSQL handover/deposit overlap/race/unique-effect results and restart replay",
+        "Published identity/list normalization and independent pending-versus-settled HTTP/event evidence"
+      ]
+    },
+    {
+      "id": "CASH-22",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Settlement requires current independent treasury authority and supporting evidence",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "D/E publish and implement the approved current treasury/reconciliation grant and independence rules from the submitting cash holder/collector.",
+        "A real pending handover has required immutable custody/collection/posting and evidence references."
+      ],
+      "when": [
+        "Attempt acceptance/settlement by the submitting collector, unrelated technician, unauthorized or revoked administrator and wrong service delegate.",
+        "Attempt authorized acceptance with missing/foreign/stale evidence or an unsupported recipient, then execute the fully supported independent-authority command."
+      ],
+      "then": [
+        "Only the actual current independent authority and approved supporting references can produce the accepted treasury outcome.",
+        "Admin UI visibility, role names, a holder declaration or a proof image never substitutes for verified authority/evidence.",
+        "Denied or unknown operations leave custody pending/disputed and create no settlement journal or fabricated accepted receipt."
+      ],
+      "requiredEvidence": [
+        "Actual independent/self/unrelated/revoked authority and object-reference HTTP matrix",
+        "Real Billing/Wallet no-effect or accepted-effect rows, current grant provenance and supporting evidence linkage"
+      ]
+    },
+    {
+      "id": "CASH-23",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Treasury settlement posts once without counting cash as another customer payment",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Approved accounting policy defines settlement posting triggers/accounts and independent treasury acceptance over immutable source collections.",
+        "Actual Billing settlement and Wallet acceptance contracts have scoped replay and permanent settlement/source uniqueness."
+      ],
+      "when": [
+        "Execute supported independent settlement, race duplicate acceptance/deposit events and accepted settlement versus reversal/cancellation transitions, then retry with same/different keys after response loss and restart.",
+        "Inspect per-currency settlement postings, treasury receipt and reconciled Wallet custody through real owner interfaces."
+      ],
+      "then": [
+        "One accepted settlement business effect and any required balanced journal commit with stable receipt/operation/audit/outbox references.",
+        "Wallet converges only on authoritative Billing settlement evidence and cannot settle the same custody twice.",
+        "Customer payment/collection totals are unchanged by business settlement; treasury receipt is a separate money fact, never a second customer collection.",
+        "Collection, custody and settlement do not post revenue three times; settlement/reversal/cancellation races retain one permitted serialized accounting outcome under approved policy."
+      ],
+      "requiredEvidence": [
+        "Real settlement/acceptance HTTP/event/restart concurrency results and exact effect counts",
+        "Billing original collection versus settlement journals/receipts and Wallet source-linked reconciliation evidence"
+      ]
+    },
+    {
+      "id": "CASH-24",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Missing or inconsistent posting and handover links cannot fabricate settled custody",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Accepted settlement/custody contracts define immutable required receipt/posting/handover references and explicit pending/rejected/reconciliation-required outcomes.",
+        "Actual Billing owner status is available through the accepted authorized interface."
+      ],
+      "when": [
+        "Deliver or submit settlement with missing handover, unknown/unposted/reversed source, wrong holder/currency/amount, conflicting policy or another settlement's evidence.",
+        "Temporarily make the real Billing status unavailable and recover using accepted owner lookup/replay rather than direct SQL."
+      ],
+      "then": [
+        "Invalid evidence cannot commit a settled projection or duplicate financial effect; missing/unknown dependency facts remain explicit under the frozen outcome.",
+        "Correct later authoritative evidence resolves only the accepted pending operation without rewriting originals or trusting a body-supplied settled flag.",
+        "No reconciliation reads/writes peer databases or infers success from elapsed time."
+      ],
+      "requiredEvidence": [
+        "Real Billing/Wallet missing/foreign/mismatch/outage HTTP/event matrix and safe recovery traces",
+        "No-false-settlement PostgreSQL checks and final immutable source-reference reconciliation"
+      ]
+    },
+    {
+      "id": "CASH-25",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Shortage and overage remain owned discrepancies with append-only adjustment workflow",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Approved policy specifies shortage/overage rejection or discrepancy recording, responsible owner, investigation/approval workflow and allowed accounting corrections.",
+        "A real handover and independent treasury evidence disagree by policy-derived vectors with no invented tolerance."
+      ],
+      "when": [
+        "Record the mismatch, query unresolved status and attempt unauthorized automatic balancing/self-approval.",
+        "Resolve only through the approved owner/independent authority and replay its stable correction operation."
+      ],
+      "then": [
+        "Unresolved discrepancies expose an explicit owner, state and recoverable workflow; neither app nor projection silently closes them.",
+        "Allowed resolutions create audited linked append-only adjustments and required balanced postings while preserving collection/handover/original evidence.",
+        "No arbitrary tolerance, deletion, caller-selected account, optimistic settlement or customer stored-value credit hides the mismatch."
+      ],
+      "requiredEvidence": [
+        "Approved discrepancy owner/workflow vectors and actual authorized/denied transition matrix",
+        "Immutable original plus linked adjustment/approval evidence and real Billing-to-Wallet reconciliation results"
+      ]
+    },
+    {
+      "id": "CASH-26",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Outbox publication recovers broker failures without losing committed financial facts",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Real RabbitMQ and E-published producer ACLs/envelopes support the accepted committed collection/receipt/custody/settlement events.",
+        "Each owner's business fact, durable operation, audit and outbox commit locally before publication."
+      ],
+      "when": [
+        "Stop the allocated broker, lose publish confirmation and crash before publication, after publish before mark-sent and during relay recovery.",
+        "Restart actual owner relays and restore only the allocated broker, then observe redelivery and downstream convergence.",
+        "Crash a relay after its final permitted leased attempt and verify accepted durable terminal/retry recovery; inspect every required consumer binding rather than only one successful routed publication."
+      ],
+      "then": [
+        "Committed financial/custody facts and pending outbox rows survive failures and are eventually published with original event identities under accepted retry rules.",
+        "An uncommitted or rolled-back collection never emits accepted success; repeat publication can deliver duplicates but creates no duplicate business effects.",
+        "No exactly-once delivery claim or payment/settlement inference is made from transport success.",
+        "An exhausted/crashed leased outbox item cannot remain indefinitely stranded without accepted terminal/recovery evidence, and one mandatory publish success never proves all required subscribers received the fact."
+      ],
+      "requiredEvidence": [
+        "Real PostgreSQL outbox/transaction snapshots and RabbitMQ outage/publish-confirm/crash traces",
+        "Original event identities, accepted envelope/ACL/binding checks for every required subscriber and downstream deduplicated effect counts",
+        "Actual final-attempt lease/terminal-state/recovery traces with accepted retry-policy provenance"
+      ]
+    },
+    {
+      "id": "CASH-27",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Inbox and custody projection commit before ACK and recover projection-write failure",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Actual consumers use real RabbitMQ with accepted producer authentication and owner-local inbox/payload-fingerprint/state transactions.",
+        "The disposable runtime allows failure during projection writes and crashes before/after commit and ACK."
+      ],
+      "when": [
+        "Fail Wallet custody/hold/projection writes after inbox insertion, crash before commit, after commit before ACK and after ACK, then redeliver.",
+        "Deliver concurrent identical collection/handover/settlement events to separate actual consumers.",
+        "Inject an unrelated owned-state uniqueness violation and the same event ID with conflicting payload while competing consumers race for the inbox identity."
+      ],
+      "then": [
+        "Projection failure rolls back inbox and owned state together so redelivery can recover; ACK never precedes the durable successful transaction.",
+        "Committed inbox plus state prevents duplicate custody/hold/settlement effects after lost ACK; exactly one accepted local business effect remains.",
+        "A message-adapter unit test or fixture projection cannot close real broker/PostgreSQL recovery acceptance.",
+        "A generic database uniqueness error is never blindly treated as a duplicate; accepted duplicate acknowledgment requires the actual winning inbox record and matching payload fingerprint, with conflicting/unrelated failures handled safely."
+      ],
+      "requiredEvidence": [
+        "Real broker delivery/ACK/crash traces linked to PostgreSQL inbox/projection/hold commits and rollbacks",
+        "Concurrent duplicate/conflicting/unrelated-constraint delivery, winning inbox hash, restart recovery and exact retained effect counts"
+      ]
+    },
+    {
+      "id": "CASH-28",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Reversal-first, settlement-first, revision gaps and stale events recover without false facts",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Frozen events distinguish owner/resource revisions from aggregate event versions and define conflict/gap/stale/snapshot recovery.",
+        "Actual Billing/Wallet providers expose accepted authorized immutable source/status lookup for reconciliation."
+      ],
+      "when": [
+        "Deliver a reversal before its collection, settlement before handover/source posting, revision gaps and older events after newer projections.",
+        "Reuse an event identity with conflicting content, unsupported schema or forged producer and exercise approved retry/quarantine/dead-letter recovery."
+      ],
+      "then": [
+        "Missing ordered prerequisites remain explicit/reconciliation-pending and recover through authorized owner facts without inventing collection or settlement.",
+        "Stale evidence never overwrites newer accepted facts; conflicting identity content never becomes a second financial/custody effect.",
+        "Recovery follows the published contract, with no global event-order assumption, peer SQL read or private revision coercion."
+      ],
+      "requiredEvidence": [
+        "Real RabbitMQ reordered/gapped/stale/conflicting event timelines and accepted recovery/ACL results",
+        "Owner lookup provenance, PostgreSQL inbox/checkpoint/projection comparisons and safe quarantine evidence"
+      ]
+    },
+    {
+      "id": "CASH-29",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Reconciliation proves exact Billing-backed custody and detects stale or missing projection evidence",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Accepted public reconciliation/status contracts expose only authorized immutable source references and explicit revision/as-of/gap evidence.",
+        "Real collections, linked corrections, pending handovers and settlements exist with known owner-local source histories."
+      ],
+      "when": [
+        "Reconcile authorized Billing receipts/postings to Wallet custody/holds/projection through real service interfaces after delayed/lost deliveries.",
+        "Introduce a stale or incomplete projection through controlled delivery interruption and recover using accepted owner snapshots/checkpoints."
+      ],
+      "then": [
+        "Exact per-currency source-linked custody and settlements converge without double counting original/reversal/settlement effects.",
+        "Until source gaps are resolved, affected queries remain explicitly stale/pending/disputed and cannot authorize settlement from incomplete totals or report missing custody as zero/unpaid/settled.",
+        "Reconciliation never becomes a second ledger, automatic adjustment authority or cross-owner database repair."
+      ],
+      "requiredEvidence": [
+        "Actual authorized source/status/reconciliation HTTP traces and exact per-currency reference comparisons",
+        "Controlled delivery interruption, checkpoint/snapshot recovery and no-extra-effect PostgreSQL results"
+      ]
+    },
+    {
+      "id": "CASH-30",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Cancellation after collection preserves cash and exposes approved refund or compensation state",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Approved policy and frozen contracts define cancellation before/after collection, correction/reversal authority and pending refund/compensation evidence.",
+        "Real collected obligations exist with pending and settled custody variants."
+      ],
+      "when": [
+        "Cancel a collected Booking/obligation through its actual owner command and race cancellation versus collection under accepted revision/timing rules.",
+        "Retry approved linked correction/compensation and query independent financial/custody status without executing live refunds."
+      ],
+      "then": [
+        "Cancellation cannot delete accepted cash/receipt/journal history or silently change collected money back to unpaid.",
+        "Required refund/compensation remains explicit and recoverable under approved authority; refunded is never inferred before authoritative completion evidence.",
+        "Linked corrections preserve original facts, prevent duplicate effects and do not resurrect Booking/capacity/work or fabricate returned cash."
+      ],
+      "requiredEvidence": [
+        "Real owner cancellation/collection race, revision and replay HTTP outcomes",
+        "Immutable original receipt/posting/custody rows, approved pending/refund-state evidence and linked correction counts"
+      ]
+    },
+    {
+      "id": "CASH-31",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Failed handover and compensation preserve durable recovery identities and original custody",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "Approved handover/hold/settlement policy freezes compensatable transitions, distinct child operation identities and unknown-outcome recovery.",
+        "Actual Billing and Wallet have committed owned states without a distributed transaction."
+      ],
+      "when": [
+        "Fail after pending handover/hold commit or after Billing settlement before Wallet receives its fact, lose compensation responses and restart actual owners.",
+        "Replay stable original/compensation identities, deliver delayed success and race accepted release/consume/correction transitions."
+      ],
+      "then": [
+        "Only accepted serialized transitions and one linked compensation effect survive; original collection and custody evidence remain intact.",
+        "Unknown outcomes remain queryable/pending and recover through authoritative status rather than new-key retries or optimistic releases.",
+        "Delayed facts cannot silently transfer custody, release consumed holds, undo accepted settlement or write peer state."
+      ],
+      "requiredEvidence": [
+        "Real process/HTTP/broker failure and recovery timelines with original/child operation identity linkage",
+        "Billing/Wallet immutable source, hold/custody/compensation effect counts and accepted transition provenance"
+      ]
+    },
+    {
+      "id": "CASH-32",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Missing policy or provider authority blocks dependent writes without prototype defaults",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "D/E publish approved policy revisions and required actual authority/provider dependencies for collection, custody and treasury settlement.",
+        "Historical helpers and frozen HTML demonstrators contain illustrative values that are not production financial policy."
+      ],
+      "when": [
+        "Start or execute dependent operations with missing/unknown/revoked/inconsistent timing, money, accounting, holder, hold-purpose or discrepancy policies.",
+        "Remove required current authority/provider availability and inspect accepted readiness/error/recovery behavior and sanitized observability."
+      ],
+      "then": [
+        "Dependent financial writes refuse or remain explicitly pending under accepted unavailable/unknown rules; no fabricated BUSINESS_READY or success is returned.",
+        "No helper regex/amount limit, demo currency/price, arbitrary tolerance/deadline, account/holder or self-approval becomes a default.",
+        "Previously committed historical evidence is preserved and safely readable only under accepted access semantics; logs expose references rather than private credentials/proof/tokens."
+      ],
+      "requiredEvidence": [
+        "Actual configuration/authority/provider outage HTTP/readiness matrix and PostgreSQL no-effect results",
+        "Accepted policy provenance, source fallback inspection and sanitized log/trace/event evidence"
+      ]
+    },
+    {
+      "id": "CASH-33",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "provider",
+      "title": "Sequential real providers conform to published cash and custody contracts",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": ["ENTRY-01", "ENTRY-02", "ENTRY-03", "ENTRY-04", "ENTRY-05", "ENTRY-06"],
+      "given": [
+        "E accepts actual Identity/C assignment/work and W03 obligation prerequisites before Billing cash provider; Wallet is evaluated against that now-merged real Billing provider.",
+        "Published public parsers/clients/events and exact accepted package/policy versions identify real provider candidates and executable bounded gates."
+      ],
+      "when": [
+        "Run real Billing owned PostgreSQL/HTTP/Identity/constraint/receipt gates, then Wallet owned PostgreSQL/HTTP/Identity/broker conformance against actual merged Billing.",
+        "Exercise supported success, safe errors, replay, revisions and recovery through published transport rather than private DTOs or implementation imports."
+      ],
+      "then": [
+        "Each provider proves its own real bounded behavior and accepted dependencies before downstream app consumers are evaluated.",
+        "There is no circular requirement that first providers already possess their unbuilt full three-app journey, and no fixture is relabeled real producer evidence.",
+        "Exact versions, schema/migration inventory and independent review requirements remain visible; parent full-flow acceptance stays pending until integration cases pass."
+      ],
+      "requiredEvidence": [
+        "Actual merged prerequisite/Billing/Wallet SHA/tree, accepted versions and sequential executable provider gate results",
+        "Real PostgreSQL/HTTP/Identity/RabbitMQ environments, public dependency boundary inventory and bounded provider review evidence"
+      ]
+    },
+    {
+      "id": "CASH-34",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "integration",
+      "title": "The actual three-app completed cash order produces one downloadable receipt and reconciled settlement",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": [
+        "ENTRY-01",
+        "ENTRY-02",
+        "ENTRY-03",
+        "ENTRY-04",
+        "ENTRY-05",
+        "ENTRY-06",
+        "ENTRY-07"
+      ],
+      "given": [
+        "E constructs the latest-target-plus-head immutable combined candidate after actual Dispatch/Work, Billing/Wallet and A/C/D finance consumers are accepted in sequence.",
+        "The isolated candidate runs real customer-web, operator-web, admin-web, Gateway/Identity, actual quote/Booking/obligation/work providers and provisioned PostgreSQL/RabbitMQ with approved policies."
+      ],
+      "when": [
+        "Complete the real seven-step Arabic RTL account and accepted guest cash booking variants with optional plate, then actual authorized assignment/service completion.",
+        "Collect once in operator-web, read paid status and download the real customer receipt, observe pending custody, perform approved handover/deposit and independent admin settlement.",
+        "Read final owner facts and all affected application displays, with required browser/accessibility and canonical reference/candidate/diff evidence."
+      ],
+      "then": [
+        "One integrated full cash order produces one authoritative receipt, exact reconcilable Billing journals and source-linked Wallet custody/settlement records across all three apps.",
+        "Customer paid status correctly coexists with unsettled technician custody before independent settlement; all displays follow server facts and explicit stale/unknown evidence.",
+        "Approved visuals, Arabic copy, seven separate steps, focus/reduced-motion, guest access, optional plates and existing cash/ShamCash/Syriatel methods remain intact without a fourth method or demo fallback."
+      ],
+      "requiredEvidence": [
+        "Actual combined candidate SHA/tree, provider/consumer SHAs, approved versions and unchanged head/target refs",
+        "Real three-app browser/HTTP/download journey and exact Billing/Wallet PostgreSQL journals/receipt/custody/outbox/reconciliation evidence",
+        "Affected canonical parity/reference/candidate/diff, accessibility and required runtime/gate results with real versus mocked environments labeled"
+      ]
+    },
+    {
+      "id": "CASH-35",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "integration",
+      "title": "Real three-app offline races and injected delivery failures recover without duplicate or false success",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": [
+        "ENTRY-01",
+        "ENTRY-02",
+        "ENTRY-03",
+        "ENTRY-04",
+        "ENTRY-05",
+        "ENTRY-06",
+        "ENTRY-07"
+      ],
+      "given": [
+        "The accepted combined source runs actual A/C/D applications and Billing/Wallet with real current Identity/assignment/treasury/guest providers and allocated databases/broker.",
+        "Controlled browser offline queues, HTTP response loss, owner crash and broker/projection fault injection preserve original accepted operation identities."
+      ],
+      "when": [
+        "Repeat collection offline/online with same and different keys, race two collectors/conflicting amounts and retry handover/deposit after response loss.",
+        "Exercise unrelated/stale/foreign collector, guest receipt and admin settlement denials through real apps; interrupt receipt delivery, journal/outbox/projection delivery and recover actual owners.",
+        "Expose policy-derived discrepancy and cancellation-after-collection variants and verify recovery/status after browser reload and server restart."
+      ],
+      "then": [
+        "Actual owner effect counts show no double collection, receipt, custody transfer or settlement despite device/network/broker retries.",
+        "Apps never equate timeout, proof image, local completion, receipt-download attempt or pending handover with received money or settled treasury.",
+        "Unauthorized operations have no effect; unresolved discrepancies and refund/compensation remain owner-assigned and visible, and real recovery preserves exact immutable facts."
+      ],
+      "requiredEvidence": [
+        "Actual browser offline/race/denial/reload evidence with real HTTP/Identity/provider and crash/broker timelines",
+        "Combined-source Billing/Wallet PostgreSQL effect counts and exact discrepancy/cancellation/compensation/reconciliation outcomes",
+        "Unchanged-ref candidate provenance and affected A/C/D/E mandatory integrated gate results"
+      ]
+    },
+    {
+      "id": "CASH-36",
+      "wave": "W04",
+      "owners": ["billing", "wallet"],
+      "phase": "integration",
+      "title": "Fixture boundaries and final evidence keep W04 pending until actual combined acceptance",
+      "status": "NOT_RUN_SPECIFICATION_ONLY",
+      "runtimeExecuted": false,
+      "blockedBy": [
+        "ENTRY-01",
+        "ENTRY-02",
+        "ENTRY-03",
+        "ENTRY-04",
+        "ENTRY-05",
+        "ENTRY-06",
+        "ENTRY-07"
+      ],
+      "given": [
+        "Any shape/domain fixture is explicitly isolated and labeled, while evidence identifies executable command, result, source/tree, contracts/policies and actual environment for every required case.",
+        "E's serialized process requires current candidate/resulting-target checks and applicable independent review without self-approval or automatic merge."
+      ],
+      "when": [
+        "Audit fixture wiring, production fallbacks, all required case/gate results, migration/resource/process evidence and unchanged head/target refs.",
+        "Verify accepted provider and consumer evidence against actual combined source and inspect the next-wave W05 verification/proof/review/refund/late-payment request handoff."
+      ],
+      "then": [
+        "Fixtures, declarations, old head checks, foundation-only CI and skipped/cancelled/not-run cases never close real three-app cash or treasury acceptance.",
+        "Provider children may be accepted on real bounded evidence while W04-B stays INTEGRATION_PENDING until every required combined-source case and resulting-target gate succeeds.",
+        "Changed refs require applicable recomputation/reruns; missing evidence has an explicit owner/next action, allocated resources are cleaned up, and no DONE/W05 execution/live money/deployment is implied."
+      ],
+      "requiredEvidence": [
+        "Evidence-to-case matrix distinguishing real/mocked/not-run environments and source/configuration fixture audit",
+        "Exact candidate/resulting-target refs, mandatory gate results and independent review provenance",
+        "Owned process/resource cleanup evidence, explicit blocked cases/dependency owners and reviewable W05 handoff links"
+      ]
+    }
+  ]
+}
