@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import test from 'node:test';
+import { readRegularFile } from '../../../scripts/lib/read-regular-file.mjs';
 import {
   allocateEnvironment,
   claimHeavySlot,
@@ -310,6 +311,17 @@ test('read-only validation rejects revoked, foreign, copied and forged allocatio
     /ALLOCATION_NOT_ACTIVE/,
   );
   await assert.rejects(validateActiveAllocation('relative.json'), /ABSOLUTE/);
+});
+
+test('descriptor reader neither creates missing files nor changes existing permissions', async (t) => {
+  const options = await isolated(t);
+  const file = join(options.stateRoot, 'read-only.json');
+  assert.throws(() => readRegularFile(file, 1024), /ENOENT/);
+  assert.equal(fs.existsSync(file), false, 'A read cannot create an allocation file');
+  await writeFile(file, 'existing state', { mode: 0o640 });
+  const permissions = fs.statSync(file).mode;
+  assert.equal(readRegularFile(file, 1024).toString('utf8'), 'existing state');
+  assert.equal(fs.statSync(file).mode, permissions, 'A read cannot rewrite permissions');
 });
 
 test('allocation reader rejects symlinks, nonregular files and oversized manifests', async (t) => {

@@ -12,6 +12,7 @@ export function readRegularFile(file, maxBytes) {
   const descriptor = openSync(
     file,
     constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0),
+    0o600,
   );
   try {
     const opened = fstatSync(descriptor);
