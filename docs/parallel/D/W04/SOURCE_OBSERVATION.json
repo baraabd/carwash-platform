@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "task": "W04-D",
+  "lane": "D",
+  "phase": "BLOCKED_ENTRY",
+  "parentRuntimeStatus": "NOT_STARTED",
+  "observedAtUtc": "2026-10-05T12:35:54.885135Z",
+  "source": {
+    "targetSha": "1ec9d8aebf4470a2815471116643fa6ebe0d5a95",
+    "targetTree": "9f04d674056041bbc810a62e4cc7f275c32581b8",
+    "branch": "proposal/w04-D-cash-operations-entry",
+    "isAcceptedBASE_W04": false,
+    "previousObservationSha": "82e7402ed9ab6cc4f565f423441cd0655f2d627a",
+    "changedPathsSincePrevious": 29,
+    "allChangesAreLaneDocumentsOrDeclarativeSpecifications": true,
+    "changesToAppsServicesSharedPackagesArchitectureCIInfrastructure": 0
+  },
+  "release": {
+    "registry": "architecture/parallel-contract-release.json",
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "BASE_W02": null,
+    "BASE_W03FieldPresent": false,
+    "BASE_W04FieldPresent": false,
+    "acceptedNextWaveContracts": [],
+    "existingClientContracts": [],
+    "publishedNextWavePackageVersions": {},
+    "acceptedW04ContractIds": [],
+    "acceptedW04Versions": [],
+    "observationNotPublication": true
+  },
+  "ownership": {
+    "registryStatus": "proposal-pending-independent-review",
+    "verifiedBaseW02": null,
+    "currentInstructionEndsBootstrapPermission": true,
+    "mergedEHandOffAlsoProhibitsBootstrapWrites": true,
+    "conditionalRegistryReconciliationPending": true,
+    "oldRegistryRestoresPermission": false,
+    "scope": "D-local docs/specs only; no dependent product writes"
+  },
+  "github": {
+    "mergedW03Proposals": [
+      {
+        "number": 51,
+        "head": "6a382fe4021aa61f3850f1d8cb0c082e3c488fcc",
+        "merge": "7c9e2fb0ef049af303497c2a75b1e3f56b000fc2",
+        "merged": true,
+        "mergedAtUtc": "2026-10-05T12:26:14Z",
+        "changedFiles": 4
+      },
+      {
+        "number": 52,
+        "head": "09a746872750e411d2ecbe7a5e0e3b5fa253100f",
+        "merge": "6f2763416c4ff7cb7e051c618ef18f8aee175c63",
+        "merged": true,
+        "mergedAtUtc": "2026-10-05T12:25:48Z",
+        "changedFiles": 7
+      },
+      {
+        "number": 53,
+        "head": "95b88eab04bb859d25ba385d732224b930947f08",
+        "merge": "4c558931b598436b25547036474fa28be5c0b137",
+        "merged": true,
+        "mergedAtUtc": "2026-10-05T12:25:10Z",
+        "changedFiles": 6
+      },
+      {
+        "number": 54,
+        "head": "aa1a530ea7cf7cb8427a291f736087fcdc4a87a3",
+        "merge": "1ec9d8aebf4470a2815471116643fa6ebe0d5a95",
+        "merged": true,
+        "mergedAtUtc": "2026-10-05T12:27:04Z",
+        "changedFiles": 7
+      },
+      {
+        "number": 55,
+        "head": "f3a5d1f814ca62748f9260b5e50ecd21172d591b",
+        "merge": "a2eb3aba835b48c0908fb4d0ac6339bd4120fbb3",
+        "merged": true,
+        "mergedAtUtc": "2026-10-05T12:26:40Z",
+        "changedFiles": 5
+      }
+    ],
+    "openPullRequestsAtInitialIntake": 0,
+    "mainProtected": false,
+    "mainCheckRuns": {
+      "total": 43,
+      "states": {
+        "success": 42,
+        "in_progress": 1
+      }
+    },
+    "mainWorkflows": {
+      "total": 8,
+      "states": {
+        "in_progress": 1,
+        "success": 7
+      }
+    },
+    "scope": "Exact observed main only; not W04 product/candidate acceptance or this proposal head"
+  },
+  "sourceVersions": {
+    "packages/contracts/package.json": "0.0.2",
+    "packages/event-contracts/package.json": "0.0.2",
+    "packages/api-clients/package.json": "0.0.1",
+    "apps/admin-web/package.json": "0.0.2",
+    "services/reporting/package.json": "0.0.2",
+    "services/communications/package.json": "0.0.2",
+    "services/configuration/package.json": "0.0.2"
+  },
+  "actualModels": {
+    "booking": [
+      "ServiceMarker"
+    ],
+    "scheduling": [
+      "ServiceMarker"
+    ],
+    "dispatch": [
+      "ServiceMarker"
+    ],
+    "workforce": [
+      "ServiceMarker"
+    ],
+    "media": [
+      "ServiceMarker"
+    ],
+    "billing": [
+      "ServiceMarker"
+    ],
+    "wallet": [
+      "ServiceMarker"
+    ],
+    "communications": [
+      "ServiceMarker",
+      "InboxMessage",
+      "ProbeNotification"
+    ],
+    "reporting": [
+      "ServiceMarker",
+      "InboxMessage",
+      "ProbeProjection"
+    ],
+    "configuration": [
+      "ServiceMarker"
+    ]
+  },
+  "approvedReferences": {
+    "customer": {
+      "bytes": 263462,
+      "sha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549"
+    },
+    "technician": {
+      "bytes": 122636,
+      "sha256": "d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc"
+    },
+    "admin": {
+      "bytes": 40310,
+      "sha256": "b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273"
+    }
+  },
+  "actualCapabilities": {
+    "admin": "foundation-only; businessReady false",
+    "apiClients": "empty export skeleton",
+    "communicationsWorker": "Catalog foundation probe only",
+    "reportingWorker": "Catalog foundation probe only",
+    "realCashJourney": false,
+    "integratedW03ProductAcceptance": false,
+    "currentIdentity": "Implemented member-security foundation; no accepted W04 scoped cash/participant contract",
+    "locationOwnerRequiredByW04": "C Workforce snapshots",
+    "workExecutionOwner": "unresolved; Booking Work is an unaccepted C proposal"
+  },
+  "integrityFinding": {
+    "id": "INT-D-01",
+    "owners": [
+      "communications",
+      "reporting"
+    ],
+    "classification": "STATIC_SOURCE_RISK_NOT_RUNTIME_REPRODUCED",
+    "source": "Both inbox stores classify any whole-transaction P2002/23505 as DUPLICATE; shared consumer ACKs DUPLICATE",
+    "requiredEvidence": [
+      "real same-ID/different-hash race",
+      "same-ID/same-hash positive control",
+      "unrelated effect-unique failure rolls back without duplicate ACK"
+    ],
+    "fixed": false
+  },
+  "environment": {
+    "requiredNode": "24.21.0",
+    "actualNode": "24.19.0",
+    "requiredPnpm": "10.32.1",
+    "actualPnpm": "11.25.0",
+    "fullToolchainGuard": "FAIL: 2 runtime-version mismatches",
+    "configOnlyGuard": "PASS; runtime checks explicitly omitted",
+    "actualWork": "source inspection and offline guards only",
+    "productFixturesUsed": [],
+    "productCases": "All 34 case families BLOCKED / NOT_RUN",
+    "migrationIds": [],
+    "ownedRuntimeProcesses": [],
+    "containers": [],
+    "ports": [],
+    "databases": [],
+    "queues": [],
+    "objects": [],
+    "browserProfiles": [],
+    "heavyTestSlot": null,
+    "W04ResourceAllocation": null
+  },
+  "boundary": {
+    "cancellationRescheduling": "W05 future scope; no W04 execution/acceptance prerequisite",
+    "electronicProofRefundSettlementCorrection": "W05 proposals only",
+    "automaticNextWave": false,
+    "mergeOrDeploymentPerformed": false,
+    "liveMoneyOrProviderOperationPerformed": false
+  }
+}
