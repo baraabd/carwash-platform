@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "task": "W03-A",
+  "lane": "A",
+  "phase": "ENTRY_BLOCKED_PROPOSAL_ONLY",
+  "observedAtUtc": "2026-10-05T11:38:21.783Z",
+  "observedTarget": {
+    "sha": "82e7402ed9ab6cc4f565f423441cd0655f2d627a",
+    "tree": "050b4b8a03be2bc671cbaa00151ea7105891e2d4",
+    "acceptedBaseW03": false
+  },
+  "proposalBranch": "proposal/w03-A-booking-entry",
+  "proposalHeadAndTree": "Recorded in PR body after commit creation; self-reference would create a SHA cycle",
+  "deltaFromBootstrap": {
+    "parent": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+    "addedLaneLocalFiles": 31,
+    "productSourceChanges": 0,
+    "sharedPackageSchemaMigrationWorkflowChanges": 0
+  },
+  "mergedPriorProposals": {
+    "A": {
+      "pr": 46,
+      "head": "87ccf62758f06c9512928233bea529e2235cb4cc",
+      "merge": "0a667b23027970f81abfe00f79f65d832c19181f",
+      "returnedHeadWorkflowRuns": 8,
+      "allReturnedHeadWorkflows": "success",
+      "doesNotProveMergedTargetOrWave": true
+    },
+    "B": 49,
+    "C": 47,
+    "D": 48,
+    "E": 50
+  },
+  "release": {
+    "status": "INTEGRATION_PENDING",
+    "BASE_W02": null,
+    "BASE_W03KeyPresent": false,
+    "acceptedNextWaveContracts": [],
+    "guestContractAccepted": false,
+    "apiClientExports": "export {}",
+    "versions": {
+      "contracts": "0.0.2",
+      "eventContracts": "0.0.2",
+      "apiClients": "0.0.1"
+    },
+    "registryAReceiptField": "requested-not-received",
+    "registryReceiptInterpretation": "Stale after merged PR46; packet now present, semantics not accepted",
+    "bootstrapPermission": "Current instruction ends E bootstrap writes; old conditional registry expiry does not restore that permission"
+  },
+  "localRuntime": {
+    "requiredNode": "24.21.0",
+    "actualNode": "24.19.0",
+    "requiredPnpm": "10.32.1",
+    "actualDefaultPnpm": "11.25.0",
+    "configOnlyGate": {
+      "exitCode": 0,
+      "passed": 39,
+      "runtimeVerified": false
+    },
+    "fullRuntimeGate": {
+      "exitCode": 1,
+      "failures": ["Node version mismatch", "default pnpm version mismatch"]
+    }
+  },
+  "existingDemoRegression": {
+    "source": "82e7402ed9ab6cc4f565f423441cd0655f2d627a",
+    "command": "node --test --test-reporter=tap tests/unit/c004-customer-vehicle.test.mjs tests/unit/c005-customer-garage.test.mjs tests/unit/c006-customer-care-packages.test.mjs tests/unit/c007-customer-extras.test.mjs tests/unit/c008-customer-location.test.mjs tests/unit/c009-customer-saved-addresses.test.mjs tests/unit/c010-customer-scheduling.test.mjs tests/unit/c011-customer-contact.test.mjs tests/unit/c012-customer-payment-method.test.mjs tests/unit/c013-customer-review.test.mjs tests/unit/c014-booking-confirmation.test.mjs",
+    "matchedFiles": 11,
+    "exitCode": 0,
+    "summary": {
+      "tests": 271,
+      "suites": 0,
+      "pass": 271,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "scope": "Existing C004-C014 session/fixture state regressions only; supplementary unpinned runtime; not W03 production acceptance",
+    "evidence": "Actual local stdout summary captured; full temporary TAP is not a production acceptance artifact"
+  },
+  "supplementaryStaticChecks": {
+    "reference": {
+      "exitCode": 0,
+      "lockedArtifacts": 10,
+      "baseCompared": true,
+      "pixelParityProved": false
+    },
+    "sourceInventory": {
+      "exitCode": 0,
+      "adversarialCases": 9,
+      "productionReady": false
+    },
+    "ownershipInventory": {
+      "exitCode": 0,
+      "mode": "proposal-inventory-only",
+      "sourceShaInterpretation": "Historical registry inventory base, not current checkout"
+    }
+  },
+  "targetWorkflowSnapshot": {
+    "scope": "Exact observed historical target only; not this proposal head/candidate/resulting target or accepted wave",
+    "returnedTotal": 8,
+    "runs": [
+      {
+        "id": 37303442091,
+        "name": "Reference guard (not release CI)",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37303442091"
+      },
+      {
+        "id": 37303441940,
+        "name": "F008 observability acceptance",
+        "status": "in_progress",
+        "conclusion": null,
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37303441940"
+      },
+      {
+        "id": 37303442067,
+        "name": "F010 golden HTML parity",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37303442067"
+      },
+      {
+        "id": 37303442073,
+        "name": "F001 ownership and workspace acceptance",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37303442073"
+      },
+      {
+        "id": 37303442119,
+        "name": "F007 gateway contract acceptance",
+        "status": "in_progress",
+        "conclusion": null,
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37303442119"
+      },
+      {
+        "id": 37303442172,
+        "name": "F006 identity security acceptance",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37303442172"
+      },
+      {
+        "id": 37303442026,
+        "name": "Sprint 0.2 CI",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37303442026"
+      },
+      {
+        "id": 37303441965,
+        "name": "F009 foundation verification",
+        "status": "in_progress",
+        "conclusion": null,
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37303441965"
+      }
+    ]
+  },
+  "independentReview": {
+    "humanApprovalObservedOnPr46Through50": false,
+    "subagentReviewCountsAsIndependentApproval": false,
+    "policyAcceptanceVerified": false
+  },
+  "acceptance": {
+    "w03UnexecutedSpecificationCases": 31,
+    "w04ProposedUnexecutedThreeAppScenarios": 22,
+    "w03ProductionStateCasesPassed": 0,
+    "newContractsReleased": 0,
+    "newMigrationIds": [],
+    "buildTypecheck": "NOT_RUN in W03 proposal",
+    "realDatabase": "NOT_RUN",
+    "realDomainHttp": "NOT_RUN",
+    "broker": "NOT_RUN",
+    "realPeerIntegration": "NOT_RUN",
+    "browserPixelsAccessibilityDevice": "NOT_RUN",
+    "realMoneyDeployment": "NOT_RUN"
+  },
+  "ownedLongRunningResources": {
+    "pids": [],
+    "ports": [],
+    "containers": [],
+    "databases": [],
+    "queues": [],
+    "objects": [],
+    "browserProfiles": []
+  },
+  "nextAction": "E publishes actual accepted predecessor/W03 base, wire/client versions, operational decisions and resource/gate handoff; real B/C producers precede A's seven-screen consumer. W04 requests are proposals only."
+}
