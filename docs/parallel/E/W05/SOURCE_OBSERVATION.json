@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "task": "W05-E",
+  "phase": "ENTRY_BLOCKED",
+  "parentStatus": "NOT_STARTED",
+  "child": "W05-E-PAYMENT-ACCEPTANCE-PROPOSAL",
+  "observedAtUtc": "2026-10-05T18:51:51Z",
+  "repository": "baraabd/carwash-platform",
+  "analysisParentSha": "3ce756cd39a9b0c1013043cee0ca1bb183466da7",
+  "analysisParentTree": "cc3517ec85525c7310fe340397506ef6be3fe0a9",
+  "analysisParentOrderedParents": [
+    "b5ea7b620eab777685959d71dacd5b43632a2617",
+    "8d5d0baf9e13e12c2ce56027905f1ad80bc45b19"
+  ],
+  "branch": "sprint/w05-E-payment-acceptance",
+  "expectedBase": {
+    "name": "BASE_W05",
+    "published": false,
+    "sha": null
+  },
+  "publishedBases": {
+    "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+    "BASE_W02": null
+  },
+  "releaseRegistry": {
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "acceptedNextWaveContracts": [],
+    "nextReleaseSourceSha": null,
+    "nextReleaseReviewRecord": null,
+    "publishedNextPackageVersions": {},
+    "staleAIntakeEntry": "Historical requested-not-received wording is superseded by merged A packets and draft PR61; it is not current intake."
+  },
+  "packages": {
+    "@carwash/contracts": "0.0.2",
+    "@carwash/event-contracts": "0.0.2",
+    "@carwash/api-clients": "0.0.1"
+  },
+  "clientExports": "empty",
+  "effectiveOwnership": {
+    "basis": "Current task explicitly expires W01 bootstrap lease; permanent product owners apply.",
+    "registryStatus": "proposal-pending-independent-review",
+    "verifiedBaseW02": null,
+    "staleConditionalLeaseCount": 11
+  },
+  "predecessorDelta": {
+    "fromSha": "1ec9d8aebf4470a2815471116643fa6ebe0d5a95",
+    "commits": 10,
+    "addedPaths": 31,
+    "insertions": 5168,
+    "scope": "W04 documentation/specifications only; no runtime/shared-contract/registry/reference changes."
+  },
+  "externallyMergedW04": {
+    "A": {
+      "pr": 59,
+      "mergeSha": "fd6aaf9e5f9bb2deba35ae176ffb830cca4e7ee0"
+    },
+    "B": {
+      "pr": 58,
+      "mergeSha": "af6e9e9d0c25d3762685674f3ea447aeee02e029"
+    },
+    "C": {
+      "pr": 56,
+      "mergeSha": "da15a98bce848c496a0fd625a7ca0f70632cb989"
+    },
+    "D": {
+      "pr": 57,
+      "mergeSha": "b5ea7b620eab777685959d71dacd5b43632a2617"
+    },
+    "E": {
+      "pr": 60,
+      "mergeSha": "3ce756cd39a9b0c1013043cee0ca1bb183466da7"
+    }
+  },
+  "reviewsAtEntry": {
+    "W04PR56": "One COMMENTED bot review submitted after merge, not eligible independent approval.",
+    "W04PR57Through60": "No reviews observed.",
+    "sameLoginIsIndependentApproval": false
+  },
+  "openW05AtEntry": [
+    {
+      "lane": "A",
+      "pr": 61,
+      "draft": true,
+      "headSha": "1eeafc09d6c6392201067032d76a8e4fa63de54e",
+      "semanticStatus": "proposal-only-not-accepted"
+    }
+  ],
+  "governance": {
+    "mainProtected": false,
+    "requiredCheckEnforcement": false,
+    "rulesets": []
+  },
+  "targetChecks": {
+    "sha": "3ce756cd39a9b0c1013043cee0ca1bb183466da7",
+    "total": 43,
+    "success": 43,
+    "failed": 0,
+    "pending": 0,
+    "workflowRuns": 8,
+    "successfulWorkflowRuns": 8,
+    "event": "push",
+    "runAttempt": 1,
+    "foundationRunId": 37352669544,
+    "scope": "Observed exact-source foundation success only; not W05 business/provider acceptance or new proposal/candidate execution."
+  },
+  "runtimeAtSource": {
+    "financeAndCoordinatorModels": "Billing, Wallet, Subscription, Booking, Scheduling and Dispatch have ServiceMarker only; BUSINESS_READY=false.",
+    "apps": "Customer C014 memory-only demo; operator/admin technical boot. No actual payment/refund/review journey.",
+    "identity": "Existing current session/account/authVersion checks; guest recovery and object-scoped financial/privacy contracts unaccepted.",
+    "cashCheckpoint": "W04 32 cases NOT_RUN; not accepted.",
+    "providerAcceptance": "ShamCash, Syriatel Cash and required Paymera scope lack approved verification/access environment. Public sources do not establish operational acceptance."
+  },
+  "environments": {
+    "local": {
+      "node": "24.21.0",
+      "pnpm": "10.32.1",
+      "dockerAvailable": false,
+      "productStackStarted": false
+    },
+    "runtimeHandles": [],
+    "providerOperations": [],
+    "realPaymentJourneys": false,
+    "mockedPaymentJourneys": false
+  },
+  "changes": {
+    "migrations": [],
+    "publishedContracts": [],
+    "businessCode": [],
+    "runtimeTopology": [],
+    "approvedReferenceEdits": []
+  },
+  "acceptanceCases": {
+    "families": 40,
+    "status": "BLOCKED_NOT_RUN",
+    "skipsCountAsSuccess": false
+  },
+  "nextBase": {
+    "name": "BASE_W06",
+    "published": false,
+    "sha": null,
+    "packageVersions": {}
+  },
+  "forecast": {
+    "day4AM": "NOT_REACHED",
+    "day7": "NOT_EVIDENCE_SUPPORTED",
+    "replacementCalendarDate": null
+  },
+  "evidenceBoundary": "Dated entry observation only; final proposal head/tree, current target, synthetic candidate and CI/artifact bindings are recorded in the live draft PR after commit.",
+  "peerRefresh": {
+    "observedAtUtc": "2026-10-05T18:54:59Z",
+    "openDrafts": [
+      {
+        "lane": "A",
+        "pr": 61,
+        "headSha": "1eeafc09d6c6392201067032d76a8e4fa63de54e"
+      },
+      {
+        "lane": "C",
+        "pr": 62,
+        "headSha": "da30a95db42ce3009fbaede116a277c32c897662"
+      }
+    ],
+    "semanticStatus": "proposal-only-not-accepted",
+    "approvals": 0
+  }
+}
