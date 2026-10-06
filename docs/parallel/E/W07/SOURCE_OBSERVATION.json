@@ -1,0 +1,531 @@
+{
+  "schemaVersion": 1,
+  "task": "W07-E",
+  "lane": "E",
+  "phase": "ENTRY_BLOCKED",
+  "parentStatus": "NOT_STARTED",
+  "childSprint": "W07-E-SCOPE-PROPOSAL",
+  "childStatus": "DRAFT_REVIEW_PENDING",
+  "observedAtUtc": "2026-10-06T14:49:56.626457+00:00",
+  "expectedAcceptedBaseW07": null,
+  "acceptedBaseW08": null,
+  "analysisParentSha": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+  "analysisParentTree": "2266f157ad2480855011d5da59e00e5b0cf1f68f",
+  "analysisOrderedParents": [
+    "5fae966ae550de5835696da8d6bd1bddd6743692",
+    "2977c24065c5818b273280d8e6bf0056b5ad1472"
+  ],
+  "proposalBranch": "sprint/w07-E-full-scope",
+  "waveRegistryAtSource": {
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "bases": {
+      "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "BASE_W02": null
+    },
+    "acceptedNextWaveContracts": [],
+    "nextWaveRelease": {
+      "wave": "W02",
+      "status": "pending-bootstrap-acceptance-and-owner-proposal-review",
+      "sourceSha": null,
+      "reviewRecord": null,
+      "publishedPackageVersions": {}
+    }
+  },
+  "packagesAtSource": {
+    "@carwash/contracts": "0.0.2",
+    "@carwash/event-contracts": "0.0.2",
+    "@carwash/api-clients": "0.0.1"
+  },
+  "servicesAtSource": [
+    {
+      "id": "identity",
+      "lane": "E",
+      "sourcePath": "services/identity",
+      "models": [
+        "ServiceMarker",
+        "IdentityAccount",
+        "IdentityChallenge",
+        "IdentitySession",
+        "IdentityRefresh",
+        "IdentityAudit"
+      ],
+      "runtimeImplementation": "implemented-capability-runtime",
+      "acceptedFoundationCapabilities": ["identity-security-v1"],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "customer",
+      "lane": "A",
+      "sourcePath": "services/customer",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "vehicle",
+      "lane": "A",
+      "sourcePath": "services/vehicle",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "catalog",
+      "lane": "B",
+      "sourcePath": "services/catalog",
+      "models": ["ServiceMarker", "FoundationProbe", "OutboxMessage"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "pricing",
+      "lane": "B",
+      "sourcePath": "services/pricing",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "booking",
+      "lane": "C",
+      "sourcePath": "services/booking",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "scheduling",
+      "lane": "C",
+      "sourcePath": "services/scheduling",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "dispatch",
+      "lane": "C",
+      "sourcePath": "services/dispatch",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "workforce",
+      "lane": "C",
+      "sourcePath": "services/workforce",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "billing",
+      "lane": "B",
+      "sourcePath": "services/billing",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "wallet",
+      "lane": "B",
+      "sourcePath": "services/wallet",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "subscription",
+      "lane": "B",
+      "sourcePath": "services/subscription",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "media",
+      "lane": "C",
+      "sourcePath": "services/media",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "communications",
+      "lane": "D",
+      "sourcePath": "services/communications",
+      "models": ["ServiceMarker", "InboxMessage", "ProbeNotification"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "reviews",
+      "lane": "D",
+      "sourcePath": "services/reviews",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "support",
+      "lane": "D",
+      "sourcePath": "services/support",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "geo",
+      "lane": "A",
+      "sourcePath": "services/geo",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "reporting",
+      "lane": "D",
+      "sourcePath": "services/reporting",
+      "models": ["ServiceMarker", "InboxMessage", "ProbeProjection"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "configuration",
+      "lane": "D",
+      "sourcePath": "services/configuration",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "acceptedFoundationCapabilities": [],
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    }
+  ],
+  "appsAtSource": [
+    {
+      "id": "customer-web",
+      "lane": "A",
+      "sourcePath": "apps/customer-web",
+      "runtimeLifecycle": "onboarded-foundation-web-runtime",
+      "businessReady": false,
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "operator-web",
+      "lane": "C",
+      "sourcePath": "apps/operator-web",
+      "runtimeLifecycle": "onboarded-foundation-web-runtime",
+      "businessReady": false,
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    },
+    {
+      "id": "admin-web",
+      "lane": "D",
+      "sourcePath": "apps/admin-web",
+      "runtimeLifecycle": "onboarded-foundation-web-runtime",
+      "businessReady": false,
+      "w07FunctionalStatus": "ENTRY_BLOCKED_NOT_RUN"
+    }
+  ],
+  "scope": {
+    "matrixRows": 124,
+    "runtimeOwnerRows": 23,
+    "uiRows": 89,
+    "crossCuttingGateRows": 12,
+    "uiRowCounts": {
+      "CW": 7,
+      "CB": 7,
+      "TV": 5,
+      "TP": 6,
+      "TS": 21,
+      "AN": 17,
+      "AS": 6,
+      "CF": 20
+    },
+    "uiSourceInventories": {
+      "customer": {
+        "primaryScreens": 7,
+        "bottomNavigationTabs": 4,
+        "bookingSteps": 7,
+        "formInstances": 6,
+        "literalActions": 87,
+        "interactionFamilies": 20,
+        "sourcePath": "docs/customer/customer-parity-manifest.json"
+      },
+      "operator": {
+        "views": 5,
+        "visiblePhases": 6,
+        "localStages": 8,
+        "sheetsAndConfirmations": 21,
+        "clickActionCases": 46,
+        "sourcePath": "docs/parallel/C/W01/TECHNICIAN_INVENTORY.md"
+      },
+      "admin": {
+        "navigationCapabilities": 17,
+        "screenSections": 17,
+        "staticButtons": 58,
+        "handlerBoundButtons": 36,
+        "inertButtons": 22,
+        "staticInputSelectFields": 8,
+        "dynamicModalTypes": 5,
+        "dynamicFormFields": 16,
+        "sourcePath": "docs/parallel/D/W01/ADMIN_SURFACE_MATRIX.md"
+      }
+    },
+    "customerActionCoverage": {
+      "sourcePath": "docs/customer/customer-parity-manifest.json",
+      "manifestLiteralActionCount": 87,
+      "coveredLiteralActionCount": 87,
+      "coveringFamilies": "CF01..CF20",
+      "uncoveredActions": [],
+      "nonClickInputFormHandlers": "CF04,CF05,CF07,CF09,CF10,CF12,CF16,CF18,CF19 also require original input/change/submit/permission behavior; no invented click action is added."
+    },
+    "historical40WorkPackages": {
+      "requiredCount": 40,
+      "status": "MISSING_UNVERIFIED",
+      "substituted": false,
+      "historicalRetrievedPlan": "WASHGO_300_SPRINT_MASTER_PLAN_AR.md",
+      "historicalPlanSprintCount": 300,
+      "limitation": "No authoritative40-package IDs/approval or numeric product operational targets were established; this124-row proposal is not that inventory."
+    },
+    "functionalStatus": "ENTRY_BLOCKED_NOT_RUN",
+    "acceptedFunctionalRows": 0
+  },
+  "referenceBytePins": {
+    "customer": {
+      "canonicalHtml": "design/reference/approved/washgo-payments-interactive.html",
+      "bytes": 263462,
+      "sha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549",
+      "language": "ar",
+      "direction": "rtl",
+      "surface": "customer"
+    },
+    "technician": {
+      "canonicalHtml": "design/reference/approved/washgo-technician-interactive.html",
+      "bytes": 122636,
+      "sha256": "d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc",
+      "language": "ar",
+      "direction": "rtl",
+      "surface": "technician"
+    },
+    "admin": {
+      "canonicalHtml": "design/reference/approved/washgo-admin-prototype.html",
+      "bytes": 40310,
+      "sha256": "b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273",
+      "language": "ar",
+      "direction": "rtl",
+      "surface": "admin"
+    }
+  },
+  "canonicalRenderingProfile": {
+    "viewports": [320, 390, 430, 768, 1024, 1440],
+    "height": 900,
+    "deviceScaleFactor": 1,
+    "locale": "ar-SY",
+    "timezoneId": "Asia/Damascus",
+    "colorScheme": "light",
+    "reducedMotion": "reduce",
+    "fixedTime": "2026-09-20T09:00:00.000Z",
+    "channelThreshold": 8,
+    "allowedDiffRatio": 0
+  },
+  "sourceByteSha256": {
+    "apps/admin-web/src/index.ts": "666bd276e8c31ad327e2c706d589ebd04efbb692e48c61529a7d9ba814eeb6cd",
+    "apps/customer-web/src/app/initialSession.ts": "bae2a844708e57a6143fc4844cd7f828bc771baf74e4dbcbc134c6d180c8bfce",
+    "apps/customer-web/src/app/router.tsx": "051db269bb82d13acbf6b8cf4438c4549cd6b64a3217a04153b0d2998b510960",
+    "apps/customer-web/src/main.tsx": "53ec115a6ffff8c3e1ace4c14e7ca723376b3450e25b2a51ed93d13412ed3cff",
+    "apps/operator-web/src/index.ts": "8ec101dc9d05d99c5026f810b49c4956acdb36a52d95871f8d09d1c701f71cff",
+    "architecture/implementation-status.json": "8a92763151eff40c685b42eb8c1fbc335d564b5ca7b0f38cf83d4e305bf57242",
+    "architecture/parallel-contract-release.json": "aec04eeb6c3d893e4e0b401bab0a550c517f1e32709a5e0189f4a3ddb0ce4db9",
+    "architecture/parallel-ownership.json": "2b696da4f8ed6d0fbb6234e33dc207e92c9e91f72e56e6f8777aac62c4f8e144",
+    "architecture/runtime-lifecycle.mjs": "9cac3a108965246543d781c394f3af0bf68048d3984a16b9676cd81d070435ca",
+    "architecture/service-catalog.json": "34462fbfb90c6a221524905aa21f7a4022c28a1b21d2243381a1b07582eac9b8",
+    "design/reference/approved/washgo-admin-prototype.html": "b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273",
+    "design/reference/approved/washgo-payments-interactive.html": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549",
+    "design/reference/approved/washgo-technician-interactive.html": "d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc",
+    "docs/VERIFICATION.md": "d8445acdd7cefd3818b538bf04b822ee07075cf1f95d68f05f7eed5437872ea3",
+    "docs/api/contract-registry.json": "9bab31342f680df6df925dabec88ae507016f11191071ffbb38e9025f951f636",
+    "docs/asyncapi/contract-registry.json": "8d64bc6ca54ae2451ddf349e7f8ce5a798fbb88edf5dced6ed7852eee236b7be",
+    "docs/customer/customer-parity-manifest.json": "9ac1daba20628d953e78cfb54a732ee3bca96159c8e5e6b08ab61d7ed8b4e137",
+    "docs/design/ACCEPTANCE_MATRIX.md": "ce5ec67042e1bb9d400a29b4634beb268c23aa3c69b8aa88d96c85aba180d169",
+    "docs/design/DESIGN_LOCK.md": "0f05db671539f6568227cef7c6e7378ab0db4c1ae63cefd0678ce504fbfab0ec",
+    "docs/design/f010-reference-manifest.json": "94c3c99206169e66dd0a1161b5b7968c098f1e3ee29af3d5e1c7789be4ba44f3",
+    "docs/design/reference-manifest.json": "985a98d76516c2443ad8c9a716d6d35225feb54a05b84d0fd7a004561223545a",
+    "docs/parallel/C/W01/TECHNICIAN_INVENTORY.md": "978ebaf13faf95b41bdd69dfe87813e646b1423c400af2ff2c3d80a348dc9a45",
+    "docs/parallel/D/W01/ADMIN_SURFACE_MATRIX.md": "9bda5cbd4f386199d4877e8fa5ab71f859bbc5a9cb0a06d65d9c448521c6dbc5",
+    "docs/parallel/E/W04/PROVIDER_SEQUENCE_AND_CONVERGENCE.md": "0b8ca38fc8910c6ce1485e53e93d659b84253bf057f48142daab5316963c9c07",
+    "docs/parallel/E/W06/W07_SCOPE_GAPS.md": "593fd866dfe6cbdbe6ab9c99b8cec0f3a27491c7e5bcd2ba6e8eddb0edec3ccd",
+    "infra/compose.acceptance.yml": "a15c3e2006659142ac411500ab8c90b0047db1299e3abc35b3a2fc8c9092890e",
+    "infra/postgres/provision.sh": "ce19ea0642cf33a662dfce416eadee0abd7647226f211dda2966df5d56e1ad2b",
+    "infra/web-runtime.mjs": "4ff6bd8a589cbb95efb7a1300dfcb35005e3da6b3613e282e2b3da695ff4053e",
+    "packages/api-clients/src/index.ts": "9c5162feffe8bbe37bdf5adde98f993d3d2169c1156a6ed5265cc6b7e4585c1d",
+    "packages/contracts/src/index.ts": "0aae653cf5528fba4b9f464f8ab2f59c02d2a62ff50d3b3fef46f5f3ccb18ae1",
+    "packages/event-contracts/src/index.ts": "553cf308f44b3299ad3db02bb285262cf4af75951ed9cd6be0fa68944121f0df",
+    "scripts/acceptance-identity.mjs": "35616dc3dd738e9465b69e2d73c6ecca6cbb5032b8447a0f2899b96b42a820ed",
+    "scripts/c014/browser-acceptance.mjs": "642f9f41a7f9e3295333f1bb6c0a1670d7ab139451e98f4e6474c88357c20879",
+    "scripts/ci/image.mjs": "023d4373e7ccb286ab4788f7cad2b5c91936cbfceb84bd159265a4d9b2b422cb",
+    "scripts/ci/install-tools.mjs": "8ecae94d9f0a2b048eef81895c12c64a1fcb42f95a5ac820408d204fbb61e09b",
+    "scripts/ci/policy.mjs": "0c8d0d7f9933e9b0b5f80d68dba9a257befbb95732875741709c561bf1035f4a",
+    "scripts/ci/run.mjs": "099c2dca95f7a3508e6c5363c6b01bcad4409d807a9ff62bf154ca6dc1bcac14",
+    "scripts/f010/browser-acceptance.mjs": "f978104b3904e8997a31850cbfb08161c38cfb19323cca0381261ee5bc20be9f",
+    "services/billing/prisma/schema.prisma": "82aa2c8382d9a1b5a345f75065407c213da829acd58e92c1331b3d9bfed4c3a1",
+    "services/booking/prisma/schema.prisma": "9ea3d6dd78593cafafc97320e392e2bdd4e5394adcca768e303d20c2146d7622",
+    "services/catalog/prisma/schema.prisma": "19ab178b6d32fafd460ce1c8d737af00cb8196f6f84c5a2ff573e48b77b4678b",
+    "services/communications/prisma/schema.prisma": "115eb2e4ee9cccf95be35358e0faf822b52d632444ffe381a1969cc3f2aa1c3c",
+    "services/configuration/prisma/schema.prisma": "0891923f7b6b2df9166e0a673d8738fba5b46c908750c553873f37768df1c43c",
+    "services/customer/prisma/schema.prisma": "4e5de4585ce931835ee32b51000a1d44ca2999a91e286deb5fe8e76e7925f443",
+    "services/dispatch/prisma/schema.prisma": "a40a7014eb73cc30c33156f220a259740f0e4f243cf02f268d69d68a5765ad92",
+    "services/geo/prisma/schema.prisma": "a8faa03ed047e7cb738f85c9ed69ec022b28280a8add1b19b08b667d7c9e198c",
+    "services/identity/README.md": "74ee672e903f3f99f2552c899b595441291b8d6272959f9be9c145a6a9b55497",
+    "services/identity/prisma/schema.prisma": "22b3951f5332a9856752dd567d5960a4ebcaa3e6993c57e58b4b23a90b3182d7",
+    "services/identity/src/identity-runtime.ts": "d0321112c5af625de2fb9447a9892323cf6aefdaf8fdb6d6cb5b8f910ab07739",
+    "services/media/prisma/schema.prisma": "5ed0b388edc04c68f6a3e5e0eaed14a5918632b6f74c0a6bfae11c57b413fbbb",
+    "services/pricing/prisma/schema.prisma": "5e8251634c057bb4656d0b050d52e04cd02734a3ca541d1a2667df7f73bb6686",
+    "services/reporting/prisma/schema.prisma": "6732c59b6368f3a41b058f3ebf445e5ff88acbd995ea76299fe2a5207e6ea4fc",
+    "services/reviews/prisma/schema.prisma": "e41b8ca6e7a3fb2e180535b519c1bf44a86bd8f3d87aa31b5b0f47d35e7b83dc",
+    "services/scheduling/prisma/schema.prisma": "3b660e8a2c16783757df16e5c9c253874927d7cf3e658b1e94135fd7741a552c",
+    "services/subscription/prisma/schema.prisma": "b74cc9c3d0002d7c6482f68268a37e9860387ae39199e111b73b625db53b64ad",
+    "services/support/prisma/schema.prisma": "00ffe22bae2fb6fd2b9aa8a0f0a4b592b9411622b8cc58e3bc0d745b63c80580",
+    "services/vehicle/prisma/schema.prisma": "8d91210e287256bf81dfe99549b74e8b9808ebfc33dd9ced315efd2e74ba8a95",
+    "services/wallet/prisma/schema.prisma": "e6e9b6017244473a152de02d8441d14c6e71acc4dce61fdafd4fe50bef422db2",
+    "services/workforce/prisma/schema.prisma": "8dd9765f9634bcda0bb241902220a72390fadb059639bda67c12f4171fdcad19",
+    "tests/integration/migrations.test.mjs": "1a2bf0c6331149b5cda5fb96642f9de8d1b45b35c2983b7ab3064b3e6112e866",
+    "tests/integration/rabbitmq-acl.test.mjs": "3ca8561431b37ff17b01a29194109bece3c7569df0d7527cdce67fe7a1050f4b"
+  },
+  "peerProposalIntake": [
+    {
+      "lane": "A",
+      "pr": 74,
+      "head": "0f66778990e1cea78c60d1857b46f841ac41807e",
+      "base": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+      "draft": true,
+      "inspectedEntryPath": "docs/parallel/A/W07/README.md",
+      "declarativeFamilies": 36,
+      "businessStatus": "UNEXECUTED",
+      "limitation": "Read-only exact-head proposal intake; not an accepted producer/contract/wave."
+    },
+    {
+      "lane": "B",
+      "pr": 73,
+      "head": "1659bd547d45dd2dc1c12484b98c7f0f45a1c248",
+      "base": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+      "draft": true,
+      "inspectedEntryPath": "docs/parallel/B/W07/README.md",
+      "declarativeFamilies": 45,
+      "businessStatus": "NOT_RUN",
+      "limitation": "Read-only exact-head proposal intake; not an accepted producer/contract/wave."
+    },
+    {
+      "lane": "C",
+      "pr": 71,
+      "head": "acb772782e21c138f95547ab30f9a4b36e75a0ed",
+      "base": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+      "draft": true,
+      "inspectedEntryPath": "docs/parallel/C/W07/CHECKPOINT.md",
+      "declarativeFamilies": 24,
+      "businessStatus": "BLOCKED_NOT_RUN",
+      "limitation": "Read-only exact-head proposal intake; not an accepted producer/contract/wave."
+    },
+    {
+      "lane": "D",
+      "pr": 72,
+      "head": "6a903fbe2e931b178fdc9bfa9e8ed50d79584218",
+      "base": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+      "draft": true,
+      "inspectedEntryPath": "docs/parallel/D/W07/HANDOFF.md",
+      "declarativeFamilies": 65,
+      "businessStatus": "BLOCKED_NOT_RUN",
+      "limitation": "Read-only exact-head proposal intake; not an accepted producer/contract/wave."
+    }
+  ],
+  "baseFoundationCiSnapshot": {
+    "sourceSha": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+    "sourceTree": "2266f157ad2480855011d5da59e00e5b0cf1f68f",
+    "successfulChecks": 43,
+    "workflowRuns": 8,
+    "f009Run": 37478254150,
+    "attempt": 1,
+    "successfulF009Jobs": 30,
+    "localImageJobs": 23,
+    "security": {
+      "findings": 0,
+      "scannerFailure": false,
+      "recordSha256": "3006748238fc0df7afdff604135e4a0a49b1e4aa92b6143e27e4ca51af9ae9d8"
+    },
+    "codeql": {
+      "warnings": 4,
+      "blockingFindings": 0,
+      "recordSha256": "2b7eb805c570fc63381b26f85eced7c95c9e58fac645236e39e533fc62dd8aad"
+    },
+    "aggregate": {
+      "foundationAccepted": true,
+      "recordSha256": "ec74295d927c527501a168fb3d8e8ed89aaa30b92ac89ee06524dd7773854a6d"
+    },
+    "limitation": "Historical exact analysis-parent foundation evidence; not the W07 proposal head/candidate, complete product or staging acceptance."
+  },
+  "operationalTargets": {
+    "numericProductLoadSloRpoRto": null,
+    "status": "UNAPPROVED_UNVERIFIED",
+    "provisionalW04Seconds": {
+      "steadyProjection": 30,
+      "healthyReplayConvergence": 120,
+      "restartReadiness": 60,
+      "outerFaultCase": 180
+    },
+    "provisionalStatus": "HARNESS_PROPOSAL_NOT_PRODUCT_APPROVAL"
+  },
+  "staging": {
+    "existingEnvironment": "EXISTENCE_AND_ACCESS_UNVERIFIED",
+    "promotionExecuted": false,
+    "firstSetupAuthorized": false,
+    "publishedImmutableArtifactInventoryAccepted": false,
+    "sanitizedConfigAccepted": false
+  },
+  "currentProposalAcceptance": {
+    "declarativeFamilies": 30,
+    "executedBusinessFamilies": 0,
+    "businessStatus": "BLOCKED_NOT_RUN",
+    "newMigrationIds": [],
+    "newPublicContractVersions": {},
+    "newBusinessRuntime": false,
+    "realBusinessJourneys": false,
+    "mockedBusinessJourneys": false,
+    "dbBrokerFaultExecution": false,
+    "localDockerAvailable": false,
+    "providerOperations": false,
+    "stagingAccepted": false,
+    "production": false,
+    "independentApproval": false,
+    "mergePerformed": false
+  },
+  "ownedRuntimeHandles": {
+    "processes": [],
+    "ports": [],
+    "composeProjects": [],
+    "databases": [],
+    "roles": [],
+    "queues": [],
+    "containers": [],
+    "volumes": [],
+    "objectPrefixes": [],
+    "browserProfiles": [],
+    "runtimeLeases": []
+  },
+  "limitation": "Byte-pinned source observations and proposed acceptance requirements only. All124functional rows and30families remain blocked; no BASE_W08 or complete candidate is published."
+}
