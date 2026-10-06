@@ -1,0 +1,1445 @@
+{
+  "schemaVersion": 1,
+  "task": "W08-A",
+  "lane": "A",
+  "phase": "ENTRY_PROPOSAL",
+  "parentStatus": "NOT_STARTED_ENTRY_BLOCKED",
+  "productAccepted": false,
+  "acceptedBaseW08": null,
+  "analysisSourceSha": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+  "analysisSourceTree": "1a6b3a54e926fc9e3387ac547ecc20c3d3f4252d",
+  "observedAtUtc": "2026-10-06T19:51:17.493Z",
+  "branch": "proposal/w08-A-hardening-entry",
+  "worktree": "/workspace/scratch/6a9547568741/carwash-w08a-source",
+  "prompt": {
+    "name": "Pasted markdown(20261006-193959).md",
+    "bytes": 18643,
+    "sha256": "bd9247d37ffa78cfacfe00e2e529cb96a86b045488173f32dd72fbc034a406ef"
+  },
+  "registry": {
+    "path": "architecture/parallel-contract-release.json",
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "bases": {
+      "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "BASE_W02": null
+    },
+    "acceptedNextWaveContracts": [],
+    "publishedNextWavePackageVersions": {},
+    "limitation": "Current registry facts; historical model inventory not reused as present implementation."
+  },
+  "packageDeclarations": {
+    "@carwash/contracts": {
+      "version": "0.0.2",
+      "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit"
+      },
+      "dependencies": {},
+      "devDependencies": {
+        "typescript": "5.9.3"
+      }
+    },
+    "@carwash/event-contracts": {
+      "version": "0.0.2",
+      "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit"
+      },
+      "dependencies": {},
+      "devDependencies": {
+        "@types/node": "24.13.6",
+        "typescript": "5.9.3"
+      }
+    },
+    "@carwash/api-clients": {
+      "version": "0.0.1",
+      "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit"
+      },
+      "dependencies": {},
+      "devDependencies": {
+        "typescript": "5.9.3"
+      }
+    },
+    "@carwash/customer-web": {
+      "version": "0.0.2",
+      "scripts": {
+        "dev": "vite",
+        "build": "tsc -p tsconfig.json --noEmit && vite build",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "preview": "vite preview"
+      },
+      "dependencies": {
+        "react": "19.3.0",
+        "react-dom": "19.3.0",
+        "react-router-dom": "7.18.4"
+      },
+      "devDependencies": {
+        "@types/react": "19.3.0",
+        "@types/react-dom": "19.3.0",
+        "@vitejs/plugin-react": "6.1.1",
+        "typescript": "5.9.3",
+        "vite": "8.3.1"
+      }
+    },
+    "@carwash/customer": {
+      "version": "0.0.2",
+      "scripts": {
+        "generate": "prisma generate",
+        "build": "tsc -p tsconfig.build.json",
+        "build:tests": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "migrate:deploy": "prisma migrate deploy",
+        "start": "node dist/main.js"
+      },
+      "dependencies": {
+        "@carwash/event-contracts": "workspace:*",
+        "@carwash/service-kit": "workspace:*",
+        "@nestjs/common": "11.2.5",
+        "@nestjs/core": "11.2.5",
+        "@nestjs/platform-express": "11.2.5",
+        "@prisma/adapter-pg": "7.10.0",
+        "@prisma/client": "7.10.0",
+        "pg": "8.23.0",
+        "reflect-metadata": "0.2.2",
+        "rxjs": "7.8.2"
+      },
+      "devDependencies": {
+        "@nestjs/testing": "11.2.5",
+        "@types/node": "24.13.6",
+        "@types/pg": "8.23.1",
+        "prisma": "7.10.0",
+        "typescript": "5.9.3"
+      }
+    },
+    "@carwash/vehicle": {
+      "version": "0.0.2",
+      "scripts": {
+        "generate": "prisma generate",
+        "build": "tsc -p tsconfig.build.json",
+        "build:tests": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "migrate:deploy": "prisma migrate deploy",
+        "start": "node dist/main.js",
+        "test:runtime": "pnpm run build:tests && node --test dist-tests/test/vehicle.nest.spec.js"
+      },
+      "dependencies": {
+        "@carwash/event-contracts": "workspace:*",
+        "@carwash/service-kit": "workspace:*",
+        "@nestjs/common": "11.2.5",
+        "@nestjs/core": "11.2.5",
+        "@nestjs/platform-express": "11.2.5",
+        "@prisma/adapter-pg": "7.10.0",
+        "@prisma/client": "7.10.0",
+        "pg": "8.23.0",
+        "reflect-metadata": "0.2.2",
+        "rxjs": "7.8.2"
+      },
+      "devDependencies": {
+        "@nestjs/testing": "11.2.5",
+        "@types/node": "24.13.6",
+        "@types/pg": "8.23.1",
+        "prisma": "7.10.0",
+        "typescript": "5.9.3"
+      }
+    },
+    "@carwash/geo": {
+      "version": "0.0.2",
+      "scripts": {
+        "generate": "prisma generate",
+        "build": "tsc -p tsconfig.build.json",
+        "build:tests": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "migrate:deploy": "prisma migrate deploy",
+        "start": "node dist/main.js",
+        "test:runtime": "pnpm run build:tests && node --test dist-tests/test/geo.nest.spec.js"
+      },
+      "dependencies": {
+        "@carwash/event-contracts": "workspace:*",
+        "@carwash/service-kit": "workspace:*",
+        "@nestjs/common": "11.2.5",
+        "@nestjs/core": "11.2.5",
+        "@nestjs/platform-express": "11.2.5",
+        "@prisma/adapter-pg": "7.10.0",
+        "@prisma/client": "7.10.0",
+        "pg": "8.23.0",
+        "reflect-metadata": "0.2.2",
+        "rxjs": "7.8.2"
+      },
+      "devDependencies": {
+        "@nestjs/testing": "11.2.5",
+        "@types/node": "24.13.6",
+        "@types/pg": "8.23.1",
+        "prisma": "7.10.0",
+        "typescript": "5.9.3"
+      }
+    }
+  },
+  "currentOwnedServiceInventory": [
+    {
+      "service": "customer",
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation"
+      ],
+      "businessReady": false,
+      "businessAuthorizationAccepted": false
+    },
+    {
+      "service": "vehicle",
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20261005060000_w01_foundation"
+      ],
+      "businessReady": false,
+      "businessAuthorizationAccepted": false
+    },
+    {
+      "service": "geo",
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20261005060000_w01_foundation"
+      ],
+      "businessReady": false,
+      "businessAuthorizationAccepted": false
+    }
+  ],
+  "sourceFingerprints": [
+    {
+      "path": ".nvmrc",
+      "bytes": 8,
+      "sha256": "73fb1b615e2043a933be1c0895cde4358036acc28d785692509b822aa53c761f"
+    },
+    {
+      "path": "AGENTS.md",
+      "bytes": 3138,
+      "sha256": "9a36dcbe805425931884abedb1b1efefdaafa39a0a73c13837bcec71d4eb489f"
+    },
+    {
+      "path": "apps/customer-web/index.html",
+      "bytes": 534,
+      "sha256": "c44e7c6ce4c8ed6076d99b80909275e0bb4aeddd9d7490eb42ce262d15614e92"
+    },
+    {
+      "path": "apps/customer-web/package.json",
+      "bytes": 562,
+      "sha256": "a5fd590e5d7eb8f3182a3b6572c785d5b72ead8debb87b95e8b3f4d99403c36d"
+    },
+    {
+      "path": "apps/customer-web/src/app/BookingExitNotice.tsx",
+      "bytes": 1852,
+      "sha256": "6e2549d48de36826deba4c659b5c3392c0515930eb081005ff06d05f2a121bbb"
+    },
+    {
+      "path": "apps/customer-web/src/app/CityNotice.tsx",
+      "bytes": 1153,
+      "sha256": "522c9a4a27649fe12f33080da7018bbe7cebaf4386df61d86332879e8376490e"
+    },
+    {
+      "path": "apps/customer-web/src/app/CustomerShell.tsx",
+      "bytes": 11990,
+      "sha256": "7c87800b95e63dbf8650dcc63ded88648dc185f0f236afe39f0da12ad7d2cd28"
+    },
+    {
+      "path": "apps/customer-web/src/app/Icon.tsx",
+      "bytes": 39,
+      "sha256": "ef35e92a6d4d5ad8123a85e67d32d74cc66e88bec0bdd3fc006095ee94f7fee4"
+    },
+    {
+      "path": "apps/customer-web/src/app/ShellPlaceholder.tsx",
+      "bytes": 63,
+      "sha256": "2dd2b04d9165cf4cfe63adf953cf42e2ae8a0b3a1b17f6ace350700655dc415b"
+    },
+    {
+      "path": "apps/customer-web/src/app/initialSession.ts",
+      "bytes": 2436,
+      "sha256": "bae2a844708e57a6143fc4844cd7f828bc771baf74e4dbcbc134c6d180c8bfce"
+    },
+    {
+      "path": "apps/customer-web/src/app/router.tsx",
+      "bytes": 1422,
+      "sha256": "051db269bb82d13acbf6b8cf4438c4549cd6b64a3217a04153b0d2998b510960"
+    },
+    {
+      "path": "apps/customer-web/src/app/routes.ts",
+      "bytes": 882,
+      "sha256": "d593f99be99104c707ee7d8f4cb4a5745149c738e04004b4050b8c8d474f0a18"
+    },
+    {
+      "path": "apps/customer-web/src/features/account/AccountRoute.tsx",
+      "bytes": 5476,
+      "sha256": "388d0feeb2c18c8998c9417129cd2e9173fe7ad31485596c24e0bf1191a84fc5"
+    },
+    {
+      "path": "apps/customer-web/src/features/account/account.css",
+      "bytes": 2135,
+      "sha256": "49294a9c49927d6b413c4f3218b5e2469e4189f3c1b963db694ce99d0d4b2636"
+    },
+    {
+      "path": "apps/customer-web/src/features/account/accountViewModel.ts",
+      "bytes": 3442,
+      "sha256": "b2d306dd837ec424358301de58396538952763887343d2a4ce95789a5a5da3d1"
+    },
+    {
+      "path": "apps/customer-web/src/features/account/components/AddressBookSheet.tsx",
+      "bytes": 4934,
+      "sha256": "80e9145b54bd4d1b48c044e29683fb1634e914beba978ddce98cd212a6fcfe2c"
+    },
+    {
+      "path": "apps/customer-web/src/features/account/index.tsx",
+      "bytes": 47,
+      "sha256": "11c212fe78ecc717518c548865d76def39b43d753f04b6fc12938aed9f79a10c"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/BookingFooter.tsx",
+      "bytes": 4565,
+      "sha256": "4684072121f74d01a5ddad44894cf0ba23af10a2f93309998e77327365893f85"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/BookingProgress.tsx",
+      "bytes": 1163,
+      "sha256": "0308bda0e4a4bf7a0117913c716b8d205baf1404146baa755a568f1f2fd0a129"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/PriceBill.tsx",
+      "bytes": 896,
+      "sha256": "db8e56d62b23ea0fae8b477273d2b9b604fbac73d477669874ddbe895d2b6f32"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/booking.css",
+      "bytes": 9490,
+      "sha256": "b64c58a400b9c09fc0623fc29e21dff3c1d3f92b40714bfca685f8790738675b"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/bookingFlow.ts",
+      "bytes": 1370,
+      "sha256": "5b7936ecf46713797fcd03ecda2e0bb932d008b929244c1cef173d0c906dca44"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/care/CareStep.tsx",
+      "bytes": 5640,
+      "sha256": "b7dea4affac134b1da69d087d31eda2ae3932a5c19d45d578b625fed8d11acc0"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/care/care.css",
+      "bytes": 5783,
+      "sha256": "6d4ed1442cd4b52abc05f18e11770ff1a293b341ea0097a1b67e1e17cb4b1fbc"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/care/careViewModel.ts",
+      "bytes": 2493,
+      "sha256": "21d10b0ad46295ffa0447045fdb11be8c1b839cd91e26c320269686123631be3"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/care/components/CarePackageList.tsx",
+      "bytes": 3715,
+      "sha256": "d8321d1b95ab7a454d0960dcb506f3a29b31bd165fb7bc270e0e64d5a8c0150f"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/care/components/ExtrasSheet.tsx",
+      "bytes": 2865,
+      "sha256": "b69dde3e14eafc5b06d030e2768fe6a85f06d90d3899319220924b78440af59e"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/care/extrasViewModel.ts",
+      "bytes": 1733,
+      "sha256": "f9ba00a146b4aebf9f8ff222ffa138f998858d613be1455f8e1ddcc60756ff2c"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/contact/ContactStep.tsx",
+      "bytes": 7794,
+      "sha256": "acab077d4b6668ceaf55bcdc582871033c3d2e5e3d73dfb6202b6c984aecfc85"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/contact/contact.css",
+      "bytes": 1001,
+      "sha256": "cab22dda885269abb81ee50f3ae95870c3cc96dfbd4ac86ff98ceb2b73cc3bbf"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/index.tsx",
+      "bytes": 2524,
+      "sha256": "a647944fdf6645d80c3c01fa52cc2b2fa08f71d449e75d9938a848bbb4ef624f"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/location/LocationStep.tsx",
+      "bytes": 6725,
+      "sha256": "ac5f80d910fb04d000076a74d6fe3b3afc0ee80277cd5a27a2f5794660623bde"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/location/components/LocationCard.tsx",
+      "bytes": 3647,
+      "sha256": "ec909407d4d419b8a28faa78990634333ea4cac958e54c5204cc4fb15340c392"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/location/location.css",
+      "bytes": 4665,
+      "sha256": "b9a3ebcd2fca8ecb09b67c5226e95cbe2c9c0c387b3d68ba86166ba990cc46de"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/location/locationViewModel.ts",
+      "bytes": 2646,
+      "sha256": "6be07251e1e0b84c56c85bbb27a092d287bf6864c61c399f17c7a3137f57e68a"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/payment/PaymentStep.tsx",
+      "bytes": 8087,
+      "sha256": "522f086713ae2ec9c5fd12577f78afcc4145e996394ef69f67af8a34cdcf8c19"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/payment/payment.css",
+      "bytes": 6374,
+      "sha256": "5233b8dc9f554a20e44b2f36437aa7e30722991b54876f0c256e32b49335abe7"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/priceBreakdown.ts",
+      "bytes": 1811,
+      "sha256": "129d4180782962876f229a4f657bb3da7947aaf768b1d7e8c7388062070df16d"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/review/ReviewStep.tsx",
+      "bytes": 4439,
+      "sha256": "9906bb9a48583fc78ae21eeabe95b59e8c57521fc7c65113c4b4ed3742c894ca"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/review/confirmationCatalog.ts",
+      "bytes": 601,
+      "sha256": "e80327222042b92c9432871d00e38661679b514be52f37570c32ac7353e59305"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/review/review.css",
+      "bytes": 387,
+      "sha256": "d272c7caae830ce2e631e3c10a85c9ff3ee3abd1b8677367d4834907dcbef8d0"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/review/reviewViewModel.ts",
+      "bytes": 4356,
+      "sha256": "36a190ffa41f878edf740d23f996d25df7adcc7ccf797a52393661d14b6186be"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/schedule/ScheduleStep.tsx",
+      "bytes": 8721,
+      "sha256": "af12ec9cbaa3261cfb175c32d7c6b1aa5ea88c5d423108ce080cdbd0c60dc487"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/schedule/schedule.css",
+      "bytes": 3525,
+      "sha256": "4a0417fae89165f0b73626c9412121a730521a8136c576fa0bfbef109b1ef2b0"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/schedule/scheduleViewModel.ts",
+      "bytes": 3423,
+      "sha256": "0c40d78e63e5077283d809bc51e5753daa36c0d12232a3ffade3211e91281a70"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/vehicle/VehicleStep.tsx",
+      "bytes": 8250,
+      "sha256": "6bd5cf80cafc08c0c50118a5bfaa35bfae116e871868ba6898b18ea5cdea4288"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/vehicle/components/VehicleChoice.tsx",
+      "bytes": 2504,
+      "sha256": "4f0b6b0aee205f912013e9eb23793b6cf799cacc49fa77f0f2ed4cf48a19b733"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/vehicle/components/VehicleDetails.tsx",
+      "bytes": 4130,
+      "sha256": "6b0a81bde686d17ffa25377c1d80ea19d21b4cdb6eb3cf9d376f73163ea1d7e5"
+    },
+    {
+      "path": "apps/customer-web/src/features/booking/vehicle/vehicleViewModel.ts",
+      "bytes": 2886,
+      "sha256": "419dc8fe15b58a0ec133a4a27d2d0a153d830b9151d80c727b7f3f7cef85d988"
+    },
+    {
+      "path": "apps/customer-web/src/features/garage/GarageRoute.tsx",
+      "bytes": 4858,
+      "sha256": "9cf004a159810c82e967b46a4585475f5c9d48b541b03804f231601de3a6cc32"
+    },
+    {
+      "path": "apps/customer-web/src/features/garage/components/GarageList.tsx",
+      "bytes": 2542,
+      "sha256": "44bcdae3bfa3702e07348256765d93376872f26b5d52b5b6631f912fe0e91ad1"
+    },
+    {
+      "path": "apps/customer-web/src/features/garage/garage.css",
+      "bytes": 1608,
+      "sha256": "2ebea34b08f9d0bfd88c91fef4eacc8f5767ece30011af8f4044b78b1a017e7e"
+    },
+    {
+      "path": "apps/customer-web/src/features/garage/garageViewModel.ts",
+      "bytes": 1083,
+      "sha256": "a39a466ae3ca4c3c4832e3094c588b358aa1f0b08eb3a34f16347462b1b8685b"
+    },
+    {
+      "path": "apps/customer-web/src/features/garage/index.tsx",
+      "bytes": 45,
+      "sha256": "f9920480ac3ee5818f24e69578b8f24ffe084f26dc6fc99c6257878c1fc6f51f"
+    },
+    {
+      "path": "apps/customer-web/src/features/home/HomeRoute.tsx",
+      "bytes": 2587,
+      "sha256": "7528191dc01848582b255609d3c290ee6a866839710b5c95ef37dca7d21dd0b2"
+    },
+    {
+      "path": "apps/customer-web/src/features/home/components/HomeBookingEntries.tsx",
+      "bytes": 2680,
+      "sha256": "573124876affe03a63f4d89e3ebc3c0f9419c1d542f4d1d60aae53470355af22"
+    },
+    {
+      "path": "apps/customer-web/src/features/home/components/HomeHero.tsx",
+      "bytes": 1845,
+      "sha256": "69c03ddd16505c95d828156e9ffd5c4ba0e8945b807c58b3e778a5254973cbc5"
+    },
+    {
+      "path": "apps/customer-web/src/features/home/components/HomePackages.tsx",
+      "bytes": 3328,
+      "sha256": "142e223d890405a2d81702cf5f3ef1c68b6ab2a0a96512fbd80f2ef298332629"
+    },
+    {
+      "path": "apps/customer-web/src/features/home/components/HomeShowcase.tsx",
+      "bytes": 2209,
+      "sha256": "36d6f639b266a35bb08b4fec166c081969683799bd8184305e850449bdcfe618"
+    },
+    {
+      "path": "apps/customer-web/src/features/home/home.css",
+      "bytes": 10042,
+      "sha256": "e292d2cdc8d863305d00f746fa966bfa783fa83356a02caf51963ce458c7c151"
+    },
+    {
+      "path": "apps/customer-web/src/features/home/homeViewModel.ts",
+      "bytes": 3376,
+      "sha256": "dddf08dc78b0b745d7df13506109b6f3bd499c3411deb030c028348ea1be170e"
+    },
+    {
+      "path": "apps/customer-web/src/features/home/index.tsx",
+      "bytes": 41,
+      "sha256": "dc42682a382cf53469ff735d685208d81df74d8a59a66814bcd60f6d4604eee1"
+    },
+    {
+      "path": "apps/customer-web/src/features/orders/index.tsx",
+      "bytes": 290,
+      "sha256": "12d93cb0acbbf4a7259f928c5143f2ec1638e11ec7bcf39b89f59dc7b4cee1f7"
+    },
+    {
+      "path": "apps/customer-web/src/features/payment/index.tsx",
+      "bytes": 249,
+      "sha256": "7cc8c31a221d1edee9b94d38bd8192bff85d89ba6dc18e1bd9e3e00c8dd83179"
+    },
+    {
+      "path": "apps/customer-web/src/features/tracking/index.tsx",
+      "bytes": 244,
+      "sha256": "75e0cb01f54cd1fb8ab2b9b2d2e72c11bbb8bbcb60476baf6978bb2f1f09e89d"
+    },
+    {
+      "path": "apps/customer-web/src/fixtures/customerAddressScenarios.ts",
+      "bytes": 3407,
+      "sha256": "617cd2183924d6e3601aed8991602fe2877c6756c3ba099ed3e2efa41023b04b"
+    },
+    {
+      "path": "apps/customer-web/src/fixtures/customerBookingScenarios.ts",
+      "bytes": 1596,
+      "sha256": "9fa4a294b870df08df3254ce7492cf9c722de8cdc00b72b7ee6b55b9778bb0c4"
+    },
+    {
+      "path": "apps/customer-web/src/fixtures/customerCareScenarios.ts",
+      "bytes": 1292,
+      "sha256": "1e482529c164aa7ec4cbafecb8923c945d835444667a57e5d37b79ccf5fa872a"
+    },
+    {
+      "path": "apps/customer-web/src/fixtures/customerCatalogFixture.ts",
+      "bytes": 6258,
+      "sha256": "0eefe744567ab8e077293025e1889f75e98d2e820bc06f4e8ce592005158230e"
+    },
+    {
+      "path": "apps/customer-web/src/fixtures/customerContactScenarios.ts",
+      "bytes": 2464,
+      "sha256": "3cd4d622d1f604fdeaec3048b09bffd0d286d030955786c6a261ae8e77f0ab10"
+    },
+    {
+      "path": "apps/customer-web/src/fixtures/customerFixtureStates.ts",
+      "bytes": 2727,
+      "sha256": "efe24735ac5a243325b610fc5126b341b2a695c84236bf3a25f148d1e145b320"
+    },
+    {
+      "path": "apps/customer-web/src/fixtures/customerGarageScenarios.ts",
+      "bytes": 2353,
+      "sha256": "086ac89cd279cc446d3a09e2d1218124ca5e52b311323921048b4c034fe1ca04"
+    },
+    {
+      "path": "apps/customer-web/src/fixtures/customerHomeScenarios.ts",
+      "bytes": 3010,
+      "sha256": "8d53ae0dd719cdad5e3b643a19a7b1db4749281a344e94a08dc930506ebafcca"
+    },
+    {
+      "path": "apps/customer-web/src/fixtures/customerLocationScenarios.ts",
+      "bytes": 2652,
+      "sha256": "6d83869c0a216e99058bf67b31f039cb8d9313d72f58b9c8f0c84e5e9d3d856c"
+    },
+    {
+      "path": "apps/customer-web/src/fixtures/customerPaymentScenarios.ts",
+      "bytes": 1302,
+      "sha256": "3e724658ac954b20f55f8166a35fff754e4e864db3160077bc83c6267fa36240"
+    },
+    {
+      "path": "apps/customer-web/src/fixtures/customerReviewScenarios.ts",
+      "bytes": 5020,
+      "sha256": "a555609eb3b6c88d9a1b0f172c572b48840b603e2bb5d493818533e6b004d4d3"
+    },
+    {
+      "path": "apps/customer-web/src/fixtures/customerScheduleScenarios.ts",
+      "bytes": 2489,
+      "sha256": "8f0496727bdadfe9ceb3d99f3599c310d14c65755e450e4435b4456bbcbb2586"
+    },
+    {
+      "path": "apps/customer-web/src/index.ts",
+      "bytes": 94,
+      "sha256": "9c5162feffe8bbe37bdf5adde98f993d3d2169c1156a6ed5265cc6b7e4585c1d"
+    },
+    {
+      "path": "apps/customer-web/src/main.tsx",
+      "bytes": 761,
+      "sha256": "53ec115a6ffff8c3e1ace4c14e7ca723376b3450e25b2a51ed93d13412ed3cff"
+    },
+    {
+      "path": "apps/customer-web/src/shared/Icon.tsx",
+      "bytes": 4941,
+      "sha256": "b6aa000f4d8adbc36d6ffb0b71dfe941d1c26e15a91a738b6555deb591978003"
+    },
+    {
+      "path": "apps/customer-web/src/shared/Price.tsx",
+      "bytes": 305,
+      "sha256": "c9b44bb3df53680ba12a77878ba51d927544c0cab2fd6c8a20529069f053d0f9"
+    },
+    {
+      "path": "apps/customer-web/src/shared/Sheet.tsx",
+      "bytes": 5322,
+      "sha256": "1e823cdd304f81c3e0bc2286836e5121899b875c77a0e9093cc7e04346e311aa"
+    },
+    {
+      "path": "apps/customer-web/src/shared/ShellPlaceholder.tsx",
+      "bytes": 1175,
+      "sha256": "ace4d788b4135ebf70ed253688d57693ab8239fc442d08c865c7b7565ecdd876"
+    },
+    {
+      "path": "apps/customer-web/src/shared/Toast.tsx",
+      "bytes": 803,
+      "sha256": "e497d816d6613b715a48b665a326992d93181691b38ad46e63f3dcc6c7846b7f"
+    },
+    {
+      "path": "apps/customer-web/src/shared/art/IllustrativeMapArt.tsx",
+      "bytes": 840,
+      "sha256": "ec3392bda32451077b3b46c326199d45a21a7c1ff6d027425995602a01f70ea6"
+    },
+    {
+      "path": "apps/customer-web/src/shared/art/ReferenceArt.tsx",
+      "bytes": 1254,
+      "sha256": "fc8b092619e5be60629fa0dd2925ced6857e89e8a30a7d9f85ceabe4762f8cd6"
+    },
+    {
+      "path": "apps/customer-web/src/shared/art/artMarkup.ts",
+      "bytes": 5853,
+      "sha256": "029a08a5f8ef4186c8881bfc67fad708f5bc6e94a3bf084543fb14cd3a5163f5"
+    },
+    {
+      "path": "apps/customer-web/src/shared/art/mapMarkup.ts",
+      "bytes": 2402,
+      "sha256": "55eba433630efe3a0415a17d728f97e10fabc358c5bc5ed1698bc37e7fb170ae"
+    },
+    {
+      "path": "apps/customer-web/src/shared/art/sceneArt.ts",
+      "bytes": 1893,
+      "sha256": "8942fecee903ed4e6892891f03a15af62aef485d922731005db26e221a13303a"
+    },
+    {
+      "path": "apps/customer-web/src/shared/clock.ts",
+      "bytes": 300,
+      "sha256": "3d70eea336196a43f3ae4efde1671ea98e446e5516f81619b294bbc0b9a5ec99"
+    },
+    {
+      "path": "apps/customer-web/src/shared/formatAmount.ts",
+      "bytes": 257,
+      "sha256": "ee6e591474d205ccce639a8839418c08b4b7b45eaf6814a01d45e912e283ad48"
+    },
+    {
+      "path": "apps/customer-web/src/shared/scrollLock.ts",
+      "bytes": 986,
+      "sha256": "9c954662c1a4af43ac5c443e284f24c23c94b2c1e24159f9ad0410498a5d3b4c"
+    },
+    {
+      "path": "apps/customer-web/src/shared/tapWave.ts",
+      "bytes": 814,
+      "sha256": "b68987dc0a4b491a7c31dd7b4ef7302d4fbf36ee0b431902af224eabe95a3e29"
+    },
+    {
+      "path": "apps/customer-web/src/state/CustomerSessionProvider.tsx",
+      "bytes": 3449,
+      "sha256": "ec6946b1fcf3536ca00e99962d8e0c0efad97a34b5517db6e88ec9c7e6d607c9"
+    },
+    {
+      "path": "apps/customer-web/src/state/bookingConfirmation.ts",
+      "bytes": 13087,
+      "sha256": "a88f72a4141ef62c8dc8a830d69d36c4ef462404721813936ad1f24f13e27f3c"
+    },
+    {
+      "path": "apps/customer-web/src/state/bookingDraft.ts",
+      "bytes": 8345,
+      "sha256": "88849c1237b5c4d0b77e106a9f966ff38ab2d845a4d312ce1c8c6c90b7a0bf26"
+    },
+    {
+      "path": "apps/customer-web/src/state/bookingEntry.ts",
+      "bytes": 6102,
+      "sha256": "b05ee20b020d55d99e05be65d63589eb590f4a2c210223fe2afa7462929088da"
+    },
+    {
+      "path": "apps/customer-web/src/state/careStep.ts",
+      "bytes": 1808,
+      "sha256": "9025fa5e4bd2e2e1ea4daa9b9ca255aaecd432e878b5c2f2c2e23bb5efd017c1"
+    },
+    {
+      "path": "apps/customer-web/src/state/contactStep.ts",
+      "bytes": 4944,
+      "sha256": "5a3087f0b080f4693ea9683e5d09fdeee75eee798779f0e2e51510ce00e87ee7"
+    },
+    {
+      "path": "apps/customer-web/src/state/customerSession.ts",
+      "bytes": 6475,
+      "sha256": "2ce3b0d903a333e9618e0410fcf4ebe19df30a1b9d1fdeaa1aba478cad492dd9"
+    },
+    {
+      "path": "apps/customer-web/src/state/extrasStep.ts",
+      "bytes": 1802,
+      "sha256": "a1d3db1e73a876d8590d2e205509bffc2c68ececdfb4ba4c1d317978af7bbfc5"
+    },
+    {
+      "path": "apps/customer-web/src/state/locationStep.ts",
+      "bytes": 14275,
+      "sha256": "f3b4fea94cc442315b92d917e3da818cb51a97d74d1960ffd1f47ccbb6f1bf89"
+    },
+    {
+      "path": "apps/customer-web/src/state/navigationPath.ts",
+      "bytes": 489,
+      "sha256": "dee064aea1a396cae1aeb90c83c661e96e9f25c636ef9e58d22dc11acc5683ce"
+    },
+    {
+      "path": "apps/customer-web/src/state/paymentStep.ts",
+      "bytes": 3205,
+      "sha256": "08b135b38b364fc57f96fb76d0365fae8be15a2e3e9fa5abef3b25910e42efd6"
+    },
+    {
+      "path": "apps/customer-web/src/state/reviewStep.ts",
+      "bytes": 4145,
+      "sha256": "37187f4a4db53bff1c485d26a15be6eab0bc93bce7e74633173113289837358d"
+    },
+    {
+      "path": "apps/customer-web/src/state/savedAddresses.ts",
+      "bytes": 9360,
+      "sha256": "b5ab0ea4c7ae275048f9c520df2d22723ded1f0213b571149d2b00d60d28edaf"
+    },
+    {
+      "path": "apps/customer-web/src/state/savedVehicles.ts",
+      "bytes": 10641,
+      "sha256": "3a353b5ed4e85f93ea2beb580455486ebc26c1d5b0033f5354b3602dd444945a"
+    },
+    {
+      "path": "apps/customer-web/src/state/scheduleStep.ts",
+      "bytes": 5212,
+      "sha256": "db130bf58b673537a9cf48eaca6ebb5f15f0769d39f552c7f39827c81b06b9cf"
+    },
+    {
+      "path": "apps/customer-web/src/state/scheduling.ts",
+      "bytes": 6823,
+      "sha256": "b229af333fa3da204ed01e4732e13e2029a4a51ec033fa4b9429a27f5275170e"
+    },
+    {
+      "path": "apps/customer-web/src/state/vehicleStep.ts",
+      "bytes": 3388,
+      "sha256": "9b6528703e1c50f4d88118653f3d8ee19d2776235dc8ff629acc3512013be9c6"
+    },
+    {
+      "path": "apps/customer-web/src/styles/customer-forms.css",
+      "bytes": 3878,
+      "sha256": "a374854d2a27549b0f54489f8ffd7541442ddc2483737244ba4ab8ea8c6619e4"
+    },
+    {
+      "path": "apps/customer-web/src/styles/customer-shared.css",
+      "bytes": 6817,
+      "sha256": "db42ae34201465aabffa2bf383e587411a72aa264c50c234f1303512d627ef75"
+    },
+    {
+      "path": "apps/customer-web/src/styles/customer-shell.css",
+      "bytes": 7972,
+      "sha256": "e346f7243d89f7c1eeb603dca503c186123b608cee76fbc7ccd677be0f2afa1f"
+    },
+    {
+      "path": "apps/customer-web/src/widgets/address-editor/AddressEditor.tsx",
+      "bytes": 9400,
+      "sha256": "ba91ad4d471e0bdb1b22ffa8abe080e31285c39005d17b63c253fa6bd391952d"
+    },
+    {
+      "path": "apps/customer-web/src/widgets/address-editor/IllustrativeMap.tsx",
+      "bytes": 8216,
+      "sha256": "21b7f7d653f526410d09d3f3c582b6f9c64555634b5006d98d96c67ffcf3432f"
+    },
+    {
+      "path": "apps/customer-web/src/widgets/address-editor/address-editor.css",
+      "bytes": 2310,
+      "sha256": "144f3ae833a618dac2768337a4bcb2d0b2ecbe7a37117597e4f190e9b75bffa1"
+    },
+    {
+      "path": "apps/customer-web/src/widgets/address-editor/deviceLocation.ts",
+      "bytes": 1176,
+      "sha256": "708c1f66312376288722500d244ca5b27ff57a1fe8f2a65ab690f3ebef1f1052"
+    },
+    {
+      "path": "apps/customer-web/src/widgets/order-handoff/OrderHandoff.tsx",
+      "bytes": 3012,
+      "sha256": "ecdf7e94a90357a2bf49bd58b0bd00aff9ea2591c002f958b5e88795d9ea9d50"
+    },
+    {
+      "path": "apps/customer-web/src/widgets/order-handoff/order-handoff.css",
+      "bytes": 926,
+      "sha256": "08058392f4e47f37d9adee4c19fcf80c595a5fb21692719f011b752629876724"
+    },
+    {
+      "path": "apps/customer-web/src/widgets/order-handoff/orderHandoffViewModel.ts",
+      "bytes": 3582,
+      "sha256": "3b4aee417a2d6cc5097ae2cec9c67029092ad0a87dfb3778a5f8672ebbabea06"
+    },
+    {
+      "path": "apps/customer-web/src/widgets/order-receipt/Receipt.tsx",
+      "bytes": 2844,
+      "sha256": "6a796db75d7f85a497b319b4b2472b1cc7d25d5ffd9e3e699af3885acaee0048"
+    },
+    {
+      "path": "apps/customer-web/src/widgets/order-receipt/receipt.css",
+      "bytes": 1579,
+      "sha256": "a1bc6f069bcfeafbfe8d35f6463b40075187929317e2057277b6ef872beb075d"
+    },
+    {
+      "path": "apps/customer-web/src/widgets/order-receipt/receiptViewModel.ts",
+      "bytes": 5070,
+      "sha256": "ef226cff3ad138ae657f5d45de8e3180511f7e6665406567e8b1569a030e15ad"
+    },
+    {
+      "path": "apps/customer-web/src/widgets/vehicle-editor/VehicleEditorSheet.tsx",
+      "bytes": 7504,
+      "sha256": "5a8c92b8265ba7611189172989223f03be70ec673f4c54b0d7bb71649bae2c15"
+    },
+    {
+      "path": "apps/customer-web/src/widgets/vehicle-editor/vehicle-editor.css",
+      "bytes": 2280,
+      "sha256": "0b637ad1fc07d6eb5f7ae06c89393dcf7325946464bef124925ce55e2ceac6bb"
+    },
+    {
+      "path": "apps/customer-web/src/widgets/vehicle-editor/vehicleEditorModel.ts",
+      "bytes": 1630,
+      "sha256": "1a1c2aed7d188023e8770ecdb141e3ab068e2b6f2f21d41339b226df9c722393"
+    },
+    {
+      "path": "apps/customer-web/vite.config.ts",
+      "bytes": 254,
+      "sha256": "b923eb6addcc78a2af5cb9ff5da7f67f871dfafbbd63dfc64ca69481adf53dde"
+    },
+    {
+      "path": "architecture/adr/F001-monorepo-and-data-ownership.md",
+      "bytes": 7220,
+      "sha256": "46309b8de279fbccb99716b240a429a79abd1b5699e809947429d9726ece67d7"
+    },
+    {
+      "path": "architecture/implementation-status.json",
+      "bytes": 16460,
+      "sha256": "8a92763151eff40c685b42eb8c1fbc335d564b5ca7b0f38cf83d4e305bf57242"
+    },
+    {
+      "path": "architecture/parallel-contract-release.json",
+      "bytes": 31335,
+      "sha256": "aec04eeb6c3d893e4e0b401bab0a550c517f1e32709a5e0189f4a3ddb0ce4db9"
+    },
+    {
+      "path": "architecture/parallel-ownership.json",
+      "bytes": 59599,
+      "sha256": "2b696da4f8ed6d0fbb6234e33dc207e92c9e91f72e56e6f8777aac62c4f8e144"
+    },
+    {
+      "path": "architecture/service-catalog.json",
+      "bytes": 43887,
+      "sha256": "34462fbfb90c6a221524905aa21f7a4022c28a1b21d2243381a1b07582eac9b8"
+    },
+    {
+      "path": "design/reference/approved/washgo-admin-prototype.html",
+      "bytes": 40310,
+      "sha256": "b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273"
+    },
+    {
+      "path": "design/reference/approved/washgo-payments-interactive.html",
+      "bytes": 263462,
+      "sha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549"
+    },
+    {
+      "path": "design/reference/approved/washgo-technician-interactive.html",
+      "bytes": 122636,
+      "sha256": "d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc"
+    },
+    {
+      "path": "docs/ARCHITECTURE_AR.md",
+      "bytes": 45553,
+      "sha256": "d11a69f75d17375f47f0648e7cfd2185211461f516d90e23d99c9b2c24eae9d8"
+    },
+    {
+      "path": "docs/VERIFICATION.md",
+      "bytes": 4653,
+      "sha256": "d8445acdd7cefd3818b538bf04b822ee07075cf1f95d68f05f7eed5437872ea3"
+    },
+    {
+      "path": "docs/adr/0004-approved-ui-precedence.md",
+      "bytes": 1557,
+      "sha256": "d14c375db104b255fc6aa8f2692443c60751e81c7e828d3cc479e0effa6c755d"
+    },
+    {
+      "path": "docs/design/DESIGN_LOCK.md",
+      "bytes": 10268,
+      "sha256": "0f05db671539f6568227cef7c6e7378ab0db4c1ae63cefd0678ce504fbfab0ec"
+    },
+    {
+      "path": "docs/design/f010-reference-debt-baseline.json",
+      "bytes": 2618,
+      "sha256": "fbbc79fc34d3d2fc13eee24a9dfe299d547ad17d6c99266a072a0d114aa9497f"
+    },
+    {
+      "path": "docs/design/f010-reference-manifest.json",
+      "bytes": 1488,
+      "sha256": "94c3c99206169e66dd0a1161b5b7968c098f1e3ee29af3d5e1c7789be4ba44f3"
+    },
+    {
+      "path": "docs/design/reference-manifest.json",
+      "bytes": 2799,
+      "sha256": "985a98d76516c2443ad8c9a716d6d35225feb54a05b84d0fd7a004561223545a"
+    },
+    {
+      "path": "docs/parallel/A/W07/SOURCE_TO_ACCEPTANCE.md",
+      "bytes": 75596,
+      "sha256": "e41f16fd66381a574c80b97e0ff9f352f74d3d60ddc03f18fdd66270160c77a8"
+    },
+    {
+      "path": "docs/parallel/A/W07/W08_CONTRACT_REQUESTS.md",
+      "bytes": 38796,
+      "sha256": "2d17b57b228e14cf2521c16b1739631e7287777df0824a6c45dc2af8578065e1"
+    },
+    {
+      "path": "docs/parallel/E/W07/README.md",
+      "bytes": 4603,
+      "sha256": "934831172878601e9ac41490d7506b515fb89584a7bd183d3dc27e670727f0de"
+    },
+    {
+      "path": "docs/parallel/E/W07/W08_HARDENING_AND_BLOCKERS.md",
+      "bytes": 13637,
+      "sha256": "2ce08da41aed28d226ad6047d51da87a100789a52b7c93c26f8116ca591ff216"
+    },
+    {
+      "path": "infra/web-runtime.mjs",
+      "bytes": 3674,
+      "sha256": "4ff6bd8a589cbb95efb7a1300dfcb35005e3da6b3613e282e2b3da695ff4053e"
+    },
+    {
+      "path": "package.json",
+      "bytes": 5142,
+      "sha256": "e9d028e3cbb25d8aee603224a951d5b3c49794482aa73cc4ac2c787809dd1128"
+    },
+    {
+      "path": "packages/api-clients/package.json",
+      "bytes": 365,
+      "sha256": "f49b16dd0418f4229042536ed1a8a4e11505467a1b8b85147263301bddbabd9f"
+    },
+    {
+      "path": "packages/api-clients/src/index.ts",
+      "bytes": 94,
+      "sha256": "9c5162feffe8bbe37bdf5adde98f993d3d2169c1156a6ed5265cc6b7e4585c1d"
+    },
+    {
+      "path": "packages/contracts/package.json",
+      "bytes": 767,
+      "sha256": "7fcdae7298bcf9fa5417f3d4387445bdbb3942d7e2ab041507c902fbcb13bd93"
+    },
+    {
+      "path": "packages/contracts/src/registry.ts",
+      "bytes": 1106,
+      "sha256": "a823495f3038c4c4a27c323194f86e51665b0f263ac39ec40afaa0b24f3fa97d"
+    },
+    {
+      "path": "packages/event-contracts/package.json",
+      "bytes": 1012,
+      "sha256": "035cdd03d0695d29ed456b340c66651ddb87a456436fd98fb1c2170d8c2d221a"
+    },
+    {
+      "path": "packages/event-contracts/src/registry.ts",
+      "bytes": 1163,
+      "sha256": "9150079692bf7945d3532bdf9b3f3af07f0f085a346f0ae11ebbe3bea6fe6a6f"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "bytes": 172675,
+      "sha256": "08dbc96af037b792b0cfeb180ee90ccf8ca07767b203b5be2b1746332cf1300d"
+    },
+    {
+      "path": "scripts/c009/browser-acceptance.mjs",
+      "bytes": 45258,
+      "sha256": "6dfbf8a1f4c14d7650637def009410ad35efd75e097132c8966334926aec9eb4"
+    },
+    {
+      "path": "scripts/c014/browser-acceptance.mjs",
+      "bytes": 25312,
+      "sha256": "642f9f41a7f9e3295333f1bb6c0a1670d7ab139451e98f4e6474c88357c20879"
+    },
+    {
+      "path": "scripts/ci/run.mjs",
+      "bytes": 14677,
+      "sha256": "099c2dca95f7a3508e6c5363c6b01bcad4409d807a9ff62bf154ca6dc1bcac14"
+    },
+    {
+      "path": "scripts/f010/browser-acceptance.mjs",
+      "bytes": 12300,
+      "sha256": "f978104b3904e8997a31850cbfb08161c38cfb19323cca0381261ee5bc20be9f"
+    },
+    {
+      "path": "services/customer/package.json",
+      "bytes": 896,
+      "sha256": "6b9a0ee270d7a627f118d09bd1cda5cbb5a9abfc01c19a5258b96231db257770"
+    },
+    {
+      "path": "services/customer/prisma/schema.prisma",
+      "bytes": 922,
+      "sha256": "4e5de4585ce931835ee32b51000a1d44ca2999a91e286deb5fe8e76e7925f443"
+    },
+    {
+      "path": "services/customer/src/application/index.ts",
+      "bytes": 212,
+      "sha256": "73804f9d066978110e249943fd6c6dd5fe9287f464b14b16b041ab61a7b63b69"
+    },
+    {
+      "path": "services/customer/src/domain/index.ts",
+      "bytes": 207,
+      "sha256": "82c03761ed880998e2b2db7634e1c53ec4c4d58b0a09b1b02e634b9e1417de5e"
+    },
+    {
+      "path": "services/customer/src/transport/http/create-app.ts",
+      "bytes": 372,
+      "sha256": "448f04db34ceeab6401a847d5a488881a2f97700f94ea9d7e57b1d7d2f14cde9"
+    },
+    {
+      "path": "services/geo/package.json",
+      "bytes": 983,
+      "sha256": "8906ca0c4a11ec43407fd721be296ff617d537900e9fba51b0fd8befb90a1a76"
+    },
+    {
+      "path": "services/geo/prisma/schema.prisma",
+      "bytes": 917,
+      "sha256": "a8faa03ed047e7cb738f85c9ed69ec022b28280a8add1b19b08b667d7c9e198c"
+    },
+    {
+      "path": "services/geo/src/application/index.ts",
+      "bytes": 207,
+      "sha256": "858293a545dc0372d6a8623c39f8f1739c2c4c682242e9810d785ee9d5103e90"
+    },
+    {
+      "path": "services/geo/src/domain/index.ts",
+      "bytes": 202,
+      "sha256": "9495dbcede274ab0ab96cd47a6950eb0c3806f3bfec65e000c66aa500335f3fb"
+    },
+    {
+      "path": "services/geo/src/transport/http/create-app.ts",
+      "bytes": 372,
+      "sha256": "448f04db34ceeab6401a847d5a488881a2f97700f94ea9d7e57b1d7d2f14cde9"
+    },
+    {
+      "path": "services/vehicle/package.json",
+      "bytes": 991,
+      "sha256": "b5f6c939c206bc6bceca1fbc6358f36b820f64f96d47d9be553f187c340ed325"
+    },
+    {
+      "path": "services/vehicle/prisma/schema.prisma",
+      "bytes": 921,
+      "sha256": "8d91210e287256bf81dfe99549b74e8b9808ebfc33dd9ced315efd2e74ba8a95"
+    },
+    {
+      "path": "services/vehicle/src/application/index.ts",
+      "bytes": 211,
+      "sha256": "15ff79a56d2613e49af51d527965c2df326ad541309d88757b83b36d225f1769"
+    },
+    {
+      "path": "services/vehicle/src/domain/index.ts",
+      "bytes": 206,
+      "sha256": "39becdb7ec2f4cd25b0b7caafb570366519f13de75d2cb110f725018ac6b0912"
+    },
+    {
+      "path": "services/vehicle/src/transport/http/create-app.ts",
+      "bytes": 372,
+      "sha256": "448f04db34ceeab6401a847d5a488881a2f97700f94ea9d7e57b1d7d2f14cde9"
+    }
+  ],
+  "fingerprintLimit": "Byte inventory includes customer source; semantic audit anchors are in SOURCE_AUDIT and the defect register.",
+  "buildMeasurement": {
+    "command": "pnpm --filter @carwash/customer-web build",
+    "node": "v24.21.0",
+    "pnpm": "10.32.1",
+    "vite": "8.3.1",
+    "transformedModules": 140,
+    "sourceKind": "fixture-backed-session-demo",
+    "assets": [
+      {
+        "path": "apps/customer-web/dist/assets/index-CE9xFaKd.css",
+        "bytes": 52609,
+        "sha256": "1e88f7f912251d0e59f0ec03ebf218b4eaaa387c16ea835af620aa44c1abd67d",
+        "gzipBytes": 11587,
+        "brBytes": 10163,
+        "kind": "runtime-asset"
+      },
+      {
+        "path": "apps/customer-web/dist/assets/index-KOIiAdVz.js",
+        "bytes": 454304,
+        "sha256": "e2d091abdab5f4d03ed970994908b04997ba1bfdae11fa078440297a3a6187c4",
+        "gzipBytes": 137445,
+        "brBytes": 116931,
+        "kind": "runtime-asset"
+      },
+      {
+        "path": "apps/customer-web/dist/assets/index-KOIiAdVz.js.map",
+        "bytes": 2131089,
+        "sha256": "f43e45a64f94578773bc18d88d966822cdbb0ebb914018169c568d6487d4eb31",
+        "gzipBytes": 499379,
+        "brBytes": 401024,
+        "kind": "source-map"
+      },
+      {
+        "path": "apps/customer-web/dist/index.html",
+        "bytes": 632,
+        "sha256": "caef6ce624a88a5d4bf13400ce8f33ffb88684b93cbb7512b378c9a07e6e767e",
+        "gzipBytes": 376,
+        "brBytes": 250,
+        "kind": "runtime-asset"
+      }
+    ],
+    "runtimeTotals": {
+      "bytes": 507545,
+      "gzipBytes": 149408,
+      "brBytes": 127344
+    },
+    "approvedBudget": null,
+    "performanceAccepted": false,
+    "servedEvidence": null,
+    "limitations": [
+      "Static build sizes, no timing/heap/mobile/throttling measurement.",
+      "No complete production business flows or approved English state.",
+      "No served-header/source-map/path-denial or browser proof."
+    ],
+    "compression": {
+      "gzip": "Node24.21.0 zlib.gzipSync default options",
+      "brotli": "Node24.21.0 zlib.brotliCompressSync default options",
+      "limitation": "Recorded asset bytes and own compression method; Vite console's gzip estimate is a separate build display."
+    }
+  },
+  "cases": {
+    "count": 52,
+    "status": "UNEXECUTED_ENTRY_BLOCKED",
+    "newExecutableTests": 0
+  },
+  "migrationsAdded": [],
+  "runtimeSourceChanges": false,
+  "sharedChanges": false,
+  "lockedReferenceChanges": false,
+  "sourceFindings": [
+    {
+      "id": "W08-A-D01",
+      "triageProposal": "MEDIUM_LOCAL_INTENT_INTEGRITY",
+      "status": "REPRODUCED_PURE_SOURCE_NOT_FIXED",
+      "input": "manual pin(120,160), then delayed in-range geolocation",
+      "actual": "manual map becomes gps(350,250); typed address preserved",
+      "browserReproduction": "UNEXECUTED"
+    },
+    {
+      "id": "W08-A-D02",
+      "triageProposal": "MEDIUM_COMMAND_INTEGRITY",
+      "status": "REPRODUCED_PURE_SOURCE_NOT_FIXED",
+      "input": "delete CAR-1, submit valid edit with editingId CAR-1",
+      "actual": "creates CAR-2 with saved notice",
+      "contrast": "stale address returns missing, unchanged",
+      "browserOrAuthorizationExploit": "UNEXECUTED"
+    },
+    {
+      "id": "W08-A-D03",
+      "triageProposal": "LOW_DEFENSIVE_VALIDATION",
+      "status": "REPRODUCED_PURE_SOURCE_NOT_FIXED",
+      "input": "NaN latitude and longitude",
+      "actual": "in-range",
+      "realDeviceMalformedPosition": "NOT_OBSERVED"
+    }
+  ],
+  "requiredMissingInputs": [
+    "E full accepted BASE_W08/tree/frozen business contracts and clients",
+    "Real Customer/Vehicle/Geo and affected B/C/D producers/coordinators",
+    "Complete approved English/LTR and missing production states",
+    "Approved device/browser/AT matrix",
+    "Approved load/latency/error/bundle/CPU/heap/media/recovery profiles and numeric budgets",
+    "E owned resource/gate manifest",
+    "Real Aleppo/financial/privacy/provider decisions"
+  ],
+  "ownedRuntimeResources": {
+    "listeners": [],
+    "ports": [],
+    "composeProjects": [],
+    "containers": [],
+    "volumes": [],
+    "databases": [],
+    "brokerQueues": [],
+    "objectPrefixes": [],
+    "browserProfiles": []
+  },
+  "environmentLimit": "Docker unavailable locally; no business DB/broker/browser/device/load/staging run.",
+  "githubObservations": {
+    "initialMain": {
+      "observedAt": "2026-10-06T19:41:59.555Z",
+      "data": {
+        "ref": "refs/heads/main",
+        "node_id": "REF_kwDOUhXo_K9yZWZzL2hlYWRzL21haW4",
+        "url": "https://api.github.com/repos/baraabd/carwash-platform/git/refs/heads/main",
+        "object": {
+          "sha": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+          "type": "commit",
+          "url": "https://api.github.com/repos/baraabd/carwash-platform/git/commits/f0b76221c1a1991ba78327c019f0b4a0a7c53dff"
+        }
+      }
+    },
+    "initialOpenPRs": {
+      "observedAt": "2026-10-06T19:41:59.556Z",
+      "count": 0
+    },
+    "w07Merges": [
+      {
+        "pullRequest": 74,
+        "head": "51ba95c209326ab2c7b95845d1058fced9def5cc",
+        "merged": true,
+        "mergedAt": "2026-10-06T19:36:12Z",
+        "mergeSha": "67ecf3d4acde9f0df178357726052a8a2b4f5fee"
+      },
+      {
+        "pullRequest": 75,
+        "head": "21988ab50af8bdfaf4b0d5770ce21256a902f1c4",
+        "merged": true,
+        "mergedAt": "2026-10-06T19:38:01Z",
+        "mergeSha": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff"
+      }
+    ],
+    "laterMain": {
+      "observedAt": "2026-10-06T19:49:49.655Z",
+      "data": {
+        "ref": "refs/heads/main",
+        "node_id": "REF_kwDOUhXo_K9yZWZzL2hlYWRzL21haW4",
+        "url": "https://api.github.com/repos/baraabd/carwash-platform/git/refs/heads/main",
+        "object": {
+          "sha": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+          "type": "commit",
+          "url": "https://api.github.com/repos/baraabd/carwash-platform/git/commits/f0b76221c1a1991ba78327c019f0b4a0a7c53dff"
+        }
+      }
+    },
+    "laterOpenPRs": {
+      "observedAt": "2026-10-06T19:49:49.655Z",
+      "prs": [
+        {
+          "number": 76,
+          "branch": "sprint/w08-C-recovery-prework",
+          "head": "fd931cf3121e55ddc8183f862d9bb761723f9e9a",
+          "base": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+          "draft": true
+        }
+      ]
+    },
+    "analysisMainChecks": {
+      "observedAt": "2026-10-06T19:50:37.581Z",
+      "total": 43,
+      "byState": {
+        "success": 43
+      },
+      "nonSuccess": []
+    },
+    "limitation": "Dated source observations; merged proposals and foundation success do not publish BASE_W08. New proposal/candidate checks belong in its PR, not reused here."
+  },
+  "executedDiagnostics": [
+    {
+      "command": "node scripts/verify-toolchain.mjs",
+      "exitCode": 0,
+      "result": "40/40 including actual Node24.21.0 and pnpm10.32.1",
+      "scope": "Declared, propagated and actual toolchain"
+    },
+    {
+      "command": "node scripts/check-design-reference.mjs --base-ref f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+      "exitCode": 0,
+      "result": "10 locked artifacts preserved, baseCompared:true",
+      "scope": "Byte preservation, not app pixels"
+    },
+    {
+      "command": "node scripts/f010/reference-registry.mjs --base-ref f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+      "exitCode": 0,
+      "result": "3 references; baseCompared:true; initialRegistration:false",
+      "scope": "Registry/reference integrity"
+    },
+    {
+      "command": "node architecture/implementation-status.mjs --self-test",
+      "exitCode": 0,
+      "result": "9 adversarial cases,19 runtimes,18 foundation shells,1 capability runtime; productionReady:false",
+      "scope": "Inventory consistency"
+    },
+    {
+      "command": "node scripts/c001/customer-behavior-manifest.mjs",
+      "exitCode": 0,
+      "result": "87 actions,6 forms,7 screens/booking steps",
+      "scope": "Source/reference inventory"
+    },
+    {
+      "command": "node scripts/c002/check-feature-boundaries.mjs",
+      "exitCode": 0,
+      "result": "7 features, no boundary errors",
+      "scope": "Customer source boundaries"
+    },
+    {
+      "command": "pnpm install --frozen-lockfile",
+      "exitCode": 0,
+      "result": "404 packages,36 workspaces; pnpm10.32.1; completed in3m16.3s; tracked lock/schema/source unchanged",
+      "scope": "Own worktree dependency install; no other worktree mutation"
+    },
+    {
+      "command": "pnpm --filter @carwash/customer-web typecheck",
+      "attempt": "before frozen install completed",
+      "exitCode": 1,
+      "result": "tsc not found; node_modules not yet installed",
+      "scope": "Prerequisite-ordering failure; source/compiler defect not inferred"
+    },
+    {
+      "command": "pnpm --filter @carwash/customer-web typecheck",
+      "attempt": "after install completed",
+      "exitCode": 0,
+      "result": "TypeScript noEmit pass",
+      "scope": "Current session-demo app"
+    },
+    {
+      "command": "pnpm --filter @carwash/customer-web build",
+      "exitCode": 0,
+      "result": "TypeScript+Vite8.3.1 pass;140 modules;4 emitted assets including source map",
+      "scope": "Current session-demo build, no served or production acceptance"
+    },
+    {
+      "command": "node --test --test-reporter=spec tests/unit/c0*.test.mjs",
+      "exitCode": 0,
+      "result": "304 passed,0 failed,0 cancelled,0 skipped",
+      "scope": "Existing source/pure session-unit diagnostics, not W08 real-business cases"
+    },
+    {
+      "command": "node scripts/check-migrations.mjs --base-ref f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+      "exitCode": 0,
+      "result": "21 existing migrations;428 files;no append-only change",
+      "scope": "Source migration layout/ownership, no real migration execution"
+    },
+    {
+      "command": "node --experimental-strip-types --input-type=module",
+      "exitCode": 0,
+      "result": "D01,D02,D03 reproduced; stale address returns missing unchanged",
+      "scope": "Read-only synthetic pure-source observations; assertions describe defects, not remediation PASS",
+      "imports": [
+        "apps/customer-web/src/state/bookingDraft.ts",
+        "apps/customer-web/src/state/locationStep.ts",
+        "apps/customer-web/src/state/savedVehicles.ts",
+        "apps/customer-web/src/state/savedAddresses.ts",
+        "apps/customer-web/src/fixtures/customerHomeScenarios.ts"
+      ],
+      "inputs": {
+        "scenario": "home-empty",
+        "manualAddress": "Manual address for diagnostic",
+        "pin": [
+          120,
+          160
+        ],
+        "lateGeolocationOutcome": "in-range",
+        "car": {
+          "carName": "Diagnostic car",
+          "plate": "111",
+          "editingIdAfterDeletion": "CAR-1"
+        },
+        "nonfinitePosition": "NaN,NaN"
+      },
+      "observedOutput": {
+        "lateLocation": {
+          "before": {
+            "kind": "map",
+            "x": 120,
+            "y": 160
+          },
+          "after": {
+            "kind": "gps",
+            "x": 350,
+            "y": 250
+          },
+          "textPreserved": true
+        },
+        "staleVehicle": {
+          "deletedCount": 0,
+          "newId": "CAR-2",
+          "savedNotice": true
+        },
+        "staleAddress": {
+          "outcome": "missing",
+          "unchanged": true
+        },
+        "nonfiniteCoords": "in-range",
+        "browserDeviceBackendAcceptance": "UNEXECUTED"
+      },
+      "stdin": "import assert from 'node:assert/strict';\nimport {blankBookingDraft} from './apps/customer-web/src/state/bookingDraft.ts';\nimport {addressSheetValuesForDraft,setSheetMapPoint,applyGeolocationOutcome,classifyDevicePosition} from './apps/customer-web/src/state/locationStep.ts';\nimport {homeScenarioState} from './apps/customer-web/src/fixtures/customerHomeScenarios.ts';\nimport {saveGarageVehicle,deleteSavedVehicle,blankEditorValues} from './apps/customer-web/src/state/savedVehicles.ts';\nimport {submitAccountAddress,deleteSavedAddress,blankAddressEditorValues} from './apps/customer-web/src/state/savedAddresses.ts';\nconst typed={...addressSheetValuesForDraft(blankBookingDraft()),address:'Manual address for diagnostic'};\nconst manual=setSheetMapPoint(typed,120,160).values;\nconst late=applyGeolocationOutcome(manual,'in-range').values;\nassert.equal(late.place.kind,'gps');assert.equal(late.place.x,350);assert.equal(late.place.y,250);assert.equal(late.address,manual.address);\nconst base=homeScenarioState('home-empty');\nconst vals={...blankEditorValues,carName:'Diagnostic car',plate:'111'};\nconst car=saveGarageVehicle(base,null,vals,'sedan').state;\nconst carID=car.vehicles[0].id;\nconst deletedCar=deleteSavedVehicle(car,carID);\nconst staleCar=saveGarageVehicle(deletedCar,carID,vals,'sedan');\nassert.equal(deletedCar.vehicles.length,0);assert.equal(staleCar.state.vehicles.length,1);assert.equal(staleCar.state.vehicles[0].id,'CAR-2');\nconst av={...blankAddressEditorValues(),address:'Diagnostic manual address'};\nconst address=submitAccountAddress(base,av,null).state;\nconst addrID=address.addresses[0].id;\nconst deletedAddress=deleteSavedAddress(address,addrID);\nconst staleAddress=submitAccountAddress(deletedAddress,av,addrID);\nassert.equal(staleAddress.outcome,'missing');assert.equal(staleAddress.state,deletedAddress);\nassert.equal(classifyDevicePosition(NaN,NaN),'in-range');\nconsole.log(JSON.stringify({node:process.version,source:'f0b76221c1a1991ba78327c019f0b4a0a7c53dff',status:'REPRODUCED_CURRENT_BEHAVIOUR_ONLY',lateLocation:{before:manual.place,after:late.place,textPreserved:true},staleVehicle:{deletedCount:0,newId:staleCar.state.vehicles[0].id,notice:staleCar.state.notice.message},staleAddress:{outcome:staleAddress.outcome,unchanged:true},nonfiniteCoords:'in-range',browserDeviceBackendAcceptance:'UNEXECUTED'}));\n"
+    },
+    {
+      "command": "node scripts/parallel/E/check-owners.mjs --base-ref f0b76221c1a1991ba78327c019f0b4a0a7c53dff --worktree --lane A",
+      "exitCode": 0,
+      "result": "8 paths writable A; protected-base-blob;0 findings",
+      "scope": "Path authorization, not independent approval"
+    },
+    {
+      "command": "node <task-tools>/prettier/bin/prettier.cjs --write <eight explicitly listed packet paths>",
+      "exitCode": 0,
+      "result": "Only new packet files formatted with prettier3.9.8",
+      "scope": "No whole-repository writes"
+    },
+    {
+      "command": "read-only packet/source/asset/link diagnostic",
+      "exitCode": 0,
+      "result": "8 files,52 unique sequential families,174 unchanged source digests,4 compiled digests,all relative links valid",
+      "scope": "Proposal/source consistency only; no business assertions"
+    }
+  ],
+  "toolchain": {
+    "actualNode": "24.21.0",
+    "actualPnpm": "10.32.1",
+    "formatter": "prettier3.9.8",
+    "toolsDirectory": "/workspace/scratch/6a9547568741/w08-toolchain",
+    "defaultEnvironmentBeforeTask": {
+      "node": "24.19.0",
+      "pnpm": "11.25.0"
+    },
+    "scope": "Commands above used task-owned pinned tools; source pins were not altered."
+  },
+  "notExecuted": [
+    "W08 business implementation/remediation",
+    "new 52 required acceptance families",
+    "business DB upgrade/constraints/authorization",
+    "real customer/guest/admin HTTP integration",
+    "business broker replay/crash/race effects",
+    "browser/visual/accessibility/screen-reader/Windows/device flows",
+    "private upload/object-storage scenarios",
+    "latency/load/throttling/CPU/heap measurement",
+    "product backup/restore/staging/live-money/deployment"
+  ]
+}
