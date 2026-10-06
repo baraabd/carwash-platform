@@ -1,0 +1,691 @@
+{
+  "schemaVersion": 1,
+  "task": "W08-B",
+  "phase": "ENTRY_PROPOSAL",
+  "parentStatus": "NOT_STARTED",
+  "proposalStatus": "PROPOSED_NOT_ACCEPTED",
+  "productWrites": "BLOCKED",
+  "fullLaunch": "NO_GO",
+  "repository": "baraabd/carwash-platform",
+  "observedTargetSha": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+  "observedTargetTree": "1a6b3a54e926fc9e3387ac547ecc20c3d3f4252d",
+  "proposalParentSha": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+  "acceptedBaseW08": null,
+  "observedRelease": {
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "bases": {
+      "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "BASE_W02": null
+    },
+    "acceptedNextWaveContracts": []
+  },
+  "packageVersions": {
+    "@carwash/contracts": "0.0.2",
+    "@carwash/event-contracts": "0.0.2",
+    "@carwash/api-clients": "0.0.1"
+  },
+  "businessClientsExported": false,
+  "observedBusinessModels": {
+    "catalog": [
+      "ServiceMarker",
+      "FoundationProbe",
+      "OutboxMessage"
+    ],
+    "pricing": [
+      "ServiceMarker"
+    ],
+    "billing": [
+      "ServiceMarker"
+    ],
+    "wallet": [
+      "ServiceMarker"
+    ],
+    "subscription": [
+      "ServiceMarker"
+    ],
+    "booking": [
+      "ServiceMarker"
+    ]
+  },
+  "currentRuntimeInventory": {
+    "runtimeServices": 19,
+    "foundationShells": 18,
+    "identityCapabilityRuntimes": 1,
+    "productionReady": false
+  },
+  "W07Predecessor": {
+    "BPr": 73,
+    "merged": true,
+    "financeImplementationAdded": false,
+    "sourceDeltaFromPreviousTarget": [
+      "W07 proposal documents/specifications",
+      "E foundation outage-test cancellation/owned-worker cleanup correction"
+    ],
+    "BServiceSharedContractConfigurationChanges": 0
+  },
+  "initialWriterObservation": {
+    "existingWorktreesBeforeCreation": 10,
+    "allClean": true,
+    "existingLocalW08Branches": 0,
+    "matchingRemoteBW08Refs": 0,
+    "openPeerPr": 76,
+    "peerHead": "fd931cf3121e55ddc8183f862d9bb761723f9e9a",
+    "consumedAsBase": false
+  },
+  "ownershipConflict": {
+    "registryWave": "W01",
+    "currentTaskBootstrapLease": "EXPIRED",
+    "resolution": "Current task permits readonly analysis and B-local proposals; E reconciles stale registry and publishes accepted wave base."
+  },
+  "sourceFindings": [
+    {
+      "id": "B08-D01",
+      "owner": "B/E",
+      "classification": "STATIC_SOURCE_TRANSITION_GAP",
+      "runtimeReproduced": false,
+      "sourceRepaired": false,
+      "repairedSourceSha": null
+    },
+    {
+      "id": "B08-D02",
+      "owner": "B/E",
+      "classification": "STATIC_FENCING_INTERLEAVING_HAZARD",
+      "runtimeReproduced": false,
+      "sourceRepaired": false,
+      "repairedSourceSha": null
+    },
+    {
+      "id": "B08-D03",
+      "owner": "B/E",
+      "classification": "STATIC_LISTENER_LIFECYCLE_HAZARD",
+      "runtimeReproduced": false,
+      "sourceRepaired": false,
+      "repairedSourceSha": null
+    },
+    {
+      "id": "B08-R01",
+      "owner": "B/E",
+      "classification": "FUTURE_JOURNAL_ENFORCEMENT_RISK_NO_CURRENT_JOURNALS",
+      "runtimeReproduced": false,
+      "sourceRepaired": false,
+      "repairedSourceSha": null
+    }
+  ],
+  "realFinanceDatasets": null,
+  "approvedAcceptanceBudgets": null,
+  "actualPerformanceMeasurements": null,
+  "actualRestoreExecution": null,
+  "allocatedRuntimeResources": null,
+  "providerOperationsPerformed": false,
+  "limitations": [
+    "Missing accepted BASE_W08 and full W07 financial implementations",
+    "No accepted financial HTTP/event/client/recovery/authority profiles",
+    "No real finance DB/broker/HTTP/privateproof/provider/restore/performance run",
+    "Foundation evidence remains separate from financial acceptance",
+    "No source fix, new migrations, same-account approval, merge or deployment"
+  ],
+  "fingerprints": [
+    {
+      "path": ".nvmrc",
+      "bytes": 8,
+      "sha256": "73fb1b615e2043a933be1c0895cde4358036acc28d785692509b822aa53c761f",
+      "gitBlob": "df6ae3370f9f89272d88629c442cf554d6c1f9fb"
+    },
+    {
+      "path": "AGENTS.md",
+      "bytes": 3138,
+      "sha256": "9a36dcbe805425931884abedb1b1efefdaafa39a0a73c13837bcec71d4eb489f",
+      "gitBlob": "3ac2760e246cd0efd23a3eb707d0078f67474bbd"
+    },
+    {
+      "path": "architecture/adr/F001-monorepo-and-data-ownership.md",
+      "bytes": 7220,
+      "sha256": "46309b8de279fbccb99716b240a429a79abd1b5699e809947429d9726ece67d7",
+      "gitBlob": "2ed9f9204293849fb05ea296dc489b8787c38e22"
+    },
+    {
+      "path": "architecture/implementation-status.json",
+      "bytes": 16460,
+      "sha256": "8a92763151eff40c685b42eb8c1fbc335d564b5ca7b0f38cf83d4e305bf57242",
+      "gitBlob": "5034c48f9af19ec65fd8c6c6e205827549578c92"
+    },
+    {
+      "path": "architecture/parallel-contract-release.json",
+      "bytes": 31335,
+      "sha256": "aec04eeb6c3d893e4e0b401bab0a550c517f1e32709a5e0189f4a3ddb0ce4db9",
+      "gitBlob": "2105e85c9e498ce25a13a2ec040956f30784aab2"
+    },
+    {
+      "path": "architecture/parallel-ownership.json",
+      "bytes": 59599,
+      "sha256": "2b696da4f8ed6d0fbb6234e33dc207e92c9e91f72e56e6f8777aac62c4f8e144",
+      "gitBlob": "ceabe10c3133e60cbaa7fe0fed036ee5efb78c75"
+    },
+    {
+      "path": "architecture/service-catalog.json",
+      "bytes": 43887,
+      "sha256": "34462fbfb90c6a221524905aa21f7a4022c28a1b21d2243381a1b07582eac9b8",
+      "gitBlob": "3cbd5c3fd4382926970ed6235a2569d93201e095"
+    },
+    {
+      "path": "design/reference/approved/washgo-admin-prototype.html",
+      "bytes": 40310,
+      "sha256": "b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273",
+      "gitBlob": "301e247267b8d68d11d084ce8cc458b59f7d5e2e"
+    },
+    {
+      "path": "design/reference/approved/washgo-payments-interactive.html",
+      "bytes": 263462,
+      "sha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549",
+      "gitBlob": "e451bd9db408888ffd470ee7ded42246c4fcd12c"
+    },
+    {
+      "path": "design/reference/approved/washgo-technician-interactive.html",
+      "bytes": 122636,
+      "sha256": "d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc",
+      "gitBlob": "36329a2431ed493cb685a7abd6ce2432e6840ae9"
+    },
+    {
+      "path": "docs/ARCHITECTURE_AR.md",
+      "bytes": 45553,
+      "sha256": "d11a69f75d17375f47f0648e7cfd2185211461f516d90e23d99c9b2c24eae9d8",
+      "gitBlob": "e504970dc207e5f7d90dd1fc63b20fd41c5743db"
+    },
+    {
+      "path": "docs/VERIFICATION.md",
+      "bytes": 4653,
+      "sha256": "d8445acdd7cefd3818b538bf04b822ee07075cf1f95d68f05f7eed5437872ea3",
+      "gitBlob": "969532fdd064cb3a0a31851b98b686a13681ee72"
+    },
+    {
+      "path": "docs/adr/0004-approved-ui-precedence.md",
+      "bytes": 1557,
+      "sha256": "d14c375db104b255fc6aa8f2692443c60751e81c7e828d3cc479e0effa6c755d",
+      "gitBlob": "43ae29e1a49a18367dc3fbe2d32f840b061f966d"
+    },
+    {
+      "path": "docs/design/DESIGN_LOCK.md",
+      "bytes": 10268,
+      "sha256": "0f05db671539f6568227cef7c6e7378ab0db4c1ae63cefd0678ce504fbfab0ec",
+      "gitBlob": "b8f41723448f6c38e5bf8eb1fb355216a2af2ec4"
+    },
+    {
+      "path": "docs/design/f010-reference-manifest.json",
+      "bytes": 1488,
+      "sha256": "94c3c99206169e66dd0a1161b5b7968c098f1e3ee29af3d5e1c7789be4ba44f3",
+      "gitBlob": "01fc8c5dd01e93f6b1e1a62b063aa78550376703"
+    },
+    {
+      "path": "docs/design/reference-manifest.json",
+      "bytes": 2799,
+      "sha256": "985a98d76516c2443ad8c9a716d6d35225feb54a05b84d0fd7a004561223545a",
+      "gitBlob": "a1c54870239f9c05e57886db93905f26cb4bca9a"
+    },
+    {
+      "path": "docs/parallel/A/W05/W06_CONTRACT_REQUESTS.md",
+      "bytes": 36215,
+      "sha256": "4e6bcf7093cf52d5cece27734ca7499eff9bd6784cc95471e5f6d71f7f4d2c25",
+      "gitBlob": "ab965e8bc9501d39ac2e032731c5e1998c3ca8c8"
+    },
+    {
+      "path": "docs/parallel/A/W06/W07_CONTRACT_REQUESTS.md",
+      "bytes": 43136,
+      "sha256": "26dc46df5d770c70018a5595ead311ad00e57a82839516941dd6ec28db290ac2",
+      "gitBlob": "feda3d485ea06cf7bdef0df7a51254f84c84d005"
+    },
+    {
+      "path": "docs/parallel/B/W01/OWNERSHIP_AND_STATES.md",
+      "bytes": 7316,
+      "sha256": "534a920e703a539ab5f157506c5c87d7a593050301df2519fd1447f1187c2028",
+      "gitBlob": "2eda8d054e183d956edbd81ad428c0907f54fd0c"
+    },
+    {
+      "path": "docs/parallel/B/W01/POLICY_DECISIONS.md",
+      "bytes": 9149,
+      "sha256": "c31659de750f97eaf57faacd9591665ed1d94e73c9bbb35250c311091562f344",
+      "gitBlob": "ea7bd0fef1d9c8bc4f8d78344ff03288b9317aac"
+    },
+    {
+      "path": "docs/parallel/B/W01/PROVIDER_ACCEPTANCE.md",
+      "bytes": 8471,
+      "sha256": "8031b506c6640be32447bc6a70ced214b8daf2900457a2d3c7471b97119e6f63",
+      "gitBlob": "046d8aea892c70376a99ab1138a3f538afffab7a"
+    },
+    {
+      "path": "docs/parallel/B/W01/SOURCE_INVENTORY.md",
+      "bytes": 9307,
+      "sha256": "ca7c7de4e0a87a0100313ef0f48404e69ad9a568433407fcb30756a158e7262e",
+      "gitBlob": "d64d0843ed33f2644636cabc95d22a68c020bcc7"
+    },
+    {
+      "path": "docs/parallel/B/W01/future-finance-contracts.schema.json",
+      "bytes": 50919,
+      "sha256": "1b5d9f1243b853274d2f43181a0f9aa09fc50953d8e530e069669a30295e21a9",
+      "gitBlob": "856871c797f729bdb2831bf794e7826a2d0873d2"
+    },
+    {
+      "path": "docs/parallel/B/W04/CASH_JOURNEY_AND_DURABILITY.md",
+      "bytes": 12221,
+      "sha256": "f9191b4e9de4eaac0a3c16e8f474e6385c14d34b00f2d5bd7e66ed65dcff9df4",
+      "gitBlob": "2e7c15ee2f1df784550cc6a1dff28e8a1a869ce0"
+    },
+    {
+      "path": "docs/parallel/B/W05/W06_CONTRACT_REQUESTS.md",
+      "bytes": 37415,
+      "sha256": "baccb0c6b438c89b3bdf04008694cc78389aa2de16ada29c1a52e0969f9e96ed",
+      "gitBlob": "8ba1cd3af968029046516697c7ae8ad14431e625"
+    },
+    {
+      "path": "docs/parallel/B/W06/ENTRY_CONTRACT_REQUESTS.md",
+      "bytes": 18054,
+      "sha256": "05b357d26213f087995a641039b7d9931e1ddcafc6f547192306d41032454aaf",
+      "gitBlob": "022518464e8fcbc25e716feacf5681e1b4cfb4da"
+    },
+    {
+      "path": "docs/parallel/B/W06/PRIVACY_FULFILLMENT.md",
+      "bytes": 9831,
+      "sha256": "183b63e4c6407709edd03d4a21e5160cbf3c43632acde2635400d6fbd8d8f354",
+      "gitBlob": "414fbd767f86d9be118475682e8f9497d6394af5"
+    },
+    {
+      "path": "docs/parallel/B/W06/README.md",
+      "bytes": 6822,
+      "sha256": "1c7d408f2c49195fad0cdc8fd20fb4e89e93f27b38079491d2f7a4aaccd73a8a",
+      "gitBlob": "682c340e4582907c7eaf16b2ecfb65d5c54079fb"
+    },
+    {
+      "path": "docs/parallel/B/W06/SUBSCRIPTION_LIFECYCLE.md",
+      "bytes": 11621,
+      "sha256": "b1d5e5698cd49f06136ed6080014e7a8ca3700dd6b5dc8dc3f6e4d3544046331",
+      "gitBlob": "a02748f8a9129e2271ebf5bfc40fd297f7e05a64"
+    },
+    {
+      "path": "docs/parallel/B/W06/W07_CONTRACT_REQUESTS.md",
+      "bytes": 17591,
+      "sha256": "06f43a50993ae26ef1650bf68b6d331b19da6cb43bb9495a3c9dd1b3b4eb29a4",
+      "gitBlob": "77d7cc99e11520b5416ba8ab20cab9ee307d4c70"
+    },
+    {
+      "path": "docs/parallel/B/W06/WALLET_AND_POSTING_RECOVERY.md",
+      "bytes": 13001,
+      "sha256": "8e003ca038d5f06186e2c49f54d6b52a2f6b628ec4f020c2c46929d4ed11112e",
+      "gitBlob": "149033aef890edb4e69b397126e6a4d2b770fa5b"
+    },
+    {
+      "path": "docs/parallel/B/W07/FINANCE_SCOPE_MATRIX.md",
+      "bytes": 31389,
+      "sha256": "c2234a9663f5ca02bf8021eac8122fbab258ff40640968d25fbeb45c16168c9c",
+      "gitBlob": "880aab294288056a4af68f1b66f19024eb1b01e1"
+    },
+    {
+      "path": "docs/parallel/B/W07/W08_ADVERSARIAL_AND_WORKLOAD_REQUESTS.md",
+      "bytes": 37202,
+      "sha256": "89c0d6a91c095e07cd8204c4aedcb48821c4f1bcf5223a60c2a9b1fc0e802023",
+      "gitBlob": "ebb246753d29677b41e05f35f61605d64ebeb8e3"
+    },
+    {
+      "path": "docs/parallel/C/W05/W06_CONTRACT_REQUESTS.md",
+      "bytes": 5199,
+      "sha256": "78d542fcf02e5afd8731206b8fe24a96a7ddfef264a6e3de950340531fe4c56e",
+      "gitBlob": "be56769a830e3b28f9c3d0eba6c060de225ff93a"
+    },
+    {
+      "path": "docs/parallel/C/W06/W07_CONTRACT_REQUESTS.md",
+      "bytes": 3380,
+      "sha256": "1959a3926154a92f7ba3c491316db441f30e6c01aad132fe3ea4211cac6aff0a",
+      "gitBlob": "207adc2b4d5e8a2007202f94a257b0c720abd258"
+    },
+    {
+      "path": "docs/parallel/D/W05/W06_CONTRACT_REQUESTS.md",
+      "bytes": 16275,
+      "sha256": "0cc7e149d1cad99194fdbcb6a4c6414daf1c22a62c08ad6c392c6335cb205b4c",
+      "gitBlob": "bb728ef91b6a98937203046be3dc984e9c17c02c"
+    },
+    {
+      "path": "docs/parallel/D/W06/W07_CONTRACT_REQUESTS.md",
+      "bytes": 14116,
+      "sha256": "1c80bca0076a8a3e4221169558463974c502b97032bed8159f0086f422e25c8a",
+      "gitBlob": "69caa5235ac2f9b55e3318326242767b81cbf0f0"
+    },
+    {
+      "path": "docs/parallel/E/W05/W06_CONTRACT_REQUESTS.md",
+      "bytes": 12572,
+      "sha256": "3ed9a1dd6a3a579ed89375d13da56b1f2282b0217dcc7f3f924bb8c9f9fd2799",
+      "gitBlob": "65e18df7929d6555c414109e5015accfb64a959a"
+    },
+    {
+      "path": "docs/parallel/E/W06/BLOCKERS_AND_DECISIONS.md",
+      "bytes": 8440,
+      "sha256": "ff56d3031dfc77e0b96ea675a8f62c6b65dfb5b50f123de4cd1097b975bf5663",
+      "gitBlob": "16727d0aca82b63e0d0f15e9502e04ef2aa97d11"
+    },
+    {
+      "path": "docs/parallel/E/W06/W07_SCOPE_GAPS.md",
+      "bytes": 18179,
+      "sha256": "593fd866dfe6cbdbe6ab9c99b8cec0f3a27491c7e5bcd2ba6e8eddb0edec3ccd",
+      "gitBlob": "ebaecdfba96f90f373a2f0730c18d7ceaa552169"
+    },
+    {
+      "path": "docs/parallel/E/W07/CANDIDATE_AND_STAGING_GATES.md",
+      "bytes": 9729,
+      "sha256": "f77e6dbe381aac6824e48c73f500116ec75cc23b1ac24c1e055b89d65580a0a1",
+      "gitBlob": "8027fbc44d88c9074947d4310395b404bcdbd26b"
+    },
+    {
+      "path": "docs/parallel/E/W07/CHECKPOINT.md",
+      "bytes": 4617,
+      "sha256": "8b643e01b65a16982bf7c6156636207e901f6f4853d2e3cf1f4c8ad7cf40fb45",
+      "gitBlob": "6264c0033e57fb0881056acc68fa04e0acb7ceda"
+    },
+    {
+      "path": "docs/parallel/E/W07/CONTRACTS_AND_PROVIDER_SEQUENCE.md",
+      "bytes": 17711,
+      "sha256": "7bdbb54c4349a29da54db1b6ce51d48670e530d3f73ca75969e1d5b1bdaf4c49",
+      "gitBlob": "235cabe115a576974476797a3937e52bc5ff4d0e"
+    },
+    {
+      "path": "docs/parallel/E/W07/FULL_SCOPE_MATRIX.md",
+      "bytes": 164487,
+      "sha256": "4084368cad7e5728561a480a28ad8c1a8affdeaad22f040b67ce84909ba18d9c",
+      "gitBlob": "9b04b27e5e2e73739d172e0e7089bdf9cd7b7e4c"
+    },
+    {
+      "path": "docs/parallel/E/W07/README.md",
+      "bytes": 4603,
+      "sha256": "934831172878601e9ac41490d7506b515fb89584a7bd183d3dc27e670727f0de",
+      "gitBlob": "7406389227f5a0fc2f9d969f1a9ddaf3d0586efc"
+    },
+    {
+      "path": "docs/parallel/E/W07/SOURCE_OBSERVATION.json",
+      "bytes": 22287,
+      "sha256": "ef345f4719720e3581de4e943b15db5b1d7ca5875f807fdb1bc764587dc4f008",
+      "gitBlob": "bbe91d2cb863996eabd02fe264d6b2c9fbc813cd"
+    },
+    {
+      "path": "docs/parallel/E/W07/W08_HARDENING_AND_BLOCKERS.md",
+      "bytes": 13637,
+      "sha256": "2ce08da41aed28d226ad6047d51da87a100789a52b7c93c26f8116ca591ff216",
+      "gitBlob": "38f2b19af6c7e467bb08aefce8e04fe154add08a"
+    },
+    {
+      "path": "infra/postgres/provision.sh",
+      "bytes": 5800,
+      "sha256": "ce19ea0642cf33a662dfce416eadee0abd7647226f211dda2966df5d56e1ad2b",
+      "gitBlob": "1116e909a80a90d132db58dbc3af063b27831ff4"
+    },
+    {
+      "path": "package.json",
+      "bytes": 5142,
+      "sha256": "e9d028e3cbb25d8aee603224a951d5b3c49794482aa73cc4ac2c787809dd1128",
+      "gitBlob": "04029d0b8310fe65a96ec7e395a3757585cc2b64"
+    },
+    {
+      "path": "packages/api-clients/package.json",
+      "bytes": 365,
+      "sha256": "f49b16dd0418f4229042536ed1a8a4e11505467a1b8b85147263301bddbabd9f",
+      "gitBlob": "296fcdea9528bbd0435cce2b138844b4f21c67cb"
+    },
+    {
+      "path": "packages/api-clients/src/index.ts",
+      "bytes": 94,
+      "sha256": "9c5162feffe8bbe37bdf5adde98f993d3d2169c1156a6ed5265cc6b7e4585c1d",
+      "gitBlob": "cecc3736c7f4be236c389f2688ef0250152153b6"
+    },
+    {
+      "path": "packages/contracts/package.json",
+      "bytes": 767,
+      "sha256": "7fcdae7298bcf9fa5417f3d4387445bdbb3942d7e2ab041507c902fbcb13bd93",
+      "gitBlob": "a5202e4415217bd99b32ba4775382cc4bbb30d82"
+    },
+    {
+      "path": "packages/contracts/src/identity.ts",
+      "bytes": 2562,
+      "sha256": "0e122d3e0e148e1df23e54a0f4fa619d1529e7c187f430e6f6c4833de50642ae",
+      "gitBlob": "b44840fbcc65216c61c8ce22ff85bd0b465095e4"
+    },
+    {
+      "path": "packages/contracts/src/registry.ts",
+      "bytes": 1106,
+      "sha256": "a823495f3038c4c4a27c323194f86e51665b0f263ac39ec40afaa0b24f3fa97d",
+      "gitBlob": "1cea2a4f5506809bdddd509cc3e7296685b58f97"
+    },
+    {
+      "path": "packages/event-contracts/package.json",
+      "bytes": 1012,
+      "sha256": "035cdd03d0695d29ed456b340c66651ddb87a456436fd98fb1c2170d8c2d221a",
+      "gitBlob": "265c1a21318e087c65cbb36ee68fed5e7bf29f68"
+    },
+    {
+      "path": "packages/event-contracts/src/registry.ts",
+      "bytes": 1163,
+      "sha256": "9150079692bf7945d3532bdf9b3f3af07f0f085a346f0ae11ebbe3bea6fe6a6f",
+      "gitBlob": "f5057fb24f3e95bfb9e29e8d54ae8b646efe70d1"
+    },
+    {
+      "path": "packages/platform-messaging/src/outbox-relay.ts",
+      "bytes": 4528,
+      "sha256": "0002f4e79368da310f6b7a8b16fd886c18db6b72795871da9bed1ea6f46413d3",
+      "gitBlob": "fc9c3eb80b6373808ea28162ade771bac507696b"
+    },
+    {
+      "path": "packages/platform-messaging/src/publisher.ts",
+      "bytes": 4229,
+      "sha256": "6e0d578d026855688527d3ba65aaae97e35661b446e8ca3f5051fcaf8ad46151",
+      "gitBlob": "f3b148d55b38bff8b27a751b7793737c9574cb0d"
+    },
+    {
+      "path": "scripts/ci/run.mjs",
+      "bytes": 14677,
+      "sha256": "099c2dca95f7a3508e6c5363c6b01bcad4409d807a9ff62bf154ca6dc1bcac14",
+      "gitBlob": "69d2b6c325237802938a8f03fc9dc9fb788e2f1b"
+    },
+    {
+      "path": "scripts/ci/secret-scans.mjs",
+      "bytes": 561,
+      "sha256": "ebd4216d0318b010d2a5fb08d722d95e052592486872123052c84645deb5c9c6",
+      "gitBlob": "3d166b598c37303184e9e8de1767480e86ac5a6e"
+    },
+    {
+      "path": "services/billing/prisma/schema.prisma",
+      "bytes": 921,
+      "sha256": "82aa2c8382d9a1b5a345f75065407c213da829acd58e92c1331b3d9bfed4c3a1",
+      "gitBlob": "2c28c14a9b670a0181216180efc2399df090dd93"
+    },
+    {
+      "path": "services/billing/src/app.module.ts",
+      "bytes": 1090,
+      "sha256": "7d0a5be630d96794e8603af930151d7218222330994cb6cbaab0bc7466256a5f",
+      "gitBlob": "ed8b627d8adb676dc9a1204ddea9e6df3e88c7da"
+    },
+    {
+      "path": "services/billing/src/application/index.ts",
+      "bytes": 211,
+      "sha256": "4b9ebafa91ad82d917b6be55c1b7a6a4051ce9222dd5175757842b286cad04ad",
+      "gitBlob": "8e7a7f00ffe436efa4f4b265b4eb5c465790ac24"
+    },
+    {
+      "path": "services/billing/src/domain/ledger.ts",
+      "bytes": 1299,
+      "sha256": "90dc25a443edb96154f725bb1df781932a08664547f677fade08d33badb3f696",
+      "gitBlob": "8528340bbfc30bb67bdf6f4e9c144d6a314fbb3f"
+    },
+    {
+      "path": "services/billing/src/ports/index.ts",
+      "bytes": 205,
+      "sha256": "60de24bfbf0afd9f4a2e6c80bd53094967acf4954c053e2b7e06446da528ff69",
+      "gitBlob": "fe5d9770dcec9a3faed23342f516f12ffa876ae9"
+    },
+    {
+      "path": "services/booking/prisma/schema.prisma",
+      "bytes": 921,
+      "sha256": "9ea3d6dd78593cafafc97320e392e2bdd4e5394adcca768e303d20c2146d7622",
+      "gitBlob": "a6058eead134e1fc02b43d891851f51f2a4d5653"
+    },
+    {
+      "path": "services/booking/src/app.module.ts",
+      "bytes": 1090,
+      "sha256": "ebf2900f0db9c06535d7014b029ead54acae257bfb37985919cd4ac007a676da",
+      "gitBlob": "53099fff48c01f2bc0887a0d0d35cb279324bc46"
+    },
+    {
+      "path": "services/booking/src/application/index.ts",
+      "bytes": 211,
+      "sha256": "820efb5ab50672b9a216b0f9f70c0e94c05fe10f44f5b5d6dfda1a8569a69b97",
+      "gitBlob": "192404cb91b3aadb5ed2dee12cef9d90e322eaa3"
+    },
+    {
+      "path": "services/booking/src/domain/lifecycle.ts",
+      "bytes": 2021,
+      "sha256": "510b5b02c1507d7d1310d449d9d6d1fd326508797b5acf6f138c21d8491a3613",
+      "gitBlob": "34badd5f823b91e3084d5af1597a594c90aee465"
+    },
+    {
+      "path": "services/booking/src/ports/index.ts",
+      "bytes": 205,
+      "sha256": "3607d3ec092a8a55ab152433e12cbd36e0522826c727728f2e37b17ec1cedd4c",
+      "gitBlob": "9e1f5363cb3a68cc5478f8df362432c19e0d4f8e"
+    },
+    {
+      "path": "services/catalog/prisma/schema.prisma",
+      "bytes": 2307,
+      "sha256": "19ab178b6d32fafd460ce1c8d737af00cb8196f6f84c5a2ff573e48b77b4678b",
+      "gitBlob": "5585673bc38cd3755a6b661919b557d3679e5f99"
+    },
+    {
+      "path": "services/catalog/src/app.module.ts",
+      "bytes": 1264,
+      "sha256": "c2141f20ff2e04ccdbf3753bb5d5881f44eb1e387210b9cd31cdd00dd5d87b26",
+      "gitBlob": "0c1e157c32ff9a83d698ea9d006589f505a60ad2"
+    },
+    {
+      "path": "services/catalog/src/application/index.ts",
+      "bytes": 211,
+      "sha256": "be0c1354b3793cf0ce7cdae5e133ae2a4a1b38b22b1cbad5171139e3b70552c1",
+      "gitBlob": "63584a1c0159d6b07d4b7ba1b0181c23ca93a766"
+    },
+    {
+      "path": "services/catalog/src/outbox/prisma-outbox.store.ts",
+      "bytes": 4136,
+      "sha256": "433228770c17708dbdeaca27d29546675c4744def5c106e6546300b238354ee3",
+      "gitBlob": "c2131270561bd0ea4224c6224b35cbb65310285d"
+    },
+    {
+      "path": "services/catalog/src/outbox/relay.runner.ts",
+      "bytes": 7536,
+      "sha256": "e9faae9ff3184f9295e46a487046c290e0ed646a1977822a8921ba674f9382df",
+      "gitBlob": "31c3d336d8800fa0da22a343d63f6f5cfd7fa0bb"
+    },
+    {
+      "path": "services/catalog/src/ports/index.ts",
+      "bytes": 205,
+      "sha256": "94beaf1fe1cd843029acee650bd054c71d83e82cc3b26be8c0f2077198b96305",
+      "gitBlob": "2b89c1624e13dde75dbf261a7516183b2d421f99"
+    },
+    {
+      "path": "services/identity/src/domain/auth-policy.ts",
+      "bytes": 2934,
+      "sha256": "040759d5b796215e64818808efb2d3ed02d0c18080a0f8c0bf0e18cf33ef6058",
+      "gitBlob": "d83aa910c73e87dee00d5ca2a0b33666343fc62f"
+    },
+    {
+      "path": "services/pricing/prisma/schema.prisma",
+      "bytes": 921,
+      "sha256": "5e8251634c057bb4656d0b050d52e04cd02734a3ca541d1a2667df7f73bb6686",
+      "gitBlob": "3b87b3cb056572ef07d183a8943a839701a37c27"
+    },
+    {
+      "path": "services/pricing/src/app.module.ts",
+      "bytes": 1090,
+      "sha256": "9494e66c9f545f0beddb56245448a6fec960f46901af2815f56e1a2d1dfa268c",
+      "gitBlob": "f9292782cf130f5403e5a234f93323ae57d7fd59"
+    },
+    {
+      "path": "services/pricing/src/application/index.ts",
+      "bytes": 211,
+      "sha256": "3d1fb9b8a404b6395924c7c5f128ab8df220f9375daad55c0166e59d5becb533",
+      "gitBlob": "e838e5013f283efa256de28c878f15c4b209fe3b"
+    },
+    {
+      "path": "services/pricing/src/ports/index.ts",
+      "bytes": 205,
+      "sha256": "d70d8b02d56357fa9e6663f34680a3c4c37a9e057c20e687a9db4c2d6cfce43d",
+      "gitBlob": "ffd57eb3c8ce4008425307ac5e2bf74e2a2a6716"
+    },
+    {
+      "path": "services/subscription/prisma/schema.prisma",
+      "bytes": 926,
+      "sha256": "b74cc9c3d0002d7c6482f68268a37e9860387ae39199e111b73b625db53b64ad",
+      "gitBlob": "d98bcecd4730a13d2a27d9bb068c5de2125a579f"
+    },
+    {
+      "path": "services/subscription/src/app.module.ts",
+      "bytes": 1100,
+      "sha256": "3590f6411e58d52c310651399c1773ced095dcdceef03233cd4497c45ab04f90",
+      "gitBlob": "fdc00ecdec3acd5e23282ce220407ad48601ffe0"
+    },
+    {
+      "path": "services/subscription/src/application/index.ts",
+      "bytes": 216,
+      "sha256": "f43093b144374c4c43134275284eb4aab3db19a7287ddb0c857452e5833d21bb",
+      "gitBlob": "d5a23a1c56715f903a4f0cd4f7252e4e946dd3b5"
+    },
+    {
+      "path": "services/subscription/src/ports/index.ts",
+      "bytes": 210,
+      "sha256": "0923a4c29a7a5d44284a7ace876de08465b1c7d7a8372f2fab0f20337732fe04",
+      "gitBlob": "7fc9a5385a41f2925d7d0e6fafbff90d31e81bd9"
+    },
+    {
+      "path": "services/wallet/prisma/schema.prisma",
+      "bytes": 920,
+      "sha256": "e6e9b6017244473a152de02d8441d14c6e71acc4dce61fdafd4fe50bef422db2",
+      "gitBlob": "b4810f93f7d59ce9a44bab332d7e84b2a6871ec2"
+    },
+    {
+      "path": "services/wallet/src/app.module.ts",
+      "bytes": 1088,
+      "sha256": "e3fbed1cad928592d6ab6c098a0d25bd5dded26e7177d629df1c1cf2a5d3da13",
+      "gitBlob": "75a024fb112856c8c37b60e018d923a27472c032"
+    },
+    {
+      "path": "services/wallet/src/application/index.ts",
+      "bytes": 210,
+      "sha256": "cfeb3acbedfb88ce2c19590e9f14a4db3dc4f2adeff4701af1e7bbb6a069f590",
+      "gitBlob": "44a0beac31ac4ee1c16dd334ca8e7437bca18d4f"
+    },
+    {
+      "path": "services/wallet/src/ports/index.ts",
+      "bytes": 204,
+      "sha256": "f281083355a936d0a7adf6f3436813d91d06d48e59545964dc7df86331feb5e2",
+      "gitBlob": "437bb3e1014dcbcefee907372477edca2d0bc1e7"
+    },
+    {
+      "path": "tests/ci/secret-scans.test.mjs",
+      "bytes": 4905,
+      "sha256": "fb3c10cbee662691065859ce70efb8423179fae6497f4a8fcf445eb49e115e8e",
+      "gitBlob": "58551f64ec30032634ef6fa28168c0a562cc4299"
+    },
+    {
+      "path": "tests/integration/outbox-inbox.test.mjs",
+      "bytes": 30058,
+      "sha256": "a8ef039823f5d116a52a19f6018649ca34a36b8850233319c500bc3b03bf023f",
+      "gitBlob": "db2736232de69eedda593c6c3291437f7c89d2b7"
+    },
+    {
+      "path": "tests/parallel/B/W07/acceptance-specifications.json",
+      "bytes": 39148,
+      "sha256": "ddd42a46f8211d101973b78f23c22561ba663bec0b57aba524b8ffc03dc947e4",
+      "gitBlob": "1bc6001bfa7cd34fdf7fbc8be061a9d55770b519"
+    },
+    {
+      "path": "tests/unit/f008-recovery-scope.test.mjs",
+      "bytes": 10789,
+      "sha256": "45bb362960af35adeb375a335dde86186f37801686fedee887f894461f133b67",
+      "gitBlob": "595fab27aa4de4df1246a7eea231f1f19ca5cb64"
+    }
+  ],
+  "observedAtUtc": "2026-10-06T19:50:13.653628+00:00",
+  "requiredBusinessCaseCount": 31,
+  "requiredBusinessCaseStatus": "NOT_RUN"
+}
