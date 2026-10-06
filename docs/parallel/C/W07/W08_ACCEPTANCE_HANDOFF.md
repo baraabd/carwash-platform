@@ -1,0 +1,16 @@
+# W07-C — W08 acceptance probes and contract requests
+
+REQUESTED / NOT_ACCEPTED; no W08 implementation. [Feature matrix](OPERATOR_FEATURE_AND_RECOVERY_MATRIX.md) is proposed mapping, not completed operator acceptance. E must receive completed exact-source feature→producer→code→test→artifact matrix after real W07 gates before acceptance.
+
+| Probe family / authority | Required request/result semantics and evidence |
+| --- | --- |
+| B Pricing promotion/C Booking | Concurrent last use/budget, reserve/commit/release/cancel-restoration/requote probes; exact original effect/reservation/quote/policy/operation refs and revisions, allowed independent outcomes and immutable-history/cross-key uniqueness |
+| B Subscription/Wallet/Billing + C | Last entitlement/funds/hold expiry/capture unknown/correction/refund/restoration races with same-operation reconciliation, actual posting refs, currency/units/purpose and independent capacity/benefit/money facts |
+| C Media/Workforce/Booking privacy + accepted D/E coordinator | Current request/task/subject/purpose/retention/legal-hold/export/owner result, partial/failed/request-only/completed distinctions and real retained categories/copy inventory, private export digest/expiry/revocation |
+| E technical + C/D recovery | Snapshot/cursor/source revisions/filter/principal/grant binding, expired/gapped/reordered/hash-conflict event handling, fenced restart and account switch; idempotent source repair, no external resend/debit |
+| C/D operator/admin full feature acceptance | Exact approved action/scenario/locale/reference/code/provider/test/source artifacts, full fleet-browser→operator execution and collection/custody/support source quality |
+| E/C/B/D performance/operational bounds | Approved workload/data size/device/network profiles, accepted latency/error/recovery-age/queue-lag/backlog/cache/draft/upload/storage budgets, measurement window/resource caps and alert/runbook owner; measure before setting pass thresholds |
+
+For every probe freeze authoritative owner, real consumers, exact contract ID/version/closed request/response/event fields and null/unknown enums; current actor/member/guest/service/delegation/object/purpose checks and replay/download revocation; independent IDs/revisions, canonical Money/units/currency/UTC/timezone/policy; allowed transitions, stable idempotency scope/fingerprint/conflict/original replay/lifetime and lasting business uniqueness; safe errors/deadline/unknown lookup/compensation refs; outbox/inbox/hash/gap/source repair; compatible old readers and exact package exports/routes/topology/gate commands through E. No private DTOs or widening strict booking.confirmed.v1.
+
+Run real owned DB migration/constraints/current HTTP/Identity and broker/crash tests before real consumers; mocked fault adapters cannot replace financial provider proof. E allocates per-run namespaces/one measured heavy slot, serializes latest-target+head candidates, independent review and resulting-target gates; recompute when refs change. Pinned Linux pixels separate from Windows/device interaction and staging/operation. Current performance bounds and operational evidence are unapproved/unmeasured. W08 handoff never authorizes live money/deletion/refund/production deployment or marks W07 DONE.
