@@ -1755,9 +1755,9 @@
     "production deployment"
   ],
   "w10Requests": [
-    "W09-A-Q01 evidence source binding",
-    "W09-A-Q02 complete inventory and actual devices",
-    "W09-A-Q03 recovery/restore/schema compatibility",
-    "W09-A-Q04 blockers and operational release decisions"
+    "W10-A-Q01 evidence source binding",
+    "W10-A-Q02 complete inventory and actual devices",
+    "W10-A-Q03 recovery/restore/schema compatibility",
+    "W10-A-Q04 blockers and operational release decisions"
   ]
 }
