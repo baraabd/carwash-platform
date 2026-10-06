@@ -1,0 +1,693 @@
+{
+  "schemaVersion": 1,
+  "task": "W10-D",
+  "phase": "PROPOSAL_ONLY / ENTRY_BLOCKED / CANDIDATE_TESTS_NOT_RUN",
+  "recommendation": "NO_GO / FULL_LAUNCH_NOT_ACCEPTED / RELEASE_UNCERTIFIED",
+  "expectedBase": "BASE_W10",
+  "acceptedBaseW10": null,
+  "analysisBase": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+  "analysisTree": "9288ac9a1320221f309ce33b571a057f5ec2ea57",
+  "analysisBaseIsAcceptedWaveBase": false,
+  "githubIntake": {
+    "main": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+    "tree": "9288ac9a1320221f309ce33b571a057f5ec2ea57",
+    "observedAtUtc": "2026-10-06T21:49:12.466Z",
+    "openPRsAtIntake": [],
+    "mergedWave9": [
+      {
+        "number": 85,
+        "title": "docs(W09-E): propose deployment restore and operational handover",
+        "head": "8d67b0660a3f59d3ae698283ee6702780663c705",
+        "merge": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+        "mergedAtUtc": "2026-10-06T21:44:58Z"
+      },
+      {
+        "number": 82,
+        "title": "docs(W09-A): propose customer staging recovery and device rehearsal",
+        "head": "2f251f30fef863f148f665883c2fcc6460a12034",
+        "merge": "afa0dbdf67eec1f74cb31fc0989fa72e808deb03",
+        "mergedAtUtc": "2026-10-06T21:43:56Z"
+      },
+      {
+        "number": 84,
+        "title": "docs(W09-D): propose staging operations and supporting recovery entry",
+        "head": "9dfff0393f97e398dbf48e5edb0d2a9a31aae6e3",
+        "merge": "9fb6d50d8bff31d72c7151923199ccb1492bc08c",
+        "mergedAtUtc": "2026-10-06T21:44:42Z"
+      },
+      {
+        "number": 83,
+        "title": "docs(W09-B): propose provider, import and restore rehearsal gates",
+        "head": "c3672464d199e7876196c423454bf565a09879fc",
+        "merge": "230481a976dd390fa8ff525414e457cdd4614426",
+        "mergedAtUtc": "2026-10-06T21:44:13Z"
+      },
+      {
+        "number": 81,
+        "title": "docs(W09-C): propose field rehearsal and staging handover packet",
+        "head": "a1c99c202d830e5f9f7224a741fb962bca9552dd",
+        "merge": "8ce37e5502cd105c788946968d94fdb6cc4ba1b8",
+        "mergedAtUtc": "2026-10-06T21:44:27Z"
+      }
+    ],
+    "checks": {
+      "total": 41,
+      "counts": {
+        "success": 21,
+        "in_progress": 10,
+        "queued": 10
+      },
+      "limitation": "Exact analysis-main intake snapshot; not accepted RC/deployed/independent evidence."
+    },
+    "workflows": {
+      "total": 8,
+      "counts": {
+        "queued": 1,
+        "in_progress": 3,
+        "success": 4
+      },
+      "limitation": "First-page exact-head intake snapshot; not full-scope acceptance."
+    }
+  },
+  "predecessor": {
+    "pr": 84,
+    "head": "9dfff0393f97e398dbf48e5edb0d2a9a31aae6e3",
+    "merge": "9fb6d50d8bff31d72c7151923199ccb1492bc08c",
+    "meaning": "Externally merged W09 proposal only; no actual W09 journeys/recovery/elapsed/loss or accepted BASE_W10."
+  },
+  "wave9Delta": {
+    "from": "b47390c8ce04b2674e9222918bcd4e03fa5aed24",
+    "to": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+    "addedPaths": 35,
+    "modifiedPaths": 0,
+    "deletedPaths": 0,
+    "insertions": 8466,
+    "deletions": 0,
+    "runtimeOrHarnessChanges": 0,
+    "previousSourceSchemaPinsUnchanged": 49
+  },
+  "release": {
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "bases": {
+      "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "BASE_W02": null
+    },
+    "packagesAtSource": {
+      "@carwash/contracts": "0.0.2",
+      "@carwash/event-contracts": "0.0.2",
+      "@carwash/api-clients": "0.0.1"
+    },
+    "existingClientContracts": [],
+    "acceptedNextWaveContracts": [],
+    "productDecisions": {
+      "privacyExportResetDeleteProductionMeaning": "pending-owner-decision",
+      "privacyCoordinatingOwner": null,
+      "retentionAnonymizationPolicy": null,
+      "walletReferencePurpose": "Team cash custody and settlement visibility with Billing posting references; exact account holders and hold reasons pending B/product decision.",
+      "walletIsCheckoutMethod": false,
+      "customerStoredValueFundingWithdrawalApproved": false,
+      "payrollMarketplaceOrAutomaticRecurringDebitApproved": false,
+      "approvedCheckoutMethods": [
+        "cash",
+        "sham",
+        "syriatel"
+      ],
+      "paymeraScope": "pending-owner-decision-and-actual-provider-documentation",
+      "workforceEmploymentModel": "pending-owner-decision",
+      "financialPolicy": "pending-owner-input",
+      "AleppoCoverageHoursPrices": "pending-owner-input",
+      "peakLoad": null,
+      "performanceTargets": null,
+      "recoveryTargets": null
+    }
+  },
+  "ownership": {
+    "status": "proposal-pending-independent-review",
+    "wave": "W01",
+    "scope": "W01 bootstrap lease expired per task. Permanent D ownership applies; reserved/shared/architecture/CI/infra files remain E-owned. Missing accepted W10 base/contracts separately blocks dependent source writes, permitting only D-local proposals. Historical lease tests do not revive source permission."
+  },
+  "candidateEntry": {
+    "acceptedBase": null,
+    "serializedCandidateSourceTree": null,
+    "independentEligibleApproval": null,
+    "requiredCandidateGateRecords": null,
+    "deployedImageRepositoryDigestManifest": null,
+    "configurationEnvironmentManifest": null,
+    "appliedMigrationManifest": null,
+    "approvedStagingActorsResourceSlot": null,
+    "fullDesignCopyPolicyProviderContracts": null,
+    "actualW09RecoveryBundle": null,
+    "approvedRecoveryLimits": null,
+    "realOperationalRoster": null,
+    "limitation": "Missing in supplied/inspected repository evidence. No claim that an external staging environment cannot exist; E must identify authorized concrete entry."
+  },
+  "sourceFacts": {
+    "admin": "Foundation-only technical boot; not 17 implemented product screens or current tab/socket/export recovery.",
+    "referenceInventory": {
+      "screens": 17,
+      "prototypeButtons": 58,
+      "prototypeHandledButtons": 36,
+      "inertButtons": 22,
+      "navigationButtons": 17,
+      "editableStaticFields": 8,
+      "modalTypes": 5,
+      "modalFields": 16,
+      "modalTriggers": 8,
+      "dashboardCreationShortcuts": 3,
+      "dashboardNavigationJumps": 5,
+      "scope": "Canonical prototype/inventory only, not provider implementation or complete English/production approval."
+    },
+    "identity": "Actual accounts/session/current-active/revocation/authVersion and role/status audit providers; existing 7 roles/14 coarse grants, not new object/purpose/guest/replay/config/private-export/membership grants.",
+    "gateway": "Bounded admin route descriptors; Workforce verification /admin/reviews is not D Reviews moderation; no durable owner business/status/replay receipt.",
+    "dServices": "All businessReady=false; Support/Reviews/Configuration ServiceMarker only, Communications/Reporting Inbox plus probe effects. No cases/review/config-history/conversation/attempt/business-frontier/export/restore providers.",
+    "INT-D-01": "Static/open/unreproduced/unfixed: D transaction-wide P2002/23505 maps to DUPLICATE; six real constraint/race/rollback tests still required.",
+    "candidateProvenance": "E W09 supplies no accepted RC/BASE_W10 or production command set; predecessor b473 foundation checks/23 local image IDs are not current published/pulled deployed business artifacts.",
+    "financeHistory": "B W09 pending-provider inventory, genuine historical dataset/absence review, per-currency control totals and actual import/provider/restore receipts remain null. Missing access is not historical absence, UNKNOWN is not zero exposure.",
+    "restore": "Fresh accepted execution incarnation outside rolled-back claim state and current authority/privacy required before resume; preserve original provider/business/event identity. No real W09 restore/loss/timing evidence.",
+    "ownershipSeams": "A Customer CSV content; D Reporting admin projection/export proposal; C private artifact bytes; export/privacy coordinator and D membership/C-E location authority are unaccepted. Wallet custody/handover differs from Billing collection/treasury/settlement.",
+    "boundary": "No source fixes/migrations/contract changes/hooks/infra edits or actual candidate product operations. Task remains NO_GO, no accepted scope reduction."
+  },
+  "sourcePins": [
+    {
+      "path": "AGENTS.md",
+      "bytes": 3138,
+      "sha256": "9a36dcbe805425931884abedb1b1efefdaafa39a0a73c13837bcec71d4eb489f",
+      "blob": "3ac2760e246cd0efd23a3eb707d0078f67474bbd"
+    },
+    {
+      "path": "docs/design/DESIGN_LOCK.md",
+      "bytes": 10268,
+      "sha256": "0f05db671539f6568227cef7c6e7378ab0db4c1ae63cefd0678ce504fbfab0ec",
+      "blob": "b8f41723448f6c38e5bf8eb1fb355216a2af2ec4"
+    },
+    {
+      "path": "docs/design/reference-manifest.json",
+      "bytes": 2799,
+      "sha256": "985a98d76516c2443ad8c9a716d6d35225feb54a05b84d0fd7a004561223545a",
+      "blob": "a1c54870239f9c05e57886db93905f26cb4bca9a"
+    },
+    {
+      "path": "docs/design/f010-reference-manifest.json",
+      "bytes": 1488,
+      "sha256": "94c3c99206169e66dd0a1161b5b7968c098f1e3ee29af3d5e1c7789be4ba44f3",
+      "blob": "01fc8c5dd01e93f6b1e1a62b063aa78550376703"
+    },
+    {
+      "path": "docs/adr/0004-approved-ui-precedence.md",
+      "bytes": 1557,
+      "sha256": "d14c375db104b255fc6aa8f2692443c60751e81c7e828d3cc479e0effa6c755d",
+      "blob": "43ae29e1a49a18367dc3fbe2d32f840b061f966d"
+    },
+    {
+      "path": "docs/ARCHITECTURE_AR.md",
+      "bytes": 45553,
+      "sha256": "d11a69f75d17375f47f0648e7cfd2185211461f516d90e23d99c9b2c24eae9d8",
+      "blob": "e504970dc207e5f7d90dd1fc63b20fd41c5743db"
+    },
+    {
+      "path": "docs/VERIFICATION.md",
+      "bytes": 4653,
+      "sha256": "d8445acdd7cefd3818b538bf04b822ee07075cf1f95d68f05f7eed5437872ea3",
+      "blob": "969532fdd064cb3a0a31851b98b686a13681ee72"
+    },
+    {
+      "path": "architecture/adr/F001-monorepo-and-data-ownership.md",
+      "bytes": 7220,
+      "sha256": "46309b8de279fbccb99716b240a429a79abd1b5699e809947429d9726ece67d7",
+      "blob": "2ed9f9204293849fb05ea296dc489b8787c38e22"
+    },
+    {
+      "path": "architecture/service-catalog.json",
+      "bytes": 43887,
+      "sha256": "34462fbfb90c6a221524905aa21f7a4022c28a1b21d2243381a1b07582eac9b8",
+      "blob": "3cbd5c3fd4382926970ed6235a2569d93201e095"
+    },
+    {
+      "path": "architecture/parallel-contract-release.json",
+      "bytes": 31335,
+      "sha256": "aec04eeb6c3d893e4e0b401bab0a550c517f1e32709a5e0189f4a3ddb0ce4db9",
+      "blob": "2105e85c9e498ce25a13a2ec040956f30784aab2"
+    },
+    {
+      "path": "architecture/parallel-ownership.json",
+      "bytes": 59599,
+      "sha256": "2b696da4f8ed6d0fbb6234e33dc207e92c9e91f72e56e6f8777aac62c4f8e144",
+      "blob": "ceabe10c3133e60cbaa7fe0fed036ee5efb78c75"
+    },
+    {
+      "path": "architecture/implementation-status.json",
+      "bytes": 16460,
+      "sha256": "8a92763151eff40c685b42eb8c1fbc335d564b5ca7b0f38cf83d4e305bf57242",
+      "blob": "5034c48f9af19ec65fd8c6c6e205827549578c92"
+    },
+    {
+      "path": "design/reference/approved/washgo-payments-interactive.html",
+      "bytes": 263462,
+      "sha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549",
+      "blob": "e451bd9db408888ffd470ee7ded42246c4fcd12c"
+    },
+    {
+      "path": "design/reference/approved/washgo-technician-interactive.html",
+      "bytes": 122636,
+      "sha256": "d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc",
+      "blob": "36329a2431ed493cb685a7abd6ce2432e6840ae9"
+    },
+    {
+      "path": "design/reference/approved/washgo-admin-prototype.html",
+      "bytes": 40310,
+      "sha256": "b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273",
+      "blob": "301e247267b8d68d11d084ce8cc458b59f7d5e2e"
+    },
+    {
+      "path": "apps/admin-web/src/index.ts",
+      "bytes": 445,
+      "sha256": "666bd276e8c31ad327e2c706d589ebd04efbb692e48c61529a7d9ba814eeb6cd",
+      "blob": "413aea4978253ccaf3d12212a81b4525b1ba82cc"
+    },
+    {
+      "path": "packages/contracts/src/identity.ts",
+      "bytes": 2562,
+      "sha256": "0e122d3e0e148e1df23e54a0f4fa619d1529e7c187f430e6f6c4833de50642ae",
+      "blob": "b44840fbcc65216c61c8ce22ff85bd0b465095e4"
+    },
+    {
+      "path": "packages/contracts/src/gateway.ts",
+      "bytes": 5732,
+      "sha256": "28d73b02d8c31724c2b0537259a9f84e05ba440766116d35993ae1514c45cc40",
+      "blob": "73a4397cb6ebd56bb56065b487de4104742d422c"
+    },
+    {
+      "path": "packages/api-clients/src/index.ts",
+      "bytes": 94,
+      "sha256": "9c5162feffe8bbe37bdf5adde98f993d3d2169c1156a6ed5265cc6b7e4585c1d",
+      "blob": "cecc3736c7f4be236c389f2688ef0250152153b6"
+    },
+    {
+      "path": "services/identity/src/application/identity-auth.service.ts",
+      "bytes": 16872,
+      "sha256": "bcaa6240678273426f5bdab1acb340da6b20cb48d948859df3fe6638ad5a0763",
+      "blob": "a6e3af92697b2adb2522c64095d27a77ffe4a901"
+    },
+    {
+      "path": "apps/api-gateway/src/domain/policy.ts",
+      "bytes": 2800,
+      "sha256": "8acf47a5fc8c6f05ce5a7acc1755dfaf4abd9573639af800957abe997957ddd6",
+      "blob": "5400edc87d2a0061dbefc4fe769912badc498ff1"
+    },
+    {
+      "path": "services/communications/src/inbox/prisma-inbox.store.ts",
+      "bytes": 2251,
+      "sha256": "354ab491d7caddfcdce7d40af83d9c3d774d960336660b434eba9720b51be00b",
+      "blob": "308c43aea2ecb268d02d83de6734f72f02ce6467"
+    },
+    {
+      "path": "services/reporting/src/inbox/prisma-inbox.store.ts",
+      "bytes": 2246,
+      "sha256": "6711146f5147c38d1b1d6d56cda1052a5093d27490416e02b7f95c4e475de8e4",
+      "blob": "b358fb4899ddd8fac1e51701be7052b357507619"
+    },
+    {
+      "path": "packages/platform-messaging/src/inbox-consumer.ts",
+      "bytes": 8044,
+      "sha256": "cab0a274385e9c264f1f87731f02b160fa50dec1be7a38fa2c9f31f8459462c0",
+      "blob": "1ca2330e9234890b32b5e5adba2d373b3c6aeed0"
+    },
+    {
+      "path": "tests/integration/outbox-inbox.test.mjs",
+      "bytes": 30058,
+      "sha256": "a8ef039823f5d116a52a19f6018649ca34a36b8850233319c500bc3b03bf023f",
+      "blob": "db2736232de69eedda593c6c3291437f7c89d2b7"
+    },
+    {
+      "path": "tests/unit/f008-recovery-scope.test.mjs",
+      "bytes": 10789,
+      "sha256": "45bb362960af35adeb375a335dde86186f37801686fedee887f894461f133b67",
+      "blob": "595fab27aa4de4df1246a7eea231f1f19ca5cb64"
+    },
+    {
+      "path": "scripts/ci/secret-scans.mjs",
+      "bytes": 561,
+      "sha256": "ebd4216d0318b010d2a5fb08d722d95e052592486872123052c84645deb5c9c6",
+      "blob": "3d166b598c37303184e9e8de1767480e86ac5a6e"
+    },
+    {
+      "path": "scripts/ci/tools.lock.json",
+      "bytes": 2529,
+      "sha256": "ac0d7196bd991fd5bf68f7d92a8cba357a63c3ee463711fbc5f6e5521b72b9bb",
+      "blob": "d4680b7366ad871589940f5fbc06b88d3c13cdc3"
+    },
+    {
+      "path": "services/identity/src/domain/auth-policy.ts",
+      "bytes": 2934,
+      "sha256": "040759d5b796215e64818808efb2d3ed02d0c18080a0f8c0bf0e18cf33ef6058",
+      "blob": "d83aa910c73e87dee00d5ca2a0b33666343fc62f"
+    },
+    {
+      "path": "apps/api-gateway/src/application/gateway.service.ts",
+      "bytes": 4386,
+      "sha256": "b5e1cb900b1f5792c76d609fe3721bd3faaf8478a631bf403af96d9c9c02a355",
+      "blob": "63a5a6993910542ba16e96e0599580e6cd5990af"
+    },
+    {
+      "path": "apps/api-gateway/src/infrastructure/http-client.ts",
+      "bytes": 2626,
+      "sha256": "f5a88158df36ce0483256cd4e94a6622eee720f914bc1899d9a39d813aa0cb3f",
+      "blob": "3ee955bb03a1117cc1b8a3a3e40b8a8e33e7b8e6"
+    },
+    {
+      "path": "scripts/ci/image.mjs",
+      "bytes": 12290,
+      "sha256": "023d4373e7ccb286ab4788f7cad2b5c91936cbfceb84bd159265a4d9b2b422cb",
+      "blob": "c963cea98644cb6832c558b7465f16f467514e9f"
+    },
+    {
+      "path": "scripts/acceptance/lib/migrations.mjs",
+      "bytes": 6173,
+      "sha256": "8005e4f9bdb6107a83ac567d8769c92a6477bf043112301cdbd01dd5875e435f",
+      "blob": "f89f38cdb1c0e28777b3ff7574ea868e29145a26"
+    },
+    {
+      "path": "scripts/acceptance/lib/recovery.mjs",
+      "bytes": 1165,
+      "sha256": "2416436f3ce6c5c4b4102be913aea65ae4e68fda7126f317bd1709ac1cef92a8",
+      "blob": "f57693e49f768eb94b36828d5009d47a78815cd3"
+    },
+    {
+      "path": "docs/F006_IDENTITY_RUNBOOK.md",
+      "bytes": 4561,
+      "sha256": "b626acc20c6317aeaa07eb49804b9bf66497d5fc8c2287497008eb0da66bcdff",
+      "blob": "1aea81b89cfa748cfcf6d0f77f6ce1aa16ee57d4"
+    },
+    {
+      "path": "docs/parallel/D/W08/ADMIN_SECURITY_ACCESSIBILITY_MATRIX.md",
+      "bytes": 33592,
+      "sha256": "667587f7b0f99508db67c630a3f6e4cdd9bf1d3b09cff86105575504a4f19054",
+      "blob": "1e0924817dd404904d5ab32e9aa6f5f3380b3400"
+    },
+    {
+      "path": "docs/parallel/D/W08/SECURITY_PRIVACY_EXPORT_RECOVERY_PLAN.md",
+      "bytes": 27306,
+      "sha256": "c84614e5ade1e2e4e60f64f1754a089420e4e0824aea83482c14e35243a56a5e",
+      "blob": "b46b5f90e184ffb7899a8e18e79611b03f04824a"
+    },
+    {
+      "path": "docs/parallel/D/W08/W09_OPERATIONS_CONTRACT_REQUESTS.md",
+      "bytes": 13911,
+      "sha256": "d3d051fa3430ae0280ace712923aa6dde54c16be1084ca694a7575e727669de5",
+      "blob": "4bc72d39a8b9254d2eedeac05dd28ebc79f5e2b8"
+    },
+    {
+      "path": "package.json",
+      "bytes": 5142,
+      "sha256": "e9d028e3cbb25d8aee603224a951d5b3c49794482aa73cc4ac2c787809dd1128",
+      "blob": "04029d0b8310fe65a96ec7e395a3757585cc2b64"
+    },
+    {
+      "path": "apps/admin-web/package.json",
+      "bytes": 439,
+      "sha256": "8e595170d4c20c88a512ad1c0a12cfcc10cda772acd69ab74287d8e6db7eaf72",
+      "blob": "0316de08d5b432422224589f873c8721bff18c17"
+    },
+    {
+      "path": "docs/parallel/D/W07/ADMIN_ACTION_MATRIX.md",
+      "bytes": 48015,
+      "sha256": "dcf733fd020805e75ccd93bdea9c38d9d38745f1874aef4fe811ce3b9fc08a1a",
+      "blob": "82dd55c5978e2e7e759baacb98f824a660d1cbfe"
+    },
+    {
+      "path": "docs/parallel/D/W01/ADMIN_SURFACE_MATRIX.md",
+      "bytes": 43620,
+      "sha256": "9bda5cbd4f386199d4877e8fa5ab71f859bbc5a9cb0a06d65d9c448521c6dbc5",
+      "blob": "7a35a6c29dd2820632d3a3ad8fb7083ae46f724a"
+    },
+    {
+      "path": "docs/parallel/D/W09/ROLE_OPERATIONS_RUNBOOKS.md",
+      "bytes": 22030,
+      "sha256": "598f94331cf12b34e5461a3332a9ad6691ced933d705ba9f4f78378dbca7479c",
+      "blob": "c166d9a5afc94a2c9d11eefd6540556ba0a1f062"
+    },
+    {
+      "path": "docs/parallel/D/W09/SUPPORTING_SERVICES_RECOVERY_RUNBOOK.md",
+      "bytes": 28774,
+      "sha256": "6e6209a0a04861f55005754611b162dd37388201320b80ede9fc6dce04516bc8",
+      "blob": "17e14190863f609a361543efcb22b64d9abf592e"
+    },
+    {
+      "path": "docs/parallel/D/W09/STAGING_ENTRY_AND_W10_PACKET.md",
+      "bytes": 13323,
+      "sha256": "22e54ed627a0cbc97b6c8a955c56d34abdc2d189a2b04326e8f7b02f13b97a86",
+      "blob": "4d490efaa8fdbb1a57bc510be5ebb8e1682ebf62"
+    },
+    {
+      "path": "tests/parallel/D/W09/ACCEPTANCE_SPEC.md",
+      "bytes": 34120,
+      "sha256": "2d8d2593bf9b72122b1a6a8a795a4c63da30420ebf07d0e4797a218047817bd9",
+      "blob": "70978d668ad26b2e13817ab1aae66dc17f349a8e"
+    },
+    {
+      "path": "docs/parallel/A/W09/W10_CUSTOMER_EVIDENCE_HANDOFF.md",
+      "bytes": 4661,
+      "sha256": "660f414145157fbbf6318fcfb411ce89db6e1176b686f76b601520e3ae9e5eb6",
+      "blob": "117db1f338ebd57d7771a57135eb25ee1eaf5b42"
+    },
+    {
+      "path": "docs/parallel/B/W09/W10_FINANCE_HANDOFF.md",
+      "bytes": 11243,
+      "sha256": "2894bc361a60c15dd7374602034cdfb955481d141a85ccd5cf129f5d5bec2d28",
+      "blob": "73769c622a5bbd41b789499d55f384f142e09e89"
+    },
+    {
+      "path": "docs/parallel/B/W09/IMPORT_AND_LINEAGE_PROFILE.md",
+      "bytes": 18003,
+      "sha256": "e018cb8a853c17a8b6512a16e12bc4cff575ba61d4d4933d52da8ac2616ffa6f",
+      "blob": "4d1a1b729c2a97c32078607e03c2aae72235647c"
+    },
+    {
+      "path": "docs/parallel/B/W09/PROVIDER_REHEARSAL_GATES.md",
+      "bytes": 14244,
+      "sha256": "772a3289f11aea917cbb5919bdc307d54cbf54fe5a2a06f07698b6c48bb2921d",
+      "blob": "be1106d6a5606381208c4c840834c4dde8e4dcfb"
+    },
+    {
+      "path": "docs/parallel/C/W09/RESTORE_AND_W10_ACCEPTANCE.md",
+      "bytes": 5194,
+      "sha256": "a791f06f78550eb7a8a0604518eeabd8bd7cb103f1334c6bed4ca62f7d3e278c",
+      "blob": "5a4184fa1c42de94576777e45ccdcaa6cd1737c3"
+    },
+    {
+      "path": "docs/parallel/C/W09/FIELD_REHEARSAL_AND_HANDOVER.md",
+      "bytes": 9270,
+      "sha256": "44c2549c016bfebee1b0f5ffc543a26670bad6b9185db98d9639b1d6e14ea2fd",
+      "blob": "176529bdc50d17760b006c354e194390e80022cb"
+    },
+    {
+      "path": "docs/parallel/E/W09/README.md",
+      "bytes": 3863,
+      "sha256": "e213c4617d43a5207cf4a5a25977ba8a55c425945b69ed92a7700ca87b7e805f",
+      "blob": "434fe72431025ba0f3c9232c6df31b0c5a57c0cc"
+    },
+    {
+      "path": "docs/parallel/E/W09/RC_AND_W10_REQUESTS.md",
+      "bytes": 7103,
+      "sha256": "0090122ef90efa22eb7efb3898ec30997ab81649aa12db03684641754a19ec6d",
+      "blob": "c3b075261f9dc54f70efe9383a83b7f03a2695e1"
+    },
+    {
+      "path": "docs/parallel/E/W09/DEPLOYMENT_MIGRATION_AND_ROLLBACK.md",
+      "bytes": 6320,
+      "sha256": "4e98faa9bc3c36f128e23f94e7d28cc5cfe131b860e648a3439c32af7ef9f9df",
+      "blob": "126a95feb89193b4383551e1f8b74d75ec26ce03"
+    },
+    {
+      "path": "docs/parallel/E/W09/BACKUP_RESTORE_AND_RECONCILIATION.md",
+      "bytes": 7775,
+      "sha256": "26ea7e59b0b383f8c7d736869dfef6454a3906387b47b638c5fc0b60a3ac22ad",
+      "blob": "f805cdb9cf9130fb0b2a6faf31691e823c4d4f10"
+    },
+    {
+      "path": "docs/parallel/E/W09/OPERATING_ROSTER_AND_DRILLS.md",
+      "bytes": 8025,
+      "sha256": "cbfb61c041e5610a463c4a801f7f5227aede36486c804514315cab0c0c9c1b58",
+      "blob": "0158458b147525f31ce8108b9e72d922aeda81f0"
+    }
+  ],
+  "modelsAtSource": [
+    {
+      "service": "communications",
+      "schema": {
+        "path": "services/communications/prisma/schema.prisma",
+        "bytes": 2012,
+        "sha256": "115eb2e4ee9cccf95be35358e0faf822b52d632444ffe381a1969cc3f2aa1c3c",
+        "blob": "9f742f6f61385c3c44c34334a536bda8982a69be"
+      },
+      "models": [
+        "ServiceMarker",
+        "InboxMessage",
+        "ProbeNotification"
+      ],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation"
+      ]
+    },
+    {
+      "service": "reviews",
+      "schema": {
+        "path": "services/reviews/prisma/schema.prisma",
+        "bytes": 921,
+        "sha256": "e41b8ca6e7a3fb2e180535b519c1bf44a86bd8f3d87aa31b5b0f47d35e7b83dc",
+        "blob": "783f0926c1b83114a79c677e2e1cc1fdd08441bf"
+      },
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20261005060000_w01_foundation"
+      ]
+    },
+    {
+      "service": "support",
+      "schema": {
+        "path": "services/support/prisma/schema.prisma",
+        "bytes": 921,
+        "sha256": "00ffe22bae2fb6fd2b9aa8a0f0a4b592b9411622b8cc58e3bc0d745b63c80580",
+        "blob": "5088c3ac4334444141069731e3c87b480f5a418e"
+      },
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation"
+      ]
+    },
+    {
+      "service": "reporting",
+      "schema": {
+        "path": "services/reporting/prisma/schema.prisma",
+        "bytes": 1923,
+        "sha256": "6732c59b6368f3a41b058f3ebf445e5ff88acbd995ea76299fe2a5207e6ea4fc",
+        "blob": "c4f1e2bfff97f5fb18023638fc99d95cccf07287"
+      },
+      "models": [
+        "ServiceMarker",
+        "InboxMessage",
+        "ProbeProjection"
+      ],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation"
+      ]
+    },
+    {
+      "service": "configuration",
+      "schema": {
+        "path": "services/configuration/prisma/schema.prisma",
+        "bytes": 927,
+        "sha256": "0891923f7b6b2df9166e0a673d8738fba5b46c908750c553873f37768df1c43c",
+        "blob": "35970d8d036935ee5e36bf30b721531840ed167a"
+      },
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20261005060000_w01_foundation"
+      ]
+    }
+  ],
+  "localEnvironment": {
+    "os": "Linux-6.18.44-x86_64-with-glibc2.39",
+    "nodeActual": "24.19.0",
+    "pnpmActual": "11.25.0",
+    "nodePin": "24.21.0",
+    "pnpmPin": "10.32.1",
+    "dependenciesInstalled": false,
+    "productDBBrokerBrowserStarted": false,
+    "ownedPersistentProcesses": [],
+    "allocatedPortsQueuesDatabases": []
+  },
+  "diagnostics": {
+    "referenceBefore": {
+      "command": "node scripts/check-design-reference.mjs --base-ref 8bfa805d033cb29373c33886bf71bce4885a2f67",
+      "exitCode": 0,
+      "artifacts": 10,
+      "baseCompared": true
+    },
+    "f010Before": {
+      "command": "node scripts/f010/reference-registry.mjs --base-ref 8bfa805d033cb29373c33886bf71bce4885a2f67",
+      "exitCode": 0,
+      "references": 3,
+      "baseCompared": true
+    },
+    "ownershipReferenceTests": {
+      "command": "node --test --test-reporter=spec tests/parallel/E/ownership.test.mjs tests/design/reference-lock.test.mjs tests/f010/reference-registry.test.mjs",
+      "exitCode": 0,
+      "passed": 35,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "Source/frozen-policy controls only; expired lease remains expired."
+    },
+    "implementationInventory": {
+      "command": "node architecture/implementation-status.mjs --self-test",
+      "exitCode": 0,
+      "services": 19,
+      "foundationShells": 18,
+      "capabilityRuntimes": 1,
+      "adversarialPassed": 9,
+      "productionReady": false
+    },
+    "migrationInventory": {
+      "command": "node scripts/check-migrations.mjs --base-ref 8bfa805d033cb29373c33886bf71bce4885a2f67 --json",
+      "exitCode": 0,
+      "checks": 3,
+      "migrations": 21,
+      "filesScanned": 428,
+      "findings": 0,
+      "actualDatabaseMigration": false
+    },
+    "toolchainConfiguration": {
+      "command": "node scripts/verify-toolchain.mjs --json --config-only",
+      "exitCode": 0,
+      "checks": 39
+    },
+    "toolchainFull": {
+      "command": "node scripts/verify-toolchain.mjs --json",
+      "exitCode": 1,
+      "checks": 40,
+      "failed": [
+        {
+          "name": "Node runtime",
+          "actual": "24.19.0",
+          "required": "24.21.0"
+        },
+        {
+          "name": "pnpm runtime",
+          "actual": "11.25.0",
+          "required": "10.32.1"
+        }
+      ]
+    },
+    "historicalScannerControls": {
+      "executedTask": "W09-D",
+      "passed": 6,
+      "executedAgainW10": false,
+      "limitation": "Historical regression count is not a current W10 test result or RC proof; default actual final-head scans are recorded separately after execution."
+    }
+  },
+  "requiredCandidateTests": {
+    "status": "BLOCKED / NOT_RUN",
+    "allOriginal17ScreenActionsRetained": true,
+    "candidateAdminBuildTypecheck": false,
+    "ownerServicesCleanPopulatedMigrationConstraints": false,
+    "currentPermissionsPrivateExports": false,
+    "actualLinuxVisualInteractionWindowsDevice": false,
+    "realThreeAppFullFinanceSubsPromoFleetTechSupportReviewNotificationReport": false,
+    "affectedW08SecurityAndW09RecoveryRetest": false,
+    "independentFinalTargetReviewGates": false,
+    "numericalRecoveryLoss": "NOT_MEASURED / TARGET_UNAPPROVED",
+    "proposedScreenActionGroups": 66,
+    "proposedCommonControlGroups": 21,
+    "proposedProductGroups": 87,
+    "foundationRowsSeparate": 4,
+    "acceptanceFamilies": 46
+  },
+  "publicationEnvelope": "Exact final proposal head/tree/PR and current target/check snapshot, after-reference/owner/packet/default full-history plus archived-source scanner results are attached to the PR body. Self-containing files cannot embed their own future commit hash without a cycle."
+}
