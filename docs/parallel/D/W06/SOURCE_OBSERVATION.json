@@ -1,0 +1,430 @@
+{
+  "schemaVersion": 1,
+  "task": "W06-D",
+  "lane": "D",
+  "status": "PROPOSED_ENTRY_BLOCKED",
+  "sourceObservedAtUtc": "2026-10-06T13:46:50.565579+00:00",
+  "repository": "baraabd/carwash-platform",
+  "source": {
+    "branch": "main",
+    "sha": "78adaa2d0436f9e0fc6697a36f3f0bd7a521ad8b",
+    "tree": "c5bd3137ef9d4e0ab7b70b9646e126f10e011883",
+    "isPublishedBASE_W06": false
+  },
+  "publication": {
+    "branch": "proposal/w06-D-support-communications-entry",
+    "target": "main",
+    "headAndTree": "Recorded in the draft PR Evidence source envelope; no self-referential commit hash embedded."
+  },
+  "release": {
+    "registryPath": "architecture/parallel-contract-release.json",
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "bases": {
+      "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "BASE_W02": null
+    },
+    "BASE_W06": "ABSENT",
+    "acceptedNextWaveContracts": [],
+    "existingClientContracts": [],
+    "nextWaveRelease": {
+      "wave": "W02",
+      "status": "pending-bootstrap-acceptance-and-owner-proposal-review",
+      "sourceSha": null,
+      "reviewRecord": null,
+      "publishedPackageVersions": {}
+    }
+  },
+  "packages": {
+    "package.json": {
+      "name": "carwash-platform",
+      "version": "0.0.2"
+    },
+    "packages/contracts/package.json": {
+      "name": "@carwash/contracts",
+      "version": "0.0.2"
+    },
+    "packages/event-contracts/package.json": {
+      "name": "@carwash/event-contracts",
+      "version": "0.0.2"
+    },
+    "packages/api-clients/package.json": {
+      "name": "@carwash/api-clients",
+      "version": "0.0.1"
+    },
+    "apps/admin-web/package.json": {
+      "name": "@carwash/admin-web",
+      "version": "0.0.2"
+    },
+    "services/support/package.json": {
+      "name": "@carwash/support",
+      "version": "0.0.2"
+    },
+    "services/reviews/package.json": {
+      "name": "@carwash/reviews",
+      "version": "0.0.2"
+    },
+    "services/communications/package.json": {
+      "name": "@carwash/communications",
+      "version": "0.0.2"
+    },
+    "services/reporting/package.json": {
+      "name": "@carwash/reporting",
+      "version": "0.0.2"
+    },
+    "services/configuration/package.json": {
+      "name": "@carwash/configuration",
+      "version": "0.0.2"
+    }
+  },
+  "actualModels": {
+    "support": [
+      "ServiceMarker"
+    ],
+    "reviews": [
+      "ServiceMarker"
+    ],
+    "communications": [
+      "ServiceMarker",
+      "InboxMessage",
+      "ProbeNotification"
+    ],
+    "reporting": [
+      "ServiceMarker",
+      "InboxMessage",
+      "ProbeProjection"
+    ],
+    "configuration": [
+      "ServiceMarker"
+    ],
+    "billing": [
+      "ServiceMarker"
+    ],
+    "wallet": [
+      "ServiceMarker"
+    ],
+    "subscription": [
+      "ServiceMarker"
+    ],
+    "customer": [
+      "ServiceMarker"
+    ],
+    "media": [
+      "ServiceMarker"
+    ],
+    "booking": [
+      "ServiceMarker"
+    ],
+    "scheduling": [
+      "ServiceMarker"
+    ],
+    "dispatch": [
+      "ServiceMarker"
+    ],
+    "workforce": [
+      "ServiceMarker"
+    ]
+  },
+  "productReadiness": {
+    "productionReady": false,
+    "D": "Markers and technical probes only",
+    "apiClients": "Empty public client module",
+    "adminOperator": "Technical boot shells",
+    "customer": "C014 session demo only; privacy and supporting domain routes deferred"
+  },
+  "currentAuthority": {
+    "Identity": "Real current-session/account/authVersion/revocation/expiry foundation",
+    "SupportGateway": "Foundation read mapping, not a working case product endpoint",
+    "ReviewsGateway": "Existing admin review route belongs to Workforce verification",
+    "objectGuestMembershipPrivacy": "Not published for required W06 workflows"
+  },
+  "approvedReferences": {
+    "design/reference/approved/washgo-payments-interactive.html": {
+      "bytes": 263462,
+      "sha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549"
+    },
+    "design/reference/approved/washgo-technician-interactive.html": {
+      "bytes": 122636,
+      "sha256": "d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc"
+    },
+    "design/reference/approved/washgo-admin-prototype.html": {
+      "bytes": 40310,
+      "sha256": "b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273"
+    }
+  },
+  "registeredAdminScreenIds": [
+    "dashboard",
+    "bookings",
+    "customers",
+    "technicians",
+    "services",
+    "fleet",
+    "payments",
+    "wallets",
+    "subscriptions",
+    "promotions",
+    "coverage",
+    "live",
+    "reviews",
+    "disputes",
+    "notifications",
+    "reports",
+    "settings"
+  ],
+  "customerSteps": [
+    "vehicle",
+    "care",
+    "place",
+    "time",
+    "contact",
+    "payment",
+    "review"
+  ],
+  "productDecisions": {
+    "privacyCoordinatingOwner": null,
+    "privacyScopeAndRetention": "Unaccepted; intake is distinct from owner fulfillment; preserve retained financial history",
+    "privacyTimingConflict": "A requests W06; B proposes W07 financial fulfillment; explicit E/product/owner decision required",
+    "membershipConflict": "A proposes D participantRef/membershipGeneration; C supplies relationship facts; E private identity mapping; no accepted membership owner release",
+    "approvedCheckoutMethods": [
+      "cash",
+      "sham",
+      "syriatel"
+    ],
+    "paymeraScope": "pending-owner-decision-and-actual-provider-documentation",
+    "unapprovedRequiredStates": "Case detail, composer, moderation, audience/template/schedule/recovery and privacy receipt/status/export; English mapping pending"
+  },
+  "refreshedMergedProposals": [
+    {
+      "pr": 41,
+      "url": "https://github.com/baraabd/carwash-platform/pull/41",
+      "number": 41,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "title": "feat(C014): add session booking confirmation and order creation",
+      "base_sha": "a1accb7763b63c63dfdfadb1dd68bc202a8107a3",
+      "head_sha": "04b7577097d7767e0d0cd1bf43de84ea92c02671",
+      "merge_commit_sha": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "merged_at": "2026-10-05T01:49:15Z"
+    },
+    {
+      "pr": 61,
+      "url": "https://github.com/baraabd/carwash-platform/pull/61",
+      "number": 61,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "title": "W05-A: payment recovery proposal and W06 contract requests",
+      "base_sha": "3ce756cd39a9b0c1013043cee0ca1bb183466da7",
+      "head_sha": "1eeafc09d6c6392201067032d76a8e4fa63de54e",
+      "merge_commit_sha": "cd31d743943cb6ef5b1cdf7b68a9353a137aae1c",
+      "merged_at": "2026-10-05T19:10:13Z"
+    },
+    {
+      "pr": 62,
+      "url": "https://github.com/baraabd/carwash-platform/pull/62",
+      "number": 62,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "title": "docs(W05-C): propose compensation recovery and W06 contracts",
+      "base_sha": "3ce756cd39a9b0c1013043cee0ca1bb183466da7",
+      "head_sha": "da30a95db42ce3009fbaede116a277c32c897662",
+      "merge_commit_sha": "70614b165d9eba0663b76fb96948b90c38f2ac48",
+      "merged_at": "2026-10-05T19:23:41Z"
+    },
+    {
+      "pr": 63,
+      "url": "https://github.com/baraabd/carwash-platform/pull/63",
+      "number": 63,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "title": "docs(W05-D): specify financial operations entry and W06 contracts",
+      "base_sha": "70614b165d9eba0663b76fb96948b90c38f2ac48",
+      "head_sha": "d4c7c8ed73d4a3d34903cabdaae7da64d06b3f42",
+      "merge_commit_sha": "a52dbbc2de9ba8984a7aa8858738ca8d4d89b813",
+      "merged_at": "2026-10-06T13:39:15Z"
+    },
+    {
+      "pr": 64,
+      "url": "https://github.com/baraabd/carwash-platform/pull/64",
+      "number": 64,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "title": "W05-E: propose verified payment and compensation acceptance",
+      "base_sha": "70614b165d9eba0663b76fb96948b90c38f2ac48",
+      "head_sha": "93356a40d5c10a494367571edcaefa86b6ae8a2b",
+      "merge_commit_sha": "d9f2c88548395f98fbe309f93db74dc4d2fa782d",
+      "merged_at": "2026-10-06T13:39:44Z"
+    },
+    {
+      "pr": 65,
+      "url": "https://github.com/baraabd/carwash-platform/pull/65",
+      "number": 65,
+      "state": "closed",
+      "merged": true,
+      "draft": false,
+      "title": "W05-B: provider verification and refund recovery proposal",
+      "base_sha": "70614b165d9eba0663b76fb96948b90c38f2ac48",
+      "head_sha": "467a66d3bfd072e102a6234dfd50dcbf657b38cf",
+      "merge_commit_sha": "78adaa2d0436f9e0fc6697a36f3f0bd7a521ad8b",
+      "merged_at": "2026-10-06T13:40:37Z"
+    }
+  ],
+  "W05Delta": {
+    "from": "3ce756cd39a9b0c1013043cee0ca1bb183466da7",
+    "to": "78adaa2d0436f9e0fc6697a36f3f0bd7a521ad8b",
+    "pathCount": 36,
+    "paths": [
+      "M\tdocs/F009_RUNBOOK.md",
+      "A\tdocs/parallel/A/W05/CHECKPOINT.md",
+      "A\tdocs/parallel/A/W05/PAYMENT_RECOVERY_AND_ACTIONS.md",
+      "A\tdocs/parallel/A/W05/README.md",
+      "A\tdocs/parallel/A/W05/W06_CONTRACT_REQUESTS.md",
+      "A\tdocs/parallel/A/W05/source-observation.json",
+      "A\tdocs/parallel/B/W05/CHECKPOINT.md",
+      "A\tdocs/parallel/B/W05/PROVIDER_CAPABILITIES.md",
+      "A\tdocs/parallel/B/W05/README.md",
+      "A\tdocs/parallel/B/W05/VERIFICATION_REFUND_RECOVERY.md",
+      "A\tdocs/parallel/B/W05/W06_CONTRACT_REQUESTS.md",
+      "A\tdocs/parallel/B/W05/WORKFLOW_REPAIR.md",
+      "A\tdocs/parallel/B/W05/source-observation.json",
+      "A\tdocs/parallel/C/W05/CHECKPOINT.md",
+      "A\tdocs/parallel/C/W05/COMPENSATION_MATRIX.md",
+      "A\tdocs/parallel/C/W05/W06_CONTRACT_REQUESTS.md",
+      "A\tdocs/parallel/D/W05/FINANCIAL_OPERATIONS_PLAN.md",
+      "A\tdocs/parallel/D/W05/HANDOFF.md",
+      "A\tdocs/parallel/D/W05/README.md",
+      "A\tdocs/parallel/D/W05/SOURCE_OBSERVATION.json",
+      "A\tdocs/parallel/D/W05/W06_CONTRACT_REQUESTS.md",
+      "A\tdocs/parallel/E/W05/CHECKPOINT.md",
+      "A\tdocs/parallel/E/W05/DEFECT_AND_DECISION_LEDGER.md",
+      "A\tdocs/parallel/E/W05/LIFECYCLE_AND_RECOVERY.md",
+      "A\tdocs/parallel/E/W05/PROVIDER_AND_BOUNDARY.md",
+      "A\tdocs/parallel/E/W05/README.md",
+      "A\tdocs/parallel/E/W05/SOURCE_OBSERVATION.json",
+      "A\tdocs/parallel/E/W05/W06_CONTRACT_REQUESTS.md",
+      "M\tscripts/ci/run.mjs",
+      "A\tscripts/ci/secret-scans.mjs",
+      "A\ttests/ci/secret-scans.test.mjs",
+      "A\ttests/parallel/A/W05/ACCEPTANCE_SPECIFICATIONS.md",
+      "A\ttests/parallel/B/W05/ACCEPTANCE_SPECIFICATIONS.md",
+      "A\ttests/parallel/C/W05/acceptance-specifications.md",
+      "A\ttests/parallel/D/W05/ACCEPTANCE_SPEC.md",
+      "A\ttests/parallel/E/W05/PAYMENT_ACCEPTANCE_SPEC.md"
+    ],
+    "classification": "32 lane-local proposal/spec additions; E adds secret-scans.mjs and secret-scans.test.mjs and modifies run.mjs/F009_RUNBOOK.md; no business implementation or schema"
+  },
+  "security": {
+    "version": "v8.30.1",
+    "binarySha256": "88f91962aa2f93ac6ab281d553b9e125f5197bbbce38f9f2437f7299c32e5509",
+    "scope": "Exact tested commit full ancestry with merge parents; source archive; unrelated refs excluded",
+    "controls": {
+      "count": 6,
+      "passed": 6,
+      "environment": "Real disposable Git/default scanner fixtures; self-cleaned; not product acceptance"
+    },
+    "defaultsUnchanged": true,
+    "newSuppressions": 0
+  },
+  "intakeHostedChecksSnapshot": {
+    "sourceSha": "78adaa2d0436f9e0fc6697a36f3f0bd7a521ad8b",
+    "phase": "Intake before this packet",
+    "checks": {
+      "success": 22,
+      "in_progress": 10,
+      "queued": 9,
+      "total": 41
+    },
+    "workflowRuns": {
+      "success": 4,
+      "in_progress": 3,
+      "queued": 1,
+      "total": 8
+    },
+    "releaseEvidence": false
+  },
+  "localDiagnostics": {
+    "referenceBefore": {
+      "passed": 10
+    },
+    "f010Before": {
+      "passed": 3
+    },
+    "ownershipReferenceUnit": {
+      "passed": 35,
+      "failed": 0,
+      "skipped": 0
+    },
+    "implementationStatus": {
+      "exitCode": 0,
+      "runtimeServices": 19,
+      "foundationShells": 18,
+      "productionReady": false
+    },
+    "migrationStatic": {
+      "exitCode": 0,
+      "ok": true,
+      "diagnostics": 3,
+      "ownerLocalMigrations": 21,
+      "scannedFiles": 428,
+      "changedMigrations": 0
+    },
+    "toolchainConfig": {
+      "exitCode": 0,
+      "passed": 39
+    },
+    "toolchainRuntime": {
+      "exitCode": 1,
+      "totalChecks": 40,
+      "failed": 2,
+      "expected": {
+        "node": "24.21.0",
+        "pnpm": "10.32.1"
+      },
+      "actual": {
+        "node": "24.19.0",
+        "pnpm": "11.25.0"
+      }
+    }
+  },
+  "acceptance": {
+    "declarativeFamilies": 43,
+    "status": "BLOCKED / NOT_RUN",
+    "productCasesExecuted": 0,
+    "DBBrokerHTTPProviderBrowserDeviceExecuted": false,
+    "finalPacketChecks": "Recorded in publication envelope with the actual committed head"
+  },
+  "findings": [
+    {
+      "id": "INT-D-01",
+      "type": "STATIC_NOT_REPRODUCED",
+      "owners": [
+        "communications",
+        "reporting"
+      ],
+      "risk": "Whole-transaction P2002/23505 duplicate catch does not identify Inbox constraint or compare winning hash",
+      "requiredRealControls": 6
+    }
+  ],
+  "changedScope": {
+    "paths": 6,
+    "businessSourceChanges": 0,
+    "migrations": [],
+    "manifestOrSharedChanges": 0,
+    "referenceChanges": 0
+  },
+  "resources": {
+    "serviceProcessHandles": [],
+    "ports": [],
+    "DBRoles": [],
+    "queues": [],
+    "objects": [],
+    "browserProfiles": [],
+    "heavySlots": [],
+    "temporaryScannerFixtures": "Self-cleaned"
+  },
+  "nextAction": "Draft PR only; E and source owners review and publish actual base/contracts/policies; sequence provider-first children. No merge, deployment, live money, broadcast or W07 execution."
+}
