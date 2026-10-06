@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { ROOT, readJson, inventory, auditSummary, sarifFindings, assertTap } from './policy.mjs';
 import { command, checked, git, tool, toolLock, stage } from './runtime.mjs';
+import { secretScans } from './secret-scans.mjs';
 import { validateActiveAllocation } from '../parallel/E/allocate-environment.mjs';
 const mode = process.argv[2];
 assert.ok(['targeted', 'static', 'integration', 'security', 'codeql'].includes(mode));
@@ -242,15 +243,23 @@ try {
     }
     if (mode === 'security') {
       const counts = {};
+      const sourceSha = git('rev-parse', 'HEAD');
+      await step('complete-secret-scan-history', () =>
+        assert.equal(
+          git('rev-parse', '--is-shallow-repository'),
+          'false',
+          'Secret scanning requires complete source history',
+        ),
+      );
+      await step('secret-scan-regression-tests', () =>
+        tapSuite('secret-scans', ['tests/ci/secret-scans.test.mjs']),
+      );
       const source = path.join(temporary, 'source');
       mkdirSync(source);
       const archive = path.join(temporary, 'source.tar');
-      await checked('git', ['archive', '--format=tar', '--output', archive, 'HEAD']);
+      await checked('git', ['archive', '--format=tar', '--output', archive, sourceSha]);
       await checked('tar', ['-xf', archive, '-C', source]);
-      for (const [name, args] of [
-        ['history', ['git', '--log-opts=--all', '.']],
-        ['source', ['dir', source]],
-      ]) {
+      for (const [name, args] of secretScans(sourceSha, source)) {
         const output = path.join(temporary, `${name}.json`);
         await step(`gitleaks-${name}`, async () => {
           const result = await command(tool('gitleaks'), [
@@ -284,6 +293,9 @@ try {
       await step('reproducible-frozen-lockfile', () => node('scripts/verify-frozen-install.mjs'));
       return {
         scanner: toolLock.tools.gitleaks.version,
+        historyScope: 'Complete ancestry of the exact source SHA, including merge-parent diffs',
+        historySourceSha: sourceSha,
+        tests: testCounts,
         secrets: counts,
         audit,
         threshold: 'All pnpm advisories block, preserving F001; no allowlist introduced.',
