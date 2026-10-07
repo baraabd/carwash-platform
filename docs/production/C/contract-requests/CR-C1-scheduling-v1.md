@@ -94,3 +94,18 @@ Once 1–2 merge: `architecture/service-catalog.json` scheduling
 `api.status` and `events.status` can move from `planned-not-implemented` to an
 implemented-but-unaccepted state; `runtimeImplementation` stays as E decides.
 `BUSINESS_READY` remains `false` until release acceptance on exact source.
+
+## 8. Ownership registry and package manifest
+
+`architecture/parallel-ownership.json` (W01 proposal, `verifiedBaseW02: null`)
+reports this child's paths as follows; P01-C grants them as the effective lane
+scope, so the registry needs an E decision rather than a lane-C workaround:
+
+- `docs/production/C/**`, `scripts/production/C/**`, `tests/production/C/**`:
+  undeclared; request declaring them as lane-C owned.
+- W01 lease `W01-runtime-scheduling` (E, permanent owner C) still covers the
+  shell files edited here (`app.module.ts`, `ports/index.ts`, `schema.prisma`,
+  `README.md`, ...); request lease expiry or an explicit hand-over to C.
+- `services/scheduling/package.json` is permanently E-owned. It is unchanged in
+  this child. Requested scripts: `start:hold-expiry`
+  (`node dist/workers/hold-expiry.main.js`), `test:unit` and `test:integration`.

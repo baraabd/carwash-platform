@@ -10,10 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "migrate:deploy": "prisma migrate deploy",
     "start": "node dist/main.js",
-    "test:runtime": "pnpm run build:tests && node --test dist-tests/test/scheduling.nest.spec.js",
-    "start:hold-expiry": "node dist/workers/hold-expiry.main.js",
-    "test:unit": "pnpm run build:tests && node --test dist-tests/test/unit/*.spec.js",
-    "test:integration": "pnpm run build:tests && node --test --test-concurrency=1 dist-tests/test/integration/*.pg.spec.js"
+    "test:runtime": "pnpm run build:tests && node --test dist-tests/test/scheduling.nest.spec.js"
   },
   "dependencies": {
     "@carwash/event-contracts": "workspace:*",

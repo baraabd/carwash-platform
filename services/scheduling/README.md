@@ -44,7 +44,7 @@ with `x-service-client` + `x-service-token`, configured as SHA-256 digests in
 ## Processes
 
 - API: `node dist/main.js` (`pnpm --filter @carwash/scheduling start`).
-- Hold expiry: `node dist/workers/hold-expiry.main.js` (`start:hold-expiry`),
+- Hold expiry: `node dist/workers/hold-expiry.main.js` (same image, separate process),
   any number of replicas; stateless and restart-safe.
 - Outbox relay: rows are written and verified against the shared relay in
   tests, but no relay process is wired in this service until Lane E adds
@@ -61,6 +61,5 @@ separate job with `cw_scheduling_migrate`; runtime startup never migrates.
 ## Commands
 
 - `pnpm --filter @carwash/scheduling generate | build | typecheck`
-- `pnpm --filter @carwash/scheduling test:unit`
 - `node scripts/production/C/stack.mjs up` then
   `node scripts/production/C/verify.mjs scheduling` (all families, exact-source record)
