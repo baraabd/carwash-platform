@@ -347,7 +347,14 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker", "InboxMessage", "ProbeProjection"],
+      "persistenceModels": [
+        "ServiceMarker",
+        "InboxMessage",
+        "ProbeProjection",
+        "ProjectionContribution",
+        "MetricBucket",
+        "AggregateSnapshot"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
