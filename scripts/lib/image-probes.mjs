@@ -1,4 +1,10 @@
 /** Shell-free probes: output alone can never turn a failed Docker exec green. */
+export function identityBootEnvironment(service) {
+  // Both image harnesses must provide configuration's required authority URL.
+  // Closed loopback port: startup can be tested, but authentication cannot pass.
+  return service === 'configuration' ? ['--env', 'IDENTITY_ORIGIN=http://127.0.0.1:9'] : [];
+}
+
 export const BAKED_SECRET_PROBE =
   "const fs=require('node:fs');const names=fs.readdirSync('/app');" +
   "const found=names.filter(n=>n.startsWith('.env')||n==='.acceptance'||n==='.git');" +

@@ -5,7 +5,17 @@ import {
   verifiedNoBakedSecrets,
   BAKED_SECRET_PROBE,
   verifiedReadiness,
+  identityBootEnvironment,
 } from '../../scripts/lib/image-probes.mjs';
+
+test('configuration image boot has an explicit unreachable Identity dependency', () => {
+  assert.deepEqual(identityBootEnvironment('configuration'), [
+    '--env',
+    'IDENTITY_ORIGIN=http://127.0.0.1:9',
+  ]);
+  assert.deepEqual(identityBootEnvironment('identity'), []);
+  assert.deepEqual(identityBootEnvironment('catalog'), []);
+});
 test('non-root probe requires successful exec and a nonzero numeric UID', () => {
   assert.equal(verifiedNonRoot({ code: 0, stdout: '1000\n' }), true);
   for (const result of [
