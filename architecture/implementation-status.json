@@ -145,7 +145,21 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker", "FoundationProbe", "OutboxMessage"],
+      "persistenceModels": [
+        "ServiceMarker",
+        "FoundationProbe",
+        "OutboxMessage",
+        "CatalogPublicationLock",
+        "CatalogRevision",
+        "CatalogVehicleCategory",
+        "CatalogPackage",
+        "CatalogAddon",
+        "CatalogPackageCategory",
+        "CatalogAddonCategory",
+        "CatalogPackageAddon",
+        "CatalogIdempotencyReceipt",
+        "CatalogAuditEvent"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
