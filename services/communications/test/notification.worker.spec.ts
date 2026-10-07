@@ -23,7 +23,7 @@ function queue(size: number, failCompletion = false) {
   const states = Array.from({ length: size }, () => 'QUEUED');
   const claimTimes: Date[] = [];
   const repository: NotificationRepository = {
-    async claimDue({ limit, now }) {
+    claimDue({ limit, now }) {
       claimTimes.push(now);
       const claims: ClaimedDelivery[] = [];
       for (let index = 0; index < states.length && claims.length < limit; index += 1) {
@@ -44,24 +44,24 @@ function queue(size: number, failCompletion = false) {
           },
         });
       }
-      return claims;
+      return Promise.resolve(claims);
     },
-    async complete({ notificationId, transition }) {
-      if (failCompletion) throw new Error('DATABASE_UNAVAILABLE');
+    complete({ notificationId, transition }) {
+      if (failCompletion) return Promise.reject(new Error('DATABASE_UNAVAILABLE'));
       states[Number(notificationId)] = transition.state;
-      return true;
+      return Promise.resolve(true);
     },
-    async enqueue() {
-      throw new Error('UNUSED_PORT');
+    enqueue() {
+      return Promise.reject(new Error('UNUSED_PORT'));
     },
-    async applyReceipt() {
-      throw new Error('UNUSED_PORT');
+    applyReceipt() {
+      return Promise.reject(new Error('UNUSED_PORT'));
     },
-    async cancel() {
-      throw new Error('UNUSED_PORT');
+    cancel() {
+      return Promise.reject(new Error('UNUSED_PORT'));
     },
-    async find() {
-      throw new Error('UNUSED_PORT');
+    find() {
+      return Promise.reject(new Error('UNUSED_PORT'));
     },
   };
   return { repository, states, claimTimes };
@@ -89,13 +89,13 @@ test('worker leaves later intents unclaimed while the first submission is pendin
   const entered = deferred<void>();
   const answer = deferred<SubmissionOutcome>();
   let calls = 0;
-  const run = worker(repository, async () => {
+  const run = worker(repository, () => {
     calls += 1;
     if (calls === 1) {
       entered.resolve();
       return answer.promise;
     }
-    return accepted;
+    return Promise.resolve(accepted);
   }).runOnce();
   await entered.promise;
   try {
@@ -115,9 +115,9 @@ test('a completion failure leaves every unsent intent available for another work
   const { repository, states } = queue(3, true);
   let calls = 0;
   await assert.rejects(
-    worker(repository, async () => {
+    worker(repository, () => {
       calls += 1;
-      return accepted;
+      return Promise.resolve(accepted);
     }).runOnce(),
     /DATABASE_UNAVAILABLE/,
   );
@@ -130,9 +130,9 @@ test('the batch bounds submissions and every claim uses the current clock', asyn
   let elapsed = 0;
   const report = await worker(
     repository,
-    async () => {
+    () => {
       elapsed += 20_000;
-      return accepted;
+      return Promise.resolve(accepted);
     },
     2,
     () => new Date(NOW.getTime() + elapsed),
@@ -150,6 +150,9 @@ test('the batch bounds submissions and every claim uses the current clock', asyn
 test('invalid batch sizes cannot create an unbounded or silently empty pass', () => {
   const { repository } = queue(1);
   for (const size of [0, -1, 1.5, Infinity, NaN]) {
-    assert.throws(() => worker(repository, async () => accepted, size), /INVALID_BATCH_SIZE/);
+    assert.throws(
+      () => worker(repository, () => Promise.resolve(accepted), size),
+      /INVALID_BATCH_SIZE/,
+    );
   }
 });
