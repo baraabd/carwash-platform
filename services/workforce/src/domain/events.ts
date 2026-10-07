@@ -42,7 +42,9 @@ export type ShiftUpdatedV1 = EventBase<
 
 export type WorkforceEvent = EligibilityChangedV1 | ShiftUpdatedV1;
 
-export function eligibilityEvent(input: Omit<EligibilityChangedV1, 'eventType' | 'schemaVersion' | 'producer'>): EligibilityChangedV1 {
+export function eligibilityEvent(
+  input: Omit<EligibilityChangedV1, 'eventType' | 'schemaVersion' | 'producer'>,
+): EligibilityChangedV1 {
   return {
     ...input,
     eventType: ELIGIBILITY_CHANGED_V1,
@@ -52,7 +54,9 @@ export function eligibilityEvent(input: Omit<EligibilityChangedV1, 'eventType' |
   };
 }
 
-export function shiftEvent(input: Omit<ShiftUpdatedV1, 'eventType' | 'schemaVersion' | 'producer'>): ShiftUpdatedV1 {
+export function shiftEvent(
+  input: Omit<ShiftUpdatedV1, 'eventType' | 'schemaVersion' | 'producer'>,
+): ShiftUpdatedV1 {
   return {
     ...input,
     eventType: SHIFT_UPDATED_V1,

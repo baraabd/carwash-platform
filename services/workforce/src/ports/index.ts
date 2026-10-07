@@ -1,3 +1,8 @@
+/**
+ * Workforce ports: what the application needs from the outside world.
+ *
+ * Framework-free. Adapters live in infrastructure/ and transport/.
+ */
 import type {
   OperatorState,
   ShiftState,
@@ -8,6 +13,7 @@ import type {
 export interface Clock {
   now(): Date;
 }
+
 export interface IdGenerator {
   next(): string;
 }
@@ -19,8 +25,16 @@ export const WORKFORCE_SCOPES = [
 export type WorkforceScope = (typeof WORKFORCE_SCOPES)[number];
 
 export type Actor =
-  | { readonly kind: 'USER'; readonly subject: string; readonly permissions: readonly string[] }
-  | { readonly kind: 'SERVICE'; readonly clientId: string; readonly scopes: readonly WorkforceScope[] }
+  | {
+      readonly kind: 'USER';
+      readonly subject: string;
+      readonly permissions: readonly string[];
+    }
+  | {
+      readonly kind: 'SERVICE';
+      readonly clientId: string;
+      readonly scopes: readonly WorkforceScope[];
+    }
   | { readonly kind: 'SYSTEM'; readonly component: string };
 
 export interface RequestMeta {
@@ -66,7 +80,10 @@ export interface WorkforceTransaction {
   findPendingCase(operatorId: string): Promise<VerificationCaseState | null>;
   findCaseByIdempotency(requester: string, key: string): Promise<VerificationCaseState | null>;
   insertVerificationCase(state: VerificationCaseState): Promise<InsertResult>;
-  updateVerificationCase(state: VerificationCaseState, expectedVersion: number): Promise<void>;
+  updateVerificationCase(
+    state: VerificationCaseState,
+    expectedVersion: number,
+  ): Promise<void>;
 
   lockShift(id: string): Promise<ShiftState | null>;
   findShiftByIdempotency(requester: string, key: string): Promise<ShiftState | null>;
@@ -91,5 +108,10 @@ export interface WorkforceReadModel {
     readonly zoneId: string;
     readonly at: Date;
     readonly skillCode?: string;
-  }): Promise<Array<{ readonly operator: OperatorState; readonly skillCodes: readonly string[] }>>;
+  }): Promise<
+    Array<{
+      readonly operator: OperatorState;
+      readonly skillCodes: readonly string[];
+    }>
+  >;
 }
