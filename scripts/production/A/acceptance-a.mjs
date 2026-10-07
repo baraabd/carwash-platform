@@ -9,7 +9,8 @@
  * budget), applies every migration with each service's MIGRATION identity,
  * proves the Prisma schema mirrors the migrated database, then runs the Lane A
  * integration suites against the real servers with each service's RUNTIME
- * identity. Nothing is mocked: Identity is the real Nest application.
+ * identity. Customer/vehicle boot real Identity (with captured OTP delivery);
+ * geo exercises its own HTTP adapter without Identity authentication.
  *
  * Secrets are generated per run, registered for redaction, kept in a 0600
  * context file under .acceptance/ (git-ignored) and removed on teardown. The
@@ -22,29 +23,20 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { redact, registerSecret, run } from '../../acceptance/lib/exec.mjs';
+import { acceptancePlan, suiteAccepted } from './acceptance-plan.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const LANE_SERVICES = ['customer', 'vehicle', 'geo'];
-const SUITES = {
-  customer: 'tests/production/A/customer.integration.test.mjs',
-  vehicle: 'tests/production/A/vehicle.integration.test.mjs',
-  geo: 'tests/production/A/geo.integration.test.mjs',
-};
 const PG_IMAGE = 'postgres:16.10-alpine';
 const REDIS_IMAGE = 'redis:8.2.10-alpine';
 
-const args = process.argv.slice(2);
-const servicesArg = args[args.indexOf('--services') + 1] ?? '';
-const services = servicesArg.split(',').filter(Boolean);
-if (
-  args.indexOf('--services') < 0 ||
-  services.length === 0 ||
-  services.some((service) => !LANE_SERVICES.includes(service))
-) {
-  console.error('usage: acceptance-a.mjs --services customer[,vehicle,geo] [--keep]');
+let plan;
+try {
+  plan = acceptancePlan(process.argv.slice(2), ROOT);
+} catch (error) {
+  console.error(error.message);
   process.exit(2);
 }
-const keep = args.includes('--keep');
+const { services, suites, scope, keep } = plan;
 
 const project = `cw-p01a-${randomBytes(6).toString('hex')}`;
 const work = path.join(ROOT, '.acceptance', project);
@@ -76,10 +68,7 @@ const report = {
   source: {},
   phases: [],
   suites: [],
-  scope:
-    'Real PostgreSQL 16 (least-privilege roles from infra/postgres/provision.sh), real Redis, ' +
-    'real Identity Nest application and real owner-service HTTP adapters on loopback. ' +
-    'No broker relay, no gateway, no browser, no production deployment.',
+  scope,
 };
 
 async function checked(command, commandArgs, options = {}) {
@@ -290,7 +279,6 @@ try {
     { mode: 0o600 },
   );
 
-  const suites = services.map((service) => SUITES[service]);
   const result = await run(
     process.execPath,
     ['--test', '--test-concurrency=1', '--test-timeout=180000', '--test-reporter=spec', ...suites],
@@ -303,7 +291,7 @@ try {
   const output = redact(result.stdout + result.stderr);
   process.stdout.write(output);
   const count = (label) => Number(new RegExp(`ℹ ${label} (\\d+)`).exec(output)?.[1] ?? NaN);
-  report.suites.push({
+  const counts = {
     files: suites,
     exit: result.code,
     tests: count('tests'),
@@ -312,16 +300,23 @@ try {
     skipped: count('skipped'),
     todo: count('todo'),
     cancelled: count('cancelled'),
-  });
-  report.phases.push({ name: 'integration suites', status: result.code === 0 ? 'PASS' : 'FAIL' });
-  exitCode = result.code === 0 ? 0 : 1;
+  };
+  report.suites.push(counts);
+  const accepted = suiteAccepted(result, counts);
+  report.phases.push({ name: 'integration suites', status: accepted ? 'PASS' : 'FAIL' });
+  exitCode = accepted ? 0 : 1;
 } catch {
   exitCode = 1;
 } finally {
   if (provisioned && !keep) {
-    await dc(['down', '-v', '--remove-orphans']).catch((error) =>
-      console.error(`teardown failed: ${redact(error.message)}`),
-    );
+    try {
+      await phase('teardown owned infrastructure', () => dc(['down', '-v', '--remove-orphans']));
+    } catch {
+      exitCode = 1;
+    }
+  } else if (keep) {
+    report.phases.push({ name: 'teardown owned infrastructure', status: 'SKIPPED' });
+    exitCode = 1;
   }
   if (!keep) await rm(work, { recursive: true, force: true });
   report.finishedAt = new Date().toISOString();

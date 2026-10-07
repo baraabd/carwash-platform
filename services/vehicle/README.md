@@ -1,16 +1,15 @@
-# vehicle technical runtime
+# vehicle-service
 
-W01 adds a service-local Nest foundation shell, Prisma client and initial ServiceMarker migration. This service has no accepted business API or business events. It returns HTTP 200 from /health/live and HTTP 503 with FOUNDATION_NOT_READY from /health/ready; a healthy database never implies business readiness.
+**Status: saved-vehicle capability implemented; INTEGRATION_PENDING, not production-ready.**
+Readiness deliberately stays HTTP 503 (`BUSINESS_READY = false`) until exact-source release acceptance.
 
-Its reserved database is cw_vehicle. Runtime replicas use cw_vehicle_app; isolated migration jobs use cw_vehicle_migrate. DATABASE_URL is supplied by the allocated environment. Runtime startup never performs migrations. This source does not provision a database or prove its privileges.
+Owns `vehicle`, `idempotency_record`, `outbox_message`, `audit_entry` in database `cw_vehicle`.
+No other service may read or write these tables.
 
-From the repository root:
-
-- pnpm --filter @carwash/vehicle generate
-- pnpm --filter @carwash/vehicle build
-- pnpm --filter @carwash/vehicle typecheck
-- pnpm --filter @carwash/vehicle test:runtime
-- pnpm --filter @carwash/vehicle migrate:deploy (only with its migration identity in an allocated environment)
-- docker build -f services/vehicle/Dockerfile -t washgo/vehicle:w01 .
-
-The framework tests start a real local HTTP listener but do not connect to PostgreSQL or RabbitMQ. Real migration, isolation and image acceptance remain separate mandatory gates. E's bootstrap lease expires only at verified BASE_W02; the permanent domain owner then owns service source and append-only migrations.
+- API: `/internal/v1/vehicle` — see `docs/production/A/P01-A2_VEHICLE_PROVIDER.md`.
+- Owner is the authenticated principal from Identity (`VEHICLE_IDENTITY_ORIGIN`,
+  `VEHICLE_IDENTITY_TIMEOUT_MS`); business calls fail closed with 503 without it.
+- Plates are optional, descriptive and never unique.
+- `VEHICLE_MAX_ACTIVE_VEHICLES` (default 100) is a technical abuse ceiling, not product policy.
+- Tests: `pnpm --filter @carwash/vehicle run test:unit`; real infrastructure:
+  `node scripts/production/A/acceptance-a.mjs --services vehicle`.

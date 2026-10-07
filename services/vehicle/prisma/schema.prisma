@@ -26,3 +26,76 @@ model ServiceMarker {
 
   @@map("service_marker")
 }
+
+/// A saved vehicle. The owner is the authenticated principal (kind + Identity
+/// subject); there is no owner-transfer field. Plates are descriptive and are
+/// deliberately NOT unique, globally or per owner.
+model Vehicle {
+  id           String    @id @db.Uuid
+  ownerKind    String    @map("owner_kind") @db.VarChar(16)
+  ownerSubject String    @map("owner_subject") @db.Uuid
+  vehicleType  String    @map("vehicle_type") @db.VarChar(16)
+  displayName  String?   @map("display_name") @db.VarChar(60)
+  plate        String?   @db.VarChar(20)
+  color        String?   @db.VarChar(30)
+  status       String    @db.VarChar(16)
+  revision     Int
+  createdAt    DateTime  @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @map("updated_at") @db.Timestamptz(3)
+  archivedAt   DateTime? @map("archived_at") @db.Timestamptz(3)
+
+  @@index([ownerKind, ownerSubject, status], map: "vehicle_owner_status_idx")
+  @@map("vehicle")
+}
+
+/// Idempotency records live and die with the write they protect.
+model IdempotencyRecord {
+  scope          String   @db.VarChar(80)
+  key            String   @db.VarChar(128)
+  operation      String   @db.VarChar(40)
+  fingerprint    String   @db.Char(64)
+  responseStatus Int?     @map("response_status")
+  responseBody   Json?    @map("response_body")
+  createdAt      DateTime @map("created_at") @db.Timestamptz(3)
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz(3)
+
+  @@id([scope, key], map: "idempotency_record_pkey")
+  @@index([expiresAt], map: "idempotency_record_expiry_idx")
+  @@map("idempotency_record")
+}
+
+/// Transactional outbox. Rows are written with the state change they describe.
+model OutboxMessage {
+  id            String    @id @db.Uuid
+  eventId       String    @unique(map: "outbox_message_event_id_key") @map("event_id") @db.Uuid
+  eventType     String    @map("event_type")
+  exchange      String
+  routingKey    String    @map("routing_key")
+  payload       String
+  correlationId String    @map("correlation_id") @db.Uuid
+  traceParent   String?   @map("trace_parent") @db.VarChar(55)
+  attempts      Int       @default(0)
+  lockedBy      String?   @map("locked_by")
+  lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(3)
+  lastError     String?   @map("last_error")
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
+  deadAt        DateTime? @map("dead_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([publishedAt, deadAt, createdAt], map: "outbox_message_pending_idx")
+  @@map("outbox_message")
+}
+
+/// Append-only audit facts for vehicle mutations. Identifiers only.
+model AuditEntry {
+  id             String   @id @db.Uuid
+  actorSubject   String   @map("actor_subject") @db.Uuid
+  actorSessionId String   @map("actor_session_id") @db.Uuid
+  action         String   @db.VarChar(60)
+  vehicleId      String   @map("vehicle_id") @db.Uuid
+  correlationId  String   @map("correlation_id") @db.Uuid
+  at             DateTime @db.Timestamptz(3)
+
+  @@index([vehicleId, at], map: "audit_entry_vehicle_idx")
+  @@map("audit_entry")
+}

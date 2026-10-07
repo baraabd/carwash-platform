@@ -1,2 +1,2 @@
-// F001 ownership skeleton only. No business API, UI, or readiness is implemented.
+// Saved-vehicle capability; readiness stays 503 until exact-source acceptance.
 export {};
