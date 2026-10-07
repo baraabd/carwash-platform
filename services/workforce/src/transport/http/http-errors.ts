@@ -101,23 +101,16 @@ export class WorkforceHttpFilter implements ExceptionFilter {
       method?: string;
     }>();
     const response = http.getResponse<HttpResponseLike>();
-    const correlationId = resolveCorrelationId(
-      request.headers[CORRELATION_HEADER],
-    );
+    const correlationId = resolveCorrelationId(request.headers[CORRELATION_HEADER]);
     const mapped = toAppError(error);
     const body = toErrorResponse(mapped, correlationId);
-    bestEffortLog(
-      this.logger,
-      body.error.status >= 500 ? 'error' : 'warn',
-      'request_failed',
-      {
-        code: body.error.code,
-        status: body.error.status,
-        correlationId,
-        method: request.method,
-        ...(body.error.status >= 500 ? { error } : {}),
-      },
-    );
+    bestEffortLog(this.logger, body.error.status >= 500 ? 'error' : 'warn', 'request_failed', {
+      code: body.error.code,
+      status: body.error.status,
+      correlationId,
+      method: request.method,
+      ...(body.error.status >= 500 ? { error } : {}),
+    });
     response.setHeader(CORRELATION_HEADER, correlationId);
     response.status(body.error.status).json(body);
   }
