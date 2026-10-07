@@ -1,16 +1,18 @@
-# geo technical runtime
+# geo-service
 
-W01 adds a service-local Nest foundation shell, Prisma client and initial ServiceMarker migration. This service has no accepted business API or business events. It returns HTTP 200 from /health/live and HTTP 503 with FOUNDATION_NOT_READY from /health/ready; a healthy database never implies business readiness.
+**Status: service-zone and serviceability capability implemented; INTEGRATION_PENDING. No zone
+data exists — no approved dataset has been provided and none is invented.** Readiness stays
+HTTP 503 (`BUSINESS_READY = false`).
 
-Its reserved database is cw_geo. Runtime replicas use cw_geo_app; isolated migration jobs use cw_geo_migrate. DATABASE_URL is supplied by the allocated environment. Runtime startup never performs migrations. This source does not provision a database or prove its privileges.
+Owns `service_zone`, `outbox_message`, `audit_entry` in database `cw_geo`. Geo is never the
+customer-address authority. No other service may read or write these tables.
 
-From the repository root:
-
-- pnpm --filter @carwash/geo generate
-- pnpm --filter @carwash/geo build
-- pnpm --filter @carwash/geo typecheck
-- pnpm --filter @carwash/geo test:runtime
-- pnpm --filter @carwash/geo migrate:deploy (only with its migration identity in an allocated environment)
-- docker build -f services/geo/Dockerfile -t washgo/geo:w01 .
-
-The framework tests start a real local HTTP listener but do not connect to PostgreSQL or RabbitMQ. Real migration, isolation and image acceptance remain separate mandatory gates. E's bootstrap lease expires only at verified BASE_W02; the permanent domain owner then owns service source and append-only migrations.
+- API: `/internal/v1/geo` — `POST /serviceability` (guest-safe, rate limited by
+  `GEO_SERVICEABILITY_RATE_PER_MINUTE`), `GET /service-zones`. See
+  `docs/production/A/P01-A3_GEO_PROVIDER.md`.
+- Without approved zones every answer is `INDETERMINATE / NO_APPROVED_ZONES`; boundary and
+  overlap cases are also `INDETERMINATE` until the owner approves rules.
+- Zone data is managed with the operator CLI (`pnpm --filter @carwash/geo run zones -- ...`);
+  every zone needs an approved `datasetRef`.
+- Tests: `pnpm --filter @carwash/geo run test:unit`; real infrastructure:
+  `node scripts/production/A/acceptance-a.mjs --services geo`.

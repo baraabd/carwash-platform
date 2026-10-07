@@ -10,7 +10,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "migrate:deploy": "prisma migrate deploy",
     "start": "node dist/main.js",
-    "test:runtime": "pnpm run build:tests && node --test dist-tests/test/geo.nest.spec.js"
+    "test:runtime": "pnpm run build:tests && node --test dist-tests/test/geo.nest.spec.js",
+    "test:unit": "pnpm run build:tests && node --test dist-tests/test/domain/geo-domain.spec.js dist-tests/test/geo.nest.spec.js",
+    "zones": "node dist/transport/cli/zones.js"
   },
   "dependencies": {
     "@carwash/event-contracts": "workspace:*",

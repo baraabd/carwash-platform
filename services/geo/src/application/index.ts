@@ -1,7 +1,4 @@
-/**
- * geo application layer.
- *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
- */
-export {};
+/** geo application layer: use cases over domain rules and ports. */
+export * from './errors';
+export * from './events';
+export * from './geo.application';

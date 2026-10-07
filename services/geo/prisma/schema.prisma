@@ -26,3 +26,62 @@ model ServiceMarker {
 
   @@map("service_marker")
 }
+
+/// A service zone imported from an approved dataset (`dataset_ref` provenance).
+/// The ring is `[[lng, lat], ...]` canonical decimal strings; the bounding box
+/// columns are exact NUMERIC copies used only to pre-select candidates.
+model ServiceZone {
+  id         String    @id @db.Uuid
+  code       String    @unique(map: "service_zone_code_key") @db.VarChar(40)
+  name       String    @db.VarChar(80)
+  datasetRef String    @map("dataset_ref") @db.VarChar(120)
+  ring       Json
+  minLat     Decimal   @map("min_lat") @db.Decimal(9, 6)
+  maxLat     Decimal   @map("max_lat") @db.Decimal(9, 6)
+  minLng     Decimal   @map("min_lng") @db.Decimal(9, 6)
+  maxLng     Decimal   @map("max_lng") @db.Decimal(9, 6)
+  status     String    @db.VarChar(16)
+  revision   Int
+  createdAt  DateTime  @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @map("updated_at") @db.Timestamptz(3)
+  retiredAt  DateTime? @map("retired_at") @db.Timestamptz(3)
+
+  @@index([status, minLat, maxLat, minLng, maxLng], map: "service_zone_active_bbox_idx")
+  @@map("service_zone")
+}
+
+/// Transactional outbox. Rows are written with the state change they describe.
+model OutboxMessage {
+  id            String    @id @db.Uuid
+  eventId       String    @unique(map: "outbox_message_event_id_key") @map("event_id") @db.Uuid
+  eventType     String    @map("event_type")
+  exchange      String
+  routingKey    String    @map("routing_key")
+  payload       String
+  correlationId String    @map("correlation_id") @db.Uuid
+  traceParent   String?   @map("trace_parent") @db.VarChar(55)
+  attempts      Int       @default(0)
+  lockedBy      String?   @map("locked_by")
+  lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(3)
+  lastError     String?   @map("last_error")
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
+  deadAt        DateTime? @map("dead_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([publishedAt, deadAt, createdAt], map: "outbox_message_pending_idx")
+  @@map("outbox_message")
+}
+
+/// Append-only audit of zone data operations (operator label + provenance).
+model AuditEntry {
+  id            String   @id @db.Uuid
+  actor         String   @db.VarChar(60)
+  action        String   @db.VarChar(60)
+  zoneId        String   @map("zone_id") @db.Uuid
+  datasetRef    String   @map("dataset_ref") @db.VarChar(120)
+  correlationId String   @map("correlation_id") @db.Uuid
+  at            DateTime @db.Timestamptz(3)
+
+  @@index([zoneId, at], map: "audit_entry_zone_idx")
+  @@map("audit_entry")
+}
