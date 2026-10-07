@@ -248,15 +248,26 @@ test('four concurrent sweepers expire 30 holds exactly once each', async () => {
     }
     local.advance(61_000);
     const correlation = randomUUID();
-    // Several rounds: SKIP LOCKED lets a busy window be skipped and picked up later.
-    let expired = 0;
-    for (let round = 0; round < 5 && expired < 30; round += 1) {
-      const passes = await Promise.all(sweepers.map((s) => s.service.expireDue(correlation, 100)));
-      expired += passes.reduce((sum, p) => sum + p.holds, 0);
+    // The lane database is shared with earlier runs, so sweepers also meet other
+    // tests' due holds. Assert on THIS test's holds only. Several rounds: SKIP
+    // LOCKED lets a busy window be skipped and picked up by a later pass.
+    const mine = async () =>
+      (
+        await replicas[0]!.prisma.client.$queryRawUnsafe<{ n: number }[]>(
+          `SELECT count(*)::int AS n FROM app.capacity_hold WHERE id = ANY($1::uuid[]) AND status = 'EXPIRED'`,
+          holdIds,
+        )
+      )[0]!.n;
+    for (let round = 0; round < 20 && (await mine()) < 30; round += 1) {
+      await Promise.all(sweepers.map((s) => s.service.expireDue(correlation, 500)));
     }
-    assert.equal(expired, 30, 'no hold expired twice and none was missed');
+    assert.equal(await mine(), 30, 'none was missed');
     for (const id of windows) assert.equal((await windowRow(id)).held, 0);
-    assert.equal(await outboxCount('scheduling.hold-expired.v1', holdIds), 30);
+    assert.equal(
+      await outboxCount('scheduling.hold-expired.v1', holdIds),
+      30,
+      'each hold expired exactly once: one event each, no duplicates',
+    );
   } finally {
     await Promise.all(sweepers.map((s) => s.prisma.client.$disconnect()));
   }
