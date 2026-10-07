@@ -64,6 +64,7 @@ export function gatewayOpenApi() {
         ? { 'x-required-permission': route.permission, security: SECURITY }
         : {}),
       ...(route.authTransport ? { 'x-auth-enforcement-owner': 'identity' } : {}),
+      ...(route.public ? { 'x-public': true, security: [] } : {}),
       parameters: [
         ...CORRELATION_PARAMETERS,
         ...(route.path.includes(':id')
@@ -106,11 +107,11 @@ export function gatewayOpenApi() {
     paths[path] = current;
   }
   for (const read of GATEWAY_COMPOSITIONS) {
-    const permissions = read.routes.map((id) => {
+    const permissions = read.routes.flatMap((id) => {
       const route = GATEWAY_ROUTES.find((candidate) => candidate.id === id);
-      if (!route || route.method !== 'GET' || !route.permission)
+      if (!route || route.method !== 'GET' || (!route.permission && !route.public))
         throw new Error('INVALID_GATEWAY_COMPOSITION_CONTRACT');
-      return route.permission;
+      return route.permission ? [route.permission] : [];
     });
     paths[GATEWAY_V1 + read.path] = {
       get: {
