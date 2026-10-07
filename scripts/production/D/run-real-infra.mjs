@@ -114,7 +114,10 @@ function runSuites(suites, env) {
 
 async function main() {
   const file = await contextFile();
-  const context = await readContextFile(file);
+  // The context records the worktree that CREATED the stack. Migrations must
+  // come from the tree under test, or a reused stack would be migrated from a
+  // different checkout than the code the suites load.
+  const context = { ...(await readContextFile(file)), root: ROOT };
   const suites = await discoverSuites(option('suite'));
   if (suites.length === 0) throw new Error('NO_SUITES_SELECTED');
 
