@@ -49,7 +49,16 @@ test('readiness probe distinguishes foundation shells from dependency failure an
     verifiedReadiness(`503 ${body({ businessReady: true, code: 'DEPENDENCY_DOWN' })}`).ok,
     true,
   );
+  // A shell with no registered probe reports null (not checked), as the real images do.
+  assert.equal(
+    verifiedReadiness(
+      `503 ${body({ businessReady: false, code: 'FOUNDATION_NOT_READY', dependenciesReady: null })}`,
+    ).ok,
+    true,
+  );
   for (const raw of [
+    `503 ${body({ businessReady: true, code: 'DEPENDENCY_DOWN', dependenciesReady: null })}`,
+    `503 ${body({ businessReady: false, code: 'FOUNDATION_NOT_READY', dependenciesReady: null, dependencies: [{ name: 'db', status: 'DOWN' }] })}`,
     `200 ${body({ businessReady: true, ready: true, dependenciesReady: true, code: 'READY' })}`,
     `503 ${body({ businessReady: true, code: 'FOUNDATION_NOT_READY' })}`,
     `503 ${body({ businessReady: false, code: 'DEPENDENCY_DOWN' })}`,

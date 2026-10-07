@@ -79,6 +79,13 @@ test('matrix: business readiness and dependency readiness are reported independe
   }
 });
 
+test('no registered probe reports dependenciesReady null, never a vacuous true', async () => {
+  for (const businessReady of [false, true]) {
+    const { body } = await readiness({ service: 'demo', businessReady, dependencies: [] });
+    assert.equal(body.dependenciesReady, null);
+  }
+});
+
 test('a hanging dependency times out as DOWN and never reads as ready', async () => {
   const { status, body } = await readiness({
     service: 'demo',

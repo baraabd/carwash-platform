@@ -16,6 +16,15 @@ CI/runtime-only and independent of the contract PR). Base:
    | false | down | 503 | `FOUNDATION_NOT_READY` | false |
    | true | up | 200 | `READY` | true |
    | true | down/timeout | 503 | `DEPENDENCY_DOWN` | false |
+   | any | none registered | — | (by `code`) | `null` (not checked) |
+
+   **Finding from CI on this PR:** all 18 foundation shells register **no**
+   dependency probe, so before this fix they would have reported
+   `dependenciesReady: true` with the database unreachable. They now report
+   `null`. The image check accepts `null` only for a shell; a service with
+   `businessReady=true` must probe its database and report `false` when it is
+   unreachable. Each owner lane must register its PostgreSQL (and broker)
+   probe when it implements its service.
 
    Before this change a shell with a broken database was indistinguishable from
    a healthy shell. The field is additive; existing assertions on `code` and

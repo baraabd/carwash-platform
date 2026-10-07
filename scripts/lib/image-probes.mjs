@@ -32,15 +32,22 @@ export function verifiedReadiness(raw) {
     return { ok: false, detail: `readiness body lacks businessReady: ${text.slice(0, 200)}` };
   }
   const expected = body.businessReady ? 'DEPENDENCY_DOWN' : 'FOUNDATION_NOT_READY';
-  const ok =
-    status === '503' &&
-    body.ready === false &&
-    body.dependenciesReady === false &&
-    body.code === expected;
+  // An implemented service must probe its database, so it must report false here.
+  // A shell may register no probe (null = not checked, empty list); never true.
+  const dependencyHonest = body.businessReady
+    ? body.dependenciesReady === false
+    : body.dependenciesReady === false ||
+      (body.dependenciesReady === null &&
+        Array.isArray(body.dependencies) &&
+        body.dependencies.length === 0);
+  const ok = status === '503' && body.ready === false && dependencyHonest && body.code === expected;
   return ok
-    ? { ok, detail: `code=${body.code} businessReady=${body.businessReady}` }
+    ? {
+        ok,
+        detail: `code=${body.code} businessReady=${body.businessReady} dependenciesReady=${body.dependenciesReady}`,
+      }
     : {
         ok,
-        detail: `expected 503/${expected} with dependenciesReady=false, got: ${text.slice(0, 300)}`,
+        detail: `expected 503/${expected} with honest dependenciesReady, got: ${text.slice(0, 300)}`,
       };
 }
