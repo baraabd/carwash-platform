@@ -5,7 +5,7 @@ import { WORKFORCE_SCOPES, type WorkforceScope } from '../../ports';
  * Service-to-service credentials for internal callers (e.g. Dispatch).
  *
  * Interim mechanism until the platform publishes workload identity (requested
- * from Lane E in CR-C1). Configuration holds only SHA-256 digests of the
+ * from Lane E in CR-C2). Configuration holds only SHA-256 digests of the
  * credentials, never the credentials. Comparison is constant-time, unknown
  * clients and unknown scopes are rejected, and nothing about a failed attempt
  * is echoed back.
