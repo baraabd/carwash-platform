@@ -28,15 +28,20 @@ model ServiceMarker {
 }
 
 
+/// kind 'account' | 'guest'; the shape per kind is enforced by the
+/// identity_account_kind_shape CHECK constraint in migration 20261007000000.
 model IdentityAccount {
-  id           String @id @db.Uuid
-  email        String @unique @db.VarChar(254)
-  passwordHash String @map("password_hash")
-  status       String @db.VarChar(16)
-  roles        String[]
-  authVersion  Int @default(1) @map("auth_version")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  sessions     IdentitySession[]
+  id             String @id @db.Uuid
+  kind           String @default("account") @db.VarChar(16)
+  email          String? @unique @db.VarChar(254)
+  passwordHash   String? @map("password_hash")
+  status         String @db.VarChar(16)
+  roles          String[]
+  authVersion    Int @default(1) @map("auth_version")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  recoveryDigest String? @unique @map("recovery_digest") @db.Char(64)
+  guestExpiresAt DateTime? @map("guest_expires_at") @db.Timestamptz(3)
+  sessions       IdentitySession[]
   @@map("identity_account")
 }
 

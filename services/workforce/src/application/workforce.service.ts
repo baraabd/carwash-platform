@@ -339,6 +339,7 @@ export class WorkforceService {
     input: { zoneId: string; startsAt: Date; endsAt: Date },
     idempotencyKey: string,
   ): Promise<ShiftState> {
+    requirePermission(meta.actor, 'work.read:assigned');
     assertIdempotencyKey(idempotencyKey);
     const requestBy = requester(meta.actor);
     const fingerprint = requestFingerprint({
@@ -351,12 +352,7 @@ export class WorkforceService {
     return this.uow.run(async (tx) => {
       const operator = await tx.lockOperator(operatorId);
       if (!operator) throw new WorkforceError('OPERATOR_NOT_FOUND', 'Operator profile not found.');
-      if (meta.actor.kind === 'USER') {
-        requirePermission(meta.actor, 'work.read:assigned');
-        requireSelf(meta.actor, operator.identitySubject);
-      } else {
-        requireScope(meta.actor, 'workforce.operator.read');
-      }
+      requireSelf(meta.actor, operator.identitySubject);
       const replay = await tx.findShiftByIdempotency(requestBy, idempotencyKey);
       if (replay) {
         if (replay.requestFingerprint !== fingerprint) {
@@ -390,18 +386,14 @@ export class WorkforceService {
   }
 
   async cancelShift(meta: RequestMeta, shiftId: string): Promise<ShiftState> {
+    requirePermission(meta.actor, 'work.read:assigned');
     const now = this.clock.now();
     return this.uow.run(async (tx) => {
       const current = await tx.lockShift(shiftId);
       if (!current) throw new WorkforceError('SHIFT_NOT_FOUND', 'Shift not found.');
       const operator = await tx.lockOperator(current.operatorId);
       if (!operator) throw new WorkforceError('OPERATOR_NOT_FOUND', 'Operator profile not found.');
-      if (meta.actor.kind === 'USER') {
-        requirePermission(meta.actor, 'work.read:assigned');
-        requireSelf(meta.actor, operator.identitySubject);
-      } else {
-        requireScope(meta.actor, 'workforce.operator.read');
-      }
+      requireSelf(meta.actor, operator.identitySubject);
       const next = cancelShift(current, now);
       await tx.updateShift(next, current.version);
       await this.appendShift(tx, meta, next);

@@ -112,7 +112,14 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker",
+        "CustomerProfile",
+        "CustomerAddress",
+        "IdempotencyRecord",
+        "OutboxMessage",
+        "AuditEntry"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -138,7 +145,21 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker", "FoundationProbe", "OutboxMessage"],
+      "persistenceModels": [
+        "ServiceMarker",
+        "FoundationProbe",
+        "OutboxMessage",
+        "CatalogPublicationLock",
+        "CatalogRevision",
+        "CatalogVehicleCategory",
+        "CatalogPackage",
+        "CatalogAddon",
+        "CatalogPackageCategory",
+        "CatalogAddonCategory",
+        "CatalogPackageAddon",
+        "CatalogIdempotencyReceipt",
+        "CatalogAuditEvent"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -177,7 +198,13 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker",
+        "CapacityWindow",
+        "CapacityHold",
+        "OutboxMessage",
+        "AuditEntry"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -328,7 +355,14 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker", "InboxMessage", "ProbeProjection"],
+      "persistenceModels": [
+        "ServiceMarker",
+        "InboxMessage",
+        "ProbeProjection",
+        "ProjectionContribution",
+        "MetricBucket",
+        "AggregateSnapshot"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },

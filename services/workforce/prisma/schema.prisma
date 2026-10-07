@@ -34,6 +34,7 @@ model Operator {
   cases              VerificationCase[]
   shifts             WorkShift[]
 
+  @@index([homeZoneId], map: "operator_home_zone_idx")
   @@map("operator")
 }
 

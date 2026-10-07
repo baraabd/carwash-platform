@@ -1,2 +1,6 @@
-// F001 ownership skeleton only. No business API, UI, or readiness is implemented.
-export {};
+/**
+ * Typed clients for accepted WashGo contracts. Every response is validated with
+ * the owner's published parser; transport faults never become success.
+ */
+export * from './transport.js';
+export * from './routes.js';

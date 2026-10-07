@@ -61,3 +61,145 @@ model OutboxMessage {
   @@index([publishedAt, deadAt, createdAt], map: "outbox_message_pending_idx")
   @@map("outbox_message")
 }
+
+/// Singleton row locked FOR UPDATE by every publisher, serialising the
+/// "read head, check receipt, append revision" sequence for the whole catalog.
+model CatalogPublicationLock {
+  id Int @id @db.SmallInt
+
+  @@map("catalog_publication_lock")
+}
+
+/// One immutable published catalog revision. Revisions form a linear chain
+/// (previous_revision = revision - 1) with strictly increasing effective_from,
+/// so revision N is in force on [effective_from(N), effective_from(N+1)).
+/// Database triggers reject every UPDATE/DELETE and any late child insert.
+model CatalogRevision {
+  revision               Int                      @id
+  previousRevision       Int?                     @unique @map("previous_revision")
+  effectiveFrom          DateTime                 @unique @map("effective_from") @db.Timestamptz(3)
+  publishedAt            DateTime                 @map("published_at") @db.Timestamptz(3)
+  publishedBy            String                   @map("published_by") @db.Uuid
+  correlationId          String                   @map("correlation_id") @db.Uuid
+  definitionsFingerprint String                   @map("definitions_fingerprint") @db.Char(64)
+  previous               CatalogRevision?         @relation("RevisionChain", fields: [previousRevision], references: [revision], onDelete: Restrict, onUpdate: Restrict)
+  next                   CatalogRevision?         @relation("RevisionChain")
+  categories             CatalogVehicleCategory[]
+  packages               CatalogPackage[]
+  addons                 CatalogAddon[]
+
+  @@map("catalog_revision")
+}
+
+model CatalogVehicleCategory {
+  revision             Int
+  id                   String                   @db.VarChar(48)
+  labelAr              String                   @map("label_ar") @db.VarChar(80)
+  labelEn              String?                  @map("label_en") @db.VarChar(80)
+  extraDurationMinutes Int                      @map("extra_duration_minutes")
+  sortOrder            Int                      @map("sort_order")
+  catalogRevision      CatalogRevision          @relation(fields: [revision], references: [revision], onDelete: Restrict, onUpdate: Restrict)
+  packages             CatalogPackageCategory[]
+  addons               CatalogAddonCategory[]
+
+  @@id([revision, id])
+  @@map("catalog_vehicle_category")
+}
+
+model CatalogPackage {
+  revision        Int
+  id              String                   @db.VarChar(48)
+  labelAr         String                   @map("label_ar") @db.VarChar(80)
+  labelEn         String?                  @map("label_en") @db.VarChar(80)
+  descriptionAr   String?                  @map("description_ar") @db.VarChar(280)
+  durationMinutes Int                      @map("duration_minutes")
+  sortOrder       Int                      @map("sort_order")
+  featuresAr      String[]                 @map("features_ar")
+  catalogRevision CatalogRevision          @relation(fields: [revision], references: [revision], onDelete: Restrict, onUpdate: Restrict)
+  categories      CatalogPackageCategory[]
+  addons          CatalogPackageAddon[]
+
+  @@id([revision, id])
+  @@map("catalog_package")
+}
+
+model CatalogAddon {
+  revision        Int
+  id              String                 @db.VarChar(48)
+  labelAr         String                 @map("label_ar") @db.VarChar(80)
+  labelEn         String?                @map("label_en") @db.VarChar(80)
+  durationMinutes Int                    @map("duration_minutes")
+  sortOrder       Int                    @map("sort_order")
+  catalogRevision CatalogRevision        @relation(fields: [revision], references: [revision], onDelete: Restrict, onUpdate: Restrict)
+  categories      CatalogAddonCategory[]
+  packages        CatalogPackageAddon[]
+
+  @@id([revision, id])
+  @@map("catalog_addon")
+}
+
+model CatalogPackageCategory {
+  revision   Int
+  packageId  String                 @map("package_id") @db.VarChar(48)
+  categoryId String                 @map("category_id") @db.VarChar(48)
+  package    CatalogPackage         @relation(fields: [revision, packageId], references: [revision, id], onDelete: Restrict, onUpdate: Restrict)
+  category   CatalogVehicleCategory @relation(fields: [revision, categoryId], references: [revision, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([revision, packageId, categoryId])
+  @@map("catalog_package_category")
+}
+
+model CatalogAddonCategory {
+  revision   Int
+  addonId    String                 @map("addon_id") @db.VarChar(48)
+  categoryId String                 @map("category_id") @db.VarChar(48)
+  addon      CatalogAddon           @relation(fields: [revision, addonId], references: [revision, id], onDelete: Restrict, onUpdate: Restrict)
+  category   CatalogVehicleCategory @relation(fields: [revision, categoryId], references: [revision, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([revision, addonId, categoryId])
+  @@map("catalog_addon_category")
+}
+
+/// One row per (package, add-on) pair, so an add-on can never be both INCLUDED
+/// and OPTIONAL for the same package.
+model CatalogPackageAddon {
+  revision  Int
+  packageId String         @map("package_id") @db.VarChar(48)
+  addonId   String         @map("addon_id") @db.VarChar(48)
+  relation  String         @db.VarChar(8)
+  package   CatalogPackage @relation(fields: [revision, packageId], references: [revision, id], onDelete: Restrict, onUpdate: Restrict)
+  addon     CatalogAddon   @relation(fields: [revision, addonId], references: [revision, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([revision, packageId, addonId])
+  @@map("catalog_package_addon")
+}
+
+/// Durable terminal outcome of an idempotent command, scoped to the verified
+/// actor and operation. Never updated or deleted, so a key cannot be reused.
+model CatalogIdempotencyReceipt {
+  actorSubject       String   @map("actor_subject") @db.Uuid
+  operation          String   @db.VarChar(64)
+  idempotencyKey     String   @map("idempotency_key") @db.VarChar(128)
+  requestFingerprint String   @map("request_fingerprint") @db.Char(64)
+  responseStatus     Int      @map("response_status")
+  responseBody       Json     @map("response_body")
+  createdAt          DateTime @map("created_at") @db.Timestamptz(3)
+
+  @@id([actorSubject, operation, idempotencyKey])
+  @@map("catalog_idempotency_receipt")
+}
+
+/// Append-only audit of sensitive catalog mutations. No personal data beyond
+/// the pseudonymous Identity subject.
+model CatalogAuditEvent {
+  id            String   @id @db.Uuid
+  occurredAt    DateTime @map("occurred_at") @db.Timestamptz(3)
+  actorSubject  String   @map("actor_subject") @db.Uuid
+  action        String   @db.VarChar(64)
+  revision      Int?
+  outcome       String   @db.VarChar(64)
+  correlationId String   @map("correlation_id") @db.Uuid
+
+  @@index([occurredAt], map: "catalog_audit_event_occurred_idx")
+  @@map("catalog_audit_event")
+}

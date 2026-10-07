@@ -111,6 +111,17 @@ test('model inventory reads owner schemas and detects drift without generator/sc
     fixtureStatus.services = deriveServiceStatuses(catalog, { root: fixture });
     validateImplementationStatus(fixtureStatus, catalog, { persistenceRoot: fixture });
     const customerSchema = path.join(fixture, 'services/customer/prisma/schema.prisma');
+    // The baseline is read from the real owner schema (and must equal the
+    // registry), so this drift probe stays valid as Customer gains models.
+    const before = persistenceModels('services/customer', fixture);
+    assert.equal(before[0], 'ServiceMarker');
+    assert.deepEqual(
+      before,
+      status.services.find((owner) => owner.id === 'customer').persistenceModels,
+    );
+    for (const probe of ['NewOwnedProfile', 'CommentOnly', 'AnotherComment']) {
+      assert.ok(!before.includes(probe), `${probe} must not pre-exist in the customer schema`);
+    }
     await writeFile(
       customerSchema,
       `${await readFile(customerSchema, 'utf8')}\n` +
@@ -119,7 +130,7 @@ test('model inventory reads owner schemas and detects drift without generator/sc
         'model NewOwnedProfile {\n  id String @id\n}\n',
     );
     assert.deepEqual(persistenceModels('services/customer', fixture), [
-      'ServiceMarker',
+      ...before,
       'NewOwnedProfile',
     ]);
     assert.throws(

@@ -18,6 +18,12 @@ export interface GatewayRoute {
   readonly upstream: string;
   readonly permission?: IdentityPermission;
   readonly authTransport?: boolean;
+  /**
+   * Anonymous read: the Gateway forwards only request/correlation/trace
+   * headers - never cookies, bearer tokens or identity headers - and the
+   * owner must not personalize the response. Only GET routes may be public.
+   */
+  readonly public?: true;
   readonly idempotency?: 'required';
 }
 export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
@@ -46,6 +52,8 @@ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
       'refresh',
       'logout',
       'logout-all',
+      'guest-sessions',
+      'guest-sessions/recover',
     ] as const
   ).map((name): GatewayRoute => ({
     id: `auth.${name.replaceAll('/', '.')}`,
@@ -81,12 +89,13 @@ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
     idempotency: 'required',
   },
   {
+    // Guests browse the published catalog before any identity exists.
     id: 'customer.catalog',
     method: 'GET',
     path: '/customer/packages',
     owner: 'catalog',
     upstream: '/internal/v1/catalog/packages',
-    permission: 'profile.read:self',
+    public: true,
   },
   {
     id: 'customer.bookings.read',
