@@ -34,7 +34,7 @@ import type {
   WorkforceTransaction,
   WorkforceUnitOfWork,
 } from '../ports';
-import { requirePermission, requireScope, requireSelf, requireUser } from './authorization';
+import { requirePermission, requireScope, requireSelf } from './authorization';
 
 function requestFingerprint(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value), 'utf8').digest('hex');
@@ -77,7 +77,8 @@ export class WorkforceService {
     const state = createOperator({ id: this.ids.next(), ...input, now });
     return this.uow.run(async (tx) => {
       const result = await tx.insertOperator(state);
-      if (result !== 'CREATED') throw new WorkforceError('OPERATOR_EXISTS', 'Operator already exists.');
+      if (result !== 'CREATED')
+        throw new WorkforceError('OPERATOR_EXISTS', 'Operator already exists.');
       await tx.appendAudit({
         action: 'OPERATOR_CREATED',
         actor: meta.actor,
@@ -139,7 +140,10 @@ export class WorkforceService {
       const replay = await tx.findCaseByIdempotency(requestBy, idempotencyKey);
       if (replay) {
         if (replay.requestFingerprint !== fingerprint) {
-          throw new WorkforceError('IDEMPOTENCY_KEY_REUSED', 'Idempotency key reused with different input.');
+          throw new WorkforceError(
+            'IDEMPOTENCY_KEY_REUSED',
+            'Idempotency key reused with different input.',
+          );
         }
         return replay;
       }
@@ -181,8 +185,7 @@ export class WorkforceService {
     meta: RequestMeta,
     caseId: string,
     input:
-      | { decision: 'APPROVE'; validUntil: Date }
-      | { decision: 'REJECT'; reason: DecisionReason },
+      { decision: 'APPROVE'; validUntil: Date } | { decision: 'REJECT'; reason: DecisionReason },
   ): Promise<VerificationCaseState> {
     const reviewer = requirePermission(meta.actor, 'verification.review');
     const now = this.clock.now();
@@ -239,7 +242,8 @@ export class WorkforceService {
       const operator = await tx.lockOperator(operatorId);
       if (!operator) throw new WorkforceError('OPERATOR_NOT_FOUND', 'Operator profile not found.');
       const currentSkills = await tx.listSkills(operator.id);
-      if (currentSkills.includes(code)) throw new WorkforceError('SKILL_EXISTS', 'Skill already granted.');
+      if (currentSkills.includes(code))
+        throw new WorkforceError('SKILL_EXISTS', 'Skill already granted.');
       await tx.insertSkill({
         id: this.ids.next(),
         operatorId: operator.id,
@@ -263,7 +267,11 @@ export class WorkforceService {
     });
   }
 
-  async revokeSkill(meta: RequestMeta, operatorId: string, rawSkillCode: string): Promise<string[]> {
+  async revokeSkill(
+    meta: RequestMeta,
+    operatorId: string,
+    rawSkillCode: string,
+  ): Promise<string[]> {
     requirePermission(meta.actor, 'operations.dispatch');
     const code = skillCode(rawSkillCode);
     const now = this.clock.now();
@@ -300,8 +308,10 @@ export class WorkforceService {
       const current = await tx.lockOperator(operatorId);
       if (!current) throw new WorkforceError('OPERATOR_NOT_FOUND', 'Operator profile not found.');
       let next = current;
-      if (input.employmentStatus !== undefined) next = setEmployment(next, input.employmentStatus, now);
-      if (input.suspensionReason !== undefined) next = setSuspension(next, input.suspensionReason, now);
+      if (input.employmentStatus !== undefined)
+        next = setEmployment(next, input.employmentStatus, now);
+      if (input.suspensionReason !== undefined)
+        next = setSuspension(next, input.suspensionReason, now);
       if (next.version !== current.version) {
         await tx.updateOperator(next, current.version);
         await this.appendEligibility(tx, meta, next);
@@ -316,7 +326,11 @@ export class WorkforceService {
     const operator = await this.read.findOperator(operatorId);
     if (!operator) throw new WorkforceError('OPERATOR_NOT_FOUND', 'Operator profile not found.');
     const skills = await this.read.listSkills(operator.id);
-    return { operatorId: operator.id, ...operationalReadiness(operator, skills, this.clock.now()), skillCodes: skills };
+    return {
+      operatorId: operator.id,
+      ...operationalReadiness(operator, skills, this.clock.now()),
+      skillCodes: skills,
+    };
   }
 
   async createShift(
@@ -346,7 +360,10 @@ export class WorkforceService {
       const replay = await tx.findShiftByIdempotency(requestBy, idempotencyKey);
       if (replay) {
         if (replay.requestFingerprint !== fingerprint) {
-          throw new WorkforceError('IDEMPOTENCY_KEY_REUSED', 'Idempotency key reused with different input.');
+          throw new WorkforceError(
+            'IDEMPOTENCY_KEY_REUSED',
+            'Idempotency key reused with different input.',
+          );
         }
         return replay;
       }
@@ -360,7 +377,8 @@ export class WorkforceService {
         now,
       });
       const inserted = await tx.insertShift(shift);
-      if (inserted === 'OVERLAPS') throw new WorkforceError('SHIFT_OVERLAPS', 'Shift overlaps an active shift.');
+      if (inserted === 'OVERLAPS')
+        throw new WorkforceError('SHIFT_OVERLAPS', 'Shift overlaps an active shift.');
       if (inserted !== 'CREATED') {
         const again = await tx.findShiftByIdempotency(requestBy, idempotencyKey);
         if (again?.requestFingerprint === fingerprint) return again;
@@ -433,7 +451,11 @@ export class WorkforceService {
     });
   }
 
-  private async appendShift(tx: WorkforceTransaction, meta: RequestMeta, shift: ShiftState): Promise<void> {
+  private async appendShift(
+    tx: WorkforceTransaction,
+    meta: RequestMeta,
+    shift: ShiftState,
+  ): Promise<void> {
     const event = shiftEvent({
       eventId: this.ids.next(),
       occurredAt: this.clock.now().toISOString(),
@@ -448,6 +470,10 @@ export class WorkforceService {
         status: shift.status,
       },
     });
-    await tx.appendEvent({ event, exchange: WORKFORCE_EVENTS_EXCHANGE, routingKey: SHIFT_UPDATED_V1 });
+    await tx.appendEvent({
+      event,
+      exchange: WORKFORCE_EVENTS_EXCHANGE,
+      routingKey: SHIFT_UPDATED_V1,
+    });
   }
 }
