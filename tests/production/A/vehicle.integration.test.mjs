@@ -12,6 +12,7 @@ import {
   idempotencyKey,
   sql,
   sqlState,
+  serviceRequire,
   startIdentity,
   startService,
 } from './_support.mjs';
@@ -169,6 +170,118 @@ test('idempotency: concurrent creates with one key make one vehicle and one even
   assert.equal(missingKey.status, 428);
 });
 
+test('idempotency: expiry permits one new write under concurrent retries and replaces old payload', async () => {
+  const user = await account(identity);
+  const key = idempotencyKey();
+  const first = await create(user, sedan, key);
+  assert.equal(first.status, 201);
+  await sql(
+    db,
+    `UPDATE app.idempotency_record
+    SET created_at = now() - interval '25 hours', expires_at = now() - interval '1 hour'
+    WHERE scope = $1 AND key = $2`,
+    [`account:${user.subject}`, key],
+  );
+  const replacement = { type: 'pickup', plate: '998', color: 'أزرق' };
+  const results = await Promise.all(
+    Array.from({ length: 8 }, () => create(user, replacement, key)),
+  );
+  assert.ok(results.every((result) => result.status === 201));
+  assert.equal(new Set(results.map((result) => result.body.vehicleId)).size, 1);
+  assert.notEqual(results[0].body.vehicleId, first.body.vehicleId);
+  assert.equal(results.filter((result) => result.headers.get('idempotent-replayed')).length, 7);
+  const record = await sql(
+    db,
+    'SELECT response_body FROM app.idempotency_record WHERE scope = $1 AND key = $2',
+    [`account:${user.subject}`, key],
+  );
+  assert.deepEqual(record.rows[0].response_body, results[0].body);
+  const rows = await sql(
+    db,
+    'SELECT count(*)::int AS n FROM app.vehicle WHERE owner_subject = $1',
+    [user.subject],
+  );
+  assert.equal(rows.rows[0].n, 2);
+});
+
+test('idempotency: exact TTL boundary is expired and inactive expired payloads are purged', async () => {
+  const own = serviceRequire('vehicle');
+  const { PrismaService } = own('./dist/prisma.service.js');
+  const { PrismaVehicleStore } = own('./dist/infrastructure/persistence/prisma-vehicle.store.js');
+  const prisma = vehicle.app.get(PrismaService);
+  const store = new PrismaVehicleStore(prisma.client);
+  const now = new Date(Date.now() + 60_000);
+  const expiresAt = new Date(now.getTime() + 86_400_000);
+  const scope = `account:${randomUUID()}`;
+  const key = idempotencyKey();
+  const request = {
+    scope,
+    key,
+    operation: 'vehicle.create',
+    fingerprint: 'a'.repeat(64),
+    now,
+    expiresAt,
+  };
+  await store.transaction(async (tx) => {
+    assert.equal((await tx.claimIdempotency(request)).kind, 'claimed');
+    await tx.completeIdempotency(scope, key, 201, { plate: '123' });
+  });
+  await store.transaction(async (tx) => {
+    assert.equal(
+      (await tx.claimIdempotency({ ...request, now: new Date(expiresAt.getTime() - 1) })).kind,
+      'replay',
+    );
+  });
+  await store.transaction(async (tx) => {
+    assert.equal(
+      (
+        await tx.claimIdempotency({
+          ...request,
+          now: expiresAt,
+          expiresAt: new Date(expiresAt.getTime() + 86_400_000),
+        })
+      ).kind,
+      'claimed',
+    );
+    await tx.completeIdempotency(scope, key, 201, { plate: '456' });
+  });
+  await sql(
+    db,
+    `UPDATE app.idempotency_record
+    SET created_at = now() - interval '25 hours', expires_at = now() - interval '1 hour'
+    WHERE scope = $1 AND key = $2`,
+    [scope, key],
+  );
+  await store.transaction(async (tx) => {
+    // The request's captured time predates expiry, while the maintenance clock
+    // has advanced. Its replay must remain protected until the response commits.
+    assert.equal(
+      (await tx.claimIdempotency({ ...request, now: new Date(Date.now() - 7_200_000) })).kind,
+      'replay',
+    );
+    await prisma.purgeExpiredIdempotency();
+    assert.equal(
+      (
+        await sql(db, 'SELECT 1 FROM app.idempotency_record WHERE scope = $1 AND key = $2', [
+          scope,
+          key,
+        ])
+      ).rows.length,
+      1,
+    );
+  });
+  await prisma.purgeExpiredIdempotency();
+  assert.equal(
+    (
+      await sql(db, 'SELECT 1 FROM app.idempotency_record WHERE scope = $1 AND key = $2', [
+        scope,
+        key,
+      ])
+    ).rows.length,
+    0,
+  );
+});
+
 test('revisions: one winner among concurrent edits; stale and missing If-Match refused', async () => {
   const user = await account(identity);
   const id = (await create(user)).body.vehicleId;
@@ -262,6 +375,17 @@ test('database: plate, type, status and archive invariants are enforced by Postg
   assert.equal(await attempt('account', 'sedan', null, 'ARCHIVED', null), '23514');
   assert.equal(await attempt('account', 'sedan', null, 'ACTIVE', new Date()), '23514');
   assert.equal(await sqlState(db, "UPDATE app.audit_entry SET action = 'x'"), '42501');
+  assert.equal(await sqlState(db, 'DELETE FROM app.audit_entry'), '42501');
+  const acl = await sql(
+    db,
+    `SELECT EXISTS (
+    SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+    WHERE n.nspname = 'app' AND p.proname = 'audit_entry_append_only'
+      AND a.grantee = 0 AND a.privilege_type = 'EXECUTE'
+  ) AS public_execute`,
+  );
+  assert.equal(acl.rows[0].public_execute, false);
 });
 
 test('events: references and revisions only, never plate, name, colour or owner', async () => {

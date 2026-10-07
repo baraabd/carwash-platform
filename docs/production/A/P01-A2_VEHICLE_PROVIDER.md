@@ -96,6 +96,29 @@ Errors use the shared envelope.
 
 ## Authorization and resilience
 
+### Idempotency expiry and retention
+
+Create/update replay responses expire after 24 hours. At `expiresAt <= now`, the key is
+available for a new operation, including a changed payload. The original vehicle remains;
+a create after this window intentionally creates a new vehicle. Clients must reconcile
+the vehicle list before retrying a create whose result is unknown after the replay window.
+
+A transaction-scoped lock serializes the same owner/key across expiry, deletion and the
+new write. Retries inside the window replay the committed response; mismatched payloads
+are refused. Reclamation rolls back with a failed business write.
+
+An owner-local maintenance sweep starts with the service and runs every minute. Each sweep
+deletes up to 1,000 expired replay records, including their name/plate/color snapshots;
+locked records are skipped. It never deletes vehicles, outbox events or audit facts. Cleanup
+is bounded and retried after a failure, with a fixed diagnostic that contains no input.
+Expiry is checked on every key claim independently of sweep timing. Physical deletion can
+lag expiry during outages or a large backlog; monitor `IDEMPOTENCY_RETENTION_SWEEP_FAILED`
+and the expiry index before production acceptance.
+
+Migration `20261007120000_p01a_vehicle_function_acl` revokes PostgreSQL's default PUBLIC
+EXECUTE grant on the append-only audit trigger and on future functions created by the
+migration role. It preserves the already-recorded migration checksum and audit protection.
+
 - Authorization works the same way as P01-A1. Identity confirms the current session. A cookie
   write goes through Identity's CSRF and origin check.
 - The service fails closed:
@@ -106,7 +129,8 @@ Errors use the shared envelope.
 
 ## Evidence
 
-- Unit, domain and framework tests: `pnpm --filter @carwash/vehicle run test:unit` (16 tests).
+- Unit, domain and framework tests: `pnpm --filter @carwash/vehicle run test:unit`, including
+  retention overlap, shutdown and retry regressions.
 - Real infrastructure: `node scripts/production/A/acceptance-a.mjs --services vehicle`.
   - The run covers the auth, revocation and CSRF path.
   - It proves the owner comes from the session and that body owner fields are refused.

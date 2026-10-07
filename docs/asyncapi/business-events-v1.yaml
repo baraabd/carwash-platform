@@ -1,0 +1,271 @@
+asyncapi: '2.6.0'
+info:
+  title: WashGo business events V1 (envelope v2)
+  version: '1.0.0'
+  description: >
+    Published wire contracts for the first business event set. Status
+    published-producer-pending: no accepted producer emits these yet.
+    Data is closed and carries opaque IDs/revisions only; data shapes are
+    defined by the parsers in @carwash/event-contracts business-v1.
+defaultContentType: application/json
+channels:
+  customer.events/customer.profile-updated.v1:
+    publish:
+      operationId: publish_customer_profile_updated_v1
+      message:
+        name: customer.profile-updated.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: customer.profile-updated.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: customer
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: customer-profile
+            data:
+              type: object
+              additionalProperties: false
+  customer.events/customer.address-updated.v1:
+    publish:
+      operationId: publish_customer_address_updated_v1
+      message:
+        name: customer.address-updated.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: customer.address-updated.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: customer
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: customer-address
+            data:
+              type: object
+              additionalProperties: false
+  vehicle.events/vehicle.vehicle-updated.v1:
+    publish:
+      operationId: publish_vehicle_vehicle_updated_v1
+      message:
+        name: vehicle.vehicle-updated.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: vehicle.vehicle-updated.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: vehicle
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: vehicle
+            data:
+              type: object
+              additionalProperties: false
+  geo.events/geo.zone-updated.v1:
+    publish:
+      operationId: publish_geo_zone_updated_v1
+      message:
+        name: geo.zone-updated.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: geo.zone-updated.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: geo
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: service-zone
+            data:
+              type: object
+              additionalProperties: false
+  catalog.events/catalog.definitions-published.v1:
+    publish:
+      operationId: publish_catalog_definitions_published_v1
+      message:
+        name: catalog.definitions-published.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: catalog.definitions-published.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: catalog
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: catalog
+            data:
+              type: object
+              additionalProperties: false
+  pricing.events/pricing.price-book-published.v1:
+    publish:
+      operationId: publish_pricing_price_book_published_v1
+      message:
+        name: pricing.price-book-published.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: pricing.price-book-published.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: pricing
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: price-book
+            data:
+              type: object
+              additionalProperties: false
+  pricing.events/pricing.quote-issued.v1:
+    publish:
+      operationId: publish_pricing_quote_issued_v1
+      message:
+        name: pricing.quote-issued.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: pricing.quote-issued.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: pricing
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: quote
+            data:
+              type: object
+              additionalProperties: false
+  scheduling.events/scheduling.hold-changed.v1:
+    publish:
+      operationId: publish_scheduling_hold_changed_v1
+      message:
+        name: scheduling.hold-changed.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: scheduling.hold-changed.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: scheduling
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: hold
+            data:
+              type: object
+              additionalProperties: false
+  workforce.events/workforce.eligibility-changed.v1:
+    publish:
+      operationId: publish_workforce_eligibility_changed_v1
+      message:
+        name: workforce.eligibility-changed.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: workforce.eligibility-changed.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: workforce
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: capacity-resource
+            data:
+              type: object
+              additionalProperties: false
+  configuration.events/configuration.configuration-published.v1:
+    publish:
+      operationId: publish_configuration_configuration_published_v1
+      message:
+        name: configuration.configuration-published.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: configuration.configuration-published.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: configuration
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: configuration-scope
+            data:
+              type: object
+              additionalProperties: false

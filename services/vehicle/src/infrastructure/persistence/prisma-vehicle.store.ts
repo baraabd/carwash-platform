@@ -43,6 +43,18 @@ class PrismaVehicleTransaction implements VehicleTransaction {
   constructor(private readonly tx: TransactionClient) {}
 
   async claimIdempotency(request: IdempotencyRequest): Promise<IdempotencyClaim> {
+    // Serialize expiry/reclamation as well as the initial INSERT. Otherwise two
+    // retries at the TTL boundary could both treat an expired key as new work.
+    await this.tx
+      .$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${JSON.stringify(['vehicle-idempotency', request.scope, request.key])}, 0))`;
+    // Retention uses SKIP LOCKED: pin an existing replay through this transaction
+    // even if its expiry passes while the response is being read.
+    await this.tx.$queryRaw`
+      SELECT 1 FROM "app"."idempotency_record"
+      WHERE scope = ${request.scope} AND key = ${request.key} FOR UPDATE`;
+    await this.tx.idempotencyRecord.deleteMany({
+      where: { scope: request.scope, key: request.key, expiresAt: { lte: request.now } },
+    });
     // INSERT ... ON CONFLICT DO NOTHING. A concurrent duplicate blocks on the
     // primary key until the first transaction ends, then sees its committed row.
     const inserted = await this.tx.idempotencyRecord.createMany({
