@@ -29,10 +29,7 @@ export function requireScope(
   return actor;
 }
 
-export function requireSelf(
-  actor: Actor,
-  subject: string,
-): Extract<Actor, { kind: 'USER' }> {
+export function requireSelf(actor: Actor, subject: string): Extract<Actor, { kind: 'USER' }> {
   const user = requireUser(actor);
   if (user.subject !== subject) {
     throw new WorkforceError('FORBIDDEN', 'Operator ownership required.');
