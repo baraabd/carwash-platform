@@ -1,0 +1,476 @@
+{
+  "schemaVersion": 1,
+  "http": {
+    "customer.v1": {
+      "owner": "customer",
+      "prefix": "/internal/v1/customer",
+      "routes": {
+        "getProfile": {
+          "method": "GET",
+          "path": "/me",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "bootstrapProfile": {
+          "method": "PUT",
+          "path": "/me",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "updateProfile": {
+          "method": "PATCH",
+          "path": "/me",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": true,
+          "safe": false,
+          "paged": false
+        },
+        "listAddresses": {
+          "method": "GET",
+          "path": "/me/addresses",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        },
+        "createAddress": {
+          "method": "POST",
+          "path": "/me/addresses",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "updateAddress": {
+          "method": "PATCH",
+          "path": "/me/addresses/:addressId",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": true,
+          "safe": false,
+          "paged": false
+        },
+        "archiveAddress": {
+          "method": "POST",
+          "path": "/me/addresses/:addressId/archive",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": true,
+          "safe": false,
+          "paged": false
+        },
+        "resolveAddressSnapshot": {
+          "method": "POST",
+          "path": "/address-snapshots/resolve",
+          "access": "service:customer.address-snapshot.resolve",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": true,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "ADDRESS_ARCHIVED",
+        "ADDRESS_LIMIT_REACHED",
+        "PROFILE_NOT_FOUND"
+      ]
+    },
+    "vehicle.v1": {
+      "owner": "vehicle",
+      "prefix": "/internal/v1/vehicle",
+      "routes": {
+        "listMine": {
+          "method": "GET",
+          "path": "/mine",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        },
+        "create": {
+          "method": "POST",
+          "path": "/mine",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "update": {
+          "method": "PATCH",
+          "path": "/mine/:vehicleId",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": true,
+          "safe": false,
+          "paged": false
+        },
+        "archive": {
+          "method": "POST",
+          "path": "/mine/:vehicleId/archive",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": true,
+          "safe": false,
+          "paged": false
+        },
+        "resolveVehicleSnapshot": {
+          "method": "POST",
+          "path": "/vehicle-snapshots/resolve",
+          "access": "service:vehicle.snapshot.resolve",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": true,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "VEHICLE_ARCHIVED",
+        "VEHICLE_LIMIT_REACHED",
+        "VEHICLE_NOT_FOUND"
+      ]
+    },
+    "geo.v1": {
+      "owner": "geo",
+      "prefix": "/internal/v1/geo",
+      "routes": {
+        "listZones": {
+          "method": "GET",
+          "path": "/service-zones",
+          "access": "public",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "checkServiceability": {
+          "method": "POST",
+          "path": "/serviceability",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": true,
+          "paged": false
+        },
+        "validateDecision": {
+          "method": "POST",
+          "path": "/serviceability/validate",
+          "access": "service:geo.serviceability.validate",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": true,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "GEO_DATASET_UNAVAILABLE",
+        "LOCATION_UNRESOLVED"
+      ]
+    },
+    "catalog.v1": {
+      "owner": "catalog",
+      "prefix": "/internal/v1/catalog",
+      "routes": {
+        "getPublished": {
+          "method": "GET",
+          "path": "/definitions",
+          "access": "public",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getDefinition": {
+          "method": "GET",
+          "path": "/definitions/:definitionId",
+          "access": "public",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "publish": {
+          "method": "POST",
+          "path": "/publications",
+          "access": "permission:catalog.publish",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "DEFINITION_RETIRED",
+        "DUPLICATE_CODE"
+      ]
+    },
+    "pricing.v1": {
+      "owner": "pricing",
+      "prefix": "/internal/v1/pricing",
+      "routes": {
+        "createQuote": {
+          "method": "POST",
+          "path": "/quotes",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getQuote": {
+          "method": "GET",
+          "path": "/quotes/:quoteId",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "validateQuote": {
+          "method": "POST",
+          "path": "/quotes/:quoteId/validate",
+          "access": "service:pricing.quote.validate",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": true,
+          "paged": false
+        },
+        "publishPriceBook": {
+          "method": "POST",
+          "path": "/price-books",
+          "access": "permission:pricing.prices.publish",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "QUOTE_EXPIRED",
+        "QUOTE_REVOKED",
+        "SELECTION_INVALID",
+        "PRICE_NOT_AVAILABLE"
+      ]
+    },
+    "scheduling.v1": {
+      "owner": "scheduling",
+      "prefix": "/internal/v1/scheduling",
+      "routes": {
+        "getAvailability": {
+          "method": "GET",
+          "path": "/availability",
+          "access": "public",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getEarliest": {
+          "method": "GET",
+          "path": "/availability/earliest",
+          "access": "public",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "createHold": {
+          "method": "POST",
+          "path": "/holds",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getHold": {
+          "method": "GET",
+          "path": "/holds/:holdId",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "commitHold": {
+          "method": "POST",
+          "path": "/holds/:holdId/commit",
+          "access": "service:scheduling.hold.commit",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "releaseHold": {
+          "method": "POST",
+          "path": "/holds/:holdId/release",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "SLOT_UNAVAILABLE",
+        "HOLD_EXPIRED",
+        "HOLD_NOT_ACTIVE",
+        "OUTSIDE_HORIZON"
+      ]
+    },
+    "workforce.v1": {
+      "owner": "workforce",
+      "prefix": "/internal/v1/workforce",
+      "routes": {
+        "listCapacityResources": {
+          "method": "GET",
+          "path": "/capacity-resources",
+          "access": "service:workforce.capacity.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        }
+      },
+      "reasons": [
+        "RESOURCE_NOT_FOUND"
+      ]
+    },
+    "configuration.v1": {
+      "owner": "configuration",
+      "prefix": "/internal/v1/configuration",
+      "routes": {
+        "getCurrent": {
+          "method": "GET",
+          "path": "/scopes/:marketId/:namespace/current",
+          "access": "service:configuration.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "createDraft": {
+          "method": "POST",
+          "path": "/scopes/:marketId/:namespace/drafts",
+          "access": "permission:configuration.write",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "approveDraft": {
+          "method": "POST",
+          "path": "/drafts/:draftId/approve",
+          "access": "permission:configuration.approve",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "publishDraft": {
+          "method": "POST",
+          "path": "/drafts/:draftId/publish",
+          "access": "permission:configuration.publish",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "POLICY_UNAVAILABLE",
+        "SELF_APPROVAL_FORBIDDEN",
+        "DRAFT_NOT_APPROVED"
+      ]
+    }
+  },
+  "errorCodes": [
+    "REQUEST_INVALID",
+    "VALIDATION_FAILED",
+    "AUTH_REQUIRED",
+    "AUTH_FORBIDDEN",
+    "AUTH_CSRF",
+    "NOT_FOUND",
+    "CONFLICT",
+    "REVISION_CONFLICT",
+    "REVISION_REQUIRED",
+    "IDEMPOTENCY_KEY_REQUIRED",
+    "IDEMPOTENCY_CONFLICT",
+    "IDEMPOTENCY_IN_PROGRESS",
+    "BUSINESS_RULE_VIOLATION",
+    "RATE_LIMITED",
+    "DEPENDENCY_UNAVAILABLE",
+    "UPSTREAM_UNAVAILABLE",
+    "UPSTREAM_TIMEOUT",
+    "UPSTREAM_INVALID",
+    "OUTCOME_UNKNOWN",
+    "SERVICE_NOT_READY",
+    "INTERNAL_ERROR"
+  ],
+  "currencies": {
+    "SYP": 2,
+    "USD": 2
+  },
+  "events": {
+    "customer.profile-updated.v1": {
+      "producer": "customer",
+      "aggregateType": "customer-profile",
+      "envelopeVersion": 2
+    },
+    "customer.address-updated.v1": {
+      "producer": "customer",
+      "aggregateType": "customer-address",
+      "envelopeVersion": 2
+    },
+    "vehicle.vehicle-updated.v1": {
+      "producer": "vehicle",
+      "aggregateType": "vehicle",
+      "envelopeVersion": 2
+    },
+    "geo.zone-updated.v1": {
+      "producer": "geo",
+      "aggregateType": "service-zone",
+      "envelopeVersion": 2
+    },
+    "catalog.definitions-published.v1": {
+      "producer": "catalog",
+      "aggregateType": "catalog",
+      "envelopeVersion": 2
+    },
+    "pricing.price-book-published.v1": {
+      "producer": "pricing",
+      "aggregateType": "price-book",
+      "envelopeVersion": 2
+    },
+    "pricing.quote-issued.v1": {
+      "producer": "pricing",
+      "aggregateType": "quote",
+      "envelopeVersion": 2
+    },
+    "scheduling.hold-changed.v1": {
+      "producer": "scheduling",
+      "aggregateType": "hold",
+      "envelopeVersion": 2
+    },
+    "workforce.eligibility-changed.v1": {
+      "producer": "workforce",
+      "aggregateType": "capacity-resource",
+      "envelopeVersion": 2
+    },
+    "configuration.configuration-published.v1": {
+      "producer": "configuration",
+      "aggregateType": "configuration-scope",
+      "envelopeVersion": 2
+    }
+  }
+}

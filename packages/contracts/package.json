@@ -1,6 +1,6 @@
 {
   "name": "@carwash/contracts",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -26,6 +26,42 @@
     "./registry": {
       "types": "./dist/registry.d.ts",
       "default": "./dist/registry.js"
+    },
+    "./customer-v1": {
+      "types": "./dist/customer/v1.d.ts",
+      "default": "./dist/customer/v1.js"
+    },
+    "./vehicle-v1": {
+      "types": "./dist/vehicle/v1.d.ts",
+      "default": "./dist/vehicle/v1.js"
+    },
+    "./geo-v1": {
+      "types": "./dist/geo/v1.d.ts",
+      "default": "./dist/geo/v1.js"
+    },
+    "./catalog-v1": {
+      "types": "./dist/catalog/v1.d.ts",
+      "default": "./dist/catalog/v1.js"
+    },
+    "./pricing-v1": {
+      "types": "./dist/pricing/v1.d.ts",
+      "default": "./dist/pricing/v1.js"
+    },
+    "./scheduling-v1": {
+      "types": "./dist/scheduling/v1.d.ts",
+      "default": "./dist/scheduling/v1.js"
+    },
+    "./workforce-v1": {
+      "types": "./dist/workforce/v1.d.ts",
+      "default": "./dist/workforce/v1.js"
+    },
+    "./configuration-v1": {
+      "types": "./dist/configuration/v1.d.ts",
+      "default": "./dist/configuration/v1.js"
+    },
+    "./common": {
+      "types": "./dist/common/index.d.ts",
+      "default": "./dist/common/index.js"
     }
   },
   "main": "dist/index.js",
