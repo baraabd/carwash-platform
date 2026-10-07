@@ -26,7 +26,11 @@ export function assertUuid(value: string, field = 'id'): void {
 
 export function assertDisplayName(value: string): string {
   const normalized = value.trim().replace(/\s+/g, ' ');
-  if (normalized.length < 2 || normalized.length > 80 || /[\u0000-\u001f\u007f]/.test(normalized)) {
+  const hasControlCharacter = [...normalized].some((character) => {
+    const code = character.charCodeAt(0);
+    return code <= 0x1f || code === 0x7f;
+  });
+  if (normalized.length < 2 || normalized.length > 80 || hasControlCharacter) {
     invalid('displayName must contain 2-80 printable characters.');
   }
   return normalized;
