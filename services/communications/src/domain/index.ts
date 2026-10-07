@@ -1,7 +1,2 @@
-/**
- * communications domain layer.
- *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
- */
-export {};
+/** communications domain layer: pure delivery rules, no framework or I/O. */
+export * from './notification';

@@ -52,3 +52,56 @@ model ProbeNotification {
 
   @@map("probe_notification")
 }
+
+/// P01-D notification intent and its delivery state. One row per logical
+/// notification. (source_service, idempotency_key) is the business identity:
+/// a replay with the same request fingerprint returns the original intent, a
+/// different fingerprint is a conflict. fence increases on every claim so a
+/// worker whose lease expired can never overwrite a newer attempt's result.
+model Notification {
+  id                String    @id @db.Uuid
+  sourceService     String    @map("source_service") @db.VarChar(32)
+  idempotencyKey    String    @map("idempotency_key") @db.VarChar(128)
+  requestHash       String    @map("request_hash") @db.Char(64)
+  recipientRef      String    @map("recipient_ref") @db.Uuid
+  channel           String    @db.VarChar(8)
+  templateKey       String    @map("template_key") @db.VarChar(64)
+  templateVersion   Int       @map("template_version")
+  parameters        Json
+  state             String    @db.VarChar(20)
+  attemptCount      Int       @default(0) @map("attempt_count")
+  fence             Int       @default(0)
+  nextAttemptAt     DateTime? @map("next_attempt_at") @db.Timestamptz(3)
+  leaseOwner        String?   @map("lease_owner") @db.VarChar(64)
+  leaseUntil        DateTime? @map("lease_until") @db.Timestamptz(3)
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz(3)
+  providerMessageId String?   @map("provider_message_id") @db.VarChar(128)
+  lastErrorCode     String?   @map("last_error_code") @db.VarChar(64)
+  createdAt         DateTime  @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @map("updated_at") @db.Timestamptz(3)
+
+  attempts DeliveryAttempt[]
+
+  @@unique([sourceService, idempotencyKey])
+  @@index([state, nextAttemptAt])
+  @@map("notification")
+}
+
+/// One row per submission attempt. (notification_id, attempt_no) is unique, and
+/// fence records which claim made the attempt, so an attempt's outcome can be
+/// attributed to exactly one worker lease.
+model DeliveryAttempt {
+  notificationId    String       @map("notification_id") @db.Uuid
+  attemptNo         Int          @map("attempt_no")
+  fence             Int
+  workerId          String       @map("worker_id") @db.VarChar(64)
+  startedAt         DateTime     @map("started_at") @db.Timestamptz(3)
+  finishedAt        DateTime?    @map("finished_at") @db.Timestamptz(3)
+  outcome           String?      @db.VarChar(24)
+  providerMessageId String?      @map("provider_message_id") @db.VarChar(128)
+  errorCode         String?      @map("error_code") @db.VarChar(64)
+  notification      Notification @relation(fields: [notificationId], references: [id], onDelete: Restrict)
+
+  @@id([notificationId, attemptNo])
+  @@map("delivery_attempt")
+}
