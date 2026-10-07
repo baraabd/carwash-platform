@@ -228,3 +228,12 @@ CREATE TRIGGER "quote_immutable" BEFORE UPDATE OR DELETE ON "app"."quote" FOR EA
 CREATE TRIGGER "quote_line_immutable" BEFORE UPDATE OR DELETE ON "app"."quote_line" FOR EACH ROW EXECUTE FUNCTION "app"."pricing_reject_mutation"();
 CREATE TRIGGER "pricing_idempotency_receipt_immutable" BEFORE UPDATE OR DELETE ON "app"."pricing_idempotency_receipt" FOR EACH ROW EXECUTE FUNCTION "app"."pricing_reject_mutation"();
 CREATE TRIGGER "pricing_audit_event_immutable" BEFORE UPDATE OR DELETE ON "app"."pricing_audit_event" FOR EACH ROW EXECUTE FUNCTION "app"."pricing_reject_mutation"();
+
+-- Functions are created with EXECUTE granted to PUBLIC by default. Trigger
+-- functions need no caller privilege (it is checked when the trigger is
+-- created), so no other role — including foreign service roles — may run them.
+REVOKE ALL ON FUNCTION "app"."pricing_reject_mutation"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."pricing_require_open_version"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."pricing_require_open_quote"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."pricing_require_increasing_effective_from"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."pricing_check_quote_consistency"() FROM PUBLIC;

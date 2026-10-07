@@ -77,3 +77,17 @@ Readiness promotion (E-owned guard) after CR-B2-1…3 and real integration pass.
 Production values for `PRICING_CURRENCY_POLICY` (B-03) and
 `PRICING_QUOTE_TTL_SECONDS` (B-05) must come from recorded owner decisions;
 B will not supply defaults.
+
+## CR-B2-8 Source inventory registration (blocks CI `static` on this PR)
+
+`tests/parallel/E/status.test.mjs` derives persistence models from the Prisma
+schema and compares them with the E-owned `architecture/implementation-status.json`.
+Exact delta requested for `services[id=pricing].persistenceModels`:
+
+```json
+["ServiceMarker", "PricingPublicationLock", "PriceVersion", "PriceRate", "Quote",
+ "QuoteLine", "PricingIdempotencyReceipt", "PricingAuditEvent"]
+```
+
+Until E applies it, the `static` job and the aggregating release gate fail on this
+PR by design (registration gap, not a behaviour failure).
