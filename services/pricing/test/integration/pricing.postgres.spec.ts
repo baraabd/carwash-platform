@@ -1,10 +1,15 @@
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { Client } from 'pg';
+import { randomUUID } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Client, Pool } from 'pg';
+import { PrismaClient } from '../../src/generated/prisma/client';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma.service';
 import { PrismaPricingRepository } from '../../src/infrastructure/persistence/prisma-pricing.repository';
 import {
   FakeCatalogReader,
+  ADMIN_SUBJECT,
   FixedClock,
   FixedPolicy,
   TEST_POLICY,
@@ -184,6 +189,106 @@ test('postgres: the same quote key raced across replicas yields one quote', asyn
   assert.equal(conflict.status, 409);
 });
 
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
+test('postgres: quote waits for publication and caps expiry at the committed successor', async () => {
+  const version = await publish();
+  const repository = new PrismaPricingRepository(prismaB);
+  const current = await repository.version(version);
+  assert.ok(current);
+  const effectiveFrom = new Date(clock.now().getTime() + 60_000);
+  const staged = deferred();
+  const release = deferred();
+  const publication = repository.transaction(async (uow) => {
+    await uow.lockHead();
+    await uow.insertPriceVersion({
+      ...current,
+      version: version + 1,
+      effectiveFrom,
+      publishedAt: clock.now(),
+      publishedBy: ADMIN_SUBJECT,
+      correlationId: randomUUID(),
+    });
+    staged.resolve();
+    await release.promise;
+  });
+  await Promise.race([staged.promise, publication]);
+  const quote = replicaA.request('POST', `${PATH}/quotes`, {
+    token: TOKENS.customer,
+    key: key(),
+    body: selection(),
+  });
+  try {
+    // Observe the real row-lock wait rather than depending on request timing.
+    let waiting = false;
+    const deadline = Date.now() + 3_000;
+    while (Date.now() < deadline) {
+      const result = await sql.query(
+        "SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND usename = current_user AND wait_event_type = 'Lock' AND query LIKE '%pricing_publication_lock%'",
+      );
+      if (result.rows[0].n > 0) {
+        waiting = true;
+        break;
+      }
+      await delay(10);
+    }
+    assert.equal(waiting, true, 'the quote must wait for the uncommitted publisher');
+    release.resolve();
+    await publication;
+    const response = await quote;
+    assert.equal(response.status, 201, JSON.stringify(response.body));
+    assert.equal(response.body.priceVersion, version);
+    assert.equal(response.body.expiresAt, effectiveFrom.toISOString());
+  } finally {
+    release.resolve();
+    await publication;
+    await quote;
+  }
+});
+
+test('postgres: concurrent quotes complete through a single-connection pool', async () => {
+  await publish();
+  const pool = new Pool({ connectionString: DATABASE_URL, max: 1 });
+  const client = new PrismaClient({
+    adapter: new PrismaPg(pool, { schema: 'app', disposeExternalPool: true }),
+  });
+  const catalog = new FakeCatalogReader();
+  const http = await startPricingHttp({
+    repository: new PrismaPricingRepository({
+      client,
+      onModuleDestroy: () => client.$disconnect(),
+    }),
+    catalog,
+    policy: new FixedPolicy(),
+    clock,
+  });
+  try {
+    const responses = await Promise.all(
+      Array.from({ length: 3 }, () =>
+        http.request('POST', `${PATH}/quotes`, {
+          token: TOKENS.customer,
+          key: key(),
+          body: selection(),
+        }),
+      ),
+    );
+    assert.ok(
+      responses.every((response) => response.status === 201),
+      JSON.stringify(responses),
+    );
+    assert.equal(new Set(responses.map((response) => response.body.quoteId)).size, 3);
+  } finally {
+    await http.close();
+    await client.$disconnect();
+  }
+});
+
 test('postgres: expiry, validation and catalog-revision mismatch use server state', async () => {
   await publish();
   const quote = await replicaA.request('POST', `${PATH}/quotes`, {
@@ -286,6 +391,17 @@ test('postgres: a quote whose lines do not add up can never commit', async () =>
     ],
     /QUOTE_LINES_INCONSISTENT/,
   );
+  // Two base lines of the same kind cannot substitute for one of each kind.
+  for (const duplicateKind of ['PACKAGE', 'VEHICLE']) {
+    await rejectsSql(
+      [
+        [QUOTE_INSERT, [id, version, 1, policy, 50000]],
+        [LINE_INSERT, [id, 0, duplicateKind, 'first-base', 50000, false]],
+        [LINE_INSERT, [id, 1, duplicateKind, 'second-base', 0, false]],
+      ],
+      /QUOTE_LINES_INCONSISTENT/,
+    );
+  }
   // A quote must match its price version's catalog revision and policy.
   await rejectsSql(
     [

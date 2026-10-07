@@ -1,0 +1,64 @@
+name: P01 pricing PostgreSQL acceptance
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'services/pricing/**'
+      - 'packages/**'
+      - 'scripts/production/B/**'
+      - 'scripts/acceptance/lib/**'
+      - 'scripts/verify-toolchain.mjs'
+      - 'infra/postgres/**'
+      - 'architecture/service-catalog.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig*.json'
+      - '.nvmrc'
+      - '.github/workflows/p01-pricing-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p01-pricing-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pricing-postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Pinned tools and frozen dependencies
+        run: |
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          pnpm install --frozen-lockfile
+      - name: Build shared technical packages
+        run: pnpm run build:packages
+      - name: Pricing domain, application and HTTP regression tests
+        run: |
+          pnpm --filter @carwash/pricing run generate
+          pnpm --filter @carwash/pricing test:runtime
+      - name: Real PostgreSQL migration, isolation and quote concurrency regressions
+        run: node scripts/production/B/postgres-acceptance.mjs --service pricing
+      - name: Retain bounded PostgreSQL acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p01-pricing-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .acceptance/cw-p01b-pricing-*/report.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14

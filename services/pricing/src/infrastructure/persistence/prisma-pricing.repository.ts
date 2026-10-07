@@ -140,6 +140,27 @@ class PrismaPricingUnitOfWork implements PricingUnitOfWork {
     return head ?? null;
   }
 
+  async lockPrices(): Promise<void> {
+    await this.tx.$queryRaw`SELECT id FROM app.pricing_publication_lock WHERE id = 1 FOR SHARE`;
+  }
+
+  async versionInForce(at: Date): Promise<PublishedPriceVersion | null> {
+    const row = await this.tx.priceVersion.findFirst({
+      where: { effectiveFrom: { lte: at } },
+      orderBy: { effectiveFrom: 'desc' },
+      include: { rates: true },
+    });
+    return row ? toVersion(row) : null;
+  }
+
+  async version(version: number): Promise<PublishedPriceVersion | null> {
+    const row = await this.tx.priceVersion.findUnique({
+      where: { version },
+      include: { rates: true },
+    });
+    return row ? toVersion(row) : null;
+  }
+
   async findReceipt(actorSubject: string, operation: string, idempotencyKey: string) {
     const row = await this.tx.pricingIdempotencyReceipt.findUnique({
       where: { actorSubject_operation_idempotencyKey: { actorSubject, operation, idempotencyKey } },

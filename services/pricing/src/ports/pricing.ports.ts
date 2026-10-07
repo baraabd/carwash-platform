@@ -71,6 +71,11 @@ export interface AuditRecord {
 export interface PricingUnitOfWork {
   /** Serialises price publishers; returns the current chain head. */
   lockHead(): Promise<VersionHead | null>;
+  /** Holds a shared publication lock until commit; other quote readers may proceed. */
+  lockPrices(): Promise<void>;
+  /** Both version reads use this transaction's connection, after lockPrices. */
+  versionInForce(at: Date): Promise<PublishedPriceVersion | null>;
+  version(version: number): Promise<PublishedPriceVersion | null>;
   findReceipt(
     actorSubject: string,
     operation: string,

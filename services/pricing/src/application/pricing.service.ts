@@ -420,8 +420,11 @@ export class PricingService {
     let outcome: RecordedOutcome;
     try {
       outcome = await this.deps.repository.transaction(async (uow) => {
+        // Publication cannot change the current/next version pair until the
+        // quote commits. Sample time only after any publication wait.
+        await uow.lockPrices();
         const now = this.deps.clock.now();
-        const version = await this.deps.repository.versionInForce(now);
+        const version = await uow.versionInForce(now);
         if (!version) throw new PricingApplicationError('PRICES_NOT_PUBLISHED');
         // Prices published under another policy revision are not usable until
         // republished: no silent currency/precision reinterpretation.
@@ -441,7 +444,7 @@ export class PricingService {
               rates: version.rates,
               policy,
             });
-            const next = await this.deps.repository.version(version.version + 1);
+            const next = await uow.version(version.version + 1);
             const quoteId = this.deps.ids.uuid();
             await uow.insertQuote({
               id: quoteId,

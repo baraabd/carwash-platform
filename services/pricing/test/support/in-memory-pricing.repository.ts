@@ -33,6 +33,13 @@ export class InMemoryPricingRepository implements PricingRepository {
         audit: [] as AuditRecord[],
       };
       const uow: PricingUnitOfWork = {
+        lockPrices: () => Promise.resolve(),
+        versionInForce: (at) =>
+          Promise.resolve(
+            this.versions.filter((v) => v.effectiveFrom.getTime() <= at.getTime()).at(-1) ?? null,
+          ),
+        version: (version) =>
+          Promise.resolve(this.versions.find((v) => v.version === version) ?? null),
         lockHead: (): Promise<VersionHead | null> => {
           const head = this.versions.at(-1);
           return Promise.resolve(

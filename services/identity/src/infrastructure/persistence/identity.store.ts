@@ -1,7 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
 import { Pool } from 'pg';
-import { isIdentityRole } from '@carwash/contracts';
+import { isIdentityPrincipalKind, isIdentityRole } from '@carwash/contracts';
 import {
   PrismaClient,
   type Prisma,
@@ -20,15 +20,33 @@ import type {
 
 function accountModel(row: IdentityAccount | null): Account | null {
   if (!row) return null;
-  if ((row.status !== 'ACTIVE' && row.status !== 'SUSPENDED') || !row.roles.every(isIdentityRole))
+  if (
+    (row.status !== 'ACTIVE' && row.status !== 'SUSPENDED') ||
+    !row.roles.every(isIdentityRole) ||
+    !isIdentityPrincipalKind(row.kind)
+  )
+    throw new Error('INVALID_STORED_ACCOUNT');
+  // Defense in depth over the CHECK constraint: never hand the domain a mixed shape.
+  const guest = row.kind === 'guest';
+  if (
+    guest !==
+      (row.email === null &&
+        row.passwordHash === null &&
+        row.recoveryDigest !== null &&
+        row.guestExpiresAt !== null) ||
+    (guest && row.roles.length !== 0)
+  )
     throw new Error('INVALID_STORED_ACCOUNT');
   return {
     id: row.id,
+    kind: row.kind,
     email: row.email,
     passwordHash: row.passwordHash,
     status: row.status,
     roles: row.roles,
     authVersion: row.authVersion,
+    recoveryDigest: row.recoveryDigest,
+    guestExpiresAt: row.guestExpiresAt,
   };
 }
 function challengeModel(row: IdentityChallenge | null): Challenge | null {
@@ -59,12 +77,22 @@ class Transaction implements IdentityTransaction {
   async accountByEmail(email: string): Promise<Account | null> {
     return accountModel(await this.tx.identityAccount.findUnique({ where: { email } }));
   }
+  async guestByRecovery(digest: string, lock = false): Promise<Account | null> {
+    if (lock)
+      await this.tx
+        .$queryRaw`SELECT id FROM app.identity_account WHERE recovery_digest = ${digest} AND kind = 'guest' FOR UPDATE`;
+    return accountModel(
+      await this.tx.identityAccount.findFirst({ where: { recoveryDigest: digest, kind: 'guest' } }),
+    );
+  }
   async createAccount(account: Account): Promise<void> {
     await this.tx.identityAccount.create({ data: { ...account, roles: [...account.roles] } });
   }
   async updateAccount(
     id: string,
-    patch: Partial<Pick<Account, 'passwordHash' | 'roles' | 'status' | 'authVersion'>>,
+    patch: Partial<
+      Pick<Account, 'passwordHash' | 'roles' | 'status' | 'authVersion' | 'recoveryDigest'>
+    >,
   ): Promise<void> {
     const { roles, ...scalars } = patch;
     await this.tx.identityAccount.update({

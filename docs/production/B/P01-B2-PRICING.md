@@ -9,6 +9,27 @@ Catalog, never reads `cw_catalog`, and does not consume the unpublished
 `catalog.v1` contract. Catalog data enters only through the `CatalogRevisionReader`
 port, whose production binding fails closed until E publishes the contract.
 
+## Review corrections (PR #94)
+
+- Quote issuance holds a shared lock on `pricing_publication_lock` through commit;
+  publishers hold the exclusive lock. It reads both the current and next version
+  on the unit-of-work connection and samples server time after acquiring the lock.
+- Follow-up migration `20261007130000_p01b_quote_base_lines` requires exactly one
+  PACKAGE line and one VEHICLE line independently. It preserves the original
+  migration and the trigger function's restricted ACL.
+- The source inventory is refreshed after integrating current `main`; this does
+  not promote business readiness or reuse historical acceptance for new source.
+- Regression coverage includes publication/quote contention, a one-connection
+  pool, and duplicate base-line kinds. `.github/workflows/p01-pricing-acceptance.yml`
+  runs the runtime and real PostgreSQL suites on the submitted PR head.
+
+Local review validation: application/domain tests (12) and inventory tests (7)
+passed, along with source inventory, design, boundary, layer, migration and local
+secret guards. The isolated TypeScript 5.9.3 compile used available Node 22 types;
+the pinned dependency build and real PostgreSQL tests require the hosted workflow
+(Docker and a frozen dependency installation were unavailable locally). Earlier
+PostgreSQL evidence below is historical until the new candidate passes that run.
+
 ## Architecture
 
 | Layer          | Files                                                                                     |
