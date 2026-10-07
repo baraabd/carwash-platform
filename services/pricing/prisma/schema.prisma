@@ -26,3 +26,114 @@ model ServiceMarker {
 
   @@map("service_marker")
 }
+
+/// Singleton row locked FOR UPDATE by every price publisher.
+model PricingPublicationLock {
+  id Int @id @db.SmallInt
+
+  @@map("pricing_publication_lock")
+}
+
+/// One immutable price version for one exact catalog revision. Versions form a
+/// linear chain with strictly increasing effective_from (non-overlapping
+/// windows). catalog_snapshot is Pricing's own immutable copy of the catalog
+/// view the rates were validated against (obtained from the Catalog owner API).
+model PriceVersion {
+  version            Int           @id
+  previousVersion    Int?          @unique @map("previous_version")
+  effectiveFrom      DateTime      @unique @map("effective_from") @db.Timestamptz(3)
+  publishedAt        DateTime      @map("published_at") @db.Timestamptz(3)
+  publishedBy        String        @map("published_by") @db.Uuid
+  correlationId      String        @map("correlation_id") @db.Uuid
+  catalogRevision    Int           @map("catalog_revision")
+  catalogFingerprint String        @map("catalog_fingerprint") @db.Char(64)
+  catalogSnapshot    Json          @map("catalog_snapshot")
+  policyRevision     String        @map("policy_revision") @db.VarChar(64)
+  currency           String        @db.Char(3)
+  minorUnitExponent  Int           @map("minor_unit_exponent") @db.SmallInt
+  ratesFingerprint   String        @map("rates_fingerprint") @db.Char(64)
+  previous           PriceVersion? @relation("PriceVersionChain", fields: [previousVersion], references: [version], onDelete: Restrict, onUpdate: Restrict)
+  next               PriceVersion? @relation("PriceVersionChain")
+  rates              PriceRate[]
+  quotes             Quote[]
+
+  @@map("price_version")
+}
+
+model PriceRate {
+  version      Int
+  kind         String       @db.VarChar(8)
+  definitionId String       @map("definition_id") @db.VarChar(48)
+  amountMinor  BigInt       @map("amount_minor")
+  priceVersion PriceVersion @relation(fields: [version], references: [version], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([version, kind, definitionId])
+  @@map("price_rate")
+}
+
+/// Immutable server-issued quote. Owner is the verified Identity subject.
+model Quote {
+  id                String       @id @db.Uuid
+  ownerSubject      String       @map("owner_subject") @db.Uuid
+  priceVersion      Int          @map("price_version")
+  catalogRevision   Int          @map("catalog_revision")
+  policyRevision    String       @map("policy_revision") @db.VarChar(64)
+  currency          String       @db.Char(3)
+  minorUnitExponent Int          @map("minor_unit_exponent") @db.SmallInt
+  categoryId        String       @map("category_id") @db.VarChar(48)
+  packageId         String       @map("package_id") @db.VarChar(48)
+  addonIds          String[]     @map("addon_ids")
+  subtotalMinor     BigInt       @map("subtotal_minor")
+  totalMinor        BigInt       @map("total_minor")
+  durationMinutes   Int          @map("duration_minutes")
+  inputFingerprint  String       @map("input_fingerprint") @db.Char(64)
+  issuedAt          DateTime     @map("issued_at") @db.Timestamptz(3)
+  expiresAt         DateTime     @map("expires_at") @db.Timestamptz(3)
+  correlationId     String       @map("correlation_id") @db.Uuid
+  version           PriceVersion @relation(fields: [priceVersion], references: [version], onDelete: Restrict, onUpdate: Restrict)
+  lines             QuoteLine[]
+
+  @@index([ownerSubject, issuedAt], map: "quote_owner_issued_idx")
+  @@map("quote")
+}
+
+model QuoteLine {
+  quoteId      String  @map("quote_id") @db.Uuid
+  lineNo       Int     @map("line_no") @db.SmallInt
+  kind         String  @db.VarChar(8)
+  definitionId String  @map("definition_id") @db.VarChar(48)
+  amountMinor  BigInt  @map("amount_minor")
+  included     Boolean
+  quote        Quote   @relation(fields: [quoteId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([quoteId, lineNo])
+  @@map("quote_line")
+}
+
+/// Durable terminal outcome of an idempotent command, scoped to actor+operation.
+model PricingIdempotencyReceipt {
+  actorSubject       String   @map("actor_subject") @db.Uuid
+  operation          String   @db.VarChar(64)
+  idempotencyKey     String   @map("idempotency_key") @db.VarChar(128)
+  requestFingerprint String   @map("request_fingerprint") @db.Char(64)
+  responseStatus     Int      @map("response_status")
+  responseBody       Json     @map("response_body")
+  createdAt          DateTime @map("created_at") @db.Timestamptz(3)
+
+  @@id([actorSubject, operation, idempotencyKey])
+  @@map("pricing_idempotency_receipt")
+}
+
+/// Append-only audit of price publication.
+model PricingAuditEvent {
+  id            String   @id @db.Uuid
+  occurredAt    DateTime @map("occurred_at") @db.Timestamptz(3)
+  actorSubject  String   @map("actor_subject") @db.Uuid
+  action        String   @db.VarChar(64)
+  version       Int?
+  outcome       String   @db.VarChar(64)
+  correlationId String   @map("correlation_id") @db.Uuid
+
+  @@index([occurredAt], map: "pricing_audit_event_occurred_idx")
+  @@map("pricing_audit_event")
+}

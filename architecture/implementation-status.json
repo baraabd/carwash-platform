@@ -172,7 +172,16 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker",
+        "PricingPublicationLock",
+        "PriceVersion",
+        "PriceRate",
+        "Quote",
+        "QuoteLine",
+        "PricingIdempotencyReceipt",
+        "PricingAuditEvent"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },

@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "migrate:deploy": "prisma migrate deploy",
     "start": "node dist/main.js",
-    "test:runtime": "pnpm run build:tests && node --test dist-tests/test/pricing.nest.spec.js"
+    "test:runtime": "pnpm run build:tests && node --test dist-tests/test/*.spec.js"
   },
   "dependencies": {
     "@carwash/event-contracts": "workspace:*",
