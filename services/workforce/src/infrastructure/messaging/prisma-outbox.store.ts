@@ -6,7 +6,7 @@ import type { PrismaService } from '../persistence/prisma.service';
  * Structurally implements `OutboxStore` from @carwash/platform-messaging (same
  * method names, inputs and lease semantics as the catalog store), so the shared
  * OutboxRelay can drive it. The package itself is not a declared dependency of
- * this service yet (lockfile ownership is Lane E's; see CR-C1), which is why the
+ * this service yet (lockfile ownership is Lane E's; see CR-C2), which is why the
  * shapes are declared locally instead of imported.
  *
  *   FOR UPDATE SKIP LOCKED   - competing relays lease disjoint rows;
