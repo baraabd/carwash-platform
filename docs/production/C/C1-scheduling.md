@@ -41,6 +41,7 @@ ports import no Nest, Prisma, pg or broker code.
 | counters never negative | domain underflow guard | `capacity_window_counts_ck` |
 | hold status / units / reason domains | domain types | CHECK constraints |
 | lost update | version read under lock | `UPDATE … WHERE version = $expected` |
+| racing window definitions in one zone | — | per-zone `pg_advisory_xact_lock`, then the exclusion constraint |
 
 Lock order is window → hold everywhere (commands and sweeper), so the pair
 cannot deadlock. Isolation is READ COMMITTED with explicit row locks: every
@@ -130,6 +131,12 @@ description. Families:
 
 Defects found by these suites during development, and fixed:
 - `hold-expired.data.expiredAt` carried the sweep time instead of the deadline.
+- Concurrent overlapping window definitions deadlocked (`40P01`) inside the
+  gist exclusion check in about a third of racing inserts and surfaced as 500.
+  Fixed by serialising definitions per zone (`pg_advisory_xact_lock`), plus a
+  bounded retry of the whole unit of work on `40P01`/`40001` and a 503 mapping
+  for any conflict that survives the retries. The SQLSTATE reader also missed
+  the adapter's `originalCode` shape.
 - Lane stack: migrations ran without the acceptance post-migration hardening
   (runtime role could read `_prisma_migrations`); ephemeral Docker port mapping
   moved PostgreSQL to a new port on restart.

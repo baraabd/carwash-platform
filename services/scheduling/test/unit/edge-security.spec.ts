@@ -13,6 +13,10 @@ import {
 } from '../../src/infrastructure/security/service-clients';
 import { ActorResolver, RequestBudget } from '../../src/transport/http/actor-resolver';
 import { RateLimited, toAppError } from '../../src/transport/http/http-errors';
+import {
+  isTransientConflict,
+  sqlState,
+} from '../../src/infrastructure/persistence/prisma-scheduling.store';
 
 const SUBJECT = '0b8f6f8e-1d5a-4c1e-9e5f-0a3b2c1d4e5f';
 const TOKEN = 'a'.repeat(40);
@@ -209,4 +213,23 @@ test('domain and auth failures map to stable HTTP statuses; unknown errors stay 
   assert.equal(status(Object.assign(new Error('x'), { code: 'P2028' })), 503);
   const unknown = new Error('boom');
   assert.equal(toAppError(unknown), unknown);
+});
+
+test('SQLSTATE is read from both driver-adapter error shapes; conflicts are retryable 503', () => {
+  const plain = { code: 'P2010', meta: { driverAdapterError: { cause: { code: '23P01' } } } };
+  const classified = {
+    code: 'P2010',
+    meta: {
+      driverAdapterError: { cause: { originalCode: '40P01', kind: 'TransactionWriteConflict' } },
+    },
+  };
+  assert.equal(sqlState(plain), '23P01');
+  assert.equal(sqlState(classified), '40P01');
+  assert.equal(sqlState(new Error('x')), undefined);
+  assert.equal(isTransientConflict(classified), true);
+  assert.equal(isTransientConflict(plain), false);
+  assert.equal(
+    (toAppError(Object.assign(new Error('deadlock'), classified)) as { status?: number }).status,
+    503,
+  );
 });

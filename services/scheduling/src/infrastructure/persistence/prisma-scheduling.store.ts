@@ -75,11 +75,25 @@ export class ConcurrencyViolation extends Error {
   }
 }
 
-/** SQLSTATE of a failed raw statement, as surfaced by the pg driver adapter. */
+/**
+ * SQLSTATE of a failed statement, as surfaced by the pg driver adapter. Most
+ * errors carry it as `code`; ones the adapter classifies itself (for example a
+ * deadlock, as TransactionWriteConflict) carry only `originalCode`.
+ */
 export function sqlState(error: unknown): string | undefined {
-  const meta = (error as { meta?: { driverAdapterError?: { cause?: { code?: unknown } } } }).meta;
-  const code = meta?.driverAdapterError?.cause?.code;
+  const cause = (
+    error as {
+      meta?: { driverAdapterError?: { cause?: { code?: unknown; originalCode?: unknown } } };
+    }
+  ).meta?.driverAdapterError?.cause;
+  const code = cause?.code ?? cause?.originalCode;
   return typeof code === 'string' ? code : undefined;
+}
+
+/** Deadlock / serialization failure: PostgreSQL rolled the whole transaction back. */
+export function isTransientConflict(error: unknown): boolean {
+  const state = sqlState(error);
+  return state === '40P01' || state === '40001';
 }
 
 function toWindow(row: WindowRow): CapacityWindowState {
@@ -141,6 +155,13 @@ class PrismaSchedulingTransaction implements SchedulingTransaction {
   }
 
   async insertWindow(window: CapacityWindowState): Promise<InsertWindowResult> {
+    // Concurrent inserts checked by one gist exclusion constraint can deadlock
+    // each other (40P01). Window definitions are rare operator actions, so they
+    // are serialised per zone with a transaction-scoped advisory lock instead.
+    await this.tx.$executeRawUnsafe(
+      `SELECT pg_advisory_xact_lock(hashtextextended('scheduling.zone:' || $1::text, 0))`,
+      window.zoneId,
+    );
     // The exclusion constraint cannot be targeted by ON CONFLICT, so it is
     // isolated in a savepoint: an overlap is an answer, not an aborted transaction.
     await this.tx.$executeRawUnsafe('SAVEPOINT insert_window');
@@ -285,10 +306,27 @@ export class PrismaSchedulingStore implements SchedulingUnitOfWork, SchedulingRe
     private readonly options: {
       readonly transactionTimeoutMs?: number;
       readonly maxWaitMs?: number;
+      readonly conflictAttempts?: number;
     } = {},
   ) {}
 
-  run<T>(work: (tx: SchedulingTransaction) => Promise<T>): Promise<T> {
+  async run<T>(work: (tx: SchedulingTransaction) => Promise<T>): Promise<T> {
+    // A deadlock or serialization failure means PostgreSQL rolled the whole
+    // transaction back and nothing was written; the unit of work touches only
+    // this database, so re-running it is safe. Bounded, with jitter; the last
+    // failure propagates (as a retryable 503 at the edge), never as success.
+    const attempts = this.options.conflictAttempts ?? 3;
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await this.once(work);
+      } catch (error) {
+        if (!isTransientConflict(error) || attempt >= attempts) throw error;
+        await new Promise((resolve) => setTimeout(resolve, Math.random() * 25 * attempt));
+      }
+    }
+  }
+
+  private once<T>(work: (tx: SchedulingTransaction) => Promise<T>): Promise<T> {
     // READ COMMITTED + explicit row locks: every decision is made on rows read
     // under FOR UPDATE, so the stronger isolation levels would only add
     // serialization failures without adding protection.

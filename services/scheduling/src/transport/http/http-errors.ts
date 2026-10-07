@@ -10,7 +10,10 @@ import {
 } from '@carwash/service-kit';
 import { SchedulingError, type SchedulingErrorCode } from '../../domain';
 import { IdentityAuthFailure } from '../../infrastructure/identity/identity-session.client';
-import { ConcurrencyViolation } from '../../infrastructure/persistence/prisma-scheduling.store';
+import {
+  ConcurrencyViolation,
+  isTransientConflict,
+} from '../../infrastructure/persistence/prisma-scheduling.store';
 
 const STATUS: Readonly<Record<SchedulingErrorCode, number>> = {
   INVALID_INPUT: 400,
@@ -62,7 +65,7 @@ export function toAppError(error: unknown): unknown {
   // Prisma interactive-transaction timeout / pool exhaustion: the outcome is a
   // rollback, so the caller may retry; it is never reported as success.
   const code = (error as { code?: unknown }).code;
-  if (code === 'P2028' || code === 'P2024') {
+  if (code === 'P2028' || code === 'P2024' || isTransientConflict(error)) {
     return new AppError({
       status: 503,
       code: 'STORE_BUSY',

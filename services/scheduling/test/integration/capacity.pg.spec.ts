@@ -443,22 +443,26 @@ test('windows: identical redefinition replays, overlap and conflicting start are
     capacity: 2,
   });
   assert.equal(adjacent.replayed, false);
-  // Concurrent overlapping definitions: the exclusion constraint lets exactly one in.
-  const raceZone = randomUUID();
-  const outcomes = await Promise.all(
-    Array.from({ length: 8 }, (_, i) =>
-      errorCode(
-        pick(i).defineWindow(meta(OPS), {
-          zoneId: raceZone,
-          startsAt: new Date(startsAt.getTime() + i * 60_000),
-          endsAt: new Date(endsAt.getTime() + i * 60_000),
-          capacity: 1,
-        }),
+  // Concurrent overlapping definitions, 15 rounds: exactly one per zone wins and
+  // every loser is a clean WINDOW_OVERLAPS. Unserialised, gist exclusion checks
+  // deadlock each other (40P01) in roughly a third of such inserts.
+  for (let round = 0; round < 15; round += 1) {
+    const raceZone = randomUUID();
+    const outcomes = await Promise.all(
+      Array.from({ length: 8 }, (_, i) =>
+        errorCode(
+          pick(i).defineWindow(meta(OPS), {
+            zoneId: raceZone,
+            startsAt: new Date(startsAt.getTime() + i * 60_000),
+            endsAt: new Date(endsAt.getTime() + i * 60_000),
+            capacity: 1,
+          }),
+        ),
       ),
-    ),
-  );
-  assert.equal(outcomes.filter((o) => o === 'OK').length, 1);
-  assert.deepEqual([...new Set(outcomes.filter((o) => o !== 'OK'))], ['WINDOW_OVERLAPS']);
+    );
+    assert.equal(outcomes.filter((o) => o === 'OK').length, 1);
+    assert.deepEqual([...new Set(outcomes.filter((o) => o !== 'OK'))], ['WINDOW_OVERLAPS']);
+  }
 });
 
 test('database backstops: CHECK rejects an oversell even from raw SQL; the runtime role has no DDL', async () => {
