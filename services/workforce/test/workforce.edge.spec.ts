@@ -17,11 +17,7 @@ test('workforce edge: Identity outage fails closed', async () => {
     fetchImpl: () => Promise.reject(new Error('down')),
   });
   await assert.rejects(
-    () =>
-      client.resolve(
-        'Bearer abcdefghijklmnop',
-        '11111111-1111-4111-8111-111111111111',
-      ),
+    () => client.resolve('Bearer abcdefghijklmnop', '11111111-1111-4111-8111-111111111111'),
     (error: unknown) => error instanceof IdentityAuthFailure && error.reason === 'UNAVAILABLE',
   );
 });
