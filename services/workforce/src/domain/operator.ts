@@ -1,7 +1,6 @@
 import { invalid } from './errors';
 
-const UUID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type EmploymentStatus = 'ACTIVE' | 'INACTIVE';
 export type SuspensionReason = 'OPERATIONS' | 'COMPLIANCE' | 'SAFETY';
@@ -27,11 +26,7 @@ export function assertUuid(value: string, field = 'id'): void {
 
 export function assertDisplayName(value: string): string {
   const normalized = value.trim().replace(/\s+/g, ' ');
-  if (
-    normalized.length < 2 ||
-    normalized.length > 80 ||
-    /[\u0000-\u001f\u007f]/.test(normalized)
-  ) {
+  if (normalized.length < 2 || normalized.length > 80 || /[\u0000-\u001f\u007f]/.test(normalized)) {
     invalid('displayName must contain 2-80 printable characters.');
   }
   return normalized;
@@ -68,9 +63,7 @@ export function changeProfile(
   now: Date,
 ): OperatorState {
   const displayName =
-    input.displayName === undefined
-      ? state.displayName
-      : assertDisplayName(input.displayName);
+    input.displayName === undefined ? state.displayName : assertDisplayName(input.displayName);
   let homeZoneId = state.homeZoneId;
   if (input.homeZoneId !== undefined) {
     assertUuid(input.homeZoneId, 'homeZoneId');
