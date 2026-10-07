@@ -3,12 +3,7 @@
  *
  * Framework-free. Adapters live in infrastructure/ and transport/.
  */
-import type {
-  OperatorState,
-  ShiftState,
-  VerificationCaseState,
-  WorkforceEvent,
-} from '../domain';
+import type { OperatorState, ShiftState, VerificationCaseState, WorkforceEvent } from '../domain';
 
 export interface Clock {
   now(): Date;
@@ -18,10 +13,7 @@ export interface IdGenerator {
   next(): string;
 }
 
-export const WORKFORCE_SCOPES = [
-  'workforce.operator.read',
-  'workforce.eligibility.read',
-] as const;
+export const WORKFORCE_SCOPES = ['workforce.operator.read', 'workforce.eligibility.read'] as const;
 export type WorkforceScope = (typeof WORKFORCE_SCOPES)[number];
 
 export type Actor =
@@ -80,10 +72,7 @@ export interface WorkforceTransaction {
   findPendingCase(operatorId: string): Promise<VerificationCaseState | null>;
   findCaseByIdempotency(requester: string, key: string): Promise<VerificationCaseState | null>;
   insertVerificationCase(state: VerificationCaseState): Promise<InsertResult>;
-  updateVerificationCase(
-    state: VerificationCaseState,
-    expectedVersion: number,
-  ): Promise<void>;
+  updateVerificationCase(state: VerificationCaseState, expectedVersion: number): Promise<void>;
 
   lockShift(id: string): Promise<ShiftState | null>;
   findShiftByIdempotency(requester: string, key: string): Promise<ShiftState | null>;
