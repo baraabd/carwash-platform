@@ -72,12 +72,8 @@ function positiveInt(raw: string | undefined, fallback: number): number {
           new ServiceClientAuthenticator(
             parseServiceClients(process.env.WORKFORCE_SERVICE_CLIENTS),
           ),
-          new RequestBudget(
-            positiveInt(process.env.WORKFORCE_USER_REQUESTS_PER_MINUTE, 120),
-          ),
-          new RequestBudget(
-            positiveInt(process.env.WORKFORCE_SERVICE_REQUESTS_PER_MINUTE, 6_000),
-          ),
+          new RequestBudget(positiveInt(process.env.WORKFORCE_USER_REQUESTS_PER_MINUTE, 120)),
+          new RequestBudget(positiveInt(process.env.WORKFORCE_SERVICE_REQUESTS_PER_MINUTE, 6_000)),
         ),
     },
   ],
