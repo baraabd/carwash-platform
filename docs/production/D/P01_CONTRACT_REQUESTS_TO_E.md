@@ -103,3 +103,47 @@ Add `GatewayOwner` `configuration` and `communications`, plus these routes, all
 
 Mutating configuration routes (`POST .../revisions`, `POST .../activate`) are
 requested only after CR-D-P01-01 merges, with `idempotency: 'required'`.
+
+## CR-D-P01-06: reconcile the configuration contract with the owner model
+
+Observed while preparing this handoff: E's **unmerged** branch
+`prod/p01-e1-business-contract-conventions` drafts `configuration.v1` as
+closed, market-scoped namespaces (`booking.policy.v1`,
+`market.presentation.v1`) with structured content, a `drafts → approve →
+publish` lifecycle and permissions `configuration.write`/`approve`/`publish`
+plus `service:configuration.read`.
+
+P01-D3 implements what P01-D asked for: typed values scoped by environment and
+tenant, with `revisions → review → activate`. The owner mechanics carry over
+one-to-one:
+
+| E draft | D3 implementation |
+| --- | --- |
+| draft | `config_revision` (append-only, idempotent, author and reason) |
+| approve (`SELF_APPROVAL_FORBIDDEN`) | `config_review` (one decision, `SELF_REVIEW_FORBIDDEN`) |
+| publish with `expectedVersion` (`DRAFT_NOT_APPROVED`) | `activate` compare-and-set on `config_pointer.version` (`REVISION_NOT_APPROVED`) |
+| `POLICY_UNAVAILABLE`, no defaults | `NOT_CONFIGURED`, no defaults; reads fail closed |
+
+D does not consume the unmerged draft (no stacking on a private provider
+branch). Request: E and the owner decide on one wire model. If E's closed
+namespaces are accepted, D adds `/scopes/:marketId/:namespace/...` routes as an
+adapter over the same revision store (market → tenant scope, namespace content →
+a closed typed value) and aligns the reason codes and the separate
+approve/publish permissions. The generic key/value routes are retired or kept
+internal only by that decision.
+
+## CR-D-P01-07: foundation integration harness leaks a relay on failure (Windows)
+
+`tests/integration/outbox-inbox.test.mjs` "Case D: a row leased by a worker that
+died…" sets a 2-second lease, spawns a relay process and waits for it to connect
+plus 500 ms. On a loaded host this exceeds the lease, the relay legitimately
+reclaims the row, the assertion fails, and `relay.stop()` is skipped (no
+`try/finally`/`t.after`). The leaked `recovery-relay` keeps leasing Catalog rows,
+so every later relay case fails: competing relays, D3, E and F.
+
+Evidence (2026-10-07): the same five-to-six failure cluster on a `main`-identical
+tree (Catalog, Communications, Reporting, packages and tests byte-equal to
+`f875d31`) and on the P01-D1 tree. Two `recovery-relay` processes were still
+running after the suite ended, and stopping them was required. Request (E owns
+`tests/integration`): stop the relay in `finally`, and measure the lease window
+from after the relay is connected. P01-D changes no Catalog relay code.
