@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { IDENTITY_V1 } from '@carwash/contracts';
 import { AuthFault, objectInput } from '../../domain/auth-policy';
+import { guestReceipt } from '../../application/identity-auth.service';
 import { IdentityAuthFilter } from './auth-filter';
 import { IdentityHttpRuntime, type AuthRequest, type AuthResponse } from './auth-runtime';
 
@@ -75,6 +76,36 @@ export class IdentityAuthController {
     );
     this.runtime.setSession(response, tokens);
     return tokens.session;
+  }
+  /** Guest booking identity: no account, no PII. Tokens travel only as cookies. */
+  @Post('guest-sessions')
+  @HttpCode(201)
+  async createGuest(
+    @Body() body: unknown,
+    @Req() request: AuthRequest,
+    @Res({ passthrough: true }) response: AuthResponse,
+  ) {
+    this.runtime.assertCsrf(request);
+    objectInput(body, []);
+    const tokens = await this.runtime.auth.createGuest(this.runtime.context(request));
+    this.runtime.setSession(response, tokens);
+    return guestReceipt(tokens);
+  }
+  @Post('guest-sessions/recover')
+  @HttpCode(200)
+  async recoverGuest(
+    @Body() body: unknown,
+    @Req() request: AuthRequest,
+    @Res({ passthrough: true }) response: AuthResponse,
+  ) {
+    this.runtime.assertCsrf(request);
+    const input = objectInput(body, ['recoveryCode']);
+    const tokens = await this.runtime.auth.recoverGuest(
+      input.recoveryCode,
+      this.runtime.context(request),
+    );
+    this.runtime.setSession(response, tokens);
+    return guestReceipt(tokens);
   }
   @Post('refresh')
   @HttpCode(200)
