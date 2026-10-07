@@ -9,10 +9,7 @@ import {
   ServiceClientAuthenticator,
   parseServiceClients,
 } from '../src/infrastructure/security/service-clients';
-import {
-  ActorResolver,
-  RequestBudget,
-} from '../src/transport/http/actor-resolver';
+import { ActorResolver, RequestBudget } from '../src/transport/http/actor-resolver';
 
 test('workforce edge: Identity outage fails closed', async () => {
   const client = new IdentitySessionClient({
@@ -25,9 +22,7 @@ test('workforce edge: Identity outage fails closed', async () => {
         'Bearer abcdefghijklmnop',
         '11111111-1111-4111-8111-111111111111',
       ),
-    (error: unknown) =>
-      error instanceof IdentityAuthFailure &&
-      error.reason === 'UNAVAILABLE',
+    (error: unknown) => error instanceof IdentityAuthFailure && error.reason === 'UNAVAILABLE',
   );
 });
 
@@ -45,10 +40,7 @@ test('workforce edge: service credentials are digest-configured and scope bounde
       ]),
     ),
   );
-  assert.equal(
-    auth.authenticate('dispatch', token)?.scopes[0],
-    'workforce.eligibility.read',
-  );
+  assert.equal(auth.authenticate('dispatch', token)?.scopes[0], 'workforce.eligibility.read');
   assert.equal(auth.authenticate('dispatch', 'y'.repeat(48)), null);
 });
 
@@ -80,8 +72,6 @@ test('workforce edge: presenting user and service credentials together is reject
           'x-service-token': token,
         },
       }),
-    (error: unknown) =>
-      error instanceof IdentityAuthFailure &&
-      error.reason === 'UNAUTHENTICATED',
+    (error: unknown) => error instanceof IdentityAuthFailure && error.reason === 'UNAUTHENTICATED',
   );
 });
