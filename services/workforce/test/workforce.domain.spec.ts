@@ -70,9 +70,7 @@ test('workforce domain: a reviewer cannot decide their own verification case', (
         new Date('2027-01-01T00:00:00.000Z'),
         now,
       ),
-    (error: unknown) =>
-      error instanceof WorkforceError &&
-      error.code === 'SELF_REVIEW_FORBIDDEN',
+    (error: unknown) => error instanceof WorkforceError && error.code === 'SELF_REVIEW_FORBIDDEN',
   );
 });
 
