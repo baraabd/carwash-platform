@@ -53,25 +53,21 @@ CREATE TABLE "aggregate_snapshot" (
     CONSTRAINT "aggregate_snapshot_state_object" CHECK (jsonb_typeof("state") = 'object')
 );
 
--- The contribution ledger is append-only evidence for bucket reconciliation:
--- whichever runtime identity received DML through default privileges may add
--- rows but never rewrite or remove them. Grantees are discovered rather than
--- named, so the rule holds for every environment's role naming.
-DO $$
-DECLARE
-  grantee_name TEXT;
+-- The contribution ledger is append-only evidence for bucket reconciliation.
+-- It is enforced by the database itself, independent of any role's grants:
+-- provisioning deliberately (re)grants generic DML on every table to the
+-- runtime role, so an ACL-only rule would silently disappear on a replay.
+-- TRUNCATE needs no trigger: provisioning never grants it to the runtime role.
+-- Same convention as the Catalog immutable tables.
+CREATE FUNCTION "app"."reporting_reject_mutation"() RETURNS trigger
+    LANGUAGE plpgsql SET search_path = pg_catalog, pg_temp AS $$
 BEGIN
-  FOR grantee_name IN
-    SELECT DISTINCT grantee
-    FROM information_schema.role_table_grants
-    WHERE table_schema = current_schema()
-      AND table_name = 'projection_contribution'
-      AND privilege_type IN ('UPDATE', 'DELETE', 'TRUNCATE')
-      AND grantee <> current_user
-  LOOP
-    EXECUTE format(
-      'REVOKE UPDATE, DELETE, TRUNCATE ON %I.projection_contribution FROM %I',
-      current_schema(), grantee_name
-    );
-  END LOOP;
-END $$;
+    RAISE EXCEPTION 'REPORTING_LEDGER_IMMUTABLE: % on %', TG_OP, TG_TABLE_NAME USING ERRCODE = 'P0001';
+END;
+$$;
+
+CREATE TRIGGER "projection_contribution_immutable" BEFORE UPDATE OR DELETE ON "app"."projection_contribution" FOR EACH ROW EXECUTE FUNCTION "app"."reporting_reject_mutation"();
+
+-- Functions are created with EXECUTE granted to PUBLIC by default. A trigger
+-- function needs no caller privilege, so nobody is granted EXECUTE.
+REVOKE ALL ON FUNCTION "app"."reporting_reject_mutation"() FROM PUBLIC;

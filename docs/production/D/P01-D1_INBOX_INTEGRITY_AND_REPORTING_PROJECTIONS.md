@@ -50,9 +50,13 @@ source event that produced it, and all rows can be rebuilt by replay.
 - **`projection_contribution`**: one row per `(projection, source_service,
   source_event_id)`. This makes a backfill or replay unable to count a source
   event twice, independently of the inbox. A `contribution_hash` mismatch is an
-  integrity error. The runtime identity has **INSERT only** (UPDATE, DELETE and
-  TRUNCATE are revoked by the migration, which discovers grantees rather than
-  hardcoding role names).
+  integrity error. The ledger is **append-only**: a `BEFORE UPDATE OR DELETE`
+  trigger (`reporting_reject_mutation`, pinned `search_path`, no EXECUTE
+  for PUBLIC) rejects rewrites for every role, including the owner. TRUNCATE
+  stays denied because provisioning never grants it. An earlier ACL-only revoke
+  was dropped: provisioning re-grants generic DML on every table on each
+  replay, which both broke the replay-idempotency test and silently restored
+  UPDATE/DELETE. The trigger is the same convention as Catalog's immutable tables.
 - **`metric_bucket`**: an exact `BIGINT` per UTC day, folded with a native
   `INSERT … ON CONFLICT DO UPDATE` increment. `contribution_count` allows
   reconciliation.
@@ -72,7 +76,7 @@ implemented or implied (see CR-D-P01-04).
 
 `services/reporting/prisma/migrations/20261007090000_p01d_projection_primitives`:
 additive only (the expand step). It creates 3 tables with CHECK constraints and
-an append-only grant rule, and changes no existing object. Rollback: deploy the
+an append-only ledger trigger, and changes no existing object. Rollback: deploy the
 previous worker build, which ignores the new tables. Dropping them is a separate
 reviewed contract step, and nothing depends on it. The runner proves zero drift
 between the replayed migrations and `schema.prisma`.

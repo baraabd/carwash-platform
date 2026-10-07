@@ -219,20 +219,37 @@ test('A6: concurrent out-of-order versions converge on the highest version', asy
   assert.deepEqual(row.state, { v: 10 });
 });
 
-test('A7: the contribution ledger is append-only for the runtime identity', async () => {
+test('A7: the contribution ledger is append-only, independent of role grants', async () => {
   const projection = uniqueProjection();
+  // INSERT, the only intended write, still works.
   await inTx((w) => ingestor.contribute(w, contribution(projection, source())));
-  const url = appDsn(context, 'reporting');
-  for (const statement of [
-    `UPDATE app.projection_contribution SET delta = 99 WHERE projection = '${projection}'`,
-    `DELETE FROM app.projection_contribution WHERE projection = '${projection}'`,
-  ]) {
-    const result = await sql(url, statement);
-    assert.equal(result.ok, false, `${statement} must be refused`);
-    assert.equal(result.code, '42501', `refused for the right reason: ${result.message}`);
+  const where = `WHERE projection = '${projection}'`;
+  const rewrites = [
+    `UPDATE app.projection_contribution SET delta = 99 ${where}`,
+    `DELETE FROM app.projection_contribution ${where}`,
+  ];
+  // The trigger rejects rewrites even though provisioning grants the runtime
+  // role generic DML, and even for the owning migration identity.
+  for (const url of [appDsn(context, 'reporting'), migrationDsn(context, 'reporting')]) {
+    for (const statement of rewrites) {
+      const result = await sql(url, statement);
+      assert.equal(result.ok, false, `${statement} must be refused`);
+      assert.equal(result.code, 'P0001', `refused by the ledger trigger: ${result.message}`);
+      assert.match(result.message ?? '', /REPORTING_LEDGER_IMMUTABLE/);
+    }
   }
-  const insert = await app.projectionContribution.count({ where: { projection } });
-  assert.equal(insert, 1);
+  // TRUNCATE skips row triggers, so it must stay denied by privilege.
+  const truncate = await sql(appDsn(context, 'reporting'), 'TRUNCATE app.projection_contribution');
+  assert.equal(truncate.ok, false, 'TRUNCATE must be refused');
+  assert.equal(truncate.code, '42501', `refused for lack of privilege: ${truncate.message}`);
+  // Nobody but the owner may invoke the trigger function directly.
+  const execute = await sql(
+    appDsn(context, 'reporting'),
+    "SELECT has_function_privilege('cw_reporting_app', 'app.reporting_reject_mutation()', 'EXECUTE') AS app_exec, has_function_privilege('public', 'app.reporting_reject_mutation()', 'EXECUTE') AS public_exec",
+  );
+  assert.equal(execute.ok, true, execute.message ?? '');
+  assert.deepEqual(execute.rows[0], { app_exec: false, public_exec: false });
+  assert.equal(await app.projectionContribution.count({ where: { projection } }), 1);
 });
 
 test('A8: reconciliation reports a bucket that disagrees with its ledger', async () => {
