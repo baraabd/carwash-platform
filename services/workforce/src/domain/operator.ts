@@ -1,6 +1,7 @@
 import { invalid } from './errors';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type EmploymentStatus = 'ACTIVE' | 'INACTIVE';
 export type SuspensionReason = 'OPERATIONS' | 'COMPLIANCE' | 'SAFETY';
@@ -67,14 +68,24 @@ export function changeProfile(
   now: Date,
 ): OperatorState {
   const displayName =
-    input.displayName === undefined ? state.displayName : assertDisplayName(input.displayName);
+    input.displayName === undefined
+      ? state.displayName
+      : assertDisplayName(input.displayName);
   let homeZoneId = state.homeZoneId;
   if (input.homeZoneId !== undefined) {
     assertUuid(input.homeZoneId, 'homeZoneId');
     homeZoneId = input.homeZoneId.toLowerCase();
   }
-  if (displayName === state.displayName && homeZoneId === state.homeZoneId) return state;
-  return { ...state, displayName, homeZoneId, version: state.version + 1, updatedAt: now };
+  if (displayName === state.displayName && homeZoneId === state.homeZoneId) {
+    return state;
+  }
+  return {
+    ...state,
+    displayName,
+    homeZoneId,
+    version: state.version + 1,
+    updatedAt: now,
+  };
 }
 
 export function setEmployment(
@@ -82,9 +93,16 @@ export function setEmployment(
   status: EmploymentStatus,
   now: Date,
 ): OperatorState {
-  if (status !== 'ACTIVE' && status !== 'INACTIVE') invalid('Unknown employment status.');
+  if (status !== 'ACTIVE' && status !== 'INACTIVE') {
+    invalid('Unknown employment status.');
+  }
   if (state.employmentStatus === status) return state;
-  return { ...state, employmentStatus: status, version: state.version + 1, updatedAt: now };
+  return {
+    ...state,
+    employmentStatus: status,
+    version: state.version + 1,
+    updatedAt: now,
+  };
 }
 
 export function setSuspension(
@@ -101,7 +119,12 @@ export function setSuspension(
     invalid('Unknown suspension reason.');
   }
   if (state.suspensionReason === reason) return state;
-  return { ...state, suspensionReason: reason, version: state.version + 1, updatedAt: now };
+  return {
+    ...state,
+    suspensionReason: reason,
+    version: state.version + 1,
+    updatedAt: now,
+  };
 }
 
 export function setVerificationProjection(

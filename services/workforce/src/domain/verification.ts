@@ -39,7 +39,9 @@ export function assertEvidence(evidenceRefs: readonly string[]): string[] {
     assertUuid(ref, 'evidenceRef');
     unique.add(ref.toLowerCase());
   }
-  if (unique.size !== evidenceRefs.length) invalid('Evidence references must be unique.');
+  if (unique.size !== evidenceRefs.length) {
+    invalid('Evidence references must be unique.');
+  }
   return [...unique];
 }
 
@@ -56,7 +58,10 @@ export function createVerificationCase(input: {
   assertUuid(input.id);
   assertUuid(input.submittedBy, 'submittedBy');
   if (input.submittedBy.toLowerCase() !== input.operator.identitySubject) {
-    throw new WorkforceError('FORBIDDEN', 'Only the operator may submit verification evidence.');
+    throw new WorkforceError(
+      'FORBIDDEN',
+      'Only the operator may submit verification evidence.',
+    );
   }
   return {
     id: input.id.toLowerCase(),
@@ -78,7 +83,10 @@ export function createVerificationCase(input: {
 
 function requirePending(state: VerificationCaseState): void {
   if (state.status !== 'PENDING_REVIEW') {
-    throw new WorkforceError('CASE_NOT_PENDING', 'Verification case is already closed.');
+    throw new WorkforceError(
+      'CASE_NOT_PENDING',
+      'Verification case is already closed.',
+    );
   }
 }
 
@@ -92,9 +100,14 @@ export function approveVerification(
   requirePending(state);
   assertUuid(reviewer, 'reviewer');
   if (reviewer.toLowerCase() === operator.identitySubject) {
-    throw new WorkforceError('SELF_REVIEW_FORBIDDEN', 'A reviewer cannot approve their own case.');
+    throw new WorkforceError(
+      'SELF_REVIEW_FORBIDDEN',
+      'A reviewer cannot approve their own case.',
+    );
   }
-  if (validUntil.getTime() <= now.getTime()) invalid('validUntil must be in the future.');
+  if (validUntil.getTime() <= now.getTime()) {
+    invalid('validUntil must be in the future.');
+  }
   return {
     ...state,
     status: 'APPROVED',
@@ -116,7 +129,10 @@ export function rejectVerification(
   requirePending(state);
   assertUuid(reviewer, 'reviewer');
   if (reviewer.toLowerCase() === operator.identitySubject) {
-    throw new WorkforceError('SELF_REVIEW_FORBIDDEN', 'A reviewer cannot reject their own case.');
+    throw new WorkforceError(
+      'SELF_REVIEW_FORBIDDEN',
+      'A reviewer cannot reject their own case.',
+    );
   }
   if (
     reason !== 'IDENTITY_MISMATCH' &&
@@ -145,7 +161,10 @@ export function withdrawVerification(
 ): VerificationCaseState {
   requirePending(state);
   if (subject.toLowerCase() !== operator.identitySubject) {
-    throw new WorkforceError('FORBIDDEN', 'Only the operator may withdraw the case.');
+    throw new WorkforceError(
+      'FORBIDDEN',
+      'Only the operator may withdraw the case.',
+    );
   }
   return {
     ...state,
