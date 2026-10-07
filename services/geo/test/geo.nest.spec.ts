@@ -2,7 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Test } from '@nestjs/testing';
 import { HealthController, HEALTH_OPTIONS, type HealthOptions } from '@carwash/service-kit';
-import { AppModule, BUSINESS_READY, SERVICE_NAME, postgresProbe } from '../src/app.module';
+import {
+  AppModule,
+  BUSINESS_READY,
+  SERVICE_NAME,
+  postgresProbe,
+  rateLimitFromEnv,
+} from '../src/app.module';
 import { PrismaService, databaseUrlFromEnv } from '../src/prisma.service';
 import { createHttpApplication } from '../src/transport/http/create-app';
 
@@ -154,4 +160,35 @@ test('geo: the postgres probe is wired to this service own client', async () => 
   assert.equal(probe.name, 'postgres');
   assert.equal(probe.kind, 'postgres');
   await moduleRef.close();
+});
+
+test('geo: an invalid serviceability rate limit stops startup instead of guessing', () => {
+  assert.throws(
+    () => rateLimitFromEnv({ GEO_SERVICEABILITY_RATE_PER_MINUTE: '0' }),
+    /INVALID_GEO_RATE_LIMIT/,
+  );
+  assert.throws(
+    () => rateLimitFromEnv({ GEO_SERVICEABILITY_RATE_PER_MINUTE: 'lots' }),
+    /INVALID_GEO_RATE_LIMIT/,
+  );
+  assert.ok(rateLimitFromEnv({}));
+});
+
+test('geo: invalid serviceability input is 422 before any database access', async () => {
+  process.env.DATABASE_URL = DSN;
+  const app = await createHttpApplication();
+  await app.listen(0, '127.0.0.1');
+  try {
+    const url = await app.getUrl();
+    const response = await fetch(url + '/internal/v1/geo/serviceability', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ coordinates: { crs: 'EPSG:4326', latitude: 'NaN', longitude: '0' } }),
+    });
+    assert.equal(response.status, 422);
+    const body = (await response.json()) as { error: { code: string } };
+    assert.equal(body.error.code, 'INVALID_COORDINATES');
+  } finally {
+    await app.close();
+  }
 });

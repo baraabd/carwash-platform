@@ -1,2 +1,2 @@
-// F001 ownership skeleton only. No business API, UI, or readiness is implemented.
+// Service-zone and serviceability capability; readiness stays 503 until approved data and exact-source acceptance.
 export {};
