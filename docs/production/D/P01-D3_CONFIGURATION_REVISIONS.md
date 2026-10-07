@@ -18,12 +18,14 @@ permission is borrowed.
 
 The migration revokes UPDATE, DELETE and TRUNCATE on revision, review and audit
 from every non-owner grantee. It discovers grantees rather than naming them.
+The provisioning replay and post-migration hardening reassert those revokes for
+the runtime role, while keeping the active pointer writable for activation.
 Keys that look like secrets (`secret`, `password`, `token`, `credential`,
 `api-key`, `private-key`) are refused: secrets belong in a secret manager.
 
 **Safe reads.** The effective value is the tenant's active revision, otherwise the
 environment-wide one, otherwise `NOT_CONFIGURED`. No default is invented. The
-pointer and the revision are read in one repeatable-read snapshot, and a
+tenant pointer, environment pointer and their revisions are read in one repeatable-read snapshot, and a
 persisted value is re-validated before it is served.
 
 ## HTTP (`/internal/v1/configuration`)
@@ -63,6 +65,11 @@ bounded retries returned 500 for 4 of 10 concurrent proposals. It was replaced b
 a per-scope advisory lock, and 10 of 10 now succeed with gap-free numbers.
 
 ## Pending
+
+- Main now contains E's `configuration.v1` market-scoped draft/approve/publish
+  contract. This implementation's environment/tenant revision model still
+  diverges (CR-D-P01-06). These fixes do not resolve that product contract
+  decision or expose the implementation through the gateway.
 
 - `configuration.revision-activated.v1` event and its Outbox relay need an E
   event contract, topology and the `platform-messaging` dependency

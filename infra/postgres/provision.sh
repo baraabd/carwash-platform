@@ -106,6 +106,16 @@ ALTER DEFAULT PRIVILEGES FOR ROLE :"migration_role" IN SCHEMA app
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA app TO :"app_role";
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA app TO :"app_role";
 
+-- Configuration history remains append-only after every provisioning replay.
+-- These tables are absent until the owner migration runs; the active pointer
+-- deliberately retains UPDATE for compare-and-set activation.
+SELECT format('REVOKE UPDATE, DELETE, TRUNCATE ON TABLE app.%I FROM %I', tablename, :'app_role')
+  FROM pg_tables
+ WHERE schemaname = 'app'
+   AND current_database() = 'cw_configuration'
+   AND tablename IN ('config_revision', 'config_review', 'config_audit');
+\gexec
+
 -- The migration history belongs to the migration role alone. Being unable to
 -- change the schema is not enough: the application must also be unable to read or
 -- rewrite the record of which migrations ran. This REVOKE comes last so it also

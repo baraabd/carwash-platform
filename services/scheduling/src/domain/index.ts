@@ -1,7 +1,9 @@
 /**
- * scheduling domain layer.
+ * scheduling domain layer: capacity windows, holds and their integration events.
  *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
+ * Framework-free. No Nest, Prisma, pg or broker types may be imported here.
  */
-export {};
+export * from './errors';
+export * from './capacity-window';
+export * from './hold';
+export * from './events';

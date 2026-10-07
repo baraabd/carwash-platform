@@ -1,5 +1,4 @@
 import {
-  ALL_TENANTS,
   ConfigurationRuleError,
   configScope,
   configValue,
@@ -12,6 +11,7 @@ import {
 } from '../domain/configuration';
 import type {
   ActivateResult,
+  ActiveRevision,
   Actor,
   Clock,
   ConfigurationRepository,
@@ -108,7 +108,9 @@ export class ConfigurationCommands {
 }
 
 export class ConfigurationQueries {
-  constructor(private readonly repository: ConfigurationRepository) {}
+  constructor(
+    private readonly repository: Pick<ConfigurationRepository, 'effectiveSnapshot' | 'history'>,
+  ) {}
 
   /** The effective value: the tenant's active revision, else the environment-wide one. */
   async effective(input: {
@@ -117,19 +119,14 @@ export class ConfigurationQueries {
     environment: unknown;
     tenantId: unknown;
   }): Promise<Resolution> {
-    const tenantScope = configScope(input);
-    const environmentScope = { ...tenantScope, tenantScope: ALL_TENANTS };
-    const [tenant, environmentWide] = await Promise.all([
-      tenantScope.tenantScope === ALL_TENANTS ? null : this.repository.active(tenantScope),
-      this.repository.active(environmentScope),
-    ]);
-    const view = (found: Awaited<ReturnType<ConfigurationRepository['active']>>) =>
+    const { tenant, environment } = await this.repository.effectiveSnapshot(configScope(input));
+    const view = (found: ActiveRevision | null) =>
       found && {
         scope: found.record.scope,
         revision: found.record.revision,
         value: found.record.value,
       };
-    return resolve(view(tenant), view(environmentWide));
+    return resolve(view(tenant), view(environment));
   }
 
   async history(input: {

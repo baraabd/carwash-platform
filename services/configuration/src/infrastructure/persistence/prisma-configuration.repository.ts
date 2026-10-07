@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { Prisma, PrismaClient } from '../../generated/prisma/client';
 import {
+  ALL_TENANTS,
   ENVIRONMENTS,
   ConfigurationRuleError,
   assertActivatable,
@@ -285,24 +286,27 @@ export class PrismaConfigurationRepository implements ConfigurationRepository {
     return row && toRecord(row);
   }
 
-  async active(
-    scope: ConfigScope,
-  ): Promise<{ record: RevisionRecord; pointer: PointerRecord } | null> {
-    // One snapshot for pointer and revision, so a concurrent activation can
-    // never pair one revision's number with another revision's value.
+  async effectiveSnapshot(scope: ConfigScope) {
+    // A tenant miss and the environment fallback must share a snapshot, too:
+    // concurrent activations must not create a value that was never effective.
     return this.client.$transaction(
       async (tx) => {
-        const pointer = await tx.configPointer.findUnique({
-          where: { namespace_key_environment_tenantScope: scopeWhere(scope) },
-        });
-        if (!pointer) return null;
-        const row = await tx.configRevision.findUniqueOrThrow({
-          where: { id: pointer.activeRevisionId },
-          include: revisionInclude,
-        });
-        if (row.review?.decision !== 'APPROVED')
-          throw new ConfigurationRuleError('ACTIVE_REVISION_NOT_APPROVED');
-        return { record: toRecord(row), pointer: toPointer(pointer) };
+        const read = async (target: ConfigScope) => {
+          const pointer = await tx.configPointer.findUnique({
+            where: { namespace_key_environment_tenantScope: scopeWhere(target) },
+          });
+          if (!pointer) return null;
+          const row = await tx.configRevision.findUniqueOrThrow({
+            where: { id: pointer.activeRevisionId },
+            include: revisionInclude,
+          });
+          if (row.review?.decision !== 'APPROVED')
+            throw new ConfigurationRuleError('ACTIVE_REVISION_NOT_APPROVED');
+          return { record: toRecord(row), pointer: toPointer(pointer) };
+        };
+        const tenant = scope.tenantScope === ALL_TENANTS ? null : await read(scope);
+        const environment = await read({ ...scope, tenantScope: ALL_TENANTS });
+        return { tenant, environment };
       },
       { isolationLevel: 'RepeatableRead' },
     );

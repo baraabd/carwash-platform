@@ -12,6 +12,8 @@ import {
 } from '../src/domain/configuration';
 import { AccessFault } from '../src/ports/identity.ports';
 import { requirePermission } from '../src/application/access';
+import { ConfigurationQueries } from '../src/application/configuration.service';
+import type { ConfigurationRepository, RevisionRecord } from '../src/ports/configuration.ports';
 
 const TENANT = '3f2a1b0c-9d8e-4f7a-8b6c-5d4e3f2a1b0c';
 
@@ -169,4 +171,51 @@ test('configuration access: permissions are required exactly, deny by default', 
     (e: unknown) => e instanceof AccessFault && e.code === 'AUTH_FORBIDDEN',
   );
   requirePermission({ ...session, permissions: ['configuration.read'] }, 'configuration.read');
+});
+
+test('configuration queries resolve one coherent repository snapshot without inventing a value', async () => {
+  const input = {
+    namespace: 'booking',
+    key: 'hold-ttl',
+    environment: 'production',
+    tenantId: TENANT,
+  };
+  const scope = configScope(input);
+  const record: RevisionRecord = {
+    id: TENANT,
+    scope: { ...scope, tenantScope: '*' },
+    revision: 2,
+    value: { type: 'integer', value: 60 },
+    valueHash: 'hash',
+    authorSubject: TENANT,
+    reason: 'Review the hold duration',
+    proposedAt: new Date(0),
+    review: null,
+  };
+  let snapshot: Awaited<ReturnType<ConfigurationRepository['effectiveSnapshot']>> = {
+    tenant: null,
+    environment: { record, pointer: { activeRevisionId: TENANT, activeRevision: 2, version: 1 } },
+  };
+  let reads = 0;
+  const queries = new ConfigurationQueries({
+    effectiveSnapshot(requested) {
+      reads += 1;
+      assert.deepEqual(requested, scope);
+      return Promise.resolve(snapshot);
+    },
+    history() {
+      return Promise.reject(new Error('history must not participate in effective reads'));
+    },
+  });
+  assert.deepEqual(await queries.effective(input), {
+    status: 'CONFIGURED',
+    source: 'ENVIRONMENT',
+    scope: record.scope,
+    revision: 2,
+    value: { type: 'integer', value: 60 },
+  });
+  assert.equal(reads, 1);
+  snapshot = { tenant: null, environment: null };
+  assert.deepEqual(await queries.effective(input), { status: 'NOT_CONFIGURED' });
+  assert.equal(reads, 2);
 });

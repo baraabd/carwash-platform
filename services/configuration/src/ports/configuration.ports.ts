@@ -34,6 +34,11 @@ export interface PointerRecord {
   readonly version: number;
 }
 
+export interface ActiveRevision {
+  readonly record: RevisionRecord;
+  readonly pointer: PointerRecord;
+}
+
 export type ProposeResult =
   | { readonly kind: 'CREATED'; readonly revision: RevisionRecord }
   | { readonly kind: 'REPLAYED'; readonly revision: RevisionRecord }
@@ -77,6 +82,10 @@ export interface ConfigurationRepository {
     now: Date;
   }): Promise<ActivateResult | 'NOT_FOUND'>;
   findRevision(id: string): Promise<RevisionRecord | null>;
-  active(scope: ConfigScope): Promise<{ record: RevisionRecord; pointer: PointerRecord } | null>;
+  /** Both fallback scopes and their revisions are read from one database snapshot. */
+  effectiveSnapshot(scope: ConfigScope): Promise<{
+    tenant: ActiveRevision | null;
+    environment: ActiveRevision | null;
+  }>;
   history(scope: ConfigScope, limit: number): Promise<readonly RevisionRecord[]>;
 }

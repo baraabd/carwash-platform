@@ -13,9 +13,19 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
+import { readFile } from 'node:fs/promises';
 import { URLSearchParams } from 'node:url';
 import path from 'node:path';
-import { ROOT, appDsn, context, serviceClient, sql } from '../../integration/_support.mjs';
+import {
+  ROOT,
+  appDsn,
+  context,
+  migrationDsn,
+  serviceClient,
+  sql,
+} from '../../integration/_support.mjs';
+import { composeExec } from '../../../scripts/acceptance/lib/infra.mjs';
+import { hardenPrivileges } from '../../../scripts/acceptance/lib/migrations.mjs';
 
 const require = createRequire(path.join(ROOT, 'services', 'configuration', 'package.json'));
 require('reflect-metadata');
@@ -386,16 +396,116 @@ test('H7: invalid input is refused with stable codes; secrets are not configurat
   assert.equal(missing.status, 404);
 });
 
-test('H8: revision, review and audit history is append-only for the runtime identity', async () => {
+test('H8: history remains append-only after provisioning replay and privilege hardening', async () => {
   const url = appDsn(context, 'configuration');
-  for (const statement of [
-    "UPDATE app.config_revision SET reason = 'rewritten history'",
-    'DELETE FROM app.config_revision',
-    "UPDATE app.config_review SET decision = 'APPROVED'",
-    'DELETE FROM app.config_audit',
-  ]) {
-    const result = await sql(url, statement);
-    assert.equal(result.ok, false, `${statement} must be refused`);
-    assert.equal(result.code, '42501', `${statement}: ${result.message}`);
+  const tables = ['config_revision', 'config_review', 'config_audit'];
+  const assertImmutable = async () => {
+    for (const table of tables) {
+      for (const statement of [
+        `UPDATE app.${table} SET ${table === 'config_review' ? 'decision = decision' : table === 'config_revision' ? 'reason = reason' : 'action = action'} WHERE false`,
+        `DELETE FROM app.${table} WHERE false`,
+        `TRUNCATE app.${table} CASCADE`,
+      ]) {
+        const result = await sql(url, statement);
+        assert.equal(result.ok, false, `${statement} must be refused`);
+        assert.equal(result.code, '42501', `${statement}: ${result.message}`);
+      }
+    }
+    const writable = await sql(
+      url,
+      `SELECT has_table_privilege(current_user, 'app.config_pointer', 'UPDATE') AS allowed`,
+    );
+    assert.equal(writable.ok, true);
+    assert.equal(writable.rows[0].allowed, true, 'activation pointer keeps its update permission');
+  };
+  // Replay the provisioner from the tree under test, not a stale bind mount
+  // belonging to whichever worktree created this disposable stack.
+  const replay = await composeExec(
+    context,
+    'postgres',
+    ['sh', '-c', 'CW_SERVICES=configuration sh -s'],
+    {
+      input: await readFile(path.join(ROOT, 'infra/postgres/provision.sh'), 'utf8'),
+    },
+  );
+  assert.equal(replay.code, 0, replay.stderr);
+  await assertImmutable();
+
+  // Prove the separate post-migration repair path restores the policy too.
+  for (const table of tables) {
+    const grant = await sql(
+      migrationDsn(context, 'configuration'),
+      `GRANT UPDATE, DELETE, TRUNCATE ON app.${table} TO cw_configuration_app`,
+    );
+    assert.equal(grant.ok, true, grant.message);
   }
+  const hardened = await hardenPrivileges(context, 'configuration');
+  assert.equal(hardened.code, 0, hardened.stderr);
+  await assertImmutable();
+});
+
+test('H9: tenant miss and environment fallback remain coherent during concurrent activations', async () => {
+  const target = scope();
+  const tenantId = randomUUID();
+  const previous = await propose(target, 10);
+  const next = await propose(target, 20);
+  const tenant = await propose(target, 30, { tenantId });
+  for (const result of [previous, next, tenant]) {
+    assert.equal(result.status, 201);
+    assert.equal((await approve(result.body.revision.id)).status, 200);
+  }
+  const activate = (id, expectedVersion) =>
+    call('POST', `/revisions/${id}/activate`, {
+      token: reviewer,
+      body: { expectedVersion },
+    });
+  assert.equal((await activate(previous.body.revision.id, 0)).status, 200);
+  let concurrentWrites = 0;
+  const observing = db.$extends({
+    query: {
+      configPointer: {
+        async findUnique({ args, query }) {
+          const pointer = await query(args);
+          if (args.where.namespace_key_environment_tenantScope?.tenantScope === tenantId) {
+            assert.equal(pointer, null);
+            concurrentWrites += 1;
+            // The new environment value is NEVER effective for this tenant: its
+            // override commits first, while the read has already observed a miss.
+            assert.equal((await activate(tenant.body.revision.id, 0)).status, 200);
+            assert.equal((await activate(next.body.revision.id, 1)).status, 200);
+          }
+          return pointer;
+        },
+      },
+    },
+  });
+  let snapshots = 0;
+  const client = new Proxy(observing, {
+    get(object, key) {
+      if (key === '$transaction')
+        return (...args) => {
+          snapshots += 1;
+          return object.$transaction(...args);
+        };
+      return Reflect.get(object, key);
+    },
+  });
+  const { ConfigurationQueries } = require(
+    path.join(ROOT, 'services/configuration/dist/application/configuration.service.js'),
+  );
+  const { PrismaConfigurationRepository } = require(
+    path.join(
+      ROOT,
+      'services/configuration/dist/infrastructure/persistence/prisma-configuration.repository.js',
+    ),
+  );
+  const queries = new ConfigurationQueries(new PrismaConfigurationRepository(client));
+  const result = await queries.effective({ ...target, tenantId });
+  assert.equal(snapshots, 1, 'one snapshot includes the miss and its fallback');
+  assert.equal(concurrentWrites, 1, 'both activations committed between scope lookups');
+  assert.equal(result.source, 'ENVIRONMENT');
+  assert.equal(result.value.value, 10, 'read retains the earlier coherent snapshot');
+  const current = await effective(target, tenantId);
+  assert.equal(current.body.source, 'TENANT');
+  assert.equal(current.body.value.value, 30);
 });

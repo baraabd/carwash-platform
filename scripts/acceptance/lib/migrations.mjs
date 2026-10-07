@@ -108,6 +108,20 @@ $$;
 
 REVOKE ALL ON TABLE app._prisma_migrations FROM "${app}";
 
+-- Reassert the owner's append-only history policy after migrations or repair.
+DO $$
+DECLARE history_table text;
+BEGIN
+  IF current_database() = 'cw_configuration' THEN
+    FOREACH history_table IN ARRAY ARRAY['config_revision', 'config_review', 'config_audit'] LOOP
+      IF to_regclass('app.' || history_table) IS NOT NULL THEN
+        EXECUTE format('REVOKE UPDATE, DELETE, TRUNCATE ON TABLE app.%I FROM %I', history_table, '${app}');
+      END IF;
+    END LOOP;
+  END IF;
+END
+$$;
+
 -- Belt and braces: no CREATE anywhere for the application identity.
 REVOKE CREATE ON SCHEMA app FROM "${app}";
 REVOKE CREATE ON SCHEMA public FROM "${app}";

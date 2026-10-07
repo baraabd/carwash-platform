@@ -299,6 +299,7 @@ export function auditSummary(report) {
 export function runtimeEnvironment(target) {
   const env = ['-e', `PORT=${target.port}`, '-e', 'LOG_LEVEL=warn'];
   if (target.kind === 'web-app') return env;
+  if (target.id === 'configuration') env.push('-e', 'IDENTITY_ORIGIN=http://127.0.0.1:9');
   if (target.database === null)
     env.push(
       '-e',

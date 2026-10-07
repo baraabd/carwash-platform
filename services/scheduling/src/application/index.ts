@@ -1,7 +1,7 @@
 /**
- * scheduling application layer.
+ * scheduling application layer: use cases and authorization policy.
  *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
+ * Depends on domain and ports only.
  */
-export {};
+export * from './authorization';
+export * from './scheduling.service';

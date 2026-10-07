@@ -315,6 +315,7 @@ try {
         '--test-timeout=180000',
         '--test-reporter=tap',
         'tests/identity/api.test.mjs',
+        'tests/identity/guest.test.mjs',
         'tests/identity/browser.test.mjs',
         ...(includeGateway ? ['tests/gateway/api.test.mjs'] : []),
       ],

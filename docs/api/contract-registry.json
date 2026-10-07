@@ -19,26 +19,90 @@
       "status": "routing-contract-only",
       "openApi": "docs/contracts/gateway.openapi.json",
       "scope": "Gateway/BFF routing discovery. Route presence does not claim the owning business endpoint is implemented."
+    },
+    {
+      "id": "customer.v1",
+      "domain": "customer",
+      "version": 1,
+      "prefix": "/internal/v1/customer",
+      "status": "published-provider-pending",
+      "openApi": "docs/contracts/customer.v1.openapi.json",
+      "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
+    },
+    {
+      "id": "vehicle.v1",
+      "domain": "vehicle",
+      "version": 1,
+      "prefix": "/internal/v1/vehicle",
+      "status": "published-provider-pending",
+      "openApi": "docs/contracts/vehicle.v1.openapi.json",
+      "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
+    },
+    {
+      "id": "geo.v1",
+      "domain": "geo",
+      "version": 1,
+      "prefix": "/internal/v1/geo",
+      "status": "published-provider-pending",
+      "openApi": "docs/contracts/geo.v1.openapi.json",
+      "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
+    },
+    {
+      "id": "catalog.v1",
+      "domain": "catalog",
+      "version": 1,
+      "prefix": "/internal/v1/catalog",
+      "status": "published-provider-pending",
+      "openApi": "docs/contracts/catalog.v1.openapi.json",
+      "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
+    },
+    {
+      "id": "pricing.v1",
+      "domain": "pricing",
+      "version": 1,
+      "prefix": "/internal/v1/pricing",
+      "status": "published-provider-pending",
+      "openApi": "docs/contracts/pricing.v1.openapi.json",
+      "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
+    },
+    {
+      "id": "scheduling.v1",
+      "domain": "scheduling",
+      "version": 1,
+      "prefix": "/internal/v1/scheduling",
+      "status": "published-provider-pending",
+      "openApi": "docs/contracts/scheduling.v1.openapi.json",
+      "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
+    },
+    {
+      "id": "workforce.v1",
+      "domain": "workforce",
+      "version": 1,
+      "prefix": "/internal/v1/workforce",
+      "status": "published-provider-pending",
+      "openApi": "docs/contracts/workforce.v1.openapi.json",
+      "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
+    },
+    {
+      "id": "configuration.v1",
+      "domain": "configuration",
+      "version": 1,
+      "prefix": "/internal/v1/configuration",
+      "status": "published-provider-pending",
+      "openApi": "docs/contracts/configuration.v1.openapi.json",
+      "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
     }
   ],
   "unpublishedBusinessDomains": [
-    "customer",
-    "vehicle",
-    "catalog",
-    "pricing",
-    "booking",
-    "scheduling",
-    "dispatch",
-    "workforce",
     "billing",
-    "wallet",
-    "subscription",
-    "media",
+    "booking",
     "communications",
-    "reviews",
-    "support",
-    "geo",
+    "dispatch",
+    "media",
     "reporting",
-    "configuration"
+    "reviews",
+    "subscription",
+    "support",
+    "wallet"
   ]
 }

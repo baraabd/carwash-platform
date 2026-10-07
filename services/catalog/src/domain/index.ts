@@ -1,7 +1,9 @@
 /**
  * catalog domain layer.
  *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
+ * Framework- and IO-free business rules: definitions, compatibility and the
+ * append-only revision schedule. Catalog never owns money; the legacy
+ * `quote.ts` helper is unconnected and is not exported here.
  */
-export {};
+export * from './catalog-definitions';
+export * from './catalog-revision';
