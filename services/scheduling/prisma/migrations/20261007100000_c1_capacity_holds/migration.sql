@@ -10,7 +10,7 @@
 
 -- btree_gist is a trusted extension; the database-owning migration role may
 -- create it. It supplies uuid equality for the exclusion constraint.
-CREATE EXTENSION IF NOT EXISTS btree_gist;
+CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;
 
 -- CreateTable
 CREATE TABLE "capacity_window" (
@@ -34,7 +34,7 @@ CREATE TABLE "capacity_window" (
     CONSTRAINT "capacity_window_status_ck" CHECK ("status" IN ('OPEN', 'CLOSED')),
     CONSTRAINT "capacity_window_version_ck" CHECK ("version" >= 1),
     CONSTRAINT "capacity_window_no_overlap_ex" EXCLUDE USING gist (
-        "zone_id" WITH =,
+        "zone_id" public.gist_uuid_ops WITH =,
         tstzrange("starts_at", "ends_at", '[)') WITH &&
     )
 );
