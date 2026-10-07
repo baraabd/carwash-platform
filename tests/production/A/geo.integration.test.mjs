@@ -334,10 +334,13 @@ test('isolation: the geo runtime role cannot reach the Identity database', async
 });
 
 test('isolation: the audit trigger function grants no EXECUTE to foreign or runtime roles', async () => {
+  // The disposable cluster's bootstrap superuser intentionally bypasses ACLs.
+  // Select service identities by their provisioned names, not rolsuper=false:
+  // a mistakenly elevated service identity must still fail this assertion.
   const result = await sql(
     db,
     `SELECT r.rolname FROM pg_roles r
-       WHERE r.rolname LIKE 'cw_%'
+       WHERE r.rolname ~ '^cw_[a-z0-9_]+_(app|migrate)$'
          AND r.rolname <> 'cw_geo_migrate'
          AND has_function_privilege(r.oid, 'app.audit_entry_append_only()', 'EXECUTE')`,
   );
