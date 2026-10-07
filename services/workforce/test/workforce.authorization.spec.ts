@@ -11,9 +11,7 @@ const transactionReached = new Error('TEST_TRANSACTION_REACHED');
 
 function authorizationHarness() {
   let transactions = 0;
-  const unexpectedRead = async (): Promise<never> => {
-    throw new Error('TEST_UNEXPECTED_READ');
-  };
+  const unexpectedRead = (): Promise<never> => Promise.reject(new Error('TEST_UNEXPECTED_READ'));
   const read: WorkforceReadModel = {
     findOperator: unexpectedRead,
     findOperatorBySubject: unexpectedRead,
@@ -23,9 +21,9 @@ function authorizationHarness() {
     eligibleOperators: unexpectedRead,
   };
   const uow: WorkforceUnitOfWork = {
-    async run() {
+    run() {
       transactions += 1;
-      throw transactionReached;
+      return Promise.reject(transactionReached);
     },
   };
   const service = new WorkforceService(
