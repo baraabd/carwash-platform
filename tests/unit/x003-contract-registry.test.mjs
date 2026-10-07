@@ -36,9 +36,66 @@ test('X003 HTTP registry is versioned, bounded and source-linked', () => {
         prefix: '/api/v1',
         status: 'routing-contract-only',
       },
+      {
+        id: 'customer.v1',
+        domain: 'customer',
+        version: 1,
+        prefix: '/internal/v1/customer',
+        status: 'published-provider-pending',
+      },
+      {
+        id: 'vehicle.v1',
+        domain: 'vehicle',
+        version: 1,
+        prefix: '/internal/v1/vehicle',
+        status: 'published-provider-pending',
+      },
+      {
+        id: 'geo.v1',
+        domain: 'geo',
+        version: 1,
+        prefix: '/internal/v1/geo',
+        status: 'published-provider-pending',
+      },
+      {
+        id: 'catalog.v1',
+        domain: 'catalog',
+        version: 1,
+        prefix: '/internal/v1/catalog',
+        status: 'published-provider-pending',
+      },
+      {
+        id: 'pricing.v1',
+        domain: 'pricing',
+        version: 1,
+        prefix: '/internal/v1/pricing',
+        status: 'published-provider-pending',
+      },
+      {
+        id: 'scheduling.v1',
+        domain: 'scheduling',
+        version: 1,
+        prefix: '/internal/v1/scheduling',
+        status: 'published-provider-pending',
+      },
+      {
+        id: 'workforce.v1',
+        domain: 'workforce',
+        version: 1,
+        prefix: '/internal/v1/workforce',
+        status: 'published-provider-pending',
+      },
+      {
+        id: 'configuration.v1',
+        domain: 'configuration',
+        version: 1,
+        prefix: '/internal/v1/configuration',
+        status: 'published-provider-pending',
+      },
     ],
   );
-  assert.throws(() => httpRegistry.httpContract('customer.v1'), /UNKNOWN_HTTP_CONTRACT/);
+  // Unpublished domains stay unknown; publication is explicit, never inferred.
+  assert.throws(() => httpRegistry.httpContract('booking.v1'), /UNKNOWN_HTTP_CONTRACT/);
 
   const docs = JSON.parse(readFileSync(path.join(root, 'docs/api/contract-registry.json'), 'utf8'));
   assert.equal(docs.schemaVersion, 1);
@@ -72,18 +129,22 @@ test('X003 HTTP registry is versioned, bounded and source-linked', () => {
 
 test('X003 event registry matches public code and AsyncAPI documents', () => {
   assert.deepEqual(
-    eventRegistry.EVENT_CONTRACTS.map(({ id, producer, schemaVersion, status, asyncApi }) => ({
-      id,
-      producer,
-      schemaVersion,
-      status,
-      asyncApi,
-    })),
+    eventRegistry.EVENT_CONTRACTS.map(
+      ({ id, producer, schemaVersion, envelopeVersion, status, asyncApi }) => ({
+        id,
+        producer,
+        schemaVersion,
+        envelopeVersion,
+        status,
+        asyncApi,
+      }),
+    ),
     [
       {
         id: 'foundation.probe.created.v1',
         producer: 'catalog',
         schemaVersion: 1,
+        envelopeVersion: 1,
         status: 'foundation-runtime',
         asyncApi: 'docs/asyncapi/foundation-probe.yaml',
       },
@@ -91,8 +152,89 @@ test('X003 event registry matches public code and AsyncAPI documents', () => {
         id: 'booking.confirmed.v1',
         producer: 'booking',
         schemaVersion: 1,
+        envelopeVersion: 1,
         status: 'contract-only',
         asyncApi: 'docs/asyncapi/booking-confirmed-v1.yaml',
+      },
+      {
+        id: 'customer.profile-updated.v1',
+        producer: 'customer',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/business-events-v1.yaml',
+      },
+      {
+        id: 'customer.address-updated.v1',
+        producer: 'customer',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/business-events-v1.yaml',
+      },
+      {
+        id: 'vehicle.vehicle-updated.v1',
+        producer: 'vehicle',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/business-events-v1.yaml',
+      },
+      {
+        id: 'geo.zone-updated.v1',
+        producer: 'geo',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/business-events-v1.yaml',
+      },
+      {
+        id: 'catalog.definitions-published.v1',
+        producer: 'catalog',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/business-events-v1.yaml',
+      },
+      {
+        id: 'pricing.price-book-published.v1',
+        producer: 'pricing',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/business-events-v1.yaml',
+      },
+      {
+        id: 'pricing.quote-issued.v1',
+        producer: 'pricing',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/business-events-v1.yaml',
+      },
+      {
+        id: 'scheduling.hold-changed.v1',
+        producer: 'scheduling',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/business-events-v1.yaml',
+      },
+      {
+        id: 'workforce.eligibility-changed.v1',
+        producer: 'workforce',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/business-events-v1.yaml',
+      },
+      {
+        id: 'configuration.configuration-published.v1',
+        producer: 'configuration',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/business-events-v1.yaml',
       },
     ],
   );
@@ -126,6 +268,15 @@ test('X003 package exports expose versioned domains and reject private deep impo
     './identity-v1',
     './gateway-v1',
     './registry',
+    './customer-v1',
+    './vehicle-v1',
+    './geo-v1',
+    './catalog-v1',
+    './pricing-v1',
+    './scheduling-v1',
+    './workforce-v1',
+    './configuration-v1',
+    './common',
   ]);
   assert.deepEqual(Object.keys(eventsPackage.exports), [
     '.',
@@ -133,6 +284,8 @@ test('X003 package exports expose versioned domains and reject private deep impo
     './booking-confirmed-v1',
     './foundation-probe-created-v1',
     './registry',
+    './envelope-v2',
+    './business-v1',
   ]);
 
   const consumer = mkdtempSync(path.join(tmpdir(), 'washgo-x003-consumer-'));
@@ -153,6 +306,17 @@ test('X003 package exports expose versioned domains and reject private deep impo
     '@carwash/event-contracts/booking-confirmed-v1',
     '@carwash/event-contracts/foundation-probe-created-v1',
     '@carwash/event-contracts/registry',
+    '@carwash/event-contracts/envelope-v2',
+    '@carwash/event-contracts/business-v1',
+    '@carwash/contracts/customer-v1',
+    '@carwash/contracts/vehicle-v1',
+    '@carwash/contracts/geo-v1',
+    '@carwash/contracts/catalog-v1',
+    '@carwash/contracts/pricing-v1',
+    '@carwash/contracts/scheduling-v1',
+    '@carwash/contracts/workforce-v1',
+    '@carwash/contracts/configuration-v1',
+    '@carwash/contracts/common',
   ];
   for (const specifier of allowed) {
     const result = spawnSync(
@@ -168,6 +332,8 @@ test('X003 package exports expose versioned domains and reject private deep impo
     '@carwash/contracts/gateway',
     '@carwash/event-contracts/envelope',
     '@carwash/event-contracts/foundation-probe-created',
+    '@carwash/contracts/customer/v1',
+    '@carwash/contracts/common/money',
   ]) {
     const result = spawnSync(
       process.execPath,

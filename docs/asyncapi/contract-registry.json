@@ -6,6 +6,7 @@
       "id": "foundation.probe.created.v1",
       "producer": "catalog",
       "schemaVersion": 1,
+      "envelopeVersion": 1,
       "status": "foundation-runtime",
       "asyncApi": "docs/asyncapi/foundation-probe.yaml"
     },
@@ -13,8 +14,89 @@
       "id": "booking.confirmed.v1",
       "producer": "booking",
       "schemaVersion": 1,
+      "envelopeVersion": 1,
       "status": "contract-only",
       "asyncApi": "docs/asyncapi/booking-confirmed-v1.yaml"
+    },
+    {
+      "id": "customer.profile-updated.v1",
+      "producer": "customer",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/business-events-v1.yaml"
+    },
+    {
+      "id": "customer.address-updated.v1",
+      "producer": "customer",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/business-events-v1.yaml"
+    },
+    {
+      "id": "vehicle.vehicle-updated.v1",
+      "producer": "vehicle",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/business-events-v1.yaml"
+    },
+    {
+      "id": "geo.zone-updated.v1",
+      "producer": "geo",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/business-events-v1.yaml"
+    },
+    {
+      "id": "catalog.definitions-published.v1",
+      "producer": "catalog",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/business-events-v1.yaml"
+    },
+    {
+      "id": "pricing.price-book-published.v1",
+      "producer": "pricing",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/business-events-v1.yaml"
+    },
+    {
+      "id": "pricing.quote-issued.v1",
+      "producer": "pricing",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/business-events-v1.yaml"
+    },
+    {
+      "id": "scheduling.hold-changed.v1",
+      "producer": "scheduling",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/business-events-v1.yaml"
+    },
+    {
+      "id": "workforce.eligibility-changed.v1",
+      "producer": "workforce",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/business-events-v1.yaml"
+    },
+    {
+      "id": "configuration.configuration-published.v1",
+      "producer": "configuration",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/business-events-v1.yaml"
     }
   ]
 }

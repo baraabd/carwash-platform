@@ -33,9 +33,31 @@ export interface AccessPrincipal {
   readonly sessionId: string;
   readonly authVersion: number;
 }
+/**
+ * account: registered (email + password + OTP). guest: issued without account
+ * creation for guest booking; it has no roles, a fixed self-service permission
+ * set, an absolute expiry and a one-time recovery code. A phone, name or email
+ * never converts a guest into an account.
+ */
+export const IDENTITY_PRINCIPAL_KINDS = ['account', 'guest'] as const;
+export type IdentityPrincipalKind = (typeof IDENTITY_PRINCIPAL_KINDS)[number];
 export interface IdentitySessionView extends AccessPrincipal {
+  readonly principalKind: IdentityPrincipalKind;
   readonly roles: readonly IdentityRole[];
   readonly permissions: readonly IdentityPermission[];
+}
+/**
+ * Returned once when a guest is created or recovered. The recovery code is
+ * shown to the user exactly once; Identity stores only its SHA-256 digest and
+ * rotates it on every successful recovery.
+ */
+export interface GuestSessionReceipt {
+  readonly session: IdentitySessionView;
+  readonly recoveryCode: string;
+  readonly guestExpiresAt: string;
+}
+export function isIdentityPrincipalKind(value: unknown): value is IdentityPrincipalKind {
+  return value === 'account' || value === 'guest';
 }
 export interface ChallengeReceipt {
   readonly challengeId: string;

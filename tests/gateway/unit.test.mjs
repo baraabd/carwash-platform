@@ -23,9 +23,10 @@ async function signedSession(
     'bookings.read:self',
     'bookings.create:self',
   ],
+  shape = { principalKind: 'account', roles: ['customer'] },
 ) {
   const principal = { subject: randomUUID(), sessionId: randomUUID(), authVersion: 1 };
-  const session = { ...principal, roles: ['customer'], permissions };
+  const session = { ...principal, ...shape, permissions };
   const token = await new SignJWT({ sid: principal.sessionId, ver: 1 })
     .setProtectedHeader({ alg: 'RS256', kid: jwk.kid, typ: 'at+jwt' })
     .setSubject(principal.subject)
@@ -364,10 +365,13 @@ test('F007 discovery marks every BFF composition authenticated with every requir
   const api = gateway.gatewayOpenApi();
   for (const composition of GATEWAY_COMPOSITIONS) {
     const operation = api.paths['/api/v1' + composition.path].get;
+    const composed = composition.routes.map((id) =>
+      GATEWAY_ROUTES.find((route) => route.id === id),
+    );
+    // Every composed route is either permissioned or explicitly public; none is silently open.
+    for (const route of composed) assert.ok(route.permission || route.public, route.id);
     const expected = [
-      ...new Set(
-        composition.routes.map((id) => GATEWAY_ROUTES.find((route) => route.id === id).permission),
-      ),
+      ...new Set(composed.flatMap((route) => (route.permission ? [route.permission] : []))),
     ].sort();
     assert.deepEqual(operation.security, [{ bearer: [] }, { session: [] }]);
     assert.deepEqual(operation['x-required-permissions'], expected);
@@ -509,4 +513,73 @@ test('F007 a failed BFF component returns a safe failure rather than invented pa
   assert.deepEqual(Object.keys(result.body), ['error']);
   assert.equal(result.body.error.code, 'UPSTREAM_UNAVAILABLE');
   assert.doesNotMatch(JSON.stringify(result.body), /SQL|password|private|testStub/);
+});
+
+test('P01-E3 public routes forward no credentials and need no identity', async (t) => {
+  const catalog = await stub('catalog');
+  t.after(() => catalog.close());
+  // Identity origin is unreachable: a public read must not depend on it.
+  const app = await start(config('http://127.0.0.1:9', { catalog: catalog.base }));
+  t.after(() => app.close());
+  const result = await request(app.base, '/api/v1/customer/packages', {
+    headers: {
+      authorization: 'Bearer leaked.token.value',
+      cookie: '__Host-wg_access=abc; __Host-wg_refresh=def',
+      'x-auth-subject': randomUUID(),
+    },
+  });
+  assert.equal(result.status, 200);
+  assert.equal(catalog.calls.length, 1);
+  const forwarded = catalog.calls[0].headers;
+  for (const header of [
+    'authorization',
+    'cookie',
+    'x-auth-subject',
+    'x-auth-session',
+    'x-auth-principal-kind',
+  ])
+    assert.equal(forwarded[header], undefined, header);
+  assert.ok(forwarded['x-correlation-id']);
+  for (const route of GATEWAY_ROUTES.filter((r) => r.public)) {
+    assert.equal(route.method, 'GET', route.id);
+    assert.equal(route.permission, undefined, route.id);
+  }
+});
+
+test('P01-E3 guest principals reach owners with an explicit principal kind and no roles', async (t) => {
+  const { identity, token } = await signedSession(t, undefined, {
+    principalKind: 'guest',
+    roles: [],
+  });
+  const customer = await stub('customer');
+  t.after(() => customer.close());
+  const app = await start(config(identity.base, { customer: customer.base }));
+  t.after(() => app.close());
+  const result = await request(app.base, '/api/v1/customer/profile', {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  assert.equal(result.status, 200);
+  assert.equal(customer.calls[0].headers['x-auth-principal-kind'], 'guest');
+  assert.ok(gateway.routeMatch('POST', '/api/v1/auth/guest-sessions').route.authTransport);
+  assert.ok(gateway.routeMatch('POST', '/api/v1/auth/guest-sessions/recover').route.authTransport);
+});
+
+test('P01-E3 identity session views without a valid principal kind, or guests with roles, fail closed', async (t) => {
+  for (const shape of [
+    { roles: ['customer'] },
+    { principalKind: 'admin', roles: ['customer'] },
+    { principalKind: 'guest', roles: ['customer'] },
+  ]) {
+    const { identity, token } = await signedSession(t, undefined, shape);
+    const customer = await stub('customer');
+    const app = await start(config(identity.base, { customer: customer.base }));
+    const result = await request(app.base, '/api/v1/customer/profile', {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(result.status, 502, JSON.stringify(shape));
+    assert.equal(result.body.error.code, 'UPSTREAM_INVALID');
+    assert.equal(customer.calls.length, 0);
+    await app.close();
+    await customer.close();
+  }
 });

@@ -26,3 +26,85 @@ model ServiceMarker {
 
   @@map("service_marker")
 }
+
+/// A bookable time window in one zone. CHECK constraints in the migration keep
+/// held + reserved <= capacity and an exclusion constraint forbids overlapping
+/// windows in one zone; Prisma cannot express either, so the SQL is the authority.
+model CapacityWindow {
+  id        String         @id @db.Uuid
+  zoneId    String         @map("zone_id") @db.Uuid
+  startsAt  DateTime       @map("starts_at") @db.Timestamptz(3)
+  endsAt    DateTime       @map("ends_at") @db.Timestamptz(3)
+  capacity  Int
+  held      Int            @default(0)
+  reserved  Int            @default(0)
+  status    String         @default("OPEN")
+  version   Int            @default(1)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime       @default(now()) @map("updated_at") @db.Timestamptz(3)
+  holds     CapacityHold[]
+
+  @@unique([zoneId, startsAt])
+  @@map("capacity_window")
+}
+
+/// An expiring capacity hold. CONFIRMED holds are the reservations.
+model CapacityHold {
+  id                 String         @id @db.Uuid
+  windowId           String         @map("window_id") @db.Uuid
+  clientId           String         @map("client_id") @db.VarChar(64)
+  holderRef          String         @map("holder_ref") @db.Uuid
+  units              Int
+  status             String
+  expiresAt          DateTime       @map("expires_at") @db.Timestamptz(3)
+  idempotencyKey     String         @map("idempotency_key") @db.VarChar(128)
+  requestFingerprint String         @map("request_fingerprint") @db.Char(64)
+  releaseReason      String?        @map("release_reason")
+  version            Int            @default(1)
+  createdAt          DateTime       @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime       @map("updated_at") @db.Timestamptz(3)
+  window             CapacityWindow @relation(fields: [windowId], references: [id], onDelete: Restrict)
+
+  @@unique([clientId, idempotencyKey])
+  @@index([windowId, status, expiresAt])
+  @@index([status, expiresAt])
+  @@map("capacity_hold")
+}
+
+/// Transactional outbox, same lease semantics as the catalog relay store.
+model OutboxMessage {
+  id            String    @id @db.Uuid
+  eventId       String    @unique @map("event_id") @db.Uuid
+  eventType     String    @map("event_type")
+  exchange      String
+  routingKey    String    @map("routing_key")
+  payload       String
+  correlationId String    @map("correlation_id") @db.Uuid
+  traceParent   String?   @map("trace_parent") @db.VarChar(55)
+  attempts      Int       @default(0)
+  lockedBy      String?   @map("locked_by")
+  lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(3)
+  lastError     String?   @map("last_error")
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
+  deadAt        DateTime? @map("dead_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([publishedAt, deadAt, createdAt], map: "outbox_message_pending_idx")
+  @@map("outbox_message")
+}
+
+/// Append-only audit of sensitive mutations. Opaque identifiers only.
+model AuditEntry {
+  id            String   @id @db.Uuid
+  occurredAt    DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  actorKind     String   @map("actor_kind")
+  actorId       String   @map("actor_id") @db.VarChar(80)
+  action        String   @db.VarChar(64)
+  targetType    String   @map("target_type") @db.VarChar(32)
+  targetId      String   @map("target_id") @db.Uuid
+  correlationId String   @map("correlation_id") @db.Uuid
+  details       Json
+
+  @@index([targetType, targetId])
+  @@map("audit_entry")
+}
