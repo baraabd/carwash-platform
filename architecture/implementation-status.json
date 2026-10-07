@@ -177,7 +177,13 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker",
+        "CapacityWindow",
+        "CapacityHold",
+        "OutboxMessage",
+        "AuditEntry"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
