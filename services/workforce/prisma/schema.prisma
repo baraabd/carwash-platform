@@ -23,9 +23,9 @@ model Operator {
   identitySubject    String             @unique @map("identity_subject") @db.Uuid
   displayName        String             @map("display_name") @db.VarChar(80)
   homeZoneId         String             @map("home_zone_id") @db.Uuid
-  employmentStatus   String             @map("employment_status")
+  employmentStatus   String             @default("ACTIVE") @map("employment_status")
   suspensionReason   String?            @map("suspension_reason")
-  verificationStatus String             @map("verification_status")
+  verificationStatus String             @default("UNVERIFIED") @map("verification_status")
   verifiedUntil      DateTime?          @map("verified_until") @db.Timestamptz(3)
   version            Int                @default(1)
   createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -80,7 +80,7 @@ model WorkShift {
   zoneId             String   @map("zone_id") @db.Uuid
   startsAt           DateTime @map("starts_at") @db.Timestamptz(3)
   endsAt             DateTime @map("ends_at") @db.Timestamptz(3)
-  status             String
+  status             String   @default("ACTIVE")
   requester          String   @db.VarChar(120)
   idempotencyKey     String   @map("idempotency_key") @db.VarChar(128)
   requestFingerprint String   @map("request_fingerprint") @db.Char(64)
