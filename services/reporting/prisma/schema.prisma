@@ -51,3 +51,62 @@ model ProbeProjection {
 
   @@map("probe_projection")
 }
+
+/// P01-D projection primitives. Reporting stores derived read models only: every
+/// row carries the source owner and event that produced it, and the whole set
+/// can be rebuilt by replaying the owners' events. It is never the source of
+/// truth for a booking, payment or customer fact.
+
+/// One row per (projection, source event). The unique key makes a replay or a
+/// backfill unable to count the same source event twice, independently of the
+/// consumer inbox. contribution_hash detects the same source event arriving
+/// with a different contribution, which is an integrity fault.
+model ProjectionContribution {
+  projection       String   @db.VarChar(64)
+  sourceService    String   @map("source_service") @db.VarChar(32)
+  sourceEventId    String   @map("source_event_id") @db.Uuid
+  sourceEventType  String   @map("source_event_type") @db.VarChar(96)
+  metricKey        String   @map("metric_key") @db.VarChar(96)
+  bucketDay        DateTime @map("bucket_day") @db.Date
+  delta            BigInt
+  contributionHash String   @map("contribution_hash") @db.Char(64)
+  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
+  recordedAt       DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  @@id([projection, sourceService, sourceEventId])
+  @@map("projection_contribution")
+}
+
+/// Additive metric per UTC day. value is an exact integer (never a float) and
+/// contribution_count is the number of ledger rows folded into it, so the
+/// bucket can be reconciled against projection_contribution at any time.
+model MetricBucket {
+  projection        String   @db.VarChar(64)
+  metricKey         String   @map("metric_key") @db.VarChar(96)
+  bucketDay         DateTime @map("bucket_day") @db.Date
+  value             BigInt
+  contributionCount Int      @map("contribution_count")
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@id([projection, metricKey, bucketDay])
+  @@map("metric_bucket")
+}
+
+/// Latest known state of a source aggregate. version is the source owner's
+/// aggregateVersion; an older or equal version can never overwrite a newer one,
+/// so reordered delivery cannot regress the read model.
+model AggregateSnapshot {
+  projection    String   @db.VarChar(64)
+  aggregateType String   @map("aggregate_type") @db.VarChar(64)
+  aggregateId   String   @map("aggregate_id") @db.Uuid
+  version       Int
+  state         Json
+  stateHash     String   @map("state_hash") @db.Char(64)
+  sourceService String   @map("source_service") @db.VarChar(32)
+  sourceEventId String   @map("source_event_id") @db.Uuid
+  occurredAt    DateTime @map("occurred_at") @db.Timestamptz(3)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@id([projection, aggregateType, aggregateId])
+  @@map("aggregate_snapshot")
+}

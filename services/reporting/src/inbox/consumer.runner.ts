@@ -11,7 +11,13 @@ import {
 import { createLogger, databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
-import { PrismaClient } from '../generated/prisma/client';
+import { PrismaClient, type Prisma } from '../generated/prisma/client';
+import { ProjectionIngestor } from '../application/projection.service';
+import { projectFoundationProbe } from '../application/foundation-probe.projection';
+import {
+  PrismaProjectionWriter,
+  sha256Hex,
+} from '../infrastructure/persistence/prisma-projection.store';
 import { PrismaInboxStore } from './prisma-inbox.store';
 import type { PrismaService } from '../prisma.service';
 
@@ -77,6 +83,7 @@ async function main(): Promise<void> {
     }),
   });
   const store = new PrismaInboxStore({ client } as unknown as PrismaService);
+  const ingestor = new ProjectionIngestor(sha256Hex);
   const topology = subscriberTopology('reporting');
   const queue = subscriberQueueName('reporting');
   const controller = new AbortController();
@@ -126,13 +133,16 @@ async function main(): Promise<void> {
           prefetch: args.prefetch,
           effect: async (event, tx) => {
             if (args.failEffect) throw new Error('SIMULATED_TRANSIENT_EFFECT_FAILURE');
-            const transaction = tx as PrismaClient;
+            const transaction = tx as Prisma.TransactionClient;
             // Increment on update makes any dedupe defect observable.
             await transaction.probeProjection.upsert({
               where: { probeId: event.data.probeId },
               create: { probeId: event.data.probeId, label: event.data.label, applyCount: 1 },
               update: { applyCount: { increment: 1 } },
             });
+            // Same transaction as the inbox row: the read model moves exactly
+            // when the delivery is recorded, or not at all.
+            await projectFoundationProbe(ingestor, new PrismaProjectionWriter(transaction), event);
           },
           onTransientFailure: (event, deliveryCount) => {
             emit({
