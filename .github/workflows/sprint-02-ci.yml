@@ -127,6 +127,9 @@ jobs:
       - name: Unit tests
         run: pnpm test:unit
 
+      - name: Lane E production tests (readiness, CI runtime coverage)
+        run: pnpm test:production:e
+
       - name: NestJS bootstrap and dependency-injection tests
         run: pnpm test:nest
 
@@ -178,10 +181,20 @@ jobs:
           retention-days: 14
 
   images:
-    name: Service image build and boot contract
+    name: Service image build and boot contract (${{ matrix.service }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
     needs: static
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        # Every owner runtime is its own deployable artifact. Keep in sync with
+        # architecture/service-catalog.json (guarded by tests/production/E/ci-runtime-coverage.test.mjs).
+        # identity is excluded here: its image cannot boot without Redis and key
+        # material, so a database-only boot proves nothing for it (see
+        # docs/production/E/P01-E2-RUNTIME-AND-APP-GATES.md).
+        service: [customer, vehicle, catalog, pricing, booking, scheduling, dispatch, workforce, billing, wallet, subscription, media, communications, reviews, support, geo, reporting, configuration]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -192,15 +205,12 @@ jobs:
           node-version-file: .nvmrc
 
       # Builds the image, then asserts non-root execution, liveness 200,
-      # readiness 503 (correct for a foundation shell), absence of .env in the
-      # image, and a clean SIGTERM shutdown.
-      #
-      # One service here, not all ten. The Dockerfile is shared and parameterised
-      # by SERVICE, so a second image would re-prove the same contract while
-      # repeating a full workspace install on a two-core runner. Locally the same
-      # script is run across several services; see docs/SPRINT_00_2_VERIFICATION.md.
-      - name: Build and verify a service image
-        run: node scripts/check-images.mjs catalog
+      # readiness 503 with an honest code while the database is unreachable
+      # (FOUNDATION_NOT_READY for a shell, DEPENDENCY_DOWN for an implemented
+      # service; dependenciesReady=false either way), absence of .env in the
+      # image, and a clean SIGTERM shutdown. One matrix job per owner runtime.
+      - name: Build and verify the service image
+        run: node scripts/check-images.mjs ${{ matrix.service }}
 
   supply-chain:
     name: Dependency and secret scanning
