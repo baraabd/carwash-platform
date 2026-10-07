@@ -1,0 +1,428 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "WashGo customer.v1",
+    "version": "1.0.0",
+    "description": "Published wire contract owned by the customer service. Status published-provider-pending: this document does not assert the provider endpoint is implemented. Request/response shapes are defined by the closed parsers in @carwash/contracts."
+  },
+  "x-owner": "customer",
+  "x-error-reasons": [
+    "ADDRESS_ARCHIVED",
+    "ADDRESS_LIMIT_REACHED",
+    "PROFILE_NOT_FOUND"
+  ],
+  "paths": {
+    "/internal/v1/customer/me": {
+      "get": {
+        "operationId": "customer.getProfile",
+        "x-access": "principal",
+        "x-idempotent": false,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts customerV1 (closed objects; unknown fields refused)",
+        "parameters": [],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "customer.bootstrapProfile",
+        "x-access": "principal",
+        "x-idempotent": true,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts customerV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "customer.updateProfile",
+        "x-access": "principal",
+        "x-idempotent": true,
+        "x-revisioned": true,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts customerV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[1-9][0-9]{0,9}\"$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/customer/me/addresses": {
+      "get": {
+        "operationId": "customer.listAddresses",
+        "x-access": "principal",
+        "x-idempotent": false,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts customerV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "customer.createAddress",
+        "x-access": "principal",
+        "x-idempotent": true,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts customerV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/customer/me/addresses/{addressId}": {
+      "patch": {
+        "operationId": "customer.updateAddress",
+        "x-access": "principal",
+        "x-idempotent": true,
+        "x-revisioned": true,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts customerV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "addressId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[1-9][0-9]{0,9}\"$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/customer/me/addresses/{addressId}/archive": {
+      "post": {
+        "operationId": "customer.archiveAddress",
+        "x-access": "principal",
+        "x-idempotent": true,
+        "x-revisioned": true,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts customerV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "addressId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\"[1-9][0-9]{0,9}\"$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/customer/address-snapshots/resolve": {
+      "post": {
+        "operationId": "customer.resolveAddressSnapshot",
+        "x-access": "service:customer.address-snapshot.resolve",
+        "x-idempotent": false,
+        "x-revisioned": false,
+        "x-safe-post": true,
+        "x-wire-parsers": "@carwash/contracts customerV1 (closed objects; unknown fields refused)",
+        "parameters": [],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiErrorEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "reason",
+              "message",
+              "requestId",
+              "correlationId",
+              "retryable",
+              "retryAfterMs",
+              "issues"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "REQUEST_INVALID",
+                  "VALIDATION_FAILED",
+                  "AUTH_REQUIRED",
+                  "AUTH_FORBIDDEN",
+                  "AUTH_CSRF",
+                  "NOT_FOUND",
+                  "CONFLICT",
+                  "REVISION_CONFLICT",
+                  "REVISION_REQUIRED",
+                  "IDEMPOTENCY_KEY_REQUIRED",
+                  "IDEMPOTENCY_CONFLICT",
+                  "IDEMPOTENCY_IN_PROGRESS",
+                  "BUSINESS_RULE_VIOLATION",
+                  "RATE_LIMITED",
+                  "DEPENDENCY_UNAVAILABLE",
+                  "UPSTREAM_UNAVAILABLE",
+                  "UPSTREAM_TIMEOUT",
+                  "UPSTREAM_INVALID",
+                  "OUTCOME_UNKNOWN",
+                  "SERVICE_NOT_READY",
+                  "INTERNAL_ERROR"
+                ]
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "requestId": {
+                "type": "string"
+              },
+              "correlationId": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "retryAfterMs": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "field",
+                    "code"
+                  ],
+                  "properties": {
+                    "field": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

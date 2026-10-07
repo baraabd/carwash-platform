@@ -114,6 +114,16 @@ jobs:
       - name: Domain and contract tests
         run: pnpm test:domain
 
+      - name: Published contract documents and surface lock match code
+        run: |
+          pnpm check:contract-docs
+          pnpm check:contract-surface
+
+      - name: Public contract package and Lane E production contract tests
+        run: |
+          pnpm test:contracts
+          pnpm test:production:e
+
       - name: Unit tests
         run: pnpm test:unit
 
