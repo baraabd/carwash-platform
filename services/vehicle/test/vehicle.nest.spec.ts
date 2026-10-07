@@ -2,7 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Test } from '@nestjs/testing';
 import { HealthController, HEALTH_OPTIONS, type HealthOptions } from '@carwash/service-kit';
-import { AppModule, BUSINESS_READY, SERVICE_NAME, postgresProbe } from '../src/app.module';
+import {
+  AppModule,
+  BUSINESS_READY,
+  SERVICE_NAME,
+  identityAuthorizerFromEnv,
+  postgresProbe,
+} from '../src/app.module';
 import { PrismaService, databaseUrlFromEnv } from '../src/prisma.service';
 import { createHttpApplication } from '../src/transport/http/create-app';
 
@@ -154,4 +160,62 @@ test('vehicle: the postgres probe is wired to this service own client', async ()
   assert.equal(probe.name, 'postgres');
   assert.equal(probe.kind, 'postgres');
   await moduleRef.close();
+});
+
+test('vehicle: business routes fail closed when Identity is not configured', async () => {
+  process.env.DATABASE_URL = DSN;
+  delete process.env.VEHICLE_IDENTITY_ORIGIN;
+  const app = await createHttpApplication();
+  await app.listen(0, '127.0.0.1');
+  try {
+    const url = await app.getUrl();
+    const response = await fetch(url + '/internal/v1/vehicle/mine', {
+      headers: { authorization: 'Bearer not-checked-without-identity' },
+    });
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    const body = (await response.json()) as { error: { code: string } };
+    assert.equal(body.error.code, 'IDENTITY_UNAVAILABLE');
+  } finally {
+    await app.close();
+  }
+});
+
+test('vehicle: an unreachable Identity is IDENTITY_UNAVAILABLE, never a session', async () => {
+  process.env.DATABASE_URL = DSN;
+  // Port 9 (discard) on loopback is not served in the test environment.
+  process.env.VEHICLE_IDENTITY_ORIGIN = 'http://127.0.0.1:9';
+  process.env.VEHICLE_IDENTITY_TIMEOUT_MS = '500';
+  const app = await createHttpApplication();
+  await app.listen(0, '127.0.0.1');
+  try {
+    const url = await app.getUrl();
+    const anonymous = await fetch(url + '/internal/v1/vehicle/mine');
+    assert.equal(anonymous.status, 401, 'no credential is refused before Identity is asked');
+    const response = await fetch(url + '/internal/v1/vehicle/mine', {
+      headers: { authorization: 'Bearer some-token' },
+    });
+    assert.equal(response.status, 503);
+    const body = (await response.json()) as { error: { code: string } };
+    assert.equal(body.error.code, 'IDENTITY_UNAVAILABLE');
+  } finally {
+    await app.close();
+    delete process.env.VEHICLE_IDENTITY_ORIGIN;
+    delete process.env.VEHICLE_IDENTITY_TIMEOUT_MS;
+  }
+});
+
+test('vehicle: an invalid Identity origin stops startup instead of guessing', () => {
+  assert.throws(
+    () => identityAuthorizerFromEnv({ VEHICLE_IDENTITY_ORIGIN: 'http://identity.example' }),
+    /INVALID_IDENTITY_ORIGIN/,
+  );
+  assert.throws(
+    () =>
+      identityAuthorizerFromEnv({
+        VEHICLE_IDENTITY_ORIGIN: 'https://identity.example',
+        VEHICLE_IDENTITY_TIMEOUT_MS: '0',
+      }),
+    /INVALID_IDENTITY_TIMEOUT/,
+  );
 });
