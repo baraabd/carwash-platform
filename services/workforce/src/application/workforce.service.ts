@@ -412,7 +412,11 @@ export class WorkforceService {
   async eligible(meta: RequestMeta, input: { zoneId: string; at: Date; skillCode?: string }) {
     requireScope(meta.actor, 'workforce.eligibility.read');
     const code = input.skillCode === undefined ? undefined : skillCode(input.skillCode);
-    const candidates = await this.read.eligibleOperators({ ...input, skillCode: code });
+    const candidates = await this.read.eligibleOperators({
+      zoneId: input.zoneId,
+      at: input.at,
+      ...(code === undefined ? {} : { skillCode: code }),
+    });
     return candidates
       .map((candidate) => ({
         operatorId: candidate.operator.id,
