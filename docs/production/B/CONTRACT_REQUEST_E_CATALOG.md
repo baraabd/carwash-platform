@@ -75,3 +75,22 @@ Catalog already depends on `pg`, `@prisma/*`, Nest and `@carwash/service-kit`.
 It does not need new packages for B1. If E prefers local JWT verification over
 the per-request Identity session decision, add `@carwash/security-kit` to
 `services/catalog/package.json` + lockfile (E-owned).
+
+## CR-B1-8 Source inventory registration (blocks CI `static` on this PR)
+
+`tests/parallel/E/status.test.mjs` derives each owner's persistence models from
+its Prisma schema and compares them with the E-owned
+`architecture/implementation-status.json`. Lane B may not edit that file. Exact
+delta requested for `services[id=catalog].persistenceModels` (nothing else
+changes; `businessApi` stays as derived from `service-catalog.json`):
+
+```json
+["ServiceMarker", "FoundationProbe", "OutboxMessage", "CatalogPublicationLock",
+ "CatalogRevision", "CatalogVehicleCategory", "CatalogPackage", "CatalogAddon",
+ "CatalogPackageCategory", "CatalogAddonCategory", "CatalogPackageAddon",
+ "CatalogIdempotencyReceipt", "CatalogAuditEvent"]
+```
+
+Until E applies it (in its own PR, or by co-authoring a merge candidate), the
+`static` job — and the release gate that aggregates it — fails on this PR by
+design. It is a registration gap, not a behaviour failure.

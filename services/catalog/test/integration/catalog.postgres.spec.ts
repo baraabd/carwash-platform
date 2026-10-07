@@ -284,3 +284,18 @@ test('postgres: chain, uniqueness and value constraints hold without the applica
     await sql.query('ROLLBACK');
   }
 });
+
+test('postgres: trigger functions are not executable by the runtime role or PUBLIC', async () => {
+  const rows = await sql.query(
+    `SELECT p.proname,
+            has_function_privilege(current_user, p.oid, 'EXECUTE') AS runtime,
+            coalesce(array_to_string(p.proacl, ','), '') AS acl
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'app' AND starts_with(p.proname, 'catalog_')`,
+  );
+  assert.equal(rows.rowCount, 3);
+  for (const row of rows.rows) {
+    assert.equal(row.runtime, false, row.proname);
+    assert.doesNotMatch(row.acl, /(^|,)=X/, `${row.proname} must not grant EXECUTE to PUBLIC`);
+  }
+});

@@ -209,3 +209,10 @@ CREATE TRIGGER "catalog_addon_open_revision" BEFORE INSERT ON "app"."catalog_add
 CREATE TRIGGER "catalog_package_category_open_revision" BEFORE INSERT ON "app"."catalog_package_category" FOR EACH ROW EXECUTE FUNCTION "app"."catalog_require_open_revision"();
 CREATE TRIGGER "catalog_addon_category_open_revision" BEFORE INSERT ON "app"."catalog_addon_category" FOR EACH ROW EXECUTE FUNCTION "app"."catalog_require_open_revision"();
 CREATE TRIGGER "catalog_package_addon_open_revision" BEFORE INSERT ON "app"."catalog_package_addon" FOR EACH ROW EXECUTE FUNCTION "app"."catalog_require_open_revision"();
+
+-- Functions are created with EXECUTE granted to PUBLIC by default. Trigger
+-- functions need no caller privilege (it is checked when the trigger is
+-- created), so no other role — including foreign service roles — may run them.
+REVOKE ALL ON FUNCTION "app"."catalog_reject_mutation"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."catalog_require_open_revision"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."catalog_require_increasing_effective_from"() FROM PUBLIC;
