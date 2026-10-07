@@ -64,9 +64,11 @@ export class GatewayService {
     identity: VerifiedIdentity | undefined,
   ): Promise<UpstreamReply> {
     const { route, upstream } = match;
-    const headers = route.authTransport
-      ? identityHeaders(input.headers, this.config, input.context)
-      : this.verifiedHeaders(identity, input);
+    const headers = route.public
+      ? this.publicHeaders(input)
+      : route.authTransport
+        ? identityHeaders(input.headers, this.config, input.context)
+        : this.verifiedHeaders(identity, input);
     if (route.idempotency === 'required')
       headers['idempotency-key'] = idempotencyKey(input.headers['idempotency-key']);
     const reply = await this.http.request(route.owner, upstream, route.method, headers, input.body);
@@ -83,6 +85,15 @@ export class GatewayService {
       cookie.startsWith(`${this.config.cookiePrefix}${suffix}=`),
     );
   }
+  /** Anonymous forwarding: correlation only. Credentials never reach a public owner route. */
+  private publicHeaders(input: GatewayInput): Record<string, string> {
+    return {
+      accept: 'application/json',
+      'x-request-id': input.context.requestId,
+      'x-correlation-id': input.context.correlationId,
+      traceparent: input.context.traceparent,
+    };
+  }
   private verifiedHeaders(
     identity: VerifiedIdentity | undefined,
     input: GatewayInput,
@@ -98,6 +109,7 @@ export class GatewayService {
       'x-auth-subject': identity.session.subject,
       'x-auth-session': identity.session.sessionId,
       'x-auth-version': String(identity.session.authVersion),
+      'x-auth-principal-kind': identity.session.principalKind,
     };
   }
   async dependencies(): Promise<Readonly<Record<string, boolean>>> {

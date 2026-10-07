@@ -8,8 +8,8 @@ Until an approved dataset is imported, every serviceability answer is
 `INDETERMINATE / NO_APPROVED_ZONES`, which Booking must reject. This is a genuine external
 blocker (A-P01-12).
 
-This child is independent of P01-A1 and P01-A2. The shared harness files are byte-identical in
-all three.
+This child is based on current `main`, including P01-A1. The harness validates that every
+selected service suite exists before starting infrastructure; absent sibling suites are refused.
 
 ## Ownership boundary
 
@@ -36,13 +36,13 @@ never sent here and is never treated as serviceable.
   effective-window rules have not been decided by the owner yet (W02 EP:269), so every unclear
   case fails closed.
 
-  | Situation                          | Answer                                   |
-  | ---------------------------------- | ---------------------------------------- |
-  | No ACTIVE zone at all              | `INDETERMINATE` / `NO_APPROVED_ZONES`    |
-  | Point on any zone edge or vertex   | `INDETERMINATE` / `ON_ZONE_BOUNDARY`     |
-  | Point inside two or more zones     | `INDETERMINATE` / `OVERLAPPING_ZONES`    |
-  | Point inside exactly one zone      | `SERVICEABLE` with `{zoneId, code, revision}` |
-  | Otherwise                          | `OUTSIDE_ZONE`                           |
+  | Situation                        | Answer                                        |
+  | -------------------------------- | --------------------------------------------- |
+  | No ACTIVE zone at all            | `INDETERMINATE` / `NO_APPROVED_ZONES`         |
+  | Point on any zone edge or vertex | `INDETERMINATE` / `ON_ZONE_BOUNDARY`          |
+  | Point inside two or more zones   | `INDETERMINATE` / `OVERLAPPING_ZONES`         |
+  | Point inside exactly one zone    | `SERVICEABLE` with `{zoneId, code, revision}` |
+  | Otherwise                        | `OUTSIDE_ZONE`                                |
 
 - **Provenance.** Every zone needs a `datasetRef` naming the approved dataset it came from. The
   import, revise and retire actions are all audited with the operator label and that
@@ -63,6 +63,9 @@ never sent here and is never treated as serviceable.
     - status and `retired_at` consistency.
 - **`outbox_message`:** `geo.zone-updated.v1` events, carrying references and revision only.
 - **`audit_entry`:** append-only; a trigger refuses UPDATE and DELETE with SQLSTATE 42501.
+  Follow-up migration `20261007140000_p01a_geo_function_acl` removes PostgreSQL's implicit
+  PUBLIC EXECUTE grant on the trigger function. The migration owner retains access and the
+  existing trigger remains active. Retain this restriction on application rollback.
 
 Serviceability reads "is any zone active" and the candidate zones in a single
 REPEATABLE READ snapshot.
@@ -82,6 +85,13 @@ Rollback:
   - The route is guest-safe: no session is needed and nothing is stored.
   - It is rate-limited per client address (`GEO_SERVICEABILITY_RATE_PER_MINUTE`, default 60)
     and returns 429 over the limit.
+  - Behind a gateway, configure `GEO_TRUSTED_PROXY_IPS` with the exact comma-separated IPv4 or
+    IPv6 addresses of controlled proxies. The default trusts no forwarding headers. Wildcards,
+    hostnames, CIDRs and numeric hop counts are refused at startup.
+  - Trusted ingress must overwrite or append the actual connecting client address to
+    `X-Forwarded-For`. Express walks from the socket toward the caller and stops at the nearest
+    untrusted address, so unrelated clients behind the same gateway receive separate budgets
+    and a spoofed leftmost prefix cannot choose the key. Never trust end-user addresses.
   - The limit is per replica. A shared budget needs A-P01-05.
 - `GET /service-zones` returns the ACTIVE zones with code, name, revision and polygon. It
   exposes no provenance and no personal data.
@@ -100,12 +110,13 @@ The CLI prints one JSON line per zone and exits non-zero if any operation was re
 
 ## Evidence
 
-- Unit tests (19), run with `pnpm --filter @carwash/geo run test:unit`. They cover:
+- Unit tests, run with `pnpm --filter @carwash/geo run test:unit`. They cover:
   - exact placement, including vertices and a concave notch;
   - each ring refusal reason, including that a symmetric bow-tie is refused for zero area while
     an asymmetric one is refused as self-intersecting;
   - the fail-closed serviceability matrix;
   - the rate limiter;
+  - isolated budgets behind a trusted proxy and refusal of untrusted/spoofed forwarding;
   - the framework specs.
 - Real infrastructure, run with `node scripts/production/A/acceptance-a.mjs --services geo`
   (PostgreSQL 16 with least-privilege roles, the real HTTP adapter and the real CLI process).
@@ -123,17 +134,22 @@ The CLI prints one JSON line per zone and exits non-zero if any operation was re
   - events carry no polygon or provenance;
   - the HTTP 429 limit;
   - cross-database isolation.
+  - the audit trigger function's effective EXECUTE privileges for all service roles.
 - Test shapes are synthetic squares around (0, 0), labelled `test-fixture:*`. They are not
   service areas.
+- The committed 13-test report remains evidence for source `7ce5f18`, not for these fixes.
+  Its scope description is corrected explicitly: Geo started its HTTP adapter and CLI;
+  Identity was migrated but its HTTP application was not exercised. New tests require a
+  fresh run before they can be reported as accepted.
 
 ## Contract requests and blockers
 
-| ID       | Request / blocker                                                              | Owner          |
-| -------- | ------------------------------------------------------------------------------ | -------------- |
-| A-P01-12 | Approved Aleppo zone dataset (source, licence, boundary/overlap/effective rules) | Owner          |
-| A-P01-13 | Identity permission for zone management (e.g. `geo.zones.write:operations`) and an audited admin route | Identity/E |
-| A-P01-14 | Publish `geo.v1` contract and client; gateway owner `geo` and the public serviceability route | Lane E |
-| A-P01-15 | Register `geo.zone-updated.v1`; declare the `washgo.geo.events` exchange and its ACL; add the relay dependency | Lane E |
+| ID       | Request / blocker                                                                                              | Owner      |
+| -------- | -------------------------------------------------------------------------------------------------------------- | ---------- |
+| A-P01-12 | Approved Aleppo zone dataset (source, licence, boundary/overlap/effective rules)                               | Owner      |
+| A-P01-13 | Identity permission for zone management (e.g. `geo.zones.write:operations`) and an audited admin route         | Identity/E |
+| A-P01-14 | Publish `geo.v1` contract and client; gateway owner `geo` and the public serviceability route                  | Lane E     |
+| A-P01-15 | Register `geo.zone-updated.v1`; declare the `washgo.geo.events` exchange and its ACL; add the relay dependency | Lane E     |
 
 Next consumers:
 

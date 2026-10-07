@@ -332,3 +332,19 @@ test('isolation: the geo runtime role cannot reach the Identity database', async
   const state = await sqlState(context.crossServiceUrl.url, 'SELECT 1');
   assert.ok(['42501', '28P01', '3D000'].includes(state), `unexpected ${state}`);
 });
+
+test('isolation: the audit trigger function grants no EXECUTE to foreign or runtime roles', async () => {
+  const result = await sql(
+    db,
+    `SELECT r.rolname FROM pg_roles r
+       WHERE r.rolname LIKE 'cw_%'
+         AND r.rolname <> 'cw_geo_migrate'
+         AND has_function_privilege(r.oid, 'app.audit_entry_append_only()', 'EXECUTE')`,
+  );
+  assert.deepEqual(result.rows, []);
+  const owner = await sql(
+    db,
+    "SELECT has_function_privilege('cw_geo_migrate', 'app.audit_entry_append_only()', 'EXECUTE') AS allowed",
+  );
+  assert.equal(owner.rows[0].allowed, true);
+});

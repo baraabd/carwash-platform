@@ -44,7 +44,8 @@ function toHttpError(error: unknown): unknown {
 /**
  * Geo HTTP adapter. Serviceability is guest-safe: it needs no session, takes
  * one coordinate, stores nothing and returns only zone references. It is rate
- * limited per client address. Zone writes have no HTTP route (operator CLI only).
+ * limited per originating client address through explicitly trusted proxies.
+ * Zone writes have no HTTP route (operator CLI only).
  */
 @Controller(GEO_V1)
 export class GeoController {

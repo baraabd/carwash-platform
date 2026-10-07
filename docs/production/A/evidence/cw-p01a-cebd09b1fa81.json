@@ -2,9 +2,7 @@
   "lane": "A",
   "task": "P01-A",
   "project": "cw-p01a-cebd09b1fa81",
-  "services": [
-    "geo"
-  ],
+  "services": ["geo"],
   "startedAt": "2026-10-07T04:03:26.181Z",
   "node": "v24.21.0",
   "images": {
@@ -63,9 +61,7 @@
   ],
   "suites": [
     {
-      "files": [
-        "tests/production/A/geo.integration.test.mjs"
-      ],
+      "files": ["tests/production/A/geo.integration.test.mjs"],
       "exit": 0,
       "tests": 13,
       "pass": 13,
@@ -75,7 +71,11 @@
       "cancelled": 0
     }
   ],
-  "scope": "Real PostgreSQL 16 (least-privilege roles from infra/postgres/provision.sh), real Redis, real Identity Nest application and real owner-service HTTP adapters on loopback. No broker relay, no gateway, no browser, no production deployment.",
+  "scope": "Real PostgreSQL 16 (least-privilege roles from infra/postgres/provision.sh), real Geo HTTP adapter and operator CLI on loopback. Identity was migrated and Redis started by the harness, but neither the Identity HTTP application nor its rate-budget flow was exercised. No broker relay, no gateway, no browser, no production deployment.",
   "finishedAt": "2026-10-07T04:04:37.076Z",
-  "result": "PASSED"
+  "result": "PASSED",
+  "scopeCorrection": {
+    "reason": "The original scope overstated the Identity runtime exercised by the geo-only suite. This corrects the description only; source, test results and timestamps are unchanged. It is not evidence for the subsequent fixes.",
+    "originalScope": "Real PostgreSQL 16 (least-privilege roles from infra/postgres/provision.sh), real Redis, real Identity Nest application and real owner-service HTTP adapters on loopback. No broker relay, no gateway, no browser, no production deployment."
+  }
 }

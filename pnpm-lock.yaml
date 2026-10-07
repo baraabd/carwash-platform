@@ -123,6 +123,10 @@ importers:
         version: 8.3.1(@types/node@24.13.6)(jiti@2.7.0)
 
   packages/api-clients:
+    dependencies:
+      '@carwash/contracts':
+        specifier: workspace:*
+        version: link:../contracts
     devDependencies:
       typescript:
         specifier: 5.9.3

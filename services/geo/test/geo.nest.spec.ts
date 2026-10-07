@@ -10,7 +10,7 @@ import {
   rateLimitFromEnv,
 } from '../src/app.module';
 import { PrismaService, databaseUrlFromEnv } from '../src/prisma.service';
-import { createHttpApplication } from '../src/transport/http/create-app';
+import { createHttpApplication, trustedProxiesFromEnv } from '../src/transport/http/create-app';
 
 const DSN = 'postgresql://cw_geo_app:placeholder@127.0.0.1:5432/cw_geo?schema=app';
 
@@ -191,4 +191,76 @@ test('geo: invalid serviceability input is 422 before any database access', asyn
   } finally {
     await app.close();
   }
+});
+
+test('geo: proxy trust defaults off and permits only explicit IP hosts', () => {
+  assert.equal(trustedProxiesFromEnv({}), false);
+  assert.deepEqual(trustedProxiesFromEnv({ GEO_TRUSTED_PROXY_IPS: '127.0.0.1, ::1' }), [
+    '127.0.0.1',
+    '::1',
+  ]);
+  for (const value of ['true', '*', '1', 'loopback', '10.0.0.0/8', 'gateway', '127.0.0.1,']) {
+    assert.throws(
+      () => trustedProxiesFromEnv({ GEO_TRUSTED_PROXY_IPS: value }),
+      /INVALID_GEO_TRUSTED_PROXY_IPS/,
+    );
+  }
+});
+
+async function clientRateStatuses(trustedProxy: string, forwarded: string[]) {
+  const previousRate = process.env.GEO_SERVICEABILITY_RATE_PER_MINUTE;
+  const previousProxies = process.env.GEO_TRUSTED_PROXY_IPS;
+  process.env.DATABASE_URL = DSN;
+  process.env.GEO_SERVICEABILITY_RATE_PER_MINUTE = '1';
+  process.env.GEO_TRUSTED_PROXY_IPS = trustedProxy;
+  const app = await createHttpApplication();
+  try {
+    await app.listen(0, '127.0.0.1');
+    const base = await app.getUrl();
+    const statuses = [];
+    for (const address of forwarded) {
+      const response = await fetch(base + '/internal/v1/geo/serviceability', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-forwarded-for': address },
+        // Invalid input exercises the actual transport and limiter without a DB.
+        body: JSON.stringify({
+          coordinates: { crs: 'EPSG:4326', latitude: 'NaN', longitude: '0' },
+        }),
+      });
+      statuses.push(response.status);
+    }
+    return statuses;
+  } finally {
+    await app.close();
+    if (previousRate === undefined) delete process.env.GEO_SERVICEABILITY_RATE_PER_MINUTE;
+    else process.env.GEO_SERVICEABILITY_RATE_PER_MINUTE = previousRate;
+    if (previousProxies === undefined) delete process.env.GEO_TRUSTED_PROXY_IPS;
+    else process.env.GEO_TRUSTED_PROXY_IPS = previousProxies;
+  }
+}
+
+test('geo: clients behind one trusted proxy have independent rate budgets', async () => {
+  assert.deepEqual(
+    await clientRateStatuses('127.0.0.1', [
+      '198.51.100.10',
+      '198.51.100.10',
+      '198.51.100.20',
+      '198.51.100.20',
+    ]),
+    [422, 429, 422, 429],
+  );
+});
+
+test('geo: an untrusted caller cannot rotate forwarded addresses to evade its rate limit', async () => {
+  assert.deepEqual(await clientRateStatuses('', ['198.51.100.10', '198.51.100.20']), [422, 429]);
+});
+
+test('geo: spoofed prefixes cannot override the nearest untrusted forwarded hop', async () => {
+  assert.deepEqual(
+    await clientRateStatuses('127.0.0.1', [
+      '198.51.100.99, 198.51.100.10',
+      '198.51.100.98, 198.51.100.10',
+    ]),
+    [422, 429],
+  );
 });

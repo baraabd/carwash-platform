@@ -1,12 +1,22 @@
 import { BOOKING_CONFIRMED_V1 } from './booking-confirmed';
+import { BUSINESS_EVENTS_V1 } from './business-v1';
+import type { EventProducer } from './envelope-v2';
 import { FOUNDATION_PROBE_CREATED_V1 } from './foundation-probe-created';
 
-export type EventContractStatus = 'foundation-runtime' | 'contract-only';
+/**
+ * contract-only / published-producer-pending: the wire schema is published but
+ * no accepted producer emits it yet. Never read as "the event flows".
+ */
+export type EventContractStatus =
+  'foundation-runtime' | 'contract-only' | 'published-producer-pending';
+
+type BusinessEventId = (typeof BUSINESS_EVENTS_V1)[number]['eventType'];
 
 export interface EventContractDescriptor {
-  readonly id: typeof BOOKING_CONFIRMED_V1 | typeof FOUNDATION_PROBE_CREATED_V1;
-  readonly producer: 'booking' | 'catalog';
+  readonly id: typeof BOOKING_CONFIRMED_V1 | typeof FOUNDATION_PROBE_CREATED_V1 | BusinessEventId;
+  readonly producer: EventProducer;
   readonly schemaVersion: 1;
+  readonly envelopeVersion: 1 | 2;
   readonly status: EventContractStatus;
   readonly asyncApi: string;
 }
@@ -16,6 +26,7 @@ export const EVENT_CONTRACTS: readonly EventContractDescriptor[] = [
     id: FOUNDATION_PROBE_CREATED_V1,
     producer: 'catalog',
     schemaVersion: 1,
+    envelopeVersion: 1,
     status: 'foundation-runtime',
     asyncApi: 'docs/asyncapi/foundation-probe.yaml',
   },
@@ -23,10 +34,19 @@ export const EVENT_CONTRACTS: readonly EventContractDescriptor[] = [
     id: BOOKING_CONFIRMED_V1,
     producer: 'booking',
     schemaVersion: 1,
+    envelopeVersion: 1,
     status: 'contract-only',
     asyncApi: 'docs/asyncapi/booking-confirmed-v1.yaml',
   },
-] as const;
+  ...BUSINESS_EVENTS_V1.map((event): EventContractDescriptor => ({
+    id: event.eventType,
+    producer: event.producer,
+    schemaVersion: 1,
+    envelopeVersion: 2,
+    status: 'published-producer-pending',
+    asyncApi: event.asyncApi,
+  })),
+];
 
 export function eventContract(id: EventContractDescriptor['id']): EventContractDescriptor {
   const contract = EVENT_CONTRACTS.find((candidate) => candidate.id === id);

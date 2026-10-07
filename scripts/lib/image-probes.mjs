@@ -10,3 +10,44 @@ export function verifiedNonRoot(result) {
 export function verifiedNoBakedSecrets(result) {
   return result.code === 0 && result.stdout?.trim() === '[]';
 }
+
+/**
+ * Parses "<status> <json>" from the in-container readiness probe. With the
+ * database deliberately unreachable, readiness must be 503 with
+ * dependenciesReady=false, and the code must match businessReady: an
+ * implemented service says DEPENDENCY_DOWN, a foundation shell says
+ * FOUNDATION_NOT_READY. A 200 is always a failure here.
+ */
+export function verifiedReadiness(raw) {
+  const text = String(raw ?? '');
+  const space = text.indexOf(' ');
+  const status = space > 0 ? text.slice(0, space) : text;
+  let body;
+  try {
+    body = JSON.parse(text.slice(space + 1));
+  } catch {
+    return { ok: false, detail: `unparseable readiness body: ${text.slice(0, 200)}` };
+  }
+  if (body === null || typeof body !== 'object' || typeof body.businessReady !== 'boolean') {
+    return { ok: false, detail: `readiness body lacks businessReady: ${text.slice(0, 200)}` };
+  }
+  const expected = body.businessReady ? 'DEPENDENCY_DOWN' : 'FOUNDATION_NOT_READY';
+  // An implemented service must probe its database, so it must report false here.
+  // A shell may register no probe (null = not checked, empty list); never true.
+  const dependencyHonest = body.businessReady
+    ? body.dependenciesReady === false
+    : body.dependenciesReady === false ||
+      (body.dependenciesReady === null &&
+        Array.isArray(body.dependencies) &&
+        body.dependencies.length === 0);
+  const ok = status === '503' && body.ready === false && dependencyHonest && body.code === expected;
+  return ok
+    ? {
+        ok,
+        detail: `code=${body.code} businessReady=${body.businessReady} dependenciesReady=${body.dependenciesReady}`,
+      }
+    : {
+        ok,
+        detail: `expected 503/${expected} with honest dependenciesReady, got: ${text.slice(0, 300)}`,
+      };
+}
