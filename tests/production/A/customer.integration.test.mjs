@@ -479,6 +479,61 @@ test('isolation: the customer runtime role cannot reach the Identity database', 
   assert.ok(['42501', '28P01', '3D000'].includes(state), `unexpected ${state}`);
 });
 
+test('privileges: no role but the schema owner may EXECUTE customer functions', async () => {
+  // Regression for the PUBLIC EXECUTE default on CREATE FUNCTION. The shared
+  // suite (tests/integration/postgres-privileges.test.mjs) proves foreign
+  // roles; this proves PUBLIC itself and this service's own runtime role.
+  const functions = await sql(
+    db,
+    `SELECT p.proname,
+            has_function_privilege('public', p.oid, 'EXECUTE') AS public_execute,
+            has_function_privilege('cw_customer_app', p.oid, 'EXECUTE') AS runtime_execute,
+            has_function_privilege('cw_identity_app', p.oid, 'EXECUTE') AS foreign_runtime_execute,
+            has_function_privilege('cw_identity_migrate', p.oid, 'EXECUTE') AS foreign_migration_execute,
+            has_function_privilege(pg_get_userbyid(p.proowner), p.oid, 'EXECUTE') AS owner_execute,
+            pg_get_userbyid(p.proowner) AS owner
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'app'
+      ORDER BY p.proname`,
+  );
+  assert.deepEqual(
+    functions.rows.map((row) => row.proname),
+    ['audit_entry_append_only'],
+    'every function in the schema is covered by this check',
+  );
+  for (const row of functions.rows) {
+    assert.equal(row.public_execute, false, `${row.proname}: PUBLIC must not EXECUTE`);
+    assert.equal(row.runtime_execute, false, `${row.proname}: runtime role must not EXECUTE`);
+    assert.equal(row.foreign_runtime_execute, false, `${row.proname}: foreign runtime role`);
+    assert.equal(row.foreign_migration_execute, false, `${row.proname}: foreign migration role`);
+    assert.equal(row.owner, 'cw_customer_migrate');
+    assert.equal(row.owner_execute, true, `${row.proname}: the owner keeps EXECUTE`);
+  }
+  const direct = await sqlState(db, 'SELECT app.audit_entry_append_only()');
+  assert.equal(direct, '42501', 'the runtime role cannot call the function directly');
+});
+
+test('privileges: the append-only trigger still fires for the runtime role without EXECUTE', async () => {
+  const { user, profile } = await bootstrapped();
+  const rows = await sql(
+    db,
+    'SELECT count(*)::int AS n FROM app.audit_entry WHERE target_id = $1',
+    [profile.customerId],
+  );
+  assert.equal(rows.rows[0].n, 1, 'the runtime role can still INSERT audit facts');
+  for (const statement of [
+    "UPDATE app.audit_entry SET action = 'x' WHERE target_id = $1",
+    'DELETE FROM app.audit_entry WHERE target_id = $1',
+  ]) {
+    await assert.rejects(
+      () => sql(db, statement, [profile.customerId]),
+      (error) => error.code === '42501' && /audit_entry is append-only/.test(error.message),
+      'refused by the trigger itself, not by a missing function privilege',
+    );
+  }
+  assert.ok(user.subject);
+});
+
 test('identity outage: requests fail closed with 503 and write nothing', async () => {
   const { user, profile } = await bootstrapped();
   await identity.app.close();

@@ -188,3 +188,31 @@ Defect found by the real database and fixed before commit:
 Next consumer: Booking, for booking-owner and address snapshot resolution, once A-P01-01 is
 published. The customer-web contact and address steps consume it through the gateway once
 A-P01-02 exists.
+
+## Remediation after first CI run (PR #91)
+
+- **Function privilege leak (fixed).**
+  - Cause: `CREATE FUNCTION` grants EXECUTE to PUBLIC by default. The shared real-PostgreSQL
+    suite failed `customer: no foreign role may EXECUTE a function in the owned schema` (337/338).
+  - Fix: the unmerged migration now runs `REVOKE ALL ON FUNCTION "audit_entry_append_only"() FROM PUBLIC`
+    immediately after creating the function. It is the only function in the schema.
+  - The trigger still fires: PostgreSQL does not check EXECUTE for the role whose statement
+    fires a trigger.
+  - Regression tests in `tests/production/A/customer.integration.test.mjs` prove:
+    - PUBLIC, the runtime role and foreign roles have no EXECUTE on any schema function;
+    - the owner (`cw_customer_migrate`) keeps EXECUTE;
+    - a direct call is refused with 42501;
+    - UPDATE and DELETE are still refused by the trigger, and the error message proves it is
+      the trigger refusing, not a missing function privilege.
+- **Implementation-status inventory (synchronised).**
+  - `architecture/implementation-status.json` now lists the customer `persistenceModels` exactly
+    as `deriveServiceStatuses` reads them from `services/customer/prisma/schema.prisma`.
+  - No other field changed. `businessApi`, `deploymentVerified` and `runtimeAcceptance` keep
+    their unverified values.
+  - In `tests/parallel/E/status.test.mjs`, the drift probe now takes its baseline from the real
+    customer schema and asserts it equals the registry, instead of assuming a
+    `ServiceMarker`-only schema. It still proves that comment-only models are ignored, that an
+    added model is detected, and that drift is refused.
+  - Both files are owned by Lane E. They are changed atomically with the schema, following the
+    merged precedent of PR #96 (`c5d3693`). A separate Lane E PR landing first would put `main`
+    itself into drift.

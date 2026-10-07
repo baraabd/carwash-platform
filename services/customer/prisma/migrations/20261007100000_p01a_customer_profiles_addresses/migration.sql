@@ -153,6 +153,11 @@ BEGIN
 END;
 $$;
 
+-- PostgreSQL grants EXECUTE on every new function to PUBLIC. Nothing outside
+-- this schema's owner may call it; the trigger still fires for the runtime
+-- role because trigger invocation does not check EXECUTE for the caller.
+REVOKE ALL ON FUNCTION "audit_entry_append_only"() FROM PUBLIC;
+
 CREATE TRIGGER "audit_entry_no_update_delete"
   BEFORE UPDATE OR DELETE ON "audit_entry"
   FOR EACH ROW EXECUTE FUNCTION "audit_entry_append_only"();
