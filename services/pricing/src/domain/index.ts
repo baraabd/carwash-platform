@@ -1,7 +1,11 @@
 /**
  * pricing domain layer.
  *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
+ * Framework- and IO-free money rules: exact Money, currency policy, price
+ * versions/rates and immutable quote computation.
  */
-export {};
+export * from './money';
+export * from './currency-policy';
+export * from './catalog-snapshot';
+export * from './price-version';
+export * from './quote';

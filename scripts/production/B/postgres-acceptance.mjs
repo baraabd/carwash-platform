@@ -1,0 +1,341 @@
+#!/usr/bin/env node
+/**
+ * P01-B real PostgreSQL acceptance for Lane B owner services.
+ *
+ *   node scripts/production/B/postgres-acceptance.mjs --service catalog [--record]
+ *
+ * 1. Starts ONE disposable, pinned PostgreSQL container bound to 127.0.0.1 and
+ *    provisions it with the shared infra/postgres/provision.sh (database per
+ *    service, separate migration/runtime identities).
+ * 2. Upgrade path: applies only the migrations that existed before this change,
+ *    writes sentinel data, then applies the full history and proves the data
+ *    survived (expand-only compatibility).
+ * 3. Re-runs the provisioner (migration-history restriction) and proves the
+ *    runtime role cannot read _prisma_migrations.
+ * 4. Proves the committed Prisma schema mirror has no drift from the migrated
+ *    database.
+ * 5. Runs the service's compiled integration specs as the runtime role.
+ *
+ * Credentials are random per run and never printed. The container is removed in
+ * every outcome. This is local disposable evidence, NOT production evidence.
+ */
+import { randomBytes } from 'node:crypto';
+import { cp, mkdir, readdir, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { setTimeout as delay } from 'node:timers/promises';
+import { redact, registerSecret, run } from '../../acceptance/lib/exec.mjs';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const PG_IMAGE = 'postgres:16.10-alpine';
+const SERVICES = {
+  catalog: { previousMigrations: 2, env: 'CATALOG_TEST_DATABASE_URL' },
+  pricing: { previousMigrations: 1, env: 'PRICING_TEST_DATABASE_URL' },
+};
+
+function arg(name) {
+  const index = process.argv.indexOf(`--${name}`);
+  return index >= 0 ? process.argv[index + 1] : undefined;
+}
+const service = arg('service');
+if (!service || !(service in SERVICES)) {
+  console.error(`usage: --service ${Object.keys(SERVICES).join('|')} [--record]`);
+  process.exit(2);
+}
+const record = process.argv.includes('--record');
+const spec = SERVICES[service];
+const serviceDir = path.join(ROOT, 'services', service);
+const { Client } = createRequire(path.join(serviceDir, 'package.json'))('pg');
+
+const runId = randomBytes(6).toString('hex');
+const container = `cw-p01b-${service}-${runId}`;
+const work = path.join(ROOT, '.acceptance', container);
+const credentials = {
+  bootstrap: randomBytes(32).toString('base64url'),
+  app: randomBytes(32).toString('base64url'),
+  migration: randomBytes(32).toString('base64url'),
+};
+Object.values(credentials).forEach(registerSecret);
+
+const report = {
+  task: 'P01-B',
+  service,
+  runId,
+  startedAt: new Date().toISOString(),
+  sourceSHA: null,
+  sourceTree: null,
+  sourceDirty: null,
+  node: process.version,
+  docker: null,
+  image: { name: PG_IMAGE, repoDigests: null, serverVersion: null },
+  dependencies: {
+    postgres: 'REAL (disposable container)',
+    identity: 'LOCAL HTTP STUB',
+    broker: 'NOT USED',
+  },
+  phases: [],
+  tests: null,
+  accepted: false,
+};
+
+async function checked(command, args, options = {}) {
+  const result = await run(command, args, { cwd: ROOT, timeoutMs: 600_000, ...options });
+  if (result.code !== 0 || result.signal || result.outcome !== 'exited' || result.truncated)
+    throw new Error(
+      `${command} ${args[0] ?? ''} failed (${result.code ?? result.signal}): ${redact(result.stderr || result.stdout).slice(-6000)}`,
+    );
+  return result;
+}
+
+async function phase(name, operation) {
+  try {
+    const value = await operation();
+    report.phases.push({ name, status: 'PASS' });
+    console.log(`[PASS] ${name}`);
+    return value;
+  } catch (error) {
+    report.phases.push({
+      name,
+      status: 'FAIL',
+      detail: redact(String(error?.message ?? error)).slice(0, 4000),
+    });
+    console.log(`[FAIL] ${name}`);
+    throw error;
+  }
+}
+
+async function query(url, statement, values = []) {
+  const client = new Client({ connectionString: url, connectionTimeoutMillis: 3_000 });
+  try {
+    await client.connect();
+    return await client.query(statement, values);
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
+async function prisma(args, databaseUrl) {
+  return checked('pnpm', ['--filter', `@carwash/${service}`, 'exec', 'prisma', ...args], {
+    env: { ...process.env, DATABASE_URL: databaseUrl },
+  });
+}
+
+let started = false;
+let exitCode = 1;
+try {
+  await phase('toolchain and source provenance', async () => {
+    report.sourceSHA = (await checked('git', ['rev-parse', 'HEAD'])).stdout.trim();
+    report.sourceTree = (await checked('git', ['rev-parse', 'HEAD^{tree}'])).stdout.trim();
+    report.sourceDirty =
+      (await checked('git', ['status', '--porcelain', '--untracked-files=no'])).stdout.trim()
+        .length > 0;
+    report.docker = (
+      await checked('docker', ['version', '--format', '{{.Server.Version}}'])
+    ).stdout.trim();
+  });
+
+  await phase('build service and integration specs from this source', async () => {
+    await checked('pnpm', ['--filter', `@carwash/${service}`, 'run', 'generate']);
+    await checked('pnpm', ['--filter', `@carwash/${service}`, 'run', 'build:tests']);
+  });
+
+  await phase('pull pinned PostgreSQL image', async () => {
+    await checked('docker', ['pull', PG_IMAGE]);
+    report.image.repoDigests = JSON.parse(
+      (await checked('docker', ['image', 'inspect', PG_IMAGE, '--format', '{{json .RepoDigests}}']))
+        .stdout,
+    );
+  });
+
+  const prefix = service.toUpperCase().replaceAll('-', '_');
+  await phase('start disposable PostgreSQL with shared provisioner', async () => {
+    started = true;
+    await checked('docker', [
+      'run',
+      '-d',
+      '--name',
+      container,
+      '-e',
+      'POSTGRES_USER=cw_p01b_bootstrap',
+      '-e',
+      `POSTGRES_PASSWORD=${credentials.bootstrap}`,
+      '-e',
+      `CW_SERVICES=${service}`,
+      '-e',
+      `${prefix}_DB_PASSWORD=${credentials.app}`,
+      '-e',
+      `${prefix}_MIGRATION_PASSWORD=${credentials.migration}`,
+      '-v',
+      `${path.join(ROOT, 'infra/postgres/provision.sh')}:/docker-entrypoint-initdb.d/01-provision.sh:ro`,
+      '-p',
+      '127.0.0.1::5432',
+      PG_IMAGE,
+    ]);
+  });
+
+  const portOut = (await checked('docker', ['port', container, '5432'])).stdout
+    .trim()
+    .split('\n')[0];
+  const port = Number(portOut.split(':').at(-1));
+  const db = `cw_${service}`;
+  const appUrl = `postgresql://${db}_app:${credentials.app}@127.0.0.1:${port}/${db}?schema=app`;
+  const migrateUrl = `postgresql://${db}_migrate:${credentials.migration}@127.0.0.1:${port}/${db}?schema=app`;
+
+  await phase('runtime identity can connect after provisioning', async () => {
+    const deadline = Date.now() + 90_000;
+    let last;
+    while (Date.now() < deadline) {
+      try {
+        // The init script finishes before the final server restart; require the
+        // provisioned runtime role, not just a listening socket.
+        const result = await query(appUrl, 'SELECT current_user, version()');
+        report.image.serverVersion = String(result.rows[0].version)
+          .split(' ')
+          .slice(0, 2)
+          .join(' ');
+        return;
+      } catch (error) {
+        last = error;
+        await delay(500);
+      }
+    }
+    throw new Error(`PostgreSQL not ready: ${last?.message}`);
+  });
+
+  await phase('upgrade from previous migration history preserves existing data', async () => {
+    const source = path.join(serviceDir, 'prisma/migrations');
+    const all = (await readdir(source, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+    if (all.length <= spec.previousMigrations) throw new Error('NEW_MIGRATION_REQUIRED');
+    report.migrations = {
+      previous: all.slice(0, spec.previousMigrations),
+      added: all.slice(spec.previousMigrations),
+    };
+    const partial = path.join(work, 'previous-migrations');
+    await mkdir(partial, { recursive: true });
+    await cp(path.join(source, 'migration_lock.toml'), path.join(partial, 'migration_lock.toml'));
+    for (const name of all.slice(0, spec.previousMigrations))
+      await cp(path.join(source, name), path.join(partial, name), { recursive: true });
+    const config = path.join(work, 'previous.config.mjs');
+    await writeFile(
+      config,
+      `export default { schema: ${JSON.stringify(path.join(serviceDir, 'prisma/schema.prisma'))}, migrations: { path: ${JSON.stringify(partial)} }, datasource: { url: process.env.DATABASE_URL } };\n`,
+    );
+    await prisma(['migrate', 'deploy', '--config', config], migrateUrl);
+    await query(appUrl, 'INSERT INTO app.service_marker(service, schema_rev) VALUES ($1, 1)', [
+      `p01b-${runId}`,
+    ]);
+    await prisma(['migrate', 'deploy'], migrateUrl);
+    const kept = await query(appUrl, 'SELECT 1 FROM app.service_marker WHERE service = $1', [
+      `p01b-${runId}`,
+    ]);
+    if (kept.rowCount !== 1) throw new Error('UPGRADE_LOST_EXISTING_DATA');
+    // Re-applying is a no-op, not an error.
+    await prisma(['migrate', 'deploy'], migrateUrl);
+  });
+
+  await phase('re-provision restricts migration history from the runtime role', async () => {
+    await checked('docker', [
+      'exec',
+      container,
+      'sh',
+      '/docker-entrypoint-initdb.d/01-provision.sh',
+    ]);
+    const allowed = await query(
+      appUrl,
+      "SELECT has_table_privilege(current_user, 'app._prisma_migrations', 'SELECT') AS allowed",
+    );
+    if (allowed.rows[0].allowed !== false) throw new Error('RUNTIME_CAN_READ_MIGRATIONS');
+  });
+
+  await phase('committed Prisma schema mirror has no drift from migrated database', async () => {
+    const result = await run(
+      'pnpm',
+      [
+        '--filter',
+        `@carwash/${service}`,
+        'exec',
+        'prisma',
+        'migrate',
+        'diff',
+        '--from-config-datasource',
+        '--to-schema',
+        'prisma/schema.prisma',
+        '--exit-code',
+      ],
+      { cwd: ROOT, timeoutMs: 180_000, env: { ...process.env, DATABASE_URL: migrateUrl } },
+    );
+    if (result.code !== 0)
+      throw new Error(`SCHEMA_DRIFT: ${redact(result.stdout + result.stderr).slice(-4000)}`);
+  });
+
+  await phase('integration specs as the least-privileged runtime role', async () => {
+    const dir = path.join(serviceDir, 'dist-tests/test/integration');
+    const files = (await readdir(dir))
+      .filter((file) => file.endsWith('.spec.js'))
+      .map((file) => path.join(dir, file));
+    if (files.length === 0) throw new Error('NO_INTEGRATION_SPECS');
+    const result = await run(process.execPath, ['--test', '--test-reporter=spec', ...files], {
+      cwd: ROOT,
+      timeoutMs: 600_000,
+      env: { ...process.env, [spec.env]: appUrl, LOG_LEVEL: 'error' },
+    });
+    const out = redact(result.stdout);
+    const summary = Object.fromEntries(
+      [...out.matchAll(/^ℹ (tests|pass|fail|cancelled|skipped|todo) (\d+)$/gm)].map((m) => [
+        m[1],
+        Number(m[2]),
+      ]),
+    );
+    report.tests = {
+      files: files.map((file) => path.relative(ROOT, file)),
+      summary,
+      names: [...out.matchAll(/^\s*[✔✖] (.+?) \(/gm)].map((m) => m[0].trim()),
+    };
+    process.stdout.write(
+      out
+        .split('\n')
+        .filter((line) => /^\s*[✔✖ℹ]/.test(line))
+        .join('\n') + '\n',
+    );
+    if (
+      result.code !== 0 ||
+      !summary.tests ||
+      summary.fail !== 0 ||
+      summary.skipped !== 0 ||
+      summary.todo !== 0
+    )
+      throw new Error(
+        `INTEGRATION_FAILED: ${redact(result.stderr).slice(-4000)}\n${out.slice(-6000)}`,
+      );
+  });
+
+  report.accepted = true;
+  exitCode = 0;
+} catch (error) {
+  console.error(redact(String(error?.stack ?? error)).slice(0, 8000));
+} finally {
+  if (started)
+    await run('docker', ['rm', '-f', '-v', container], { cwd: ROOT, timeoutMs: 120_000 }).catch(
+      () => {},
+    );
+  report.finishedAt = new Date().toISOString();
+  await mkdir(work, { recursive: true });
+  const json = JSON.stringify(report, null, 2) + '\n';
+  await writeFile(path.join(work, 'report.json'), json);
+  if (record) {
+    const out = path.join(ROOT, 'docs/production/B/evidence');
+    await mkdir(out, { recursive: true });
+    await writeFile(
+      path.join(out, `${service}-postgres-${report.sourceSHA?.slice(0, 12) ?? 'unknown'}.json`),
+      json,
+    );
+  }
+  console.log(
+    `${report.accepted ? 'ACCEPTED' : 'NOT ACCEPTED'}: ${service} postgres acceptance (${path.relative(ROOT, work)}/report.json)`,
+  );
+  process.exit(exitCode);
+}
