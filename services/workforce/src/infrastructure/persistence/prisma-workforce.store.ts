@@ -268,7 +268,10 @@ class PrismaWorkforceTransaction implements WorkforceTransaction {
     return row ? toCase(row) : null;
   }
 
-  async findCaseByIdempotency(requester: string, key: string): Promise<VerificationCaseState | null> {
+  async findCaseByIdempotency(
+    requester: string,
+    key: string,
+  ): Promise<VerificationCaseState | null> {
     const [row] = await this.tx.$queryRawUnsafe<CaseRow[]>(
       `SELECT ${CASE_COLUMNS} FROM app.verification_case
        WHERE requester=$1 AND idempotency_key=$2 LIMIT 1`,
@@ -304,7 +307,10 @@ class PrismaWorkforceTransaction implements WorkforceTransaction {
     return rows.length === 1 ? 'CREATED' : 'DUPLICATE';
   }
 
-  async updateVerificationCase(state: VerificationCaseState, expectedVersion: number): Promise<void> {
+  async updateVerificationCase(
+    state: VerificationCaseState,
+    expectedVersion: number,
+  ): Promise<void> {
     const pending = state.status === 'PENDING_REVIEW' ? state.operatorId : null;
     const rows = await this.tx.$queryRawUnsafe<{ id: string }[]>(
       `UPDATE app.verification_case SET pending_operator_id=$3::uuid,status=$4,evidence_refs=$5::uuid[],
