@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+import { identityBootEnvironment } from '../lib/image-probes.mjs';
 import {
   classifyServiceRuntime,
   classifyWebRuntime,
@@ -299,6 +300,7 @@ export function auditSummary(report) {
 export function runtimeEnvironment(target) {
   const env = ['-e', `PORT=${target.port}`, '-e', 'LOG_LEVEL=warn'];
   if (target.kind === 'web-app') return env;
+  env.push(...identityBootEnvironment(target.id));
   if (target.database === null)
     env.push(
       '-e',

@@ -246,6 +246,8 @@ test('gateway uses its catalog identity and never receives a business database',
     const ownerEnv = runtimeEnvironment(target);
     assert.ok(ownerEnv.some((v) => v.startsWith(`DATABASE_URL=postgresql://cw_${target.id}_app:`)));
     assert.ok(!ownerEnv.some((v) => v.startsWith('GATEWAY_UPSTREAMS=')));
+    if (target.id === 'configuration')
+      assert.ok(ownerEnv.includes('IDENTITY_ORIGIN=http://127.0.0.1:9'));
   }
 });
 

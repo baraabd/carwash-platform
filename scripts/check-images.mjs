@@ -32,6 +32,7 @@ import {
   verifiedNoBakedSecrets,
   verifiedReadiness,
   BAKED_SECRET_PROBE,
+  identityBootEnvironment,
 } from './lib/image-probes.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -40,7 +41,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const NODE_IMAGE = 'node:24.21.0-bookworm-slim';
 
 /**
- * Every owner runtime that boots with only a database DSN. identity needs Redis
+ * Every owner runtime that boots with isolated dependency fixtures. identity needs Redis
  * and signing/CSRF/OTP key material to start, so this boot contract cannot
  * prove anything about it; it is excluded by name rather than silently.
  */
@@ -155,6 +156,7 @@ async function verifyService(service) {
     'PORT=3000',
     '--env',
     'HOST=0.0.0.0',
+    ...identityBootEnvironment(service),
     '--env',
     // The shell needs a well-formed DSN to boot, but never connects: nothing is
     // listening on this port. The password is the literal placeholder "changeme"

@@ -26,6 +26,7 @@ function fakeResponse() {
 
 async function compile() {
   process.env.DATABASE_URL = DSN;
+  process.env.IDENTITY_ORIGIN = 'http://127.0.0.1:9';
   return Test.createTestingModule({ imports: [AppModule] }).compile();
 }
 
@@ -38,6 +39,7 @@ test('configuration: the application module compiles and wires its dependencies'
 
 test('configuration: the real HTTP adapter boots with distinct live/ready semantics', async () => {
   process.env.DATABASE_URL = DSN;
+  process.env.IDENTITY_ORIGIN = 'http://127.0.0.1:9';
   const app = await createHttpApplication();
   await app.listen(0, '127.0.0.1');
   try {

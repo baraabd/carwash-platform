@@ -26,3 +26,76 @@ model ServiceMarker {
 
   @@map("service_marker")
 }
+
+/// P01-D configuration revisions. Append-only: a value is never edited in
+/// place, every change is a new revision with author, reason and a value hash.
+/// (author_subject, idempotency_key) makes a retried proposal replay instead of
+/// creating a second revision.
+model ConfigRevision {
+  id             String   @id @db.Uuid
+  namespace      String   @db.VarChar(32)
+  key            String   @db.VarChar(64)
+  environment    String   @db.VarChar(16)
+  tenantScope    String   @map("tenant_scope") @db.VarChar(36)
+  revision       Int
+  valueType      String   @map("value_type") @db.VarChar(16)
+  value          Json
+  valueHash      String   @map("value_hash") @db.Char(64)
+  requestHash    String   @map("request_hash") @db.Char(64)
+  authorSubject  String   @map("author_subject") @db.Uuid
+  idempotencyKey String   @map("idempotency_key") @db.VarChar(128)
+  reason         String   @db.VarChar(500)
+  proposedAt     DateTime @map("proposed_at") @db.Timestamptz(3)
+
+  review ConfigReview?
+
+  @@unique([namespace, key, environment, tenantScope, revision])
+  @@unique([authorSubject, idempotencyKey])
+  @@map("config_revision")
+}
+
+/// At most one review decision per revision (the primary key), recorded by a
+/// different person than the author (enforced by the application and audited).
+model ConfigReview {
+  revisionId      String         @id @map("revision_id") @db.Uuid
+  decision        String         @db.VarChar(10)
+  reviewerSubject String         @map("reviewer_subject") @db.Uuid
+  note            String         @db.VarChar(500)
+  reviewedAt      DateTime       @map("reviewed_at") @db.Timestamptz(3)
+  revision        ConfigRevision @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+
+  @@map("config_review")
+}
+
+/// Which approved revision is active for a scope. version is the optimistic
+/// concurrency token callers must present to move it.
+model ConfigPointer {
+  namespace        String   @db.VarChar(32)
+  key              String   @db.VarChar(64)
+  environment      String   @db.VarChar(16)
+  tenantScope      String   @map("tenant_scope") @db.VarChar(36)
+  activeRevisionId String   @map("active_revision_id") @db.Uuid
+  activeRevision   Int      @map("active_revision")
+  version          Int
+  updatedBy        String   @map("updated_by") @db.Uuid
+  updatedAt        DateTime @map("updated_at") @db.Timestamptz(3)
+
+  @@id([namespace, key, environment, tenantScope])
+  @@map("config_pointer")
+}
+
+/// Append-only audit of every sensitive configuration command. It holds
+/// identifiers and hashes, never the configuration value itself.
+model ConfigAudit {
+  id            String   @id @db.Uuid
+  action        String   @db.VarChar(24)
+  actorSubject  String   @map("actor_subject") @db.Uuid
+  revisionId    String   @map("revision_id") @db.Uuid
+  scopeKey      String   @map("scope_key") @db.VarChar(160)
+  valueHash     String   @map("value_hash") @db.Char(64)
+  correlationId String   @map("correlation_id") @db.VarChar(64)
+  occurredAt    DateTime @map("occurred_at") @db.Timestamptz(3)
+
+  @@index([revisionId])
+  @@map("config_audit")
+}

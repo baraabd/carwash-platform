@@ -390,7 +390,13 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker",
+        "ConfigRevision",
+        "ConfigReview",
+        "ConfigPointer",
+        "ConfigAudit"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     }
