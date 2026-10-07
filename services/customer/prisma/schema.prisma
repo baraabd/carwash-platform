@@ -26,3 +26,95 @@ model ServiceMarker {
 
   @@map("service_marker")
 }
+
+/// One profile per authenticated principal. `principal_subject` is the Identity
+/// subject; `id` is the Customer-owned customer id and is a different value.
+model CustomerProfile {
+  id               String            @id @db.Uuid
+  principalKind    String            @map("principal_kind") @db.VarChar(16)
+  principalSubject String            @map("principal_subject") @db.Uuid
+  displayName      String?           @map("display_name") @db.VarChar(60)
+  phone            String?           @db.VarChar(16)
+  preferredLocale  String            @map("preferred_locale") @db.VarChar(2)
+  revision         Int
+  createdAt        DateTime          @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime          @map("updated_at") @db.Timestamptz(3)
+  addresses        CustomerAddress[]
+
+  @@unique([principalKind, principalSubject], map: "customer_profile_principal_key")
+  @@map("customer_profile")
+}
+
+/// A saved address owned by exactly one customer profile.
+model CustomerAddress {
+  id             String          @id @db.Uuid
+  customerId     String          @map("customer_id") @db.Uuid
+  label          String          @db.VarChar(30)
+  line           String          @db.VarChar(160)
+  accessNote     String?         @map("access_note") @db.VarChar(160)
+  locationKind   String          @map("location_kind") @db.VarChar(16)
+  locationSource String?         @map("location_source") @db.VarChar(16)
+  latitude       Decimal?        @db.Decimal(9, 6)
+  longitude      Decimal?        @db.Decimal(9, 6)
+  status         String          @db.VarChar(16)
+  revision       Int
+  createdAt      DateTime        @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime        @map("updated_at") @db.Timestamptz(3)
+  customer       CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([customerId, status], map: "customer_address_owner_status_idx")
+  @@map("customer_address")
+}
+
+/// Idempotency records live and die with the write they protect.
+model IdempotencyRecord {
+  scope          String   @db.VarChar(80)
+  key            String   @db.VarChar(128)
+  operation      String   @db.VarChar(40)
+  fingerprint    String   @db.Char(64)
+  responseStatus Int?     @map("response_status")
+  responseBody   Json?    @map("response_body")
+  createdAt      DateTime @map("created_at") @db.Timestamptz(3)
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz(3)
+
+  @@id([scope, key], map: "idempotency_record_pkey")
+  @@index([expiresAt], map: "idempotency_record_expiry_idx")
+  @@map("idempotency_record")
+}
+
+/// Transactional outbox. Rows are written with the state change they describe.
+model OutboxMessage {
+  id            String    @id @db.Uuid
+  eventId       String    @unique(map: "outbox_message_event_id_key") @map("event_id") @db.Uuid
+  eventType     String    @map("event_type")
+  exchange      String
+  routingKey    String    @map("routing_key")
+  payload       String
+  correlationId String    @map("correlation_id") @db.Uuid
+  traceParent   String?   @map("trace_parent") @db.VarChar(55)
+  attempts      Int       @default(0)
+  lockedBy      String?   @map("locked_by")
+  lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(3)
+  lastError     String?   @map("last_error")
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
+  deadAt        DateTime? @map("dead_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([publishedAt, deadAt, createdAt], map: "outbox_message_pending_idx")
+  @@map("outbox_message")
+}
+
+/// Append-only audit facts for personal-data mutations. Identifiers only.
+model AuditEntry {
+  id             String   @id @db.Uuid
+  actorSubject   String   @map("actor_subject") @db.Uuid
+  actorSessionId String   @map("actor_session_id") @db.Uuid
+  action         String   @db.VarChar(60)
+  targetType     String   @map("target_type") @db.VarChar(16)
+  targetId       String   @map("target_id") @db.Uuid
+  correlationId  String   @map("correlation_id") @db.Uuid
+  at             DateTime @db.Timestamptz(3)
+
+  @@index([targetType, targetId, at], map: "audit_entry_target_idx")
+  @@map("audit_entry")
+}

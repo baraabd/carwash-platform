@@ -42,6 +42,11 @@ claim. A newer claim or a provider receipt always wins. The attempt row
 always records what its own claim observed, so a late `ACCEPTED` is kept as
 evidence.
 
+The worker claims one intent immediately before submission. Its batch size is a
+per-pass limit, so interruption on one provider call leaves later intents queued
+without attempts or leases. Completion and lease recovery both acquire the
+notification row before the attempt row to avoid a PostgreSQL deadlock.
+
 **Database invariants.** CHECK constraints enforce the known states and channels,
 "lease present exactly while SENDING", "provider id only when
 accepted/delivered/failed", and an attempt outcome only when finished.
@@ -61,12 +66,18 @@ child proves the transactional seam, not a live business flow.
 | --- | --- | --- |
 | Domain plus a real-socket HTTP provider | `node --test services/communications/dist-tests/test/*.spec.js` | see PR |
 | Real PostgreSQL | `node scripts/production/D/run-real-infra.mjs --suite communications` | see PR |
+| Hosted regression gate | `.github/workflows/p01-communications-acceptance.yml` | see the current head's workflow result |
 | Guards | layers, boundaries, append-only migrations, design reference, prettier, eslint | see PR |
 
 Real versus scripted: PostgreSQL and the HTTP sockets are real. Cases C4–C11 use a
 scripted `NotificationProvider` port implementation, declared in each test, to
 force exact provider answers. C13 uses the real HTTP adapter against a real
 local server that never answers.
+C14 also uses a scripted provider while checking persisted unclaimed work.
+C15 coordinates real PostgreSQL transactions to exercise completion racing
+both lease-expiry paths; it preserves late provider evidence and checks fencing.
+The separate worker unit suite exercises pending submission, completion failure,
+per-pass limits and fresh claim clocks without claiming database evidence.
 
 ## Pending
 

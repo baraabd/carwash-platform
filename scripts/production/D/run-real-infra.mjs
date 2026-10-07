@@ -19,13 +19,14 @@
  * Scope: one real PostgreSQL server and one single-node broker for this run.
  * It is not a high-availability, browser, provider or production proof.
  */
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bootstrapSharedTopology } from '../../acceptance/lib/broker.mjs';
 import { readContextFile } from '../../acceptance/lib/context.mjs';
+import { testResults } from './test-results.mjs';
 import {
   createShadowDatabase,
   dropShadowDatabase,
@@ -127,11 +128,14 @@ async function main() {
   // acceptance runner does before any producer or subscriber connects.
   await bootstrapSharedTopology(context);
   const result = await runSuites(suites, { ...process.env, CW_CONTEXT_FILE: file });
-  const summary = (name) =>
-    Number(new RegExp(`^ℹ ${name} (\\d+)`, 'm').exec(result.output)?.[1] ?? NaN);
+  const tests = testResults(result.output, result.code, result.signal);
+  const git = (...args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
 
   const evidence = {
     gate: 'lane-d-real-infra',
+    sourceSha: git('rev-parse', 'HEAD'),
+    sourceTree: git('rev-parse', 'HEAD^{tree}'),
+    sourceDirty: git('status', '--porcelain', '--untracked-files=normal') !== '',
     runId: context.runId,
     images: context.images,
     suites,
@@ -146,7 +150,7 @@ async function main() {
       ),
     ),
     migrations,
-    tests: { pass: summary('pass'), fail: summary('fail'), skipped: summary('skipped') },
+    tests,
     exitCode: result.code,
     scope:
       'Real PostgreSQL 16 and single-node RabbitMQ 4 for one ephemeral run. Not HA, not a ' +
@@ -155,7 +159,7 @@ async function main() {
   const out = option('evidence');
   if (out) await writeFile(out, `${JSON.stringify(evidence, null, 2)}\n`);
   console.log(JSON.stringify(evidence.tests));
-  process.exit(result.signal ? 1 : (result.code ?? 1));
+  process.exit(tests.accepted ? 0 : 1);
 }
 
 main().catch((error) => {

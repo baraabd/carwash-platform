@@ -80,6 +80,8 @@ export class DeliveryWorker {
     },
   ) {
     if (!/^[A-Za-z0-9._:-]{1,64}$/.test(options.workerId)) throw new Error('INVALID_WORKER_ID');
+    if (!Number.isSafeInteger(options.batchSize) || options.batchSize < 1)
+      throw new Error('INVALID_BATCH_SIZE');
     if (options.submitTimeoutMs <= 0) throw new Error('INVALID_SUBMIT_TIMEOUT');
     // A submission must finish well inside the lease, or a second worker could
     // claim the intent while the first is still waiting on the provider.
@@ -92,14 +94,6 @@ export class DeliveryWorker {
   }
 
   async runOnce(): Promise<DeliveryRunReport> {
-    const claimed = await this.repository.claimDue({
-      now: this.clock.now(),
-      workerId: this.options.workerId,
-      limit: this.options.batchSize,
-      leaseMs: this.policy.leaseMs,
-      idempotentProvider: this.provider.idempotentSubmission,
-      maxAttempts: this.policy.maxAttempts,
-    });
     const outcomes: Record<SubmissionOutcome['kind'], number> = {
       ACCEPTED: 0,
       REJECTED: 0,
@@ -108,7 +102,21 @@ export class DeliveryWorker {
     };
     let completed = 0;
     let fencedOut = 0;
-    for (const delivery of claimed) {
+    let claimed = 0;
+    for (let index = 0; index < this.options.batchSize; index += 1) {
+      // A batch bounds this pass, not a reservation of future submissions.
+      // If this process stops while submitting one intent, all later intents
+      // remain QUEUED and can still be delivered by a non-idempotent provider.
+      const [delivery] = await this.repository.claimDue({
+        now: this.clock.now(),
+        workerId: this.options.workerId,
+        limit: 1,
+        leaseMs: this.policy.leaseMs,
+        idempotentProvider: this.provider.idempotentSubmission,
+        maxAttempts: this.policy.maxAttempts,
+      });
+      if (!delivery) break;
+      claimed += 1;
       const outcome = await this.submit(delivery);
       outcomes[outcome.kind] += 1;
       const now = this.clock.now();
@@ -131,7 +139,7 @@ export class DeliveryWorker {
       if (written) completed += 1;
       else fencedOut += 1;
     }
-    return { claimed: claimed.length, completed, fencedOut, outcomes };
+    return { claimed, completed, fencedOut, outcomes };
   }
 
   private async submit(delivery: ClaimedDelivery): Promise<SubmissionOutcome> {

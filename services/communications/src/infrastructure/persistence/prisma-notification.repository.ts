@@ -223,17 +223,8 @@ export class PrismaNotificationRepository
   async complete(input: Parameters<NotificationRepository['complete']>[0]): Promise<boolean> {
     const { notificationId, fence, attempt, outcome, transition, now } = input;
     return this.client.$transaction(async (tx) => {
-      // The attempt row always records what this claim actually observed, even
-      // when it lost: a late ACCEPTED is evidence reconciliation needs.
-      await tx.deliveryAttempt.updateMany({
-        where: { notificationId, attemptNo: attempt, fence },
-        data: {
-          finishedAt: now,
-          outcome,
-          providerMessageId: transition.providerMessageId,
-          errorCode: transition.errorCode,
-        },
-      });
+      // Lock the notification before its attempt, exactly as lease expiry and
+      // reclaim do. The reverse order deadlocks with a concurrent sweeper.
       // Same fence and still SENDING, or UNKNOWN because this very claim's
       // lease lapsed with no newer claim since: then this claim's answer is
       // the best fact available. A receipt or a newer claim always wins.
@@ -247,6 +238,17 @@ export class PrismaNotificationRepository
           leaseOwner: null,
           leaseUntil: null,
           updatedAt: now,
+        },
+      });
+      // The attempt row always records what this claim actually observed, even
+      // when it lost: a late ACCEPTED is evidence reconciliation needs.
+      await tx.deliveryAttempt.updateMany({
+        where: { notificationId, attemptNo: attempt, fence },
+        data: {
+          finishedAt: now,
+          outcome,
+          providerMessageId: transition.providerMessageId,
+          errorCode: transition.errorCode,
         },
       });
       return moved.count === 1;

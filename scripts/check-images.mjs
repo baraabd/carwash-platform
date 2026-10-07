@@ -21,6 +21,7 @@
  *   node scripts/check-images.mjs catalog reporting   explicit services
  */
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,6 +30,7 @@ import { run } from './acceptance/lib/exec.mjs';
 import {
   verifiedNonRoot,
   verifiedNoBakedSecrets,
+  verifiedReadiness,
   BAKED_SECRET_PROBE,
 } from './lib/image-probes.mjs';
 
@@ -37,8 +39,17 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 /** Must match the Dockerfile default and the image the acceptance run pins. */
 const NODE_IMAGE = 'node:24.21.0-bookworm-slim';
 
-/** The Sprint 0.2 messaging slice; enough to prove the shared Dockerfile works. */
-const DEFAULT_SERVICES = ['catalog', 'communications', 'reporting'];
+/**
+ * Every owner runtime that boots with only a database DSN. identity needs Redis
+ * and signing/CSRF/OTP key material to start, so this boot contract cannot
+ * prove anything about it; it is excluded by name rather than silently.
+ */
+const NEEDS_FULL_PROFILE = new Set(['identity']);
+const DEFAULT_SERVICES = JSON.parse(
+  readFileSync(path.join(ROOT, 'architecture/service-catalog.json'), 'utf8'),
+)
+  .services.map((service) => service.id)
+  .filter((id) => !NEEDS_FULL_PROFILE.has(id));
 
 /**
  * Generous by default because the slow step is `pnpm install` inside the build,
@@ -92,10 +103,10 @@ async function buildImage(service, tag) {
 }
 
 /** Poll an endpoint from INSIDE the container, so no port has to be published. */
-async function probe(container, pathname) {
+async function probe(container, pathname, limit = 200) {
   const script =
     `fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'${pathname}')` +
-    `.then(async r=>{process.stdout.write(r.status+' '+(await r.text()).slice(0,200));process.exit(0)})` +
+    `.then(async r=>{process.stdout.write(r.status+' '+(await r.text()).slice(0,${limit}));process.exit(0)})` +
     `.catch(e=>{process.stdout.write('ERR '+e.message);process.exit(1)})`;
   const result = await docker(['exec', container, 'node', '-e', script], { timeoutMs: 60_000 });
   return result.stdout.trim();
@@ -184,16 +195,15 @@ async function verifyService(service) {
       return results;
     }
 
-    // ---- readiness is deliberately 503 ----
-    const ready = await probe(container, '/health/ready');
+    // ---- readiness: never 200 without a reachable database ----
+    // The DSN points at a closed port, so dependencies are DOWN by construction.
+    // A foundation shell must answer FOUNDATION_NOT_READY; an implemented
+    // service must answer DEPENDENCY_DOWN. Either way dependenciesReady is false.
+    const ready = await probe(container, '/health/ready', 8000);
+    const verdict = verifiedReadiness(ready);
+    const label = 'readiness is 503 with an honest code while the database is unreachable';
     results.push(
-      ready.startsWith('503')
-        ? pass(service, 'readiness is 503 (foundation-only, correct)', ready.slice(0, 120))
-        : fail(
-            service,
-            'readiness is 503 (foundation-only, correct)',
-            `expected 503 for a foundation shell, got: ${ready.slice(0, 200)}`,
-          ),
+      verdict.ok ? pass(service, label, verdict.detail) : fail(service, label, verdict.detail),
     );
 
     // ---- no secrets baked in ----

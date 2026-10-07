@@ -1,6 +1,6 @@
 {
   "name": "@carwash/event-contracts",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "private": true,
   "type": "commonjs",
   "main": "dist/index.js",
@@ -25,6 +25,14 @@
     "./registry": {
       "types": "./dist/registry.d.ts",
       "default": "./dist/registry.js"
+    },
+    "./envelope-v2": {
+      "types": "./dist/envelope-v2.d.ts",
+      "default": "./dist/envelope-v2.js"
+    },
+    "./business-v1": {
+      "types": "./dist/business-v1.d.ts",
+      "default": "./dist/business-v1.js"
     }
   },
   "files": [

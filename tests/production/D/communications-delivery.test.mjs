@@ -399,3 +399,117 @@ test('C13: the real HTTP adapter turns an unanswered request into UNKNOWN end to
   const view = await repository.find(id);
   assert.deepEqual([view.state, view.lastErrorCode], ['UNKNOWN', 'PROVIDER_TIMEOUT']);
 });
+
+test('C14: pending submission leaves later intents queued with no attempt or expiring lease', async () => {
+  await quiesce();
+  const time = clock();
+  const ids = [await enqueue(time), await enqueue(time), await enqueue(time)];
+  const entered = Promise.withResolvers();
+  const answer = Promise.withResolvers();
+  const provider = scripted([
+    () => {
+      entered.resolve();
+      return answer.promise;
+    },
+    { kind: 'ACCEPTED', providerMessageId: 'remaining' },
+  ]);
+  const run = worker(provider, time, { batchSize: 3 }).runOnce();
+  await entered.promise;
+  try {
+    const pendingId = provider.calls[0].idempotencyKey.replace('cw-notification:', '');
+    for (const id of ids.filter((candidate) => candidate !== pendingId)) {
+      assert.equal(await state(id), 'QUEUED');
+      assert.equal((await attempts(id)).length, 0, 'unsent work has no sender lease to expire');
+    }
+  } finally {
+    answer.resolve({ kind: 'ACCEPTED', providerMessageId: 'first' });
+    await run;
+  }
+  for (const id of ids) assert.equal(await state(id), 'PROVIDER_ACCEPTED');
+});
+
+for (const idempotentProvider of [false, true]) {
+  test(`C15: completion and lease expiry use one lock order (idempotent=${idempotentProvider})`, async () => {
+    await quiesce();
+    const time = clock();
+    const id = await enqueue(time);
+    const claimOptions = {
+      now: time.now(),
+      workerId: 'lock-order-first',
+      limit: 1,
+      leaseMs: 5_000,
+      idempotentProvider,
+      maxAttempts: DEFAULT_DELIVERY_POLICY.maxAttempts,
+    };
+    const [claim] = await repository.claimDue(claimOptions);
+    assert.equal(claim.notificationId, id);
+    time.advance(5_001);
+
+    // Pause a real sweeper transaction while it owns the notification row.
+    // Let completion reach its first row, then release the sweeper to close
+    // the attempt. Attempt-first completion would now deadlock PostgreSQL.
+    const sweeperLocked = Promise.withResolvers();
+    const releaseSweeper = Promise.withResolvers();
+    const completionStarted = Promise.withResolvers();
+    const sweeperClient = client.$extends({
+      query: {
+        notification: {
+          async updateMany({ args, query }) {
+            const result = await query(args);
+            if (result.count === 1) {
+              sweeperLocked.resolve();
+              await releaseSweeper.promise;
+            }
+            return result;
+          },
+        },
+      },
+    });
+    const completionClient = client.$extends({
+      query: {
+        notification: {
+          async updateMany({ args, query }) {
+            completionStarted.resolve();
+            return query(args);
+          },
+        },
+        deliveryAttempt: {
+          async updateMany({ args, query }) {
+            const result = await query(args);
+            completionStarted.resolve();
+            return result;
+          },
+        },
+      },
+    });
+    const sweep = new PrismaNotificationRepository(sweeperClient).claimDue({
+      ...claimOptions,
+      now: time.now(),
+      workerId: 'lock-order-sweeper',
+    });
+    await sweeperLocked.promise;
+    const completion = new PrismaNotificationRepository(completionClient).complete({
+      notificationId: id,
+      fence: claim.fence,
+      attempt: claim.attempt,
+      outcome: 'ACCEPTED',
+      transition: {
+        state: 'PROVIDER_ACCEPTED',
+        nextAttemptAt: null,
+        providerMessageId: 'lock-order-accepted',
+        errorCode: null,
+      },
+      now: time.now(),
+    });
+    try {
+      await completionStarted.promise;
+    } finally {
+      releaseSweeper.resolve();
+    }
+    const [claimed, written] = await Promise.all([sweep, completion]);
+    assert.equal(claimed.length, idempotentProvider ? 1 : 0);
+    assert.equal(written, !idempotentProvider, 'a newer fence wins; an unchanged fence resolves');
+    assert.equal(await state(id), idempotentProvider ? 'SENDING' : 'PROVIDER_ACCEPTED');
+    assert.equal((await attempts(id))[0].outcome, 'ACCEPTED', 'late evidence is preserved');
+  });
+}
