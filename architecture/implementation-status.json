@@ -25,49 +25,84 @@
     "F002": {
       "status": "merged-and-verified",
       "capability": "Pinned Node/pnpm toolchain and frozen dependency discipline.",
-      "evidence": ["PR #1", ".nvmrc", "pnpm-lock.yaml", "scripts/verify-toolchain.mjs"],
+      "evidence": [
+        "PR #1",
+        ".nvmrc",
+        "pnpm-lock.yaml",
+        "scripts/verify-toolchain.mjs"
+      ],
       "verificationRecord": "foundation-2026-10-01"
     },
     "F003": {
       "status": "merged-and-verified",
       "capability": "Clean-architecture service template and layer enforcement for foundation runtimes.",
-      "evidence": ["PR #4", "PR #5", "packages/service-kit", "scripts/check-layers.mjs"],
+      "evidence": [
+        "PR #4",
+        "PR #5",
+        "packages/service-kit",
+        "scripts/check-layers.mjs"
+      ],
       "verificationRecord": "foundation-2026-10-01"
     },
     "F004": {
       "status": "merged-and-verified",
       "capability": "PostgreSQL ownership, migration-role isolation and schema-drift acceptance.",
-      "evidence": ["PR #7", "scripts/check-migrations.mjs", "scripts/acceptance"],
+      "evidence": [
+        "PR #7",
+        "scripts/check-migrations.mjs",
+        "scripts/acceptance"
+      ],
       "verificationRecord": "foundation-2026-10-01"
     },
     "F005": {
       "status": "merged-and-verified",
       "capability": "RabbitMQ foundation with durable Outbox/Inbox delivery semantics.",
-      "evidence": ["PR #6", "packages/platform-messaging", "tests/integration"],
+      "evidence": [
+        "PR #6",
+        "packages/platform-messaging",
+        "tests/integration"
+      ],
       "verificationRecord": "foundation-2026-10-01"
     },
     "F006": {
       "status": "merged-and-verified",
       "capability": "Identity-owned authentication, sessions, Redis-backed browser security and authorization foundation.",
-      "evidence": ["PR #8", "services/identity", "scripts/acceptance-identity.mjs"],
+      "evidence": [
+        "PR #8",
+        "services/identity",
+        "scripts/acceptance-identity.mjs"
+      ],
       "verificationRecord": "foundation-2026-10-01"
     },
     "F007": {
       "status": "merged-and-verified",
       "capability": "Stateless API gateway with verified authentication and BFF routing contracts.",
-      "evidence": ["PR #10", "PR #13", "apps/api-gateway", ".github/workflows/f007-gateway.yml"],
+      "evidence": [
+        "PR #10",
+        "PR #13",
+        "apps/api-gateway",
+        ".github/workflows/f007-gateway.yml"
+      ],
       "verificationRecord": "foundation-2026-10-01"
     },
     "F008": {
       "status": "merged-and-verified",
       "capability": "Correlated redacted observability with durable HTTP-to-message trace propagation.",
-      "evidence": ["PR #14", "packages/observability", ".github/workflows/f008-observability.yml"],
+      "evidence": [
+        "PR #14",
+        "packages/observability",
+        ".github/workflows/f008-observability.yml"
+      ],
       "verificationRecord": "foundation-2026-10-01"
     },
     "F009": {
       "status": "merged-and-verified",
       "capability": "Fail-closed CI/security, CodeQL, dependency/secret scanning and independently verified runtime images.",
-      "evidence": ["PR #16", ".github/workflows/f009-foundation.yml", "scripts/ci"],
+      "evidence": [
+        "PR #16",
+        ".github/workflows/f009-foundation.yml",
+        "scripts/ci"
+      ],
       "verificationRecord": "foundation-2026-10-01"
     },
     "F010": {
@@ -87,7 +122,9 @@
       "id": "identity",
       "path": "services/identity",
       "runtimeImplementation": "implemented-capability-runtime",
-      "acceptedCapabilities": ["identity-security-v1"],
+      "acceptedCapabilities": [
+        "identity-security-v1"
+      ],
       "database": "cw_identity",
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
@@ -112,7 +149,9 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -125,7 +164,9 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -138,7 +179,21 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker", "FoundationProbe", "OutboxMessage"],
+      "persistenceModels": [
+        "ServiceMarker",
+        "FoundationProbe",
+        "OutboxMessage",
+        "CatalogPublicationLock",
+        "CatalogRevision",
+        "CatalogVehicleCategory",
+        "CatalogPackage",
+        "CatalogAddon",
+        "CatalogPackageCategory",
+        "CatalogAddonCategory",
+        "CatalogPackageAddon",
+        "CatalogIdempotencyReceipt",
+        "CatalogAuditEvent"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -151,7 +206,9 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -164,7 +221,9 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -177,7 +236,9 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -190,7 +251,9 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -203,7 +266,9 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -216,7 +281,9 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -229,7 +296,9 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -242,7 +311,9 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -255,7 +326,9 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -268,7 +341,11 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker", "InboxMessage", "ProbeNotification"],
+      "persistenceModels": [
+        "ServiceMarker",
+        "InboxMessage",
+        "ProbeNotification"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -281,7 +358,9 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -294,7 +373,9 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -307,7 +388,9 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -320,7 +403,11 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker", "InboxMessage", "ProbeProjection"],
+      "persistenceModels": [
+        "ServiceMarker",
+        "InboxMessage",
+        "ProbeProjection"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
@@ -333,7 +420,9 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     }
@@ -375,7 +464,10 @@
     },
     "api-gateway": {
       "status": "foundation-gateway-runtime",
-      "evidence": ["apps/api-gateway", ".github/workflows/f007-gateway.yml"],
+      "evidence": [
+        "apps/api-gateway",
+        ".github/workflows/f007-gateway.yml"
+      ],
       "businessIntegration": "not-implemented",
       "productionReady": false,
       "currentCandidateAcceptance": "not-verified-on-current-candidate"
@@ -394,7 +486,10 @@
       "sourceSha": "f364792d78cf572444df8093c2e4c6315becdae9",
       "scope": "historical-F001-F010-foundation",
       "appliesToCurrentCandidate": false,
-      "evidence": ["docs/VERIFICATION.md", "docs/F010_IMPLEMENTATION.md"],
+      "evidence": [
+        "docs/VERIFICATION.md",
+        "docs/F010_IMPLEMENTATION.md"
+      ],
       "note": "Preserves the source-dated X002 foundation record. Historical F001-F010 acceptance does not certify the W01 runtime onboarding candidate or product integration."
     }
   },
