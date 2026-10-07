@@ -1,0 +1,1726 @@
+{
+  "schemaVersion": 1,
+  "task": "W10-B",
+  "recordKind": "LOCAL_PROPOSED_ACCEPTANCE_SPECIFICATIONS",
+  "proposalStatus": "PROPOSED_NOT_ACCEPTED",
+  "parentStatus": "NOT_STARTED",
+  "observedTargetSha": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+  "observedTargetTree": "9288ac9a1320221f309ce33b571a057f5ec2ea57",
+  "acceptedBaseW10": null,
+  "acceptedCandidate": null,
+  "caseFamilyCount": 28,
+  "requiredBusinessCaseStatus": "NOT_RUN",
+  "fullLaunchRecommendation": "NO_GO",
+  "executionBoundary": "Future E serialized gate only after accepted real producers/current authority and allocated resources; no invented command, skipped PASS or live-money authorization.",
+  "commonPrerequisites": [
+    "Accepted actual BASE_W10/RC/provenance, published finance contracts and implemented owner DB/HTTP/current Identity/constraints/audit/outbox/inbox providers.",
+    "Actual approved Money, business/design/provider/holder/purpose/privacy/recovery decisions and independently named eligible operators/reviewers.",
+    "Real merged A/C/D consumers, C capacity/work/Media facts, accepted intended artifacts/config/job/migrations and E allocated isolated runtime/resources/commands.",
+    "Actual genuine authorized non-money provider evidence; genuine historical input OR independently verified absence plus approved separately labeled fixtures, without waiving real runtime/upgrade/recovery gates.",
+    "Independent expected financial partitions derived before fault/restore/import, not copied from candidate output; protected retained evidence and accepted coverage/clock/fault/budget criteria."
+  ],
+  "evidenceRules": [
+    "Each listed scenario/leaf assertion needs its own actual receipt; a case family label alone does not constitute complete coverage.",
+    "NOT_RUN/BLOCKED/SKIPPED/CANCELLED/absent is never PASS. No source/model/fixture/screenshot/proof/navigation substitutes for its required real layer.",
+    "Bind source/tree/images/config/contracts/policy/grants/cuts/dataset/run/attempt/result/artifact/independent reviewer; invalidate applicable acceptance when inputs change.",
+    "Actual totals/counts/pending inventory stay null until independently sourced; missing historical access is not verified absence; missing pending inventory is not empty.",
+    "Use permanent business uniqueness and original provider/economic identities; fresh execution/incarnation fences reject stale workers without changing economic identity.",
+    "Retain original immutable terminal result separately from versioned pending-status observations; current authority applies to replay/status/download.",
+    "Full launch requires every approved scope/provider and mandatory source/migration/security/current-authority/independent-review gate on actual resulting target; deployment remains a separate authorized decision."
+  ],
+  "predecessorRegressions": [
+    {
+      "task": "W08-B",
+      "path": "tests/parallel/B/W08/acceptance-specifications.json",
+      "caseCount": 31,
+      "status": "NOT_RUN",
+      "oldAcceptanceTransferred": false
+    },
+    {
+      "task": "W09-B",
+      "path": "tests/parallel/B/W09/acceptance-specifications.json",
+      "caseCount": 24,
+      "status": "NOT_RUN",
+      "oldAcceptanceTransferred": false
+    },
+    {
+      "task": "W09-E",
+      "path": "docs/parallel/E/W09/OPERATING_ROSTER_AND_DRILLS.md",
+      "drillCount": 34,
+      "status": "BLOCKED_NOT_RUN",
+      "oldAcceptanceTransferred": false
+    }
+  ],
+  "actualNamedReviewers": null,
+  "actualPacketDeliveryAck": null,
+  "actualReconciliationTotals": null,
+  "actualPendingOperationInventory": null,
+  "actualAcceptedProviderEnvironments": null,
+  "actualResultingTargetSignoff": null,
+  "cases": [
+    {
+      "id": "W10-B-ENTRY-01",
+      "title": "Admit real accepted candidate and executable provenance",
+      "required": true,
+      "scopeFamilies": [
+        "F01",
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F06",
+        "F07",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16",
+        "F17",
+        "F18"
+      ],
+      "retainedW07Functions": [
+        "F01",
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F06",
+        "F07",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16",
+        "F17",
+        "F18",
+        "F19",
+        "F20",
+        "F21",
+        "F22",
+        "F23",
+        "F24",
+        "F25",
+        "F26",
+        "F27",
+        "F28",
+        "F29",
+        "F30",
+        "F31",
+        "F32",
+        "F33",
+        "F34",
+        "F35"
+      ],
+      "policyDecisionIds": ["B-01"],
+      "authoritativeOwnerRoles": ["E", "B", "Independent reviewer"],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": ["source", "artifact/provenance", "release review"],
+      "blockerIds": ["ENTRY_BASE", "ARTIFACT_ENV", "INDEPENDENT_REVIEW"],
+      "steps": [
+        "Obtain E accepted BASE_W10/RC and full latest target/head/candidate parents/tree, lock/contracts/policies and intended environment; do not use this proposal parent as RC.",
+        "Retrieve and verify published/pulled image and immutable migration/job/config/secret-version references, retained bytes/digests and compatible prior populated source/schema; validate exact accepted gate manifest.",
+        "Change a bound source/config/artifact/ref in a controlled authorized test and prove affected acceptance invalidation and actual candidate recomputation; verify unchanged refs before decision."
+      ],
+      "expected": [
+        "Missing, unsupported, mismatched or unavailable mandatory provenance rejects admission; no historical CI transfers to a different head/target/image.",
+        "All mandatory and affected gates retain actual run/attempt/source/tree/artifact identities; finance signoff refers only to verified resulting target."
+      ],
+      "requiredEvidence": [
+        "Accepted immutable manifest and retained artifact/provenance receipts",
+        "Actual compatibility/invalidation/ref-check records",
+        "Named independent admission review"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-SCOPE-01",
+      "title": "Reconcile full inventory, provider decision and three-app design",
+      "required": true,
+      "scopeFamilies": [
+        "F01",
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F06",
+        "F07",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16",
+        "F17",
+        "F18"
+      ],
+      "retainedW07Functions": [
+        "F01",
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F06",
+        "F07",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16",
+        "F17",
+        "F18",
+        "F19",
+        "F20",
+        "F21",
+        "F22",
+        "F23",
+        "F24",
+        "F25",
+        "F26",
+        "F27",
+        "F28",
+        "F29",
+        "F30",
+        "F31",
+        "F32",
+        "F33",
+        "F34",
+        "F35"
+      ],
+      "policyDecisionIds": [
+        "B-02",
+        "B-03",
+        "B-04",
+        "B-05",
+        "B-06",
+        "B-07",
+        "B-08",
+        "B-09",
+        "B-10",
+        "B-11",
+        "B-12",
+        "B-13",
+        "B-14",
+        "B-15"
+      ],
+      "authoritativeOwnerRoles": ["B", "Product/accounting/privacy/provider owners", "A/C/D", "E"],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": ["source/contract", "policy", "three-app/browser"],
+      "blockerIds": [
+        "POLICY_DECISIONS",
+        "BUSINESS_PRODUCERS",
+        "APP_CONSUMERS",
+        "PROVIDER_ACCEPTANCE"
+      ],
+      "steps": [
+        "Map W01 source inventory, all 35 W07 functions/five shared gates and accepted later requirements to actual final code/contracts, each app entry/state and real evidence.",
+        "Inspect actual approved Paymera decision and genuine provider documentation; verify faithful required scope without silent exclusion or unapproved fourth UI method.",
+        "Exercise seven customer steps, approved Cash/ShamCash/Syriatel choices, guest and optional plate; inspect operator/admin actual state/error maps and approved missing production copy."
+      ],
+      "expected": [
+        "Missing required feature/provider/commercial or design decision remains NO_GO; none is moved to a later wave to declare full launch complete.",
+        "Wallet required funding/spend/refund is limited to approved holder/purpose and Billing backing; no new customer stored-value, marketplace/payroll/provider-plan/automatic-debit product."
+      ],
+      "requiredEvidence": [
+        "Complete function-to-source/contract/app/case crosswalk",
+        "Actual approved policy/design/provider decisions",
+        "Real three-app/browser and accessibility/visual evidence with environment declared"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-CAT-01",
+      "title": "Real Catalog publication, administration and historical applicability",
+      "required": true,
+      "scopeFamilies": ["F01", "F03", "F05"],
+      "retainedW07Functions": ["F01"],
+      "policyDecisionIds": ["B-04", "B-13", "B-14"],
+      "authoritativeOwnerRoles": ["Catalog", "D admin", "A/C consumers"],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "owned PostgreSQL/migration",
+        "HTTP/current Identity",
+        "three-app/browser"
+      ],
+      "blockerIds": [
+        "BUSINESS_PRODUCERS",
+        "POLICY_DECISIONS",
+        "APP_CONSUMERS",
+        "CURRENT_AUTHORITY"
+      ],
+      "steps": [
+        "Use actual approved definitions/durations/compatibility and current admin to create/review/publish/retire and retrieve immutable historical revisions.",
+        "Contend same revision publication, revoked/foreign roles and invalid or included add-ons; reauthorize execution after preview.",
+        "Quote and rebook against current active definitions while displaying old snapshot/receipt after retirement; run real admin/customer/operator consumers."
+      ],
+      "expected": [
+        "Only accepted owner grants/CAS can publish; incompatible or retired input is rejected according to real policy.",
+        "Old meanings/durations remain immutable and resolvable; no fixture product data becomes production approval."
+      ],
+      "requiredEvidence": [
+        "Actual DB upgrade/constraints/audit receipts",
+        "Current-authority conflict traces",
+        "Published revision and real app/historical-resolution evidence"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-PRICE-01",
+      "title": "Exact Money, fees/taxes, version governance and immutable quote",
+      "required": true,
+      "scopeFamilies": ["F02", "F03", "F06", "F09"],
+      "retainedW07Functions": ["F02", "F03", "F04", "F05", "F13"],
+      "policyDecisionIds": ["B-03", "B-04", "B-05", "B-13", "B-14"],
+      "authoritativeOwnerRoles": [
+        "Pricing",
+        "Billing",
+        "Catalog inputs",
+        "D admin/Configuration",
+        "A/C"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "owned PostgreSQL/migration",
+        "HTTP/current Identity",
+        "three-app/browser"
+      ],
+      "blockerIds": ["BUSINESS_PRODUCERS", "POLICY_DECISIONS", "APP_CONSUMERS"],
+      "steps": [
+        "Admit actual currency/exponent/bounds/denomination/rounding and fee/tax/travel rules; test malformed, overflow, mixed-currency and boundary quantities against independent exact oracle.",
+        "Exercise real admin review/hash/current-grant/CAS/effective publish/retire/history, clock boundaries and activation restart; verify quote honors only accepted policy.",
+        "Create server immutable quote with exact revisions/breakdown/expiry; forge client total, replay after price change, and verify old snapshot/expiry retained and new eligible quote uses current policy."
+      ],
+      "expected": [
+        "Missing policy fails closed, never supplies zero fee/tax or guessed two-decimal/default prices.",
+        "Every eligible posting is balanced by currency; no floating-point client total or pure helper authorizes money."
+      ],
+      "requiredEvidence": [
+        "Independent per-currency calculation oracle",
+        "Real governance/clock/replay/restart and DB constraint receipts",
+        "Real customer/operator/admin quote and history evidence"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-CASH-01",
+      "title": "Real assigned collection and owned receipt across three apps",
+      "required": true,
+      "scopeFamilies": ["F06", "F09", "F10", "F16"],
+      "retainedW07Functions": ["F13", "F14", "F30", "F33"],
+      "policyDecisionIds": ["B-03", "B-04", "B-06", "B-07", "B-15"],
+      "authoritativeOwnerRoles": [
+        "Billing",
+        "C work/assignment",
+        "A customer",
+        "C operator",
+        "D admin"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": ["owned PostgreSQL", "HTTP/current Identity", "three-app/browser"],
+      "blockerIds": [
+        "BUSINESS_PRODUCERS",
+        "APP_CONSUMERS",
+        "POLICY_DECISIONS",
+        "CURRENT_AUTHORITY"
+      ],
+      "steps": [
+        "Registered customer and guest with present/absent plate create actual accepted C booking/capacity and Billing obligation; use real assigned operator current collection authority.",
+        "Collect actual authorized amount once; race same key/different keys, lose commit reply, revoke collector and try foreign/late collection under actual timing policy.",
+        "Resolve original durable receipt/posting; customer reads only own/guest-bound receipt, operator sees separate work/payment, admin retrieves actual revision/as-of/history and discrepancy."
+      ],
+      "expected": [
+        "One balanced immutable collection and receipt per economic identity; same semantic retry returns original outcome after fresh access checks.",
+        "Cash collection does not mark work complete, move custody or prove treasury settlement; proof/navigation cannot manufacture receipt."
+      ],
+      "requiredEvidence": [
+        "Actual collection/posting/receipt/ownership traces",
+        "Concurrent/lost-reply/revoked/foreign results",
+        "Independent three-app identities and real financial oracle"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-CASH-02",
+      "title": "Physical custody, independent handover and treasury discrepancies",
+      "required": true,
+      "scopeFamilies": ["F08", "F10", "F11", "F12", "F18"],
+      "retainedW07Functions": ["F15", "F16", "F22", "F30", "F31", "F33"],
+      "policyDecisionIds": ["B-03", "B-06", "B-07", "B-08"],
+      "authoritativeOwnerRoles": [
+        "Wallet",
+        "Billing",
+        "C Workforce holder",
+        "Treasury receiver",
+        "D Support/admin"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "owned PostgreSQL",
+        "HTTP/current Identity",
+        "physical/evidence reconciliation",
+        "three-app"
+      ],
+      "blockerIds": [
+        "BUSINESS_PRODUCERS",
+        "POLICY_DECISIONS",
+        "OPERATIONAL_OWNERS",
+        "APP_CONSUMERS"
+      ],
+      "steps": [
+        "Record approved holder/purpose custody from actual eligible Billing collection; change work assignment and prove prior held cash remains with original holder.",
+        "Use distinct authorized sender/receiver to preview/recheck handover, deliver and independently accept; race partial/refused/duplicate/short/over/correction paths.",
+        "Compare genuine independently sourced physical holder count, collection, accepted handover and actual treasury facts per currency/cut; display honest differences and linked remedy without dashboard mutation."
+      ],
+      "expected": [
+        "Custody/handover/treasury remain separate authoritative facts; declaration and self-approval cannot settle them.",
+        "Short/over/missing evidence stays assigned unresolved discrepancy; no fabricated credit, deleted history or technician earnings inference."
+      ],
+      "requiredEvidence": [
+        "Actual holder/receiver authority and physical evidence",
+        "Billing/Wallet/treasury receipts and independent partitions",
+        "Real discrepancy/remedy/status evidence"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-ELEC-01",
+      "title": "Genuine ShamCash verification/refund and reconciliation",
+      "required": true,
+      "scopeFamilies": ["F06", "F07", "F08", "F18"],
+      "retainedW07Functions": ["F17", "F20", "F21", "F22", "F33"],
+      "policyDecisionIds": ["B-02", "B-03", "B-06", "B-11", "B-12"],
+      "authoritativeOwnerRoles": [
+        "Billing",
+        "ShamCash account/provider owner",
+        "Independent verifier",
+        "A/C/D"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "genuine approved non-money provider",
+        "owned PostgreSQL/HTTP",
+        "three-app"
+      ],
+      "blockerIds": [
+        "PROVIDER_ACCEPTANCE",
+        "BUSINESS_PRODUCERS",
+        "APP_CONSUMERS",
+        "POLICY_DECISIONS"
+      ],
+      "steps": [
+        "Obtain genuine entitled ShamCash merchant/environment/protocol, native IDs, amount/currency/recipient/finality/inquiry/refund rules and explicit non-money authority; unsupported path stays blocked.",
+        "Run real customer review-only reference/proof, authenticated provider/native inquiry, authorized admin verification and full/partial refund; operator observes independent work/payment facts.",
+        "Inject forged/reordered/duplicate/mismatched/late callbacks and lost submit/reply; inquire original operation before possible-money retry and reconcile real receipt, allocation, exposure and settlement in all apps."
+      ],
+      "expected": [
+        "Actual ShamCash evidence is independently required; another provider, fixture, QR/proof or reviewer badge cannot substitute.",
+        "Authenticated financial effect stays distinct from allocation, settlement, capacity and review; UNKNOWN exposure is durable and bounded by accepted rules."
+      ],
+      "requiredEvidence": [
+        "Genuine ShamCash dossier/authorization/native protected evidence",
+        "Real independent verification/refund/inquiry/statement receipts",
+        "Three-app and per-currency immutable financial reconciliation"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-ELEC-02",
+      "title": "Genuine Syriatel Cash verification/refund and reconciliation",
+      "required": true,
+      "scopeFamilies": ["F06", "F07", "F08", "F18"],
+      "retainedW07Functions": ["F18", "F20", "F21", "F22", "F33"],
+      "policyDecisionIds": ["B-02", "B-03", "B-06", "B-11", "B-12"],
+      "authoritativeOwnerRoles": [
+        "Billing",
+        "Syriatel Cash account/provider owner",
+        "Independent verifier",
+        "A/C/D"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "genuine approved non-money provider",
+        "owned PostgreSQL/HTTP",
+        "three-app"
+      ],
+      "blockerIds": [
+        "PROVIDER_ACCEPTANCE",
+        "BUSINESS_PRODUCERS",
+        "APP_CONSUMERS",
+        "POLICY_DECISIONS"
+      ],
+      "steps": [
+        "Obtain genuine entitled Syriatel Cash merchant/environment/protocol, native IDs, amount/currency/recipient/finality/inquiry/refund rules and explicit non-money authority; unsupported path stays blocked.",
+        "Run real customer review-only reference/proof, authenticated provider/native inquiry, authorized admin verification and full/partial refund; operator observes independent work/payment facts.",
+        "Inject forged/reordered/duplicate/mismatched/late callbacks and lost submit/reply; inquire original operation before possible-money retry and reconcile real receipt, allocation, exposure and settlement in all apps."
+      ],
+      "expected": [
+        "Actual Syriatel Cash evidence is independently required; another provider, fixture, QR/proof or reviewer badge cannot substitute.",
+        "Authenticated financial effect stays distinct from allocation, settlement, capacity and review; UNKNOWN exposure is durable and bounded by accepted rules."
+      ],
+      "requiredEvidence": [
+        "Genuine Syriatel Cash dossier/authorization/native protected evidence",
+        "Real independent verification/refund/inquiry/statement receipts",
+        "Three-app and per-currency immutable financial reconciliation"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-ELEC-03",
+      "title": "Resolve and faithfully accept required Paymera scope",
+      "required": true,
+      "scopeFamilies": ["F07", "F08", "F18"],
+      "retainedW07Functions": ["F19", "F20", "F21", "F22", "F33"],
+      "policyDecisionIds": ["B-02", "B-11", "B-14"],
+      "authoritativeOwnerRoles": ["Product/provider owner", "Billing", "E", "A/C/D"],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": ["approved policy", "genuine provider if required", "three-app"],
+      "blockerIds": [
+        "POLICY_DECISIONS",
+        "PROVIDER_ACCEPTANCE",
+        "BUSINESS_PRODUCERS",
+        "APP_CONSUMERS"
+      ],
+      "steps": [
+        "Obtain explicit accountable B-02 required/deferred/excluded relationship and genuine official entitled provider documentation; do not infer from absent adapter.",
+        "If required, execute genuine authorized non-money verification/refund/status/reconciliation and UNKNOWN/late/duplicate cases with accepted consumers.",
+        "Verify unchanged three approved UI methods and exact approved product/design decision; a still-required deferment remains full-launch blocker."
+      ],
+      "expected": [
+        "OPEN scope remains blocked; no silent omission, unsupported protocol, cash-only downgrade or fourth method.",
+        "Only a reviewed explicit scope decision can determine conditional route coverage; required provider must have actual complete acceptance."
+      ],
+      "requiredEvidence": [
+        "Actual signed/authorized scope and design decision references",
+        "Genuine route receipts if required",
+        "Explicit reviewed coverage disposition and real consumer evidence"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-VERIFY-01",
+      "title": "Private review proof versus authenticated received credit and allocation",
+      "required": true,
+      "scopeFamilies": ["F06", "F07", "F09", "F16"],
+      "retainedW07Functions": ["F13", "F20", "F22", "F30"],
+      "policyDecisionIds": ["B-03", "B-06", "B-11", "B-12", "B-15"],
+      "authoritativeOwnerRoles": ["Billing", "C Media", "E Identity", "D reviewer", "C capacity"],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "genuine provider",
+        "owned DB/current HTTP",
+        "private-object access",
+        "three-app"
+      ],
+      "blockerIds": [
+        "PROVIDER_ACCEPTANCE",
+        "BUSINESS_PRODUCERS",
+        "CURRENT_AUTHORITY",
+        "APP_CONSUMERS"
+      ],
+      "steps": [
+        "Submit valid/invalid/foreign/revoked/quarantined reference/proof; enforce current object/version access on upload, review, processing, status and later download.",
+        "Contend authorized reviewer CAS and validate genuine native merchant/recipient/amount/currency/finality; distinguish forged/unverified evidence from actual received but mismatched money.",
+        "Resolve late verified credit after C capacity expiry; preserve financial effect and dispute/UNKNOWN without automatically allocating/reopening expired capacity."
+      ],
+      "expected": [
+        "Proof/QR/review approval is not credit; unverified source proves neither commit nor noncommit.",
+        "Genuine mismatched effects remain immutable separately from eligible allocation/settlement; no wrong-currency total matching or private cross-object disclosure."
+      ],
+      "requiredEvidence": [
+        "Actual protected native verification and amount/recipient matching traces",
+        "Current private Media/actor authorization receipts",
+        "Late-credit financial versus capacity and discrepancy records"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-REF-01",
+      "title": "Atomic source and aggregate refund caps under uncertainty",
+      "required": true,
+      "scopeFamilies": ["F08", "F09", "F13", "F15"],
+      "retainedW07Functions": ["F13", "F21", "F25", "F29", "F31"],
+      "policyDecisionIds": ["B-03", "B-06", "B-08", "B-09", "B-11"],
+      "authoritativeOwnerRoles": [
+        "Billing",
+        "Subscription",
+        "Wallet",
+        "C lifecycle",
+        "D Support",
+        "Provider"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": ["owned PostgreSQL/current HTTP", "genuine provider", "three-app"],
+      "blockerIds": [
+        "BUSINESS_PRODUCERS",
+        "PROVIDER_ACCEPTANCE",
+        "POLICY_DECISIONS",
+        "CURRENT_AUTHORITY"
+      ],
+      "steps": [
+        "Independently derive eligible original capture and aggregate purchase allowance per currency; atomically reserve disjoint confirmed/reserved/inflight/UNKNOWN exposure.",
+        "Race partial/full/different-key/refund-use-cancel requests with current separate requester/approver/executor roles; reject over-cap/foreign/source/currency and revoked execution.",
+        "Lose provider reply/restart/expire lease; reconcile original stable operation before retry. Confirm money only from authoritative evidence, then commit linked reversal/receipt and once-only allowance update."
+      ],
+      "expected": [
+        "Every source capture AND aggregate purchase cap holds under concurrency; same exposure is not counted twice or released by TTL/approval.",
+        "Support case/pending refund cannot restore units/coupon/capacity; authoritative effect and linked current eligibility govern separate corrections."
+      ],
+      "requiredEvidence": [
+        "Actual constraint/concurrency and disjoint per-currency oracle",
+        "Native original inquiry/refund evidence",
+        "Linked immutable reversal and independent benefit/case status receipts"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-WAL-01",
+      "title": "Approved holder funding/backing and genuine balance partitions",
+      "required": true,
+      "scopeFamilies": ["F09", "F11", "F12", "F13"],
+      "retainedW07Functions": ["F13", "F15", "F23", "F25"],
+      "policyDecisionIds": ["B-03", "B-07", "B-08"],
+      "authoritativeOwnerRoles": ["Wallet", "Billing", "Approved holder/treasury"],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "owned PostgreSQL/current HTTP",
+        "real owner references",
+        "three-app permitted views"
+      ],
+      "blockerIds": ["POLICY_DECISIONS", "BUSINESS_PRODUCERS", "CURRENT_AUTHORITY"],
+      "steps": [
+        "Admit actual approved holder/purpose/currency inventory and funding/custody intent, current grants and genuine eligible Billing posting/allocation references.",
+        "Attempt foreign/wrong-purpose/currency/duplicate/nonexistent backing; replay lost receipt and second key across real DB history.",
+        "Independently reconcile backed account movements and available/held/claimed/UNKNOWN balance partitions through real owners and permitted app views."
+      ],
+      "expected": [
+        "No unbacked balance, guessed zero or second revenue ledger; permanent backing/economic uniqueness holds.",
+        "Required funding covers approved inventory only; no unapproved customer stored-value deposit/withdrawal or fourth checkout method."
+      ],
+      "requiredEvidence": [
+        "Approved holder/purpose policy",
+        "Real Billing-to-Wallet backing and constraint receipts",
+        "Independent balance/custody oracle and actual authorized views"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-WAL-02",
+      "title": "Claim-before-posting spend and final-funds races",
+      "required": true,
+      "scopeFamilies": ["F06", "F09", "F13", "F17"],
+      "retainedW07Functions": ["F13", "F23", "F24"],
+      "policyDecisionIds": ["B-03", "B-06", "B-08"],
+      "authoritativeOwnerRoles": [
+        "Wallet",
+        "Billing",
+        "C orchestration",
+        "E fence/current authority"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": ["owned PostgreSQL/current HTTP", "broker/crash/restart"],
+      "blockerIds": [
+        "BUSINESS_PRODUCERS",
+        "CURRENT_AUTHORITY",
+        "RECOVERY_FINDINGS",
+        "POLICY_DECISIONS"
+      ],
+      "steps": [
+        "Reserve eligible real funds and durable command-bound capture claim before Billing effect; race final funds/expiry/cancel/revocation/current C intent.",
+        "Cut before/after claim, Billing commit, reply and movement acknowledgement; resume original identity after cache expiry and different-key attempts.",
+        "Resume old worker after fresh lease/restore fence and same visible worker label; reconcile actual posting and claim with current authority before finalization."
+      ],
+      "expected": [
+        "No double spend or unavailable exposure released by timeout/lease/revocation; one original effect and correct immutable terminal receipt.",
+        "Actual outcome or definitive fenced noncommit resolves uncertainty; zero-row CAS is lost ownership, not success."
+      ],
+      "requiredEvidence": [
+        "Synchronized real DB concurrency/fault traces",
+        "Original posting/claim and fence receipts",
+        "Independent balance/exposure and replay oracle"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-WAL-03",
+      "title": "Linked Wallet return and original UNKNOWN reconciliation",
+      "required": true,
+      "scopeFamilies": ["F08", "F09", "F12", "F13", "F17"],
+      "retainedW07Functions": ["F21", "F24", "F25"],
+      "policyDecisionIds": ["B-03", "B-06", "B-08", "B-11"],
+      "authoritativeOwnerRoles": ["Billing", "Wallet", "Provider", "Independent finance verifier"],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "owned PostgreSQL/current HTTP",
+        "genuine provider",
+        "restart/restore"
+      ],
+      "blockerIds": [
+        "BUSINESS_PRODUCERS",
+        "PROVIDER_ACCEPTANCE",
+        "POLICY_DECISIONS",
+        "REAL_ACCEPTANCE"
+      ],
+      "steps": [
+        "Route eligible confirmed return only to actual approved holder/purpose/destination and genuine Billing original posting; test wrong holder/currency and lost movement reply.",
+        "Restore with held/claimed/UNKNOWN capture/return; query original external/internal outcome before any repeating money movement.",
+        "Try approval-only correction, lease expiry and fabricated no-effect posting reference; require original outcome/fenced noncommit and actually committed linked reversal when applicable."
+      ],
+      "expected": [
+        "Approval alone never releases uncertainty; original exposure reconciles with actual committed effect exactly once.",
+        "Existing proposed hold-resolve CONSUME and RELEASE need genuine nonempty posting IDs; a no-effect profile must be separately accepted, never faked."
+      ],
+      "requiredEvidence": [
+        "Real approved-destination/posting linkage",
+        "Actual original-outcome/fenced noncommit or committed correction evidence",
+        "Independent post-restore backing/refund allowance reconciliation"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-SUB-01",
+      "title": "Real plan administration, purchase and renewal with prior valid term",
+      "required": true,
+      "scopeFamilies": ["F02", "F06", "F14", "F16"],
+      "retainedW07Functions": ["F26", "F27", "F29"],
+      "policyDecisionIds": ["B-03", "B-06", "B-09", "B-14", "B-15"],
+      "authoritativeOwnerRoles": ["Subscription", "Billing", "Pricing/Catalog", "A/D"],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": ["owned PostgreSQL/current HTTP", "three-app/browser", "restart"],
+      "blockerIds": [
+        "BUSINESS_PRODUCERS",
+        "POLICY_DECISIONS",
+        "APP_CONSUMERS",
+        "CURRENT_AUTHORITY"
+      ],
+      "steps": [
+        "Use actual approved customer plan/rate/term/unit/timezone/expiry/rollover/freeze/change/proration policy and current admin review/publication grants.",
+        "Buy/activate only from eligible genuine Billing allocation/posting; race duplicate/concurrent renewal and test failed/UNKNOWN payment with own/guest/foreign/revoked status access.",
+        "Restart across term boundaries; reconcile independent prior term and renewal attempt in actual customer/operator/admin views."
+      ],
+      "expected": [
+        "Pending/unknown renewal cannot fabricate new benefit or erase independently valid prior term; immutable purchase/plan versions and once-only activation hold.",
+        "No automatic recurring debit, capacity booking or unapproved marketplace/provider plans."
+      ],
+      "requiredEvidence": [
+        "Approved actual plan lifecycle terms",
+        "Real Billing/Subscription purchase/renewal/admin/clock receipts",
+        "Independent terms/units and real app state map"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-SUB-02",
+      "title": "Final-benefit reserve/use/release and expiry fencing",
+      "required": true,
+      "scopeFamilies": ["F04", "F15", "F17"],
+      "retainedW07Functions": ["F07", "F28"],
+      "policyDecisionIds": ["B-05", "B-06", "B-09", "B-10", "B-15"],
+      "authoritativeOwnerRoles": [
+        "Subscription",
+        "C Booking/work/capacity",
+        "Pricing",
+        "E current authority"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "owned PostgreSQL/current HTTP",
+        "broker/fault/restart",
+        "three-app"
+      ],
+      "blockerIds": [
+        "BUSINESS_PRODUCERS",
+        "POLICY_DECISIONS",
+        "APP_CONSUMERS",
+        "CURRENT_AUTHORITY"
+      ],
+      "steps": [
+        "With eligible actual term/unit/purchase backing, race final-unit reservation across current C bound purposes and guest/beneficiary scope.",
+        "Synchronize claim/consume/release/expiry/cancel/revocation; cut at every actual commit/ack boundary and resume original operation with fresh fence.",
+        "Combine approved promotion and benefit policy, replay duplicate/different-key request and reconcile consumer history/remaining eligible units."
+      ],
+      "expected": [
+        "One fenced economic use, never negative or double-restored allowance; consumed unit is not an uncommitted releasable hold.",
+        "Benefit/payment/capacity/work remain independent; missing grant or consumed/expired term cannot be revived by navigation or refund pending."
+      ],
+      "requiredEvidence": [
+        "Real final-unit/expiry/use-cancel constraint traces",
+        "Current C binding and immutable usage receipts",
+        "Independent term/unit/mixed-discount oracle and actual apps"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-SUB-03",
+      "title": "Cancel/freeze/change/refund and independent unit corrections",
+      "required": true,
+      "scopeFamilies": ["F08", "F14", "F15", "F17"],
+      "retainedW07Functions": ["F21", "F27", "F29", "F31"],
+      "policyDecisionIds": ["B-03", "B-06", "B-09", "B-10"],
+      "authoritativeOwnerRoles": [
+        "Subscription",
+        "Billing",
+        "C current use/fence",
+        "D Support/admin"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "owned PostgreSQL/current HTTP",
+        "genuine refund path",
+        "three-app"
+      ],
+      "blockerIds": [
+        "BUSINESS_PRODUCERS",
+        "POLICY_DECISIONS",
+        "PROVIDER_ACCEPTANCE",
+        "APP_CONSUMERS"
+      ],
+      "steps": [
+        "Preview actual approved cancellation/freeze/change/proration/consumed-unit refund eligibility and recheck current authority/usage fence before money return.",
+        "Race consume/cancel/refund and pending reservation with lost provider result; preserve original purchase/use/correction and disjoint refund allowance.",
+        "Execute only actually eligible linked unit/promotion corrections once; retry/restart and inspect independent Support case, refund, benefit and capacity states."
+      ],
+      "expected": [
+        "Approval/pending refund never restores units/coupon/capacity; consumed service history survives all corrections.",
+        "Separate confirmed monetary and entitlement effects conserve exact actual source-backed totals under real policy."
+      ],
+      "requiredEvidence": [
+        "Actual eligibility/use-fence and race receipts",
+        "Original refund outcome and linked separate correction receipts",
+        "Independent unit/allowance/case status reconciliation"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-PROMO-01",
+      "title": "Real campaign administration, guest caps, stacking and restoration",
+      "required": true,
+      "scopeFamilies": ["F02", "F04", "F15", "F16", "F17"],
+      "retainedW07Functions": ["F06", "F07", "F08", "F09", "F10"],
+      "policyDecisionIds": ["B-03", "B-05", "B-06", "B-09", "B-10", "B-15"],
+      "authoritativeOwnerRoles": [
+        "Pricing",
+        "Subscription",
+        "Catalog",
+        "C Booking",
+        "E guest",
+        "D/A"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "owned PostgreSQL/current HTTP",
+        "broker/restart",
+        "three-app/browser"
+      ],
+      "blockerIds": [
+        "BUSINESS_PRODUCERS",
+        "POLICY_DECISIONS",
+        "CURRENT_AUTHORITY",
+        "APP_CONSUMERS"
+      ],
+      "steps": [
+        "Publish actual approved campaign applicability/start-end/timezone/audience/budget/customer/guest/reset/stacking rules with review/hash/CAS/current admin authority.",
+        "Race final coupon/global/customer/guest budget and mixed benefit use; use two guests, foreign/revoked/claimed capability, expiry/commit/second-key/cache-lifetime cases.",
+        "Crash/restart/cancel after claim/commit, apply only permitted linked restoration and replay; reconcile actual held/claimed/used counters and immutable discount snapshots."
+      ],
+      "expected": [
+        "No oversubscription, double discount or guest identity heuristic from phone/device/plate; permanent business uniqueness survives retry-cache expiry.",
+        "UNKNOWN remains exposed; refund/benefit restoration does not imply coupon restoration, and committed history is immutable."
+      ],
+      "requiredEvidence": [
+        "Approved actual campaign/stacking/guest/correction policy",
+        "Real PostgreSQL counters/constraint and synchronized race receipts",
+        "Independent discount/budget/benefit oracle and real app admin/use evidence"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-REBOOK-01",
+      "title": "Current-priced repeat/amendment with expired capacity and compensation",
+      "required": true,
+      "scopeFamilies": ["F01", "F02", "F03", "F04", "F05", "F06", "F08", "F13", "F15", "F17"],
+      "retainedW07Functions": ["F04", "F11", "F12", "F20", "F33"],
+      "policyDecisionIds": ["B-04", "B-05", "B-06", "B-09", "B-10", "B-13", "B-15"],
+      "authoritativeOwnerRoles": [
+        "C Booking/Scheduling/work",
+        "B owners",
+        "A inputs",
+        "A/C/D consumers"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "real owner HTTP/current Identity",
+        "owned DB/broker fault",
+        "three-app/browser"
+      ],
+      "blockerIds": [
+        "BUSINESS_PRODUCERS",
+        "APP_CONSUMERS",
+        "POLICY_DECISIONS",
+        "CURRENT_AUTHORITY"
+      ],
+      "steps": [
+        "Rebook from real prior history after price/item/coverage/availability/benefit changes; require new authorized current quote, C capacity and distinct intent.",
+        "Race approved amendment/cancel/start/replacement and each money/benefit/promotion commit crash; preserve original and replacement lineage with approved differences/fees/refunds/consent.",
+        "Deliver late payment after original capacity expiry or failed replacement; inquire financial original effect and apply accepted separate compensation without resurrecting old capacity."
+      ],
+      "expected": [
+        "Old snapshots, receipt and consumed effects stay immutable; spent benefit/hold/redemption/expired quote is not copied.",
+        "Financial success cannot allocate slot/assignment/work; current C facts and independently confirmed owner compensation govern new journey."
+      ],
+      "requiredEvidence": [
+        "Actual old/new source revision/quote/current-capacity receipts",
+        "Real amendment/fault/late-money and separate compensation evidence",
+        "Independent financial/service-state oracle and three-app journey"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-GUEST-01",
+      "title": "Guest and absent-plate real journeys and privacy-bounded ownership",
+      "required": true,
+      "scopeFamilies": ["F04", "F06", "F10", "F14", "F16"],
+      "retainedW07Functions": ["F09", "F14", "F20", "F26", "F30", "F33", "F34"],
+      "policyDecisionIds": ["B-10", "B-12", "B-14", "B-15"],
+      "authoritativeOwnerRoles": [
+        "E guest/Identity",
+        "A customer",
+        "C Booking/operator/Media",
+        "B owners",
+        "D admin"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": ["current authority/HTTP", "owned DB", "three-app/browser"],
+      "blockerIds": [
+        "CURRENT_AUTHORITY",
+        "BUSINESS_PRODUCERS",
+        "APP_CONSUMERS",
+        "POLICY_DECISIONS"
+      ],
+      "steps": [
+        "Run registered and genuine guest cash/required-electronic/plan/promotion/rebook flows with present and absent plate through all seven approved steps.",
+        "Use two distinct guests and registered actor to try foreign receipt/proof/benefit/export access, conflicting claim, revocation and stale session replay/status.",
+        "Verify current eligible claim/ownership transfer only under accepted policy; replay does not reset caps or expose third-party custody/provider data."
+      ],
+      "expected": [
+        "Optional plate and guest booking remain functional with real providers; phone/plate/device or supplied customer ID cannot grant ownership.",
+        "Every sensitive response/download requires current scoped authority and bounded approved fieldset; no stale cached success leaks private data."
+      ],
+      "requiredEvidence": [
+        "Actual guest capability and current-authority receipts",
+        "Independent real three-app own/foreign/absent-plate evidence",
+        "Approved fieldset/claim and privacy observations"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-AUTH-01",
+      "title": "Fresh authorization and real privacy export/retention/copy fulfillment",
+      "required": true,
+      "scopeFamilies": ["F09", "F15", "F16", "F17", "F18"],
+      "retainedW07Functions": ["F20", "F30", "F34", "F35"],
+      "policyDecisionIds": ["B-07", "B-08", "B-09", "B-10", "B-11", "B-12", "B-15"],
+      "authoritativeOwnerRoles": [
+        "E Identity/coordinator",
+        "Each B executor",
+        "C Media",
+        "A/C/D copy owners",
+        "Privacy owner"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "HTTP/current Identity",
+        "real private artifact/storage",
+        "owned DB/broker",
+        "restart/restore"
+      ],
+      "blockerIds": [
+        "CURRENT_AUTHORITY",
+        "POLICY_DECISIONS",
+        "BUSINESS_PRODUCERS",
+        "APP_CONSUMERS",
+        "ARTIFACT_ENV"
+      ],
+      "steps": [
+        "Revoke collector/reviewer/admin/service/guest/delegation after preview/intake, before queued execution and on replay/status/download; inject authority unavailability and foreign object/task/fieldset.",
+        "Execute actual approved financial privacy export/task/status with independent own/foreign/two-guest/conflict/partial-outage/restart cases; verify real protected bytes/manifest/digest/coverage and fresh reauthorized download.",
+        "Execute approved identity/contact retention/anonymization/legal-hold outcomes under concurrent money mutation; inspect sentinel redaction across events/DLQ/logs/caches/reports/artifacts/provider copies/backups and restored replay before disclosure."
+      ],
+      "expected": [
+        "Current authority failure closes sensitive action/access without erasing genuine historical money or original UNKNOWN recovery.",
+        "Intake ACK/revocation/pseudonymization is not completed export or universal erasure; truthful retained/partial/blocked coverage preserves immutable journal/use history and third-party fields."
+      ],
+      "requiredEvidence": [
+        "Actual current grant/revocation/fail-closed traces",
+        "Real private export bytes/manifest/download evidence with approved retention",
+        "Per-copy/redaction/legal-hold/rebuild/restore receipts and independent privacy review"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-IDEMP-01",
+      "title": "Permanent economic uniqueness and honest original replay result",
+      "required": true,
+      "scopeFamilies": ["F04", "F06", "F08", "F09", "F13", "F14", "F15", "F17"],
+      "retainedW07Functions": ["F08", "F13", "F14", "F21", "F24", "F27", "F28"],
+      "policyDecisionIds": ["B-05", "B-06", "B-08", "B-09", "B-10", "B-11", "B-15"],
+      "authoritativeOwnerRoles": ["Each B owner", "E current authority", "C consumers"],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "owned PostgreSQL/constraints",
+        "HTTP/current Identity",
+        "restart"
+      ],
+      "blockerIds": ["BUSINESS_PRODUCERS", "CURRENT_AUTHORITY", "POLICY_DECISIONS"],
+      "steps": [
+        "For each actual financial/benefit/coupon command, replay same semantic key after lost reply/cache expiry/restart and use different key for same economic effect.",
+        "Change amount/currency/holder/purpose/source/revision with same key; contend concurrent same/different keys and verify durable canonical fingerprint constraints.",
+        "Compare immutable original terminal receipt versus separately versioned pending/current-status observation after revocation or later outcome; reauthorize before disclosure."
+      ],
+      "expected": [
+        "Same meaning preserves original effect/result; changed meaning conflicts and second key cannot duplicate business effect.",
+        "Retry lifetime does not bound economic uniqueness; terminal result is not overwritten with a later pending status, and UNKNOWN is not false success/failure."
+      ],
+      "requiredEvidence": [
+        "Actual SQL uniqueness/fingerprint and race receipts",
+        "Original durable receipt versus versioned status traces",
+        "Current-access/cache-expiry/restart independent assertions"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-CRASH-01",
+      "title": "Actual transaction/outbox/inbox crash recovery and fencing",
+      "required": true,
+      "scopeFamilies": ["F04", "F08", "F09", "F13", "F15", "F17", "F18"],
+      "retainedW07Functions": ["F08", "F13", "F21", "F24", "F28", "F32"],
+      "policyDecisionIds": ["B-05", "B-06", "B-08", "B-09", "B-10", "B-11", "B-12", "B-15"],
+      "authoritativeOwnerRoles": [
+        "Each B producer",
+        "B Catalog relay",
+        "E messaging/fences",
+        "D consumer"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": ["real PostgreSQL/RabbitMQ", "current HTTP", "fault/restart/load"],
+      "blockerIds": [
+        "BUSINESS_PRODUCERS",
+        "RECOVERY_FINDINGS",
+        "ARTIFACT_ENV",
+        "CURRENT_AUTHORITY"
+      ],
+      "steps": [
+        "Cut actual owner state/receipt/outbox transaction before/after commit, broker confirm, consumer effect/dedup/checkpoint commit and ACK; inject event hash conflict, version/gap/reorder and repair once.",
+        "Reproduce final committed lease crash at M=1 and accepted larger M, expiry/recovery race, same reused worker label with old worker resumption and fresh generation/incarnation fence.",
+        "Run long-lived actual publisher passes/channel-return/close/confirm-timeout/reconnect under approved load and record real listener/memory/counters without shared cleanup."
+      ],
+      "expected": [
+        "Every committed effect is recoverable/classified within approved bounds; no stranded silent final lease, stale finalization or repeated effect.",
+        "Actual publisher lifecycle remains bounded; zero-row CAS or ACK alone cannot prove business commit, and security/privacy field limits survive replay."
+      ],
+      "requiredEvidence": [
+        "Real synchronized DB/broker fault timeline and retained identities",
+        "Owner-classified B08-D01/D02/D03 repaired-source and closure receipts",
+        "Actual measurements and independent hash/gap/rebuild effect oracle"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-UNKNOWN-01",
+      "title": "Original-operation inquiry and approved monitored pending classification",
+      "required": true,
+      "scopeFamilies": ["F06", "F07", "F08", "F11", "F13", "F14", "F15", "F17", "F18"],
+      "retainedW07Functions": [
+        "F16",
+        "F17",
+        "F18",
+        "F19",
+        "F20",
+        "F21",
+        "F22",
+        "F24",
+        "F27",
+        "F29"
+      ],
+      "policyDecisionIds": ["B-05", "B-06", "B-07", "B-08", "B-09", "B-11"],
+      "authoritativeOwnerRoles": [
+        "Billing/Wallet/Subscription",
+        "Provider/account owner",
+        "C",
+        "E/B incident owners"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "genuine provider",
+        "owned DB/current HTTP",
+        "actual monitoring/escalation"
+      ],
+      "blockerIds": [
+        "PROVIDER_ACCEPTANCE",
+        "BUSINESS_PRODUCERS",
+        "OPERATIONAL_OWNERS",
+        "POLICY_DECISIONS"
+      ],
+      "steps": [
+        "Lose submission/reply around actual original operation; retain stable native/business ID/fingerprint and disjoint exposure past TTL/revocation/restart/restore.",
+        "Query genuine original environment/merchant/native outcome before any possible-money retry; reject unverified evidence as definitive noncommit and approval-only release.",
+        "Classify each actual pending item using source coverage/as-of/current authority, approved lifecycle/deadline, monitor/alert receipt, named owner and permitted next inquiry; contrast orphan/unbounded/unexplained difference."
+      ],
+      "expected": [
+        "Only authoritative success or definitive fenced noncommit resolves original exposure; genuine mismatched effects stay preserved separately.",
+        "Legitimate approved monitored pending is distinguishable from missing required features, provider evidence or unexplained money; null inventory is never empty/zero."
+      ],
+      "requiredEvidence": [
+        "Actual original provider/internal inquiry receipts",
+        "Independent disjoint per-currency exposure and pending inventory",
+        "Approved monitor/budget/named-owner/escalation delivery and disposition evidence"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-RESTORE-01",
+      "title": "Independent pre/post financial reconciliation and fresh restored authority",
+      "required": true,
+      "scopeFamilies": [
+        "F04",
+        "F08",
+        "F09",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16",
+        "F17",
+        "F18"
+      ],
+      "retainedW07Functions": [
+        "F08",
+        "F13",
+        "F15",
+        "F16",
+        "F21",
+        "F23",
+        "F24",
+        "F27",
+        "F28",
+        "F29",
+        "F30",
+        "F32",
+        "F34",
+        "F35"
+      ],
+      "policyDecisionIds": ["B-03", "B-06", "B-07", "B-08", "B-09", "B-10", "B-11", "B-12", "B-15"],
+      "authoritativeOwnerRoles": [
+        "E restore/backup",
+        "Each B owner",
+        "Provider",
+        "A/C/D",
+        "Independent verifier"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "real populated DB/broker backup/restore",
+        "genuine provider",
+        "three-app/current authority"
+      ],
+      "blockerIds": [
+        "ARTIFACT_ENV",
+        "BUSINESS_PRODUCERS",
+        "HISTORICAL_INPUT",
+        "PROVIDER_ACCEPTANCE",
+        "OPERATIONAL_OWNERS",
+        "RECOVERY_FINDINGS"
+      ],
+      "steps": [
+        "Independently preserve genuine pre-fault totals/coverage/cuts, native original operations, journals/refunds, Wallet backing/holds, custody, terms/units, promotion exposure and immutable receipts.",
+        "E restores authorized allocated compatible resources/images/config/schema; apply current revocation/privacy/object/task authority and fresh nonrepeating incarnation fence before access/workers/replay.",
+        "Reconcile original external outcomes then each owner cut/gap/callback/inbox/outbox and actual three-app state; resume old worker and compare post-results with independent pre-fault expectation."
+      ],
+      "expected": [
+        "No stale worker/current-authority leak, duplicate economic effect, erased UNKNOWN or invented balanced credit; approved actual RPO/RTO/fault criteria hold.",
+        "Unexplained journal/custody/backing/units/coupon/provider differences remain open; candidate output is not its own oracle."
+      ],
+      "requiredEvidence": [
+        "Actual protected backup/cut/source/role/fence and restore receipts",
+        "Independent pre/post per-currency/unit/custody/provider partitions and gaps",
+        "Real late-worker/current-auth/privacy and all-three-app recovery evidence"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-UPGRADE-01",
+      "title": "Truthful source intake, repeated import and populated immutable upgrade",
+      "required": true,
+      "scopeFamilies": ["F06", "F09", "F11", "F12", "F14", "F15", "F16", "F17", "F18"],
+      "retainedW07Functions": ["F13", "F15", "F22", "F23", "F26", "F29", "F30", "F32", "F35"],
+      "policyDecisionIds": ["B-03", "B-06", "B-07", "B-08", "B-09", "B-11", "B-12"],
+      "authoritativeOwnerRoles": [
+        "Authorized data/accounting owners",
+        "Each B receiving owner",
+        "E migration/roles",
+        "Independent verifier"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "real migration/upgrade/SQL",
+        "genuine source or approved labeled fixtures",
+        "repeated import/reconciliation"
+      ],
+      "blockerIds": [
+        "HISTORICAL_INPUT",
+        "BUSINESS_PRODUCERS",
+        "ARTIFACT_ENV",
+        "POLICY_DECISIONS",
+        "RECOVERY_FINDINGS"
+      ],
+      "steps": [
+        "Admit actual authorized covered exports/mapping/opening policy or independent verified historical absence plus approved representative fixtures; record actual branch/classification rather than treating missing access as empty.",
+        "Run accepted preview/import/repeat with permanent economic IDs excluding batch/export digest/mapping order/retry actor; preserve original admitted bytes/quarantine and unchanged genuine effects/counts/benefits.",
+        "Execute clean and actual compatible prior populated upgrade/constraints with owner migration identities; runtime attempts to update/delete posted journals fail before and after E reprovision; prove accepted forward/rollback/current privacy behavior."
+      ],
+      "expected": [
+        "Fixtures remain labeled, cannot prove historical migration/genuine money; absence branch still runs real DB/provider/staging/recovery gates.",
+        "No unbacked opening balance/demo-paid posting, rewritten migration/history or credential disclosure; immutable linked corrections and independent exact source-derived totals hold."
+      ],
+      "requiredEvidence": [
+        "Actual intake/absence assertion and separately approved fixture provenance",
+        "Real dry-run/import/repeat rejection/lineage and independent totals",
+        "Actual clean/populated upgrade/runtime SQL/role-reprovision compatibility receipts"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-OPS-01",
+      "title": "Actual receipt/history, Support remedy, Reporting and escalation",
+      "required": true,
+      "scopeFamilies": [
+        "F04",
+        "F07",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F12",
+        "F14",
+        "F15",
+        "F16",
+        "F17",
+        "F18"
+      ],
+      "retainedW07Functions": ["F16", "F22", "F30", "F31", "F32", "F33", "F34", "F35"],
+      "policyDecisionIds": ["B-03", "B-06", "B-07", "B-08", "B-09", "B-10", "B-11", "B-12"],
+      "authoritativeOwnerRoles": [
+        "B operators/owners",
+        "D Support/Reporting/admin",
+        "C work",
+        "E incident",
+        "Independent finance verifier",
+        "Provider/account evidence owner"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "actual owner HTTP/commands",
+        "owned DB/broker/event projection",
+        "three-app",
+        "operational delivery",
+        "genuine provider statement/native history"
+      ],
+      "blockerIds": [
+        "OPERATIONAL_OWNERS",
+        "BUSINESS_PRODUCERS",
+        "APP_CONSUMERS",
+        "POLICY_DECISIONS",
+        "ARTIFACT_ENV",
+        "PROVIDER_ACCEPTANCE"
+      ],
+      "steps": [
+        "Use actual accepted commands/config/current roles for receipt/statement/history/pagination/as-of/coverage, cash handover/treasury, refund review/original inquiry and Wallet/Subscription/coupon reconciliation.",
+        "Use actual accepted Billing statement intake/history and genuine authorized provider/bank records; exercise matched, mismatched, missing, duplicate and reordered statements with exact native IDs, currency, fees and cuts. Independently reconcile received credit, obligation allocation, actual provider settlement/fees and treasury facts as separate partitions; preserve authentic mismatches/UNKNOWN and coverage gaps.",
+        "Race current D Support decision revision/closure/revocation/duplicate and B independent remedy; rebuild real D Reporting after duplicates/hash conflicts/gaps/corrections/crash/redaction using bounded owner history without cross-owner DB.",
+        "Escalate actual discrepancy/UNKNOWN under approved thresholds/primary-backup/named owners; retain authorized alert delivery/ack and current safe protected evidence, then execute actual recovery procedure within approved resources."
+      ],
+      "expected": [
+        "Case closure cannot prove returned funds; Reporting is not ledger authority and gaps stay visible; collection/custody/Wallet/merchant settlement are not double-counted as revenue.",
+        "No invented CLI/contact/budget/zero totals; privacy-bounded history/status/export and actual monitored pending remain explicit and reviewable.",
+        "Every required provider statement disposition has its own actual receipt and independent exact fee/settlement oracle; a generic settlement screenshot or one matched statement does not close missing/mismatched/duplicate/reordered coverage."
+      ],
+      "requiredEvidence": [
+        "Actual named-role/current-auth/config/command manifests and operation receipts",
+        "Real Support-to-B remedy and source/rebuild/privacy projection reconciliation",
+        "Actual protected alert/delivery/escalation/ack and independent operating-instruction review",
+        "Genuine per-required-route native statement/history provenance, all five disposition receipts and independent per-currency fee/credit/allocation/settlement partitions"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    },
+    {
+      "id": "W10-B-REL-01",
+      "title": "Explicit independent resulting-target finance decision and stop boundary",
+      "required": true,
+      "scopeFamilies": [
+        "F01",
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F06",
+        "F07",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16",
+        "F17",
+        "F18"
+      ],
+      "retainedW07Functions": [
+        "F01",
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F06",
+        "F07",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16",
+        "F17",
+        "F18",
+        "F19",
+        "F20",
+        "F21",
+        "F22",
+        "F23",
+        "F24",
+        "F25",
+        "F26",
+        "F27",
+        "F28",
+        "F29",
+        "F30",
+        "F31",
+        "F32",
+        "F33",
+        "F34",
+        "F35"
+      ],
+      "policyDecisionIds": [
+        "B-01",
+        "B-02",
+        "B-03",
+        "B-04",
+        "B-05",
+        "B-06",
+        "B-07",
+        "B-08",
+        "B-09",
+        "B-10",
+        "B-11",
+        "B-12",
+        "B-13",
+        "B-14",
+        "B-15"
+      ],
+      "authoritativeOwnerRoles": [
+        "E integrator",
+        "Designated independent finance reviewer",
+        "Authorized release decision-maker",
+        "B packet author"
+      ],
+      "actualNamedExecutor": null,
+      "requiredEvidenceLayers": [
+        "mandatory CI/source/security/migration",
+        "genuine complete finance evidence",
+        "independent review"
+      ],
+      "blockerIds": [
+        "ENTRY_BASE",
+        "ARTIFACT_ENV",
+        "POLICY_DECISIONS",
+        "BUSINESS_PRODUCERS",
+        "APP_CONSUMERS",
+        "PROVIDER_ACCEPTANCE",
+        "HISTORICAL_INPUT",
+        "RECOVERY_FINDINGS",
+        "CURRENT_AUTHORITY",
+        "OPERATIONAL_OWNERS",
+        "REAL_ACCEPTANCE",
+        "INDEPENDENT_REVIEW"
+      ],
+      "steps": [
+        "Deliver concrete exact accepted-candidate packet with complete function/provider/case provenance, independent reconciliation totals, actual unresolved operations, owner-assigned findings and retained mandatory/security/migration receipts to verified E/reviewer identities.",
+        "Obtain explicit eligible independent review on actual source/artifacts/criteria and unchanged refs; after authorized integration verify actual resulting target and artifacts with required gates and updated reviewed finance signoff.",
+        "Change source/config/policy/evidence/ref to prove affected invalidation. Record recommendation/signoff separately from authorized user/maintainer merge/deployment/live-money decisions; stop W10."
+      ],
+      "expected": [
+        "Every required unrun/failed/absent feature/provider/policy/evidence remains NO_GO even Day 7; fixture/proposal/foundation success never becomes full finance acceptance.",
+        "Same-login agents are not independent approvers; no self-approval, autonomous merge/auto-merge, production/live money operation or automatic W11 start."
+      ],
+      "requiredEvidence": [
+        "Actual packet delivery/ack and named independent review decision",
+        "Verified resulting-target/artifact/gate and unchanged-ref receipts",
+        "Explicit source-scoped recommendation/signoff and separate authorized deployment decision if later issued"
+      ],
+      "executionStatus": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "actual": {
+        "acceptedCandidate": null,
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "inputClassification": null,
+        "command": null,
+        "result": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null
+      }
+    }
+  ]
+}
