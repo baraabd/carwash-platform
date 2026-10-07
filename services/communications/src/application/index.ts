@@ -1,7 +1,2 @@
-/**
- * communications application layer.
- *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
- */
-export {};
+/** communications application layer: use cases over ports. */
+export * from './notification.service';

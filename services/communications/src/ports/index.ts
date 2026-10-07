@@ -1,7 +1,2 @@
-/**
- * communications ports layer.
- *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
- */
-export {};
+/** communications ports: boundary between application rules and adapters. */
+export * from './notification.ports';

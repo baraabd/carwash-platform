@@ -304,7 +304,13 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker", "InboxMessage", "ProbeNotification"],
+      "persistenceModels": [
+        "ServiceMarker",
+        "InboxMessage",
+        "ProbeNotification",
+        "Notification",
+        "DeliveryAttempt"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
