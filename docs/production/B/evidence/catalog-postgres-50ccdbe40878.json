@@ -1,0 +1,93 @@
+{
+  "task": "P01-B",
+  "service": "catalog",
+  "runId": "c2bf00573b28",
+  "startedAt": "2026-10-07T03:26:50.494Z",
+  "sourceSHA": "50ccdbe40878828fa7c7923e4e94f3c26e63bebe",
+  "sourceTree": "e6e13c62b9561e1140cb1eaec06552da770209e3",
+  "sourceDirty": false,
+  "node": "v24.21.0",
+  "docker": "29.1.3",
+  "image": {
+    "name": "postgres:16.10-alpine",
+    "repoDigests": [
+      "postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297"
+    ],
+    "serverVersion": "PostgreSQL 16.10"
+  },
+  "dependencies": {
+    "postgres": "REAL (disposable container)",
+    "identity": "LOCAL HTTP STUB",
+    "broker": "NOT USED"
+  },
+  "phases": [
+    {
+      "name": "toolchain and source provenance",
+      "status": "PASS"
+    },
+    {
+      "name": "build service and integration specs from this source",
+      "status": "PASS"
+    },
+    {
+      "name": "pull pinned PostgreSQL image",
+      "status": "PASS"
+    },
+    {
+      "name": "start disposable PostgreSQL with shared provisioner",
+      "status": "PASS"
+    },
+    {
+      "name": "runtime identity can connect after provisioning",
+      "status": "PASS"
+    },
+    {
+      "name": "upgrade from previous migration history preserves existing data",
+      "status": "PASS"
+    },
+    {
+      "name": "re-provision restricts migration history from the runtime role",
+      "status": "PASS"
+    },
+    {
+      "name": "committed Prisma schema mirror has no drift from migrated database",
+      "status": "PASS"
+    },
+    {
+      "name": "integration specs as the least-privileged runtime role",
+      "status": "PASS"
+    }
+  ],
+  "tests": {
+    "files": [
+      "services\\catalog\\dist-tests\\test\\integration\\catalog.postgres.spec.js"
+    ],
+    "summary": {
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "names": [
+      "✔ postgres: published definitions round-trip exactly and the fingerprint is reproducible (",
+      "✔ postgres: concurrent publishers on two replicas create exactly one revision (",
+      "✔ postgres: the same key raced across replicas has one effect and one recorded result (",
+      "✔ postgres: effective windows switch exactly at the boundary (",
+      "✔ postgres: published rows are immutable even for the runtime role (",
+      "✔ postgres: chain, uniqueness and value constraints hold without the application ("
+    ]
+  },
+  "accepted": true,
+  "migrations": {
+    "previous": [
+      "20260920000000_sprint_02_foundation",
+      "20260927143000_f008_outbox_trace_context"
+    ],
+    "added": [
+      "20261007090000_p01b_catalog_definitions"
+    ]
+  },
+  "finishedAt": "2026-10-07T03:27:33.709Z"
+}
