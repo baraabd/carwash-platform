@@ -15,10 +15,10 @@
     "verify:frozen-install": "node scripts/verify-frozen-install.mjs",
     "verify:lockfile": "node scripts/verify-frozen-install.mjs --audit-only",
     "generate": "pnpm --filter \"./services/*\" --sequential run generate",
-    "build": "pnpm run build:domain && pnpm run build:packages && pnpm --filter \"./services/*\" --sequential run build && pnpm --filter @carwash/api-gateway run build",
+    "build": "pnpm run build:domain && pnpm run build:packages && pnpm --filter \"./services/*\" --sequential run build && pnpm --filter @carwash/api-gateway run build && pnpm run build:apps",
     "build:tests": "pnpm --filter \"./services/*\" --sequential run build:tests",
     "build:domain": "pnpm --filter @carwash/contracts run build && tsc -p tsconfig.domain.json",
-    "typecheck": "pnpm --filter \"./packages/*\" --sequential run typecheck && pnpm --filter \"./services/*\" --sequential run typecheck && pnpm --filter @carwash/api-gateway run typecheck",
+    "typecheck": "pnpm --filter \"./packages/*\" --sequential run typecheck && pnpm --filter \"./services/*\" --sequential run typecheck && pnpm --filter @carwash/api-gateway run typecheck && pnpm run typecheck:apps",
     "lint": "pnpm run build:packages && pnpm generate && eslint .",
     "format:check": "prettier --check .",
     "format:write": "prettier --write .",
@@ -63,7 +63,10 @@
     "test:f010:unit": "node --test --test-reporter=spec tests/f010/*.test.mjs",
     "test:f010:browser": "node scripts/f010/browser-acceptance.mjs",
     "f010:fonts": "node scripts/f010/font-provenance.mjs",
-    "verify:f010": "pnpm check:design-reference && pnpm check:f010-references && pnpm test:f010:unit && pnpm test:f010:browser"
+    "verify:f010": "pnpm check:design-reference && pnpm check:f010-references && pnpm test:f010:unit && pnpm test:f010:browser",
+    "typecheck:apps": "pnpm --filter \"./apps/*-web\" --sequential run typecheck",
+    "build:apps": "pnpm --filter \"./apps/*-web\" --sequential run build",
+    "test:production:e": "node --test --test-reporter=spec \"tests/production/E/*.test.mjs\""
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
