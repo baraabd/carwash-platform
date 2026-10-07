@@ -1,4 +1,4 @@
-name: P01-C2 formatting diagnostic
+name: P01-C2 formatting diagnostic\n# rerun: verify exact formatter output
 on:
   push:
     branches: ['prod/p01-c2-workforce-provider']
