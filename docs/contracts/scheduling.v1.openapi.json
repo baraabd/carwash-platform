@@ -10,7 +10,8 @@
     "SLOT_UNAVAILABLE",
     "HOLD_EXPIRED",
     "HOLD_NOT_ACTIVE",
-    "OUTSIDE_HORIZON"
+    "OUTSIDE_HORIZON",
+    "HOLD_LIMIT_REACHED"
   ],
   "paths": {
     "/internal/v1/scheduling/availability": {
@@ -184,6 +185,50 @@
       "post": {
         "operationId": "scheduling.releaseHold",
         "x-access": "principal",
+        "x-idempotent": true,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts schedulingV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "holdId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/scheduling/holds/{holdId}/cancel": {
+      "post": {
+        "operationId": "scheduling.cancelCommitment",
+        "x-access": "service:scheduling.hold.commit",
         "x-idempotent": true,
         "x-revisioned": false,
         "x-safe-post": false,

@@ -63,6 +63,7 @@ test('scheduling: descriptor', () => {
   assert.equal(s.SCHEDULING_V1.routes.commitHold.idempotent, true);
   assert.deepEqual([...s.SCHEDULING_V1.reasons].sort(), [
     'HOLD_EXPIRED',
+    'HOLD_LIMIT_REACHED',
     'HOLD_NOT_ACTIVE',
     'OUTSIDE_HORIZON',
     'SLOT_UNAVAILABLE',

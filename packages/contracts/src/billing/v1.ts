@@ -1,340 +1,469 @@
 import type { OwnerContract } from '../common/route';
-import { parseNonNegativeMoney, type Money } from '../common/money';
 import {
-  PAYMENT_METHODS,
-  WALLET_PAYMENT_METHODS,
-  type PaymentMethod,
-} from '../common/payment-method';
+  addMoney,
+  compareMoney,
+  parseNonNegativeMoney,
+  type Currency,
+  type Money,
+} from '../common/money';
+import { PAYMENT_METHODS, type PaymentMethod } from '../common/payment-method';
 import { parsePrincipalRef, type PrincipalRef } from '../common/principal';
-import { parsePage, parseRevision, type Page } from '../common/protocol';
+import { parseRevision } from '../common/protocol';
 import { parseUtc, type UtcTimestamp } from '../common/time';
-import { ContractViolation, closed, oneOf, text, uuid } from '../common/wire';
+import { ContractViolation, closed, list, oneOf, text, uuid } from '../common/wire';
 
 /**
  * billing.v1 — owner: Billing service (Lane B).
+ * Published from Lane B request CR-B-01..03 (docs/production/B/CONTRACT_REQUEST_E_BILLING.md)
+ * with Lane E conventions: the shared error envelope, owner reasons and
+ * structural invariants checked by the parser.
  *
- * One payment record per confirmed booking, created by Billing from
- * `booking.confirmed.v2` (never by a client call). The record carries the
- * method chosen on the approved payment screen and the SERVER's view of money:
+ * One financial obligation per (owner, quote). The customer chooses a method
+ * (payment intent). For a wallet method the customer reports the wallet's
+ * transaction reference (payment attempt). Only Finance reconciliation, with
+ * the observed amount, settles the obligation. A customer action, receipt or
+ * reported reference NEVER makes it PAID. A lost reconciliation outcome is
+ * OUTCOME_UNKNOWN, never success.
  *
- *   CASH_AFTER_SERVICE: CASH_DUE -> CASH_COLLECTED (reported by the field,
- *                       not company settlement) | CANCELLED
- *   SHAM_CASH / SYRIATEL_CASH: AWAITING_TRANSFER -> AWAITING_REVIEW (customer
- *                       submitted a transaction reference) -> PAID (finance
- *                       matched it against the wallet statement) | back to
- *                       AWAITING_TRANSFER with a review outcome | CANCELLED
- *
- * A customer action, receipt or proof NEVER makes a payment PAID. Transfer
- * instructions (payee, QR) are returned only when a real merchant account is
- * configured; until then `availability` is MERCHANT_NOT_CONFIGURED and no
- * instructions exist. Billing never invents a payee or QR payload.
+ * Transfer instructions (payee, QR) are not part of v1: no merchant account is
+ * configured, and Billing never invents a payee or a QR payload.
  */
 export const BILLING_V1 = {
   id: 'billing.v1',
   owner: 'billing',
   prefix: '/internal/v1/billing',
   routes: {
-    getBookingPayment: {
-      method: 'GET',
-      path: '/bookings/:bookingId/payment',
-      access: 'principal',
-    },
-    submitTransferProof: {
+    createObligation: {
       method: 'POST',
-      path: '/payments/:paymentId/transfer-proofs',
+      path: '/obligations',
       access: 'principal',
       idempotent: true,
     },
-    listReviewQueue: {
+    getObligation: { method: 'GET', path: '/obligations/:obligationId', access: 'principal' },
+    getFinancialStatus: {
       method: 'GET',
-      path: '/payments/review-queue',
-      access: 'permission:billing.payments.verify',
-      paged: true,
+      path: '/obligations/:obligationId/financial-status',
+      access: 'principal',
     },
-    reviewTransfer: {
+    initializePayment: {
       method: 'POST',
-      path: '/payments/:paymentId/review',
-      access: 'permission:billing.payments.verify',
+      path: '/obligations/:obligationId/payment-intents',
+      access: 'principal',
+      idempotent: true,
+    },
+    submitAttempt: {
+      method: 'POST',
+      path: '/obligations/:obligationId/payment-attempts',
+      access: 'principal',
+      idempotent: true,
+    },
+    voidObligation: {
+      method: 'POST',
+      path: '/obligations/:obligationId/void',
+      access: 'principal',
+      idempotent: true,
+    },
+    reconcileAttempt: {
+      method: 'POST',
+      path: '/payment-attempts/:attemptId/reconciliation',
+      access: 'permission:billing.reconcile',
+      idempotent: true,
+    },
+    /** Booking saga (CR-B-03.2): create for the booking's beneficiary. */
+    createBookingObligation: {
+      method: 'POST',
+      path: '/booking-obligations',
+      access: 'service:billing.obligation.write',
+      idempotent: true,
+    },
+    /** Booking saga compensation: void when the booking could not be confirmed. */
+    voidBookingObligation: {
+      method: 'POST',
+      path: '/booking-obligations/:obligationId/void',
+      access: 'service:billing.obligation.write',
       idempotent: true,
     },
   },
   reasons: [
-    'PAYMENT_NOT_AWAITING_TRANSFER',
-    'PAYMENT_NOT_AWAITING_REVIEW',
-    'TRANSFER_UNAVAILABLE',
-    'TRANSACTION_REFERENCE_IN_USE',
-    'SELF_REVIEW_FORBIDDEN',
+    'QUOTE_NOT_USABLE',
+    'OBLIGATION_ALREADY_EXISTS',
+    'AMOUNT_INVALID',
+    'CURRENCY_UNSUPPORTED',
+    'PROVIDER_REFERENCE_TAKEN',
+    'OBLIGATION_SETTLED',
+    'OBLIGATION_VOIDED',
+    'VOID_NOT_ALLOWED',
+    'METHOD_UNCHANGED',
+    'PAYMENT_IN_REVIEW',
+    'NO_ACTIVE_INTENT',
+    'INTENT_NOT_ACCEPTING_ATTEMPTS',
+    'ATTEMPT_NOT_OPEN',
+    'ALREADY_UNKNOWN',
+    'ATTEMPT_LIMIT_REACHED',
+    'AMOUNT_NOT_EQUAL_OUTSTANDING',
+    'OBSERVED_AMOUNT_REQUIRED',
+    'OBSERVED_AMOUNT_NOT_ALLOWED',
+    'SELF_RECONCILIATION_FORBIDDEN',
   ],
 } as const satisfies OwnerContract;
 
-export const PAYMENT_STATES = [
-  'CASH_DUE',
-  'CASH_COLLECTED',
-  'AWAITING_TRANSFER',
-  'AWAITING_REVIEW',
-  'PAID',
+export const OBLIGATION_STATUSES = ['OPEN', 'SETTLED', 'VOIDED'] as const;
+export type ObligationStatus = (typeof OBLIGATION_STATUSES)[number];
+
+export const INTENT_STATUSES = [
+  'AWAITING_CASH_COLLECTION',
+  'AWAITING_CUSTOMER_PAYMENT',
+  'UNDER_REVIEW',
+  'SUCCEEDED',
+  'SUPERSEDED',
   'CANCELLED',
 ] as const;
-export type PaymentState = (typeof PAYMENT_STATES)[number];
+export type IntentStatus = (typeof INTENT_STATUSES)[number];
 
-const CASH_STATES: readonly PaymentState[] = ['CASH_DUE', 'CASH_COLLECTED', 'CANCELLED'];
-const WALLET_STATES: readonly PaymentState[] = [
-  'AWAITING_TRANSFER',
-  'AWAITING_REVIEW',
+export const ATTEMPT_STATUSES = ['PENDING_REVIEW', 'MATCHED', 'MISMATCHED', 'UNKNOWN'] as const;
+export type AttemptStatus = (typeof ATTEMPT_STATUSES)[number];
+
+export const RECONCILIATION_OUTCOMES = ['MATCHED', 'MISMATCHED', 'UNKNOWN'] as const;
+export type ReconciliationOutcome = (typeof RECONCILIATION_OUTCOMES)[number];
+
+export const FINANCIAL_STATUSES = [
+  'UNPAID',
+  'AWAITING_CASH',
+  'AWAITING_PAYMENT',
+  'UNDER_REVIEW',
+  'OUTCOME_UNKNOWN',
   'PAID',
-  'CANCELLED',
-];
-
-export const TRANSFER_AVAILABILITY = ['AVAILABLE', 'MERCHANT_NOT_CONFIGURED'] as const;
-export type TransferAvailability = (typeof TRANSFER_AVAILABILITY)[number];
-
-export const REVIEW_REJECTION_REASONS = [
-  'REFERENCE_NOT_FOUND',
-  'AMOUNT_MISMATCH',
-  'PAYEE_MISMATCH',
+  'VOIDED',
 ] as const;
-export type ReviewRejectionReason = (typeof REVIEW_REJECTION_REASONS)[number];
+export type FinancialStatus = (typeof FINANCIAL_STATUSES)[number];
 
 /** Wallet transaction reference as typed by the customer from the wallet app. */
-const TRANSACTION_REFERENCE = /^[A-Za-z0-9-]{4,64}$/;
-/** Opaque reference into the reconciled wallet statement used by finance. */
-const STATEMENT_REFERENCE = /^[A-Za-z0-9_.:-]{4,128}$/;
-/** Transfer reference the customer puts in the wallet memo; generated by Billing. */
-const PAYMENT_REFERENCE = /^WGP-[0-9A-HJKMNP-TV-Z]{10}$/;
+export const PROVIDER_REFERENCE = /^[A-Za-z0-9-]{4,64}$/;
+/** Echoed form: an ellipsis and the last four normalized characters, never the full number. */
+const MASKED_REFERENCE = /^…[A-Z0-9]{4}$/;
+export const MAX_ATTEMPTS_PER_OBLIGATION = 5;
 
-export interface TransferInstructionsV1 {
-  readonly payeeName: string;
-  readonly payeeAccount: string;
-  readonly paymentReference: string;
-  /** Payload encoded in the wallet's own QR format; rendered by the client as-is. */
-  readonly qrPayload: string;
-  readonly expiresAt: UtcTimestamp;
-}
-
-export interface PaymentTransferV1 {
-  readonly availability: TransferAvailability;
-  /** Non-null exactly when availability is AVAILABLE. */
-  readonly instructions: TransferInstructionsV1 | null;
-}
-
-export interface PaymentV1 {
-  readonly paymentId: string;
-  readonly bookingId: string;
-  readonly revision: number;
+export interface PaymentIntentV1 {
+  readonly intentId: string;
   readonly method: PaymentMethod;
-  readonly state: PaymentState;
+  readonly status: IntentStatus;
   readonly amount: Money;
-  readonly beneficiary: PrincipalRef;
-  /** null for cash; non-null for wallet methods. */
-  readonly transfer: PaymentTransferV1 | null;
-  readonly proof: {
-    readonly transactionReference: string;
-    readonly submittedAt: UtcTimestamp;
-  } | null;
-  /** The most recent negative review, shown so the customer can correct the reference. */
-  readonly lastRejection: {
-    readonly reason: ReviewRejectionReason;
-    readonly reviewedAt: UtcTimestamp;
-  } | null;
-  readonly paidAt: UtcTimestamp | null;
   readonly createdAt: UtcTimestamp;
   readonly updatedAt: UtcTimestamp;
 }
 
-export interface SubmitTransferProofRequestV1 {
-  readonly expectedRevision: number;
-  readonly transactionReference: string;
-}
-
-export type ReviewTransferRequestV1 =
-  | {
-      readonly expectedRevision: number;
-      readonly decision: 'CONFIRM_RECEIVED';
-      readonly statementReference: string;
-    }
-  | {
-      readonly expectedRevision: number;
-      readonly decision: 'REJECT';
-      readonly rejectionReason: ReviewRejectionReason;
-    };
-
-/** Finance queue item: no customer contact, address or vehicle data. */
-export interface ReviewQueueItemV1 {
-  readonly paymentId: string;
-  readonly bookingId: string;
-  readonly revision: number;
+export interface PaymentAttemptV1 {
+  readonly attemptId: string;
+  readonly intentId: string;
   readonly method: PaymentMethod;
-  readonly amount: Money;
-  readonly transactionReference: string;
+  readonly status: AttemptStatus;
+  readonly reference: string;
+  readonly claimed: Money;
   readonly submittedAt: UtcTimestamp;
+  /** Non-null exactly when Finance recorded an outcome (status is not PENDING_REVIEW). */
+  readonly reconciledAt: UtcTimestamp | null;
 }
 
-function transactionReference(value: unknown, path: string): string {
-  return text(value, path, { max: 64, pattern: TRANSACTION_REFERENCE });
+export interface ObligationV1 {
+  readonly obligationId: string;
+  readonly revision: number;
+  readonly status: ObligationStatus;
+  readonly financialStatus: FinancialStatus;
+  readonly quoteId: string;
+  readonly amount: Money;
+  readonly verified: Money;
+  readonly outstanding: Money;
+  readonly activeIntent: PaymentIntentV1 | null;
+  /** Newest first. */
+  readonly attempts: readonly PaymentAttemptV1[];
+  readonly createdAt: UtcTimestamp;
+  readonly updatedAt: UtcTimestamp;
 }
 
-function transfer(value: unknown, path: string): PaymentTransferV1 {
-  const v = closed(value, path, ['availability', 'instructions']);
-  const availability = oneOf(v.availability, `${path}.availability`, TRANSFER_AVAILABILITY);
-  if ((availability === 'AVAILABLE') !== (v.instructions !== null)) {
-    throw new ContractViolation('INCONSISTENT_TRANSFER', `${path}.instructions`);
-  }
-  if (v.instructions === null) return { availability, instructions: null };
-  const at = `${path}.instructions`;
-  const i = closed(v.instructions, at, [
-    'payeeName',
-    'payeeAccount',
-    'paymentReference',
-    'qrPayload',
-    'expiresAt',
-  ]);
-  return {
-    availability,
-    instructions: {
-      payeeName: text(i.payeeName, `${at}.payeeName`, { max: 80 }),
-      payeeAccount: text(i.payeeAccount, `${at}.payeeAccount`, { max: 64 }),
-      paymentReference: text(i.paymentReference, `${at}.paymentReference`, {
-        max: 14,
-        pattern: PAYMENT_REFERENCE,
-      }),
-      qrPayload: text(i.qrPayload, `${at}.qrPayload`, { max: 1024 }),
-      expiresAt: parseUtc(i.expiresAt, `${at}.expiresAt`),
-    },
-  };
+export interface FinancialStatusViewV1 {
+  readonly obligationId: string;
+  readonly revision: number;
+  readonly financialStatus: FinancialStatus;
+  readonly amount: Money;
+  readonly verified: Money;
+  readonly outstanding: Money;
+  readonly method: PaymentMethod | null;
 }
 
-export function parsePaymentV1(value: unknown, path = '$'): PaymentV1 {
+export interface CreateObligationRequestV1 {
+  readonly quoteId: string;
+}
+
+export interface CreateBookingObligationRequestV1 {
+  readonly beneficiary: PrincipalRef;
+  readonly quoteId: string;
+  readonly bookingId: string;
+}
+
+export interface InitializePaymentRequestV1 {
+  readonly expectedRevision: number;
+  readonly method: PaymentMethod;
+}
+
+export interface SubmitAttemptRequestV1 {
+  readonly expectedRevision: number;
+  readonly providerReference: string;
+}
+
+export interface ReconcileAttemptRequestV1 {
+  readonly expectedRevision: number;
+  readonly outcome: ReconciliationOutcome;
+  /** Required for MATCHED/MISMATCHED (what the statement shows); null for UNKNOWN. */
+  readonly observedAmount: Money | null;
+}
+
+export interface VoidObligationRequestV1 {
+  readonly expectedRevision: number;
+}
+
+function sameCurrency(value: unknown, path: string, currency: Currency): Money {
+  const parsed = parseNonNegativeMoney(value, path);
+  if (parsed.currency !== currency) throw new ContractViolation('CURRENCY_MISMATCH', path);
+  return parsed;
+}
+
+export function parsePaymentIntentV1(value: unknown, path: string): PaymentIntentV1 {
   const v = closed(value, path, [
-    'paymentId',
-    'bookingId',
-    'revision',
+    'intentId',
     'method',
-    'state',
+    'status',
     'amount',
-    'beneficiary',
-    'transfer',
-    'proof',
-    'lastRejection',
-    'paidAt',
     'createdAt',
     'updatedAt',
   ]);
   const method = oneOf(v.method, `${path}.method`, PAYMENT_METHODS);
-  const state = oneOf(v.state, `${path}.state`, PAYMENT_STATES);
-  const wallet = (WALLET_PAYMENT_METHODS as readonly PaymentMethod[]).includes(method);
-  if (!(wallet ? WALLET_STATES : CASH_STATES).includes(state)) {
-    throw new ContractViolation('STATE_NOT_ALLOWED_FOR_METHOD', `${path}.state`);
-  }
-  if (wallet !== (v.transfer !== null)) {
-    throw new ContractViolation('INCONSISTENT_TRANSFER', `${path}.transfer`);
-  }
-  let proof: PaymentV1['proof'] = null;
-  if (v.proof !== null) {
-    if (!wallet) throw new ContractViolation('CASH_HAS_PROOF', `${path}.proof`);
-    const p = closed(v.proof, `${path}.proof`, ['transactionReference', 'submittedAt']);
-    proof = {
-      transactionReference: transactionReference(
-        p.transactionReference,
-        `${path}.proof.transactionReference`,
-      ),
-      submittedAt: parseUtc(p.submittedAt, `${path}.proof.submittedAt`),
-    };
-  }
-  if ((state === 'AWAITING_REVIEW' || state === 'PAID') && proof === null) {
-    throw new ContractViolation('PROOF_REQUIRED', `${path}.proof`);
-  }
-  let lastRejection: PaymentV1['lastRejection'] = null;
-  if (v.lastRejection !== null) {
-    if (!wallet) throw new ContractViolation('CASH_HAS_REVIEW', `${path}.lastRejection`);
-    const r = closed(v.lastRejection, `${path}.lastRejection`, ['reason', 'reviewedAt']);
-    lastRejection = {
-      reason: oneOf(r.reason, `${path}.lastRejection.reason`, REVIEW_REJECTION_REASONS),
-      reviewedAt: parseUtc(r.reviewedAt, `${path}.lastRejection.reviewedAt`),
-    };
-  }
-  const paidAt = v.paidAt === null ? null : parseUtc(v.paidAt, `${path}.paidAt`);
-  if ((state === 'PAID') !== (paidAt !== null)) {
-    throw new ContractViolation('INCONSISTENT_PAID_AT', `${path}.paidAt`);
-  }
+  const status = oneOf(v.status, `${path}.status`, INTENT_STATUSES);
+  const cash = method === 'CASH_ON_COMPLETION';
+  if (
+    (cash && (status === 'AWAITING_CUSTOMER_PAYMENT' || status === 'UNDER_REVIEW')) ||
+    (!cash && status === 'AWAITING_CASH_COLLECTION')
+  )
+    throw new ContractViolation('STATUS_NOT_ALLOWED_FOR_METHOD', `${path}.status`);
   return {
-    paymentId: uuid(v.paymentId, `${path}.paymentId`),
-    bookingId: uuid(v.bookingId, `${path}.bookingId`),
-    revision: parseRevision(v.revision, `${path}.revision`),
+    intentId: uuid(v.intentId, `${path}.intentId`),
     method,
-    state,
+    status,
     amount: parseNonNegativeMoney(v.amount, `${path}.amount`),
-    beneficiary: parsePrincipalRef(v.beneficiary, `${path}.beneficiary`),
-    transfer: v.transfer === null ? null : transfer(v.transfer, `${path}.transfer`),
-    proof,
-    lastRejection,
-    paidAt,
     createdAt: parseUtc(v.createdAt, `${path}.createdAt`),
     updatedAt: parseUtc(v.updatedAt, `${path}.updatedAt`),
   };
 }
 
-export function parseSubmitTransferProofRequestV1(value: unknown): SubmitTransferProofRequestV1 {
-  const v = closed(value, '$', ['expectedRevision', 'transactionReference']);
+export function parsePaymentAttemptV1(value: unknown, path: string): PaymentAttemptV1 {
+  const v = closed(value, path, [
+    'attemptId',
+    'intentId',
+    'method',
+    'status',
+    'reference',
+    'claimed',
+    'submittedAt',
+    'reconciledAt',
+  ]);
+  const method = oneOf(v.method, `${path}.method`, PAYMENT_METHODS);
+  if (method === 'CASH_ON_COMPLETION') {
+    throw new ContractViolation('CASH_HAS_ATTEMPT', `${path}.method`);
+  }
+  const status = oneOf(v.status, `${path}.status`, ATTEMPT_STATUSES);
+  const reconciledAt =
+    v.reconciledAt === null ? null : parseUtc(v.reconciledAt, `${path}.reconciledAt`);
+  if ((status === 'PENDING_REVIEW') !== (reconciledAt === null)) {
+    throw new ContractViolation('INCONSISTENT_RECONCILIATION', `${path}.reconciledAt`);
+  }
+  return {
+    attemptId: uuid(v.attemptId, `${path}.attemptId`),
+    intentId: uuid(v.intentId, `${path}.intentId`),
+    method,
+    status,
+    reference: text(v.reference, `${path}.reference`, { max: 5, pattern: MASKED_REFERENCE }),
+    claimed: parseNonNegativeMoney(v.claimed, `${path}.claimed`),
+    submittedAt: parseUtc(v.submittedAt, `${path}.submittedAt`),
+    reconciledAt,
+  };
+}
+
+/** verified + outstanding = amount (outstanding 0 once voided); PAID iff nothing is outstanding. */
+function amounts(
+  v: Record<string, unknown>,
+  path: string,
+  status: FinancialStatus,
+): { amount: Money; verified: Money; outstanding: Money } {
+  const amount = parseNonNegativeMoney(v.amount, `${path}.amount`);
+  const verified = sameCurrency(v.verified, `${path}.verified`, amount.currency);
+  const outstanding = sameCurrency(v.outstanding, `${path}.outstanding`, amount.currency);
+  if (compareMoney(verified, amount) > 0) {
+    throw new ContractViolation('VERIFIED_EXCEEDS_AMOUNT', `${path}.verified`);
+  }
+  if (status === 'VOIDED') {
+    if (outstanding.amountMinor !== '0') {
+      throw new ContractViolation('VOIDED_HAS_OUTSTANDING', `${path}.outstanding`);
+    }
+  } else if (addMoney(verified, outstanding).amountMinor !== amount.amountMinor) {
+    throw new ContractViolation('AMOUNTS_DO_NOT_ADD_UP', `${path}.outstanding`);
+  }
+  if ((status === 'PAID') !== (status !== 'VOIDED' && outstanding.amountMinor === '0')) {
+    throw new ContractViolation('INCONSISTENT_PAID', `${path}.financialStatus`);
+  }
+  return { amount, verified, outstanding };
+}
+
+/** The financial status Billing derives for an OPEN obligation. */
+function derivedOpenStatus(
+  intent: PaymentIntentV1 | null,
+  attempts: readonly PaymentAttemptV1[],
+): FinancialStatus {
+  switch (intent?.status) {
+    case 'AWAITING_CASH_COLLECTION':
+      return 'AWAITING_CASH';
+    case 'AWAITING_CUSTOMER_PAYMENT':
+      return 'AWAITING_PAYMENT';
+    case 'UNDER_REVIEW':
+      return attempts.some((a) => a.status === 'UNKNOWN') ? 'OUTCOME_UNKNOWN' : 'UNDER_REVIEW';
+    default:
+      return 'UNPAID';
+  }
+}
+
+export function parseObligationV1(value: unknown, path = '$'): ObligationV1 {
+  const v = closed(value, path, [
+    'obligationId',
+    'revision',
+    'status',
+    'financialStatus',
+    'quoteId',
+    'amount',
+    'verified',
+    'outstanding',
+    'activeIntent',
+    'attempts',
+    'createdAt',
+    'updatedAt',
+  ]);
+  const status = oneOf(v.status, `${path}.status`, OBLIGATION_STATUSES);
+  const financialStatus = oneOf(v.financialStatus, `${path}.financialStatus`, FINANCIAL_STATUSES);
+  const money = amounts(v, path, financialStatus);
+  const activeIntent =
+    v.activeIntent === null ? null : parsePaymentIntentV1(v.activeIntent, `${path}.activeIntent`);
+  if (activeIntent && activeIntent.amount.currency !== money.amount.currency) {
+    throw new ContractViolation('CURRENCY_MISMATCH', `${path}.activeIntent.amount`);
+  }
+  const attempts = list(v.attempts, `${path}.attempts`, MAX_ATTEMPTS_PER_OBLIGATION, (a, at) =>
+    parsePaymentAttemptV1(a, at),
+  );
+  if (new Set(attempts.map((a) => a.attemptId)).size !== attempts.length) {
+    throw new ContractViolation('DUPLICATE_ITEM', `${path}.attempts`);
+  }
+  for (let i = 1; i < attempts.length; i += 1) {
+    const newer = attempts[i - 1];
+    const older = attempts[i];
+    if (newer && older && Date.parse(newer.submittedAt) < Date.parse(older.submittedAt)) {
+      throw new ContractViolation('ATTEMPTS_NOT_NEWEST_FIRST', `${path}.attempts`);
+    }
+  }
+  // The financial status is DERIVED from server facts; a mismatch is a provider defect.
+  const expected =
+    status === 'VOIDED'
+      ? 'VOIDED'
+      : status === 'SETTLED'
+        ? 'PAID'
+        : derivedOpenStatus(activeIntent, attempts);
+  if (expected !== financialStatus) {
+    throw new ContractViolation('INCONSISTENT_FINANCIAL_STATUS', `${path}.financialStatus`);
+  }
+  return {
+    obligationId: uuid(v.obligationId, `${path}.obligationId`),
+    revision: parseRevision(v.revision, `${path}.revision`),
+    status,
+    financialStatus,
+    quoteId: uuid(v.quoteId, `${path}.quoteId`),
+    ...money,
+    activeIntent,
+    attempts,
+    createdAt: parseUtc(v.createdAt, `${path}.createdAt`),
+    updatedAt: parseUtc(v.updatedAt, `${path}.updatedAt`),
+  };
+}
+
+export function parseFinancialStatusViewV1(value: unknown, path = '$'): FinancialStatusViewV1 {
+  const v = closed(value, path, [
+    'obligationId',
+    'revision',
+    'financialStatus',
+    'amount',
+    'verified',
+    'outstanding',
+    'method',
+  ]);
+  const financialStatus = oneOf(v.financialStatus, `${path}.financialStatus`, FINANCIAL_STATUSES);
+  return {
+    obligationId: uuid(v.obligationId, `${path}.obligationId`),
+    revision: parseRevision(v.revision, `${path}.revision`),
+    financialStatus,
+    ...amounts(v, path, financialStatus),
+    method: v.method === null ? null : oneOf(v.method, `${path}.method`, PAYMENT_METHODS),
+  };
+}
+
+export function parseCreateObligationRequestV1(value: unknown): CreateObligationRequestV1 {
+  const v = closed(value, '$', ['quoteId']);
+  return { quoteId: uuid(v.quoteId, '$.quoteId') };
+}
+
+export function parseCreateBookingObligationRequestV1(
+  value: unknown,
+): CreateBookingObligationRequestV1 {
+  const v = closed(value, '$', ['beneficiary', 'quoteId', 'bookingId']);
+  return {
+    beneficiary: parsePrincipalRef(v.beneficiary, '$.beneficiary'),
+    quoteId: uuid(v.quoteId, '$.quoteId'),
+    bookingId: uuid(v.bookingId, '$.bookingId'),
+  };
+}
+
+export function parseInitializePaymentRequestV1(value: unknown): InitializePaymentRequestV1 {
+  const v = closed(value, '$', ['expectedRevision', 'method']);
   return {
     expectedRevision: parseRevision(v.expectedRevision, '$.expectedRevision'),
-    transactionReference: transactionReference(v.transactionReference, '$.transactionReference'),
+    method: oneOf(v.method, '$.method', PAYMENT_METHODS),
   };
 }
 
-export function parseReviewTransferRequestV1(value: unknown): ReviewTransferRequestV1 {
-  const decision = closed(
-    value,
-    '$',
-    ['expectedRevision', 'decision'],
-    ['statementReference', 'rejectionReason'],
-  ).decision;
-  if (decision === 'CONFIRM_RECEIVED') {
-    const v = closed(value, '$', ['expectedRevision', 'decision', 'statementReference']);
-    return {
-      expectedRevision: parseRevision(v.expectedRevision, '$.expectedRevision'),
-      decision,
-      statementReference: text(v.statementReference, '$.statementReference', {
-        max: 128,
-        pattern: STATEMENT_REFERENCE,
-      }),
-    };
-  }
-  if (decision === 'REJECT') {
-    const v = closed(value, '$', ['expectedRevision', 'decision', 'rejectionReason']);
-    return {
-      expectedRevision: parseRevision(v.expectedRevision, '$.expectedRevision'),
-      decision,
-      rejectionReason: oneOf(v.rejectionReason, '$.rejectionReason', REVIEW_REJECTION_REASONS),
-    };
-  }
-  throw new ContractViolation('INVALID_ENUM', '$.decision');
-}
-
-export function parseReviewQueueItemV1(value: unknown, path = '$'): ReviewQueueItemV1 {
-  const v = closed(value, path, [
-    'paymentId',
-    'bookingId',
-    'revision',
-    'method',
-    'amount',
-    'transactionReference',
-    'submittedAt',
-  ]);
-  const method = oneOf(v.method, `${path}.method`, WALLET_PAYMENT_METHODS);
+export function parseSubmitAttemptRequestV1(value: unknown): SubmitAttemptRequestV1 {
+  const v = closed(value, '$', ['expectedRevision', 'providerReference']);
   return {
-    paymentId: uuid(v.paymentId, `${path}.paymentId`),
-    bookingId: uuid(v.bookingId, `${path}.bookingId`),
-    revision: parseRevision(v.revision, `${path}.revision`),
-    method,
-    amount: parseNonNegativeMoney(v.amount, `${path}.amount`),
-    transactionReference: transactionReference(
-      v.transactionReference,
-      `${path}.transactionReference`,
-    ),
-    submittedAt: parseUtc(v.submittedAt, `${path}.submittedAt`),
+    expectedRevision: parseRevision(v.expectedRevision, '$.expectedRevision'),
+    providerReference: text(v.providerReference, '$.providerReference', {
+      max: 64,
+      pattern: PROVIDER_REFERENCE,
+    }),
   };
 }
 
-export function parseReviewQueuePageV1(value: unknown, path = '$'): Page<ReviewQueueItemV1> {
-  return parsePage(value, path, parseReviewQueueItemV1);
+export function parseReconcileAttemptRequestV1(value: unknown): ReconcileAttemptRequestV1 {
+  const v = closed(value, '$', ['expectedRevision', 'outcome', 'observedAmount']);
+  const outcome = oneOf(v.outcome, '$.outcome', RECONCILIATION_OUTCOMES);
+  if ((outcome === 'UNKNOWN') !== (v.observedAmount === null)) {
+    throw new ContractViolation(
+      outcome === 'UNKNOWN' ? 'OBSERVED_AMOUNT_NOT_ALLOWED' : 'OBSERVED_AMOUNT_REQUIRED',
+      '$.observedAmount',
+    );
+  }
+  return {
+    expectedRevision: parseRevision(v.expectedRevision, '$.expectedRevision'),
+    outcome,
+    observedAmount:
+      v.observedAmount === null
+        ? null
+        : parseNonNegativeMoney(v.observedAmount, '$.observedAmount'),
+  };
+}
+
+export function parseVoidObligationRequestV1(value: unknown): VoidObligationRequestV1 {
+  const v = closed(value, '$', ['expectedRevision']);
+  return { expectedRevision: parseRevision(v.expectedRevision, '$.expectedRevision') };
 }

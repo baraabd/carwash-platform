@@ -48,6 +48,13 @@ import {
  * Booking state is a Booking fact. It never says that money arrived (Billing)
  * or that a technician is assigned (Dispatch).
  *
+ * Saga (owner: Booking): validate quote (pricing.v1 validateQuote) -> capture
+ * snapshots (customer/vehicle resolve) -> re-validate serviceability (geo.v1)
+ * -> create the obligation (billing.v1 createBookingObligation) -> commit the
+ * hold LAST (scheduling.v1 commitHold). A failure before the commit releases
+ * the hold and voids the obligation (voidBookingObligation); an unknown commit
+ * outcome leaves the booking PENDING until reconciled.
+ *
  * createBooking outcome semantics (owner must implement exactly):
  *   201 + CONFIRMED  quote valid, snapshots captured, hold committed.
  *   202 + PENDING    the hold commit outcome is UNKNOWN (timeout); Booking
@@ -205,6 +212,12 @@ export interface BookingV1 {
   readonly notes: string | null;
   readonly price: BookingPriceV1;
   readonly paymentMethod: PaymentMethod;
+  /**
+   * The Billing obligation created by the booking saga (billing.v1
+   * createBookingObligation). Non-null for CONFIRMED and CANCELLED bookings.
+   * The customer pays against it through billing.v1; Booking never says PAID.
+   */
+  readonly obligationId: string | null;
   /** Non-null exactly when state is REJECTED. */
   readonly rejectionReason: BookingRejectionReason | null;
   /** Non-null exactly when state is CANCELLED. */
@@ -491,6 +504,7 @@ export function parseBookingV1(value: unknown, path = '$'): BookingV1 {
     'notes',
     'price',
     'paymentMethod',
+    'obligationId',
     'rejectionReason',
     'cancellation',
     'confirmedAt',
@@ -498,6 +512,11 @@ export function parseBookingV1(value: unknown, path = '$'): BookingV1 {
     'updatedAt',
   ]);
   const state = oneOf(v.state, `${path}.state`, BOOKING_STATES);
+  const obligationId =
+    v.obligationId === null ? null : uuid(v.obligationId, `${path}.obligationId`);
+  if ((state === 'CONFIRMED' || state === 'CANCELLED') && obligationId === null) {
+    throw new ContractViolation('INCONSISTENT_BOOKING_STATE', `${path}.obligationId`);
+  }
   const rejectionReason =
     v.rejectionReason === null
       ? null
@@ -545,6 +564,7 @@ export function parseBookingV1(value: unknown, path = '$'): BookingV1 {
     notes: notes(v.notes, `${path}.notes`),
     price,
     paymentMethod: oneOf(v.paymentMethod, `${path}.paymentMethod`, PAYMENT_METHODS),
+    obligationId,
     rejectionReason,
     cancellation,
     confirmedAt,

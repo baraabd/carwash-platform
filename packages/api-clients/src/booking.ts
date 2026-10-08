@@ -75,30 +75,60 @@ export function getRepeatDraft(
   });
 }
 
-export function getBookingPayment(
+export function getObligation(
   client: HttpClient,
-  bookingId: string,
+  obligationId: string,
   context: CallContext = {},
-): Promise<ApiResult<billingV1.PaymentV1>> {
-  return callRoute(client, billingV1.BILLING_V1, 'getBookingPayment', {
+): Promise<ApiResult<billingV1.ObligationV1>> {
+  return callRoute(client, billingV1.BILLING_V1, 'getObligation', {
     ...context,
-    params: { bookingId },
-    parse: (value) => billingV1.parsePaymentV1(value),
+    params: { obligationId },
+    parse: (value) => billingV1.parseObligationV1(value),
   });
 }
 
-export function submitTransferProof(
+/** Lean polling read for the payment and confirmation screens. */
+export function getFinancialStatus(
   client: HttpClient,
-  paymentId: string,
-  request: billingV1.SubmitTransferProofRequestV1,
+  obligationId: string,
+  context: CallContext = {},
+): Promise<ApiResult<billingV1.FinancialStatusViewV1>> {
+  return callRoute(client, billingV1.BILLING_V1, 'getFinancialStatus', {
+    ...context,
+    params: { obligationId },
+    parse: (value) => billingV1.parseFinancialStatusViewV1(value),
+  });
+}
+
+export function initializePayment(
+  client: HttpClient,
+  obligationId: string,
+  request: billingV1.InitializePaymentRequestV1,
   idempotencyKey: string,
   context: CallContext = {},
-): Promise<ApiResult<billingV1.PaymentV1>> {
-  return callRoute(client, billingV1.BILLING_V1, 'submitTransferProof', {
+): Promise<ApiResult<billingV1.ObligationV1>> {
+  return callRoute(client, billingV1.BILLING_V1, 'initializePayment', {
     ...context,
-    params: { paymentId },
-    body: billingV1.parseSubmitTransferProofRequestV1(request),
+    params: { obligationId },
+    body: billingV1.parseInitializePaymentRequestV1(request),
     idempotencyKey,
-    parse: (value) => billingV1.parsePaymentV1(value),
+    parse: (value) => billingV1.parseObligationV1(value),
+  });
+}
+
+/** Reports the wallet transaction reference. The result is UNDER_REVIEW, never PAID. */
+export function submitPaymentAttempt(
+  client: HttpClient,
+  obligationId: string,
+  request: billingV1.SubmitAttemptRequestV1,
+  idempotencyKey: string,
+  context: CallContext = {},
+): Promise<ApiResult<billingV1.ObligationV1>> {
+  return callRoute(client, billingV1.BILLING_V1, 'submitAttempt', {
+    ...context,
+    params: { obligationId },
+    body: billingV1.parseSubmitAttemptRequestV1(request),
+    idempotencyKey,
+    parse: (value) => billingV1.parseObligationV1(value),
   });
 }

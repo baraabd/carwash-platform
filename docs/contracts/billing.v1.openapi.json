@@ -7,16 +7,66 @@
   },
   "x-owner": "billing",
   "x-error-reasons": [
-    "PAYMENT_NOT_AWAITING_TRANSFER",
-    "PAYMENT_NOT_AWAITING_REVIEW",
-    "TRANSFER_UNAVAILABLE",
-    "TRANSACTION_REFERENCE_IN_USE",
-    "SELF_REVIEW_FORBIDDEN"
+    "QUOTE_NOT_USABLE",
+    "OBLIGATION_ALREADY_EXISTS",
+    "AMOUNT_INVALID",
+    "CURRENCY_UNSUPPORTED",
+    "PROVIDER_REFERENCE_TAKEN",
+    "OBLIGATION_SETTLED",
+    "OBLIGATION_VOIDED",
+    "VOID_NOT_ALLOWED",
+    "METHOD_UNCHANGED",
+    "PAYMENT_IN_REVIEW",
+    "NO_ACTIVE_INTENT",
+    "INTENT_NOT_ACCEPTING_ATTEMPTS",
+    "ATTEMPT_NOT_OPEN",
+    "ALREADY_UNKNOWN",
+    "ATTEMPT_LIMIT_REACHED",
+    "AMOUNT_NOT_EQUAL_OUTSTANDING",
+    "OBSERVED_AMOUNT_REQUIRED",
+    "OBSERVED_AMOUNT_NOT_ALLOWED",
+    "SELF_RECONCILIATION_FORBIDDEN"
   ],
   "paths": {
-    "/internal/v1/billing/bookings/{bookingId}/payment": {
+    "/internal/v1/billing/obligations": {
+      "post": {
+        "operationId": "billing.createObligation",
+        "x-access": "principal",
+        "x-idempotent": true,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts billingV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/billing/obligations/{obligationId}": {
       "get": {
-        "operationId": "billing.getBookingPayment",
+        "operationId": "billing.getObligation",
         "x-access": "principal",
         "x-idempotent": false,
         "x-revisioned": false,
@@ -24,7 +74,7 @@
         "x-wire-parsers": "@carwash/contracts billingV1 (closed objects; unknown fields refused)",
         "parameters": [
           {
-            "name": "bookingId",
+            "name": "obligationId",
             "in": "path",
             "required": true,
             "schema": {
@@ -49,9 +99,44 @@
         }
       }
     },
-    "/internal/v1/billing/payments/{paymentId}/transfer-proofs": {
+    "/internal/v1/billing/obligations/{obligationId}/financial-status": {
+      "get": {
+        "operationId": "billing.getFinancialStatus",
+        "x-access": "principal",
+        "x-idempotent": false,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts billingV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "obligationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/billing/obligations/{obligationId}/payment-intents": {
       "post": {
-        "operationId": "billing.submitTransferProof",
+        "operationId": "billing.initializePayment",
         "x-access": "principal",
         "x-idempotent": true,
         "x-revisioned": false,
@@ -59,7 +144,7 @@
         "x-wire-parsers": "@carwash/contracts billingV1 (closed objects; unknown fields refused)",
         "parameters": [
           {
-            "name": "paymentId",
+            "name": "obligationId",
             "in": "path",
             "required": true,
             "schema": {
@@ -93,31 +178,30 @@
         }
       }
     },
-    "/internal/v1/billing/payments/review-queue": {
-      "get": {
-        "operationId": "billing.listReviewQueue",
-        "x-access": "permission:billing.payments.verify",
-        "x-idempotent": false,
+    "/internal/v1/billing/obligations/{obligationId}/payment-attempts": {
+      "post": {
+        "operationId": "billing.submitAttempt",
+        "x-access": "principal",
+        "x-idempotent": true,
         "x-revisioned": false,
         "x-safe-post": false,
         "x-wire-parsers": "@carwash/contracts billingV1 (closed objects; unknown fields refused)",
         "parameters": [
           {
-            "name": "limit",
-            "in": "query",
-            "required": false,
+            "name": "obligationId",
+            "in": "path",
+            "required": true,
             "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
+              "type": "string"
             }
           },
           {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
             }
           }
         ],
@@ -138,17 +222,141 @@
         }
       }
     },
-    "/internal/v1/billing/payments/{paymentId}/review": {
+    "/internal/v1/billing/obligations/{obligationId}/void": {
       "post": {
-        "operationId": "billing.reviewTransfer",
-        "x-access": "permission:billing.payments.verify",
+        "operationId": "billing.voidObligation",
+        "x-access": "principal",
         "x-idempotent": true,
         "x-revisioned": false,
         "x-safe-post": false,
         "x-wire-parsers": "@carwash/contracts billingV1 (closed objects; unknown fields refused)",
         "parameters": [
           {
-            "name": "paymentId",
+            "name": "obligationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/billing/payment-attempts/{attemptId}/reconciliation": {
+      "post": {
+        "operationId": "billing.reconcileAttempt",
+        "x-access": "permission:billing.reconcile",
+        "x-idempotent": true,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts billingV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/billing/booking-obligations": {
+      "post": {
+        "operationId": "billing.createBookingObligation",
+        "x-access": "service:billing.obligation.write",
+        "x-idempotent": true,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts billingV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/billing/booking-obligations/{obligationId}/void": {
+      "post": {
+        "operationId": "billing.voidBookingObligation",
+        "x-access": "service:billing.obligation.write",
+        "x-idempotent": true,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts billingV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "obligationId",
             "in": "path",
             "required": true,
             "schema": {

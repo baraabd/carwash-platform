@@ -319,13 +319,23 @@
           "revisioned": false,
           "safe": false,
           "paged": false
+        },
+        "cancelCommitment": {
+          "method": "POST",
+          "path": "/holds/:holdId/cancel",
+          "access": "service:scheduling.hold.commit",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
         }
       },
       "reasons": [
         "SLOT_UNAVAILABLE",
         "HOLD_EXPIRED",
         "HOLD_NOT_ACTIVE",
-        "OUTSIDE_HORIZON"
+        "OUTSIDE_HORIZON",
+        "HOLD_LIMIT_REACHED"
       ]
     },
     "workforce.v1": {
@@ -461,37 +471,82 @@
       "owner": "billing",
       "prefix": "/internal/v1/billing",
       "routes": {
-        "getBookingPayment": {
-          "method": "GET",
-          "path": "/bookings/:bookingId/payment",
-          "access": "principal",
-          "idempotent": false,
-          "revisioned": false,
-          "safe": false,
-          "paged": false
-        },
-        "submitTransferProof": {
+        "createObligation": {
           "method": "POST",
-          "path": "/payments/:paymentId/transfer-proofs",
+          "path": "/obligations",
           "access": "principal",
           "idempotent": true,
           "revisioned": false,
           "safe": false,
           "paged": false
         },
-        "listReviewQueue": {
+        "getObligation": {
           "method": "GET",
-          "path": "/payments/review-queue",
-          "access": "permission:billing.payments.verify",
+          "path": "/obligations/:obligationId",
+          "access": "principal",
           "idempotent": false,
           "revisioned": false,
           "safe": false,
-          "paged": true
+          "paged": false
         },
-        "reviewTransfer": {
+        "getFinancialStatus": {
+          "method": "GET",
+          "path": "/obligations/:obligationId/financial-status",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "initializePayment": {
           "method": "POST",
-          "path": "/payments/:paymentId/review",
-          "access": "permission:billing.payments.verify",
+          "path": "/obligations/:obligationId/payment-intents",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "submitAttempt": {
+          "method": "POST",
+          "path": "/obligations/:obligationId/payment-attempts",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "voidObligation": {
+          "method": "POST",
+          "path": "/obligations/:obligationId/void",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "reconcileAttempt": {
+          "method": "POST",
+          "path": "/payment-attempts/:attemptId/reconciliation",
+          "access": "permission:billing.reconcile",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "createBookingObligation": {
+          "method": "POST",
+          "path": "/booking-obligations",
+          "access": "service:billing.obligation.write",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "voidBookingObligation": {
+          "method": "POST",
+          "path": "/booking-obligations/:obligationId/void",
+          "access": "service:billing.obligation.write",
           "idempotent": true,
           "revisioned": false,
           "safe": false,
@@ -499,11 +554,25 @@
         }
       },
       "reasons": [
-        "PAYMENT_NOT_AWAITING_TRANSFER",
-        "PAYMENT_NOT_AWAITING_REVIEW",
-        "TRANSFER_UNAVAILABLE",
-        "TRANSACTION_REFERENCE_IN_USE",
-        "SELF_REVIEW_FORBIDDEN"
+        "QUOTE_NOT_USABLE",
+        "OBLIGATION_ALREADY_EXISTS",
+        "AMOUNT_INVALID",
+        "CURRENCY_UNSUPPORTED",
+        "PROVIDER_REFERENCE_TAKEN",
+        "OBLIGATION_SETTLED",
+        "OBLIGATION_VOIDED",
+        "VOID_NOT_ALLOWED",
+        "METHOD_UNCHANGED",
+        "PAYMENT_IN_REVIEW",
+        "NO_ACTIVE_INTENT",
+        "INTENT_NOT_ACCEPTING_ATTEMPTS",
+        "ATTEMPT_NOT_OPEN",
+        "ALREADY_UNKNOWN",
+        "ATTEMPT_LIMIT_REACHED",
+        "AMOUNT_NOT_EQUAL_OUTSTANDING",
+        "OBSERVED_AMOUNT_REQUIRED",
+        "OBSERVED_AMOUNT_NOT_ALLOWED",
+        "SELF_RECONCILIATION_FORBIDDEN"
       ]
     }
   },
@@ -595,9 +664,14 @@
       "aggregateType": "booking",
       "envelopeVersion": 2
     },
-    "billing.payment-state-changed.v1": {
+    "billing.obligation-created.v1": {
       "producer": "billing",
-      "aggregateType": "payment",
+      "aggregateType": "billing-obligation",
+      "envelopeVersion": 2
+    },
+    "billing.obligation-status-changed.v1": {
+      "producer": "billing",
+      "aggregateType": "billing-obligation",
       "envelopeVersion": 2
     }
   }

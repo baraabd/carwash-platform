@@ -38,8 +38,26 @@ export const SCHEDULING_V1 = {
       access: 'principal',
       idempotent: true,
     },
+    /**
+     * P02 (CR-P02-C1 §3): Booking gives back a COMMITTED unit when the booking
+     * is cancelled or a saga step after the commit failed. Emits hold-changed
+     * RELEASED. Same workload scope as commit; never reachable from the Gateway.
+     */
+    cancelCommitment: {
+      method: 'POST',
+      path: '/holds/:holdId/cancel',
+      access: 'service:scheduling.hold.commit',
+      idempotent: true,
+    },
   },
-  reasons: ['SLOT_UNAVAILABLE', 'HOLD_EXPIRED', 'HOLD_NOT_ACTIVE', 'OUTSIDE_HORIZON'],
+  reasons: [
+    'SLOT_UNAVAILABLE',
+    'HOLD_EXPIRED',
+    'HOLD_NOT_ACTIVE',
+    'OUTSIDE_HORIZON',
+    // P02 (CR-P02-C1 §5): anti-hoarding, more than the allowed live holds per principal.
+    'HOLD_LIMIT_REACHED',
+  ],
 } as const satisfies OwnerContract;
 
 export const MIN_DURATION_MINUTES = 5;
@@ -111,6 +129,16 @@ export interface HoldV1 {
 export interface CommitHoldRequestV1 {
   readonly expectedRevision: number;
   readonly bookingId: string;
+}
+
+export const COMMITMENT_CANCEL_REASONS = ['BOOKING_CANCELLED', 'BOOKING_FAILED'] as const;
+export type CommitmentCancelReason = (typeof COMMITMENT_CANCEL_REASONS)[number];
+
+export interface CancelCommitmentRequestV1 {
+  readonly expectedRevision: number;
+  /** Must equal the booking the hold was committed to. */
+  readonly bookingId: string;
+  readonly reason: CommitmentCancelReason;
 }
 
 export interface ReleaseHoldRequestV1 {
@@ -276,5 +304,14 @@ export function parseReleaseHoldRequestV1(value: unknown): ReleaseHoldRequestV1 
   return {
     expectedRevision: parseRevision(v.expectedRevision, '$.expectedRevision'),
     reason: oneOf(v.reason, '$.reason', RELEASE_REASONS),
+  };
+}
+
+export function parseCancelCommitmentRequestV1(value: unknown): CancelCommitmentRequestV1 {
+  const v = closed(value, '$', ['expectedRevision', 'bookingId', 'reason']);
+  return {
+    expectedRevision: parseRevision(v.expectedRevision, '$.expectedRevision'),
+    bookingId: uuid(v.bookingId, '$.bookingId'),
+    reason: oneOf(v.reason, '$.reason', COMMITMENT_CANCEL_REASONS),
   };
 }

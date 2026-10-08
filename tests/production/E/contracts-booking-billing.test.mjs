@@ -11,6 +11,7 @@ const contracts = require('../../../packages/contracts/dist/index.js');
 const { ContractViolation } = require('../../../packages/contracts/dist/common/wire.js');
 const b = require('../../../packages/contracts/dist/booking/v1.js');
 const p = require('../../../packages/contracts/dist/billing/v1.js');
+const s = require('../../../packages/contracts/dist/scheduling/v1.js');
 const events = require('../../../packages/event-contracts/dist/index.js');
 const clients = await import('../../../packages/api-clients/dist/index.js');
 
@@ -27,7 +28,7 @@ const BOOKING = ID(4);
 const ZONE = ID(5);
 const DECISION = ID(6);
 const VEHICLE = ID(7);
-const PAYMENT = ID(8);
+const OBLIGATION = ID(8);
 const DEF = ID(9);
 const LINE_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const LINE_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -119,6 +120,7 @@ const booking = {
     total: syp('5300100'),
   },
   paymentMethod: 'SHAM_CASH',
+  obligationId: OBLIGATION,
   rejectionReason: null,
   cancellation: null,
   confirmedAt: '2026-10-08T10:00:01.000Z',
@@ -126,35 +128,61 @@ const booking = {
   updatedAt: '2026-10-08T10:00:01.000Z',
 };
 
-const payment = {
-  paymentId: PAYMENT,
-  bookingId: BOOKING,
-  revision: 1,
+const intent = {
+  intentId: ID(1),
   method: 'SHAM_CASH',
-  state: 'AWAITING_TRANSFER',
+  status: 'AWAITING_CUSTOMER_PAYMENT',
   amount: syp('5300100'),
-  beneficiary: { kind: 'guest', subjectId: SUBJECT },
-  transfer: { availability: 'MERCHANT_NOT_CONFIGURED', instructions: null },
-  proof: null,
-  lastRejection: null,
-  paidAt: null,
-  createdAt: '2026-10-08T10:00:02.000Z',
-  updatedAt: '2026-10-08T10:00:02.000Z',
+  createdAt: '2026-10-08T10:00:03.000Z',
+  updatedAt: '2026-10-08T10:00:03.000Z',
 };
+const obligation = {
+  obligationId: OBLIGATION,
+  revision: 2,
+  status: 'OPEN',
+  financialStatus: 'AWAITING_PAYMENT',
+  quoteId: QUOTE,
+  amount: syp('5300100'),
+  verified: syp('0'),
+  outstanding: syp('5300100'),
+  activeIntent: intent,
+  attempts: [],
+  createdAt: '2026-10-08T10:00:02.000Z',
+  updatedAt: '2026-10-08T10:00:03.000Z',
+};
+const attempt = (status, submittedAt, reconciledAt, attemptId = ID(3)) => ({
+  attemptId,
+  intentId: intent.intentId,
+  method: 'SHAM_CASH',
+  status,
+  reference: '…3456',
+  claimed: syp('5300100'),
+  submittedAt,
+  reconciledAt,
+});
 
 test('descriptors are registered, linted and owned by the right services', () => {
   assert.equal(b.BOOKING_V1.prefix, '/internal/v1/booking');
   assert.equal(p.BILLING_V1.prefix, '/internal/v1/billing');
-  for (const c of [b.BOOKING_V1, p.BILLING_V1]) {
+  for (const c of [b.BOOKING_V1, p.BILLING_V1, s.SCHEDULING_V1]) {
     assert.deepEqual(contracts.contractProblems(c), []);
     assert.ok(contracts.OWNER_CONTRACTS.includes(c));
     assert.equal(contracts.httpContract(c.id).status, 'published-provider-pending');
   }
-  // Every customer-facing booking/billing route acts on the caller's own records;
-  // payment verification is a staff permission, never a customer action.
+  // Every customer-facing booking route acts on the caller's own records.
   for (const route of Object.values(b.BOOKING_V1.routes)) assert.equal(route.access, 'principal');
-  assert.equal(p.BILLING_V1.routes.reviewTransfer.access, 'permission:billing.payments.verify');
-  assert.equal(p.BILLING_V1.routes.submitTransferProof.idempotent, true);
+  // Settlement is a Finance permission; saga routes are workload-only; all commands are keyed.
+  assert.equal(p.BILLING_V1.routes.reconcileAttempt.access, 'permission:billing.reconcile');
+  assert.equal(
+    p.BILLING_V1.routes.createBookingObligation.access,
+    'service:billing.obligation.write',
+  );
+  assert.equal(
+    p.BILLING_V1.routes.voidBookingObligation.access,
+    'service:billing.obligation.write',
+  );
+  for (const route of Object.values(p.BILLING_V1.routes))
+    if (route.method !== 'GET') assert.equal(route.idempotent, true);
   assert.equal(b.BOOKING_V1.routes.createBooking.idempotent, true);
 });
 
@@ -236,16 +264,21 @@ test('create request: saved references carry an expected revision; mixed shapes 
   );
 });
 
-test('booking: confirmed booking round-trips with exact money', () => {
+test('booking: confirmed booking round-trips with exact money and its obligation', () => {
   const parsed = b.parseBookingV1(booking);
   assert.deepEqual(JSON.parse(JSON.stringify(parsed)), booking);
   assert.equal(parsed.price.total.amountMinor, '5300100');
+  throwsCode(
+    () => b.parseBookingV1({ ...clone(booking), obligationId: null }),
+    'INCONSISTENT_BOOKING_STATE',
+  );
 });
 
 test('booking: state invariants are enforced by the wire parser', () => {
   const pending = { ...clone(booking), state: 'PENDING' };
   throwsCode(() => b.parseBookingV1(pending), 'INCONSISTENT_BOOKING_STATE');
   b.parseBookingV1({ ...pending, confirmedAt: null });
+  b.parseBookingV1({ ...pending, confirmedAt: null, obligationId: null });
 
   throwsCode(
     () => b.parseBookingV1({ ...clone(booking), state: 'REJECTED', confirmedAt: null }),
@@ -348,7 +381,7 @@ test('cancel and repeat draft: no time, hold or quote is ever repeated', () => {
     address: request.address,
     vehicleType: 'suv',
     selections: [{ definitionId: DEF, quantity: 1 }],
-    paymentMethod: 'CASH_AFTER_SERVICE',
+    paymentMethod: 'CASH_ON_COMPLETION',
     contact: booking.contact,
   };
   b.parseRepeatDraftV1(draft);
@@ -360,120 +393,228 @@ test('cancel and repeat draft: no time, hold or quote is ever repeated', () => {
     'DUPLICATE_ITEM',
   );
   throwsCode(
-    () =>
-      b.parseRepeatDraftV1({
-        ...draft,
-        vehicle: request.vehicle,
-        vehicleType: 'sedan',
-      }),
+    () => b.parseRepeatDraftV1({ ...draft, vehicle: request.vehicle, vehicleType: 'sedan' }),
     'VEHICLE_TYPE_MISMATCH',
   );
 });
 
-test('payment: wallet awaiting transfer without merchant has no invented instructions', () => {
-  assert.deepEqual(JSON.parse(JSON.stringify(p.parsePaymentV1(payment))), payment);
+test('obligation: awaiting a wallet transfer round-trips; status is derived, not asserted', () => {
+  assert.deepEqual(JSON.parse(JSON.stringify(p.parseObligationV1(obligation))), obligation);
   throwsCode(
-    () =>
-      p.parsePaymentV1({
-        ...payment,
-        transfer: { availability: 'MERCHANT_NOT_CONFIGURED', instructions: {} },
-      }),
-    'INCONSISTENT_TRANSFER',
+    () => p.parseObligationV1({ ...obligation, financialStatus: 'UNDER_REVIEW' }),
+    'INCONSISTENT_FINANCIAL_STATUS',
   );
   throwsCode(
-    () =>
-      p.parsePaymentV1({ ...payment, transfer: { availability: 'AVAILABLE', instructions: null } }),
-    'INCONSISTENT_TRANSFER',
+    () => p.parseObligationV1({ ...obligation, financialStatus: 'PAID' }),
+    'INCONSISTENT_PAID',
   );
-  const available = {
-    ...payment,
-    transfer: {
-      availability: 'AVAILABLE',
-      instructions: {
-        payeeName: 'WashGo',
-        payeeAccount: 'merchant-account',
-        paymentReference: 'WGP-7K3M9Q2XAB',
-        qrPayload: 'opaque-wallet-payload',
-        expiresAt: '2026-10-08T12:00:00.000Z',
-      },
-    },
+  const cash = {
+    ...obligation,
+    financialStatus: 'AWAITING_CASH',
+    activeIntent: { ...intent, method: 'CASH_ON_COMPLETION', status: 'AWAITING_CASH_COLLECTION' },
   };
-  p.parsePaymentV1(available);
+  p.parseObligationV1(cash);
+  throwsCode(
+    () =>
+      p.parseObligationV1({
+        ...cash,
+        activeIntent: { ...cash.activeIntent, status: 'UNDER_REVIEW' },
+      }),
+    'STATUS_NOT_ALLOWED_FOR_METHOD',
+  );
+  p.parseObligationV1({ ...obligation, financialStatus: 'UNPAID', activeIntent: null });
 });
 
-test('payment: PAID needs a proof and a server paid time; cash never has transfer or proof', () => {
-  const proof = { transactionReference: 'TX-123456', submittedAt: '2026-10-08T10:30:00.000Z' };
-  throwsCode(() => p.parsePaymentV1({ ...payment, state: 'AWAITING_REVIEW' }), 'PROOF_REQUIRED');
-  p.parsePaymentV1({ ...payment, state: 'AWAITING_REVIEW', proof });
-  throwsCode(() => p.parsePaymentV1({ ...payment, state: 'PAID', proof }), 'INCONSISTENT_PAID_AT');
-  p.parsePaymentV1({ ...payment, state: 'PAID', proof, paidAt: '2026-10-08T11:00:00.000Z' });
+test('obligation: a reported reference is UNDER_REVIEW; an unknown reconciliation is OUTCOME_UNKNOWN, never PAID', () => {
+  const review = {
+    ...obligation,
+    financialStatus: 'UNDER_REVIEW',
+    activeIntent: { ...intent, status: 'UNDER_REVIEW' },
+    attempts: [attempt('PENDING_REVIEW', '2026-10-08T10:30:00.000Z', null)],
+  };
+  p.parseObligationV1(review);
+  const unknown = {
+    ...review,
+    financialStatus: 'OUTCOME_UNKNOWN',
+    attempts: [attempt('UNKNOWN', '2026-10-08T10:30:00.000Z', '2026-10-08T11:00:00.000Z')],
+  };
+  p.parseObligationV1(unknown);
   throwsCode(
-    () => p.parsePaymentV1({ ...payment, state: 'PAID', paidAt: '2026-10-08T11:00:00.000Z' }),
-    'PROOF_REQUIRED',
+    () => p.parseObligationV1({ ...unknown, financialStatus: 'UNDER_REVIEW' }),
+    'INCONSISTENT_FINANCIAL_STATUS',
   );
-
-  const cash = { ...payment, method: 'CASH_AFTER_SERVICE', state: 'CASH_DUE', transfer: null };
-  p.parsePaymentV1(cash);
-  throwsCode(() => p.parsePaymentV1({ ...cash, state: 'PAID' }), 'STATE_NOT_ALLOWED_FOR_METHOD');
+  // Full provider references never travel back; only the masked last four.
   throwsCode(
-    () => p.parsePaymentV1({ ...cash, transfer: payment.transfer }),
-    'INCONSISTENT_TRANSFER',
+    () =>
+      p.parseObligationV1({
+        ...review,
+        attempts: [{ ...review.attempts[0], reference: 'TX-123456' }],
+      }),
+    'INVALID_LENGTH',
   );
-  throwsCode(() => p.parsePaymentV1({ ...cash, proof }), 'CASH_HAS_PROOF');
   throwsCode(
-    () => p.parsePaymentV1({ ...payment, state: 'CASH_COLLECTED' }),
-    'STATE_NOT_ALLOWED_FOR_METHOD',
+    () =>
+      p.parseObligationV1({
+        ...review,
+        attempts: [{ ...review.attempts[0], reconciledAt: '2026-10-08T11:00:00.000Z' }],
+      }),
+    'INCONSISTENT_RECONCILIATION',
+  );
+  throwsCode(
+    () =>
+      p.parseObligationV1({
+        ...review,
+        attempts: [
+          attempt('MISMATCHED', '2026-10-08T10:00:00.000Z', '2026-10-08T10:10:00.000Z', ID(5)),
+          attempt('PENDING_REVIEW', '2026-10-08T10:30:00.000Z', null),
+        ],
+      }),
+    'ATTEMPTS_NOT_NEWEST_FIRST',
+  );
+  throwsCode(
+    () =>
+      p.parseObligationV1({
+        ...review,
+        attempts: [{ ...review.attempts[0], method: 'CASH_ON_COMPLETION' }],
+      }),
+    'CASH_HAS_ATTEMPT',
   );
 });
 
-test('proof and review requests: closed shapes, statement evidence required to confirm', () => {
-  p.parseSubmitTransferProofRequestV1({ expectedRevision: 1, transactionReference: 'TX-123456' });
+test('obligation: PAID only when settled with nothing outstanding; amounts add up exactly', () => {
+  const paid = {
+    ...obligation,
+    status: 'SETTLED',
+    financialStatus: 'PAID',
+    verified: syp('5300100'),
+    outstanding: syp('0'),
+    activeIntent: { ...intent, status: 'SUCCEEDED' },
+    attempts: [attempt('MATCHED', '2026-10-08T10:30:00.000Z', '2026-10-08T11:00:00.000Z')],
+  };
+  p.parseObligationV1(paid);
   throwsCode(
-    () => p.parseSubmitTransferProofRequestV1({ expectedRevision: 1, transactionReference: 'a b' }),
+    () => p.parseObligationV1({ ...paid, status: 'OPEN' }),
+    'INCONSISTENT_FINANCIAL_STATUS',
+  );
+  throwsCode(
+    () => p.parseObligationV1({ ...obligation, outstanding: syp('5300000') }),
+    'AMOUNTS_DO_NOT_ADD_UP',
+  );
+  throwsCode(
+    () => p.parseObligationV1({ ...obligation, verified: syp('5300101'), outstanding: syp('0') }),
+    'VERIFIED_EXCEEDS_AMOUNT',
+  );
+  throwsCode(
+    () =>
+      p.parseObligationV1({
+        ...obligation,
+        outstanding: { currency: 'USD', amountMinor: '5300100', scale: 2 },
+      }),
+    'CURRENCY_MISMATCH',
+  );
+  const voided = {
+    ...obligation,
+    status: 'VOIDED',
+    financialStatus: 'VOIDED',
+    outstanding: syp('0'),
+    activeIntent: { ...intent, status: 'CANCELLED' },
+  };
+  p.parseObligationV1(voided);
+  throwsCode(
+    () => p.parseObligationV1({ ...voided, outstanding: syp('1') }),
+    'VOIDED_HAS_OUTSTANDING',
+  );
+  p.parseFinancialStatusViewV1({
+    obligationId: OBLIGATION,
+    revision: 2,
+    financialStatus: 'AWAITING_PAYMENT',
+    amount: syp('5300100'),
+    verified: syp('0'),
+    outstanding: syp('5300100'),
+    method: 'SHAM_CASH',
+  });
+});
+
+test('billing commands: closed shapes, reference alphabet, observed amount rules, saga beneficiary', () => {
+  p.parseCreateObligationRequestV1({ quoteId: QUOTE });
+  throwsCode(
+    () => p.parseCreateObligationRequestV1({ quoteId: QUOTE, amount: syp('1') }),
+    'UNEXPECTED_FIELD',
+  );
+  p.parseInitializePaymentRequestV1({ expectedRevision: 1, method: 'CASH_ON_COMPLETION' });
+  throwsCode(
+    () => p.parseInitializePaymentRequestV1({ expectedRevision: 1, method: 'CARD' }),
+    'INVALID_ENUM',
+  );
+  p.parseSubmitAttemptRequestV1({ expectedRevision: 2, providerReference: 'TX-123456' });
+  throwsCode(
+    () => p.parseSubmitAttemptRequestV1({ expectedRevision: 2, providerReference: 'a b' }),
     'INVALID_FORMAT',
   );
   throwsCode(
     () =>
-      p.parseSubmitTransferProofRequestV1({
-        expectedRevision: 1,
-        transactionReference: 'TX-1234',
+      p.parseSubmitAttemptRequestV1({
+        expectedRevision: 2,
+        providerReference: 'TX-1234',
         paid: true,
       }),
     'UNEXPECTED_FIELD',
   );
-  p.parseReviewTransferRequestV1({
-    expectedRevision: 2,
-    decision: 'CONFIRM_RECEIVED',
-    statementReference: 'stmt:2026-10-08:42',
+  p.parseReconcileAttemptRequestV1({
+    expectedRevision: 3,
+    outcome: 'MATCHED',
+    observedAmount: syp('5300100'),
+  });
+  p.parseReconcileAttemptRequestV1({
+    expectedRevision: 3,
+    outcome: 'UNKNOWN',
+    observedAmount: null,
   });
   throwsCode(
-    () => p.parseReviewTransferRequestV1({ expectedRevision: 2, decision: 'CONFIRM_RECEIVED' }),
+    () =>
+      p.parseReconcileAttemptRequestV1({
+        expectedRevision: 3,
+        outcome: 'MATCHED',
+        observedAmount: null,
+      }),
+    'OBSERVED_AMOUNT_REQUIRED',
+  );
+  throwsCode(
+    () =>
+      p.parseReconcileAttemptRequestV1({
+        expectedRevision: 3,
+        outcome: 'UNKNOWN',
+        observedAmount: syp('1'),
+      }),
+    'OBSERVED_AMOUNT_NOT_ALLOWED',
+  );
+  p.parseCreateBookingObligationRequestV1({
+    beneficiary: { kind: 'guest', subjectId: SUBJECT },
+    quoteId: QUOTE,
+    bookingId: BOOKING,
+  });
+  throwsCode(
+    () => p.parseCreateBookingObligationRequestV1({ quoteId: QUOTE, bookingId: BOOKING }),
     'MISSING_FIELD',
   );
+  p.parseVoidObligationRequestV1({ expectedRevision: 2 });
+});
+
+test('scheduling.v1 additions: commitment cancellation is workload-only; HOLD_LIMIT_REACHED is published', () => {
+  assert.equal(s.SCHEDULING_V1.routes.cancelCommitment.access, 'service:scheduling.hold.commit');
+  assert.equal(s.SCHEDULING_V1.routes.cancelCommitment.idempotent, true);
+  assert.ok(s.SCHEDULING_V1.reasons.includes('HOLD_LIMIT_REACHED'));
+  s.parseCancelCommitmentRequestV1({
+    expectedRevision: 2,
+    bookingId: BOOKING,
+    reason: 'BOOKING_CANCELLED',
+  });
   throwsCode(
     () =>
-      p.parseReviewTransferRequestV1({
+      s.parseCancelCommitmentRequestV1({
         expectedRevision: 2,
-        decision: 'REJECT',
-        rejectionReason: 'AMOUNT_MISMATCH',
-        statementReference: 'stmt:1',
-      }),
-    'UNEXPECTED_FIELD',
-  );
-  throwsCode(
-    () => p.parseReviewTransferRequestV1({ expectedRevision: 2, decision: 'APPROVE' }),
-    'INVALID_ENUM',
-  );
-  throwsCode(
-    () =>
-      p.parseReviewQueueItemV1({
-        paymentId: PAYMENT,
         bookingId: BOOKING,
-        revision: 2,
-        method: 'CASH_AFTER_SERVICE',
-        amount: syp('1'),
-        transactionReference: 'TX-1234',
-        submittedAt: '2026-10-08T10:30:00.000Z',
+        reason: 'EXPIRED_BY_CLIENT',
       }),
     'INVALID_ENUM',
   );
@@ -499,6 +640,7 @@ const envelope = (spec, aggregateId, data, actor = { kind: 'guest', id: SUBJECT 
 
 const confirmedData = {
   beneficiary: { kind: 'guest', subjectId: SUBJECT },
+  obligationId: OBLIGATION,
   holdId: HOLD,
   zoneId: ZONE,
   startsAt: booking.schedule.startsAt,
@@ -515,13 +657,14 @@ test('events: registered as envelope v2 with versions taken from the event type'
   for (const id of [
     'booking.confirmed.v2',
     'booking.cancelled.v1',
-    'billing.payment-state-changed.v1',
+    'billing.obligation-created.v1',
+    'billing.obligation-status-changed.v1',
   ])
     assert.ok(ids.includes(id), id);
   assert.equal(events.eventContract('booking.confirmed.v2').schemaVersion, 2);
   assert.equal(events.eventContract('booking.confirmed.v2').envelopeVersion, 2);
   assert.equal(events.eventContract('booking.confirmed.v1').envelopeVersion, 1, 'v1 unchanged');
-  assert.equal(events.BUSINESS_EVENTS.length, events.BUSINESS_EVENTS_V1.length + 3);
+  assert.equal(events.BUSINESS_EVENTS.length, events.BUSINESS_EVENTS_V1.length + 4);
 });
 
 test('events: booking.confirmed.v2 is PII-free and exact', () => {
@@ -548,7 +691,7 @@ test('events: booking.confirmed.v2 is PII-free and exact', () => {
   );
 });
 
-test('events: cancelled and payment-state-changed enforce their closed vocabularies', () => {
+test('events: cancelled and obligation events enforce their closed vocabularies', () => {
   const cancelled = events.BOOKING_CANCELLED_V1;
   cancelled.parse(
     envelope(cancelled, BOOKING, {
@@ -558,60 +701,70 @@ test('events: cancelled and payment-state-changed enforce their closed vocabular
       cancelledAt: '2026-10-08T11:00:00.000Z',
     }),
   );
-  const changed = events.BILLING_PAYMENT_STATE_CHANGED_V1;
-  const data = {
-    bookingId: BOOKING,
-    method: 'SHAM_CASH',
-    state: 'PAID',
-    currency: 'SYP',
-    amountMinor: '5300100',
-  };
-  changed.parse(envelope(changed, PAYMENT, data, { kind: 'account', id: ID(3) }));
-  assert.throws(
-    () => changed.parse(envelope(changed, PAYMENT, { ...data, state: 'CASH_DUE' })),
-    /INVALID_EVENT_DATA/,
+  const created = events.BILLING_OBLIGATION_CREATED_V1;
+  created.parse(
+    envelope(created, OBLIGATION, {
+      quoteId: QUOTE,
+      amount: syp('5300100'),
+      financialStatus: 'UNPAID',
+    }),
   );
   assert.throws(
     () =>
-      changed.parse(
-        envelope(changed, PAYMENT, { ...data, method: 'CASH_AFTER_SERVICE', state: 'PAID' }),
+      created.parse(
+        envelope(created, OBLIGATION, {
+          quoteId: QUOTE,
+          amount: { currency: 'SYP', amountMinor: '5300100', scale: 0 },
+          financialStatus: 'UNPAID',
+        }),
       ),
     /INVALID_EVENT_DATA/,
   );
-  changed.parse(envelope(changed, PAYMENT, { ...data, state: 'CANCELLED' }));
+  const changed = events.BILLING_OBLIGATION_STATUS_CHANGED_V1;
+  const data = {
+    previousFinancialStatus: 'UNDER_REVIEW',
+    financialStatus: 'PAID',
+    verified: syp('5300100'),
+    outstanding: syp('0'),
+  };
+  changed.parse(envelope(changed, OBLIGATION, data, { kind: 'account', id: ID(3) }));
+  for (const bad of [
+    { ...data, previousFinancialStatus: 'PAID' },
+    { ...data, outstanding: syp('1') },
+    { ...data, financialStatus: 'UNDER_REVIEW', previousFinancialStatus: 'AWAITING_PAYMENT' },
+    { ...data, providerReference: 'TX-123456' },
+  ])
+    assert.throws(
+      () => changed.parse(envelope(changed, OBLIGATION, bad)),
+      /INVALID_EVENT_DATA|UNEXPECTED_EVENT_FIELDS/,
+    );
 });
 
 test('events and HTTP contracts share one vocabulary (no drift between packages)', () => {
-  const wallet = events.BILLING_PAYMENT_STATE_CHANGED_V1;
-  for (const method of contracts.PAYMENT_METHODS) {
-    const state = method === 'CASH_AFTER_SERVICE' ? 'CASH_DUE' : 'AWAITING_TRANSFER';
-    wallet.parse(
-      envelope(wallet, PAYMENT, {
-        bookingId: BOOKING,
-        method,
-        state,
-        currency: 'SYP',
-        amountMinor: '1',
-      }),
+  for (const paymentMethod of contracts.PAYMENT_METHODS) {
+    events.BOOKING_CONFIRMED_V2.parse(
+      envelope(events.BOOKING_CONFIRMED_V2, BOOKING, { ...confirmedData, paymentMethod }),
     );
   }
-  for (const state of p.PAYMENT_STATES) {
-    const method = ['CASH_DUE', 'CASH_COLLECTED'].includes(state)
-      ? 'CASH_AFTER_SERVICE'
-      : 'SHAM_CASH';
-    wallet.parse(
-      envelope(wallet, PAYMENT, {
-        bookingId: BOOKING,
-        method,
-        state,
-        currency: 'SYP',
-        amountMinor: '1',
-      }),
-    );
-  }
-  for (const currency of Object.keys(contracts.CURRENCIES)) {
+  for (const [currency, scale] of Object.entries(contracts.CURRENCIES)) {
     events.BOOKING_CONFIRMED_V2.parse(
       envelope(events.BOOKING_CONFIRMED_V2, BOOKING, { ...confirmedData, currency }),
+    );
+    events.BILLING_OBLIGATION_CREATED_V1.parse(
+      envelope(events.BILLING_OBLIGATION_CREATED_V1, OBLIGATION, {
+        quoteId: QUOTE,
+        amount: { currency, amountMinor: '1', scale },
+        financialStatus: 'UNPAID',
+      }),
+    );
+  }
+  for (const financialStatus of p.FINANCIAL_STATUSES) {
+    events.BILLING_OBLIGATION_CREATED_V1.parse(
+      envelope(events.BILLING_OBLIGATION_CREATED_V1, OBLIGATION, {
+        quoteId: QUOTE,
+        amount: syp('1'),
+        financialStatus,
+      }),
     );
   }
 });
@@ -622,7 +775,7 @@ test('events and HTTP contracts share one vocabulary (no drift between packages)
 
 async function server(t, handler) {
   const seen = [];
-  const s = http.createServer((req, res) => {
+  const srv = http.createServer((req, res) => {
     let body = '';
     req.on('data', (chunk) => (body += chunk));
     req.on('end', () => {
@@ -630,9 +783,9 @@ async function server(t, handler) {
       handler(req, res, body);
     });
   });
-  await new Promise((resolve) => s.listen(0, '127.0.0.1', resolve));
-  t.after(() => new Promise((resolve) => (s.closeAllConnections(), s.close(resolve))));
-  return { seen, baseUrl: `http://127.0.0.1:${s.address().port}` };
+  await new Promise((resolve) => srv.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise((resolve) => (srv.closeAllConnections(), srv.close(resolve))));
+  return { seen, baseUrl: `http://127.0.0.1:${srv.address().port}` };
 }
 
 const json = (res, status, value) => {
@@ -653,9 +806,9 @@ test('client: createBooking sends the parsed body with the idempotency key to th
   assert.deepEqual(JSON.parse(seen[0].body), request);
 });
 
-test('client: a malformed booking never leaves the client; a bad payment response is never success', async (t) => {
+test('client: a malformed booking never leaves the client; an inconsistent obligation is never success', async (t) => {
   const { seen, baseUrl } = await server(t, (_req, res) =>
-    json(res, 200, { ...payment, state: 'PAID' }),
+    json(res, 200, { ...obligation, financialStatus: 'PAID' }),
   );
   const client = new clients.HttpClient({ baseUrl, fetch });
   assert.throws(
@@ -668,20 +821,21 @@ test('client: a malformed booking never leaves the client; a bad payment respons
     (error) => error instanceof ContractViolation,
   );
   assert.equal(seen.length, 0);
-  const result = await clients.getBookingPayment(client, BOOKING);
+  const result = await clients.getObligation(client, OBLIGATION);
   assert.equal(result.ok, false);
   assert.equal(result.error.code, 'UPSTREAM_INVALID');
-  assert.equal(seen[0].url, `/internal/v1/billing/bookings/${BOOKING}/payment`);
+  assert.equal(seen[0].url, `/internal/v1/billing/obligations/${OBLIGATION}`);
 });
 
-test('client: proof submission and cancellation are keyed and target the owner paths', async (t) => {
+test('client: payment attempt and cancellation are keyed and target the owner paths', async (t) => {
   const { seen, baseUrl } = await server(t, (req, res) =>
     req.url.includes('/billing/')
-      ? json(res, 200, {
-          ...payment,
-          revision: 2,
-          state: 'AWAITING_REVIEW',
-          proof: { transactionReference: 'TX-123456', submittedAt: '2026-10-08T10:30:00.000Z' },
+      ? json(res, 202, {
+          ...obligation,
+          revision: 3,
+          financialStatus: 'UNDER_REVIEW',
+          activeIntent: { ...intent, status: 'UNDER_REVIEW' },
+          attempts: [attempt('PENDING_REVIEW', '2026-10-08T10:30:00.000Z', null)],
         })
       : json(res, 200, {
           ...booking,
@@ -691,13 +845,13 @@ test('client: proof submission and cancellation are keyed and target the owner p
         }),
   );
   const client = new clients.HttpClient({ baseUrl, fetch });
-  const proof = await clients.submitTransferProof(
+  const reported = await clients.submitPaymentAttempt(
     client,
-    PAYMENT,
-    { expectedRevision: 1, transactionReference: 'TX-123456' },
-    'payment-proof-key-0001',
+    OBLIGATION,
+    { expectedRevision: 2, providerReference: 'TX-123456' },
+    'payment-attempt-key-0001',
   );
-  assert.equal(proof.value.state, 'AWAITING_REVIEW');
+  assert.equal(reported.value.financialStatus, 'UNDER_REVIEW');
   const cancelled = await clients.cancelBooking(
     client,
     BOOKING,
@@ -705,7 +859,7 @@ test('client: proof submission and cancellation are keyed and target the owner p
     'booking-cancel-key-0001',
   );
   assert.equal(cancelled.value.state, 'CANCELLED');
-  assert.equal(seen[0].url, `/internal/v1/billing/payments/${PAYMENT}/transfer-proofs`);
+  assert.equal(seen[0].url, `/internal/v1/billing/obligations/${OBLIGATION}/payment-attempts`);
   assert.equal(seen[1].url, `/internal/v1/booking/bookings/${BOOKING}/cancel`);
-  assert.ok(seen.every((s) => s.headers['idempotency-key']));
+  assert.ok(seen.every((call) => call.headers['idempotency-key']));
 });

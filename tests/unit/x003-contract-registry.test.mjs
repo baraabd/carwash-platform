@@ -267,7 +267,15 @@ test('X003 event registry matches public code and AsyncAPI documents', () => {
         asyncApi: 'docs/asyncapi/business-events-p02.yaml',
       },
       {
-        id: 'billing.payment-state-changed.v1',
+        id: 'billing.obligation-created.v1',
+        producer: 'billing',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/business-events-p02.yaml',
+      },
+      {
+        id: 'billing.obligation-status-changed.v1',
         producer: 'billing',
         schemaVersion: 1,
         envelopeVersion: 2,

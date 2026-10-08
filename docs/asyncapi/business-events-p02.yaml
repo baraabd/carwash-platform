@@ -62,11 +62,11 @@ channels:
             data:
               type: object
               additionalProperties: false
-  billing.events/billing.payment-state-changed.v1:
+  billing.events/billing.obligation-created.v1:
     publish:
-      operationId: publish_billing_payment_state_changed_v1
+      operationId: publish_billing_obligation_created_v1
       message:
-        name: billing.payment-state-changed.v1
+        name: billing.obligation-created.v1
         correlationId:
           location: $message.payload#/correlationId
         payload:
@@ -75,7 +75,7 @@ channels:
           required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
           properties:
             eventType:
-              const: billing.payment-state-changed.v1
+              const: billing.obligation-created.v1
             envelopeVersion:
               const: 2
             producer:
@@ -84,7 +84,33 @@ channels:
               type: object
               properties:
                 type:
-                  const: payment
+                  const: billing-obligation
+            data:
+              type: object
+              additionalProperties: false
+  billing.events/billing.obligation-status-changed.v1:
+    publish:
+      operationId: publish_billing_obligation_status_changed_v1
+      message:
+        name: billing.obligation-status-changed.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: billing.obligation-status-changed.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: billing
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: billing-obligation
             data:
               type: object
               additionalProperties: false

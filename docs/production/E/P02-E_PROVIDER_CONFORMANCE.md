@@ -1,6 +1,6 @@
 # P02-E — Provider conformance against the published contracts
 
-Audited source: `main` at `566d2e7435dac0803d075556fff43c435f8a29a7`.
+Audited source: `main` at `566d2e7435dac0803d075556fff43c435f8a29a7`. Open lane PRs observed on 2026-10-08: #103 (vehicle.v1), #104 (scheduling.v1), #105 (geo.v1), #106 (billing), #107 (dispatch). They are not merged, so the table describes `main`.
 Method: route, authentication and messaging inventory of every P01 provider,
 compared with `@carwash/contracts` 0.1.0 / `@carwash/event-contracts` 0.1.0.
 This is an observation, not a decision on the owners' behalf.
@@ -24,7 +24,8 @@ change. These are cross-lane blockers. Lane E does not edit owner services.
 | Scheduling (C) | `scheduling.v1` | Holds are service-only (`scheduling.holds.write`, static token). The body is `{windowId, holderRef, units, ttlSeconds}` (contract `principal` + `{beneficiary, zoneId, startsAt, durationMinutes, quoteRef}`). `/confirm` instead of `/commit`; release reasons differ; `/availability/earliest` is missing. | The customer cannot hold a slot through the Gateway. Booking commits through a non-contract route. |
 | Workforce (C) | `workforce.v1` | `GET /capacity-resources` is missing (eligibility is `GET /eligible`). | Scheduling capacity linkage is outside the contract. |
 | Configuration (D) | `configuration.v1` | Routes are `/values/...` and `/revisions/...` (contract `/scopes/...` and `/drafts/...`). `configuration.read`/`write` are not issued by Identity. | `booking.policy.v1` cannot be read by Booking with a workload identity. |
-| Booking (C), Billing (B) | `booking.v1`, `billing.v1` (P02-E1) | Foundation shells: a `ServiceMarker` model only, readiness 503. | **The booking creation path does not exist.** |
+| Booking (C) | `booking.v1` (P02-E1) | Foundation shell on main (`ServiceMarker` only, readiness 503). No provider PR was open when this was audited. | **The booking creation path does not exist on main.** |
+| Billing (B) | `billing.v1` (P02-E1) | Foundation shell on main. Provider PR #106 (not merged) implements CR-B-01, which billing.v1 now publishes. The saga routes `createBookingObligation`/`voidBookingObligation` are still to be implemented. | Payment state exists only after #106 merges. |
 
 ## Platform gaps owned by Lane E
 
