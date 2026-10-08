@@ -4,3 +4,4 @@
  */
 export * from './transport.js';
 export * from './routes.js';
+export * from './booking.js';

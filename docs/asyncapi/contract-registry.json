@@ -97,6 +97,30 @@
       "envelopeVersion": 2,
       "status": "published-producer-pending",
       "asyncApi": "docs/asyncapi/business-events-v1.yaml"
+    },
+    {
+      "id": "booking.confirmed.v2",
+      "producer": "booking",
+      "schemaVersion": 2,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/business-events-p02.yaml"
+    },
+    {
+      "id": "booking.cancelled.v1",
+      "producer": "booking",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/business-events-p02.yaml"
+    },
+    {
+      "id": "billing.payment-state-changed.v1",
+      "producer": "billing",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/business-events-p02.yaml"
     }
   ]
 }

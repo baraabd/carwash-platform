@@ -92,10 +92,24 @@ test('X003 HTTP registry is versioned, bounded and source-linked', () => {
         prefix: '/internal/v1/configuration',
         status: 'published-provider-pending',
       },
+      {
+        id: 'booking.v1',
+        domain: 'booking',
+        version: 1,
+        prefix: '/internal/v1/booking',
+        status: 'published-provider-pending',
+      },
+      {
+        id: 'billing.v1',
+        domain: 'billing',
+        version: 1,
+        prefix: '/internal/v1/billing',
+        status: 'published-provider-pending',
+      },
     ],
   );
   // Unpublished domains stay unknown; publication is explicit, never inferred.
-  assert.throws(() => httpRegistry.httpContract('booking.v1'), /UNKNOWN_HTTP_CONTRACT/);
+  assert.throws(() => httpRegistry.httpContract('dispatch.v1'), /UNKNOWN_HTTP_CONTRACT/);
 
   const docs = JSON.parse(readFileSync(path.join(root, 'docs/api/contract-registry.json'), 'utf8'));
   assert.equal(docs.schemaVersion, 1);
@@ -236,6 +250,30 @@ test('X003 event registry matches public code and AsyncAPI documents', () => {
         status: 'published-producer-pending',
         asyncApi: 'docs/asyncapi/business-events-v1.yaml',
       },
+      {
+        id: 'booking.confirmed.v2',
+        producer: 'booking',
+        schemaVersion: 2,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/business-events-p02.yaml',
+      },
+      {
+        id: 'booking.cancelled.v1',
+        producer: 'booking',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/business-events-p02.yaml',
+      },
+      {
+        id: 'billing.payment-state-changed.v1',
+        producer: 'billing',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/business-events-p02.yaml',
+      },
     ],
   );
   assert.throws(() => eventRegistry.eventContract('billing.paid.v1'), /UNKNOWN_EVENT_CONTRACT/);
@@ -276,6 +314,8 @@ test('X003 package exports expose versioned domains and reject private deep impo
     './scheduling-v1',
     './workforce-v1',
     './configuration-v1',
+    './booking-v1',
+    './billing-v1',
     './common',
   ]);
   assert.deepEqual(Object.keys(eventsPackage.exports), [
@@ -286,6 +326,7 @@ test('X003 package exports expose versioned domains and reject private deep impo
     './registry',
     './envelope-v2',
     './business-v1',
+    './booking-billing-v1',
   ]);
 
   const consumer = mkdtempSync(path.join(tmpdir(), 'washgo-x003-consumer-'));

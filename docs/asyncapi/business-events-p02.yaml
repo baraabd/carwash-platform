@@ -1,0 +1,90 @@
+asyncapi: '2.6.0'
+info:
+  title: WashGo booking and billing events P02 (envelope v2)
+  version: '1.0.0'
+  description: >
+    Published wire contracts for the booking and billing event set. Status
+    published-producer-pending: no accepted producer emits these yet.
+    Data is closed and carries opaque IDs, the opaque principal reference,
+    schedule instants and exact minor-unit amounts only; data shapes are
+    defined by the parsers in @carwash/event-contracts booking-billing-v1.
+defaultContentType: application/json
+channels:
+  booking.events/booking.confirmed.v2:
+    publish:
+      operationId: publish_booking_confirmed_v2
+      message:
+        name: booking.confirmed.v2
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: booking.confirmed.v2
+            envelopeVersion:
+              const: 2
+            producer:
+              const: booking
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: booking
+            data:
+              type: object
+              additionalProperties: false
+  booking.events/booking.cancelled.v1:
+    publish:
+      operationId: publish_booking_cancelled_v1
+      message:
+        name: booking.cancelled.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: booking.cancelled.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: booking
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: booking
+            data:
+              type: object
+              additionalProperties: false
+  billing.events/billing.payment-state-changed.v1:
+    publish:
+      operationId: publish_billing_payment_state_changed_v1
+      message:
+        name: billing.payment-state-changed.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: billing.payment-state-changed.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: billing
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: payment
+            data:
+              type: object
+              additionalProperties: false

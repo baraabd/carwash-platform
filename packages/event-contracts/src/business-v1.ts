@@ -16,7 +16,7 @@ function oneOf<const T extends readonly string[]>(value: unknown, allowed: T): T
 const CHANGE = ['CREATED', 'UPDATED', 'ARCHIVED'] as const;
 type Change = (typeof CHANGE)[number];
 
-interface EventSpec<TType extends string, TProducer extends EventProducer, TData> {
+export interface EventSpec<TType extends string, TProducer extends EventProducer, TData> {
   readonly eventType: TType;
   readonly producer: TProducer;
   readonly aggregateType: string;
@@ -24,7 +24,7 @@ interface EventSpec<TType extends string, TProducer extends EventProducer, TData
   readonly parseData: (data: unknown) => TData;
 }
 
-function spec<TType extends string, TProducer extends EventProducer, TData>(
+export function defineBusinessEvent<TType extends string, TProducer extends EventProducer, TData>(
   value: EventSpec<TType, TProducer, TData>,
 ): EventSpec<TType, TProducer, TData> & {
   parse(value: unknown): EventEnvelopeV2<TType, TProducer, TData>;
@@ -34,7 +34,7 @@ function spec<TType extends string, TProducer extends EventProducer, TData>(
 
 const ASYNCAPI = 'docs/asyncapi/business-events-v1.yaml';
 
-export const CUSTOMER_PROFILE_UPDATED_V1 = spec({
+export const CUSTOMER_PROFILE_UPDATED_V1 = defineBusinessEvent({
   eventType: 'customer.profile-updated.v1',
   producer: 'customer',
   aggregateType: 'customer-profile',
@@ -46,7 +46,7 @@ export const CUSTOMER_PROFILE_UPDATED_V1 = spec({
   },
 });
 
-export const CUSTOMER_ADDRESS_UPDATED_V1 = spec({
+export const CUSTOMER_ADDRESS_UPDATED_V1 = defineBusinessEvent({
   eventType: 'customer.address-updated.v1',
   producer: 'customer',
   aggregateType: 'customer-address',
@@ -58,7 +58,7 @@ export const CUSTOMER_ADDRESS_UPDATED_V1 = spec({
   },
 });
 
-export const VEHICLE_UPDATED_V1 = spec({
+export const VEHICLE_UPDATED_V1 = defineBusinessEvent({
   eventType: 'vehicle.vehicle-updated.v1',
   producer: 'vehicle',
   aggregateType: 'vehicle',
@@ -70,7 +70,7 @@ export const VEHICLE_UPDATED_V1 = spec({
   },
 });
 
-export const GEO_ZONE_UPDATED_V1 = spec({
+export const GEO_ZONE_UPDATED_V1 = defineBusinessEvent({
   eventType: 'geo.zone-updated.v1',
   producer: 'geo',
   aggregateType: 'service-zone',
@@ -88,7 +88,7 @@ export const GEO_ZONE_UPDATED_V1 = spec({
   },
 });
 
-export const CATALOG_DEFINITIONS_PUBLISHED_V1 = spec({
+export const CATALOG_DEFINITIONS_PUBLISHED_V1 = defineBusinessEvent({
   eventType: 'catalog.definitions-published.v1',
   producer: 'catalog',
   aggregateType: 'catalog',
@@ -107,7 +107,7 @@ export const CATALOG_DEFINITIONS_PUBLISHED_V1 = spec({
 
 const MONEY_MINOR = /^(0|[1-9][0-9]{0,17})$/;
 
-export const PRICING_PRICE_BOOK_PUBLISHED_V1 = spec({
+export const PRICING_PRICE_BOOK_PUBLISHED_V1 = defineBusinessEvent({
   eventType: 'pricing.price-book-published.v1',
   producer: 'pricing',
   aggregateType: 'price-book',
@@ -119,7 +119,7 @@ export const PRICING_PRICE_BOOK_PUBLISHED_V1 = spec({
   },
 });
 
-export const PRICING_QUOTE_ISSUED_V1 = spec({
+export const PRICING_QUOTE_ISSUED_V1 = defineBusinessEvent({
   eventType: 'pricing.quote-issued.v1',
   producer: 'pricing',
   aggregateType: 'quote',
@@ -142,7 +142,7 @@ export const PRICING_QUOTE_ISSUED_V1 = spec({
   },
 });
 
-export const SCHEDULING_HOLD_CHANGED_V1 = spec({
+export const SCHEDULING_HOLD_CHANGED_V1 = defineBusinessEvent({
   eventType: 'scheduling.hold-changed.v1',
   producer: 'scheduling',
   aggregateType: 'hold',
@@ -166,7 +166,7 @@ export const SCHEDULING_HOLD_CHANGED_V1 = spec({
   },
 });
 
-export const WORKFORCE_ELIGIBILITY_CHANGED_V1 = spec({
+export const WORKFORCE_ELIGIBILITY_CHANGED_V1 = defineBusinessEvent({
   eventType: 'workforce.eligibility-changed.v1',
   producer: 'workforce',
   aggregateType: 'capacity-resource',
@@ -178,7 +178,7 @@ export const WORKFORCE_ELIGIBILITY_CHANGED_V1 = spec({
   },
 });
 
-export const CONFIGURATION_PUBLISHED_V1 = spec({
+export const CONFIGURATION_PUBLISHED_V1 = defineBusinessEvent({
   eventType: 'configuration.configuration-published.v1',
   producer: 'configuration',
   aggregateType: 'configuration-scope',

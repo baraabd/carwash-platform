@@ -1,3 +1,5 @@
+import { BILLING_V1 } from './billing/v1';
+import { BOOKING_V1 } from './booking/v1';
 import { CATALOG_V1 } from './catalog/v1';
 import type { OwnerContract } from './common/route';
 import { CONFIGURATION_V1 } from './configuration/v1';
@@ -29,6 +31,8 @@ export const OWNER_CONTRACTS = [
   SCHEDULING_V1,
   WORKFORCE_V1,
   CONFIGURATION_V1,
+  BOOKING_V1,
+  BILLING_V1,
 ] as const satisfies readonly OwnerContract[];
 
 type OwnerContractId = (typeof OWNER_CONTRACTS)[number]['id'];

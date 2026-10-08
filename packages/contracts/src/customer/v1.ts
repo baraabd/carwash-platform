@@ -6,6 +6,7 @@ import {
   type PrincipalRef,
   type ResolvePurpose,
 } from '../common/principal';
+import { parseSyrianMobile } from '../common/phone';
 import { parseRevision } from '../common/protocol';
 import { parseUtc, type UtcTimestamp } from '../common/time';
 import {
@@ -66,8 +67,6 @@ export const CUSTOMER_V1 = {
 export const LOCALES = ['ar', 'en'] as const;
 export type Locale = (typeof LOCALES)[number];
 
-/** Syrian mobile in E.164 (+9639XXXXXXXX). Other countries are a contract change. */
-const SY_MOBILE = /^\+9639[0-9]{8}$/;
 export const MAX_SAVED_ADDRESSES = 20;
 
 export interface CustomerContactV1 {
@@ -140,7 +139,7 @@ function displayName(value: unknown, path: string): string | null {
 
 function phone(value: unknown, path: string): string | null {
   if (value === null) return null;
-  return text(value, path, { max: 13, pattern: SY_MOBILE });
+  return parseSyrianMobile(value, path);
 }
 
 export function parseProfileInputV1(value: unknown): ProfileInputV1 {

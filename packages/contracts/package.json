@@ -1,6 +1,6 @@
 {
   "name": "@carwash/contracts",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "commonjs",
   "scripts": {
@@ -58,6 +58,14 @@
     "./configuration-v1": {
       "types": "./dist/configuration/v1.d.ts",
       "default": "./dist/configuration/v1.js"
+    },
+    "./booking-v1": {
+      "types": "./dist/booking/v1.d.ts",
+      "default": "./dist/booking/v1.js"
+    },
+    "./billing-v1": {
+      "types": "./dist/billing/v1.d.ts",
+      "default": "./dist/billing/v1.js"
     },
     "./common": {
       "types": "./dist/common/index.d.ts",

@@ -91,11 +91,27 @@
       "status": "published-provider-pending",
       "openApi": "docs/contracts/configuration.v1.openapi.json",
       "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
+    },
+    {
+      "id": "booking.v1",
+      "domain": "booking",
+      "version": 1,
+      "prefix": "/internal/v1/booking",
+      "status": "published-provider-pending",
+      "openApi": "docs/contracts/booking.v1.openapi.json",
+      "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
+    },
+    {
+      "id": "billing.v1",
+      "domain": "billing",
+      "version": 1,
+      "prefix": "/internal/v1/billing",
+      "status": "published-provider-pending",
+      "openApi": "docs/contracts/billing.v1.openapi.json",
+      "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
     }
   ],
   "unpublishedBusinessDomains": [
-    "billing",
-    "booking",
     "communications",
     "dispatch",
     "media",
