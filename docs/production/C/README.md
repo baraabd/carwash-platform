@@ -1,16 +1,28 @@
-# Lane C — Operations & Technician: production providers (P01-C)
+# Lane C — Operations & Technician: production providers
 
-Parent task P01-C: Workforce, Media and Scheduling production providers.
-Parent status: **INTEGRATION_PENDING** until all three children pass together
-and their contracts are published by Lane E.
+## P02-C — Durable Booking coordinator and initial Dispatch provider
+
+Parent status: **INTEGRATION_PENDING** until all children pass together on one
+merge tree and their contracts are published by Lane E.
+
+| Child | Scope | Document |
+| --- | --- | --- |
+| C1 | Scheduling conforms to the published `scheduling.v1` (holds, commit by Booking, availability) | `P02-C1-scheduling-v1.md` |
+| C2 | Booking aggregate, immutable snapshots, idempotent create, durable creation saga, outbox | `P02-C2-booking.md` |
+| C3 | Dispatch assignment records and offers, separate from Booking state | `P02-C3-dispatch.md` |
+
+Each child is one branch and one PR from `main`; no child is stacked on another.
+Cross-child assumptions: Booking commits the Scheduling hold as its LAST remote
+step (pivot), so Dispatch may open a job from a COMMITTED
+`scheduling.hold-changed.v1`.
+
+## P01-C — Workforce, Media and Scheduling providers
 
 | Child | Scope | Status |
 | --- | --- | --- |
-| C1 | Scheduling: capacity windows, expiring holds, no oversell | implemented; real PG/RabbitMQ/restart evidence; PR open |
-| C2 | Workforce: technician profile, verification, skills, availability, readiness | next |
-| C3 | Media: private object lifecycle, S3 port, presigned access | after C2 |
-
-Each child is one branch and one PR from `main`; no child is stacked on another.
+| C1 | Scheduling: capacity windows, expiring holds, no oversell | merged (#96) |
+| C2 | Workforce: technician profile, verification, skills, availability, readiness | merged (#102) |
+| C3 | Media: private object lifecycle, S3 port, presigned access | not started |
 
 ## Shared lane tooling
 
@@ -21,19 +33,23 @@ Each child is one branch and one PR from `main`; no child is stacked on another.
   writes an exact-source record (`HEAD`, tree, image references) under
   `.acceptance/production-C/evidence/`. A dirty tree is refused for evidence.
 - `tests/production/C/`: process-level suites (SIGKILL restarts, database
-  restart, broker publication, object storage).
+  restart, broker publication, object storage, published-contract parity).
 
 ## Contract requests to Lane E
 
 - `contract-requests/CR-C1-scheduling-v1.md`
+- `contract-requests/CR-P02-C1-scheduling-v1-provider.md`
+- `contract-requests/CR-P02-C2-booking-v1.md`
+- `contract-requests/CR-P02-C3-dispatch-v1.md`
 
 ## Known constraints (not hidden)
 
-- Lane C cannot add dependencies (lockfile is Lane E's). Consequences, all
-  requested in CR-C1: no in-service outbox relay process yet, Identity reused
-  over HTTP instead of local JWT verification, interim service credentials.
+- Lane C cannot add dependencies (the lockfile is Lane E's): no in-service outbox
+  relay or inbox consumer process yet, Identity reused over HTTP instead of local
+  JWT verification, interim service credentials, local contract parsers checked
+  against the published ones by parity tests.
 - `architecture/parallel-ownership.json` is still a W01 proposal
   (`verifiedBaseW02: null`); under it these paths are owned by C but writes are
-  "not open". The P01-C assignment grants this scope; reviewers decide.
-- The test identity double maps bearer tokens to permission sets only; Identity's
+  "not open". The P0x-C assignments grant this scope; reviewers decide.
+- The test identity double maps bearer tokens to session views only; Identity's
   token verification is covered by Identity's own suites, not re-proven here.
