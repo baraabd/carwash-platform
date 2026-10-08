@@ -1,22 +1,9 @@
 /** Text normalisation shared by the vehicle domain rules. */
 
-const ARABIC_INDIC = '٠١٢٣٤٥٦٧٨٩';
-const EASTERN_ARABIC_INDIC = '۰۱۲۳۴۵۶۷۸۹';
-
-/** Arabic-Indic and Eastern Arabic-Indic digits become Latin digits; nothing else changes. */
-export function latinDigits(value: string): string {
-  let out = '';
-  for (const char of value) {
-    const arabic = ARABIC_INDIC.indexOf(char);
-    const eastern = EASTERN_ARABIC_INDIC.indexOf(char);
-    if (arabic >= 0) out += String(arabic);
-    else if (eastern >= 0) out += String(eastern);
-    else out += char;
-  }
-  return out;
-}
-
-/** Control characters (C0, DEL, C1) are never valid in stored vehicle text. */
+/**
+ * Control characters are never valid in stored vehicle text: C0 except TAB, LF
+ * and CR (which collapse to a space), DEL and C1.
+ */
 // eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/;
 

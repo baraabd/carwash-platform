@@ -1,4 +1,4 @@
-import type { Owner, Vehicle, VehicleDetails, VehicleStatus } from '../../domain';
+import type { Owner, Plate, Vehicle, VehicleInput } from '../../domain';
 import { parseVehicleType } from '../../domain';
 import type {
   AuditEntry,
@@ -6,6 +6,7 @@ import type {
   IdempotencyRequest,
   NewVehicle,
   OutboxEvent,
+  VehicleCursor,
   VehicleStore,
   VehicleTransaction,
 } from '../../ports';
@@ -17,6 +18,20 @@ import type {
 
 const TRANSACTION_OPTIONS = { maxWait: 2_000, timeout: 10_000 } as const;
 
+function toPlate(row: VehicleRow): Plate | null {
+  if (row.plate === null) {
+    if (row.plateRegion !== null) throw new Error('CORRUPT_PLATE_REGION');
+    return null;
+  }
+  return { text: row.plate, region: row.plateRegion };
+}
+
+/**
+ * Rows are mapped as stored. A P01 row outside the vehicle.v1 bounds (a
+ * lowercase or longer plate, a longer name) is not silently rewritten here; the
+ * pre-deployment data-conformance query in the provider document must report
+ * zero such rows before this release serves traffic.
+ */
 function toVehicle(row: VehicleRow): Vehicle {
   if (row.ownerKind !== 'account' && row.ownerKind !== 'guest')
     throw new Error('CORRUPT_OWNER_KIND');
@@ -26,10 +41,12 @@ function toVehicle(row: VehicleRow): Vehicle {
     id: row.id,
     owner: { kind: row.ownerKind, subject: row.ownerSubject },
     type: parseVehicleType(row.vehicleType),
-    displayName: row.displayName,
-    plate: row.plate,
+    make: row.make,
+    model: row.model,
     color: row.color,
-    status: row.status,
+    nickname: row.nickname,
+    plate: toPlate(row),
+    archived: row.status === 'ARCHIVED',
     revision: row.revision,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -38,6 +55,16 @@ function toVehicle(row: VehicleRow): Vehicle {
 }
 
 const ownedBy = (owner: Owner) => ({ ownerKind: owner.kind, ownerSubject: owner.subject });
+
+const columns = (input: VehicleInput) => ({
+  vehicleType: input.type,
+  make: input.make,
+  model: input.model,
+  color: input.color,
+  nickname: input.nickname,
+  plate: input.plate?.text ?? null,
+  plateRegion: input.plate?.region ?? null,
+});
 
 class PrismaVehicleTransaction implements VehicleTransaction {
   constructor(private readonly tx: TransactionClient) {}
@@ -109,10 +136,7 @@ class PrismaVehicleTransaction implements VehicleTransaction {
       data: {
         id: vehicle.id,
         ...ownedBy(vehicle.owner),
-        vehicleType: vehicle.type,
-        displayName: vehicle.displayName,
-        plate: vehicle.plate,
-        color: vehicle.color,
+        ...columns(vehicle),
         status: 'ACTIVE',
         revision: 1,
         createdAt: vehicle.now,
@@ -130,20 +154,17 @@ class PrismaVehicleTransaction implements VehicleTransaction {
   async updateVehicle(
     owner: Owner,
     vehicleId: string,
-    details: VehicleDetails,
-    status: VehicleStatus,
+    input: VehicleInput,
+    archived: boolean,
     expectedRevision: number,
     now: Date,
   ): Promise<Vehicle | null> {
     const updated = await this.tx.vehicle.updateMany({
       where: { id: vehicleId, ...ownedBy(owner), revision: expectedRevision },
       data: {
-        vehicleType: details.type,
-        displayName: details.displayName,
-        plate: details.plate,
-        color: details.color,
-        status,
-        archivedAt: status === 'ARCHIVED' ? now : null,
+        ...columns(input),
+        status: archived ? 'ARCHIVED' : 'ACTIVE',
+        archivedAt: archived ? now : null,
         revision: expectedRevision + 1,
         updatedAt: now,
       },
@@ -168,7 +189,24 @@ class PrismaVehicleTransaction implements VehicleTransaction {
   }
 
   async appendAudit(entry: AuditEntry): Promise<void> {
-    await this.tx.auditEntry.create({ data: { ...entry } });
+    const actor =
+      entry.actor.kind === 'principal'
+        ? {
+            actorKind: 'principal',
+            actorSubject: entry.actor.subject,
+            actorSessionId: entry.actor.sessionId,
+          }
+        : { actorKind: 'service', actorService: entry.actor.service, purpose: entry.actor.purpose };
+    await this.tx.auditEntry.create({
+      data: {
+        id: entry.id,
+        ...actor,
+        action: entry.action,
+        vehicleId: entry.vehicleId,
+        correlationId: entry.correlationId,
+        at: entry.at,
+      },
+    });
   }
 }
 
@@ -183,18 +221,27 @@ export class PrismaVehicleStore implements VehicleStore {
     );
   }
 
-  async listOwnedVehicles(owner: Owner, includeArchived: boolean): Promise<Vehicle[]> {
+  async listActiveVehicles(
+    owner: Owner,
+    after: VehicleCursor | null,
+    limit: number,
+  ): Promise<Vehicle[]> {
     const rows = await this.client.vehicle.findMany({
-      where: includeArchived ? ownedBy(owner) : { ...ownedBy(owner), status: 'ACTIVE' },
+      where: {
+        ...ownedBy(owner),
+        status: 'ACTIVE',
+        ...(after === null
+          ? {}
+          : {
+              OR: [
+                { createdAt: { gt: after.createdAt } },
+                { createdAt: after.createdAt, id: { gt: after.id } },
+              ],
+            }),
+      },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: limit,
     });
     return rows.map(toVehicle);
-  }
-
-  async findOwnedVehicle(owner: Owner, vehicleId: string): Promise<Vehicle | null> {
-    const row = await this.client.vehicle.findFirst({
-      where: { id: vehicleId, ...ownedBy(owner) },
-    });
-    return row ? toVehicle(row) : null;
   }
 }

@@ -10,20 +10,22 @@ import {
   Query,
   Req,
   Res,
+  UseFilters,
 } from '@nestjs/common';
-import { AppError, resolveCorrelationId, traceHeaders } from '@carwash/service-kit';
+import { createLogger, resolveCorrelationId, traceHeaders } from '@carwash/service-kit';
 import {
   ApplicationError,
   VehicleApplication,
-  type ApplicationErrorCode,
   type Outcome,
   type RequestContext,
 } from '../../application';
-import { VehicleDomainError } from '../../domain';
+import { ContractExceptionFilter } from './contract-errors';
 
+/** vehicle.v1 prefix and routes (packages/contracts vehicle/v1.ts). */
 export const VEHICLE_V1 = '/internal/v1/vehicle';
 export const VEHICLE_APPLICATION = 'VEHICLE_APPLICATION';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_REVISION = 2_147_483_647;
 
 interface HttpRequest {
   readonly headers: Record<string, string | string[] | undefined>;
@@ -34,51 +36,24 @@ interface HttpResponse {
   setHeader(name: string, value: string): void;
 }
 
-const APPLICATION_STATUS: Readonly<Record<ApplicationErrorCode, number>> = {
-  AUTH_REQUIRED: 401,
-  AUTH_FORBIDDEN: 403,
-  IDENTITY_UNAVAILABLE: 503,
-  VEHICLE_NOT_FOUND: 404,
-  REVISION_REQUIRED: 428,
-  REVISION_CONFLICT: 412,
-  IDEMPOTENCY_KEY_REQUIRED: 428,
-  IDEMPOTENCY_KEY_INVALID: 400,
-  IDEMPOTENCY_KEY_REUSED: 422,
-};
-
-const DOMAIN_STATUS: Readonly<Record<string, number>> = {
-  VEHICLE_LIMIT_REACHED: 409,
-  VEHICLE_ARCHIVED: 409,
-};
-
-/** Maps inner-layer refusals to the shared error envelope without echoing input. */
-function toHttpError(error: unknown): unknown {
-  if (error instanceof ApplicationError) {
-    return new AppError({
-      status: APPLICATION_STATUS[error.code],
-      code: error.code,
-      message: error.code,
-    });
-  }
-  if (error instanceof VehicleDomainError) {
-    return new AppError({
-      status: DOMAIN_STATUS[error.code] ?? 422,
-      code: error.code,
-      message: error.field ? `${error.code}:${error.field}` : error.code,
-    });
-  }
-  return error;
-}
-
 function header(request: HttpRequest, name: string): string | undefined {
   const value = request.headers[name];
   return typeof value === 'string' ? value : undefined;
 }
 
-/** `If-Match: "<revision>"`. Anything else is treated as a missing precondition. */
+/**
+ * `If-Match: "<revision>"`, parsed like the contract's parseIfMatch. Absent is a
+ * missing precondition (REVISION_REQUIRED); anything malformed is refused.
+ */
 function expectedRevision(request: HttpRequest): number | null {
-  const match = /^"([1-9][0-9]{0,8})"$/.exec(header(request, 'if-match') ?? '');
-  return match?.[1] ? Number(match[1]) : null;
+  const raw = header(request, 'if-match');
+  if (raw === undefined) return null;
+  const match = /^"([1-9][0-9]{0,9})"$/.exec(raw.trim());
+  const value = match?.[1] ? Number(match[1]) : NaN;
+  if (!Number.isSafeInteger(value) || value > MAX_REVISION) {
+    throw new ApplicationError('REQUEST_INVALID', null, 'header.if-match');
+  }
+  return value;
 }
 
 function idempotencyKey(request: HttpRequest): string | null {
@@ -105,48 +80,54 @@ function requestContext(request: HttpRequest): RequestContext {
 
 function vehicleId(raw: string): string {
   // A malformed id cannot name anything this owner has.
-  if (!UUID.test(raw)) throw new ApplicationError('VEHICLE_NOT_FOUND');
+  if (!UUID.test(raw)) throw new ApplicationError('NOT_FOUND', 'VEHICLE_NOT_FOUND');
   return raw.toLowerCase();
+}
+
+function queryValue(raw: unknown, field: string): string | undefined {
+  if (raw === undefined) return undefined;
+  if (typeof raw !== 'string') throw new ApplicationError('REQUEST_INVALID', null, field);
+  return raw;
 }
 
 /** Vehicle HTTP adapter: translation only. Every response is private and uncached. */
 @Controller(VEHICLE_V1)
+@UseFilters(new ContractExceptionFilter(createLogger({ service: 'vehicle' })))
 export class VehicleController {
   constructor(@Inject(VEHICLE_APPLICATION) private readonly app: VehicleApplication) {}
-
-  private async run<T>(response: HttpResponse, work: () => Promise<T>): Promise<T> {
-    response.setHeader('cache-control', 'no-store');
-    try {
-      return await work();
-    } catch (error) {
-      throw toHttpError(error);
-    }
-  }
 
   private async mutation<T extends { readonly revision: number }>(
     response: HttpResponse,
     work: () => Promise<Outcome<T>>,
   ): Promise<T> {
-    const outcome = await this.run(response, work);
+    response.setHeader('cache-control', 'no-store');
+    const outcome = await work();
     response.status(outcome.status);
     response.setHeader('etag', `"${outcome.body.revision}"`);
     if (outcome.replayed) response.setHeader('idempotent-replayed', 'true');
     return outcome.body;
   }
 
+  /** listMine: GET /mine?limit&cursor. */
   @Get('mine')
-  async mine(
+  mine(
     @Req() request: HttpRequest,
-    @Query('includeArchived') includeArchived: string | undefined,
+    @Query() query: Record<string, unknown>,
     @Res({ passthrough: true }) response: HttpResponse,
   ) {
-    const items = await this.run(response, () =>
-      this.app.listVehicles(requestContext(request), includeArchived === 'true'),
-    );
-    return { items };
+    response.setHeader('cache-control', 'no-store');
+    const unknown = Object.keys(query).find((name) => name !== 'limit' && name !== 'cursor');
+    if (unknown !== undefined) {
+      throw new ApplicationError('REQUEST_INVALID', null, `query.${unknown}`);
+    }
+    return this.app.listVehicles(requestContext(request), {
+      limit: queryValue(query.limit, 'query.limit'),
+      cursor: queryValue(query.cursor, 'query.cursor'),
+    });
   }
 
-  @Post()
+  /** create: POST /mine. */
+  @Post('mine')
   create(
     @Req() request: HttpRequest,
     @Body() body: unknown,
@@ -157,20 +138,8 @@ export class VehicleController {
     );
   }
 
-  @Get(':vehicleId')
-  async vehicle(
-    @Req() request: HttpRequest,
-    @Param('vehicleId') id: string,
-    @Res({ passthrough: true }) response: HttpResponse,
-  ) {
-    const view = await this.run(response, () =>
-      this.app.getVehicle(requestContext(request), vehicleId(id)),
-    );
-    response.setHeader('etag', `"${view.revision}"`);
-    return view;
-  }
-
-  @Patch(':vehicleId')
+  /** update: PATCH /mine/:vehicleId. */
+  @Patch('mine/:vehicleId')
   update(
     @Req() request: HttpRequest,
     @Param('vehicleId') id: string,
@@ -188,15 +157,39 @@ export class VehicleController {
     );
   }
 
-  @Post(':vehicleId/archive')
+  /** archive: POST /mine/:vehicleId/archive. */
+  @Post('mine/:vehicleId/archive')
   @HttpCode(200)
   archive(
     @Req() request: HttpRequest,
     @Param('vehicleId') id: string,
+    @Body() body: unknown,
     @Res({ passthrough: true }) response: HttpResponse,
   ) {
     return this.mutation(response, () =>
-      this.app.archiveVehicle(requestContext(request), vehicleId(id), expectedRevision(request)),
+      this.app.archiveVehicle(
+        requestContext(request),
+        vehicleId(id),
+        expectedRevision(request),
+        idempotencyKey(request),
+        body,
+      ),
     );
+  }
+
+  /**
+   * resolveVehicleSnapshot: POST /vehicle-snapshots/resolve
+   * (service:vehicle.snapshot.resolve). Deny-by-default until workload
+   * identity (P01-E5) provides a verifier; see NoWorkloadIdentity.
+   */
+  @Post('vehicle-snapshots/resolve')
+  @HttpCode(200)
+  resolve(
+    @Req() request: HttpRequest,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: HttpResponse,
+  ) {
+    response.setHeader('cache-control', 'no-store');
+    return this.app.resolveVehicleSnapshot(requestContext(request), body);
   }
 }

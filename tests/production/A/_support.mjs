@@ -146,6 +146,39 @@ export async function account(identity) {
   };
 }
 
+/**
+ * A real Identity guest principal (P01-E3): no account, no personal data.
+ * Returns the same shape as account() so suites can run for both kinds.
+ */
+export async function guest(identity) {
+  const jar = new Jar();
+  await identityCall(identity, jar, '/csrf');
+  const created = await identityCall(identity, jar, '/guest-sessions', 'POST', {});
+  if (created.status !== 201 && created.status !== 200) {
+    throw new Error(`GUEST_${created.status}`);
+  }
+  if (created.body.session.principalKind !== 'guest') throw new Error('NOT_A_GUEST_SESSION');
+  const token = jar.cookies.get('__Host-wg_access');
+  if (!token) throw new Error('ACCESS_COOKIE_MISSING');
+  return {
+    jar,
+    token,
+    subject: created.body.session.subject,
+    logout: () => identityCall(identity, jar, '/logout', 'POST', {}),
+  };
+}
+
+/**
+ * The PUBLISHED contract parsers (@carwash/contracts, built dist). Provider
+ * verification parses owner responses with exactly what consumers will use.
+ */
+export const contracts = createRequire(path.join(ROOT, 'packages/contracts/package.json'))(
+  './dist/index.js',
+);
+export const eventContracts = createRequire(
+  path.join(ROOT, 'packages/event-contracts/package.json'),
+)('./dist/index.js');
+
 /** Starts an owner service's real HTTP adapter from its built dist output. */
 export async function startService(service, databaseUrl, env) {
   for (const [name, value] of Object.entries(env)) process.env[name] = value;
