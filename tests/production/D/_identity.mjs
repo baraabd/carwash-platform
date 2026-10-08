@@ -19,7 +19,9 @@ import path from 'node:path';
 import { ROOT, appDsn, context, migrationDsn, sql } from '../../integration/_support.mjs';
 
 export const STAFF_ORIGIN = 'https://admin.washgo.invalid';
-const PASSWORD = 'Test-only staff correct horse battery 42';
+/** Test-only credential of every account these suites create; never a real secret. */
+export const STAFF_PASSWORD = 'Test-only staff correct horse battery 42';
+const PASSWORD = STAFF_PASSWORD;
 
 const identityRequire = createRequire(path.join(ROOT, 'services/identity/package.json'));
 
