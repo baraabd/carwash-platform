@@ -8,41 +8,55 @@ import { createHttpApplication } from '../../src/transport/http/create-app';
 import { laneContext } from './support';
 
 /**
- * Real Nest HTTP server on the real lane PostgreSQL.
+ * scheduling.v1 over the real Nest HTTP server on the real lane PostgreSQL.
  *
  * Identity is a local HTTP double of `GET /internal/v1/identity/session`
- * (Identity V1 contract shape). It is the only substitute in this suite and it
- * is declared as such in the evidence; token verification itself is Identity's
- * own tested responsibility.
+ * (IdentitySessionView shape, incl. principalKind). It is the only substitute
+ * in this suite and is declared as such in the evidence; token verification
+ * itself is Identity's own tested responsibility.
  */
 const SERVICE_TOKEN = 's'.repeat(48);
-const READER_TOKEN = 'r'.repeat(48);
-const SESSIONS: Record<string, { subject: string; permissions: string[] } | 'DOWN'> = {
-  'customer-token-000001': {
-    subject: randomUUID(),
-    permissions: ['bookings.create:self', 'bookings.read:self'],
-  },
-  'operations-token-0001': { subject: randomUUID(), permissions: ['operations.dispatch'] },
-  'technician-token-0001': { subject: randomUUID(), permissions: ['work.read:assigned'] },
+const NOSCOPE_TOKEN = 'n'.repeat(48);
+
+interface Session {
+  readonly subject: string;
+  readonly principalKind: 'account' | 'guest';
+  readonly permissions: string[];
+}
+const GUEST: Session = {
+  subject: randomUUID(),
+  principalKind: 'guest',
+  permissions: ['bookings.create:self', 'bookings.read:self'],
+};
+const ACCOUNT: Session = {
+  subject: randomUUID(),
+  principalKind: 'account',
+  permissions: ['bookings.create:self', 'bookings.read:self'],
+};
+const OPS: Session = {
+  subject: randomUUID(),
+  principalKind: 'account',
+  permissions: ['operations.dispatch'],
+};
+const SESSIONS: Record<string, Session | 'DOWN'> = {
+  'guest-token-00000001': GUEST,
+  'account-token-0000001': ACCOUNT,
+  'operations-token-0001': OPS,
   'identity-down-token-1': 'DOWN',
 };
 
 let identity: Server;
 let app: INestApplication;
 let base: string;
-const identityCalls: string[] = [];
 
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
 
 before(async () => {
   identity = createServer((req, res) => {
     const token = (req.headers.authorization ?? '').replace(/^Bearer /, '');
-    identityCalls.push(req.url ?? '');
     const session = SESSIONS[token];
     if (req.url !== '/internal/v1/identity/session' || session === undefined) {
-      res
-        .writeHead(401, { 'content-type': 'application/json' })
-        .end('{"error":{"code":"AUTH_REQUIRED"}}');
+      res.writeHead(401, { 'content-type': 'application/json' }).end('{}');
       return;
     }
     if (session === 'DOWN') {
@@ -56,10 +70,10 @@ before(async () => {
   await new Promise<void>((resolve) => identity.listen(0, '127.0.0.1', resolve));
   process.env.DATABASE_URL = laneContext().databases.scheduling!.appUrl;
   process.env.IDENTITY_URL = `http://127.0.0.1:${(identity.address() as AddressInfo).port}`;
-  process.env.SCHEDULING_USER_REQUESTS_PER_MINUTE = '40';
+  process.env.SCHEDULING_USER_REQUESTS_PER_MINUTE = '60';
+  process.env.SCHEDULING_PUBLIC_REQUESTS_PER_MINUTE = '30';
   process.env.SCHEDULING_SERVICE_CLIENTS = JSON.stringify([
-    { id: 'booking', tokenSha256: digest(SERVICE_TOKEN), scopes: ['scheduling.holds.write'] },
-    { id: 'gateway', tokenSha256: digest(READER_TOKEN), scopes: ['scheduling.availability.read'] },
+    { id: 'booking', tokenSha256: digest(SERVICE_TOKEN), scopes: ['scheduling.hold.commit'] },
   ]);
   app = await createHttpApplication();
   await app.listen(0, '127.0.0.1');
@@ -72,196 +86,342 @@ after(async () => {
 });
 
 const user = (token: string) => ({ authorization: `Bearer ${token}` });
+const guest = user('guest-token-00000001');
+const account = user('account-token-0000001');
+const ops = user('operations-token-0001');
 const booking = { 'x-service-client': 'booking', 'x-service-token': SERVICE_TOKEN };
-const reader = { 'x-service-client': 'gateway', 'x-service-token': READER_TOKEN };
+const idem = () => ({ 'idempotency-key': `http-${randomUUID()}` });
 
-/** The fields these tests read from responses; everything else stays unknown. */
-interface ApiBody {
-  readonly error?: { readonly code: string; readonly correlationId: string };
-  readonly windowId?: string;
-  readonly holdId?: string;
-  readonly status?: string;
-  readonly slots?: readonly Record<string, unknown>[];
+interface ErrorBody {
+  readonly code: string;
+  readonly reason: string | null;
+  readonly correlationId: string;
+  readonly requestId: string;
+  readonly retryable: boolean;
+  readonly retryAfterMs: number | null;
+  readonly issues: readonly { field: string; code: string }[];
+  readonly message: string;
+}
+interface Reply {
+  readonly status: number;
+  readonly body: Record<string, unknown> & { readonly error?: ErrorBody };
 }
 
-async function call(method: string, path: string, headers: Record<string, string>, body?: unknown) {
+async function call(
+  method: string,
+  path: string,
+  headers: Record<string, string>,
+  body?: unknown,
+): Promise<Reply> {
   const response = await fetch(`${base}${path}`, {
     method,
     headers: { ...headers, ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    ...(body === undefined ? {} : { body: typeof body === 'string' ? body : JSON.stringify(body) }),
   });
   const text = await response.text();
-  return { status: response.status, body: (text ? JSON.parse(text) : {}) as ApiBody };
+  return { status: response.status, body: text ? JSON.parse(text) : {} };
 }
 
+function expectError(reply: Reply, status: number, code: string, reason: string | null = null) {
+  assert.equal(reply.status, status, JSON.stringify(reply.body));
+  assert.equal(reply.body.error?.code, code);
+  assert.equal(reply.body.error?.reason, reason);
+}
+
+/** Opens a 2 h window three hours ahead in a fresh zone. */
 async function newWindow(capacity = 2) {
   const zoneId = randomUUID();
   const startsAt = new Date(Date.now() + 3 * 3_600_000);
-  startsAt.setUTCMilliseconds(0);
-  const res = await call('POST', '/windows', user('operations-token-0001'), {
+  startsAt.setUTCSeconds(0, 0);
+  const res = await call('POST', '/windows', ops, {
     zoneId,
     startsAt: startsAt.toISOString(),
-    endsAt: new Date(startsAt.getTime() + 3_600_000).toISOString(),
+    endsAt: new Date(startsAt.getTime() + 2 * 3_600_000).toISOString(),
     capacity,
   });
   assert.equal(res.status, 201, JSON.stringify(res.body));
-  return { zoneId, startsAt, window: res.body };
+  return { zoneId, startsAt };
 }
 
-test('unauthenticated, mixed and forged callers are refused before any business logic', async () => {
-  assert.equal((await call('GET', `/holds/${randomUUID()}`, {})).status, 401);
-  assert.equal(
-    (await call('GET', `/holds/${randomUUID()}`, { ...booking, ...user('operations-token-0001') }))
-      .status,
+function holdBody(who: Session, zoneId: string, startsAt: Date) {
+  return {
+    beneficiary: { kind: who.principalKind, subjectId: who.subject },
+    zoneId,
+    startsAt: startsAt.toISOString(),
+    durationMinutes: 45,
+    quoteRef: { quoteId: randomUUID(), revision: 1 },
+  };
+}
+
+test('deny by default: no, mixed, forged or unknown credentials are 401 in the published envelope', async () => {
+  const id = randomUUID();
+  expectError(await call('GET', `/holds/${id}`, {}), 401, 'AUTH_REQUIRED');
+  expectError(await call('GET', `/holds/${id}`, { ...booking, ...guest }), 401, 'AUTH_REQUIRED');
+  expectError(
+    await call('GET', `/holds/${id}`, { ...booking, 'x-service-token': 'x'.repeat(48) }),
     401,
+    'AUTH_REQUIRED',
   );
-  assert.equal(
-    (await call('GET', `/holds/${randomUUID()}`, { ...booking, 'x-service-token': 'x'.repeat(48) }))
-      .status,
+  expectError(await call('GET', `/holds/${id}`, { 'x-auth-subject': id }), 401, 'AUTH_REQUIRED');
+  expectError(
+    await call('GET', `/holds/${id}`, user('unknown-token-000001')),
     401,
+    'AUTH_REQUIRED',
   );
-  // x-auth-* headers from the gateway are never trusted on their own.
-  const forged = await call('GET', `/holds/${randomUUID()}`, { 'x-auth-subject': randomUUID() });
-  assert.equal(forged.status, 401);
-  assert.equal(
-    (await call('GET', `/holds/${randomUUID()}`, user('unknown-token-000001'))).status,
+  expectError(
+    await call('POST', `/holds/${id}/commit`, {
+      'x-service-client': 'dispatch',
+      'x-service-token': NOSCOPE_TOKEN,
+    }),
     401,
+    'AUTH_REQUIRED',
   );
 });
 
-test('identity outage fails closed with 503, never as an anonymous or guessed caller', async () => {
+test('identity outage fails closed: 503 DEPENDENCY_UNAVAILABLE, retryable, never a guessed caller', async () => {
   const res = await call('GET', `/holds/${randomUUID()}`, user('identity-down-token-1'));
-  assert.equal(res.status, 503);
-  assert.equal(res.body.error?.code, 'AUTH_UNAVAILABLE');
+  expectError(res, 503, 'DEPENDENCY_UNAVAILABLE');
+  assert.equal(res.body.error?.retryable, true);
 });
 
-test('operations define windows; customers and technicians cannot', async () => {
+test('availability is public and strictly parsed', async () => {
+  const { zoneId, startsAt } = await newWindow(2);
+  const date = new Date(startsAt.getTime() + 3 * 3_600_000).toISOString().slice(0, 10);
+  const ok = await call(
+    'GET',
+    `/availability?zoneId=${zoneId}&date=${date}&durationMinutes=45`,
+    {},
+  );
+  assert.equal(ok.status, 200);
+  assert.equal(ok.body.timezone, 'Asia/Damascus');
+  assert.ok(Array.isArray(ok.body.slots));
+  expectError(
+    await call('GET', `/availability?zoneId=${zoneId}&date=${date}&durationMinutes=4`, {}),
+    400,
+    'REQUEST_INVALID',
+  );
+  expectError(
+    await call('GET', `/availability?zoneId=${zoneId}&date=${date}&durationMinutes=45&x=1`, {}),
+    400,
+    'REQUEST_INVALID',
+  );
+  expectError(
+    await call('GET', `/availability?zoneId=nope&date=${date}&durationMinutes=45`, {}),
+    400,
+    'REQUEST_INVALID',
+  );
+  const earliest = await call(
+    'GET',
+    `/availability/earliest?zoneId=${zoneId}&durationMinutes=45`,
+    {},
+  );
+  assert.equal(earliest.status, 200);
+  assert.ok(earliest.body.earliest !== null);
+});
+
+test('hold lifecycle: guest holds for itself, other principals get 404, Booking commits', async () => {
+  const { zoneId, startsAt } = await newWindow(1);
+  const body = holdBody(GUEST, zoneId, startsAt);
+  expectError(await call('POST', '/holds', guest, body), 428, 'IDEMPOTENCY_KEY_REQUIRED');
+  expectError(
+    await call('POST', '/holds', { ...guest, ...idem() }, holdBody(ACCOUNT, zoneId, startsAt)),
+    403,
+    'AUTH_FORBIDDEN',
+  );
+  expectError(await call('POST', '/holds', { ...booking, ...idem() }, body), 403, 'AUTH_FORBIDDEN');
+  const key = idem();
+  const created = await call('POST', '/holds', { ...guest, ...key }, body);
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  assert.deepEqual(Object.keys(created.body).sort(), [
+    'beneficiary',
+    'bookingId',
+    'createdAt',
+    'endsAt',
+    'expiresAt',
+    'holdId',
+    'revision',
+    'startsAt',
+    'state',
+    'updatedAt',
+    'zoneId',
+  ]);
+  assert.equal(created.body.state, 'HELD');
+  const replay = await call('POST', '/holds', { ...guest, ...key }, body);
+  assert.deepEqual(replay, created, 'same key + body replays the stored response');
+  expectError(
+    await call('POST', '/holds', { ...guest, ...key }, { ...body, durationMinutes: 30 }),
+    409,
+    'IDEMPOTENCY_CONFLICT',
+  );
+  expectError(
+    await call('POST', '/holds', { ...account, ...idem() }, holdBody(ACCOUNT, zoneId, startsAt)),
+    422,
+    'BUSINESS_RULE_VIOLATION',
+    'SLOT_UNAVAILABLE',
+  );
+
+  const holdId = String(created.body.holdId);
+  assert.equal((await call('GET', `/holds/${holdId}`, guest)).status, 200);
+  expectError(await call('GET', `/holds/${holdId}`, account), 404, 'NOT_FOUND');
+  assert.equal((await call('GET', `/holds/${holdId}`, ops)).status, 200);
+
+  const bookingId = randomUUID();
+  expectError(
+    await call(
+      'POST',
+      `/holds/${holdId}/commit`,
+      { ...guest, ...idem() },
+      { expectedRevision: 1, bookingId },
+    ),
+    403,
+    'AUTH_FORBIDDEN',
+  );
+  expectError(
+    await call(
+      'POST',
+      `/holds/${holdId}/commit`,
+      { ...booking, ...idem() },
+      { expectedRevision: 3, bookingId },
+    ),
+    412,
+    'REVISION_CONFLICT',
+  );
+  expectError(
+    await call('POST', `/holds/${holdId}/commit`, booking, { expectedRevision: 1, bookingId }),
+    428,
+    'IDEMPOTENCY_KEY_REQUIRED',
+  );
+  const committed = await call(
+    'POST',
+    `/holds/${holdId}/commit`,
+    { ...booking, ...idem() },
+    { expectedRevision: 1, bookingId },
+  );
+  assert.equal(committed.status, 200);
+  assert.equal(committed.body.state, 'COMMITTED');
+  assert.equal(committed.body.bookingId, bookingId);
+  const again = await call(
+    'POST',
+    `/holds/${holdId}/commit`,
+    { ...booking, ...idem() },
+    { expectedRevision: 1, bookingId },
+  );
+  assert.deepEqual(again, committed, 'response loss: a new key for the same booking replays');
+  expectError(
+    await call(
+      'POST',
+      `/holds/${holdId}/commit`,
+      { ...booking, ...idem() },
+      { expectedRevision: 2, bookingId: randomUUID() },
+    ),
+    422,
+    'BUSINESS_RULE_VIOLATION',
+    'HOLD_NOT_ACTIVE',
+  );
+  expectError(
+    await call(
+      'POST',
+      `/holds/${holdId}/release`,
+      { ...guest, ...idem() },
+      { expectedRevision: 2, reason: 'CUSTOMER_CHANGED' },
+    ),
+    422,
+    'BUSINESS_RULE_VIOLATION',
+    'HOLD_NOT_ACTIVE',
+  );
+});
+
+test('release by the beneficiary frees the slot; reasons are the published ones only', async () => {
+  const { zoneId, startsAt } = await newWindow(1);
+  const created = await call(
+    'POST',
+    '/holds',
+    { ...account, ...idem() },
+    holdBody(ACCOUNT, zoneId, startsAt),
+  );
+  const holdId = String(created.body.holdId);
+  expectError(
+    await call(
+      'POST',
+      `/holds/${holdId}/release`,
+      { ...account, ...idem() },
+      { expectedRevision: 1, reason: 'OPERATIONS_OVERRIDE' },
+    ),
+    400,
+    'REQUEST_INVALID',
+  );
+  expectError(
+    await call(
+      'POST',
+      `/holds/${holdId}/release`,
+      { ...guest, ...idem() },
+      { expectedRevision: 1, reason: 'CUSTOMER_CHANGED' },
+    ),
+    404,
+    'NOT_FOUND',
+  );
+  const released = await call(
+    'POST',
+    `/holds/${holdId}/release`,
+    { ...account, ...idem() },
+    { expectedRevision: 1, reason: 'CUSTOMER_CHANGED' },
+  );
+  assert.equal(released.status, 200);
+  assert.equal(released.body.state, 'RELEASED');
+  const next = await call(
+    'POST',
+    '/holds',
+    { ...guest, ...idem() },
+    holdBody(GUEST, zoneId, startsAt),
+  );
+  assert.equal(next.status, 201, 'the freed unit is holdable again');
+});
+
+test('staff surface: windows by operations only; malformed bodies are 400 without echo', async () => {
   const body = {
     zoneId: randomUUID(),
     startsAt: new Date(Date.now() + 7_200_000).toISOString(),
     endsAt: new Date(Date.now() + 10_800_000).toISOString(),
     capacity: 1,
   };
-  assert.equal((await call('POST', '/windows', user('customer-token-000001'), body)).status, 403);
-  assert.equal((await call('POST', '/windows', user('technician-token-0001'), body)).status, 403);
-  assert.equal((await call('POST', '/windows', booking, body)).status, 403);
-  const created = await call('POST', '/windows', user('operations-token-0001'), body);
-  assert.equal(created.status, 201);
-  const replay = await call('POST', '/windows', user('operations-token-0001'), body);
-  assert.equal(replay.status, 200);
-  assert.equal(replay.body.windowId, created.body.windowId);
+  expectError(await call('POST', '/windows', guest, body), 403, 'AUTH_FORBIDDEN');
+  expectError(await call('POST', '/windows', booking, body), 403, 'AUTH_FORBIDDEN');
+  assert.equal((await call('POST', '/windows', ops, body)).status, 201);
+  assert.equal(
+    (await call('POST', '/windows', ops, body)).status,
+    200,
+    'identical definition replays',
+  );
+  const bad = await call('POST', '/windows', ops, { ...body, secret: '0991234567' });
+  expectError(bad, 400, 'REQUEST_INVALID');
+  assert.ok(!JSON.stringify(bad.body).includes('0991234567'));
+  expectError(await call('POST', '/windows', ops, '{"zoneId":'), 400, 'REQUEST_INVALID');
+  expectError(await call('GET', '/no-such-route', ops), 404, 'NOT_FOUND');
 });
 
-test('strict input: unknown fields, local times and bad types are rejected', async () => {
-  const ops = user('operations-token-0001');
-  const start = new Date(Date.now() + 7_200_000);
-  const good = {
-    zoneId: randomUUID(),
-    startsAt: start.toISOString(),
-    endsAt: new Date(start.getTime() + 3_600_000).toISOString(),
-    capacity: 1,
-  };
-  assert.equal((await call('POST', '/windows', ops, { ...good, extra: true })).status, 400);
-  assert.equal(
-    (await call('POST', '/windows', ops, { ...good, startsAt: '2026-12-01T10:00:00+03:00' }))
-      .status,
-    400,
-  );
-  assert.equal((await call('POST', '/windows', ops, { ...good, capacity: '3' })).status, 400);
-  assert.equal(
-    (await call('POST', '/windows', ops, { ...good, zoneId: 'not-a-uuid' })).status,
-    400,
-  );
-});
-
-test('customers see availability without capacity internals; operations and readers see detail', async () => {
-  const { zoneId, startsAt } = await newWindow(2);
-  const query = `/availability?zoneId=${zoneId}&from=${new Date(startsAt.getTime() - 60_000).toISOString()}&to=${new Date(startsAt.getTime() + 60_000).toISOString()}`;
-  const customer = await call('GET', query, user('customer-token-000001'));
-  assert.equal(customer.status, 200);
-  assert.deepEqual(Object.keys(customer.body.slots?.[0] ?? {}).sort(), [
-    'available',
-    'endsAt',
-    'startsAt',
-    'windowId',
-  ]);
-  const detailed = await call('GET', query, reader);
-  assert.equal(detailed.body.slots?.[0]?.freeUnits, 2);
-  assert.equal((await call('GET', query, user('technician-token-0001'))).status, 403);
-  assert.equal(
-    (await call('GET', query, booking)).status,
-    403,
-    'holds.write does not imply availability.read',
-  );
-});
-
-test('hold lifecycle over HTTP: idempotency key required, replay, confirm, private fields hidden', async () => {
-  const { window } = await newWindow(1);
-  const body = { windowId: window.windowId, holderRef: randomUUID(), units: 1, ttlSeconds: 120 };
-  assert.equal(
-    (await call('POST', '/holds', booking, body)).status,
-    400,
-    'Idempotency-Key is mandatory',
-  );
-  const idem = { ...booking, 'idempotency-key': `http-${randomUUID()}` };
-  const created = await call('POST', '/holds', idem, body);
-  assert.equal(created.status, 201);
-  assert.deepEqual(Object.keys(created.body).sort(), [
-    'expiresAt',
-    'holdId',
-    'holderRef',
-    'releaseReason',
-    'status',
-    'units',
-    'version',
-    'windowId',
-  ]);
-  const replay = await call('POST', '/holds', idem, body);
-  assert.equal(replay.status, 200);
-  assert.equal(replay.body.holdId, created.body.holdId);
-  const exhausted = await call(
-    'POST',
-    '/holds',
-    { ...booking, 'idempotency-key': `http-${randomUUID()}` },
-    body,
-  );
-  assert.equal(exhausted.status, 409);
-  assert.equal(exhausted.body.error?.code, 'CAPACITY_EXHAUSTED');
-  assert.equal(
-    (await call('POST', '/holds', user('customer-token-000001'), body)).status,
-    403,
-    'customers cannot hoard holds directly',
-  );
-  const confirmed = await call('POST', `/holds/${created.body.holdId}/confirm`, booking, {});
-  assert.equal(confirmed.status, 200);
-  assert.equal(confirmed.body.status, 'CONFIRMED');
-  const cancelled = await call('POST', `/holds/${created.body.holdId}/release`, booking, {
-    reason: 'BOOKING_CANCELLED',
-  });
-  assert.equal(cancelled.body.status, 'CANCELLED');
-  assert.equal(
-    (await call('POST', `/holds/${created.body.holdId}/release`, booking, { reason: 'NOPE' }))
-      .status,
-    400,
-  );
-});
-
-test('error bodies carry a correlation id and no internals', async () => {
+test('error bodies carry the caller correlation id, a request id and no internals', async () => {
   const correlationId = randomUUID();
   const res = await call('GET', `/holds/${randomUUID()}`, {
-    ...booking,
+    ...guest,
     'x-correlation-id': correlationId,
   });
-  assert.equal(res.status, 404);
+  expectError(res, 404, 'NOT_FOUND');
   assert.equal(res.body.error?.correlationId, correlationId);
-  assert.ok(!JSON.stringify(res.body).includes('prisma'));
+  assert.ok(res.body.error?.requestId);
+  assert.ok(!/prisma|postgres|select/i.test(JSON.stringify(res.body)));
 });
 
-test('per-user request budget answers 429 instead of exhausting the store', async () => {
-  let limited = 0;
-  for (let i = 0; i < 45; i += 1) {
-    const res = await call('GET', `/holds/${randomUUID()}`, user('operations-token-0001'));
-    if (res.status === 429) limited += 1;
+test('request budgets answer 429 RATE_LIMITED (retryable) instead of exhausting the store', async () => {
+  let limited: Reply | null = null;
+  for (let i = 0; i < 40 && !limited; i += 1) {
+    const res = await call(
+      'GET',
+      `/availability/earliest?zoneId=${randomUUID()}&durationMinutes=30`,
+      {},
+    );
+    if (res.status === 429) limited = res;
   }
-  assert.ok(limited > 0, 'the configured budget of 40/min must trip');
+  assert.ok(limited, 'the public budget of 30/min must trip');
+  assert.equal(limited.body.error?.code, 'RATE_LIMITED');
+  assert.equal(limited.body.error?.retryable, true);
 });

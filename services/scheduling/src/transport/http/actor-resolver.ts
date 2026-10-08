@@ -9,6 +9,8 @@ import { RateLimited } from './http-errors';
 
 export interface HeaderBag {
   readonly headers: Readonly<Record<string, string | string[] | undefined>>;
+  /** Peer address as seen by this process (the Gateway, in production). */
+  readonly ip?: string;
 }
 
 function header(request: HeaderBag, name: string): string | undefined {
@@ -55,7 +57,13 @@ export class ActorResolver {
     private readonly services: ServiceClientAuthenticator,
     private readonly userBudget: RequestBudget,
     private readonly serviceBudget: RequestBudget,
+    private readonly publicBudget: RequestBudget = new RequestBudget(600),
   ) {}
+
+  /** Public (unauthenticated) reads: budget per peer address, no identity. */
+  takePublic(request: HeaderBag): void {
+    this.publicBudget.take(`public:${request.ip ?? 'unknown'}`);
+  }
 
   async resolve(request: HeaderBag): Promise<RequestMeta> {
     const correlationId = resolveCorrelationId(header(request, CORRELATION_HEADER));
@@ -80,7 +88,12 @@ export class ActorResolver {
     this.userBudget.take(`user:${session.subject}`);
     return {
       correlationId,
-      actor: { kind: 'USER', subject: session.subject, permissions: session.permissions },
+      actor: {
+        kind: 'USER',
+        principalKind: session.principalKind,
+        subject: session.subject,
+        permissions: session.permissions,
+      },
     };
   }
 }

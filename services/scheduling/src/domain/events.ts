@@ -1,133 +1,79 @@
-import type { CapacityWindowState } from './capacity-window';
-import type { HoldState } from './hold';
+import { v1State, type HoldState, type HoldStateV1 } from './hold';
 
 /**
- * Scheduling integration events (schema version 1).
+ * `scheduling.hold-changed.v1` on envelope v2, as published by Lane E in
+ * @carwash/event-contracts (business-v1) and docs/asyncapi/business-events-v1.yaml.
+ * The service cannot import that package yet (lockfile is Lane E's), so the
+ * producer shape is declared here and verified against the published parser
+ * by tests/production/C/scheduling-v1-provider.test.mjs.
  *
- * These shapes are the producer side of the contract REQUESTED from Lane E in
- * docs/production/C/contract-requests/CR-C1-scheduling-events-v1.md. Until E
- * publishes them in @carwash/event-contracts they are written to the outbox
- * only; no relay publishes them (see the scheduling README). The payload carries
- * opaque references only: no customer name, phone, address or plate.
+ * Data carries opaque ids and the slot only; no names, phones or addresses.
  */
-export const SCHEDULING_HOLD_CREATED_V1 = 'scheduling.hold-created.v1' as const;
-export const SCHEDULING_HOLD_EXPIRED_V1 = 'scheduling.hold-expired.v1' as const;
+export const SCHEDULING_HOLD_CHANGED_V1 = 'scheduling.hold-changed.v1' as const;
 export const SCHEDULING_EVENTS_EXCHANGE = 'scheduling.events' as const;
 
-interface Envelope<TType extends string, TData> {
+export type EventActor =
+  | { readonly kind: 'account' | 'guest'; readonly id: string }
+  | { readonly kind: 'service'; readonly id: string }
+  | { readonly kind: 'system'; readonly id: null };
+
+export interface SchedulingHoldChangedV1 {
   readonly eventId: string;
-  readonly eventType: TType;
-  readonly schemaVersion: 1;
+  readonly eventType: typeof SCHEDULING_HOLD_CHANGED_V1;
+  readonly envelopeVersion: 2;
   readonly producer: 'scheduling';
   readonly occurredAt: string;
   readonly correlationId: string;
-  readonly aggregateVersion: number;
-  readonly data: TData;
+  readonly causationId: string | null;
+  readonly traceparent: string | null;
+  readonly aggregate: { readonly type: 'hold'; readonly id: string; readonly version: number };
+  readonly actor: EventActor;
+  readonly data: {
+    readonly state: HoldStateV1;
+    readonly zoneId: string;
+    readonly startsAt: string;
+    readonly endsAt: string;
+    readonly bookingId: string | null;
+  };
 }
 
-export type SchedulingHoldCreatedV1 = Envelope<
-  typeof SCHEDULING_HOLD_CREATED_V1,
-  {
-    readonly holdId: string;
-    readonly windowId: string;
-    readonly zoneId: string;
-    readonly holderRef: string;
-    readonly units: number;
-    readonly windowStartsAt: string;
-    readonly windowEndsAt: string;
-    readonly expiresAt: string;
-  }
->;
-
-export type SchedulingHoldExpiredV1 = Envelope<
-  typeof SCHEDULING_HOLD_EXPIRED_V1,
-  {
-    readonly holdId: string;
-    readonly windowId: string;
-    readonly zoneId: string;
-    readonly holderRef: string;
-    readonly units: number;
-    readonly expiredAt: string;
-  }
->;
-
-export type SchedulingEvent = SchedulingHoldCreatedV1 | SchedulingHoldExpiredV1;
+export type SchedulingEvent = SchedulingHoldChangedV1;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function assertUuid(value: string): void {
+function uuid(value: string): string {
   if (!UUID.test(value)) throw new Error('INVALID_EVENT_UUID');
+  return value;
 }
 
-export function holdCreatedEvent(input: {
-  readonly eventId: string;
-  readonly correlationId: string;
-  readonly hold: HoldState;
-  readonly window: CapacityWindowState;
-}): SchedulingHoldCreatedV1 {
-  const { hold, window } = input;
-  const event: SchedulingHoldCreatedV1 = {
-    eventId: input.eventId,
-    eventType: SCHEDULING_HOLD_CREATED_V1,
-    schemaVersion: 1,
-    producer: 'scheduling',
-    occurredAt: hold.createdAt.toISOString(),
-    correlationId: input.correlationId,
-    aggregateVersion: hold.version,
-    data: {
-      holdId: hold.id,
-      windowId: window.id,
-      zoneId: window.zoneId,
-      holderRef: hold.holderRef,
-      units: hold.units,
-      windowStartsAt: window.startsAt.toISOString(),
-      windowEndsAt: window.endsAt.toISOString(),
-      expiresAt: hold.expiresAt.toISOString(),
-    },
-  };
-  validate(event);
-  return event;
-}
-
-export function holdExpiredEvent(input: {
+export function holdChangedEvent(input: {
   readonly eventId: string;
   readonly correlationId: string;
   readonly hold: HoldState;
   readonly zoneId: string;
-}): SchedulingHoldExpiredV1 {
+  readonly actor: EventActor;
+}): SchedulingHoldChangedV1 {
   const { hold } = input;
-  if (hold.status !== 'EXPIRED') throw new Error('HOLD_NOT_EXPIRED');
-  const event: SchedulingHoldExpiredV1 = {
-    eventId: input.eventId,
-    eventType: SCHEDULING_HOLD_EXPIRED_V1,
-    schemaVersion: 1,
+  const state = v1State(hold);
+  return {
+    eventId: uuid(input.eventId),
+    eventType: SCHEDULING_HOLD_CHANGED_V1,
+    envelopeVersion: 2,
     producer: 'scheduling',
     occurredAt: hold.updatedAt.toISOString(),
-    correlationId: input.correlationId,
-    aggregateVersion: hold.version,
+    correlationId: uuid(input.correlationId),
+    causationId: null,
+    // Filled in by the outbox adapter from the active trace, never invented here.
+    traceparent: null,
+    aggregate: { type: 'hold', id: uuid(hold.id), version: hold.version },
+    actor: input.actor,
     data: {
-      holdId: hold.id,
-      windowId: hold.windowId,
-      zoneId: input.zoneId,
-      holderRef: hold.holderRef,
-      units: hold.units,
-      // The deadline is the fact; when a sweeper noticed it is `occurredAt`.
-      expiredAt: hold.expiresAt.toISOString(),
+      state,
+      zoneId: uuid(input.zoneId),
+      startsAt: hold.slotStartsAt.toISOString(),
+      endsAt: hold.slotEndsAt.toISOString(),
+      // The published parser binds bookingId to COMMITTED exactly.
+      bookingId: state === 'COMMITTED' ? hold.bookingId : null,
     },
   };
-  validate(event);
-  return event;
-}
-
-/** An event that its own contract would reject must never reach the outbox. */
-function validate(event: SchedulingEvent): void {
-  assertUuid(event.eventId);
-  assertUuid(event.correlationId);
-  assertUuid(event.data.holdId);
-  assertUuid(event.data.windowId);
-  assertUuid(event.data.zoneId);
-  assertUuid(event.data.holderRef);
-  if (!Number.isSafeInteger(event.aggregateVersion) || event.aggregateVersion < 1) {
-    throw new Error('INVALID_AGGREGATE_VERSION');
-  }
 }

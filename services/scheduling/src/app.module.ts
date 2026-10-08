@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { HealthModule, createLogger, type DependencyProbe } from '@carwash/service-kit';
-import { SchedulingService } from './application';
+import { CapacityService, HoldsV1Service } from './application';
 import { IdentitySessionClient } from './infrastructure/identity/identity-session.client';
 import {
   DATABASE_URL,
@@ -61,9 +61,15 @@ function positiveInt(raw: string | undefined, fallback: number): number {
       inject: [PrismaService],
     },
     {
-      provide: SchedulingService,
+      provide: HoldsV1Service,
       useFactory: (store: PrismaSchedulingStore) =>
-        new SchedulingService(store, store, systemClock, uuidGenerator),
+        new HoldsV1Service(store, store, systemClock, uuidGenerator),
+      inject: [PrismaSchedulingStore],
+    },
+    {
+      provide: CapacityService,
+      useFactory: (store: PrismaSchedulingStore) =>
+        new CapacityService(store, store, systemClock, uuidGenerator),
       inject: [PrismaSchedulingStore],
     },
     {
@@ -79,6 +85,7 @@ function positiveInt(raw: string | undefined, fallback: number): number {
           ),
           new RequestBudget(positiveInt(process.env.SCHEDULING_USER_REQUESTS_PER_MINUTE, 120)),
           new RequestBudget(positiveInt(process.env.SCHEDULING_SERVICE_REQUESTS_PER_MINUTE, 6_000)),
+          new RequestBudget(positiveInt(process.env.SCHEDULING_PUBLIC_REQUESTS_PER_MINUTE, 600)),
         ),
     },
   ],
