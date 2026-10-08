@@ -1,11 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  decide,
   evaluateServiceability,
+  fixedDecimal,
   GeoDomainError,
   makePoint,
-  parseCoordinates,
   parseRing,
+  parseWirePoint,
+  reasonFor,
+  validateDecision,
+  wirePoint,
   parseZoneDefinition,
   placePoint,
   ringFromStored,
@@ -49,6 +54,7 @@ function zone(code: string, polygon: string[][], revision = 1): Zone {
     id: `00000000-0000-4000-8000-${code.padStart(12, '0').slice(-12)}`,
     code,
     name: code,
+    nameEn: null,
     datasetRef: 'test-fixture:synthetic',
     ring: parseRing(polygon),
     status: 'ACTIVE',
@@ -59,20 +65,41 @@ function zone(code: string, polygon: string[][], revision = 1): Zone {
   };
 }
 
-test('coordinates: exact decimal strings only; NaN, Infinity, exponents and numbers refused', () => {
-  assert.equal(
-    parseCoordinates({ crs: 'EPSG:4326', latitude: '0.500000', longitude: '-0' }).latitude,
+test('wire point: exactly six fractional digits; numbers, NaN, Infinity, -0 and extras refused', () => {
+  const point = parseWirePoint({ latitude: '36.202100', longitude: '-0.500000' });
+  assert.deepEqual(wirePoint(point), { latitude: '36.202100', longitude: '-0.500000' });
+  assert.equal(point.lat, 36_202_100n);
+  for (const latitude of [
+    'NaN',
+    'Infinity',
+    '-Infinity',
+    '1e1',
     '0.5',
-  );
-  for (const latitude of ['NaN', 'Infinity', '1e1', '90.000001', '0.1234567']) {
-    refused('INVALID_COORDINATES', () =>
-      parseCoordinates({ crs: 'EPSG:4326', latitude, longitude: '0' }),
-    );
+    '0.1234567',
+    '-0.000000',
+    ' 0.500000',
+    '00.500000',
+  ]) {
+    refused('INVALID_COORDINATE', () => parseWirePoint({ latitude, longitude: '0.000000' }));
   }
-  refused('INVALID_COORDINATES', () =>
-    parseCoordinates({ crs: 'EPSG:4326', latitude: 0.5, longitude: '0' }),
+  refused('COORDINATE_OUT_OF_RANGE', () =>
+    parseWirePoint({ latitude: '90.000001', longitude: '0.000000' }),
   );
-  refused('INVALID_COORDINATES', () => parseCoordinates({ latitude: '0', longitude: '0' }));
+  refused('COORDINATE_OUT_OF_RANGE', () =>
+    parseWirePoint({ latitude: '0.000000', longitude: '-180.000001' }),
+  );
+  refused('INVALID_COORDINATE', () => parseWirePoint({ latitude: 0.5, longitude: '0.000000' }));
+  refused('INVALID_COORDINATE', () =>
+    parseWirePoint({ latitude: Number.NaN, longitude: '0.000000' }),
+  );
+  refused('MISSING_FIELD', () => parseWirePoint({ latitude: '0.000000' }));
+  refused('UNEXPECTED_FIELD', () =>
+    parseWirePoint({ latitude: '0.000000', longitude: '0.000000', crs: 'EPSG:4326' }),
+  );
+  refused('EXPECTED_OBJECT', () => parseWirePoint(['0.000000', '0.000000']));
+  assert.equal(fixedDecimal(0n), '0.000000');
+  assert.equal(fixedDecimal(-1n), '-0.000001');
+  assert.equal(fixedDecimal(180_000_000n), '180.000000');
 });
 
 test('placement: exact inside / outside / boundary, including vertices and a concave notch', () => {
@@ -241,6 +268,103 @@ test('serviceability: no zones and every unclear case fail closed as INDETERMINA
   });
 });
 
+const at6 = (latitude: string, longitude: string) => parseWirePoint({ latitude, longitude });
+const T0 = new Date('2026-10-08T10:00:00.000Z');
+const ZONE_ID = '00000000-0000-4000-8000-00000000000a';
+const served = {
+  result: 'SERVICEABLE' as const,
+  zone: { zoneId: ZONE_ID, code: 'a', revision: 3 },
+};
+
+test('decision: wire shape follows geo.v1 consistency rules for every outcome', () => {
+  const base = {
+    id: '00000000-0000-4000-8000-0000000000d1',
+    datasetRevision: 7,
+    point: at6('0.500000', '0.500000'),
+    checkedAt: T0,
+    ttlMs: 30 * 60_000,
+  };
+  const ok = decide({ ...base, serviceability: served });
+  assert.deepEqual(
+    { outcome: ok.outcome, zone: ok.zone, reason: ok.reason },
+    { outcome: 'SERVICEABLE', zone: { zoneId: ZONE_ID, revision: 3 }, reason: null },
+  );
+  assert.equal(ok.expiresAt.toISOString(), '2026-10-08T10:30:00.000Z');
+  const outside = decide({ ...base, serviceability: { result: 'OUTSIDE_ZONE' } });
+  assert.deepEqual([outside.zone, outside.reason], [null, null]);
+  const none = decide({
+    ...base,
+    serviceability: { result: 'INDETERMINATE', reason: 'NO_APPROVED_ZONES' },
+  });
+  assert.deepEqual(
+    [none.zone, none.reason, none.detail],
+    [null, 'GEO_DATASET_UNAVAILABLE', 'NO_APPROVED_ZONES'],
+  );
+  assert.equal(reasonFor('ON_ZONE_BOUNDARY'), 'LOCATION_UNRESOLVED');
+  assert.equal(reasonFor('OVERLAPPING_ZONES'), 'LOCATION_UNRESOLVED');
+  assert.throws(() => decide({ ...base, serviceability: served, ttlMs: 59_999 }), /TTL/);
+  assert.throws(() => decide({ ...base, serviceability: served, datasetRevision: 0 }), /DATASET/);
+});
+
+test('validation: not found, point mismatch, expiry (half-open), revision and current zone', () => {
+  const point = at6('0.500000', '0.500000');
+  const decision = decide({
+    id: '00000000-0000-4000-8000-0000000000d2',
+    serviceability: served,
+    datasetRevision: 1,
+    point,
+    checkedAt: T0,
+    ttlMs: 60_000,
+  });
+  const request = { decisionId: decision.id, expectedZoneRevision: 3, point };
+  const before = new Date(T0.getTime() + 59_999);
+  assert.deepEqual(validateDecision(decision, request, before, served), {
+    valid: true,
+    reason: null,
+    zone: { zoneId: ZONE_ID, revision: 3 },
+  });
+  assert.equal(validateDecision(null, request, before, served).reason, 'DECISION_NOT_FOUND');
+  const outside = decide({
+    id: '00000000-0000-4000-8000-0000000000d3',
+    serviceability: { result: 'OUTSIDE_ZONE' },
+    datasetRevision: 1,
+    point,
+    checkedAt: T0,
+    ttlMs: 60_000,
+  });
+  assert.equal(
+    validateDecision(outside, request, before, served).reason,
+    'DECISION_NOT_FOUND',
+    'a non-serviceable decision never validates',
+  );
+  assert.equal(
+    validateDecision(decision, { ...request, point: at6('0.500000', '0.500001') }, before, served)
+      .reason,
+    'POINT_MISMATCH',
+  );
+  assert.equal(
+    validateDecision(decision, request, new Date(T0.getTime() + 60_000), served).reason,
+    'DECISION_EXPIRED',
+  );
+  assert.equal(
+    validateDecision(decision, { ...request, expectedZoneRevision: 2 }, before, served).reason,
+    'ZONE_CHANGED',
+  );
+  const revised = { ...served, zone: { ...served.zone, revision: 4 } };
+  assert.deepEqual(validateDecision(decision, request, before, revised), {
+    valid: false,
+    reason: 'ZONE_CHANGED',
+    zone: { zoneId: ZONE_ID, revision: 4 },
+  });
+  assert.equal(
+    validateDecision(decision, request, before, {
+      result: 'INDETERMINATE',
+      reason: 'OVERLAPPING_ZONES',
+    }).reason,
+    'ZONE_CHANGED',
+  );
+});
+
 test('rate limit: per key, per window, bounded memory', () => {
   let now = 0;
   const limit = new FixedWindowRateLimit(2, 60_000, 2, () => now);
@@ -249,6 +373,9 @@ test('rate limit: per key, per window, bounded memory', () => {
   assert.equal(limit.take('a'), false);
   assert.equal(limit.take('b'), true);
   assert.equal(limit.take('c'), false, 'a new key beyond the key cap is refused, not stored');
+  assert.equal(limit.retryAfterMs(), 60_000);
+  now = 59_999;
+  assert.equal(limit.retryAfterMs(), 1);
   now = 60_000;
   assert.equal(limit.take('a'), true);
   assert.throws(() => new FixedWindowRateLimit(0, 60_000), /INVALID_RATE_LIMIT/);

@@ -1,25 +1,28 @@
 import {
-  evaluateServiceability,
   GeoDomainError,
-  parseCoordinates,
   parseZoneCode,
   parseZoneDefinition,
-  ringToJson,
   sameZoneDefinition,
-  type Serviceability,
   type Zone,
 } from '../domain';
 import type { Clock, GeoStore, GeoTransaction, IdGenerator } from '../ports';
 import { ApplicationError } from './errors';
 import { zoneUpdatedEvent, type ZoneChange } from './events';
 
+/** Operator view of a zone change. Polygons are never part of any HTTP response. */
 export interface ZoneView {
   readonly zoneId: string;
   readonly code: string;
-  readonly name: string;
   readonly status: 'ACTIVE' | 'RETIRED';
   readonly revision: number;
-  readonly polygon: [string, string][];
+}
+
+/** geo.v1 ServiceZoneV1: public, non-personalized, no geometry. */
+export interface ServiceZoneView {
+  readonly zoneId: string;
+  readonly revision: number;
+  readonly name: { readonly ar: string; readonly en: string | null };
+  readonly status: 'ACTIVE' | 'SUSPENDED';
 }
 
 export interface OperationContext {
@@ -40,17 +43,28 @@ export function zoneView(zone: Zone): ZoneView {
   return {
     zoneId: zone.id,
     code: zone.code,
-    name: zone.name,
     status: zone.status,
     revision: zone.revision,
-    polygon: ringToJson(zone.ring),
   };
 }
 
 /**
- * Geo use cases. Serviceability is a pure read. Zone data operations are
- * operator commands; no public write API exists until an Identity permission
- * for zone management is published (see the provider document).
+ * Only ACTIVE zones are listed. geo.v1 also allows SUSPENDED; Geo has no
+ * suspension state yet (retired zones are simply not listed).
+ */
+export function serviceZoneView(zone: Zone): ServiceZoneView {
+  return {
+    zoneId: zone.id,
+    revision: zone.revision,
+    name: { ar: zone.name, en: zone.nameEn },
+    status: 'ACTIVE',
+  };
+}
+
+/**
+ * Zone use cases. Zone data operations are operator commands; no public write
+ * API exists until an Identity permission for zone management is published
+ * (see the provider document). Serviceability lives in ServiceabilityApplication.
  */
 export class GeoApplication {
   constructor(
@@ -59,20 +73,8 @@ export class GeoApplication {
     private readonly ids: IdGenerator,
   ) {}
 
-  /** Guest-safe: takes one coordinate and reveals only zone references. */
-  async serviceability(rawBody: unknown): Promise<Serviceability> {
-    if (rawBody === null || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
-      throw new GeoDomainError('INVALID_INPUT');
-    }
-    const body = rawBody as Record<string, unknown>;
-    if (Object.keys(body).join(',') !== 'coordinates') throw new GeoDomainError('INVALID_INPUT');
-    const point = parseCoordinates(body.coordinates);
-    const { anyActive, candidates } = await this.store.coverageSnapshot(point);
-    return evaluateServiceability(anyActive, candidates, point);
-  }
-
-  async listActiveZones(): Promise<ZoneView[]> {
-    return (await this.store.activeZones()).map(zoneView);
+  async listActiveZones(): Promise<ServiceZoneView[]> {
+    return (await this.store.activeZones()).map(serviceZoneView);
   }
 
   private async record(
@@ -82,6 +84,7 @@ export class GeoApplication {
     change: ZoneChange,
     now: Date,
   ): Promise<void> {
+    await tx.advanceDatasetRevision(now);
     await tx.appendOutbox(
       zoneUpdatedEvent(
         {

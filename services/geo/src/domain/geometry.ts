@@ -22,6 +22,16 @@ export class GeoDomainError extends Error {
 
 export type GeoErrorCode =
   | 'INVALID_INPUT'
+  // geo.v1 wire refusals, named as the published parsers name them.
+  | 'EXPECTED_OBJECT'
+  | 'MISSING_FIELD'
+  | 'UNEXPECTED_FIELD'
+  | 'INVALID_UUID'
+  | 'INVALID_ENUM'
+  | 'INVALID_REVISION'
+  | 'INVALID_COORDINATE'
+  | 'COORDINATE_OUT_OF_RANGE'
+  // Zone dataset (operator) refusals.
   | 'INVALID_COORDINATES'
   | 'INVALID_POLYGON'
   | 'INVALID_ZONE_CODE'
@@ -30,7 +40,6 @@ export type GeoErrorCode =
   | 'ZONE_CODE_CONFLICT'
   | 'ZONE_RETIRED';
 
-export const CRS = 'EPSG:4326' as const;
 const SCALE = 1_000_000n;
 const DECIMAL = /^-?(?:0|[1-9][0-9]{0,2})(?:\.[0-9]{1,6})?$/;
 
@@ -84,16 +93,55 @@ export function makePoint(latitude: unknown, longitude: unknown, field = 'coordi
   return { latitude: lat.text, longitude: lng.text, lat: lat.units, lng: lng.units };
 }
 
-/** `{crs:'EPSG:4326', latitude, longitude}` with decimal strings, nothing else. */
-export function parseCoordinates(raw: unknown): Point {
+/** geo.v1 wire decimal: exactly six fractional digits (~0.11 m), e.g. "36.202100". */
+const WIRE_DECIMAL = /^-?(0|[1-9][0-9]{0,2})\.[0-9]{6}$/;
+
+function wireAxis(raw: unknown, limitDegrees: bigint, field: string): bigint {
+  if (typeof raw !== 'string' || !WIRE_DECIMAL.test(raw) || raw === '-0.000000') {
+    throw new GeoDomainError('INVALID_COORDINATE', field);
+  }
+  const units = BigInt(raw.replace('.', ''));
+  if (units < -limitDegrees * SCALE || units > limitDegrees * SCALE) {
+    throw new GeoDomainError('COORDINATE_OUT_OF_RANGE', field);
+  }
+  return units;
+}
+
+/** Micro-degrees in the fixed six-digit wire form; zero is always "0.000000". */
+export function fixedDecimal(units: bigint): string {
+  const negative = units < 0n;
+  const abs = negative ? -units : units;
+  return `${negative ? '-' : ''}${abs / SCALE}.${(abs % SCALE).toString().padStart(6, '0')}`;
+}
+
+/**
+ * The geo.v1 point `{latitude, longitude}`: a closed object of decimal strings
+ * with exactly six fractional digits. Numbers, NaN/Infinity spellings,
+ * exponents, "-0.000000", extra precision and out-of-range values are refused,
+ * never rounded or clamped: rounding would silently move a customer's pin.
+ */
+export function parseWirePoint(raw: unknown, field = '$.point'): Point {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
-    throw new GeoDomainError('INVALID_COORDINATES', 'coordinates');
+    throw new GeoDomainError('EXPECTED_OBJECT', field);
   }
   const value = raw as Record<string, unknown>;
-  if (Object.keys(value).sort().join(',') !== 'crs,latitude,longitude' || value.crs !== CRS) {
-    throw new GeoDomainError('INVALID_COORDINATES', 'coordinates');
+  for (const key of ['latitude', 'longitude']) {
+    if (!Object.hasOwn(value, key)) throw new GeoDomainError('MISSING_FIELD', `${field}.${key}`);
   }
-  return makePoint(value.latitude, value.longitude);
+  const extra = Object.keys(value).find((key) => key !== 'latitude' && key !== 'longitude');
+  if (extra !== undefined) throw new GeoDomainError('UNEXPECTED_FIELD', `${field}.${extra}`);
+  const lat = wireAxis(value.latitude, 90n, `${field}.latitude`);
+  const lng = wireAxis(value.longitude, 180n, `${field}.longitude`);
+  return { latitude: fixedDecimal(lat), longitude: fixedDecimal(lng), lat, lng };
+}
+
+/** The point exactly as geo.v1 carries it. */
+export function wirePoint(point: Point): { latitude: string; longitude: string } {
+  return { latitude: fixedDecimal(point.lat), longitude: fixedDecimal(point.lng) };
+}
+
+export function samePoint(a: Point, b: Point): boolean {
+  return a.lat === b.lat && a.lng === b.lng;
 }
 
 export const MAX_RING_VERTICES = 1000;
