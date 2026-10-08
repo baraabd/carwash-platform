@@ -1,7 +1,6 @@
 /**
  * billing ports layer.
  *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
+ * Contracts the application needs from the outside world. Framework/IO free.
  */
-export {};
+export * from './billing.ports';
