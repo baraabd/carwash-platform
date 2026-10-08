@@ -1,7 +1,8 @@
 /**
- * dispatch domain layer.
- *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
+ * dispatch domain layer: pure rules, no I/O, no framework.
  */
-export {};
+export * from './errors';
+export * from './assignment';
+export * from './offer';
+export * from './hold-observation';
+export * from './events';
