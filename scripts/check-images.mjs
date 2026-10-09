@@ -27,6 +27,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { run } from './acceptance/lib/exec.mjs';
+import { officialImagePullCandidates } from './lib/image-references.mjs';
 import {
   verifiedNonRoot,
   verifiedNoBakedSecrets,
@@ -39,6 +40,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Must match the Dockerfile default and the image the acceptance run pins. */
 const NODE_IMAGE = 'node:24.21.0-bookworm-slim';
+const NODE_BUILD_IMAGE = officialImagePullCandidates(NODE_IMAGE)[0];
 
 /**
  * Every owner runtime that boots with isolated dependency fixtures. identity needs Redis
@@ -95,7 +97,7 @@ async function buildImage(service, tag) {
     '--build-arg',
     `SERVICE=${service}`,
     '--build-arg',
-    `NODE_IMAGE=${NODE_IMAGE}`,
+    `NODE_IMAGE=${NODE_BUILD_IMAGE}`,
     '--tag',
     tag,
     '.',
@@ -143,7 +145,13 @@ async function verifyService(service) {
     );
     return results;
   }
-  results.push(pass(service, 'image builds', `from ${NODE_IMAGE}`));
+  results.push(
+    pass(
+      service,
+      'image builds',
+      NODE_BUILD_IMAGE === NODE_IMAGE ? `from ${NODE_IMAGE}` : `from ${NODE_IMAGE} via mirror`,
+    ),
+  );
 
   const port = await freePort();
   const started = await docker([
