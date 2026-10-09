@@ -14,7 +14,7 @@ export function identityBootEnvironment(service) {
       '--env',
       'MEDIA_S3_BUCKET=washgo-media-test',
       '--env',
-      'MEDIA_S3_ACCESS_KEY_ID=media-test-key',
+      'MEDIA_S3_ACCESS_KEY_ID=mediatestkey',
       '--env',
       'MEDIA_S3_SECRET_ACCESS_KEY=media-test-secret',
     ];
