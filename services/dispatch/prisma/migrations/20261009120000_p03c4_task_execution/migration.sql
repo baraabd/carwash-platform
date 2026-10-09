@@ -342,3 +342,9 @@ CREATE TRIGGER "task_note_append_only" BEFORE UPDATE OR DELETE ON "task_note"
     FOR EACH ROW EXECUTE FUNCTION "app"."dispatch_append_only"();
 CREATE TRIGGER "task_event_append_only" BEFORE UPDATE OR DELETE ON "task_event"
     FOR EACH ROW EXECUTE FUNCTION "app"."dispatch_append_only"();
+
+-- PostgreSQL grants EXECUTE on new functions to PUBLIC by default. These are
+-- trigger-only guards; table mutations invoke them without caller EXECUTE.
+REVOKE ALL ON FUNCTION "app"."dispatch_task_guard"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."dispatch_task_evidence_guard"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."dispatch_append_only"() FROM PUBLIC;
