@@ -1,0 +1,4 @@
+/* Compact above-the-fold summary without reducing touch targets. */
+.hero-body{padding-top:5px;padding-bottom:17px;min-height:108px}.hero-top{padding-top:13px}.hero-foot{padding-block:10px}.hero-art{height:78px}.hero-body h1{font-size:28px}.hero-body{padding-inline:20px}.hero-art .tile-icon{width:61px;height:64px}.hero-foot>span:first-child{display:flex;gap:4px;align-items:baseline}.job-vehicle{padding-top:11px;padding-bottom:9px}.job-card .btn{margin-top:10px}.job-card .job-meta{margin-top:2px}.job-footer{padding-top:9px}.job-card .btn{min-height:52px}.job-card .job-service{min-height:25px}.job-vehicle h3{font-weight:750}.heading h1{font-weight:750}h1[tabindex="-1"]:focus{outline:none}
+
+.compare-handle{display:flex;align-items:center;justify-content:center;gap:0}.compare-handle>.ic{width:16px;height:16px}.hero-foot .hero-meter{flex:none}
