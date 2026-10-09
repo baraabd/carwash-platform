@@ -1,4 +1,4 @@
-import type { Owner, Vehicle, VehicleDetails, VehicleStatus } from '../domain';
+import type { Owner, ResolvePurpose, Vehicle, VehicleInput } from '../domain';
 
 /** Injected time source. Every persisted timestamp is UTC and comes from here. */
 export interface Clock {
@@ -36,6 +36,21 @@ export interface IdentityAuthorizer {
   authorize(credentials: SessionCredentials, intent: AccessIntent): Promise<AuthorizedSession>;
 }
 
+/** A calling workload whose identity and scopes the transport verified. */
+export interface ServiceActor {
+  readonly service: string;
+  readonly scopes: readonly string[];
+}
+
+/**
+ * Verifies the calling workload of a `service:` route. Workload identity is
+ * P01-E5 (Lane E) and is not on main, so the only adapter refuses every call:
+ * the snapshot route is deny-by-default until a real verifier is wired.
+ */
+export interface WorkloadAuthenticator {
+  authenticate(credentials: SessionCredentials): Promise<ServiceActor>;
+}
+
 export interface IdempotencyRequest {
   readonly scope: string;
   readonly key: string;
@@ -60,30 +75,41 @@ export interface OutboxEvent {
   readonly traceParent: string | null;
 }
 
+/** Who caused an audited fact: a principal's session, or a service with a purpose. */
+export type AuditActor =
+  | { readonly kind: 'principal'; readonly subject: string; readonly sessionId: string }
+  | { readonly kind: 'service'; readonly service: string; readonly purpose: ResolvePurpose };
+
 /** Audit facts carry identifiers only; plates, names and colours are never copied. */
 export interface AuditEntry {
   readonly id: string;
-  readonly actorSubject: string;
-  readonly actorSessionId: string;
+  readonly actor: AuditActor;
   readonly action: string;
   readonly vehicleId: string;
   readonly correlationId: string;
   readonly at: Date;
 }
 
-export interface NewVehicle extends VehicleDetails {
+export interface NewVehicle extends VehicleInput {
   readonly id: string;
   readonly owner: Owner;
   readonly now: Date;
 }
 
+/** Keyset position: the page continues strictly after this (createdAt, id). */
+export interface VehicleCursor {
+  readonly createdAt: Date;
+  readonly id: string;
+}
+
 /** Operations that run inside ONE local ACID transaction. */
 export interface VehicleTransaction {
+  /** Expired records are reclaimed under a transaction-scoped lock, never replayed. */
   claimIdempotency(request: IdempotencyRequest): Promise<IdempotencyClaim>;
   completeIdempotency(scope: string, key: string, status: number, body: unknown): Promise<void>;
   /**
    * Serialises writers for one owner (transaction-scoped advisory lock), so the
-   * active-vehicle ceiling cannot be overrun by concurrent creates.
+   * active-vehicle limit cannot be overrun by concurrent creates.
    */
   lockOwner(owner: Owner): Promise<void>;
   countActiveVehicles(owner: Owner): Promise<number>;
@@ -93,8 +119,8 @@ export interface VehicleTransaction {
   updateVehicle(
     owner: Owner,
     vehicleId: string,
-    details: VehicleDetails,
-    status: VehicleStatus,
+    input: VehicleInput,
+    archived: boolean,
     expectedRevision: number,
     now: Date,
   ): Promise<Vehicle | null>;
@@ -104,6 +130,6 @@ export interface VehicleTransaction {
 
 export interface VehicleStore {
   transaction<T>(work: (tx: VehicleTransaction) => Promise<T>): Promise<T>;
-  listOwnedVehicles(owner: Owner, includeArchived: boolean): Promise<Vehicle[]>;
-  findOwnedVehicle(owner: Owner, vehicleId: string): Promise<Vehicle | null>;
+  /** Active vehicles in (createdAt, id) order after the cursor, at most `limit` rows. */
+  listActiveVehicles(owner: Owner, after: VehicleCursor | null, limit: number): Promise<Vehicle[]>;
 }
