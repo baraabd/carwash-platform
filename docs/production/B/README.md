@@ -1,3 +1,21 @@
+# Lane B — Commerce & Finance production work
+
+## P02-B — Billing obligation and PaymentIntent core
+
+Parent status: **INTEGRATION_PENDING**. Not production-ready, not deployed, not
+integrated, no money flow enabled. Started from main
+`566d2e7435dac0803d075556fff43c435f8a29a7` (tree
+`1bd162f2578878643b3e2c2cc437fece36716588`), refreshed on 2026-10-08; the audited
+`f875d31` was no longer current.
+
+| Child | Branch | Scope | Status |
+| ----- | ------ | ----- | ------ |
+| B1 | `prod/p02-b-implement-billing-obligation-and-paymentintent-core-b1` | Obligation, PaymentIntent, attempts, reconciliation/UNKNOWN, append-only ledger, idempotency, audit, transactional outbox, owner API, real PG | PR open — review required |
+| E-req | (Lane E) | `billing.v1`, billing events, `billing.reconcile`, saga workload scope, dependencies — `CONTRACT_REQUEST_E_BILLING.md` | SUBMITTED, not accepted |
+| B2 | (after E) | Outbox relay on real RabbitMQ, saga-scoped create/void | NOT STARTED — blocked on E |
+
+Details, evidence and blockers B-P02-01..08: `P02-B1-BILLING.md`.
+
 # P01-B — Catalog and Pricing production providers
 
 Parent status: **INTEGRATION_PENDING**. No part of this task is production-ready,
@@ -42,4 +60,5 @@ own port, whose production adapter waits for E's published contract.
 `node scripts/production/B/postgres-acceptance.mjs --service <svc> --record` and
 name the exact source commit/tree they ran on. They are local disposable-database
 evidence only: PostgreSQL is real, Identity is a local HTTP stub, RabbitMQ is not
-used. They are not production, deployment or integrated-journey evidence.
+used. They are not production, deployment or integrated-journey evidence. Billing runs
+additionally use a local HTTP stub of Pricing's published `pricing.v1` quote read.

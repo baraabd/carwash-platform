@@ -1,7 +1,7 @@
 /**
- * billing application layer.
- *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
+ * billing application layer: commands/queries over ports. Framework/IO free.
  */
-export {};
+export * from './billing-errors';
+export * from './billing.service';
+export * from './events';
+export * from './views';

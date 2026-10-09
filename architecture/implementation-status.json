@@ -260,7 +260,17 @@
       "businessApi": "planned-not-implemented",
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
-      "persistenceModels": ["ServiceMarker"],
+      "persistenceModels": [
+        "ServiceMarker",
+        "BillingObligation",
+        "PaymentIntent",
+        "PaymentAttempt",
+        "LedgerJournal",
+        "LedgerLine",
+        "BillingIdempotencyReceipt",
+        "BillingAuditEvent",
+        "OutboxMessage"
+      ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
     },
