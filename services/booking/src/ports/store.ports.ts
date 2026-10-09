@@ -81,6 +81,8 @@ export interface BookingStore {
     audit: AuditFact,
   ): Promise<InsertBookingResult>;
   find(bookingId: string): Promise<BookingRecord | null>;
+  /** Append one audit row on its own (reads that must leave a trace). */
+  recordAudit(fact: AuditFact): Promise<void>;
 
   /** Lease one saga that is due now (or immediately, when `force`). */
   leaseSaga(
