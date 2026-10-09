@@ -18,6 +18,7 @@
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
+import { createServer } from 'node:http';
 import path from 'node:path';
 import pg from '../../../services/booking/node_modules/pg/lib/index.js';
 import {
@@ -70,6 +71,49 @@ let dispatchPort;
 let bookingPort;
 let dispatchProc;
 let bookingProc;
+let workforce;
+const RESOURCES = new Set();
+const WORKFORCE_TOKEN = `dispatch-workforce-${'w'.repeat(40)}`;
+
+/**
+ * DOUBLE of the PUBLISHED workforce.v1 listCapacityResources for Dispatch's
+ * eligibility check (P03-C4): registered resources are ELIGIBLE with a shift
+ * covering the queried window. A Dispatch without that check ignores the
+ * DISPATCH_WORKFORCE_* settings, so this suite runs on either source.
+ */
+async function startWorkforceDouble() {
+  const server = createServer((req, res) => {
+    const url = new URL(req.url ?? '/', 'http://x');
+    const ok =
+      req.headers['x-service-client'] === 'dispatch' &&
+      req.headers['x-service-token'] === WORKFORCE_TOKEN &&
+      url.pathname === '/internal/v1/workforce/capacity-resources';
+    if (!ok) return res.writeHead(404).end();
+    const from = new Date(url.searchParams.get('from'));
+    const to = new Date(url.searchParams.get('to'));
+    const items = [...RESOURCES].map((resourceId) => ({
+      resourceId,
+      revision: 1,
+      eligibility: 'ELIGIBLE',
+      eligibilityRevision: 1,
+      zoneIds: [url.searchParams.get('zoneId')],
+      shifts: [
+        {
+          startsAt: new Date(from.getTime() - 3_600_000).toISOString(),
+          endsAt: new Date(to.getTime() + 3_600_000).toISOString(),
+        },
+      ],
+    }));
+    res
+      .writeHead(200, { 'content-type': 'application/json' })
+      .end(JSON.stringify({ items, nextCursor: null, asOf: new Date().toISOString() }));
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  return {
+    url: `http://127.0.0.1:${server.address().port}`,
+    close: () => new Promise((r) => server.close(r)),
+  };
+}
 
 before(async () => {
   context = await readContext();
@@ -106,6 +150,7 @@ before(async () => {
     connectionString: context.databases.booking.appUrl.replace('?schema=app', ''),
     max: 2,
   });
+  workforce = await startWorkforceDouble();
   dispatchPort = await freePort();
   bookingPort = await freePort();
 
@@ -115,6 +160,9 @@ before(async () => {
     DATABASE_URL: context.databases.dispatch.appUrl,
     IDENTITY_URL: doubles.url,
     DISPATCH_USER_REQUESTS_PER_MINUTE: '1000',
+    DISPATCH_WORKFORCE_URL: workforce.url,
+    DISPATCH_WORKFORCE_CLIENT_ID: 'dispatch',
+    DISPATCH_WORKFORCE_CLIENT_TOKEN: WORKFORCE_TOKEN,
     DISPATCH_SERVICE_CLIENTS: JSON.stringify([
       { id: 'booking', tokenSha256: digest(SERVICE_TOKEN), scopes: ['dispatch.assignment.read'] },
     ]),
@@ -141,6 +189,7 @@ after(async () => {
   await bookingDb?.end();
   await dispatchPrisma?.client.$disconnect();
   await doubles?.close();
+  await workforce?.close();
 });
 
 async function http(port, prefix, method, route, token, { body, key } = {}) {
@@ -230,7 +279,11 @@ async function offerTo(assignmentId, technician, route = 'offers') {
     key: `lane-tv-offer-${randomUUID()}`,
     body: {
       expectedRevision: current.body.revision,
-      resourceId: randomUUID(),
+      resourceId: (() => {
+        const id = randomUUID();
+        RESOURCES.add(id);
+        return id;
+      })(),
       technicianSubjectId: technician,
     },
   });
