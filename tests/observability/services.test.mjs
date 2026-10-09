@@ -15,7 +15,7 @@ const mediaBootEnvironment = {
   MEDIA_S3_ENDPOINT: 'http://127.0.0.1:9',
   MEDIA_S3_REGION: 'us-east-1',
   MEDIA_S3_BUCKET: 'washgo-media-test',
-  MEDIA_S3_ACCESS_KEY_ID: 'media-test-key',
+  MEDIA_S3_ACCESS_KEY_ID: 'mediatestkey',
   MEDIA_S3_SECRET_ACCESS_KEY: 'media-test-secret',
 };
 async function freePort() {
