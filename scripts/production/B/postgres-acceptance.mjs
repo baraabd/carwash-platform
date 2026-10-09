@@ -112,7 +112,6 @@ async function checked(command, args, options = {}) {
   return result;
 }
 
-
 async function pullPinnedImage(image) {
   return pullImageWithMirrors(
     image,
