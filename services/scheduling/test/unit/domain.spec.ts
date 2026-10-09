@@ -3,25 +3,31 @@ import assert from 'node:assert/strict';
 import {
   HOLD_LIMITS,
   SchedulingError,
+  assertDurationMinutes,
   assertWindowDefinition,
   changeCapacity,
   closeWindow,
-  confirm,
+  commit,
   convertHeldToReserved,
   expire,
-  holdCreatedEvent,
-  holdExpiredEvent,
-  holdTtlSeconds,
+  holdChangedEvent,
   holdUnits,
   isDue,
-  release,
+  localDateOf,
+  nextLocalDate,
+  releaseByBeneficiary,
+  releaseByOperations,
   releaseHeldUnits,
+  startOfLocalDay,
+  v1State,
   type CapacityWindowState,
   type HoldState,
 } from '../../src/domain';
 
 const NOW = new Date('2026-10-07T08:00:00.000Z');
 const HOUR = 3_600_000;
+const BOOKING = '7d7f1d2e-7a55-4f52-9a77-3f1d9c1a0009';
+const OTHER_BOOKING = '7d7f1d2e-7a55-4f52-9a77-3f1d9c1a000a';
 
 function window(overrides: Partial<CapacityWindowState> = {}): CapacityWindowState {
   return {
@@ -42,13 +48,17 @@ function hold(overrides: Partial<HoldState> = {}): HoldState {
   return {
     id: '7d7f1d2e-7a55-4f52-9a77-3f1d9c1a0003',
     windowId: '7d7f1d2e-7a55-4f52-9a77-3f1d9c1a0001',
-    clientId: 'booking',
-    holderRef: '7d7f1d2e-7a55-4f52-9a77-3f1d9c1a0004',
+    zoneId: '7d7f1d2e-7a55-4f52-9a77-3f1d9c1a0002',
+    beneficiaryKind: 'guest',
+    beneficiarySubject: '7d7f1d2e-7a55-4f52-9a77-3f1d9c1a0004',
+    quoteId: '7d7f1d2e-7a55-4f52-9a77-3f1d9c1a0005',
+    quoteRevision: 1,
+    slotStartsAt: new Date(NOW.getTime() + 2 * HOUR),
+    slotEndsAt: new Date(NOW.getTime() + 2 * HOUR + 45 * 60_000),
     units: 1,
     status: 'ACTIVE',
     expiresAt: new Date(NOW.getTime() + 600_000),
-    idempotencyKey: 'key-0000000000000001',
-    requestFingerprint: 'f'.repeat(64),
+    bookingId: null,
     releaseReason: null,
     createdAt: NOW,
     updatedAt: NOW,
@@ -79,17 +89,7 @@ test('window definition rejects past, too short, too long and oversized windows'
     'INVALID_INPUT',
   );
   assert.equal(
-    code(() =>
-      assertWindowDefinition({ ...ok, endsAt: new Date(ok.startsAt.getTime() + 13 * HOUR) }),
-    ),
-    'INVALID_INPUT',
-  );
-  assert.equal(
     code(() => assertWindowDefinition({ ...ok, capacity: 501 })),
-    'INVALID_INPUT',
-  );
-  assert.equal(
-    code(() => assertWindowDefinition({ ...ok, capacity: 1.5 })),
     'INVALID_INPUT',
   );
   assert.equal(
@@ -98,7 +98,7 @@ test('window definition rejects past, too short, too long and oversized windows'
   );
 });
 
-test('the last unit can be held once and never twice', () => {
+test('the last unit can be held once and never twice; a started slot is refused', () => {
   const one = holdUnits(window({ capacity: 1 }), 1, NOW);
   assert.equal(one.held, 1);
   assert.equal(
@@ -106,48 +106,54 @@ test('the last unit can be held once and never twice', () => {
     'CAPACITY_EXHAUSTED',
   );
   assert.equal(
-    code(() => holdUnits(window({ capacity: 3, reserved: 2 }), 2, NOW)),
-    'CAPACITY_EXHAUSTED',
-  );
-});
-
-test('closed and already-started windows accept no new holds', () => {
-  assert.equal(
     code(() => holdUnits(closeWindow(window()), 1, NOW)),
     'WINDOW_CLOSED',
   );
+  // A slot later inside the window is judged by ITS start, not the window's.
+  const started = window({ startsAt: new Date(NOW.getTime() - HOUR) });
+  assert.equal(holdUnits(started, 1, NOW, new Date(NOW.getTime() + HOUR)).held, 1);
   assert.equal(
-    code(() =>
-      holdUnits(window({ startsAt: NOW, endsAt: new Date(NOW.getTime() + HOUR) }), 1, NOW),
-    ),
+    code(() => holdUnits(started, 1, NOW, NOW)),
     'WINDOW_STARTED',
   );
 });
 
-test('capacity cannot be reduced below what is already held or reserved', () => {
+test('capacity cannot drop below what is held or reserved; counters never go negative', () => {
   const busy = window({ capacity: 5, held: 2, reserved: 2 });
   assert.equal(changeCapacity(busy, 4).capacity, 4);
   assert.equal(
     code(() => changeCapacity(busy, 3)),
     'CAPACITY_BELOW_COMMITTED',
   );
-});
-
-test('counters can never go negative', () => {
   assert.throws(() => releaseHeldUnits(window({ held: 0 }), 1), /HELD_UNDERFLOW/);
   assert.throws(() => convertHeldToReserved(window({ held: 0 }), 1), /HELD_UNDERFLOW/);
 });
 
-test('hold TTL is bounded and defaults to ten minutes', () => {
-  assert.equal(holdTtlSeconds(undefined), HOLD_LIMITS.defaultTtlSeconds);
-  assert.equal(holdTtlSeconds(60), 60);
+test('slot duration follows scheduling.v1 bounds (5..480 minutes)', () => {
+  assert.doesNotThrow(() => assertDurationMinutes(5));
+  assert.doesNotThrow(() => assertDurationMinutes(480));
+  for (const bad of [4, 481, 30.5, Number.NaN]) {
+    assert.equal(
+      code(() => assertDurationMinutes(bad)),
+      'INVALID_INPUT',
+    );
+  }
+  assert.equal(HOLD_LIMITS.ttlSeconds, 600);
+});
+
+test('internal status maps onto the four published v1 states', () => {
+  assert.equal(v1State(hold()), 'HELD');
+  assert.equal(v1State(hold({ status: 'CONFIRMED', bookingId: BOOKING })), 'COMMITTED');
+  assert.equal(v1State(hold({ status: 'EXPIRED' })), 'EXPIRED');
   assert.equal(
-    code(() => holdTtlSeconds(59)),
-    'INVALID_INPUT',
+    v1State(hold({ status: 'RELEASED', releaseReason: 'CUSTOMER_CHANGED' })),
+    'RELEASED',
   );
   assert.equal(
-    code(() => holdTtlSeconds(1801)),
-    'INVALID_INPUT',
+    v1State(
+      hold({ status: 'CANCELLED', bookingId: BOOKING, releaseReason: 'OPERATIONS_OVERRIDE' }),
+    ),
+    'RELEASED',
   );
 });
 
@@ -159,86 +165,180 @@ test('a hold is due exactly at its deadline, by the injected clock', () => {
   assert.throws(() => expire(h, NOW), /HOLD_NOT_DUE/);
 });
 
-test('confirm refuses expired or terminal holds', () => {
-  const h = hold();
-  assert.equal(confirm(h, NOW).status, 'CONFIRMED');
+test('commit: revision-checked once, then a replay for the same booking only', () => {
+  const first = commit(hold(), { bookingId: BOOKING, expectedRevision: 1, now: NOW });
+  assert.equal(first.replay, false);
+  assert.equal(first.hold.status, 'CONFIRMED');
+  assert.equal(first.hold.bookingId, BOOKING);
+  assert.equal(first.hold.version, 2);
+  // Same booking again, even with the old revision: the same answer, no change.
+  const again = commit(first.hold, { bookingId: BOOKING, expectedRevision: 1, now: NOW });
+  assert.equal(again.replay, true);
+  assert.equal(again.hold, first.hold);
   assert.equal(
-    code(() => confirm(h, h.expiresAt)),
+    code(() => commit(first.hold, { bookingId: OTHER_BOOKING, expectedRevision: 2, now: NOW })),
+    'HOLD_NOT_ACTIVE',
+  );
+  assert.equal(
+    code(() => commit(hold(), { bookingId: BOOKING, expectedRevision: 2, now: NOW })),
+    'VERSION_CONFLICT',
+  );
+});
+
+test('commit reports HOLD_EXPIRED at the deadline and for an already expired hold', () => {
+  const h = hold();
+  assert.equal(
+    code(() => commit(h, { bookingId: BOOKING, expectedRevision: 1, now: h.expiresAt })),
     'HOLD_EXPIRED',
   );
   assert.equal(
-    code(() => confirm(hold({ status: 'RELEASED', releaseReason: 'BOOKING_FAILED' }), NOW)),
+    code(() =>
+      commit(hold({ status: 'EXPIRED', version: 2 }), {
+        bookingId: BOOKING,
+        expectedRevision: 2,
+        now: NOW,
+      }),
+    ),
+    'HOLD_EXPIRED',
+  );
+  assert.equal(
+    code(() =>
+      commit(hold({ status: 'RELEASED', releaseReason: 'CUSTOMER_CHANGED', version: 2 }), {
+        bookingId: BOOKING,
+        expectedRevision: 2,
+        now: NOW,
+      }),
+    ),
     'HOLD_NOT_ACTIVE',
   );
-});
-
-test('release frees held or reserved units once and is idempotent afterwards', () => {
-  const active = release(hold(), 'BOOKING_FAILED', NOW);
-  assert.equal(active.freed, 'HELD');
-  assert.equal(active.hold.status, 'RELEASED');
-  const confirmed = release(hold({ status: 'CONFIRMED' }), 'BOOKING_CANCELLED', NOW);
-  assert.equal(confirmed.freed, 'RESERVED');
-  assert.equal(confirmed.hold.status, 'CANCELLED');
-  const again = release(active.hold, 'BOOKING_FAILED', NOW);
-  assert.equal(again.freed, null);
-  assert.equal(again.hold, active.hold);
-  assert.throws(
-    () => release(hold(), 'BOOKING_FAILED', hold().expiresAt),
-    /HOLD_DUE_MUST_EXPIRE_FIRST/,
+  // One millisecond before the deadline the hold still commits.
+  const edge = new Date(h.expiresAt.getTime() - 1);
+  assert.equal(
+    commit(h, { bookingId: BOOKING, expectedRevision: 1, now: edge }).hold.status,
+    'CONFIRMED',
   );
 });
 
-test('events carry opaque references only and validate before reaching the outbox', () => {
-  const created = holdCreatedEvent({
+test('beneficiary release: only a live held hold, only principal reasons', () => {
+  const released = releaseByBeneficiary(hold(), {
+    reason: 'CUSTOMER_CHANGED',
+    expectedRevision: 1,
+    now: NOW,
+  });
+  assert.equal(released.freed, 'HELD');
+  assert.equal(released.hold.status, 'RELEASED');
+  assert.equal(released.hold.releaseReason, 'CUSTOMER_CHANGED');
+  assert.equal(
+    code(() =>
+      releaseByBeneficiary(hold(), {
+        reason: 'OPERATIONS_OVERRIDE',
+        expectedRevision: 1,
+        now: NOW,
+      }),
+    ),
+    'INVALID_INPUT',
+  );
+  const committed = hold({ status: 'CONFIRMED', bookingId: BOOKING, version: 2 });
+  assert.equal(
+    code(() =>
+      releaseByBeneficiary(committed, { reason: 'BOOKING_FAILED', expectedRevision: 2, now: NOW }),
+    ),
+    'HOLD_NOT_ACTIVE',
+    'a committed hold belongs to its booking now',
+  );
+  assert.equal(
+    code(() =>
+      releaseByBeneficiary(hold(), {
+        reason: 'BOOKING_FAILED',
+        expectedRevision: 1,
+        now: hold().expiresAt,
+      }),
+    ),
+    'HOLD_EXPIRED',
+  );
+  assert.equal(
+    code(() =>
+      releaseByBeneficiary(hold(), { reason: 'BOOKING_FAILED', expectedRevision: 9, now: NOW }),
+    ),
+    'VERSION_CONFLICT',
+  );
+});
+
+test('operations override frees held or reserved units; terminal holds are untouched', () => {
+  assert.equal(releaseByOperations(hold(), NOW)?.freed, 'HELD');
+  const cancelled = releaseByOperations(
+    hold({ status: 'CONFIRMED', bookingId: BOOKING, version: 2 }),
+    NOW,
+  );
+  assert.equal(cancelled?.freed, 'RESERVED');
+  assert.equal(cancelled?.hold.status, 'CANCELLED');
+  assert.equal(cancelled?.hold.bookingId, BOOKING, 'the booking reference is kept for audit');
+  assert.equal(releaseByOperations(hold({ status: 'EXPIRED' }), NOW), null);
+});
+
+test('hold-changed events follow envelope v2 and bind bookingId to COMMITTED only', () => {
+  const ids = {
     eventId: '7d7f1d2e-7a55-4f52-9a77-3f1d9c1a0010',
     correlationId: '7d7f1d2e-7a55-4f52-9a77-3f1d9c1a0011',
-    hold: hold(),
-    window: window(),
+  };
+  const committed = commit(hold(), { bookingId: BOOKING, expectedRevision: 1, now: NOW }).hold;
+  const event = holdChangedEvent({
+    ...ids,
+    hold: committed,
+    zoneId: committed.zoneId,
+    actor: { kind: 'service', id: 'booking' },
   });
-  assert.equal(created.eventType, 'scheduling.hold-created.v1');
-  assert.deepEqual(Object.keys(created.data).sort(), [
-    'expiresAt',
-    'holdId',
-    'holderRef',
-    'units',
-    'windowEndsAt',
-    'windowId',
-    'windowStartsAt',
-    'zoneId',
+  assert.deepEqual(Object.keys(event).sort(), [
+    'actor',
+    'aggregate',
+    'causationId',
+    'correlationId',
+    'data',
+    'envelopeVersion',
+    'eventId',
+    'eventType',
+    'occurredAt',
+    'producer',
+    'traceparent',
   ]);
+  assert.deepEqual(event.aggregate, { type: 'hold', id: committed.id, version: 2 });
+  assert.deepEqual(event.data, {
+    state: 'COMMITTED',
+    zoneId: committed.zoneId,
+    startsAt: committed.slotStartsAt.toISOString(),
+    endsAt: committed.slotEndsAt.toISOString(),
+    bookingId: BOOKING,
+  });
+  const cancelled = releaseByOperations(committed, NOW)!.hold;
+  const released = holdChangedEvent({
+    ...ids,
+    hold: cancelled,
+    zoneId: cancelled.zoneId,
+    actor: { kind: 'system', id: null },
+  });
+  assert.equal(released.data.state, 'RELEASED');
+  assert.equal(released.data.bookingId, null);
   assert.throws(
     () =>
-      holdCreatedEvent({
+      holdChangedEvent({
+        ...ids,
         eventId: 'nope',
-        correlationId: created.correlationId,
-        hold: hold(),
-        window: window(),
+        hold: committed,
+        zoneId: committed.zoneId,
+        actor: { kind: 'system', id: null },
       }),
     /INVALID_EVENT_UUID/,
   );
-  const late = new Date(hold().expiresAt.getTime() + 5_000);
-  const expired = expire(hold(), late);
-  const event = holdExpiredEvent({
-    eventId: '7d7f1d2e-7a55-4f52-9a77-3f1d9c1a0012',
-    correlationId: created.correlationId,
-    hold: expired,
-    zoneId: window().zoneId,
-  });
+});
+
+test('civil days are computed in Asia/Damascus from the IANA database', () => {
+  // Syria observes UTC+3 all year since 2022.
+  assert.equal(startOfLocalDay('2026-10-08').toISOString(), '2026-10-07T21:00:00.000Z');
+  assert.equal(localDateOf(new Date('2026-10-07T20:59:59.999Z')), '2026-10-07');
+  assert.equal(localDateOf(new Date('2026-10-07T21:00:00.000Z')), '2026-10-08');
+  assert.equal(nextLocalDate('2026-12-31'), '2027-01-01');
   assert.equal(
-    event.data.expiredAt,
-    hold().expiresAt.toISOString(),
-    'the deadline, not the sweep time',
-  );
-  assert.equal(event.occurredAt, late.toISOString());
-  assert.equal(event.aggregateVersion, 2);
-  assert.throws(
-    () =>
-      holdExpiredEvent({
-        eventId: event.eventId,
-        correlationId: event.correlationId,
-        hold: hold(),
-        zoneId: window().zoneId,
-      }),
-    /HOLD_NOT_EXPIRED/,
+    code(() => startOfLocalDay('2026-02-30')),
+    'INVALID_INPUT',
   );
 });

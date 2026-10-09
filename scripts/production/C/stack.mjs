@@ -41,7 +41,13 @@ export const IMAGES = Object.freeze({
   s3: 'chrislusf/seaweedfs@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d',
 });
 
-export const LANE_SERVICES = Object.freeze(['scheduling', 'workforce', 'media']);
+export const LANE_SERVICES = Object.freeze([
+  'scheduling',
+  'workforce',
+  'media',
+  'booking',
+  'dispatch',
+]);
 
 function run(command, args, { input, env, allowFailure = false, quiet = false, cwd = ROOT } = {}) {
   return new Promise((resolve, reject) => {

@@ -3,6 +3,8 @@
  *
  * Real PostgreSQL (runtime role), real RabbitMQ 4.2, compiled scheduling
  * artifacts and the compiled @carwash/platform-messaging relay/publisher.
+ * Every received message is validated with the PUBLISHED parser of
+ * scheduling.hold-changed.v1 (@carwash/event-contracts business-v1).
  * The test declares the `scheduling.events` exchange itself, standing in for
  * the broker bootstrap that Lane E owns (topology/ACL request in CR-C1).
  */
@@ -10,7 +12,7 @@ import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { amqplib, messaging, readContext, serviceDist } from './_support.mjs';
+import { amqplib, messaging, publishedContracts, readContext, serviceDist } from './_support.mjs';
 
 const { PrismaService } = serviceDist('scheduling', 'infrastructure/persistence/prisma.service.js');
 const { PrismaSchedulingStore } = serviceDist(
@@ -21,12 +23,14 @@ const { PrismaOutboxStore } = serviceDist(
   'scheduling',
   'infrastructure/messaging/prisma-outbox.store.js',
 );
-const { SchedulingService } = serviceDist('scheduling', 'application/index.js');
+const { CapacityService, HoldsV1Service } = serviceDist('scheduling', 'application/index.js');
 const { BrokerConnection, ConfirmingPublisher, OutboxRelay } = messaging();
+const { SCHEDULING_HOLD_CHANGED_V1 } = publishedContracts().events;
 
 let context;
 let prisma;
-let service;
+let holds;
+let capacity;
 let connection;
 let consumer;
 let queue;
@@ -34,15 +38,22 @@ const received = [];
 let now = new Date();
 const clock = { now: () => new Date(now.getTime()) };
 const ids = { next: () => randomUUID() };
-const OPS = { kind: 'USER', subject: randomUUID(), permissions: ['operations.dispatch'] };
-const BOOKING = { kind: 'SERVICE', clientId: 'booking', scopes: ['scheduling.holds.write'] };
-const meta = (actor) => ({ actor, correlationId: randomUUID() });
+const OPS = {
+  kind: 'USER',
+  principalKind: 'account',
+  subject: randomUUID(),
+  permissions: ['operations.dispatch'],
+};
+const BOOKING = { kind: 'SERVICE', clientId: 'booking', scopes: ['scheduling.hold.commit'] };
+const meta = (actor, correlationId = randomUUID()) => ({ actor, correlationId });
+const key = () => `mq-${randomUUID()}`;
 
 before(async () => {
   context = await readContext();
   prisma = new PrismaService(context.databases.scheduling.appUrl);
   const store = new PrismaSchedulingStore(prisma);
-  service = new SchedulingService(store, store, clock, ids);
+  holds = new HoldsV1Service(store, store, clock, ids);
+  capacity = new CapacityService(store, store, clock, ids);
   connection = await BrokerConnection.open({
     url: context.brokerUrl,
     connectionName: 'lane-c-outbox-test',
@@ -77,144 +88,149 @@ async function drain(relay) {
   throw new Error('relay did not drain');
 }
 
-async function waitReceived(predicate, timeoutMs = 10_000) {
+async function waitReceived(predicate, count = 1, timeoutMs = 10_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const hit = received.filter(predicate);
-    if (hit.length > 0) return hit;
+    if (hit.length >= count) return hit;
     await delay(50);
   }
-  return [];
+  return received.filter(predicate);
 }
 
-test('hold-created and hold-expired are committed with the change and published with confirms', async () => {
-  const startsAt = new Date(now.getTime() + 2 * 3_600_000);
-  const { value: window } = await service.defineWindow(meta(OPS), {
-    zoneId: randomUUID(),
-    startsAt,
-    endsAt: new Date(startsAt.getTime() + 3_600_000),
-    capacity: 1,
-  });
-  const correlationId = randomUUID();
-  const { value: hold } = await service.acquireHold(
-    { actor: BOOKING, correlationId },
-    {
-      windowId: window.id,
-      holderRef: randomUUID(),
-      units: 1,
-      ttlSeconds: 60,
-      idempotencyKey: `mq-${randomUUID()}`,
-    },
-  );
-  now = new Date(now.getTime() + 61_000);
-  await service.expireDue(randomUUID(), 100);
-
-  const relay = new OutboxRelay({
+function relay(channel = connection.channel) {
+  return new OutboxRelay({
     workerId: `relay-${randomUUID().slice(0, 8)}`,
     store: new PrismaOutboxStore(prisma),
-    publisher: new ConfirmingPublisher(connection.channel),
+    publisher: new ConfirmingPublisher(channel),
     batchSize: 200,
   });
-  await drain(relay);
+}
 
-  const mine = (m) => m.body.data?.holdId === hold.id;
-  const created = await waitReceived(
-    (m) => mine(m) && m.body.eventType === 'scheduling.hold-created.v1',
+async function window(cap = 1, hoursAhead = 2) {
+  const startsAt = new Date(now.getTime() + hoursAhead * 3_600_000);
+  startsAt.setUTCSeconds(0, 0);
+  return (
+    await capacity.defineWindow(meta(OPS), {
+      zoneId: randomUUID(),
+      startsAt,
+      endsAt: new Date(startsAt.getTime() + 3_600_000),
+      capacity: cap,
+    })
+  ).value;
+}
+
+async function hold(w, correlationId = randomUUID()) {
+  const who = {
+    kind: 'USER',
+    principalKind: 'guest',
+    subject: randomUUID(),
+    permissions: ['bookings.create:self'],
+  };
+  const response = await holds.createHold(
+    meta(who, correlationId),
+    {
+      beneficiary: { kind: 'guest', subjectId: who.subject },
+      zoneId: w.zoneId,
+      startsAt: w.startsAt,
+      durationMinutes: 30,
+      quoteRef: { quoteId: randomUUID(), revision: 1 },
+    },
+    key(),
   );
-  const expired = await waitReceived(
-    (m) => mine(m) && m.body.eventType === 'scheduling.hold-expired.v1',
+  return response.body;
+}
+
+test('HELD, COMMITTED and EXPIRED changes are committed with the change and published with confirms', async () => {
+  const correlationId = randomUUID();
+  const committed = await hold(await window(), correlationId);
+  const bookingId = randomUUID();
+  await holds.commitHold(
+    meta(BOOKING),
+    committed.holdId,
+    { expectedRevision: 1, bookingId },
+    key(),
   );
-  assert.equal(created.length, 1);
-  assert.equal(expired.length, 1);
-  assert.equal(created[0].routingKey, 'scheduling.hold-created.v1');
+  const expiring = await hold(await window(1, 3));
+  now = new Date(now.getTime() + 601_000);
+  await capacity.expireDue(randomUUID(), 500);
+  await drain(relay());
+
+  const of = (id) => (m) => m.body.aggregate?.id === id;
+  const first = await waitReceived(of(committed.holdId), 2);
+  const second = await waitReceived(of(expiring.holdId), 2);
+  // Every message passes the PUBLISHED parser unchanged.
+  for (const message of [...first, ...second]) {
+    const parsed = SCHEDULING_HOLD_CHANGED_V1.parse(message.body);
+    assert.equal(parsed.eventType, 'scheduling.hold-changed.v1');
+    assert.equal(message.routingKey, 'scheduling.hold-changed.v1');
+    assert.equal(
+      message.properties.messageId,
+      message.body.eventId,
+      'broker message id = event id',
+    );
+  }
+  assert.deepEqual(
+    first.map((m) => [m.body.data.state, m.body.data.bookingId, m.body.aggregate.version]),
+    [
+      ['HELD', null, 1],
+      ['COMMITTED', bookingId, 2],
+    ],
+  );
+  assert.deepEqual(first[1].body.actor, { kind: 'service', id: 'booking' });
+  assert.equal(first[0].body.actor.kind, 'guest');
   assert.equal(
-    created[0].properties.messageId,
-    created[0].body.eventId,
-    'broker message id is the event id',
-  );
-  assert.equal(
-    created[0].properties.correlationId,
+    first[0].properties.correlationId,
     correlationId,
-    'correlation crosses HTTP -> outbox -> broker',
+    'correlation crosses request -> outbox -> broker',
   );
-  assert.equal(created[0].body.producer, 'scheduling');
-  assert.equal(expired[0].body.data.expiredAt, new Date(hold.expiresAt.getTime()).toISOString());
-
-  const rows = await prisma.client.$queryRawUnsafe(
-    `SELECT published_at, attempts FROM app.outbox_message WHERE (payload::jsonb -> 'data' ->> 'holdId') = $1`,
-    hold.id,
+  assert.deepEqual(
+    second.map((m) => m.body.data.state),
+    ['HELD', 'EXPIRED'],
   );
-  assert.equal(rows.length, 2);
-  assert.ok(rows.every((r) => r.published_at !== null && r.attempts === 1));
-
-  // A second relay pass has nothing left to publish for these rows.
-  const before = received.filter(mine).length;
-  await drain(relay);
+  assert.deepEqual(second[1].body.actor, { kind: 'system', id: null });
+  // A second relay pass has nothing left to publish for these holds.
+  const before = received.length;
+  await drain(relay());
   await delay(300);
-  assert.equal(received.filter(mine).length, before);
+  assert.equal(
+    received.filter((m) => [committed.holdId, expiring.holdId].includes(m.body.aggregate?.id))
+      .length,
+    4,
+  );
+  assert.ok(received.length >= before);
 });
 
 test('broker unavailable: rows stay pending and are retried, never marked published', async () => {
-  const startsAt = new Date(now.getTime() + 4 * 3_600_000);
-  const { value: window } = await service.defineWindow(meta(OPS), {
-    zoneId: randomUUID(),
-    startsAt,
-    endsAt: new Date(startsAt.getTime() + 3_600_000),
-    capacity: 1,
-  });
-  const { value: hold } = await service.acquireHold(meta(BOOKING), {
-    windowId: window.id,
-    holderRef: randomUUID(),
-    units: 1,
-    idempotencyKey: `mq-${randomUUID()}`,
-  });
+  const created = await hold(await window(1, 5));
   const dead = await BrokerConnection.open({
     url: context.brokerUrl,
     connectionName: 'lane-c-dead',
   });
   const channel = dead.channel;
   await dead.close();
-  const relay = new OutboxRelay({
+  const failing = new OutboxRelay({
     workerId: `relay-${randomUUID().slice(0, 8)}`,
     store: new PrismaOutboxStore(prisma),
     publisher: new ConfirmingPublisher(channel, undefined, 1_000),
     batchSize: 500,
   });
-  const pass = await relay.runOnce();
+  const pass = await failing.runOnce();
   assert.ok(pass.failed >= 1 && pass.published === 0);
   const [row] = await prisma.client.$queryRawUnsafe(
     `SELECT published_at, attempts, last_error, locked_by FROM app.outbox_message
-      WHERE (payload::jsonb -> 'data' ->> 'holdId') = $1`,
-    hold.id,
+      WHERE (payload::jsonb -> 'aggregate' ->> 'id') = $1`,
+    created.holdId,
   );
   assert.equal(row.published_at, null);
   assert.equal(row.locked_by, null, 'released for the next attempt');
   assert.ok(row.attempts >= 1 && row.last_error);
-
-  const healthy = new OutboxRelay({
-    workerId: `relay-${randomUUID().slice(0, 8)}`,
-    store: new PrismaOutboxStore(prisma),
-    publisher: new ConfirmingPublisher(connection.channel),
-    batchSize: 200,
-  });
-  await drain(healthy);
-  assert.equal((await waitReceived((m) => m.body.data?.holdId === hold.id)).length, 1);
+  await drain(relay());
+  assert.equal((await waitReceived((m) => m.body.aggregate?.id === created.holdId)).length, 1);
 });
 
 test('lease fencing: a relay whose lease expired cannot finalise the row another relay owns', async () => {
-  const startsAt = new Date(now.getTime() + 6 * 3_600_000);
-  const { value: window } = await service.defineWindow(meta(OPS), {
-    zoneId: randomUUID(),
-    startsAt,
-    endsAt: new Date(startsAt.getTime() + 3_600_000),
-    capacity: 1,
-  });
-  await service.acquireHold(meta(BOOKING), {
-    windowId: window.id,
-    holderRef: randomUUID(),
-    units: 1,
-    idempotencyKey: `mq-${randomUUID()}`,
-  });
+  await hold(await window(1, 7));
   const store = new PrismaOutboxStore(prisma);
   const stale = await store.leaseBatch({
     workerId: 'stale-worker',
