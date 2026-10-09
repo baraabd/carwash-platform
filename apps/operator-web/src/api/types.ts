@@ -128,6 +128,9 @@ export interface TaskView {
   }[];
   readonly history: readonly { readonly at: string; readonly action: string }[];
   readonly releaseReason: string | null;
+  readonly endedAt: string | null;
+  readonly endReason: string | null;
+  readonly attentionReason: string | null;
 }
 
 /** C4 `GET /me/jobs` task summary (provider fact, P03-C4); details come from `/me/tasks/:id`. */

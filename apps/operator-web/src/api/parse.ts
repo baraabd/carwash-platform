@@ -211,6 +211,10 @@ const TASK_KEYS = [
   'notes',
   'history',
   'releaseReason',
+  // Provider additions in P03-C4 (#112): why a task ended and the eligibility flag.
+  'endedAt',
+  'endReason',
+  'attentionReason',
 ] as const;
 
 export function parseTask(v: unknown, p = 'task'): TaskView {
@@ -271,6 +275,9 @@ export function parseTask(v: unknown, p = 'task'): TaskView {
       return { at: instant(h.at, `${p}.history[${i}].at`), action };
     }),
     releaseReason: nstr(t.releaseReason, `${p}.releaseReason`, 500),
+    endedAt: ninstant(t.endedAt, `${p}.endedAt`),
+    endReason: nstr(t.endReason, `${p}.endReason`, 64),
+    attentionReason: nstr(t.attentionReason, `${p}.attentionReason`, 64),
   };
 }
 

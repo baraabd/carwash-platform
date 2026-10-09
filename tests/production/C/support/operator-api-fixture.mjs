@@ -335,8 +335,22 @@ export async function startOperatorFixture({
   }
   reset();
 
+  /** C4 semantics: endedAt/endReason only for RELEASED, WITHDRAWN and CANCELLED. */
+  const ending = (task) => {
+    const ended = ['RELEASED', 'WITHDRAWN', 'CANCELLED'].includes(task.stage);
+    const reasons = {
+      RELEASED: 'RELEASED_BY_TECHNICIAN',
+      WITHDRAWN: 'REASSIGNED',
+      CANCELLED: 'JOB_CANCELLED',
+    };
+    return {
+      endedAt: ended ? task.updatedAt : null,
+      endReason: ended ? reasons[task.stage] : null,
+      attentionReason: null,
+    };
+  };
   const publicTask = (task) => {
-    return structuredClone(omit(task, ['owner', 'updatedAt']));
+    return { ...structuredClone(omit(task, ['owner', 'updatedAt'])), ...ending(task) };
   };
   /** Provider fact (P03-C4): /me/jobs lists task summaries, details come from /me/tasks/:id. */
   const summaryOf = (task) => ({
@@ -347,11 +361,7 @@ export async function startOperatorFixture({
     bookingId: task.bookingId,
     acceptedAt: task.acceptedAt,
     closedAt: task.closedAt,
-    endedAt: ['CLOSED', 'RELEASED', 'WITHDRAWN', 'CANCELLED'].includes(task.stage)
-      ? (task.closedAt ?? task.updatedAt)
-      : null,
-    endReason: task.stage === 'RELEASED' ? 'RELEASED_BY_TECHNICIAN' : null,
-    attentionReason: null,
+    ...ending(task),
     collection: structuredClone(task.collection),
     updatedAt: task.updatedAt,
     zoneId: task.zoneId,
@@ -667,7 +677,7 @@ export async function startOperatorFixture({
           body.reason.length > 500
         )
           refuse(400, 'REQUEST_INVALID');
-        Object.assign(task, { stage: 'RELEASED', releaseReason: body.reason, closedAt: at });
+        Object.assign(task, { stage: 'RELEASED', releaseReason: body.reason });
         state.assignments.get(task.bookingId).status = 'UNASSIGNED';
         task.history.push({ at, action: 'released' });
       } else {
