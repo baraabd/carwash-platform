@@ -87,16 +87,23 @@ shows the assignment status only and labels field progress as not available.
 
 1. Add `bookingId` to `billing.obligation-created.v1` data (and to the
    obligation read). Without it, a cash state cannot be joined to a booking.
-2. Cash custody and settlement. The task asks for review and settlement of
-   technician cash custody. On `main` Wallet is a foundation shell, and
-   Billing has no cash-collection, custody or settlement route. Lane B
-   (P03-B) owns that model. D needs:
-   - a staff list or read of collections awaiting confirmation, and of
-     custody balances per technician;
-   - a settlement command (finance confirms that a technician handed cash to
-     the company), with `Idempotency-Key`, `expectedRevision` and an audit
-     actor;
-   - published events for custody changes.
+2. Cash custody and settlement. On `main`, Wallet is a foundation shell and
+   Billing has no custody route. **PR #111 (P03-B1, open, not merged)** adds
+   custody to Billing's ledger:
+   - finance reads: `GET custody/holders/:subject`, `GET custody/reconciliation`
+     and `GET custody/handovers/:id`;
+   - finance commands: `POST custody/handovers/:id/treasury-receipt` and
+     `POST custody/handovers/:id/reconciliation`, with `Idempotency-Key` and
+     an audit actor.
+
+   D consumes these only after #111 merges and E publishes `billing.v1`
+   with the Gateway aliases (B-P03-04). Their permissions,
+   `billing.treasury.receive` and the others, are themselves requested
+   (CR-B-08).
+
+   One gap remains for the console: a staff list of handovers awaiting
+   treasury receipt or reconciliation, so finance can discover them without
+   knowing a reference.
 3. `GET payment-attempts?status=PENDING_REVIEW|UNKNOWN&limit&cursor` with
    `billing.read`. The finance review queue needs to discover attempts, and
    today an attempt can only be read through its obligation.
@@ -117,8 +124,12 @@ Requested: add `billing.reconcile` to `IDENTITY_PERMISSIONS` and grant it to
 `finance`. `super-admin` follows automatically, because it holds every
 permission. This is the same request as Lane B's CR-B-03.
 
-Interim behavior: the finance reconciliation action receives `403` from
-Billing. The console shows "not permitted" and keeps the attempt unchanged.
+**PR #109 (P03-E1, open, not merged)** implements exactly this. D needs no
+change of its own; it consumes the merged permission.
+
+Interim behavior: until #109 merges, the finance reconciliation action
+receives `403` from Billing. The console shows "not permitted" and leaves the
+attempt unchanged.
 
 ## CR-D-P03-06 (Lane E): notification read routes
 
@@ -128,3 +139,21 @@ Billing. The console shows "not permitted" and keeps the attempt unchanged.
 | `admin.notifications.get` | GET `/admin/notifications/:id` | `/internal/v1/communications/notifications/:id` | `operations.dispatch` |
 
 The query allowlist is defined in `P03-D2_COMMUNICATIONS_EVENT_NOTIFICATIONS.md`.
+
+## CR-D-P03-07 (Lane E + owners): event-notification topology and recipients
+
+1. Declare `booking.events` in the shared bootstrap.
+2. Extend the `cw_communications_app` read permission to exactly
+   `^(communications\.|catalog\.events$|booking\.events$)`. Configure and
+   write stay `^communications\.`.
+3. Booking must emit the published `booking.confirmed.v1`. Today it emits
+   only the unpublished `booking.created.v1` (CR-P02-C2).
+4. The Customer owner must publish contact preferences: channel, and opt-out
+   from transactional messages. The delivery adapter also needs a
+   recipient-resolution read.
+
+Until (4) exists, the confirmation intent uses SMS and resolves no address.
+No provider exists either: that is an external blocker (P01-D2).
+
+Interim behavior: on the accepted ACL, the worker's binding is refused with
+`403` (suite E1). A delivered event in any other shape is dead-lettered.
