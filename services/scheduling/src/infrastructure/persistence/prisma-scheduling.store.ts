@@ -1,22 +1,25 @@
 import { randomUUID } from 'node:crypto';
 import { traceHeaders } from '@carwash/service-kit';
+import { SchedulingError } from '../../domain';
 import type {
   CapacityWindowState,
   HoldState,
+  HoldStatus,
+  PrincipalKind,
   ReleaseReason,
   WindowStatus,
-  HoldStatus,
 } from '../../domain';
 import type {
   Actor,
   AuditAppend,
   AvailabilityRow,
-  InsertHoldResult,
+  IdempotencyClaim,
   InsertWindowResult,
   OutboxAppend,
   SchedulingReadModel,
   SchedulingTransaction,
   SchedulingUnitOfWork,
+  StoredResponse,
 } from '../../ports';
 import type { Prisma } from '../../generated/prisma/client';
 import type { PrismaService } from './prisma.service';
@@ -29,10 +32,12 @@ import type { PrismaService } from './prisma.service';
  *     window is serialised by the row lock;
  *   - every UPDATE is guarded by the version that was read under that lock;
  *   - the CHECK constraint held + reserved <= capacity rejects any write that
- *     would oversell, even one produced by a defect above this layer.
+ *     would oversell, even one produced by a defect above this layer;
+ *   - capacity_hold_shape_ck and the partial unique index on booking_id keep
+ *     every v1 hold complete and one booking to one committed hold.
  *
- * Tables are qualified with the "app" schema exactly like the catalog outbox
- * store; the runtime role has DML on that schema only.
+ * Tables are qualified with the "app" schema; the runtime role has DML on that
+ * schema only.
  */
 type Tx = Prisma.TransactionClient;
 
@@ -51,22 +56,42 @@ interface WindowRow {
 interface HoldRow {
   id: string;
   window_id: string;
-  client_id: string;
-  holder_ref: string;
+  zone_id: string;
+  beneficiary_kind: string;
+  beneficiary_subject: string;
+  quote_id: string;
+  quote_revision: number;
+  slot_starts_at: Date;
+  slot_ends_at: Date;
   units: number;
   status: string;
   expires_at: Date;
-  idempotency_key: string;
-  request_fingerprint: string;
+  booking_id: string | null;
   release_reason: string | null;
   created_at: Date;
   updated_at: Date;
   version: number;
 }
 
-const HOLD_COLUMNS = `id::text, window_id::text, client_id, holder_ref::text, units, status, expires_at,
-  idempotency_key, request_fingerprint, release_reason, created_at, updated_at, version`;
+interface IdempotencyRow {
+  fingerprint: string;
+  response_status: number | null;
+  response_body: unknown;
+}
+
+/**
+ * scheduling.v1 hold rows only. Rows written by the pre-v1 (C1) API have no
+ * beneficiary and are invisible to the v1 surface; the sweeper still expires
+ * them (expireLegacyDueHolds) so their units return to the window.
+ */
+const V1_ROW = `beneficiary_kind IS NOT NULL`;
+const HOLD_COLUMNS = `id::text, window_id::text, zone_id::text, beneficiary_kind,
+  beneficiary_subject::text, quote_id::text, quote_revision, slot_starts_at, slot_ends_at,
+  units, status, expires_at, booking_id::text, release_reason, created_at, updated_at, version`;
 const WINDOW_COLUMNS = `id::text, zone_id::text, starts_at, ends_at, capacity, held, reserved, status, version`;
+/** Wait at most this long for a concurrent holder of the same idempotency key. */
+const IDEMPOTENCY_WAIT = '3s';
+const TRACEPARENT = /^00-(?!0{32})[0-9a-f]{32}-(?!0{16})[0-9a-f]{16}-[0-9a-f]{2}$/;
 
 export class ConcurrencyViolation extends Error {
   constructor(what: string) {
@@ -114,13 +139,17 @@ function toHold(row: HoldRow): HoldState {
   return {
     id: row.id,
     windowId: row.window_id,
-    clientId: row.client_id,
-    holderRef: row.holder_ref,
+    zoneId: row.zone_id,
+    beneficiaryKind: row.beneficiary_kind as PrincipalKind,
+    beneficiarySubject: row.beneficiary_subject,
+    quoteId: row.quote_id,
+    quoteRevision: row.quote_revision,
+    slotStartsAt: row.slot_starts_at,
+    slotEndsAt: row.slot_ends_at,
     units: row.units,
     status: row.status as HoldStatus,
     expiresAt: row.expires_at,
-    idempotencyKey: row.idempotency_key,
-    requestFingerprint: row.request_fingerprint,
+    bookingId: row.booking_id,
     releaseReason: row.release_reason as ReleaseReason | null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -134,8 +163,99 @@ function actorId(actor: Actor): string {
   return actor.component;
 }
 
+/** The active W3C trace parent, if well-formed; never invented. */
+function activeTraceparent(): string | null {
+  const value = traceHeaders()['traceparent'];
+  return typeof value === 'string' && TRACEPARENT.test(value) ? value : null;
+}
+
 class PrismaSchedulingTransaction implements SchedulingTransaction {
   constructor(private readonly tx: Tx) {}
+
+  async claimIdempotency(
+    scope: string,
+    key: string,
+    fingerprint: string,
+  ): Promise<IdempotencyClaim> {
+    // A concurrent first request holds the uncommitted row; our INSERT waits on
+    // the unique key until it commits (we then read its outcome) or rolls back
+    // (we then insert). The wait is bounded so a stuck holder reads as in flight.
+    await this.tx.$executeRawUnsafe(`SET LOCAL lock_timeout = '${IDEMPOTENCY_WAIT}'`);
+    await this.tx.$executeRawUnsafe('SAVEPOINT claim_idempotency');
+    let inserted: { scope: string }[];
+    try {
+      inserted = await this.tx.$queryRawUnsafe<{ scope: string }[]>(
+        `INSERT INTO app.idempotency_record (scope, key, fingerprint)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (scope, key) DO NOTHING
+         RETURNING scope`,
+        scope,
+        key,
+        fingerprint,
+      );
+    } catch (error) {
+      // Anything but a lock timeout aborts the whole unit of work.
+      if (sqlState(error) !== '55P03') throw error;
+      await this.tx.$executeRawUnsafe('ROLLBACK TO SAVEPOINT claim_idempotency');
+      await this.tx.$executeRawUnsafe('SET LOCAL lock_timeout = 0');
+      return { kind: 'IN_PROGRESS' };
+    }
+    await this.tx.$executeRawUnsafe('RELEASE SAVEPOINT claim_idempotency');
+    await this.tx.$executeRawUnsafe('SET LOCAL lock_timeout = 0');
+    if (inserted.length === 1) return { kind: 'NEW' };
+    const [row] = await this.tx.$queryRawUnsafe<IdempotencyRow[]>(
+      `SELECT fingerprint, response_status, response_body FROM app.idempotency_record
+        WHERE scope = $1 AND key = $2`,
+      scope,
+      key,
+    );
+    if (!row) return { kind: 'IN_PROGRESS' };
+    if (row.fingerprint !== fingerprint) return { kind: 'CONFLICT' };
+    if (row.response_status === null) return { kind: 'IN_PROGRESS' };
+    return { kind: 'REPLAY', response: { status: row.response_status, body: row.response_body } };
+  }
+
+  async completeIdempotency(scope: string, key: string, response: StoredResponse): Promise<void> {
+    const rows = await this.tx.$queryRawUnsafe<{ scope: string }[]>(
+      `UPDATE app.idempotency_record
+          SET response_status = $3, response_body = $4::jsonb, completed_at = now()
+        WHERE scope = $1 AND key = $2 AND completed_at IS NULL
+      RETURNING scope`,
+      scope,
+      key,
+      response.status,
+      JSON.stringify(response.body),
+    );
+    if (rows.length !== 1) throw new ConcurrencyViolation('IDEMPOTENCY');
+  }
+
+  async abandonIdempotency(scope: string, key: string): Promise<void> {
+    await this.tx.$executeRawUnsafe(
+      `DELETE FROM app.idempotency_record WHERE scope = $1 AND key = $2 AND completed_at IS NULL`,
+      scope,
+      key,
+    );
+  }
+
+  async lockBeneficiary(kind: PrincipalKind, subject: string): Promise<void> {
+    await this.tx.$executeRawUnsafe(
+      `SELECT pg_advisory_xact_lock(hashtextextended('scheduling.beneficiary:' || $1 || ':' || $2, 0))`,
+      kind,
+      subject,
+    );
+  }
+
+  async countActiveHolds(kind: PrincipalKind, subject: string, now: Date): Promise<number> {
+    const [row] = await this.tx.$queryRawUnsafe<{ count: number }[]>(
+      `SELECT count(*)::int AS count FROM app.capacity_hold
+        WHERE beneficiary_kind = $1 AND beneficiary_subject = $2::uuid
+          AND status = 'ACTIVE' AND expires_at > $3`,
+      kind,
+      subject,
+      now,
+    );
+    return row?.count ?? 0;
+  }
 
   async lockWindow(
     id: string,
@@ -151,6 +271,23 @@ class PrismaSchedulingTransaction implements SchedulingTransaction {
           id,
         );
     const [row] = rows;
+    return row ? toWindow(row) : null;
+  }
+
+  async lockCoveringWindow(
+    zoneId: string,
+    startsAt: Date,
+    endsAt: Date,
+  ): Promise<CapacityWindowState | null> {
+    // Windows of one zone never overlap (exclusion constraint): at most one row.
+    const [row] = await this.tx.$queryRawUnsafe<WindowRow[]>(
+      `SELECT ${WINDOW_COLUMNS} FROM app.capacity_window
+        WHERE zone_id = $1::uuid AND starts_at <= $2 AND ends_at >= $3
+        FOR UPDATE`,
+      zoneId,
+      startsAt,
+      endsAt,
+    );
     return row ? toWindow(row) : null;
   }
 
@@ -211,7 +348,7 @@ class PrismaSchedulingTransaction implements SchedulingTransaction {
 
   async lockHold(id: string): Promise<HoldState | null> {
     const [row] = await this.tx.$queryRawUnsafe<HoldRow[]>(
-      `SELECT ${HOLD_COLUMNS} FROM app.capacity_hold WHERE id = $1::uuid FOR UPDATE`,
+      `SELECT ${HOLD_COLUMNS} FROM app.capacity_hold WHERE id = $1::uuid AND ${V1_ROW} FOR UPDATE`,
       id,
     );
     return row ? toHold(row) : null;
@@ -220,7 +357,7 @@ class PrismaSchedulingTransaction implements SchedulingTransaction {
   async lockDueHolds(windowId: string, now: Date): Promise<HoldState[]> {
     const rows = await this.tx.$queryRawUnsafe<HoldRow[]>(
       `SELECT ${HOLD_COLUMNS} FROM app.capacity_hold
-        WHERE window_id = $1::uuid AND status = 'ACTIVE' AND expires_at <= $2
+        WHERE window_id = $1::uuid AND status = 'ACTIVE' AND expires_at <= $2 AND ${V1_ROW}
         ORDER BY id
         FOR UPDATE`,
       windowId,
@@ -229,47 +366,77 @@ class PrismaSchedulingTransaction implements SchedulingTransaction {
     return rows.map(toHold);
   }
 
-  async insertHold(hold: HoldState): Promise<InsertHoldResult> {
-    const rows = await this.tx.$queryRawUnsafe<{ id: string }[]>(
-      `INSERT INTO app.capacity_hold (id, window_id, client_id, holder_ref, units, status, expires_at,
-         idempotency_key, request_fingerprint, release_reason, version, created_at, updated_at)
-       VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-       ON CONFLICT (client_id, idempotency_key) DO NOTHING
-       RETURNING id::text`,
+  async expireLegacyDueHolds(windowId: string, now: Date): Promise<number> {
+    const [row] = await this.tx.$queryRawUnsafe<{ units: number }[]>(
+      `WITH expired AS (
+         UPDATE app.capacity_hold
+            SET status = 'EXPIRED', version = version + 1, updated_at = $2
+          WHERE window_id = $1::uuid AND status = 'ACTIVE' AND expires_at <= $2
+            AND beneficiary_kind IS NULL
+         RETURNING units)
+       SELECT COALESCE(SUM(units), 0)::int AS units FROM expired`,
+      windowId,
+      now,
+    );
+    return row?.units ?? 0;
+  }
+
+  async insertHold(hold: HoldState): Promise<void> {
+    await this.tx.$executeRawUnsafe(
+      `INSERT INTO app.capacity_hold (id, window_id, zone_id, beneficiary_kind, beneficiary_subject,
+         quote_id, quote_revision, slot_starts_at, slot_ends_at, units, status, expires_at,
+         booking_id, release_reason, version, created_at, updated_at)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6::uuid, $7, $8, $9, $10, $11, $12,
+         $13::uuid, $14, $15, $16, $17)`,
       hold.id,
       hold.windowId,
-      hold.clientId,
-      hold.holderRef,
+      hold.zoneId,
+      hold.beneficiaryKind,
+      hold.beneficiarySubject,
+      hold.quoteId,
+      hold.quoteRevision,
+      hold.slotStartsAt,
+      hold.slotEndsAt,
       hold.units,
       hold.status,
       hold.expiresAt,
-      hold.idempotencyKey,
-      hold.requestFingerprint,
+      hold.bookingId,
       hold.releaseReason,
       hold.version,
       hold.createdAt,
       hold.updatedAt,
     );
-    return rows.length === 1 ? 'CREATED' : 'DUPLICATE_IDEMPOTENCY_KEY';
   }
 
   async updateHold(hold: HoldState, expectedVersion: number): Promise<void> {
-    const rows = await this.tx.$queryRawUnsafe<{ id: string }[]>(
-      `UPDATE app.capacity_hold
-          SET status = $3, release_reason = $4, version = $5, updated_at = $6
+    let rows: { id: string }[];
+    try {
+      rows = await this.tx.$queryRawUnsafe<{ id: string }[]>(
+        `UPDATE app.capacity_hold
+          SET status = $3, release_reason = $4, version = $5, updated_at = $6, booking_id = $7::uuid
         WHERE id = $1::uuid AND version = $2
       RETURNING id::text`,
-      hold.id,
-      expectedVersion,
-      hold.status,
-      hold.releaseReason,
-      hold.version,
-      hold.updatedAt,
-    );
+        hold.id,
+        expectedVersion,
+        hold.status,
+        hold.releaseReason,
+        hold.version,
+        hold.updatedAt,
+        hold.bookingId,
+      );
+    } catch (error) {
+      // capacity_hold_booking_id_key: this booking already committed another hold.
+      if (sqlState(error) === '23505') {
+        throw new SchedulingError('BOOKING_ALREADY_COMMITTED', 'The booking holds another slot.');
+      }
+      throw error;
+    }
     if (rows.length !== 1) throw new ConcurrencyViolation('HOLD');
   }
 
   async appendEvent(entry: OutboxAppend): Promise<void> {
+    // The envelope's traceparent is the trace active when the change committed.
+    const traceparent = activeTraceparent();
     await this.tx.$executeRawUnsafe(
       `INSERT INTO app.outbox_message (id, event_id, event_type, exchange, routing_key, payload, correlation_id, trace_parent)
        VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7::uuid, $8)`,
@@ -278,9 +445,9 @@ class PrismaSchedulingTransaction implements SchedulingTransaction {
       entry.event.eventType,
       entry.exchange,
       entry.routingKey,
-      JSON.stringify(entry.event),
+      JSON.stringify({ ...entry.event, traceparent }),
       entry.event.correlationId,
-      traceHeaders()['traceparent'] ?? null,
+      traceparent,
     );
   }
 
@@ -356,17 +523,8 @@ export class PrismaSchedulingStore implements SchedulingUnitOfWork, SchedulingRe
 
   async findHold(id: string): Promise<HoldState | null> {
     const [row] = await this.prisma.client.$queryRawUnsafe<HoldRow[]>(
-      `SELECT ${HOLD_COLUMNS} FROM app.capacity_hold WHERE id = $1::uuid`,
+      `SELECT ${HOLD_COLUMNS} FROM app.capacity_hold WHERE id = $1::uuid AND ${V1_ROW}`,
       id,
-    );
-    return row ? toHold(row) : null;
-  }
-
-  async findHoldByIdempotencyKey(clientId: string, key: string): Promise<HoldState | null> {
-    const [row] = await this.prisma.client.$queryRawUnsafe<HoldRow[]>(
-      `SELECT ${HOLD_COLUMNS} FROM app.capacity_hold WHERE client_id = $1 AND idempotency_key = $2`,
-      clientId,
-      key,
     );
     return row ? toHold(row) : null;
   }
@@ -409,5 +567,16 @@ export class PrismaSchedulingStore implements SchedulingUnitOfWork, SchedulingRe
       limit,
     );
     return rows.map((row) => row.window_id);
+  }
+
+  async purgeIdempotency(retentionMs: number, limit: number): Promise<number> {
+    return this.prisma.client.$executeRawUnsafe(
+      `DELETE FROM app.idempotency_record
+        WHERE ctid IN (SELECT ctid FROM app.idempotency_record
+                        WHERE completed_at < now() - make_interval(secs => $1::double precision / 1000)
+                        LIMIT $2)`,
+      retentionMs,
+      limit,
+    );
   }
 }

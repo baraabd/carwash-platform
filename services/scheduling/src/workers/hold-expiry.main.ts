@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { randomUUID } from 'node:crypto';
 import { createLogger, serviceTelemetry } from '@carwash/service-kit';
-import { SchedulingService } from '../application';
+import { CapacityService } from '../application';
 import { PrismaService, databaseUrlFromEnv } from '../infrastructure/persistence/prisma.service';
 import { PrismaSchedulingStore } from '../infrastructure/persistence/prisma-scheduling.store';
 import { systemClock, uuidGenerator } from '../infrastructure/runtime/system';
@@ -14,11 +14,13 @@ import { systemClock, uuidGenerator } from '../infrastructure/runtime/system';
  * leaves work for the next pass or another replica. Expiry correctness does
  * not depend on this worker running at all: availability and every hold
  * command evaluate the deadline themselves. The worker only returns capacity
- * counters to their exact values and emits the hold-expired events promptly.
+ * counters to their exact values and emits scheduling.hold-changed.v1 (EXPIRED) promptly.
  *
  * One structured line per pass lets tests synchronise on observations instead
  * of sleeping for a guessed interval.
  */
+const IDEMPOTENCY_RETENTION_MS = 7 * 24 * 60 * 60_000;
+
 interface Args {
   readonly once: boolean;
   readonly intervalMs: number;
@@ -56,7 +58,7 @@ async function main(): Promise<void> {
   });
   const prisma = new PrismaService(databaseUrlFromEnv());
   const store = new PrismaSchedulingStore(prisma);
-  const service = new SchedulingService(store, store, systemClock, uuidGenerator);
+  const service = new CapacityService(store, store, systemClock, uuidGenerator);
 
   let stopping = false;
   const stop = (signal: string): void => {
@@ -73,11 +75,13 @@ async function main(): Promise<void> {
     while (!stopping && passes < args.maxPasses) {
       try {
         const result = await service.expireDue(randomUUID(), args.batch);
+        // Completed idempotency records are kept for IDEMPOTENCY_RETENTION_MS (7 days).
+        const purged = await service.purgeIdempotency(IDEMPOTENCY_RETENTION_MS);
         passes += 1;
         failures = 0;
-        logger.info('expiry_pass', { pass: passes, ...result });
+        logger.info('expiry_pass', { pass: passes, ...result, purged });
         if (args.once) break;
-        if (result.holds === 0) await sleep(args.intervalMs);
+        if (result.units === 0) await sleep(args.intervalMs);
       } catch (error: unknown) {
         failures += 1;
         logger.warn('expiry_pass_failed', {

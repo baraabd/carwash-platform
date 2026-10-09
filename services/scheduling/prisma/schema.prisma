@@ -45,30 +45,60 @@ model CapacityWindow {
   holds     CapacityHold[]
 
   @@unique([zoneId, startsAt])
+  @@index([zoneId, endsAt])
   @@map("capacity_window")
 }
 
 /// An expiring capacity hold. CONFIRMED holds are the reservations.
+/// C1 rows carry the client request columns; scheduling.v1 rows carry the
+/// beneficiary/zone/slot/quote facts. capacity_hold_shape_ck (SQL) enforces
+/// exactly one shape, and the partial unique index on booking_id (SQL only)
+/// lets one booking commit at most one hold.
 model CapacityHold {
   id                 String         @id @db.Uuid
   windowId           String         @map("window_id") @db.Uuid
-  clientId           String         @map("client_id") @db.VarChar(64)
-  holderRef          String         @map("holder_ref") @db.Uuid
+  clientId           String?        @map("client_id") @db.VarChar(64)
+  holderRef          String?        @map("holder_ref") @db.Uuid
   units              Int
   status             String
   expiresAt          DateTime       @map("expires_at") @db.Timestamptz(3)
-  idempotencyKey     String         @map("idempotency_key") @db.VarChar(128)
-  requestFingerprint String         @map("request_fingerprint") @db.Char(64)
+  idempotencyKey     String?        @map("idempotency_key") @db.VarChar(128)
+  requestFingerprint String?        @map("request_fingerprint") @db.Char(64)
   releaseReason      String?        @map("release_reason")
   version            Int            @default(1)
   createdAt          DateTime       @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime       @map("updated_at") @db.Timestamptz(3)
+  zoneId             String?        @map("zone_id") @db.Uuid
+  beneficiaryKind    String?        @map("beneficiary_kind")
+  beneficiarySubject String?        @map("beneficiary_subject") @db.Uuid
+  quoteId            String?        @map("quote_id") @db.Uuid
+  quoteRevision      Int?           @map("quote_revision")
+  slotStartsAt       DateTime?      @map("slot_starts_at") @db.Timestamptz(3)
+  slotEndsAt         DateTime?      @map("slot_ends_at") @db.Timestamptz(3)
+  bookingId          String?        @map("booking_id") @db.Uuid
   window             CapacityWindow @relation(fields: [windowId], references: [id], onDelete: Restrict)
 
   @@unique([clientId, idempotencyKey])
   @@index([windowId, status, expiresAt])
   @@index([status, expiresAt])
+  @@index([beneficiaryKind, beneficiarySubject, status, expiresAt], map: "capacity_hold_beneficiary_idx")
   @@map("capacity_hold")
+}
+
+/// Protocol idempotency: (scope, key) -> fingerprint and the completed outcome,
+/// written in the same transaction as the change. Retention 7 days.
+model IdempotencyRecord {
+  scope          String    @db.VarChar(200)
+  key            String    @db.VarChar(128)
+  fingerprint    String    @db.Char(64)
+  responseStatus Int?      @map("response_status")
+  responseBody   Json?     @map("response_body")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz(3)
+
+  @@id([scope, key])
+  @@index([completedAt])
+  @@map("idempotency_record")
 }
 
 /// Transactional outbox, same lease semantics as the catalog relay store.

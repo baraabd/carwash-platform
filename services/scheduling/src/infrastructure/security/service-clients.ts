@@ -11,7 +11,7 @@ import { SCHEDULING_SCOPES, type SchedulingScope } from '../../ports';
  * is echoed back.
  *
  * Example value of SCHEDULING_SERVICE_CLIENTS:
- *   [{"id":"booking","tokenSha256":"<64 hex>","scopes":["scheduling.holds.write"]}]
+ *   [{"id":"booking","tokenSha256":"<64 hex>","scopes":["scheduling.hold.commit"]}]
  */
 export interface ServiceClient {
   readonly id: string;
