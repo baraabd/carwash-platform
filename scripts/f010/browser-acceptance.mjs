@@ -26,16 +26,19 @@ const deterministicScreenshot = Object.freeze({
   fullPage: true,
   animations: 'disabled',
   caret: 'hide',
-  // Browser scrollbars and finite CSS transitions are browser chrome/transient
-  // state, not part of the approved UI contract. Hiding them during capture
-  // leaves layout/overflow measurements intact while keeping rasterization
-  // deterministic for reference and future candidate captures.
+  // Browser scrollbars, finite CSS transitions and compositor-only filters are
+  // browser/transient state, not part of the approved UI contract. Hiding them
+  // during capture leaves layout/overflow measurements intact while keeping
+  // rasterization deterministic for reference and future candidate captures.
   style: `
-    html { scrollbar-width: none !important; }
+    html { scrollbar-width: none !important; scroll-behavior: auto !important; }
     *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
     *, *::before, *::after {
       animation: none !important;
       transition: none !important;
+      filter: none !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
     }
   `,
 });
