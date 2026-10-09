@@ -710,7 +710,10 @@ REVOKE ALL ON FUNCTION "app"."billing_guard_handover_item_insert"() FROM PUBLIC;
 REVOKE ALL ON FUNCTION "app"."billing_check_custody_holder"() FROM PUBLIC;
 REVOKE ALL ON FUNCTION "app"."billing_check_handover"() FROM PUBLIC;
 REVOKE ALL ON FUNCTION "app"."billing_check_journal_effects"() FROM PUBLIC;
--- The three billing_assert_* helpers keep PostgreSQL's default EXECUTE privilege: they are
--- called (PERFORM) by the trigger functions as the invoking runtime role, are
--- SECURITY INVOKER, read only Billing tables under the caller's own privileges,
--- write nothing and can only raise. Only this service's roles can connect here.
+REVOKE ALL ON FUNCTION "app"."billing_check_journal_balanced"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."billing_guard_obligation_update"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."billing_guard_intent_update"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."billing_assert_obligation_ledger"(UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."billing_check_obligation_ledger"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."billing_assert_custody_holder"(UUID, CHAR(3)) FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."billing_assert_handover"(UUID) FROM PUBLIC;
