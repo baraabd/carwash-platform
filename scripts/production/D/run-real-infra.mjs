@@ -17,15 +17,16 @@
  *   4. run the selected node:test suites serially (they share one cluster).
  *
  * Scope: one real PostgreSQL server and one single-node broker for this run.
- * It is not a high-availability, browser, provider or production proof.
+ * Default mode is not a high-availability, browser, provider or production proof.
  */
 import { execFileSync, spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { readFile, readdir, writeFile } from 'node:fs/promises';
+import { createHash, randomBytes } from 'node:crypto';
+import { readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bootstrapSharedTopology } from '../../acceptance/lib/broker.mjs';
 import { readContextFile } from '../../acceptance/lib/context.mjs';
+import { registerSecret } from '../../acceptance/lib/exec.mjs';
 import { testResults } from './test-results.mjs';
 import {
   createShadowDatabase,
@@ -44,15 +45,102 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
  */
 const SUITE_DIR = 'tests/production/D';
 
-async function discoverSuites(filter) {
+/**
+ * Browser journeys (`*.browser.mjs`) drive several real services and a real
+ * Chromium. They run only with --browser, so the default gate stays a pure
+ * persistence/broker/HTTP gate.
+ */
+async function discoverSuites(filter, browser) {
+  const suffix = browser ? '.browser.mjs' : '.test.mjs';
   const files = (await readdir(path.join(ROOT, SUITE_DIR)))
-    .filter((name) => name.endsWith('.test.mjs') && (!filter || name.startsWith(filter)))
+    .filter((name) => name.endsWith(suffix) && (!filter || name.startsWith(filter)))
     .sort();
   return files.map((name) => `${SUITE_DIR}/${name}`);
 }
 
-/** The probe producer (catalog) is migrated because the broker suites drive it. */
-const SERVICES = ['catalog', 'communications', 'reporting', 'configuration'];
+/**
+ * The probe producer (catalog) is migrated because the broker suites drive it.
+ * Identity is migrated because the P02 suites authorize through the REAL
+ * Identity service; Workforce because the admin journeys act on its records.
+ */
+const SERVICES = [
+  'catalog',
+  'communications',
+  'reporting',
+  'configuration',
+  'identity',
+  'workforce',
+];
+
+/** Identity's rate budget needs Redis; the acceptance stack has none, so the gate owns one. */
+const REDIS_IMAGE = 'redis:8.2.10-alpine';
+
+function docker(args) {
+  return execFileSync('docker', args, {
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+}
+
+/**
+ * A disposable, loopback-only Redis with a least-privilege ACL user for
+ * Identity's rate keys. The credential is generated per run, registered for
+ * redaction and handed to the suites through the environment only.
+ */
+async function startRedis(context) {
+  const password = randomBytes(24).toString('hex');
+  registerSecret(password);
+  const acl = path.join(context.workDir, 'lane-d-redis.acl');
+  const digest = createHash('sha256').update(password).digest('hex');
+  await writeFile(
+    acl,
+    'user default off\n' +
+      `user cw_identity_rate on #${digest} ~identity:rate:* -@all +hello +auth +ping +quit ` +
+      '+select +client|setinfo +client|setname +client|id +eval +incr +pexpire +pttl\n',
+    { mode: 0o644 },
+  );
+  const name = `cw-lane-d-redis-${context.runId}`.toLowerCase();
+  try {
+    docker(['rm', '-f', name]);
+  } catch {
+    // Nothing left over from an earlier run.
+  }
+  docker([
+    'run',
+    '-d',
+    '--rm',
+    '--name',
+    name,
+    '-p',
+    '127.0.0.1::6379',
+    '-v',
+    `${acl}:/run/cw/users.acl:ro`,
+    REDIS_IMAGE,
+    'redis-server',
+    '--aclfile',
+    '/run/cw/users.acl',
+    '--save',
+    '',
+    '--appendonly',
+    'no',
+  ]);
+  const port = Number(docker(['port', name, '6379/tcp']).split('\n')[0].split(':').at(-1));
+  if (!Number.isInteger(port) || port < 1) throw new Error('REDIS_PORT_UNKNOWN');
+  const url = `redis://cw_identity_rate:${password}@127.0.0.1:${port}`;
+  registerSecret(url);
+  return {
+    url,
+    image: REDIS_IMAGE,
+    stop: async () => {
+      try {
+        docker(['rm', '-f', name]);
+      } finally {
+        await rm(acl, { force: true });
+      }
+    },
+  };
+}
 
 function option(name) {
   const index = process.argv.indexOf(`--${name}`);
@@ -90,7 +178,7 @@ async function prepareDatabases(context) {
   return steps;
 }
 
-function runSuites(suites, env) {
+function runSuites(suites, env, browser) {
   return new Promise((resolve) => {
     let output = '';
     const child = spawn(
@@ -98,7 +186,7 @@ function runSuites(suites, env) {
       [
         '--test',
         '--test-concurrency=1',
-        '--test-timeout=240000',
+        browser ? '--test-timeout=600000' : '--test-timeout=240000',
         '--test-reporter=spec',
         ...suites,
       ],
@@ -119,7 +207,8 @@ async function main() {
   // come from the tree under test, or a reused stack would be migrated from a
   // different checkout than the code the suites load.
   const context = { ...(await readContextFile(file)), root: ROOT };
-  const suites = await discoverSuites(option('suite'));
+  const browser = process.argv.includes('--browser');
+  const suites = await discoverSuites(option('suite'), browser);
   if (suites.length === 0) throw new Error('NO_SUITES_SELECTED');
 
   console.log(`Lane D real-infra gate: run ${context.runId}, suites ${suites.length}.`);
@@ -127,17 +216,31 @@ async function main() {
   // Shared exchange, declared by the infrastructure identity exactly as the
   // acceptance runner does before any producer or subscriber connects.
   await bootstrapSharedTopology(context);
-  const result = await runSuites(suites, { ...process.env, CW_CONTEXT_FILE: file });
+  const redis = await startRedis(context);
+  let result;
+  try {
+    result = await runSuites(
+      suites,
+      {
+        ...process.env,
+        CW_CONTEXT_FILE: file,
+        CW_D_REDIS_URL: redis.url,
+      },
+      browser,
+    );
+  } finally {
+    await redis.stop();
+  }
   const tests = testResults(result.output, result.code, result.signal);
   const git = (...args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
 
   const evidence = {
-    gate: 'lane-d-real-infra',
+    gate: browser ? 'lane-d-browser' : 'lane-d-real-infra',
     sourceSha: git('rev-parse', 'HEAD'),
     sourceTree: git('rev-parse', 'HEAD^{tree}'),
     sourceDirty: git('status', '--porcelain', '--untracked-files=normal') !== '',
     runId: context.runId,
-    images: context.images,
+    images: { ...context.images, redis: REDIS_IMAGE },
     suites,
     suiteSha256: Object.fromEntries(
       await Promise.all(
@@ -152,9 +255,12 @@ async function main() {
     migrations,
     tests,
     exitCode: result.code,
-    scope:
-      'Real PostgreSQL 16 and single-node RabbitMQ 4 for one ephemeral run. Not HA, not a ' +
-      'provider, browser or production proof.',
+    scope: browser
+      ? 'Real services and headless Chromium on one machine, against real PostgreSQL 16, ' +
+        'single-node RabbitMQ 4 and a disposable Redis. Not HA, not a device matrix, not ' +
+        'production proof.'
+      : 'Real PostgreSQL 16, single-node RabbitMQ 4 and a disposable Redis (Identity rate ' +
+        'budget only) for one ephemeral run. Not HA, not a provider, browser or production proof.',
   };
   const out = option('evidence');
   if (out) await writeFile(out, `${JSON.stringify(evidence, null, 2)}\n`);

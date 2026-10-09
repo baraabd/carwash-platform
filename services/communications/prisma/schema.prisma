@@ -77,6 +77,10 @@ model Notification {
   expiresAt         DateTime  @map("expires_at") @db.Timestamptz(3)
   providerMessageId String?   @map("provider_message_id") @db.VarChar(128)
   lastErrorCode     String?   @map("last_error_code") @db.VarChar(64)
+  /// P03-D: opaque owner reference this notification is about (for example a
+  /// booking). Both set or both null; never the source of truth for it.
+  subjectType       String?   @map("subject_type") @db.VarChar(32)
+  subjectRef        String?   @map("subject_ref") @db.Uuid
   createdAt         DateTime  @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime  @map("updated_at") @db.Timestamptz(3)
 
@@ -84,6 +88,8 @@ model Notification {
 
   @@unique([sourceService, idempotencyKey])
   @@index([state, nextAttemptAt])
+  @@index([subjectType, subjectRef])
+  @@index([createdAt, id])
   @@map("notification")
 }
 

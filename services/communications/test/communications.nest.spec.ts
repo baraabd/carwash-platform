@@ -156,3 +156,22 @@ test('communications: the postgres probe is wired to this service own client', a
   assert.equal(probe.kind, 'postgres');
   await moduleRef.close();
 });
+
+test('communications: without an Identity origin it boots and refuses every read with 503', async () => {
+  process.env.DATABASE_URL = DSN;
+  delete process.env.IDENTITY_ORIGIN;
+  const app = await createHttpApplication();
+  await app.listen(0, '127.0.0.1');
+  try {
+    const url = await app.getUrl();
+    assert.equal((await fetch(url + '/health/live')).status, 200);
+    const read = await fetch(url + '/internal/v1/communications/notifications', {
+      headers: { authorization: `Bearer ${'a'.repeat(40)}` },
+    });
+    assert.equal(read.status, 503);
+    const body = (await read.json()) as { error: { code: string } };
+    assert.equal(body.error.code, 'AUTH_UNAVAILABLE');
+  } finally {
+    await app.close();
+  }
+});

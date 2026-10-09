@@ -27,6 +27,8 @@ export interface EnqueueCommand {
   readonly templateVersion: unknown;
   readonly parameters: unknown;
   readonly expiresAt: unknown;
+  /** Optional opaque owner reference the notification is about. */
+  readonly subject?: unknown;
 }
 
 /**
