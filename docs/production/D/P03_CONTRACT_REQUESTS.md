@@ -157,3 +157,46 @@ No provider exists either: that is an external blocker (P01-D2).
 
 Interim behavior: on the accepted ACL, the worker's binding is refused with
 `403` (suite E1). A delivered event in any other shape is dead-lettered.
+
+## CR-D-P03-08 (Lane E): two Gateway defects found by the P03-D3 browser journeys
+
+1. **Upstream `412` becomes `502`.** `upstreamFault`
+   (`apps/api-gateway/src/domain/policy.ts`) maps only 400/401/403/404/409/422/429.
+   Dispatch answers a stale `expectedRevision` with `412 REVISION_CONFLICT`,
+   and Billing may too. The Gateway turns that into
+   `502 UPSTREAM_UNAVAILABLE`, so a client cannot tell "your copy is stale"
+   from "the owner may have acted".
+
+   Requested: pass `412` through as a conflict. The candidate uses
+   `412: 'CONFLICT'`.
+
+   Interim behavior on `main`: the console shows UNKNOWN and offers only the
+   same command, which is safe but unhelpful.
+2. **An upstream origin with a trailing slash.** `validateGatewayConfig`
+   accepts `http://host:port/`, but `GatewayHttpClient` builds `origin + path`,
+   so the owner receives `//internal/...`. Identity answers that with `400`,
+   and every authenticated route fails.
+
+   Requested: normalise the origin, or reject a trailing slash in
+   validation.
+
+   Interim behavior: Lane D harnesses pass origins without a slash.
+
+## CR-D-P03-09 (owner decision): contrast of the approved admin subtitles
+
+The approved admin reference styles `.page-head p` with `--muted` `#64748b` on
+`--bg` `#f4f7fb`. That is a **4.43:1** contrast ratio, below the WCAG 2.1 AA
+minimum of 4.5:1 for normal text. axe reports it as `color-contrast`
+(serious) on the bookings screen.
+
+DESIGN_LOCK §9 forbids changing the approved look without an explicit owner
+decision. The console therefore ships the reference colour unchanged, and the
+P02-D2 accessibility gate is reported as **FAILED** for this reason.
+
+Options for the owner:
+
+- (a) Darken only `.page-head p`, for example to `#475569` (7.0:1).
+- (b) Darken `--muted` globally, for example to `#5b6b80` (5.1:1 on `#f4f7fb`).
+- (c) Accept the deviation, with a recorded rationale.
+
+D implements whichever is chosen.
