@@ -116,6 +116,23 @@ async function call(method, route, headers, body) {
   return { status: res.status, body: text ? JSON.parse(text) : null };
 }
 
+/**
+ * What a well-behaved client does after a crash: repeat the SAME request (same
+ * idempotency key) while the answer is a retryable error. Right after a
+ * SIGKILL, sessions of the dead process can hold row locks until PostgreSQL
+ * ends them (idle_in_transaction_session_timeout); concurrent retries may then
+ * get 503 STORE_BUSY, which is correct and retryable, never a fake success.
+ */
+const retryable = { count: 0 };
+async function settle(send) {
+  for (let attempt = 1; ; attempt += 1) {
+    const res = await send();
+    if (!(res.status === 503 && res.body?.error?.retryable === true) || attempt >= 10) return res;
+    retryable.count += 1;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+}
+
 async function startService() {
   const proc = startProcess(MAIN, env);
   await waitHttp(`http://127.0.0.1:${port}/health/live`, (s) => s === 200);
@@ -227,9 +244,15 @@ test('SIGKILL with finalizes in flight: nothing half-written, retries with the s
   try {
     const retried = await Promise.all(
       jobs.map((job) =>
-        call('POST', `/objects/${job.id}/finalize`, { ...job.headers, 'idempotency-key': job.key }),
+        settle(() =>
+          call('POST', `/objects/${job.id}/finalize`, {
+            ...job.headers,
+            'idempotency-key': job.key,
+          }),
+        ),
       ),
     );
+    t.diagnostic(`retryable 503 answers absorbed by client retries: ${retryable.count}`);
     assert.ok(
       retried.every((r) => r.status === 200 && r.body.status === 'AVAILABLE'),
       JSON.stringify(retried.map((r) => [r.status, r.body?.error?.reason])),
@@ -246,7 +269,7 @@ test('SIGKILL with finalizes in flight: nothing half-written, retries with the s
   }
 });
 
-test('SIGKILL with reservations in flight: each key yields at most one object, retries return it', async () => {
+test('SIGKILL with reservations in flight: each key yields at most one object, retries return it', async (t) => {
   let proc = await startService();
   const jobs = TECHS.map((tech, i) => ({
     tech,
@@ -266,8 +289,14 @@ test('SIGKILL with reservations in flight: each key yields at most one object, r
   const firstRound = await Promise.all(inflight);
   proc = await startService();
   try {
-    const retried = await Promise.all(jobs.map(send));
-    assert.ok(retried.every((r) => r.status === 201 || r.status === 200));
+    const retried = await Promise.all(jobs.map((job) => settle(() => send(job))));
+    t.diagnostic(
+      `retryable 503 answers absorbed by client retries (cumulative): ${retryable.count}`,
+    );
+    assert.ok(
+      retried.every((r) => r.status === 201 || r.status === 200),
+      JSON.stringify(retried.map((r) => [r.status, r.body?.error?.reason])),
+    );
     for (const [i, job] of jobs.entries()) {
       if (firstRound[i]?.status === 201) assert.equal(retried[i].status, 200);
       if (firstRound[i]?.body?.objectId)
