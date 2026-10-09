@@ -1,7 +1,9 @@
 /**
- * booking application layer.
- *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
+ * booking application layer: commands, queries and the creation saga.
+ * Framework-free; depends on domain and ports only.
  */
-export {};
+export * from './authorization';
+export * from './booking.service';
+export * from './canonical-json';
+export * from './commands';
+export * from './process-manager';

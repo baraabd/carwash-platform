@@ -26,3 +26,119 @@ model ServiceMarker {
 
   @@map("service_marker")
 }
+
+/// One booking. Snapshot columns are immutable after insert and rows are never
+/// deleted (trigger booking_guard_immutable). One LIVE booking per hold and per
+/// quote is a partial unique index (WHERE status <> 'REJECTED') and CHECKs keep
+/// status/slot/money consistent; Prisma cannot express those, the SQL is the authority.
+model Booking {
+  id                String       @id @db.Uuid
+  principalKind     String       @map("principal_kind")
+  principalSubject  String       @map("principal_subject") @db.Uuid
+  status            String
+  rejectionReason   String?      @map("rejection_reason")
+  paymentMethod     String       @map("payment_method")
+  contact           Json
+  vehicleSnapshot   Json         @map("vehicle_snapshot")
+  addressSnapshot   Json         @map("address_snapshot")
+  quoteSnapshot     Json         @map("quote_snapshot")
+  quoteId           String       @map("quote_id") @db.Uuid
+  quoteRevision     Int          @map("quote_revision")
+  currency          String
+  totalMinor        BigInt       @map("total_minor")
+  totalScale        Int          @map("total_scale") @db.SmallInt
+  holdId            String       @map("hold_id") @db.Uuid
+  holdRevision      Int          @map("hold_revision")
+  zoneId            String       @map("zone_id") @db.Uuid
+  requestedStartsAt DateTime     @map("requested_starts_at") @db.Timestamptz(3)
+  requestedEndsAt   DateTime     @map("requested_ends_at") @db.Timestamptz(3)
+  slotStartsAt      DateTime?    @map("slot_starts_at") @db.Timestamptz(3)
+  slotEndsAt        DateTime?    @map("slot_ends_at") @db.Timestamptz(3)
+  version           Int          @default(1)
+  createdAt         DateTime     @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime     @map("updated_at") @db.Timestamptz(3)
+  confirmedAt       DateTime?    @map("confirmed_at") @db.Timestamptz(3)
+  saga              BookingSaga?
+
+  @@index([principalKind, principalSubject, createdAt])
+  @@map("booking")
+}
+
+/// Idempotency-Key claims for create requests, per principal.
+model BookingRequest {
+  principalKind    String   @map("principal_kind")
+  principalSubject String   @map("principal_subject") @db.Uuid
+  idempotencyKey   String   @map("idempotency_key") @db.VarChar(128)
+  fingerprint      String   @db.Char(64)
+  bookingId        String   @unique @map("booking_id") @db.Uuid
+  state            String
+  fence            Int      @default(1)
+  leaseUntil       DateTime @map("lease_until") @db.Timestamptz(3)
+  createdAt        DateTime @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime @map("updated_at") @db.Timestamptz(3)
+
+  @@id([principalKind, principalSubject, idempotencyKey])
+  @@map("booking_request")
+}
+
+/// Durable state of the creation saga (process manager), fenced by lease.
+model BookingSaga {
+  bookingId        String    @id @map("booking_id") @db.Uuid
+  step             String
+  outcome          String?
+  pendingRejection String?   @map("pending_rejection")
+  obligationId     String?   @map("obligation_id") @db.VarChar(128)
+  pivotAttempted   Boolean   @default(false) @map("pivot_attempted")
+  attempts         Int       @default(0)
+  nextAttemptAt    DateTime  @map("next_attempt_at") @db.Timestamptz(3)
+  deadlineAt       DateTime  @map("deadline_at") @db.Timestamptz(3)
+  lastError        String?   @map("last_error") @db.VarChar(64)
+  fence            Int       @default(0)
+  leaseOwner       String?   @map("lease_owner") @db.VarChar(80)
+  leaseUntil       DateTime? @map("lease_until") @db.Timestamptz(3)
+  correlationId    String    @map("correlation_id") @db.Uuid
+  version          Int       @default(1)
+  createdAt        DateTime  @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz(3)
+  booking          Booking   @relation(fields: [bookingId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("booking_saga")
+}
+
+/// Transactional outbox, same lease semantics as the shared OutboxRelay store.
+model OutboxMessage {
+  id            String    @id @db.Uuid
+  eventId       String    @unique @map("event_id") @db.Uuid
+  eventType     String    @map("event_type")
+  exchange      String
+  routingKey    String    @map("routing_key")
+  payload       String
+  correlationId String    @map("correlation_id") @db.Uuid
+  traceParent   String?   @map("trace_parent") @db.VarChar(55)
+  attempts      Int       @default(0)
+  lockedBy      String?   @map("locked_by")
+  lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(3)
+  lastError     String?   @map("last_error")
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
+  deadAt        DateTime? @map("dead_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([publishedAt, deadAt, createdAt], map: "outbox_message_pending_idx")
+  @@map("outbox_message")
+}
+
+/// Append-only audit of sensitive mutations. Opaque identifiers only.
+model AuditEntry {
+  id            String   @id @db.Uuid
+  occurredAt    DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  actorKind     String   @map("actor_kind")
+  actorId       String   @map("actor_id") @db.VarChar(80)
+  action        String   @db.VarChar(64)
+  targetType    String   @map("target_type") @db.VarChar(32)
+  targetId      String   @map("target_id") @db.Uuid
+  correlationId String   @map("correlation_id") @db.Uuid
+  details       Json
+
+  @@index([targetType, targetId])
+  @@map("audit_entry")
+}

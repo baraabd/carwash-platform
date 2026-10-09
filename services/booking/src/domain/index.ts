@@ -1,7 +1,10 @@
 /**
- * booking domain layer.
- *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
+ * booking domain layer: pure rules, no Nest, Prisma, pg, HTTP or broker code.
  */
-export {};
+export * from './booking';
+export * from './errors';
+export * from './events';
+export * from './lifecycle';
+export * from './money';
+export * from './saga';
+export * from './snapshots';

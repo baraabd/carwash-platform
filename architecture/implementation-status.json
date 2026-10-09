@@ -238,7 +238,12 @@
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
       "persistenceModels": [
-        "ServiceMarker"
+        "ServiceMarker",
+        "Booking",
+        "BookingRequest",
+        "BookingSaga",
+        "OutboxMessage",
+        "AuditEntry"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"

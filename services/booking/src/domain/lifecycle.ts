@@ -7,14 +7,16 @@ export type BookingState =
   | 'IN_PROGRESS'
   | 'COMPLETED'
   | 'CANCELLED'
-  | 'EXPIRED';
+  | 'EXPIRED'
+  | 'REJECTED';
 export interface BookingSnapshot {
   id: string;
   state: BookingState;
   version: number;
 }
 const next: Record<BookingState, ReadonlyArray<BookingState>> = {
-  PENDING_CONFIRMATION: ['CONFIRMED', 'CANCELLED', 'EXPIRED'],
+  // REJECTED: the creation saga failed before its pivot; nothing was reserved.
+  PENDING_CONFIRMATION: ['CONFIRMED', 'REJECTED', 'CANCELLED', 'EXPIRED'],
   CONFIRMED: ['ASSIGNED', 'CANCELLED'],
   ASSIGNED: ['EN_ROUTE', 'CANCELLED'],
   EN_ROUTE: ['ARRIVED', 'CANCELLED'],
@@ -23,6 +25,7 @@ const next: Record<BookingState, ReadonlyArray<BookingState>> = {
   COMPLETED: [],
   CANCELLED: [],
   EXPIRED: [],
+  REJECTED: [],
 };
 /** This is only the transition table. Authorization, capacity, cancellation policy,
  * verified payment conditions and optimistic locking in SQL belong to the application transaction.
