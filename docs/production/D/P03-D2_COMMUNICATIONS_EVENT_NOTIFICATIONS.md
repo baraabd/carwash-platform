@@ -147,8 +147,15 @@ The suites:
   - super-admin 200, finance 403, customer 403, anonymous 401, forged
     subject 401, 404 and 422.
 
-Results are recorded in `docs/production/D/evidence/p03-d2-real-infra.json`
-and in the PR.
+Results on source `3e6030c` (tree `40b2eb5213a17dd14a0ab54f1d04a0343656bb33`, clean):
+
+| Gate | Result |
+| --- | --- |
+| Lane D real-infrastructure gate (all Lane D suites on this branch, migrations, hardening, drift) | **53/53 PASSED** (`docs/production/D/evidence/p03-d2-real-infra.json`) |
+| Communications unit and Nest specs | 37/37 PASSED |
+| `node scripts/check-images.mjs communications` (boots without `IDENTITY_ORIGIN`) | 6/6 PASSED |
+| `pnpm typecheck`, `pnpm test:unit` (558/558), `pnpm test:design-lock` (12/12) | PASSED |
+| boundaries, migrations, ownership, ESLint, `prettier --check .` | PASSED |
 
 ## Not proven here (blockers)
 
