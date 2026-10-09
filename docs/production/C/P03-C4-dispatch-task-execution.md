@@ -117,6 +117,12 @@ for writes). The full list is in `P03-C-interfaces.md` §C4:
 - `PUT /tasks/:id/{condition-note,checklist/:code,evidence/:phase/:slot}`
 - `DELETE /tasks/:id/evidence/:phase/:slot`
 
+**Declared addition to the interface spec:** the task view (and the job-list summary) also carries
+`endedAt`, `endReason` (`RELEASED_BY_TECHNICIAN|REASSIGNED|UNASSIGNED|RESOURCE_INELIGIBLE|JOB_CANCELLED`)
+and `attentionReason` (`RESOURCE_INELIGIBLE`), so a technician app and operations can tell why a
+job left the list and that field work was flagged. Found by the P03-C merge candidate; operator-web
+(#118) accepts them as closed keys.
+
 Accept now returns `taskId`; decline accepts an optional `note` (3–500 chars). Operations views now
 include the live task's `{taskId, revision, stage, attentionReason}`.
 
