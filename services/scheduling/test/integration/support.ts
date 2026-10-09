@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { SchedulingService } from '../../src/application';
+import { CapacityService, HoldsV1Service } from '../../src/application';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma.service';
 import { PrismaSchedulingStore } from '../../src/infrastructure/persistence/prisma-scheduling.store';
 import { uuidGenerator } from '../../src/infrastructure/runtime/system';
@@ -47,31 +47,44 @@ export class TestClock implements Clock {
 export interface Replica {
   readonly prisma: PrismaService;
   readonly store: PrismaSchedulingStore;
-  readonly service: SchedulingService;
+  readonly holds: HoldsV1Service;
+  readonly capacity: CapacityService;
 }
 
 /** One "replica" = its own connection pool, like a separate process would have. */
 export function replica(clock: Clock): Replica {
   const prisma = new PrismaService(laneContext().databases.scheduling!.appUrl);
   const store = new PrismaSchedulingStore(prisma);
-  return { prisma, store, service: new SchedulingService(store, store, clock, uuidGenerator) };
+  return {
+    prisma,
+    store,
+    holds: new HoldsV1Service(store, store, clock, uuidGenerator),
+    capacity: new CapacityService(store, store, clock, uuidGenerator),
+  };
 }
 
 export const OPS: Actor = {
   kind: 'USER',
+  principalKind: 'account',
   subject: '5c1d9a7e-1111-4a2b-8c3d-000000000001',
   permissions: ['operations.dispatch'],
 };
 export const BOOKING: Actor = {
   kind: 'SERVICE',
   clientId: 'booking',
-  scopes: ['scheduling.holds.write'],
+  scopes: ['scheduling.hold.commit'],
 };
-export const OTHER_SERVICE: Actor = {
-  kind: 'SERVICE',
-  clientId: 'dispatch',
-  scopes: ['scheduling.holds.write'],
-};
+export const NO_SCOPE: Actor = { kind: 'SERVICE', clientId: 'dispatch', scopes: [] };
+
+/** A fresh guest or account principal (Identity subject UUID, lower case). */
+export function principal(kind: 'account' | 'guest' = 'guest'): Extract<Actor, { kind: 'USER' }> {
+  return {
+    kind: 'USER',
+    principalKind: kind,
+    subject: randomUUID(),
+    permissions: ['bookings.create:self'],
+  };
+}
 
 export function meta(actor: Actor): RequestMeta {
   return { actor, correlationId: randomUUID() };
@@ -82,7 +95,7 @@ export function key(): string {
 }
 
 export async function defineWindow(
-  service: SchedulingService,
+  service: CapacityService,
   clock: Clock,
   capacity: number,
   zoneId: string = randomUUID(),
@@ -101,4 +114,35 @@ export async function errorCode(promise: Promise<unknown>): Promise<string> {
     return typeof code === 'string' ? code : (error as Error).name;
   }
   return 'OK';
+}
+
+/** A scheduling.v1 hold request for one principal, starting inside a window. */
+export function holdRequestFor(
+  who: Extract<Actor, { kind: 'USER' }>,
+  window: { readonly zoneId: string; readonly startsAt: Date },
+  durationMinutes = 30,
+  offsetMinutes = 0,
+) {
+  return {
+    beneficiary: { kind: who.principalKind, subjectId: who.subject },
+    zoneId: window.zoneId,
+    startsAt: new Date(window.startsAt.getTime() + offsetMinutes * 60_000),
+    durationMinutes,
+    quoteRef: { quoteId: randomUUID(), revision: 1 },
+  };
+}
+
+/** Body of a stored v1 hold response. */
+export function holdOf(response: { readonly body: unknown }): {
+  readonly holdId: string;
+  readonly revision: number;
+  readonly state: string;
+  readonly bookingId: string | null;
+} {
+  return response.body as {
+    holdId: string;
+    revision: number;
+    state: string;
+    bookingId: string | null;
+  };
 }

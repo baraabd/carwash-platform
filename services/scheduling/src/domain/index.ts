@@ -7,3 +7,4 @@ export * from './errors';
 export * from './capacity-window';
 export * from './hold';
 export * from './events';
+export * from './business-time';
