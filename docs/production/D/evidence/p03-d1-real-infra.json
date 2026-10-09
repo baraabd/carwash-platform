@@ -1,0 +1,78 @@
+{
+  "gate": "lane-d-real-infra",
+  "sourceSha": "12bfc4d840dcc48995a6f66a754b88bdb9a2b90d",
+  "sourceTree": "ae48671df46d4538d2bb4b0090ed4de45f29c164",
+  "sourceDirty": false,
+  "runId": "20261009-2280f290",
+  "images": {
+    "postgres": "postgres:16.10-alpine",
+    "rabbitmq": "rabbitmq:4.2-management-alpine",
+    "node": "node:24.21.0-bookworm-slim",
+    "redis": "redis:8.2.10-alpine"
+  },
+  "suites": [
+    "tests/production/D/communications-delivery.test.mjs",
+    "tests/production/D/configuration-revisions.test.mjs",
+    "tests/production/D/inbox-integrity.test.mjs",
+    "tests/production/D/reporting-live-operations.test.mjs",
+    "tests/production/D/reporting-operations.test.mjs",
+    "tests/production/D/reporting-projection.test.mjs"
+  ],
+  "suiteSha256": {
+    "tests/production/D/communications-delivery.test.mjs": "208ec9df6e2b190c990d61ea25a3239495813ee2f5d484f4920976f82d21e67e",
+    "tests/production/D/configuration-revisions.test.mjs": "a33fafa90d62fdb709d62446e6d66bdda77a405dea1f16f182c956f82d72e3ee",
+    "tests/production/D/inbox-integrity.test.mjs": "db4e5e66a4d5067d569be923f96f4ee2e895ec1280d01b8b739a93ed586aef18",
+    "tests/production/D/reporting-live-operations.test.mjs": "171ae46ba3cc0a0022b162206b699f4ee96ab26e813574414b5e8ee620c030a5",
+    "tests/production/D/reporting-operations.test.mjs": "9c9416978f8894a904b2fd7541ed669fbe2e022457e1c4f4ceee66a9e0fc3a2d",
+    "tests/production/D/reporting-projection.test.mjs": "6b9ee9a57a6bdea31975cf91e4ae14e2425919ed15243a3ea87be497f5ff8f69"
+  },
+  "migrations": [
+    {
+      "service": "catalog",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    },
+    {
+      "service": "communications",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    },
+    {
+      "service": "reporting",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    },
+    {
+      "service": "configuration",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    },
+    {
+      "service": "identity",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    },
+    {
+      "service": "workforce",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    }
+  ],
+  "tests": {
+    "tests": 71,
+    "pass": 71,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "accepted": true
+  },
+  "exitCode": 0,
+  "scope": "Real PostgreSQL 16, single-node RabbitMQ 4 and a disposable Redis (Identity rate budget only) for one ephemeral run. Not HA, not a provider, browser or production proof."
+}

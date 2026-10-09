@@ -189,9 +189,16 @@ The suites in `tests/production/D/reporting-live-operations.test.mjs`:
 - **H1:** operations, finance, super-admin and customer roles through the real
   HTTP adapter and the real Identity, including every denial and 401/422.
 
-Unit tests: `services/reporting/test/live-operations.domain.spec.ts` (12 tests), plus
-the existing suites. Unit totals and the gate result are recorded in the
-evidence JSON.
+Results on source `12bfc4d` (tree `ae48671df46d4538d2bb4b0090ed4de45f29c164`, clean):
+
+| Gate | Result |
+| --- | --- |
+| Lane D real-infrastructure gate (all six Lane D suites, migrations by the migration identity, privilege hardening, replay drift check) | **71/71 PASSED** (`docs/production/D/evidence/p03-d1-real-infra.json`) |
+| Reporting unit and Nest specs (`dist-tests`) | 41/41 PASSED |
+| `pnpm typecheck` (all packages, services, gateway, apps) | PASSED |
+| `pnpm test:unit` | 558/558 PASSED |
+| `pnpm test:design-lock`, `check-design-reference` | 12/12 PASSED, unchanged references |
+| `check:boundaries`, `check:migrations`, `check:ownership`, ESLint (reporting, tests/production/D), `prettier --check .` | PASSED |
 
 ## Not proven here (blockers)
 
