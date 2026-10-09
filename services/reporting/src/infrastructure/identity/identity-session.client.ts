@@ -126,3 +126,14 @@ export class IdentitySessionClient implements SessionAuthority {
     };
   }
 }
+
+/**
+ * Used when no Identity origin is configured. Every read fails closed with
+ * AUTH_UNAVAILABLE (503): the process still boots (image probes start it
+ * without an Identity), but nothing is ever authorized without Identity.
+ */
+export class UnconfiguredSessionAuthority implements SessionAuthority {
+  verify(): Promise<VerifiedSession> {
+    return Promise.reject(new AccessFault('AUTH_UNAVAILABLE'));
+  }
+}

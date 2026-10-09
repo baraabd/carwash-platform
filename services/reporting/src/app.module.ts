@@ -9,7 +9,11 @@ import { PrismaInboxStore } from './inbox/prisma-inbox.store';
 import { RequestBudget } from './application/access';
 import { OperationsQueries } from './application/operations.service';
 import { PrismaOperationsReader } from './infrastructure/persistence/prisma-operations.store';
-import { IdentitySessionClient } from './infrastructure/identity/identity-session.client';
+import {
+  IdentitySessionClient,
+  UnconfiguredSessionAuthority,
+} from './infrastructure/identity/identity-session.client';
+import type { SessionAuthority } from './ports/identity.ports';
 import {
   OperationsController,
   READ_BUDGET,
@@ -36,11 +40,15 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
   };
 }
 
-/** Identity's internal origin; required, never defaulted to a guessed host. */
-export function identityOriginFromEnv(env: NodeJS.ProcessEnv = process.env): URL {
+/**
+ * Identity's internal origin, never defaulted to a guessed host. Without it
+ * every read is refused with 503 (fail closed) while the process still boots;
+ * a malformed origin is a startup error.
+ */
+export function sessionAuthorityFromEnv(env: NodeJS.ProcessEnv = process.env): SessionAuthority {
   const raw = env.IDENTITY_ORIGIN;
-  if (!raw) throw new Error('IDENTITY_ORIGIN_REQUIRED');
-  return new URL(raw);
+  if (!raw) return new UnconfiguredSessionAuthority();
+  return new IdentitySessionClient(new URL(raw));
 }
 
 /** Per-subject operations reads per minute on one replica; bounded, never unlimited. */
@@ -73,7 +81,7 @@ const systemClock = { now: () => new Date() };
     },
     {
       provide: SESSION_AUTHORITY,
-      useFactory: () => new IdentitySessionClient(identityOriginFromEnv()),
+      useFactory: () => sessionAuthorityFromEnv(),
     },
     { provide: READ_BUDGET, useFactory: () => readBudgetFromEnv() },
   ],
