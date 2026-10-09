@@ -1,41 +1,35 @@
-import { codePointLength, hasControlCharacters, latinDigits, singleLine } from './text';
+import { VehicleRuleError, VehicleValidationError } from './errors';
+import { codePointLength, hasControlCharacters, singleLine } from './text';
 
 /**
- * Saved-vehicle rules, mirroring the approved vehicle step and garage editor
- * (docs/customer/C004, C005).
+ * Saved-vehicle rules of vehicle.v1 (packages/contracts vehicle/v1.ts).
  *
  * The plate is OPTIONAL and descriptive only: it is not proof of title and is
- * never globally unique. Two customers may save the same plate, and a plate
- * never links or merges records. Saving is explicit create plus update by id;
- * the prototype's upsert-by-plate is a deduplication behaviour that needs a
- * separate owner decision, so it is not reproduced on the server.
+ * never globally unique. Two principals may save the same plate, and a plate
+ * never links, merges or authorizes records. Saving is explicit create plus
+ * update by id; the prototype's upsert-by-plate is not reproduced.
+ *
+ * Every rule here accepts no more than the published contract parser accepts.
+ * Where the provider is stricter (free text is trimmed and inner whitespace
+ * collapsed, so whitespace-only text is refused) the difference is documented
+ * in docs/production/A/P02-A2_VEHICLE_V1_PROVIDER.md.
  */
-export type VehicleErrorCode =
-  | 'INVALID_INPUT'
-  | 'INVALID_VEHICLE_TYPE'
-  | 'INVALID_DISPLAY_NAME'
-  | 'INVALID_PLATE'
-  | 'INVALID_COLOR'
-  | 'VEHICLE_LIMIT_REACHED'
-  | 'VEHICLE_ARCHIVED';
 
-export class VehicleDomainError extends Error {
-  constructor(
-    readonly code: VehicleErrorCode,
-    readonly field?: string,
-  ) {
-    super(code);
-    this.name = 'VehicleDomainError';
-  }
-}
-
-/** The approved size alphabet, in the approved order. */
+/** The approved size alphabet, in the approved order (common/vehicle-type). */
 export const VEHICLE_TYPES = ['sedan', 'suv', 'large', 'pickup'] as const;
 export type VehicleType = (typeof VEHICLE_TYPES)[number];
 
-export const DISPLAY_NAME_MAX = 60;
-export const PLATE_MAX = 20;
-export const COLOR_MAX = 30;
+/** vehicle.v1 MAX_SAVED_VEHICLES: the limit on ACTIVE saved vehicles per principal. */
+export const MAX_SAVED_VEHICLES = 10;
+export const VEHICLE_TEXT_MAX = 40;
+export const PLATE_TEXT_MAX = 12;
+export const PLATE_REGION_MAX = 30;
+
+/**
+ * vehicle.v1 normalized plate: uppercase Latin letters, Arabic letters, ASCII
+ * and Arabic-Indic digits and '-', single inner spaces, no outer space.
+ */
+const PLATE = /^[A-Z0-9٠-٩ء-ي-]+( [A-Z0-9٠-٩ء-ي-]+)*$/;
 
 export type PrincipalKind = 'account' | 'guest';
 
@@ -45,113 +39,139 @@ export interface Owner {
   readonly subject: string;
 }
 
-export type VehicleStatus = 'ACTIVE' | 'ARCHIVED';
-
-export interface VehicleDetails {
-  readonly type: VehicleType;
-  readonly displayName: string | null;
-  readonly plate: string | null;
-  readonly color: string | null;
+export interface Plate {
+  readonly text: string;
+  readonly region: string | null;
 }
 
-export interface Vehicle extends VehicleDetails {
+/** vehicle.v1 VehicleInputV1. */
+export interface VehicleInput {
+  readonly type: VehicleType;
+  readonly make: string | null;
+  readonly model: string | null;
+  readonly color: string | null;
+  readonly nickname: string | null;
+  readonly plate: Plate | null;
+}
+
+export interface Vehicle extends VehicleInput {
   readonly id: string;
   readonly owner: Owner;
-  readonly status: VehicleStatus;
+  readonly archived: boolean;
   readonly revision: number;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly archivedAt: Date | null;
 }
 
-export function parseVehicleType(raw: unknown): VehicleType {
+export const INPUT_KEYS = ['type', 'make', 'model', 'color', 'nickname', 'plate'] as const;
+
+/** Closed object: every listed key present, nothing else. */
+export function closedObject(
+  raw: unknown,
+  keys: readonly string[],
+  field: string,
+): Record<string, unknown> {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new VehicleValidationError(field, 'EXPECTED_OBJECT');
+  }
+  const value = raw as Record<string, unknown>;
+  for (const key of keys) {
+    if (!Object.hasOwn(value, key)) {
+      throw new VehicleValidationError(`${field}.${key}`, 'MISSING_FIELD');
+    }
+  }
+  const extra = Object.keys(value).find((key) => !keys.includes(key));
+  if (extra !== undefined) {
+    throw new VehicleValidationError(`${field}.${extra}`, 'UNEXPECTED_FIELD');
+  }
+  return value;
+}
+
+export function parseVehicleType(raw: unknown, field = '$.type'): VehicleType {
   const found = VEHICLE_TYPES.find((type) => type === raw);
-  if (!found) throw new VehicleDomainError('INVALID_VEHICLE_TYPE', 'type');
+  if (!found) throw new VehicleValidationError(field, 'INVALID_ENUM');
   return found;
 }
 
-function optionalText(
-  raw: unknown,
-  max: number,
-  code: 'INVALID_DISPLAY_NAME' | 'INVALID_COLOR',
-  field: string,
-): string | null {
-  if (raw === null || raw === undefined) return null;
-  if (typeof raw !== 'string' || raw.length > max * 4) throw new VehicleDomainError(code, field);
+/** Optional single-line text: null stays null; stored trimmed with inner whitespace collapsed. */
+function optionalText(raw: unknown, max: number, field: string): string | null {
+  if (raw === null) return null;
+  if (typeof raw !== 'string') throw new VehicleValidationError(field, 'EXPECTED_STRING');
+  if (raw.length > max * 4) throw new VehicleValidationError(field, 'INVALID_LENGTH');
+  // Checked before whitespace collapsing, so a vertical tab is refused as the
+  // contract refuses it instead of silently becoming a space.
+  if (hasControlCharacters(raw)) throw new VehicleValidationError(field, 'INVALID_CHARACTERS');
   const value = singleLine(raw);
-  if (value.length === 0) return null;
-  if (codePointLength(value) > max || hasControlCharacters(value)) {
-    throw new VehicleDomainError(code, field);
-  }
+  const length = codePointLength(value);
+  if (length < 1 || length > max) throw new VehicleValidationError(field, 'INVALID_LENGTH');
   return value;
 }
 
-/** Latin letters, Arabic letters (ء-ي), digits, spaces and hyphens. */
-const PLATE = /^[A-Za-zء-ي0-9 -]{2,20}$/;
-
-/**
- * Empty or absent means "no plate". Otherwise: Arabic-Indic digits become
- * Latin, the value is trimmed and inner whitespace collapsed, then it must be
- * 2-20 allowed characters with at least one digit. Letters keep their case.
- * Whitespace-only input is refused, as in the approved step.
- */
-export function parsePlate(raw: unknown): string | null {
-  if (raw === null || raw === undefined || raw === '') return null;
-  if (typeof raw !== 'string' || raw.length > PLATE_MAX * 4) {
-    throw new VehicleDomainError('INVALID_PLATE', 'plate');
-  }
-  const value = latinDigits(raw.normalize('NFC')).trim().replace(/\s+/g, ' ');
-  if (!PLATE.test(value) || !/[0-9]/.test(value)) {
-    throw new VehicleDomainError('INVALID_PLATE', 'plate');
-  }
-  return value;
+/** vehicle.v1 normalizePlateText: NFC, trimmed, inner whitespace collapsed, uppercase. */
+export function normalizePlateText(value: string): string {
+  return value.normalize('NFC').trim().replace(/\s+/g, ' ').toUpperCase();
 }
 
-const FIELDS = ['type', 'displayName', 'plate', 'color'] as const;
-
-function onlyKnownKeys(raw: Readonly<Record<string, unknown>>): void {
-  const extra = Object.keys(raw).find((key) => !(FIELDS as readonly string[]).includes(key));
-  if (extra !== undefined) throw new VehicleDomainError('INVALID_INPUT', extra);
+export function parsePlate(raw: unknown, field = '$.plate'): Plate | null {
+  if (raw === null) return null;
+  const value = closedObject(raw, ['text', 'region'], field);
+  if (typeof value.text !== 'string') {
+    throw new VehicleValidationError(`${field}.text`, 'EXPECTED_STRING');
+  }
+  if (value.text.length > PLATE_TEXT_MAX * 4) {
+    throw new VehicleValidationError(`${field}.text`, 'INVALID_LENGTH');
+  }
+  const text = normalizePlateText(value.text);
+  const length = codePointLength(text);
+  if (length < 1 || length > PLATE_TEXT_MAX) {
+    throw new VehicleValidationError(`${field}.text`, 'INVALID_LENGTH');
+  }
+  if (!PLATE.test(text)) throw new VehicleValidationError(`${field}.text`, 'INVALID_FORMAT');
+  return { text, region: optionalText(value.region, PLATE_REGION_MAX, `${field}.region`) };
 }
 
-export function parseVehicleDetails(raw: Readonly<Record<string, unknown>>): VehicleDetails {
-  onlyKnownKeys(raw);
+/** Full VehicleInputV1. An update replaces the whole input (closed object). */
+export function parseVehicleInput(raw: unknown, field = '$'): VehicleInput {
+  const value = closedObject(raw, INPUT_KEYS, field);
   return {
-    type: parseVehicleType(raw.type),
-    displayName: optionalText(
-      raw.displayName,
-      DISPLAY_NAME_MAX,
-      'INVALID_DISPLAY_NAME',
-      'displayName',
-    ),
-    plate: parsePlate(raw.plate),
-    color: optionalText(raw.color, COLOR_MAX, 'INVALID_COLOR', 'color'),
+    type: parseVehicleType(value.type, `${field}.type`),
+    make: optionalText(value.make, VEHICLE_TEXT_MAX, `${field}.make`),
+    model: optionalText(value.model, VEHICLE_TEXT_MAX, `${field}.model`),
+    color: optionalText(value.color, VEHICLE_TEXT_MAX, `${field}.color`),
+    nickname: optionalText(value.nickname, VEHICLE_TEXT_MAX, `${field}.nickname`),
+    plate: parsePlate(value.plate, `${field}.plate`),
   };
 }
 
-/** Partial update: absent keys keep their value; present keys are fully validated. */
-export function applyVehicleChanges(
-  current: Vehicle,
-  raw: Readonly<Record<string, unknown>>,
-): VehicleDetails {
-  if (current.status === 'ARCHIVED') throw new VehicleDomainError('VEHICLE_ARCHIVED');
-  onlyKnownKeys(raw);
-  if (Object.keys(raw).length === 0) throw new VehicleDomainError('INVALID_INPUT');
-  const pick = (key: (typeof FIELDS)[number]) =>
-    Object.hasOwn(raw, key) ? raw[key] : current[key];
-  return parseVehicleDetails({
-    type: pick('type'),
-    displayName: pick('displayName'),
-    plate: pick('plate'),
-    color: pick('color'),
-  });
+export function assertEditable(vehicle: Vehicle): void {
+  if (vehicle.archived) throw new VehicleRuleError('VEHICLE_ARCHIVED');
 }
 
-export function sameVehicleDetails(a: VehicleDetails, b: VehicleDetails): boolean {
+export function assertBelowLimit(activeVehicles: number): void {
+  if (activeVehicles >= MAX_SAVED_VEHICLES) throw new VehicleRuleError('VEHICLE_LIMIT_REACHED');
+}
+
+export function sameVehicleInput(a: VehicleInput, b: VehicleInput): boolean {
   return (
     a.type === b.type &&
-    a.displayName === b.displayName &&
-    a.plate === b.plate &&
-    a.color === b.color
+    a.make === b.make &&
+    a.model === b.model &&
+    a.color === b.color &&
+    a.nickname === b.nickname &&
+    (a.plate === null || b.plate === null
+      ? a.plate === b.plate
+      : a.plate.text === b.plate.text && a.plate.region === b.plate.region)
   );
+}
+
+export function vehicleInputOf(vehicle: Vehicle): VehicleInput {
+  return {
+    type: vehicle.type,
+    make: vehicle.make,
+    model: vehicle.model,
+    color: vehicle.color,
+    nickname: vehicle.nickname,
+    plate: vehicle.plate,
+  };
 }
