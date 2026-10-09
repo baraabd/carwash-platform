@@ -533,6 +533,30 @@ test('revision conflict (412 REVISION_CONFLICT) re-reads and re-renders; availab
   }
 });
 
+test('a technician who never set readiness (Workforce default: ON_BREAK, revision 0, updatedAt null) can switch to ready', async () => {
+  // Found by the P03-C merge candidate against the real Workforce: the default
+  // view carries updatedAt null, which the client must accept.
+  const c = stack.fixture.control;
+  c.reset();
+  c.setAvailabilityNeverSet();
+  const { context, page, problems } = await session();
+  try {
+    assert.equal(await page.locator('[data-action="ready"]').getAttribute('aria-checked'), 'false');
+    await page.locator('[data-action="ready"]').click();
+    await page.waitForFunction(
+      () =>
+        document.querySelector('[data-action="ready"]')?.getAttribute('aria-checked') === 'true',
+    );
+    const puts = mutationsOf(/\/me\/availability$/);
+    assert.equal(puts.length, 1);
+    assert.deepEqual(puts[0].body, { status: 'AVAILABLE', expectedRevision: 0 });
+    assert.equal(stack.fixture.state.availability.revision, 1);
+    assertNoProblems(problems);
+  } finally {
+    await context.close();
+  }
+});
+
 test('reassignment: a withdrawn task disappears on reconnect and on a refused mutation', async () => {
   const c = stack.fixture.control;
   c.reset();

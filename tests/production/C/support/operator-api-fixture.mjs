@@ -888,6 +888,10 @@ export async function startOperatorFixture({
         (o) => o.job.bookingId === bookingId && o.status === 'OFFERED',
       );
     },
+    /** Workforce's default for a technician who never set readiness (C1). */
+    setAvailabilityNeverSet() {
+      state.availability = { status: 'ON_BREAK', revision: 0, updatedAt: null };
+    },
     setAvailability(status) {
       state.availability = { status, revision: state.availability.revision + 1, updatedAt: iso() };
     },

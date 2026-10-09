@@ -117,7 +117,7 @@ export function parseAvailability(v: unknown): AvailabilityView {
   return {
     status: oneOf(a.status, 'availability.status', ['AVAILABLE', 'ON_BREAK'] as const),
     revision: int(a.revision, 'availability.revision'),
-    updatedAt: instant(a.updatedAt, 'availability.updatedAt'),
+    updatedAt: a.updatedAt === null ? null : instant(a.updatedAt, 'availability.updatedAt'),
   };
 }
 

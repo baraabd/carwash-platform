@@ -24,7 +24,8 @@ export interface SessionView {
 export interface AvailabilityView {
   readonly status: 'AVAILABLE' | 'ON_BREAK';
   readonly revision: number;
-  readonly updatedAt: string;
+  /** null while the technician never set readiness (Workforce default ON_BREAK, revision 0). */
+  readonly updatedAt: string | null;
 }
 
 export const OFFER_STATUSES = ['OFFERED', 'ACCEPTED', 'DECLINED', 'EXPIRED', 'WITHDRAWN'] as const;
