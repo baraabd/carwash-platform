@@ -198,3 +198,9 @@ $$;
 CREATE TRIGGER "audit_entry_append_only_trg"
     BEFORE UPDATE OR DELETE ON "audit_entry"
     FOR EACH ROW EXECUTE FUNCTION "audit_entry_append_only"();
+
+-- PostgreSQL grants EXECUTE on new functions to PUBLIC by default. These are
+-- trigger-only guards; table mutations invoke them without caller EXECUTE.
+REVOKE ALL ON FUNCTION "media_object_guard"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "object_claim_guard"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "audit_entry_append_only"() FROM PUBLIC;
