@@ -6,9 +6,15 @@
 import type {
   AssignmentState,
   AssignmentStatus,
+  CapacityResource,
   DispatchEvent,
+  EvidenceLink,
   HoldObservation,
+  JobWindow,
+  NoteKind,
   OfferState,
+  ResourceObservation,
+  TaskState,
 } from '../domain';
 
 export interface Clock {
@@ -57,7 +63,7 @@ export interface OutboxAppend {
 export interface AuditAppend {
   readonly action: string;
   readonly actor: Actor;
-  readonly targetType: 'ASSIGNMENT' | 'OFFER' | 'HOLD';
+  readonly targetType: 'ASSIGNMENT' | 'OFFER' | 'HOLD' | 'TASK' | 'RESOURCE';
   readonly targetId: string;
   readonly correlationId: string;
   /** Opaque, non-personal facts only. */
@@ -66,7 +72,7 @@ export interface AuditAppend {
 
 /** What a completed idempotent command produced; replays re-read it. */
 export interface IdempotentResult {
-  readonly resultType: 'ASSIGNMENT' | 'OFFER';
+  readonly resultType: 'ASSIGNMENT' | 'OFFER' | 'TASK';
   readonly resultId: string;
 }
 
@@ -77,10 +83,25 @@ export type IdempotencyClaim =
 
 export type InsertAssignmentResult = 'CREATED' | 'DUPLICATE_BOOKING' | 'DUPLICATE_HOLD';
 
+export interface TaskNote {
+  readonly id: string;
+  readonly taskId: string;
+  readonly kind: NoteKind;
+  readonly text: string;
+  readonly createdAt: Date;
+}
+
+export interface TaskHistoryEntry {
+  readonly seq: number;
+  readonly action: string;
+  readonly occurredAt: Date;
+}
+
 /**
  * One local ACID transaction. Lock order is ALWAYS
- *   idempotency record -> hold observation -> assignment -> offer
- * in every command, in the event handler and in the expiry worker, so two
+ *   idempotency record -> hold observation | resource observation
+ *     -> assignment(s, ascending id) -> offer -> task
+ * in every command, in the event handlers and in the expiry worker, so two
  * transactions cannot deadlock on these rows. Updates are version-guarded.
  */
 export interface DispatchTransaction {
@@ -123,6 +144,34 @@ export interface DispatchTransaction {
   insertOffer(offer: OfferState): Promise<void>;
   updateOffer(offer: OfferState, expectedVersion: number): Promise<void>;
 
+  /** Serialises all eligibility events for one resource, then reads the watermark. */
+  lockResourceObservation(resourceId: string): Promise<ResourceObservation | null>;
+  saveResourceObservation(observation: ResourceObservation): Promise<void>;
+  /** Plain read (no lock) inside this transaction. */
+  readResourceObservation(resourceId: string): Promise<ResourceObservation | null>;
+  /** Assignments (ascending id) with an OFFERED offer to, or an open task of, the resource. */
+  assignmentsTouchingResource(resourceId: string): Promise<string[]>;
+
+  /** Plain read inside this transaction, used to find which assignment to lock first. */
+  readTask(id: string): Promise<TaskState | null>;
+  /** Caller must already hold the lock on the task's assignment. */
+  lockTask(id: string): Promise<TaskState | null>;
+  /** The task of a locked assignment that is not RELEASED/WITHDRAWN/CANCELLED (CLOSED included). */
+  lockLiveTask(assignmentId: string): Promise<TaskState | null>;
+  insertTask(task: TaskState): Promise<void>;
+  /**
+   * Version-guarded. Throws DispatchError TECHNICIAN_BUSY when the database
+   * refuses a second in-field task for the same technician.
+   */
+  updateTask(task: TaskState, expectedVersion: number): Promise<void>;
+  listEvidence(taskId: string): Promise<EvidenceLink[]>;
+  /** Throws DispatchError EVIDENCE_IN_USE if the Media object is linked anywhere already. */
+  insertEvidence(link: EvidenceLink): Promise<void>;
+  markEvidenceRemoved(id: string, at: Date): Promise<void>;
+  insertNote(note: TaskNote): Promise<void>;
+  /** Appends the next history entry of a task whose assignment is locked. */
+  appendTaskHistory(taskId: string, action: string, at: Date): Promise<void>;
+
   appendEvent(entry: OutboxAppend): Promise<void>;
   appendAudit(entry: AuditAppend): Promise<void>;
 }
@@ -150,6 +199,15 @@ export interface DispatchReadModel {
     technicianSubject: string,
     now: Date,
   ): Promise<Array<{ readonly offer: OfferState; readonly assignment: AssignmentState }>>;
+  findTask(id: string): Promise<TaskState | null>;
+  findLiveTask(assignmentId: string): Promise<TaskState | null>;
+  findTaskByOffer(offerId: string): Promise<TaskState | null>;
+  /** The technician's open tasks plus tasks that ended or closed at/after `since`. */
+  listTechnicianTasks(technicianSubject: string, since: Date): Promise<TaskState[]>;
+  listTaskEvidence(taskId: string): Promise<EvidenceLink[]>;
+  listTaskNotes(taskId: string): Promise<TaskNote[]>;
+  listTaskHistory(taskId: string): Promise<TaskHistoryEntry[]>;
+  findResourceObservation(resourceId: string): Promise<ResourceObservation | null>;
   /** Assignment ids that currently own an OFFERED offer whose deadline passed. */
   assignmentsWithDueOffers(now: Date, limit: number): Promise<string[]>;
 }
@@ -157,4 +215,35 @@ export interface DispatchReadModel {
 /** Retention of idempotency records; purged by the expiry worker. */
 export interface IdempotencyRetention {
   purgeIdempotencyBefore(cutoff: Date, limit: number): Promise<number>;
+}
+
+/**
+ * Published workforce.v1 `listCapacityResources`, narrowed to one resource for
+ * one job window. Throws DispatchError ELIGIBILITY_UNAVAILABLE when Workforce
+ * cannot answer (timeout, network, 5xx, malformed): never treated as eligible.
+ */
+export interface WorkforceCapacity {
+  findResource(
+    job: JobWindow,
+    resourceId: string,
+    correlationId: string,
+  ): Promise<CapacityResource | null>;
+}
+
+export interface EvidenceObject {
+  readonly objectId: string;
+  readonly status: string;
+  readonly purpose: string;
+  readonly contentType: string;
+  readonly ownerSubjectId: string;
+}
+
+/**
+ * Media objects (REQUESTED media.v1). Both calls throw DispatchError
+ * EVIDENCE_UNAVAILABLE when Media cannot answer; a claim is idempotent per
+ * (object, claimRef), so retrying it is safe.
+ */
+export interface EvidenceObjects {
+  inspect(objectId: string, correlationId: string): Promise<EvidenceObject | null>;
+  claim(objectId: string, claimRef: string, correlationId: string): Promise<void>;
 }

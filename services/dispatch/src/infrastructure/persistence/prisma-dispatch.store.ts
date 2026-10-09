@@ -6,10 +6,13 @@ import {
   type AssignmentStatus,
   type CancelReason,
   type DeclineReason,
+  type EvidenceLink,
   type HoldEventState,
   type HoldObservation,
   type OfferState,
   type OfferStatus,
+  type ResourceObservation,
+  type TaskState,
   type WithdrawReason,
 } from '../../domain';
 import type {
@@ -24,9 +27,25 @@ import type {
   IdempotentResult,
   InsertAssignmentResult,
   OutboxAppend,
+  TaskHistoryEntry,
+  TaskNote,
 } from '../../ports';
 import type { Prisma } from '../../generated/prisma/client';
 import type { PrismaService } from './prisma.service';
+import {
+  EVIDENCE_COLUMNS,
+  OPEN_STAGES_SQL,
+  TASK_COLUMNS,
+  taskParameters,
+  toEvidence,
+  toHistory,
+  toNote,
+  toObservation,
+  toTask,
+  type EvidenceRow,
+  type NoteRow,
+  type TaskRow,
+} from './task-rows';
 
 /**
  * PostgreSQL adapter for the dispatch ports.
@@ -66,6 +85,7 @@ interface OfferRow {
   status: string;
   expires_at: Date;
   decline_reason: string | null;
+  decline_note: string | null;
   withdraw_reason: string | null;
   created_by: string;
   version: number;
@@ -76,7 +96,7 @@ interface OfferRow {
 const ASSIGNMENT_COLUMNS = `id::text, booking_id::text, hold_id::text, zone_id::text, starts_at, ends_at,
   status, resource_id::text, technician_subject::text, cancel_reason, version, created_at, updated_at`;
 const OFFER_COLUMNS = `id::text, assignment_id::text, resource_id::text, technician_subject::text, status,
-  expires_at, decline_reason, withdraw_reason, created_by, version, created_at, updated_at`;
+  expires_at, decline_reason, decline_note, withdraw_reason, created_by, version, created_at, updated_at`;
 
 export class ConcurrencyViolation extends Error {
   constructor(what: string) {
@@ -133,6 +153,7 @@ function toOffer(row: OfferRow): OfferState {
     status: row.status as OfferStatus,
     expiresAt: row.expires_at,
     declineReason: row.decline_reason as DeclineReason | null,
+    declineNote: row.decline_note,
     withdrawReason: row.withdraw_reason as WithdrawReason | null,
     createdBy: row.created_by,
     version: row.version,
@@ -341,8 +362,8 @@ class PrismaDispatchTransaction implements DispatchTransaction {
   async insertOffer(offer: OfferState): Promise<void> {
     await this.tx.$executeRawUnsafe(
       `INSERT INTO app.dispatch_offer (id, assignment_id, resource_id, technician_subject, status,
-         expires_at, decline_reason, withdraw_reason, created_by, version, created_at, updated_at)
-       VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10, $11, $12)`,
+         expires_at, decline_reason, withdraw_reason, created_by, version, created_at, updated_at, decline_note)
+       VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
       offer.id,
       offer.assignmentId,
       offer.resourceId,
@@ -355,13 +376,15 @@ class PrismaDispatchTransaction implements DispatchTransaction {
       offer.version,
       offer.createdAt,
       offer.updatedAt,
+      offer.declineNote,
     );
   }
 
   async updateOffer(offer: OfferState, expectedVersion: number): Promise<void> {
     const rows = await this.tx.$queryRawUnsafe<{ id: string }[]>(
       `UPDATE app.dispatch_offer
-          SET status = $3, decline_reason = $4, withdraw_reason = $5, version = $6, updated_at = $7
+          SET status = $3, decline_reason = $4, withdraw_reason = $5, version = $6, updated_at = $7,
+              decline_note = $8
         WHERE id = $1::uuid AND version = $2
       RETURNING id::text`,
       offer.id,
@@ -371,8 +394,210 @@ class PrismaDispatchTransaction implements DispatchTransaction {
       offer.withdrawReason,
       offer.version,
       offer.updatedAt,
+      offer.declineNote,
     );
     if (rows.length !== 1) throw new ConcurrencyViolation('OFFER');
+  }
+
+  async lockResourceObservation(resourceId: string): Promise<ResourceObservation | null> {
+    // Exclusive per-resource lock: serialises eligibility events for one
+    // resource and waits for offer/accept transactions holding it shared.
+    await this.tx.$executeRawUnsafe(
+      `SELECT pg_advisory_xact_lock(hashtextextended('dispatch.resource:' || $1::text, 0))`,
+      resourceId,
+    );
+    return this.selectObservation(resourceId);
+  }
+
+  async readResourceObservation(resourceId: string): Promise<ResourceObservation | null> {
+    await this.tx.$executeRawUnsafe(
+      `SELECT pg_advisory_xact_lock_shared(hashtextextended('dispatch.resource:' || $1::text, 0))`,
+      resourceId,
+    );
+    return this.selectObservation(resourceId);
+  }
+
+  private async selectObservation(resourceId: string): Promise<ResourceObservation | null> {
+    const [row] = await this.tx.$queryRawUnsafe<
+      { resource_id: string; eligibility: string; revision: number }[]
+    >(
+      `SELECT resource_id::text, eligibility, revision FROM app.resource_observation
+        WHERE resource_id = $1::uuid`,
+      resourceId,
+    );
+    return row ? toObservation(row) : null;
+  }
+
+  async saveResourceObservation(observation: ResourceObservation): Promise<void> {
+    await this.tx.$executeRawUnsafe(
+      `INSERT INTO app.resource_observation (resource_id, eligibility, revision, updated_at)
+       VALUES ($1::uuid, $2, $3, now())
+       ON CONFLICT (resource_id) DO UPDATE
+         SET eligibility = EXCLUDED.eligibility, revision = EXCLUDED.revision, updated_at = now()
+       WHERE app.resource_observation.revision < EXCLUDED.revision`,
+      observation.resourceId,
+      observation.eligibility,
+      observation.revision,
+    );
+  }
+
+  async assignmentsTouchingResource(resourceId: string): Promise<string[]> {
+    const rows = await this.tx.$queryRawUnsafe<{ assignment_id: string }[]>(
+      `SELECT assignment_id::text AS assignment_id FROM app.dispatch_offer
+        WHERE resource_id = $1::uuid AND status = 'OFFERED'
+       UNION
+       SELECT assignment_id::text AS assignment_id FROM app.task
+        WHERE resource_id = $1::uuid AND stage IN ${OPEN_STAGES_SQL}
+       ORDER BY 1`,
+      resourceId,
+    );
+    return rows.map((row) => row.assignment_id);
+  }
+
+  async readTask(id: string): Promise<TaskState | null> {
+    const [row] = await this.tx.$queryRawUnsafe<TaskRow[]>(
+      `SELECT ${TASK_COLUMNS} FROM app.task WHERE id = $1::uuid`,
+      id,
+    );
+    return row ? toTask(row) : null;
+  }
+
+  async lockTask(id: string): Promise<TaskState | null> {
+    const [row] = await this.tx.$queryRawUnsafe<TaskRow[]>(
+      `SELECT ${TASK_COLUMNS} FROM app.task WHERE id = $1::uuid FOR UPDATE`,
+      id,
+    );
+    return row ? toTask(row) : null;
+  }
+
+  async lockLiveTask(assignmentId: string): Promise<TaskState | null> {
+    const rows = await this.tx.$queryRawUnsafe<TaskRow[]>(
+      `SELECT ${TASK_COLUMNS} FROM app.task
+        WHERE assignment_id = $1::uuid AND stage NOT IN ('RELEASED', 'WITHDRAWN', 'CANCELLED')
+        FOR UPDATE`,
+      assignmentId,
+    );
+    if (rows.length > 1) throw new Error('MULTIPLE_LIVE_TASKS');
+    const [row] = rows;
+    return row ? toTask(row) : null;
+  }
+
+  async insertTask(task: TaskState): Promise<void> {
+    await this.tx.$executeRawUnsafe(
+      `INSERT INTO app.task (id, stage, checklist, condition_note, departed_at, arrived_at,
+         arrival_method, started_at, documented_at, finished_at, closed_at, ended_at, end_reason,
+         release_reason, attention_reason, collection_outcome, collection_currency, collection_scale,
+         collection_amount_minor, collection_reason, collection_declared_at, late_amount_minor,
+         late_declared_at, version, updated_at,
+         assignment_id, offer_id, booking_id, resource_id, technician_subject, checklist_version,
+         accepted_at, created_at)
+       VALUES ($1::uuid, $2, $3::jsonb, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+         $17, $18, $19::bigint, $20, $21, $22::bigint, $23, $24, $25,
+         $26::uuid, $27::uuid, $28::uuid, $29::uuid, $30::uuid, $31, $32, $33)`,
+      task.id,
+      ...taskParameters(task),
+      task.assignmentId,
+      task.offerId,
+      task.bookingId,
+      task.resourceId,
+      task.technicianSubject,
+      task.checklistVersion,
+      task.acceptedAt,
+      task.createdAt,
+    );
+  }
+
+  async updateTask(task: TaskState, expectedVersion: number): Promise<void> {
+    let rows: { id: string }[];
+    try {
+      rows = await this.tx.$queryRawUnsafe<{ id: string }[]>(
+        `UPDATE app.task SET stage = $2, checklist = $3::jsonb, condition_note = $4,
+            departed_at = $5, arrived_at = $6, arrival_method = $7, started_at = $8,
+            documented_at = $9, finished_at = $10, closed_at = $11, ended_at = $12,
+            end_reason = $13, release_reason = $14, attention_reason = $15,
+            collection_outcome = $16, collection_currency = $17, collection_scale = $18,
+            collection_amount_minor = $19::bigint, collection_reason = $20,
+            collection_declared_at = $21, late_amount_minor = $22::bigint, late_declared_at = $23,
+            version = $24, updated_at = $25
+          WHERE id = $1::uuid AND version = $26
+        RETURNING id::text`,
+        task.id,
+        ...taskParameters(task),
+        expectedVersion,
+      );
+    } catch (error) {
+      // 23505 on an update can only be the one-in-field-per-technician index.
+      if (sqlState(error) === '23505') {
+        throw new DispatchError('TECHNICIAN_BUSY', 'The technician is already on another job.');
+      }
+      throw error;
+    }
+    if (rows.length !== 1) throw new ConcurrencyViolation('TASK');
+  }
+
+  async listEvidence(taskId: string): Promise<EvidenceLink[]> {
+    const rows = await this.tx.$queryRawUnsafe<EvidenceRow[]>(
+      `SELECT ${EVIDENCE_COLUMNS} FROM app.task_evidence WHERE task_id = $1::uuid
+        ORDER BY attached_at, id`,
+      taskId,
+    );
+    return rows.map(toEvidence);
+  }
+
+  async insertEvidence(link: EvidenceLink): Promise<void> {
+    try {
+      await this.tx.$executeRawUnsafe(
+        `INSERT INTO app.task_evidence (id, task_id, phase, slot, media_object_id, attached_at, removed_at)
+         VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid, $6, $7)`,
+        link.id,
+        link.taskId,
+        link.phase,
+        link.slot,
+        link.mediaObjectId,
+        link.attachedAt,
+        link.removedAt,
+      );
+    } catch (error) {
+      if (sqlState(error) === '23505') {
+        throw new DispatchError('EVIDENCE_IN_USE', 'The photo is already linked to a job.');
+      }
+      throw error;
+    }
+  }
+
+  async markEvidenceRemoved(id: string, at: Date): Promise<void> {
+    const rows = await this.tx.$queryRawUnsafe<{ id: string }[]>(
+      `UPDATE app.task_evidence SET removed_at = $2 WHERE id = $1::uuid AND removed_at IS NULL
+       RETURNING id::text`,
+      id,
+      at,
+    );
+    if (rows.length !== 1) throw new ConcurrencyViolation('EVIDENCE');
+  }
+
+  async insertNote(note: TaskNote): Promise<void> {
+    await this.tx.$executeRawUnsafe(
+      `INSERT INTO app.task_note (id, task_id, kind, text, created_at)
+       VALUES ($1::uuid, $2::uuid, $3, $4, $5)`,
+      note.id,
+      note.taskId,
+      note.kind,
+      note.text,
+      note.createdAt,
+    );
+  }
+
+  async appendTaskHistory(taskId: string, action: string, at: Date): Promise<void> {
+    // The caller holds the task's assignment lock, so MAX(seq)+1 cannot race.
+    await this.tx.$executeRawUnsafe(
+      `INSERT INTO app.task_event (id, task_id, seq, action, occurred_at)
+       SELECT $1::uuid, $2::uuid, COALESCE(MAX(seq), 0) + 1, $3, $4
+         FROM app.task_event WHERE task_id = $2::uuid`,
+      randomUUID(),
+      taskId,
+      action,
+      at,
+    );
   }
 
   async appendEvent(entry: OutboxAppend): Promise<void> {
@@ -510,7 +735,8 @@ export class PrismaDispatchStore
   ): Promise<Array<{ readonly offer: OfferState; readonly assignment: AssignmentState }>> {
     const rows = await this.prisma.client.$queryRawUnsafe<(OfferRow & { a: AssignmentRow })[]>(
       `SELECT o.id::text, o.assignment_id::text, o.resource_id::text, o.technician_subject::text,
-              o.status, o.expires_at, o.decline_reason, o.withdraw_reason, o.created_by, o.version,
+              o.status, o.expires_at, o.decline_reason, o.decline_note, o.withdraw_reason,
+              o.created_by, o.version,
               o.created_at, o.updated_at,
               json_build_object(
                 'id', a.id, 'booking_id', a.booking_id, 'hold_id', a.hold_id, 'zone_id', a.zone_id,
@@ -538,6 +764,84 @@ export class PrismaDispatchStore
         updated_at: new Date(row.a.updated_at),
       }),
     }));
+  }
+
+  async findTask(id: string): Promise<TaskState | null> {
+    const [row] = await this.prisma.client.$queryRawUnsafe<TaskRow[]>(
+      `SELECT ${TASK_COLUMNS} FROM app.task WHERE id = $1::uuid`,
+      id,
+    );
+    return row ? toTask(row) : null;
+  }
+
+  async findLiveTask(assignmentId: string): Promise<TaskState | null> {
+    const [row] = await this.prisma.client.$queryRawUnsafe<TaskRow[]>(
+      `SELECT ${TASK_COLUMNS} FROM app.task
+        WHERE assignment_id = $1::uuid AND stage NOT IN ('RELEASED', 'WITHDRAWN', 'CANCELLED')`,
+      assignmentId,
+    );
+    return row ? toTask(row) : null;
+  }
+
+  async findTaskByOffer(offerId: string): Promise<TaskState | null> {
+    const [row] = await this.prisma.client.$queryRawUnsafe<TaskRow[]>(
+      `SELECT ${TASK_COLUMNS} FROM app.task WHERE offer_id = $1::uuid`,
+      offerId,
+    );
+    return row ? toTask(row) : null;
+  }
+
+  async listTechnicianTasks(technicianSubject: string, since: Date): Promise<TaskState[]> {
+    const rows = await this.prisma.client.$queryRawUnsafe<TaskRow[]>(
+      `SELECT ${TASK_COLUMNS} FROM app.task
+        WHERE technician_subject = $1::uuid
+          AND (stage IN ${OPEN_STAGES_SQL} OR updated_at >= $2)
+        ORDER BY accepted_at, id
+        LIMIT 200`,
+      technicianSubject,
+      since,
+    );
+    return rows.map(toTask);
+  }
+
+  async listTaskEvidence(taskId: string): Promise<EvidenceLink[]> {
+    const rows = await this.prisma.client.$queryRawUnsafe<EvidenceRow[]>(
+      `SELECT ${EVIDENCE_COLUMNS} FROM app.task_evidence WHERE task_id = $1::uuid
+        ORDER BY attached_at, id`,
+      taskId,
+    );
+    return rows.map(toEvidence);
+  }
+
+  async listTaskNotes(taskId: string): Promise<TaskNote[]> {
+    const rows = await this.prisma.client.$queryRawUnsafe<NoteRow[]>(
+      `SELECT id::text, task_id::text, kind, text, created_at FROM app.task_note
+        WHERE task_id = $1::uuid ORDER BY created_at, id LIMIT 200`,
+      taskId,
+    );
+    return rows.map(toNote);
+  }
+
+  async listTaskHistory(taskId: string): Promise<TaskHistoryEntry[]> {
+    const rows = await this.prisma.client.$queryRawUnsafe<
+      { seq: number; action: string; occurred_at: Date }[]
+    >(
+      `SELECT seq, action, occurred_at FROM app.task_event WHERE task_id = $1::uuid
+        ORDER BY seq LIMIT 500`,
+      taskId,
+    );
+    return rows.map(toHistory);
+  }
+
+  async findResourceObservation(resourceId: string): Promise<ResourceObservation | null> {
+    const [row] = await this.prisma.client.$queryRawUnsafe<
+      { resource_id: string; eligibility: string; revision: number }[]
+    >(
+      `SELECT resource_id::text, eligibility, revision FROM app.resource_observation
+        WHERE resource_id = $1::uuid`,
+      resourceId,
+    );
+    return row ? toObservation(row) : null;
   }
 
   async assignmentsWithDueOffers(now: Date, limit: number): Promise<string[]> {

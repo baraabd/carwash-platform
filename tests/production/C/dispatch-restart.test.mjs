@@ -23,6 +23,7 @@ import {
   startProcess,
   waitHttp,
 } from './_support.mjs';
+import { startWorkforceDouble } from './support/dispatch-workforce-double.mjs';
 
 const { PrismaService } = serviceDist('dispatch', 'infrastructure/persistence/prisma.service.js');
 const { PrismaDispatchStore } = serviceDist(
@@ -51,6 +52,7 @@ let prisma;
 let parts;
 let port;
 let serviceEnv;
+let workforce;
 
 before(async () => {
   context = await readContext();
@@ -72,6 +74,7 @@ before(async () => {
   db.on('error', () => {});
   prisma = new PrismaService(context.databases.dispatch.appUrl);
   parts = holdChangedConsumerParts(new PrismaDispatchStore(prisma), systemClock, uuidGenerator);
+  workforce = await startWorkforceDouble();
   port = await freePort();
   serviceEnv = {
     PORT: String(port),
@@ -79,6 +82,7 @@ before(async () => {
     DATABASE_URL: context.databases.dispatch.appUrl,
     IDENTITY_URL: identity.url,
     DISPATCH_USER_REQUESTS_PER_MINUTE: '1000',
+    ...workforce.env(),
     DISPATCH_SERVICE_CLIENTS: JSON.stringify([
       { id: 'booking', tokenSha256: digest(SERVICE_TOKEN), scopes: ['dispatch.assignment.read'] },
     ]),
@@ -89,6 +93,7 @@ after(async () => {
   await db?.end();
   await prisma?.client.$disconnect();
   await identity?.close();
+  await workforce?.close();
 });
 
 const base = () => `http://127.0.0.1:${port}/internal/v1/dispatch`;
@@ -159,7 +164,7 @@ async function offer(assignmentId, tech, ttlSeconds) {
     { ...OPS, 'idempotency-key': `offer-${randomUUID()}` },
     {
       expectedRevision: 1,
-      resourceId: randomUUID(),
+      resourceId: workforce.resource(),
       technicianSubjectId: tech.subject,
       ...(ttlSeconds ? { ttlSeconds } : {}),
     },
@@ -334,7 +339,7 @@ test('PostgreSQL restart: commands fail during the outage (never fake success) a
       const key = `pg-${randomUUID()}`;
       const body = {
         expectedRevision: 1,
-        resourceId: randomUUID(),
+        resourceId: workforce.resource(),
         technicianSubjectId: TECHS[0].subject,
       };
       const res = await call(
