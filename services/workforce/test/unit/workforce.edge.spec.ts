@@ -4,12 +4,12 @@ import { createHash } from 'node:crypto';
 import {
   IdentityAuthFailure,
   IdentitySessionClient,
-} from '../src/infrastructure/identity/identity-session.client';
+} from '../../src/infrastructure/identity/identity-session.client';
 import {
   ServiceClientAuthenticator,
   parseServiceClients,
-} from '../src/infrastructure/security/service-clients';
-import { ActorResolver, RequestBudget } from '../src/transport/http/actor-resolver';
+} from '../../src/infrastructure/security/service-clients';
+import { ActorResolver, RequestBudget } from '../../src/transport/http/actor-resolver';
 
 test('workforce edge: Identity outage fails closed', async () => {
   const client = new IdentitySessionClient({
