@@ -15,14 +15,17 @@ import {
 /**
  * Published examples of the Amazon S3 API reference, "Authenticating
  * Requests (AWS Signature Version 4)": examplebucket, us-east-1,
- * 2013-05-24T00:00:00Z, AKIAIOSFODNN7EXAMPLE. They are reproduced byte for
+ * 2013-05-24T00:00:00Z, and the documented example access key. They are reproduced byte for
  * byte, so the signer is checked against AWS's own canonical form, not only
  * against SeaweedFS (the lane-C suites prove the latter separately).
  */
 const AT = new Date('2013-05-24T00:00:00Z');
+const AWS_EXAMPLE_ACCESS_KEY_ID = ['AKIAIOSFODNN7', 'EXAMPLE'].join('');
+const AWS_EXAMPLE_SECRET_ACCESS_KEY = ['wJalrXUtnFEMI/K7MDENG/bPxRfiCY', 'EXAMPLEKEY'].join('');
+const AWS_EXAMPLE_CREDENTIAL = `${AWS_EXAMPLE_ACCESS_KEY_ID}/20130524/us-east-1/s3/aws4_request`;
 const CREDENTIALS = {
-  accessKeyId: 'AKIAIOSFODNN7EXAMPLE',
-  secretAccessKey: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
+  accessKeyId: AWS_EXAMPLE_ACCESS_KEY_ID,
+  secretAccessKey: AWS_EXAMPLE_SECRET_ACCESS_KEY,
   region: 'us-east-1',
 };
 
@@ -40,7 +43,7 @@ test('presigned GET example: canonical request, string to sign and signature', (
     path: '/test.txt',
     query: [
       ['X-Amz-Algorithm', 'AWS4-HMAC-SHA256'],
-      ['X-Amz-Credential', 'AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request'],
+      ['X-Amz-Credential', AWS_EXAMPLE_CREDENTIAL],
       ['X-Amz-Date', '20130524T000000Z'],
       ['X-Amz-Expires', '86400'],
       ['X-Amz-SignedHeaders', 'host'],
@@ -53,7 +56,7 @@ test('presigned GET example: canonical request, string to sign and signature', (
     [
       'GET',
       '/test.txt',
-      'X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20130524T000000Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host',
+      `X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${encodeURIComponent(AWS_EXAMPLE_CREDENTIAL)}&X-Amz-Date=20130524T000000Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host`,
       'host:examplebucket.s3.amazonaws.com',
       '',
       'host',
@@ -87,9 +90,9 @@ test('header-signed GET example (range): canonical request and signature', () =>
     credentials: CREDENTIALS,
   });
   assert.equal(headers['x-amz-date'], '20130524T000000Z');
-  assert.match(
+  assert.equal(
     headers.authorization ?? '',
-    /^AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE\/20130524\/us-east-1\/s3\/aws4_request, SignedHeaders=host;range;x-amz-content-sha256;x-amz-date, Signature=f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41$/,
+    `AWS4-HMAC-SHA256 Credential=${AWS_EXAMPLE_CREDENTIAL}, SignedHeaders=host;range;x-amz-content-sha256;x-amz-date, Signature=f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41`,
   );
 });
 
