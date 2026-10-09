@@ -14,6 +14,7 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { run, runOrThrow } from './exec.mjs';
 import { childEnv } from './context.mjs';
+import { pullImageWithMirrors } from '../../lib/image-references.mjs';
 
 function composeArgs(context) {
   return [
@@ -63,10 +64,16 @@ export async function dockerEnvironment(context) {
 export async function resolveImageDigests(context) {
   const digests = {};
   for (const [key, reference] of Object.entries(context.images)) {
-    await runOrThrow('docker', ['pull', '--quiet', reference], {
-      cwd: context.root,
-      timeoutMs: 15 * 60 * 1000,
-    });
+    const pulled = await pullImageWithMirrors(
+      reference,
+      (args, options = {}) =>
+        run('docker', args, {
+          cwd: context.root,
+          timeoutMs: 15 * 60 * 1000,
+          ...options,
+        }),
+      { quiet: true },
+    );
     const inspected = await runOrThrow(
       'docker',
       ['image', 'inspect', reference, '--format', '{{json .RepoDigests}}|{{.Id}}'],
@@ -75,6 +82,7 @@ export async function resolveImageDigests(context) {
     const [repoDigests, imageId] = inspected.stdout.trim().split('|');
     digests[key] = {
       reference,
+      pullReference: pulled.pullReference,
       // Whatever the registry actually served. Never hand-written.
       repoDigests: JSON.parse(repoDigests),
       imageId,
