@@ -309,6 +309,8 @@ test('operations projector: every applied, stale or repeated fact moves freshnes
     applyBookingConfirmed: () => Promise.resolve(outcomes.shift() ?? 'APPLIED'),
     applyHoldChanged: () => Promise.resolve('APPLIED'),
     applyEligibilityChanged: () => Promise.resolve('APPLIED'),
+    applyAssignmentChanged: () => Promise.resolve('APPLIED'),
+    applyObligationStatus: () => Promise.resolve('APPLIED'),
     touchFreshness: (source) => {
       calls.push(source);
       return Promise.resolve();
@@ -342,6 +344,9 @@ test('operations queries: every read is labelled derived, with owners and per-so
     bookingHolds: () => Promise.reject(new Error('not reached for an unprojected booking')),
     listResources: () => Promise.resolve({ items: [], nextCursor: null }),
     resourceSummary: () => Promise.resolve({ eligible: 0, ineligible: 0 }),
+    bookingAssignments: () => Promise.reject(new Error('not reached for an unprojected booking')),
+    operationsKpis: () => Promise.reject(new Error('not used here')),
+    cashKpis: () => Promise.reject(new Error('not used here')),
     checkpoints: () => Promise.resolve(new Map()),
   };
   const queries = new OperationsQueries(reader, { now: () => new Date(T0) });
@@ -365,6 +370,7 @@ test('operations queries: every read is labelled derived, with owners and per-so
   const detail = await queries.booking(BOOKING);
   assert.equal(detail.item, null);
   assert.deepEqual(detail.holds, []);
+  assert.deepEqual(detail.assignments, []);
   const base = {
     from: '2026-10-08T00:00:00Z',
     to: '2026-10-09T00:00:00Z',

@@ -373,7 +373,7 @@ test('A7: the database refuses rows that break the read model invariants', async
     `INSERT INTO app.ops_booking (booking_id, confirmed_at, updated_at) VALUES (${id()}, ${now}, ${now})`,
     `INSERT INTO app.ops_booking (booking_id, slot_hold_id, slot_state, updated_at) VALUES (${id()}, ${id()}, 'HELD', ${now})`,
     `INSERT INTO app.ops_resource_eligibility VALUES (${id()}, 1, 'MAYBE', ${fp}, ${id()}, ${now})`,
-    `INSERT INTO app.ops_freshness VALUES ('billing', ${now}, ${now}, 1)`,
+    `INSERT INTO app.ops_freshness VALUES ('payments', ${now}, ${now}, 1)`,
     `INSERT INTO app.ops_freshness VALUES ('booking', ${now}, ${now}, 0)`,
   ];
   for (const statement of refused) {

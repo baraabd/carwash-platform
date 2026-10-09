@@ -1,23 +1,40 @@
 import type { Prisma, PrismaClient } from '../../generated/prisma/client';
 import {
+  ASSIGNMENT_STATUSES,
+  CASH_STATES,
+  DERIVED_STATUSES,
+  OPERATIONS_SOURCES,
+  OperationsIntegrityError,
   OperationsRuleError,
   currentSlot,
   decideFact,
   linkedBooking,
+  type AssignmentChangedFact,
+  type AssignmentStatus,
   type BookingConfirmedFact,
+  type CashState,
   type DerivedOperationsStatus,
   type Eligibility,
   type EligibilityChangedFact,
   type FreshnessCheckpoint,
   type HoldChangedFact,
   type HoldState,
+  type ObligationStatusFact,
   type OperationsSource,
 } from '../../domain/operations';
+import {
+  mergeMilestones,
+  type AssignmentMilestones,
+  type DurationSummary,
+} from '../../domain/live-operations';
 import type {
+  AssignmentRow,
   BookingOperationRow,
+  CashStateRow,
   EligibilitySummary,
   FactOutcome,
   LinkedHoldRow,
+  OperationsKpiRows,
   OperationsReader,
   OperationsWriter,
   Page,
@@ -39,9 +56,33 @@ function eligibilityOf(value: string): Eligibility {
 }
 
 function sourceOf(value: string): OperationsSource {
-  if (value !== 'booking' && value !== 'scheduling' && value !== 'workforce')
-    throw new Error('CORRUPT_PERSISTED_SOURCE');
-  return value;
+  const source = OPERATIONS_SOURCES.find((s) => s === value);
+  if (!source) throw new Error('CORRUPT_PERSISTED_SOURCE');
+  return source;
+}
+
+function assignmentStatusOf(value: string): AssignmentStatus {
+  const status = ASSIGNMENT_STATUSES.find((s) => s === value);
+  if (!status) throw new Error('CORRUPT_PERSISTED_ASSIGNMENT_STATUS');
+  return status;
+}
+
+function cashStateOf(value: string): CashState {
+  const state = CASH_STATES.find((s) => s === value);
+  if (!state) throw new Error('CORRUPT_PERSISTED_CASH_STATE');
+  return state;
+}
+
+function sameTime(a: Date | null, b: Date | null): boolean {
+  return a === null || b === null ? a === b : a.getTime() === b.getTime();
+}
+
+function sameMilestones(a: AssignmentMilestones, b: AssignmentMilestones): boolean {
+  return (
+    sameTime(a.firstObservedAt, b.firstObservedAt) &&
+    sameTime(a.firstOfferedAt, b.firstOfferedAt) &&
+    sameTime(a.firstAssignedAt, b.firstAssignedAt)
+  );
 }
 
 function latest(a: Date | null, b: Date): Date {
@@ -176,6 +217,112 @@ export class PrismaOperationsWriter implements OperationsWriter {
     return 'APPLIED';
   }
 
+  /**
+   * Folds one Dispatch assignment fact. The current state follows the owner's
+   * version; milestones and the reassignment set also learn from stale
+   * deliveries, because those are true past occurrences.
+   */
+  async applyAssignmentChanged(fact: AssignmentChangedFact, hash: string): Promise<FactOutcome> {
+    await lock(this.tx, `ops-assignment:${fact.assignmentId}`);
+    const current = await this.tx.opsAssignment.findUnique({
+      where: { assignmentId: fact.assignmentId },
+    });
+    if (current && current.bookingId !== fact.bookingId)
+      throw new OperationsIntegrityError('ASSIGNMENT_BOOKING_CONFLICT');
+    const decision = decideFact(
+      current && { version: current.version, fingerprint: current.fingerprint },
+      { version: fact.version, fingerprint: hash },
+    );
+    if (decision === 'SAME') return 'SAME';
+    const milestones = mergeMilestones(current, fact);
+    if (decision === 'APPLY') {
+      const data = {
+        bookingId: fact.bookingId,
+        version: fact.version,
+        status: fact.status,
+        zoneId: fact.zoneId,
+        startsAt: fact.startsAt,
+        endsAt: fact.endsAt,
+        resourceId: fact.resourceId,
+        fingerprint: hash,
+        sourceEventId: fact.eventId,
+        occurredAt: fact.occurredAt,
+        ...milestones,
+      };
+      await this.tx.opsAssignment.upsert({
+        where: { assignmentId: fact.assignmentId },
+        create: { assignmentId: fact.assignmentId, ...data },
+        update: data,
+      });
+    } else if (current && !sameMilestones(current, milestones)) {
+      await this.tx.opsAssignment.update({
+        where: { assignmentId: fact.assignmentId },
+        data: milestones,
+      });
+    }
+    if (fact.status === 'ASSIGNED' && fact.resourceId !== null)
+      await this.recordAssignedResource(fact.assignmentId, fact.resourceId, fact.occurredAt);
+    return decision === 'APPLY' ? 'APPLIED' : decision;
+  }
+
+  /** Serialized by the assignment lock, so the read-then-write cannot race. */
+  private async recordAssignedResource(
+    assignmentId: string,
+    resourceId: string,
+    at: Date,
+  ): Promise<void> {
+    const key = { assignmentId_resourceId: { assignmentId, resourceId } };
+    const existing = await this.tx.opsAssignmentResource.findUnique({ where: key });
+    if (!existing)
+      await this.tx.opsAssignmentResource.create({
+        data: { assignmentId, resourceId, firstAssignedAt: at },
+      });
+    else if (at.getTime() < existing.firstAssignedAt.getTime())
+      await this.tx.opsAssignmentResource.update({ where: key, data: { firstAssignedAt: at } });
+  }
+
+  /**
+   * Folds one Billing obligation fact; the newest revision wins. `stateSince`
+   * is when the obligation entered its current state, so the age of a cash or
+   * review backlog is measured with the owner's own occurrence times.
+   */
+  async applyObligationStatus(fact: ObligationStatusFact, hash: string): Promise<FactOutcome> {
+    await lock(this.tx, `ops-obligation:${fact.obligationId}`);
+    const current = await this.tx.opsObligation.findUnique({
+      where: { obligationId: fact.obligationId },
+    });
+    if (current && current.currency !== fact.outstanding.currency)
+      throw new OperationsIntegrityError('OBLIGATION_CURRENCY_CONFLICT');
+    const decision = decideFact(
+      current && { version: current.version, fingerprint: current.fingerprint },
+      { version: fact.version, fingerprint: hash },
+    );
+    if (decision !== 'APPLY') return decision;
+    const stateSince =
+      current &&
+      current.cashState === fact.cashState &&
+      current.stateSince.getTime() <= fact.occurredAt.getTime()
+        ? current.stateSince
+        : fact.occurredAt;
+    const data = {
+      version: fact.version,
+      cashState: fact.cashState,
+      outstandingMinor: fact.outstanding.amountMinor,
+      currency: fact.outstanding.currency,
+      scale: fact.outstanding.scale,
+      stateSince,
+      fingerprint: hash,
+      sourceEventId: fact.eventId,
+      occurredAt: fact.occurredAt,
+    };
+    await this.tx.opsObligation.upsert({
+      where: { obligationId: fact.obligationId },
+      create: { obligationId: fact.obligationId, ...data },
+      update: data,
+    });
+    return 'APPLIED';
+  }
+
   async touchFreshness(source: OperationsSource, occurredAt: Date, appliedAt: Date): Promise<void> {
     // Native INSERT .. ON CONFLICT: concurrent first deliveries of one source
     // cannot race into a unique violation.
@@ -250,6 +397,55 @@ function statusWhere(status: DerivedOperationsStatus | null): Prisma.OpsBookingW
   }
 }
 
+interface TimingRow {
+  reassigned: number;
+  assigned_after_start: number;
+  to_offer_n: number;
+  to_offer_p50: bigint | null;
+  to_offer_p90: bigint | null;
+  to_offer_max: bigint | null;
+  to_assign_n: number;
+  to_assign_p50: bigint | null;
+  to_assign_p90: bigint | null;
+  to_assign_max: bigint | null;
+  offer_assign_n: number;
+  offer_assign_p50: bigint | null;
+  offer_assign_p90: bigint | null;
+  offer_assign_max: bigint | null;
+}
+
+interface CashSqlRow {
+  cash_state: string;
+  currency: string;
+  scale: number;
+  n: number;
+  total: string;
+  oldest: Date;
+}
+
+/** Durations are milliseconds within one bounded window: always safe integers. */
+function ms(value: bigint | null): number | null {
+  if (value === null) return null;
+  const n = Number(value);
+  if (!Number.isSafeInteger(n)) throw new Error('KPI_DURATION_OUT_OF_RANGE');
+  return n;
+}
+
+function durations(
+  count: number,
+  p50: bigint | null,
+  p90: bigint | null,
+  max: bigint | null,
+): DurationSummary {
+  return { count, p50Ms: ms(p50), p90Ms: ms(p90), maxMs: ms(max) };
+}
+
+/** A NUMERIC sum rendered by PostgreSQL; checked so nothing but digits leaves. */
+function exactDecimal(value: string): string {
+  if (!/^(0|[1-9][0-9]*)$/.test(value)) throw new Error('KPI_AMOUNT_CORRUPT');
+  return value;
+}
+
 export class PrismaOperationsReader implements OperationsReader {
   constructor(private readonly client: PrismaClient) {}
 
@@ -307,6 +503,155 @@ export class PrismaOperationsReader implements OperationsReader {
       version: h.version,
       occurredAt: h.occurredAt,
     }));
+  }
+
+  async bookingAssignments(bookingId: string): Promise<readonly AssignmentRow[]> {
+    const rows = await this.client.opsAssignment.findMany({
+      where: { bookingId },
+      orderBy: [{ occurredAt: 'desc' }, { assignmentId: 'desc' }],
+      take: 20,
+      include: { _count: { select: { resources: true } } },
+    });
+    return rows.map((a) => ({
+      assignmentId: a.assignmentId,
+      bookingId: a.bookingId,
+      status: assignmentStatusOf(a.status),
+      resourceId: a.resourceId,
+      zoneId: a.zoneId,
+      startsAt: a.startsAt,
+      endsAt: a.endsAt,
+      version: a.version,
+      occurredAt: a.occurredAt,
+      firstObservedAt: a.firstObservedAt,
+      firstOfferedAt: a.firstOfferedAt,
+      firstAssignedAt: a.firstAssignedAt,
+      assignedResourceCount: a._count.resources,
+    }));
+  }
+
+  /**
+   * Window aggregates. Bookings use the same window semantics as the list
+   * (slot start; confirmation time for unscheduled bookings) and assignments
+   * use the job start. Percentiles are `percentile_disc` (nearest rank).
+   */
+  async operationsKpis(input: {
+    from: Date;
+    to: Date;
+    zoneId: string | null;
+  }): Promise<OperationsKpiRows> {
+    const bookingsByStatus = new Map<DerivedOperationsStatus, number>();
+    for (const status of DERIVED_STATUSES) {
+      const timeField = status === 'CONFIRMED_UNSCHEDULED' ? 'confirmedAt' : 'slotStartsAt';
+      bookingsByStatus.set(
+        status,
+        await this.client.opsBooking.count({
+          where: {
+            AND: [
+              statusWhere(status),
+              { [timeField]: { gte: input.from, lt: input.to } },
+              input.zoneId ? { slotZoneId: input.zoneId } : {},
+            ],
+          },
+        }),
+      );
+    }
+    const groups = await this.client.opsAssignment.groupBy({
+      by: ['status'],
+      where: {
+        startsAt: { gte: input.from, lt: input.to },
+        ...(input.zoneId ? { zoneId: input.zoneId } : {}),
+      },
+      _count: { _all: true },
+    });
+    const assignmentsByStatus = new Map<AssignmentStatus, number>(
+      ASSIGNMENT_STATUSES.map((s) => [s, 0]),
+    );
+    for (const g of groups) assignmentsByStatus.set(assignmentStatusOf(g.status), g._count._all);
+
+    const [timing] = await this.client.$queryRaw<TimingRow[]>`
+      WITH w AS (
+        SELECT a.starts_at, a.first_observed_at, a.first_offered_at, a.first_assigned_at,
+               (SELECT count(*) FROM app.ops_assignment_resource r
+                 WHERE r.assignment_id = a.assignment_id) AS resource_count
+          FROM app.ops_assignment a
+         WHERE a.starts_at >= ${input.from} AND a.starts_at < ${input.to}
+           AND (${input.zoneId}::uuid IS NULL OR a.zone_id = ${input.zoneId}::uuid)
+      ), d AS (
+        SELECT resource_count, starts_at, first_assigned_at,
+               (EXTRACT(EPOCH FROM (first_offered_at - first_observed_at)) * 1000)::bigint AS to_offer,
+               (EXTRACT(EPOCH FROM (first_assigned_at - first_observed_at)) * 1000)::bigint AS to_assign,
+               CASE WHEN first_assigned_at >= first_offered_at
+                    THEN (EXTRACT(EPOCH FROM (first_assigned_at - first_offered_at)) * 1000)::bigint
+               END AS offer_assign
+          FROM w
+      )
+      SELECT count(*) FILTER (WHERE resource_count > 1)::int AS reassigned,
+             count(*) FILTER (WHERE first_assigned_at > starts_at)::int AS assigned_after_start,
+             count(to_offer)::int AS to_offer_n,
+             percentile_disc(0.5) WITHIN GROUP (ORDER BY to_offer) AS to_offer_p50,
+             percentile_disc(0.9) WITHIN GROUP (ORDER BY to_offer) AS to_offer_p90,
+             max(to_offer) AS to_offer_max,
+             count(to_assign)::int AS to_assign_n,
+             percentile_disc(0.5) WITHIN GROUP (ORDER BY to_assign) AS to_assign_p50,
+             percentile_disc(0.9) WITHIN GROUP (ORDER BY to_assign) AS to_assign_p90,
+             max(to_assign) AS to_assign_max,
+             count(offer_assign)::int AS offer_assign_n,
+             percentile_disc(0.5) WITHIN GROUP (ORDER BY offer_assign) AS offer_assign_p50,
+             percentile_disc(0.9) WITHIN GROUP (ORDER BY offer_assign) AS offer_assign_p90,
+             max(offer_assign) AS offer_assign_max
+        FROM d`;
+    if (!timing) throw new Error('KPI_AGGREGATE_MISSING');
+    return {
+      bookingsByStatus,
+      assignmentsByStatus,
+      reassigned: timing.reassigned,
+      assignedAfterStart: timing.assigned_after_start,
+      timeToFirstOffer: durations(
+        timing.to_offer_n,
+        timing.to_offer_p50,
+        timing.to_offer_p90,
+        timing.to_offer_max,
+      ),
+      timeToAssign: durations(
+        timing.to_assign_n,
+        timing.to_assign_p50,
+        timing.to_assign_p90,
+        timing.to_assign_max,
+      ),
+      offerToAssign: durations(
+        timing.offer_assign_n,
+        timing.offer_assign_p50,
+        timing.offer_assign_p90,
+        timing.offer_assign_max,
+      ),
+    };
+  }
+
+  /** Current cash states over every projected obligation, summed exactly per currency. */
+  async cashKpis(): Promise<readonly CashStateRow[]> {
+    const rows = await this.client.$queryRaw<CashSqlRow[]>`
+      SELECT cash_state, currency, scale::int AS scale, count(*)::int AS n,
+             sum(outstanding_minor)::text AS total, min(state_since) AS oldest
+        FROM app.ops_obligation
+       GROUP BY cash_state, currency, scale
+       ORDER BY cash_state, currency`;
+    return CASH_STATES.map((cashState) => {
+      const mine = rows.filter((r) => cashStateOf(r.cash_state) === cashState);
+      const oldest = mine.reduce<Date | null>(
+        (min, r) => (min === null || r.oldest.getTime() < min.getTime() ? r.oldest : min),
+        null,
+      );
+      return {
+        cashState,
+        count: mine.reduce((n, r) => n + r.n, 0),
+        outstanding: mine.map((r) => ({
+          currency: r.currency,
+          scale: r.scale,
+          amountMinor: exactDecimal(r.total),
+        })),
+        oldestSince: oldest,
+      };
+    });
   }
 
   async listResources(

@@ -176,3 +176,63 @@ model OpsFreshness {
 
   @@map("ops_freshness")
 }
+
+/// P03-D live-operations read model. Derived from Dispatch and Billing facts
+/// only; Dispatch owns assignments and Billing owns obligations.
+
+/// Latest observed state of one Dispatch assignment, plus the earliest source
+/// occurrence of each milestone (delivery-order independent).
+model OpsAssignment {
+  assignmentId    String    @id @map("assignment_id") @db.Uuid
+  bookingId       String    @map("booking_id") @db.Uuid
+  version         Int
+  status          String    @db.VarChar(12)
+  zoneId          String    @map("zone_id") @db.Uuid
+  startsAt        DateTime  @map("starts_at") @db.Timestamptz(3)
+  endsAt          DateTime  @map("ends_at") @db.Timestamptz(3)
+  resourceId      String?   @map("resource_id") @db.Uuid
+  fingerprint     String    @db.Char(64)
+  sourceEventId   String    @map("source_event_id") @db.Uuid
+  occurredAt      DateTime  @map("occurred_at") @db.Timestamptz(3)
+  firstObservedAt DateTime  @map("first_observed_at") @db.Timestamptz(3)
+  firstOfferedAt  DateTime? @map("first_offered_at") @db.Timestamptz(3)
+  firstAssignedAt DateTime? @map("first_assigned_at") @db.Timestamptz(3)
+
+  resources OpsAssignmentResource[]
+
+  @@index([bookingId])
+  @@index([startsAt, assignmentId])
+  @@index([zoneId, startsAt])
+  @@map("ops_assignment")
+}
+
+/// Every distinct capacity resource an assignment was ASSIGNED to; more than
+/// one row means the job was reassigned.
+model OpsAssignmentResource {
+  assignmentId    String   @map("assignment_id") @db.Uuid
+  resourceId      String   @map("resource_id") @db.Uuid
+  firstAssignedAt DateTime @map("first_assigned_at") @db.Timestamptz(3)
+
+  assignment OpsAssignment @relation(fields: [assignmentId], references: [assignmentId], onDelete: Cascade)
+
+  @@id([assignmentId, resourceId])
+  @@map("ops_assignment_resource")
+}
+
+/// Latest observed financial state of one Billing obligation. Amounts are
+/// exact integer minor units with explicit currency and scale.
+model OpsObligation {
+  obligationId     String   @id @map("obligation_id") @db.Uuid
+  version          Int
+  cashState        String   @map("cash_state") @db.VarChar(16)
+  outstandingMinor BigInt   @map("outstanding_minor")
+  currency         String   @db.Char(3)
+  scale            Int      @db.SmallInt
+  stateSince       DateTime @map("state_since") @db.Timestamptz(3)
+  fingerprint      String   @db.Char(64)
+  sourceEventId    String   @map("source_event_id") @db.Uuid
+  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
+
+  @@index([cashState, stateSince])
+  @@map("ops_obligation")
+}

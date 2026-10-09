@@ -1,5 +1,8 @@
 import type {
+  AssignmentChangedFact,
+  AssignmentStatus,
   BookingConfirmedFact,
+  CashState,
   BookingSlot,
   DerivedOperationsStatus,
   Eligibility,
@@ -8,8 +11,10 @@ import type {
   FreshnessCheckpoint,
   HoldChangedFact,
   HoldState,
+  ObligationStatusFact,
   OperationsSource,
 } from '../domain/operations';
+import type { DurationSummary } from '../domain/live-operations';
 
 export type FactOutcome = 'APPLIED' | Exclude<FactDecision, 'APPLY'>;
 
@@ -25,6 +30,11 @@ export interface OperationsWriter {
     fact: EligibilityChangedFact,
     fingerprintHash: string,
   ): Promise<FactOutcome>;
+  applyAssignmentChanged(
+    fact: AssignmentChangedFact,
+    fingerprintHash: string,
+  ): Promise<FactOutcome>;
+  applyObligationStatus(fact: ObligationStatusFact, fingerprintHash: string): Promise<FactOutcome>;
   touchFreshness(source: OperationsSource, occurredAt: Date, appliedAt: Date): Promise<void>;
 }
 
@@ -82,5 +92,56 @@ export interface OperationsReader {
     cursor: string | null;
   }): Promise<Page<ResourceEligibilityRow>>;
   resourceSummary(): Promise<EligibilitySummary>;
+  bookingAssignments(bookingId: string): Promise<readonly AssignmentRow[]>;
+  operationsKpis(input: {
+    from: Date;
+    to: Date;
+    zoneId: string | null;
+  }): Promise<OperationsKpiRows>;
+  cashKpis(): Promise<readonly CashStateRow[]>;
   checkpoints(): Promise<ReadonlyMap<OperationsSource, FreshnessCheckpoint>>;
+}
+
+/** One Dispatch assignment as last observed, with its first-occurrence milestones. */
+export interface AssignmentRow {
+  readonly assignmentId: string;
+  readonly bookingId: string;
+  readonly status: AssignmentStatus;
+  readonly resourceId: string | null;
+  readonly zoneId: string;
+  readonly startsAt: Date;
+  readonly endsAt: Date;
+  readonly version: number;
+  readonly occurredAt: Date;
+  readonly firstObservedAt: Date;
+  readonly firstOfferedAt: Date | null;
+  readonly firstAssignedAt: Date | null;
+  /** Distinct capacity resources this assignment has ever been ASSIGNED to. */
+  readonly assignedResourceCount: number;
+}
+
+/** Aggregates over one window, computed by the database. */
+export interface OperationsKpiRows {
+  readonly bookingsByStatus: ReadonlyMap<DerivedOperationsStatus, number>;
+  readonly assignmentsByStatus: ReadonlyMap<AssignmentStatus, number>;
+  readonly reassigned: number;
+  readonly assignedAfterStart: number;
+  readonly timeToFirstOffer: DurationSummary;
+  readonly timeToAssign: DurationSummary;
+  readonly offerToAssign: DurationSummary;
+}
+
+/** Outstanding total for one currency, as an exact decimal string of minor units. */
+export interface OutstandingTotal {
+  readonly currency: string;
+  readonly scale: number;
+  readonly amountMinor: string;
+}
+
+export interface CashStateRow {
+  readonly cashState: CashState;
+  readonly count: number;
+  readonly outstanding: readonly OutstandingTotal[];
+  /** Earliest time an obligation still in this state entered it. */
+  readonly oldestSince: Date | null;
 }

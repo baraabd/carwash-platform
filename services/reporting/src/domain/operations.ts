@@ -11,7 +11,13 @@
 export type HoldState = 'HELD' | 'COMMITTED' | 'RELEASED' | 'EXPIRED';
 export type Eligibility = 'ELIGIBLE' | 'INELIGIBLE';
 
-export const OPERATIONS_SOURCES = ['booking', 'scheduling', 'workforce'] as const;
+export const OPERATIONS_SOURCES = [
+  'booking',
+  'scheduling',
+  'workforce',
+  'dispatch',
+  'billing',
+] as const;
 export type OperationsSource = (typeof OPERATIONS_SOURCES)[number];
 
 export class OperationsRuleError extends Error {
@@ -26,7 +32,11 @@ export class OperationsRuleError extends Error {
  * ACKed as a duplicate: the consumer rejects the delivery and the broker
  * dead-letters it once its bounded redelivery budget is spent.
  */
-export type IntegrityCode = 'FACT_VERSION_CONFLICT' | 'HOLD_BOOKING_CONFLICT';
+export type IntegrityCode =
+  | 'FACT_VERSION_CONFLICT'
+  | 'HOLD_BOOKING_CONFLICT'
+  | 'ASSIGNMENT_BOOKING_CONFLICT'
+  | 'OBLIGATION_CURRENCY_CONFLICT';
 
 export class OperationsIntegrityError extends Error {
   constructor(readonly code: IntegrityCode) {
@@ -67,7 +77,78 @@ export interface EligibilityChangedFact extends SourceFact {
   readonly eligibility: Eligibility;
 }
 
-export type OperationsFact = BookingConfirmedFact | HoldChangedFact | EligibilityChangedFact;
+/** Dispatch assignment lifecycle (owner: Dispatch). */
+export type AssignmentStatus = 'UNASSIGNED' | 'OFFERED' | 'ASSIGNED' | 'CANCELLED';
+export const ASSIGNMENT_STATUSES: readonly AssignmentStatus[] = [
+  'UNASSIGNED',
+  'OFFERED',
+  'ASSIGNED',
+  'CANCELLED',
+];
+
+export interface AssignmentChangedFact extends SourceFact {
+  readonly kind: 'ASSIGNMENT_CHANGED';
+  readonly assignmentId: string;
+  readonly bookingId: string;
+  readonly status: AssignmentStatus;
+  readonly zoneId: string;
+  readonly startsAt: Date;
+  readonly endsAt: Date;
+  /** Workforce capacity resource; non-null exactly when status is ASSIGNED. */
+  readonly resourceId: string | null;
+}
+
+/** Billing's financial status vocabulary for one obligation (owner: Billing). */
+export type CashState =
+  | 'UNPAID'
+  | 'AWAITING_CASH'
+  | 'AWAITING_PAYMENT'
+  | 'UNDER_REVIEW'
+  | 'OUTCOME_UNKNOWN'
+  | 'PAID'
+  | 'VOIDED';
+export const CASH_STATES: readonly CashState[] = [
+  'UNPAID',
+  'AWAITING_CASH',
+  'AWAITING_PAYMENT',
+  'UNDER_REVIEW',
+  'OUTCOME_UNKNOWN',
+  'PAID',
+  'VOIDED',
+];
+/** States in which money is still expected or its outcome is unresolved. */
+export const OPEN_CASH_STATES: readonly CashState[] = [
+  'UNPAID',
+  'AWAITING_CASH',
+  'AWAITING_PAYMENT',
+  'UNDER_REVIEW',
+  'OUTCOME_UNKNOWN',
+];
+
+/**
+ * Exact money in integer minor units. Never a binary float: amounts leave the
+ * service as decimal strings and are summed by the database as NUMERIC.
+ */
+export interface ExactAmount {
+  readonly currency: string;
+  readonly amountMinor: bigint;
+  readonly scale: number;
+}
+
+export interface ObligationStatusFact extends SourceFact {
+  readonly kind: 'OBLIGATION_STATUS';
+  readonly obligationId: string;
+  readonly cashState: CashState;
+  /** What Billing reports as still outstanding at this revision. */
+  readonly outstanding: ExactAmount;
+}
+
+export type OperationsFact =
+  | BookingConfirmedFact
+  | HoldChangedFact
+  | EligibilityChangedFact
+  | AssignmentChangedFact
+  | ObligationStatusFact;
 
 /**
  * Canonical content of a fact. The same aggregate version arriving with
@@ -90,6 +171,28 @@ export function factFingerprint(fact: OperationsFact): string {
       ]);
     case 'ELIGIBILITY_CHANGED':
       return JSON.stringify([fact.kind, fact.resourceId, fact.version, fact.eligibility]);
+    case 'ASSIGNMENT_CHANGED':
+      return JSON.stringify([
+        fact.kind,
+        fact.assignmentId,
+        fact.version,
+        fact.bookingId,
+        fact.status,
+        fact.zoneId,
+        fact.startsAt.toISOString(),
+        fact.endsAt.toISOString(),
+        fact.resourceId,
+      ]);
+    case 'OBLIGATION_STATUS':
+      return JSON.stringify([
+        fact.kind,
+        fact.obligationId,
+        fact.version,
+        fact.cashState,
+        fact.outstanding.currency,
+        fact.outstanding.amountMinor.toString(),
+        fact.outstanding.scale,
+      ]);
   }
 }
 

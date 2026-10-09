@@ -14,14 +14,18 @@ import {
   slotWindow,
   uuidInput,
   type DerivedOperationsStatus,
+  type AssignmentStatus,
   type Eligibility,
   type Freshness,
   type OperationsFact,
   type OperationsSource,
 } from '../domain/operations';
+import { incompleteSources, type DurationSummary } from '../domain/live-operations';
 import type { Hasher } from '../ports/projection.ports';
 import type {
+  AssignmentRow,
   BookingOperationRow,
+  CashStateRow,
   EligibilitySummary,
   FactOutcome,
   LinkedHoldRow,
@@ -141,6 +145,12 @@ export class OperationsProjector {
       case 'ELIGIBILITY_CHANGED':
         outcome = await writer.applyEligibilityChanged(fact, fingerprint);
         break;
+      case 'ASSIGNMENT_CHANGED':
+        outcome = await writer.applyAssignmentChanged(fact, fingerprint);
+        break;
+      case 'OBLIGATION_STATUS':
+        outcome = await writer.applyObligationStatus(fact, fingerprint);
+        break;
     }
     // A stale or repeated fact still proves the source pipeline is flowing.
     await writer.touchFreshness(fact.source, fact.occurredAt, this.clock.now());
@@ -169,6 +179,16 @@ export const BOOKING_AUTHORITY: readonly Authority[] = [
   { owner: 'booking', reads: 'booking lifecycle, customer, vehicle, package, price and payment' },
   { owner: 'scheduling', reads: 'authoritative slot and hold state' },
   { owner: 'dispatch', reads: 'technician assignment and field progress' },
+];
+
+export const ASSIGNMENT_AUTHORITY: readonly Authority[] = [
+  { owner: 'dispatch', reads: 'assignment, offer and technician state' },
+  { owner: 'booking', reads: 'booking lifecycle' },
+  { owner: 'scheduling', reads: 'authoritative slot and hold state' },
+];
+
+export const CASH_AUTHORITY: readonly Authority[] = [
+  { owner: 'billing', reads: 'obligations, payment attempts, reconciliation and ledger' },
 ];
 
 export const WORKFORCE_AUTHORITY: readonly Authority[] = [
@@ -249,6 +269,7 @@ export class OperationsQueries {
     ProjectionMeta & {
       readonly item: BookingOperationView | null;
       readonly holds: readonly LinkedHoldRow[];
+      readonly assignments: readonly AssignmentRow[];
     }
   > {
     const id = uuidInput(bookingId, 'INVALID_BOOKING_ID');
@@ -256,7 +277,51 @@ export class OperationsQueries {
     return {
       item: row && view(row),
       holds: row ? await this.reader.bookingHolds(id) : [],
-      ...(await this.meta(['booking', 'scheduling'], BOOKING_AUTHORITY)),
+      assignments: row ? await this.reader.bookingAssignments(id) : [],
+      ...(await this.meta(['booking', 'scheduling', 'dispatch'], BOOKING_AUTHORITY)),
+    };
+  }
+
+  /**
+   * Operations KPIs over one discovery window. Every figure is derived; the
+   * response names the sources it depends on that are not FRESH, so a quiet
+   * or broken pipeline makes the KPI visibly partial instead of silently low.
+   */
+  async operationsKpis(input: { from: unknown; to: unknown; zoneId: unknown }): Promise<
+    ProjectionMeta & {
+      readonly window: { readonly from: Date; readonly to: Date };
+      readonly incompleteSources: readonly string[];
+      readonly bookingsByStatus: ReadonlyMap<DerivedOperationsStatus, number>;
+      readonly assignmentsByStatus: ReadonlyMap<AssignmentStatus, number>;
+      readonly reassigned: number;
+      readonly assignedAfterStart: number;
+      readonly timeToFirstOffer: DurationSummary;
+      readonly timeToAssign: DurationSummary;
+      readonly offerToAssign: DurationSummary;
+    }
+  > {
+    const window = slotWindow(input.from, input.to);
+    const zoneId = input.zoneId === undefined ? null : uuidInput(input.zoneId, 'INVALID_ZONE');
+    const rows = await this.reader.operationsKpis({ ...window, zoneId });
+    const meta = await this.meta(['booking', 'scheduling', 'dispatch'], ASSIGNMENT_AUTHORITY);
+    return { ...meta, ...rows, window, incompleteSources: incompleteSources(meta.freshness) };
+  }
+
+  /** Current cash and review backlog by Billing state, exact per currency. */
+  async cashKpis(): Promise<
+    ProjectionMeta & {
+      readonly asOf: Date;
+      readonly incompleteSources: readonly string[];
+      readonly states: readonly CashStateRow[];
+    }
+  > {
+    const states = await this.reader.cashKpis();
+    const meta = await this.meta(['billing'], CASH_AUTHORITY);
+    return {
+      ...meta,
+      asOf: this.clock.now(),
+      incompleteSources: incompleteSources(meta.freshness),
+      states,
     };
   }
 

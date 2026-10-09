@@ -4,7 +4,13 @@ import { RequestBudget, requireRead, type OperationsRead } from '../../applicati
 import { OperationsQueries, type BookingOperationView } from '../../application/operations.service';
 import { OperationsRuleError, type Freshness } from '../../domain/operations';
 import { AccessFault, type SessionAuthority } from '../../ports/identity.ports';
-import type { LinkedHoldRow, ResourceEligibilityRow } from '../../ports/operations.ports';
+import type { DurationSummary } from '../../domain/live-operations';
+import type {
+  AssignmentRow,
+  CashStateRow,
+  LinkedHoldRow,
+  ResourceEligibilityRow,
+} from '../../ports/operations.ports';
 
 export const SESSION_AUTHORITY = 'REPORTING_SESSION_AUTHORITY';
 export const READ_BUDGET = 'REPORTING_READ_BUDGET';
@@ -69,6 +75,44 @@ function holdView(hold: LinkedHoldRow) {
     endsAt: hold.endsAt.toISOString(),
     version: hold.version,
     occurredAt: hold.occurredAt.toISOString(),
+  };
+}
+
+function assignmentView(a: AssignmentRow) {
+  return {
+    assignmentId: a.assignmentId,
+    status: a.status,
+    resourceId: a.resourceId,
+    zoneId: a.zoneId,
+    startsAt: a.startsAt.toISOString(),
+    endsAt: a.endsAt.toISOString(),
+    version: a.version,
+    occurredAt: a.occurredAt.toISOString(),
+    firstObservedAt: a.firstObservedAt.toISOString(),
+    firstOfferedAt: a.firstOfferedAt?.toISOString() ?? null,
+    firstAssignedAt: a.firstAssignedAt?.toISOString() ?? null,
+    reassigned: a.assignedResourceCount > 1,
+  };
+}
+
+function counts<K extends string>(map: ReadonlyMap<K, number>): Record<string, number> {
+  return Object.fromEntries(map);
+}
+
+function durationView(d: DurationSummary) {
+  return { count: d.count, p50Ms: d.p50Ms, p90Ms: d.p90Ms, maxMs: d.maxMs };
+}
+
+function cashStateView(row: CashStateRow) {
+  return {
+    cashState: row.cashState,
+    count: row.count,
+    outstanding: row.outstanding.map((o) => ({
+      currency: o.currency,
+      amountMinor: o.amountMinor,
+      scale: o.scale,
+    })),
+    oldestSince: row.oldestSince?.toISOString() ?? null,
   };
 }
 
@@ -151,6 +195,7 @@ export class OperationsController {
         freshness: result.freshness.map(freshnessView),
         item: bookingView(result.item),
         holds: result.holds.map(holdView),
+        assignments: result.assignments.map(assignmentView),
       };
     } catch (error) {
       return translate(error);
@@ -176,6 +221,60 @@ export class OperationsController {
         summary: page.summary,
         items: page.items.map(resourceView),
         nextCursor: page.nextCursor,
+      };
+    } catch (error) {
+      return translate(error);
+    }
+  }
+
+  @Get('kpis/operations')
+  async operationsKpis(
+    @Headers() headers: RequestHeaders,
+    @Query() query: Record<string, string | undefined>,
+  ) {
+    try {
+      await this.authorize(headers, 'operationsKpis');
+      const k = await this.queries.operationsKpis({
+        from: query.from,
+        to: query.to,
+        zoneId: query.zoneId,
+      });
+      return {
+        derived: k.derived,
+        authority: k.authority,
+        freshness: k.freshness.map(freshnessView),
+        incompleteSources: k.incompleteSources,
+        window: { from: k.window.from.toISOString(), to: k.window.to.toISOString() },
+        bookings: { byDerivedStatus: counts(k.bookingsByStatus) },
+        assignments: {
+          byStatus: counts(k.assignmentsByStatus),
+          reassigned: k.reassigned,
+          assignedAfterStart: k.assignedAfterStart,
+          timeToFirstOffer: durationView(k.timeToFirstOffer),
+          timeToAssign: durationView(k.timeToAssign),
+          offerToAssign: durationView(k.offerToAssign),
+        },
+        // No owner publishes field progress (en route, arrived, washing,
+        // done) yet; the KPI says so instead of inventing stages.
+        fieldStages: { available: false, reason: 'NO_PUBLISHED_SOURCE' },
+      };
+    } catch (error) {
+      return translate(error);
+    }
+  }
+
+  @Get('kpis/cash')
+  async cashKpis(@Headers() headers: RequestHeaders) {
+    try {
+      await this.authorize(headers, 'cashKpis');
+      const k = await this.queries.cashKpis();
+      return {
+        derived: k.derived,
+        authority: k.authority,
+        freshness: k.freshness.map(freshnessView),
+        incompleteSources: k.incompleteSources,
+        asOf: k.asOf.toISOString(),
+        states: k.states.map(cashStateView),
       };
     } catch (error) {
       return translate(error);

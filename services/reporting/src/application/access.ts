@@ -7,12 +7,16 @@ import { AccessFault, type VerifiedSession } from '../ports/identity.ports';
  * - booking operations belong to the operations role (`operations.dispatch`);
  * - workforce eligibility serves technician review (`verification.review`)
  *   and dispatch planning (`operations.dispatch`).
+ * - cash-state KPIs are finance reads (`billing.read`), so operations staff
+ *   cannot see amounts and finance staff cannot browse booking operations.
  * A reviewer therefore cannot browse bookings. Deny by default.
  */
 export const OPERATIONS_READS = Object.freeze({
   bookings: ['operations.dispatch'],
   resources: ['verification.review', 'operations.dispatch'],
-  freshness: ['verification.review', 'operations.dispatch'],
+  freshness: ['verification.review', 'operations.dispatch', 'billing.read'],
+  operationsKpis: ['operations.dispatch'],
+  cashKpis: ['billing.read'],
 } as const);
 
 export type OperationsRead = keyof typeof OPERATIONS_READS;

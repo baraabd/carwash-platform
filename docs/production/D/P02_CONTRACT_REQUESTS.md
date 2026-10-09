@@ -128,3 +128,17 @@ columns from the owner and keeps the projection only for discovery.
 
 Interim behavior: those columns render "—" with an explanatory title. The
 detail dialog states that the authoritative read is not available yet.
+
+## CR-D-P02-06 (Lane E): lint coverage for admin-web TypeScript
+
+`eslint.config.mjs` matches `apps/admin-web/src/**/*.ts` only to add the
+`document` global. No TypeScript parser applies there, so `pnpm lint` fails to
+parse any real TypeScript in admin-web.
+
+Requested: add `apps/admin-web/src/**/*.ts` to the type-aware block that
+already covers `services/*/src/**/*.ts`. Keep the browser globals
+(`document`, `window`, `location`, `localStorage`). The project service
+resolves `apps/admin-web/tsconfig.json`.
+
+Interim evidence: P02-D2 ran exactly that configuration as a local,
+uncommitted overlay. It covered 16 files with 0 errors.
