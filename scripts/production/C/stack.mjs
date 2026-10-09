@@ -29,6 +29,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { pullImageWithMirrors } from '../../lib/image-references.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const STATE_DIR = path.join(ROOT, '.acceptance', 'production-C');
@@ -76,6 +77,10 @@ function run(command, args, { input, env, allowFailure = false, quiet = false, c
     if (input !== undefined) child.stdin.end(input);
     else child.stdin.end();
   });
+}
+
+async function dockerResult(args, options = {}) {
+  return run('docker', args, { quiet: true, allowFailure: true, ...options });
 }
 
 const secret = () => randomBytes(18).toString('base64url');
@@ -194,6 +199,10 @@ async function up() {
       `${prefix}_MIGRATION_PASSWORD=${credentials.services[service].migrate}`,
     ];
   });
+
+  for (const image of Object.values(IMAGES)) {
+    await pullImageWithMirrors(image, dockerResult, { quiet: false });
+  }
 
   await run('docker', [
     'run',
