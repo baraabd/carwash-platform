@@ -498,7 +498,10 @@ export function parseReserved(v: unknown): ReservedObject {
 }
 
 export function parseReadUrl(v: unknown): PresignedRead {
-  const r = obj(v, 'readUrl', ['method', 'url', 'expiresAt']);
+  const r = obj(v, 'readUrl', ['method', 'url', 'headers', 'expiresAt']);
+  // C2 returns the signed headers of every presigned request. An <img> cannot
+  // send headers, so only a read URL that needs none is usable.
+  obj(r.headers, 'readUrl.headers', []);
   const url = str(r.url, 'readUrl.url', 4096);
   if (!/^https?:\/\//.test(url)) throw new ShapeError('readUrl.url');
   return {

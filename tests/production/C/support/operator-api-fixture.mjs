@@ -757,7 +757,7 @@ export async function startOperatorFixture({
       }
       if (object.status !== 'AVAILABLE') refuse(409, 'CONFLICT', 'OBJECT_NOT_AVAILABLE');
       const { url, expiresAt } = presign(object.objectId, 'GET', 120_000);
-      return [200, { method: 'GET', url, expiresAt }];
+      return [200, { method: 'GET', url, headers: {}, expiresAt }];
     }
     refuse(404, 'NOT_FOUND');
   }
