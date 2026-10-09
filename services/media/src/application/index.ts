@@ -1,7 +1,7 @@
 /**
- * media application layer.
- *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
+ * media application layer: commands, queries and the purge passes.
  */
-export {};
+export * from './authorization';
+export * from './canonical-json';
+export * from './policy';
+export * from './media.service';
