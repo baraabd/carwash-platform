@@ -10,8 +10,9 @@ import type { Money } from './money';
  *  - Choosing a method or reporting a transaction number NEVER means money was
  *    received. Only a MATCHED reconciliation increases the verified amount.
  *  - A reconciliation that cannot be decided is UNKNOWN, never success.
- *  - Cash after the wash stays AWAITING_CASH_COLLECTION here; collection and
- *    custody are separate, later Billing/Wallet operations (owner decision B-07).
+ *  - Cash after the wash stays AWAITING_CASH_COLLECTION until an authorised
+ *    collection receipt (domain/cash.ts) moves it to SUCCEEDED; custody,
+ *    handover and settlement are separate facts after that.
  */
 export const PAYMENT_METHODS = ['CASH_ON_COMPLETION', 'SHAM_CASH', 'SYRIATEL_CASH'] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
@@ -203,6 +204,8 @@ export function planVoid(input: {
 export const FINANCIAL_STATUSES = [
   'VOIDED',
   'PAID',
+  /** Settled by an authorised cash collection receipt; company custody is a separate fact. */
+  'CASH_COLLECTED',
   'UNPAID',
   'AWAITING_CASH',
   'AWAITING_PAYMENT',
@@ -211,14 +214,20 @@ export const FINANCIAL_STATUSES = [
 ] as const;
 export type FinancialStatus = (typeof FINANCIAL_STATUSES)[number];
 
-/** Customer-facing financial summary derived only from server facts. */
+/**
+ * Customer-facing financial summary derived only from server facts. An
+ * obligation settled by cash shows CASH_COLLECTED, never PAID: the customer
+ * owes nothing, but whether that cash reached the company is a separate
+ * custody/settlement fact.
+ */
 export function financialStatus(input: {
   readonly obligation: ObligationState;
   readonly activeIntent: IntentState | null;
   readonly hasUnknownAttempt: boolean;
+  readonly settledByCash: boolean;
 }): FinancialStatus {
   if (input.obligation.status === 'VOIDED') return 'VOIDED';
-  if (input.obligation.status === 'SETTLED') return 'PAID';
+  if (input.obligation.status === 'SETTLED') return input.settledByCash ? 'CASH_COLLECTED' : 'PAID';
   const intent = input.activeIntent;
   if (!intent) return 'UNPAID';
   switch (intent.status) {

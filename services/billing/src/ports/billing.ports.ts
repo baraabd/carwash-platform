@@ -6,6 +6,7 @@ import type {
   ObligationStatus,
   PaymentMethod,
 } from '../domain';
+import type { CashReceiptRecord, CustodyReader, CustodyStore } from './custody.ports';
 
 export type PrincipalKind = 'account' | 'guest';
 
@@ -74,6 +75,12 @@ export const AUDIT_ACTIONS = [
   'billing.intent.initialized',
   'billing.attempt.submitted',
   'billing.attempt.reconciled',
+  'billing.cash.collected',
+  'billing.cash.reversed',
+  'billing.custody.handover-declared',
+  'billing.custody.handover-cancelled',
+  'billing.custody.handover-received',
+  'billing.custody.handover-reconciled',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
@@ -82,8 +89,11 @@ export interface AuditRecord {
   readonly occurredAt: Date;
   readonly actor: PrincipalRef;
   readonly action: AuditAction;
-  readonly obligationId: string;
+  /** Null only for handover-scoped custody facts (then handoverId is set). */
+  readonly obligationId: string | null;
   readonly attemptId: string | null;
+  readonly receiptId: string | null;
+  readonly handoverId: string | null;
   /** A fixed machine value (status or outcome), never free text. */
   readonly outcome: string;
   readonly correlationId: string;
@@ -136,6 +146,8 @@ export interface FinancialSnapshot {
   readonly activeIntent: IntentRecord | null;
   /** Newest first. */
   readonly attempts: readonly AttemptRecord[];
+  /** The effective (non-reversed) cash collection receipt, if any. */
+  readonly cashReceipt: CashReceiptRecord | null;
 }
 
 export interface ObligationChange {
@@ -151,9 +163,11 @@ export interface AttemptReconciliation {
   readonly observed: Money | null;
 }
 
+/** Exactly one of obligationId / handoverId is set (ledger_journal_scope). */
 export interface JournalMeta {
   readonly id: string;
-  readonly obligationId: string;
+  readonly obligationId: string | null;
+  readonly handoverId: string | null;
   readonly postedAt: Date;
   readonly correlationId: string;
 }
@@ -190,6 +204,7 @@ export interface BillingUnitOfWork {
   postJournal(journal: JournalPlan, meta: JournalMeta): Promise<void>;
   appendAudit(record: AuditRecord): Promise<void>;
   appendOutbox(event: OutboxEvent): Promise<void>;
+  readonly custody: CustodyStore;
 }
 
 export interface BillingRepository {
@@ -202,6 +217,7 @@ export interface BillingRepository {
   snapshot(obligationId: string): Promise<FinancialSnapshot | null>;
   obligationIdForQuote(quoteId: string): Promise<string | null>;
   obligationIdForAttempt(attemptId: string): Promise<string | null>;
+  readonly custody: CustodyReader;
 }
 
 /** A priced quote as confirmed by its owner, Pricing, for the calling principal. */

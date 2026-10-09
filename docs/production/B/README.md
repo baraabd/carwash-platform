@@ -1,5 +1,22 @@
 # Lane B — Commerce & Finance production work
 
+## P03-B — Cash collection, receipt, technician custody and settlement
+
+Parent status: **INTEGRATION_PENDING**. Not production-ready, not deployed, not
+integrated; production cash collection fails closed (503) until lane C publishes
+work completion and Identity grants the CR-B-08 permissions. Started from main
+`a14997a20b85341a24f17e7878d2a188eea3fe36` (tree
+`0261a7ede0bf05c02ef5eb1f56b2afe6cfabba6b`), refreshed on 2026-10-09; the audited
+`f875d31` was no longer current.
+
+| Child | Branch | Scope | Status |
+| ----- | ------ | ----- | ------ |
+| B1 | `prod/p03-b-implement-cash-collection--receipt--technician-custody-b1` | Billing cash receipt, linked reversal, technician custody ledger, handover, treasury receipt with explicit shortage/overage, settlement reconciliation, COMMIT-time invariants, real PG races | PR open — review required |
+| E-req | (Lane E / C) | CR-B-08: permissions, cash/custody events, work-completion read (C), `billing.v1` routes and Gateway aliases — `CONTRACT_REQUEST_E_BILLING.md` | SUBMITTED, not accepted |
+| B2 | (after E) | Wallet read projection of technician custody from Billing postings (no second ledger) | NOT STARTED — blocked on registered events |
+
+Details, evidence and blockers B-P03-01..05: `P03-B1-CASH-CUSTODY.md`.
+
 ## P02-B — Billing obligation and PaymentIntent core
 
 Parent status: **INTEGRATION_PENDING**. Not production-ready, not deployed, not
