@@ -26,7 +26,7 @@ const deterministicScreenshot = Object.freeze({
   fullPage: true,
   animations: 'disabled',
   caret: 'hide',
-  // Browser scrollbars, finite CSS transitions and compositor-only filters are
+  // Browser scrollbars, finite CSS transitions and backdrop-only filters are
   // browser/transient state, not part of the approved UI contract. Hiding them
   // during capture leaves layout/overflow measurements intact while keeping
   // rasterization deterministic for reference and future candidate captures.
@@ -36,7 +36,6 @@ const deterministicScreenshot = Object.freeze({
     *, *::before, *::after {
       animation: none !important;
       transition: none !important;
-      filter: none !important;
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
     }
