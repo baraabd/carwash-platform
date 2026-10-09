@@ -92,3 +92,14 @@ reference's inline declarations through the CSSOM, so `style-src 'self'` holds.
 The P03-C integration candidate runs `tests/production/C/operator-web-journey.test.mjs`
 with the harness upstreams pointed at the real services (no fixture), plus the
 published gateway in front of the built `apps/operator-web/dist`.
+
+## Lint configuration (merge-order blocker)
+
+`eslint.config.mjs` (Lane E) matches `apps/operator-web/src/**/*.ts` only in a
+globals block without a TypeScript parser, so `pnpm lint` (sprint-02-ci) cannot
+parse the typed operator-web sources and fails. Requested change: remove
+`apps/operator-web/src/**/*.ts` from that block and add it to the type-aware
+block's `files` (with `apps/operator-web/tsconfig.json` reachable by the
+project service). The sources were linted clean under exactly that
+configuration as a temporary local config; no rule was relaxed. Merge E's
+change before (or together with) this PR.
