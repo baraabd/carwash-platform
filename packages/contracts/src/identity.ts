@@ -25,6 +25,10 @@ export const IDENTITY_PERMISSIONS = [
   'verification.review',
   'identity.accounts.suspend',
   'identity.roles.assign',
+  // Additive, P03-E1: owner-requested staff capabilities (CR-B1-2, CR-B2-2, CR-B-03).
+  'catalog.publish',
+  'pricing.publish',
+  'billing.reconcile',
 ] as const;
 export type IdentityPermission = (typeof IDENTITY_PERMISSIONS)[number];
 export type AccountStatus = 'ACTIVE' | 'SUSPENDED';
