@@ -18,6 +18,8 @@ export class IdentityAuthFailure extends Error {
 
 export interface IdentitySession {
   readonly subject: string;
+  /** Identity's own principal kind; a guest is never upgraded by this service. */
+  readonly principalKind: 'account' | 'guest';
   readonly permissions: readonly string[];
 }
 
@@ -76,8 +78,9 @@ export class IdentitySessionClient {
 /** Anti-corruption parse of Identity V1 `IdentitySessionView`; extra fields are ignored. */
 function parseSession(body: unknown): IdentitySession {
   if (typeof body !== 'object' || body === null) throw new IdentityAuthFailure('UNAVAILABLE');
-  const { subject, permissions } = body as Record<string, unknown>;
+  const { subject, permissions, principalKind } = body as Record<string, unknown>;
   if (
+    (principalKind !== 'account' && principalKind !== 'guest') ||
     typeof subject !== 'string' ||
     !UUID.test(subject) ||
     !Array.isArray(permissions) ||
@@ -86,5 +89,5 @@ function parseSession(body: unknown): IdentitySession {
   ) {
     throw new IdentityAuthFailure('UNAVAILABLE');
   }
-  return { subject: subject.toLowerCase(), permissions };
+  return { subject: subject.toLowerCase(), principalKind, permissions };
 }

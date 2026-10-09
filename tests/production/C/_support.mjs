@@ -170,3 +170,17 @@ export async function dockerRestart(container) {
     );
   });
 }
+
+/** Published contract parsers, loaded from the BUILT shared packages (`pnpm run build:packages`). */
+export function publishedContracts() {
+  const load = (pkg, file) => {
+    const target = path.join(ROOT, 'packages', pkg, 'dist', file);
+    if (!existsSync(target)) throw new Error(`Missing ${target}. Run: pnpm run build:packages`);
+    return require(target);
+  };
+  return {
+    scheduling: load('contracts', path.join('scheduling', 'v1.js')),
+    errors: load('contracts', path.join('common', 'errors.js')),
+    events: load('event-contracts', 'business-v1.js'),
+  };
+}

@@ -65,10 +65,12 @@ export function holdUnits(
   window: CapacityWindowState,
   units: number,
   now: Date,
+  /** The held slot's start; a slot inside a long window may begin after it. */
+  slotStartsAt: Date = window.startsAt,
 ): CapacityWindowState {
   if (window.status !== 'OPEN') throw new SchedulingError('WINDOW_CLOSED', 'Window is closed.');
-  if (window.startsAt.getTime() <= now.getTime()) {
-    throw new SchedulingError('WINDOW_STARTED', 'Window has already started.');
+  if (slotStartsAt.getTime() <= now.getTime()) {
+    throw new SchedulingError('WINDOW_STARTED', 'The slot has already started.');
   }
   if (freeUnits(window) < units) {
     throw new SchedulingError('CAPACITY_EXHAUSTED', 'No capacity left in this window.');

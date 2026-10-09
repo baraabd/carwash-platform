@@ -17,7 +17,13 @@ export type SchedulingErrorCode =
   | 'HOLD_EXPIRED'
   | 'HOLD_NOT_ACTIVE'
   | 'IDEMPOTENCY_KEY_REUSED'
+  | 'IDEMPOTENCY_KEY_REQUIRED'
+  | 'IDEMPOTENCY_IN_PROGRESS'
   | 'VERSION_CONFLICT'
+  | 'SLOT_UNAVAILABLE'
+  | 'OUTSIDE_HORIZON'
+  | 'HOLD_LIMIT_REACHED'
+  | 'BOOKING_ALREADY_COMMITTED'
   | 'FORBIDDEN';
 
 export class SchedulingError extends Error {

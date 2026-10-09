@@ -12,10 +12,22 @@ import {
   Res,
   UseFilters,
 } from '@nestjs/common';
-import { SchedulingService } from '../../application';
-import { invalid, isReleaseReason, type CapacityWindowState, type HoldState } from '../../domain';
+import { CapacityService, HoldsV1Service, holdView } from '../../application';
+import type { CapacityWindowState } from '../../domain';
+import type { StoredResponse } from '../../ports';
 import { ActorResolver, type HeaderBag } from './actor-resolver';
-import { SchedulingHttpFilter } from './http-errors';
+import { RequestInvalid, SchedulingHttpFilter } from './http-errors';
+import {
+  closed,
+  commitRequest,
+  holdRequest,
+  integer,
+  localDate,
+  queryInteger,
+  releaseRequest,
+  utc,
+  uuid,
+} from './wire';
 
 export const SCHEDULING_V1 = '/internal/v1/scheduling';
 
@@ -23,43 +35,7 @@ interface StatusResponse {
   status(code: number): StatusResponse;
 }
 
-function objectBody(
-  body: unknown,
-  allowed: readonly string[],
-  required: readonly string[],
-): Record<string, unknown> {
-  if (typeof body !== 'object' || body === null || Array.isArray(body))
-    throw invalid('Body must be a JSON object.');
-  const record = body as Record<string, unknown>;
-  for (const key of Object.keys(record)) {
-    if (!allowed.includes(key)) throw invalid(`Unexpected field: ${key.slice(0, 40)}.`);
-  }
-  for (const key of required) if (!(key in record)) throw invalid(`Missing field: ${key}.`);
-  return record;
-}
-
-function str(value: unknown, field: string): string {
-  if (typeof value !== 'string' || value.length > 200) throw invalid(`${field} must be a string.`);
-  return value;
-}
-
-function int(value: unknown, field: string): number {
-  if (typeof value !== 'number' || !Number.isSafeInteger(value))
-    throw invalid(`${field} must be an integer.`);
-  return value;
-}
-
-const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
-
-/** UTC instants only; an offset-less or local time is rejected, never guessed. */
-function instant(value: unknown, field: string): Date {
-  const text = str(value, field);
-  if (!INSTANT.test(text)) throw invalid(`${field} must be a UTC ISO-8601 instant.`);
-  const date = new Date(text);
-  if (!Number.isFinite(date.getTime())) throw invalid(`${field} is not a valid instant.`);
-  return date;
-}
-
+/** Owner-only staff surface (not part of scheduling.v1); kept for operations. */
 export function windowView(window: CapacityWindowState) {
   return {
     windowId: window.id,
@@ -74,138 +50,167 @@ export function windowView(window: CapacityWindowState) {
   };
 }
 
-/** Client id, fingerprint and idempotency key are internal and never returned. */
-export function holdView(hold: HoldState) {
-  return {
-    holdId: hold.id,
-    windowId: hold.windowId,
-    holderRef: hold.holderRef,
-    units: hold.units,
-    status: hold.status,
-    expiresAt: hold.expiresAt.toISOString(),
-    releaseReason: hold.releaseReason,
-    version: hold.version,
-  };
+function key(req: HeaderBag): string | undefined {
+  const value = req.headers['idempotency-key'];
+  if (Array.isArray(value)) throw new RequestInvalid('header.idempotency-key');
+  return value;
+}
+
+function send(res: StatusResponse, stored: StoredResponse): unknown {
+  res.status(stored.status);
+  return stored.body;
 }
 
 @Controller(SCHEDULING_V1)
 @UseFilters(SchedulingHttpFilter)
 export class SchedulingController {
   constructor(
-    @Inject(SchedulingService) private readonly scheduling: SchedulingService,
+    @Inject(HoldsV1Service) private readonly holds: HoldsV1Service,
+    @Inject(CapacityService) private readonly capacity: CapacityService,
     @Inject(ActorResolver) private readonly actors: ActorResolver,
   ) {}
+
+  // ------------------------------------------------- scheduling.v1 (public)
+
+  @Get('availability')
+  async availability(
+    @Req() req: HeaderBag,
+    @Query() query: Record<string, unknown>,
+  ): Promise<unknown> {
+    this.actors.takePublic(req);
+    const q = closed(query, 'query', ['zoneId', 'date', 'durationMinutes']);
+    return this.holds.availability({
+      zoneId: uuid(q.zoneId, 'query.zoneId'),
+      date: localDate(q.date, 'query.date'),
+      durationMinutes: queryInteger(q.durationMinutes, 'query.durationMinutes', 5, 480),
+    });
+  }
+
+  @Get('availability/earliest')
+  async earliest(@Req() req: HeaderBag, @Query() query: Record<string, unknown>): Promise<unknown> {
+    this.actors.takePublic(req);
+    const q = closed(query, 'query', ['zoneId', 'durationMinutes']);
+    return this.holds.earliest({
+      zoneId: uuid(q.zoneId, 'query.zoneId'),
+      durationMinutes: queryInteger(q.durationMinutes, 'query.durationMinutes', 5, 480),
+    });
+  }
+
+  // ---------------------------------------------- scheduling.v1 (holds)
+
+  @Post('holds')
+  async createHold(
+    @Req() req: HeaderBag,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: StatusResponse,
+  ): Promise<unknown> {
+    const meta = await this.actors.resolve(req);
+    return send(res, await this.holds.createHold(meta, holdRequest(body), key(req)));
+  }
+
+  @Get('holds/:holdId')
+  async getHold(@Req() req: HeaderBag, @Param('holdId') holdId: string): Promise<unknown> {
+    const meta = await this.actors.resolve(req);
+    return this.holds.getHold(meta, uuid(holdId, 'path.holdId'));
+  }
+
+  @Post('holds/:holdId/commit')
+  async commitHold(
+    @Req() req: HeaderBag,
+    @Param('holdId') holdId: string,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: StatusResponse,
+  ): Promise<unknown> {
+    const meta = await this.actors.resolve(req);
+    return send(
+      res,
+      await this.holds.commitHold(meta, uuid(holdId, 'path.holdId'), commitRequest(body), key(req)),
+    );
+  }
+
+  @Post('holds/:holdId/release')
+  async releaseHold(
+    @Req() req: HeaderBag,
+    @Param('holdId') holdId: string,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: StatusResponse,
+  ): Promise<unknown> {
+    const meta = await this.actors.resolve(req);
+    return send(
+      res,
+      await this.holds.releaseHold(
+        meta,
+        uuid(holdId, 'path.holdId'),
+        releaseRequest(body),
+        key(req),
+      ),
+    );
+  }
+
+  // ------------------------------------------- owner staff surface (ops)
 
   @Post('windows')
   async defineWindow(
     @Req() req: HeaderBag,
     @Body() body: unknown,
     @Res({ passthrough: true }) res: StatusResponse,
-  ) {
+  ): Promise<unknown> {
     const meta = await this.actors.resolve(req);
-    const input = objectBody(
-      body,
-      ['zoneId', 'startsAt', 'endsAt', 'capacity'],
-      ['zoneId', 'startsAt', 'endsAt', 'capacity'],
-    );
-    const result = await this.scheduling.defineWindow(meta, {
-      zoneId: str(input.zoneId, 'zoneId'),
-      startsAt: instant(input.startsAt, 'startsAt'),
-      endsAt: instant(input.endsAt, 'endsAt'),
-      capacity: int(input.capacity, 'capacity'),
+    const input = closed(body, '$', ['zoneId', 'startsAt', 'endsAt', 'capacity']);
+    const result = await this.capacity.defineWindow(meta, {
+      zoneId: uuid(input.zoneId, '$.zoneId'),
+      startsAt: utc(input.startsAt, '$.startsAt'),
+      endsAt: utc(input.endsAt, '$.endsAt'),
+      capacity: integer(input.capacity, '$.capacity', 0, 500),
     });
     res.status(result.replayed ? 200 : 201);
     return windowView(result.value);
   }
 
   @Patch('windows/:id/capacity')
-  async changeCapacity(@Req() req: HeaderBag, @Param('id') id: string, @Body() body: unknown) {
+  async changeCapacity(
+    @Req() req: HeaderBag,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<unknown> {
     const meta = await this.actors.resolve(req);
-    const input = objectBody(
-      body,
-      ['capacity', 'expectedVersion'],
-      ['capacity', 'expectedVersion'],
-    );
+    const input = closed(body, '$', ['capacity', 'expectedVersion']);
     return windowView(
-      await this.scheduling.changeCapacity(meta, id, {
-        capacity: int(input.capacity, 'capacity'),
-        expectedVersion: int(input.expectedVersion, 'expectedVersion'),
+      await this.capacity.changeCapacity(meta, uuid(id, 'path.id'), {
+        capacity: integer(input.capacity, '$.capacity', 0, 500),
+        expectedVersion: integer(input.expectedVersion, '$.expectedVersion', 1, 2_147_483_647),
       }),
     );
   }
 
   @Post('windows/:id/close')
   @HttpCode(200)
-  async closeWindow(@Req() req: HeaderBag, @Param('id') id: string, @Body() body: unknown) {
-    const meta = await this.actors.resolve(req);
-    const input = objectBody(body, ['expectedVersion'], ['expectedVersion']);
-    return windowView(
-      await this.scheduling.closeWindow(meta, id, int(input.expectedVersion, 'expectedVersion')),
-    );
-  }
-
-  @Get('availability')
-  async availability(
+  async closeWindow(
     @Req() req: HeaderBag,
-    @Query('zoneId') zoneId: unknown,
-    @Query('from') from: unknown,
-    @Query('to') to: unknown,
-  ) {
-    const meta = await this.actors.resolve(req);
-    const slots = await this.scheduling.availability(meta, {
-      zoneId: str(zoneId, 'zoneId'),
-      from: instant(from, 'from'),
-      to: instant(to, 'to'),
-    });
-    return { slots };
-  }
-
-  @Post('holds')
-  async acquireHold(
-    @Req() req: HeaderBag,
+    @Param('id') id: string,
     @Body() body: unknown,
-    @Res({ passthrough: true }) res: StatusResponse,
-  ) {
+  ): Promise<unknown> {
     const meta = await this.actors.resolve(req);
-    const input = objectBody(
-      body,
-      ['windowId', 'holderRef', 'units', 'ttlSeconds'],
-      ['windowId', 'holderRef', 'units'],
+    const input = closed(body, '$', ['expectedVersion']);
+    return windowView(
+      await this.capacity.closeWindow(
+        meta,
+        uuid(id, 'path.id'),
+        integer(input.expectedVersion, '$.expectedVersion', 1, 2_147_483_647),
+      ),
     );
-    const key = req.headers['idempotency-key'];
-    const result = await this.scheduling.acquireHold(meta, {
-      windowId: str(input.windowId, 'windowId'),
-      holderRef: str(input.holderRef, 'holderRef'),
-      units: int(input.units, 'units'),
-      ...(input.ttlSeconds === undefined
-        ? {}
-        : { ttlSeconds: int(input.ttlSeconds, 'ttlSeconds') }),
-      idempotencyKey: typeof key === 'string' ? key : '',
-    });
-    res.status(result.replayed ? 200 : 201);
-    return holdView(result.value);
   }
 
-  @Get('holds/:id')
-  async getHold(@Req() req: HeaderBag, @Param('id') id: string) {
-    const meta = await this.actors.resolve(req);
-    return holdView(await this.scheduling.getHold(meta, id));
-  }
-
-  @Post('holds/:id/confirm')
+  /** Staff override of a held or committed hold (audited). */
+  @Post('holds/:holdId/override-release')
   @HttpCode(200)
-  async confirmHold(@Req() req: HeaderBag, @Param('id') id: string, @Body() body: unknown) {
+  async overrideRelease(
+    @Req() req: HeaderBag,
+    @Param('holdId') holdId: string,
+    @Body() body: unknown,
+  ): Promise<unknown> {
     const meta = await this.actors.resolve(req);
-    objectBody(body ?? {}, [], []);
-    return holdView((await this.scheduling.confirmHold(meta, id)).value);
-  }
-
-  @Post('holds/:id/release')
-  @HttpCode(200)
-  async releaseHold(@Req() req: HeaderBag, @Param('id') id: string, @Body() body: unknown) {
-    const meta = await this.actors.resolve(req);
-    const input = objectBody(body, ['reason'], ['reason']);
-    if (!isReleaseReason(input.reason)) throw invalid('Unknown release reason.');
-    return holdView(await this.scheduling.releaseHold(meta, id, input.reason));
+    closed(body ?? {}, '$', []);
+    return holdView(await this.capacity.overrideRelease(meta, uuid(holdId, 'path.holdId')));
   }
 }

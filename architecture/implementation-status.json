@@ -256,6 +256,7 @@
         "ServiceMarker",
         "CapacityWindow",
         "CapacityHold",
+        "IdempotencyRecord",
         "OutboxMessage",
         "AuditEntry"
       ],
