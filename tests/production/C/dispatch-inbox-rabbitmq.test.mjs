@@ -32,11 +32,11 @@ const { BrokerConnection, InboxConsumer, assertTopology } = messaging();
 
 const CRASH_CONSUMER = path.join(
   ROOT,
-  'services',
-  'dispatch',
-  'test',
+  'tests',
+  'production',
+  'C',
   'support',
-  'crash-consumer.mjs',
+  'dispatch-crash-consumer.mjs',
 );
 const RUN = randomUUID().slice(0, 8);
 const QUEUE = `dispatch.hold-changed.${RUN}`;

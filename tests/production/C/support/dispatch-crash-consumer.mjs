@@ -1,30 +1,28 @@
 /**
- * Child process for the crash-before-ACK test (tests/production/C/dispatch-inbox-rabbitmq.test.mjs).
+ * Child process for the crash-before-ACK test.
  *
  * Runs the real InboxConsumer with the compiled dispatch consumer parts. After
  * the inbox transaction COMMITS and before the ACK it prints one line and then
  * blocks forever, so the parent can SIGKILL it exactly in the gap where a crash
  * turns into a broker redelivery.
  *
- *   node crash-consumer.mjs <queue>    (CW_PROD_C_CONTEXT must point at the stack context)
+ *   node dispatch-crash-consumer.mjs <queue>
  */
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import path from 'node:path';
 import process from 'node:process';
-import { fileURLToPath } from 'node:url';
+import { messaging, serviceDist } from '../_support.mjs';
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(HERE, '..', '..', '..', '..');
-const require = createRequire(import.meta.url);
-const dist = (relative) => require(path.join(ROOT, 'services', 'dispatch', 'dist', relative));
-const { BrokerConnection, InboxConsumer } = require(
-  path.join(ROOT, 'packages', 'platform-messaging', 'dist', 'index.js'),
+const { BrokerConnection, InboxConsumer } = messaging();
+const { PrismaService } = serviceDist('dispatch', 'infrastructure/persistence/prisma.service.js');
+const { PrismaDispatchStore } = serviceDist(
+  'dispatch',
+  'infrastructure/persistence/prisma-dispatch.store.js',
 );
-const { PrismaService } = dist('infrastructure/persistence/prisma.service.js');
-const { PrismaDispatchStore } = dist('infrastructure/persistence/prisma-dispatch.store.js');
-const { holdChangedConsumerParts } = dist('transport/messaging/hold-changed.consumer.js');
-const { systemClock, uuidGenerator } = dist('infrastructure/runtime/system.js');
+const { holdChangedConsumerParts } = serviceDist(
+  'dispatch',
+  'transport/messaging/hold-changed.consumer.js',
+);
+const { systemClock, uuidGenerator } = serviceDist('dispatch', 'infrastructure/runtime/system.js');
 
 const queue = process.argv[2];
 const context = JSON.parse(readFileSync(process.env.CW_PROD_C_CONTEXT, 'utf8'));
