@@ -31,7 +31,7 @@ test('suite preflight rejects invalid selections and absent suites before infras
     );
     await writeFile(path.join(root, 'tests/production/A/geo.integration.test.mjs'), '');
     const geo = acceptancePlan(['--services', 'geo'], root);
-    assert.match(geo.scope, /authentication and Redis behavior are not exercised/);
+    assert.match(geo.scope, /Real Identity Nest application and Redis/);
     const mixed = acceptancePlan(['--services', 'vehicle,geo', '--keep'], root);
     assert.match(mixed.scope, /Real Identity Nest application and Redis/);
     assert.match(mixed.scope, /OTP delivery port is captured/);

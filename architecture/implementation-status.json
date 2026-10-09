@@ -428,6 +428,8 @@
       "persistenceModels": [
         "ServiceMarker",
         "ServiceZone",
+        "GeoDatasetState",
+        "ServiceabilityDecision",
         "OutboxMessage",
         "AuditEntry"
       ],

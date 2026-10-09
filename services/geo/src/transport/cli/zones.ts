@@ -15,7 +15,7 @@ import { randomIds, systemClock } from '../../infrastructure/system/system';
  *   node dist/transport/cli/zones.js retire <code> --revision <n> --actor <label>
  *
  * A zones file is one zone definition or an array of them:
- *   {code, name, datasetRef, polygon: [[lng, lat], ...]}  (decimal strings)
+ *   {code, name, nameEn?, datasetRef, polygon: [[lng, lat], ...]}  (decimal strings)
  * `datasetRef` must name the APPROVED dataset the polygon came from. This
  * repository ships no zone data; nothing here may be fed invented geography.
  * Runs with the service RUNTIME identity (DATABASE_URL); prints one JSON line
@@ -37,6 +37,14 @@ function refusal(error: unknown): string {
     return 'field' in error && error.field ? `${error.code}:${error.field}` : error.code;
   }
   return 'INTERNAL_ERROR';
+}
+
+function diagnosis(error: unknown): { name: string; code: string | null } {
+  const e = error as { name?: unknown; code?: unknown } | null;
+  return {
+    name: typeof e?.name === 'string' ? e.name : 'unknown',
+    code: typeof e?.code === 'string' ? e.code : null,
+  };
 }
 
 async function main(argv: readonly string[]): Promise<number> {
@@ -73,7 +81,10 @@ async function main(argv: readonly string[]): Promise<number> {
         );
       } catch (error) {
         failures += 1;
-        console.log(JSON.stringify({ target: label, outcome: 'refused', code: refusal(error) }));
+        const code = refusal(error);
+        // Diagnosis without data: the error class and driver code only, never a message.
+        if (code === 'INTERNAL_ERROR') console.error(JSON.stringify(diagnosis(error)));
+        console.log(JSON.stringify({ target: label, outcome: 'refused', code }));
       }
     };
     if (command === 'retire') {

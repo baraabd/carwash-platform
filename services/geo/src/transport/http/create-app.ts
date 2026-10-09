@@ -2,8 +2,19 @@ import type { INestApplication } from '@nestjs/common';
 import { isIP } from 'node:net';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { AppExceptionFilter, createLogger } from '@carwash/service-kit';
+import { createLogger } from '@carwash/service-kit';
 import { AppModule } from '../../app.module';
+import {
+  CORRELATION_ID_HEADER,
+  GeoErrorFilter,
+  REQUEST_ID_HEADER,
+  requestIds,
+  type IdentifiedRequest,
+} from './error-envelope';
+
+interface IdResponse {
+  setHeader(name: string, value: string): void;
+}
 
 /** Geo JSON bodies are small; anything larger is refused before parsing. */
 const BODY_LIMIT = '16kb';
@@ -30,7 +41,14 @@ export async function createHttpApplication(): Promise<INestApplication> {
   // Express walks X-Forwarded-For from the socket backwards and stops at the
   // first untrusted address. Direct callers cannot choose their own rate key.
   app.set('trust proxy', trustedProxies);
+  // Every response carries the request and correlation ids the caller can quote.
+  app.use((request: IdentifiedRequest, response: IdResponse, next: () => void) => {
+    const ids = requestIds(request);
+    response.setHeader(REQUEST_ID_HEADER, ids.requestId);
+    response.setHeader(CORRELATION_ID_HEADER, ids.correlationId);
+    next();
+  });
   app.useBodyParser('json', { limit: BODY_LIMIT });
-  app.useGlobalFilters(new AppExceptionFilter(createLogger({ service: 'geo' })));
+  app.useGlobalFilters(new GeoErrorFilter(createLogger({ service: 'geo' })));
   return app;
 }

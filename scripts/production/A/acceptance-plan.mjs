@@ -34,7 +34,8 @@ export function acceptancePlan(args, root) {
     }
     if (!present) throw new Error(`MISSING_ACCEPTANCE_SUITE: ${suite}`);
   }
-  const identityUsed = services.some((service) => service === 'customer' || service === 'vehicle');
+  // Since P02-A3 every Lane A suite authorizes through the real Identity (geo included).
+  const identityUsed = services.some((service) => ['customer', 'vehicle', 'geo'].includes(service));
   const scope =
     'Real PostgreSQL 16 (least-privilege roles from infra/postgres/provision.sh), ' +
     `real owner-service HTTP adapters on loopback (${services.join(', ')}). ` +

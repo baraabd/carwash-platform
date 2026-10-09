@@ -2,3 +2,4 @@
 export * from './errors';
 export * from './events';
 export * from './geo.application';
+export * from './serviceability.application';

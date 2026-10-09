@@ -1,7 +1,34 @@
-import type { Point, Zone, ZoneDefinition, ZoneStatus } from '../../domain';
-import { microToDecimal, ringFromStored, ringToJson } from '../../domain';
-import type { AuditEntry, GeoStore, GeoTransaction, NewZone, OutboxEvent } from '../../ports';
-import type { PrismaClient, ServiceZone } from '../../generated/prisma/client';
+import type {
+  Decision,
+  DecisionOutcome,
+  IndeterminateDetail,
+  IndeterminateReason,
+  Point,
+  Zone,
+  ZoneDefinition,
+  ZoneStatus,
+} from '../../domain';
+import {
+  fixedDecimal,
+  microToDecimal,
+  parseWirePoint,
+  ringFromStored,
+  ringToJson,
+} from '../../domain';
+import {
+  StoreUnavailableError,
+  type AuditEntry,
+  type CoverageSnapshot,
+  type GeoStore,
+  type GeoTransaction,
+  type NewZone,
+  type OutboxEvent,
+} from '../../ports';
+import type {
+  PrismaClient,
+  ServiceabilityDecision,
+  ServiceZone,
+} from '../../generated/prisma/client';
 import {
   Decimal,
   TransactionIsolationLevel,
@@ -17,6 +44,7 @@ function toZone(row: ServiceZone): Zone {
     id: row.id,
     code: row.code,
     name: row.name,
+    nameEn: row.nameEn,
     datasetRef: row.datasetRef,
     ring: ringFromStored(row.ring),
     status: row.status,
@@ -27,10 +55,81 @@ function toZone(row: ServiceZone): Zone {
   };
 }
 
+const OUTCOMES: readonly DecisionOutcome[] = ['SERVICEABLE', 'OUTSIDE_ZONE', 'INDETERMINATE'];
+const REASONS: readonly IndeterminateReason[] = ['GEO_DATASET_UNAVAILABLE', 'LOCATION_UNRESOLVED'];
+const DETAILS: readonly IndeterminateDetail[] = [
+  'NO_APPROVED_ZONES',
+  'ON_ZONE_BOUNDARY',
+  'OVERLAPPING_ZONES',
+];
+
+function oneOrNull<T extends string>(value: string | null, allowed: readonly T[]): T | null {
+  if (value === null) return null;
+  const found = allowed.find((candidate) => candidate === value);
+  if (found === undefined) throw new Error('CORRUPT_DECISION');
+  return found;
+}
+
+/** Stored rows are re-validated on read; a corrupt row is an error, never a decision. */
+function toDecision(row: ServiceabilityDecision): Decision {
+  const outcome = oneOrNull(row.decision, OUTCOMES);
+  if (outcome === null) throw new Error('CORRUPT_DECISION');
+  const zone =
+    row.zoneId !== null && row.zoneRevision !== null
+      ? { zoneId: row.zoneId, revision: row.zoneRevision }
+      : null;
+  return {
+    id: row.id,
+    outcome,
+    zone,
+    reason: oneOrNull(row.reason, REASONS),
+    detail: oneOrNull(row.detail, DETAILS),
+    datasetRevision: row.datasetRevision,
+    point: parseWirePoint(
+      { latitude: row.latitude.toFixed(6), longitude: row.longitude.toFixed(6) },
+      'stored',
+    ),
+    checkedAt: row.checkedAt,
+    expiresAt: row.expiresAt,
+  };
+}
+
+/**
+ * Connection-level failures (PostgreSQL down or unreachable, pool exhausted,
+ * transaction start timeout) become StoreUnavailableError, so the transport
+ * answers 503 DEPENDENCY_UNAVAILABLE. Everything else propagates unchanged.
+ */
+const PRISMA_UNAVAILABLE = new Set(['P1001', 'P1002', 'P1008', 'P1017', 'P2024', 'P2028']);
+const PG_UNAVAILABLE = new Set(['57P01', '57P02', '57P03', '08000', '08001', '08003', '08006']);
+const NET_UNAVAILABLE = new Set(['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EPIPE']);
+
+function unavailable(error: unknown, depth = 0): boolean {
+  if (error === null || typeof error !== 'object' || depth > 4) return false;
+  const e = error as { name?: unknown; code?: unknown; cause?: unknown };
+  if (e.name === 'PrismaClientInitializationError') return true;
+  if (
+    typeof e.code === 'string' &&
+    (PRISMA_UNAVAILABLE.has(e.code) || PG_UNAVAILABLE.has(e.code) || NET_UNAVAILABLE.has(e.code))
+  ) {
+    return true;
+  }
+  return unavailable(e.cause, depth + 1);
+}
+
+async function guarded<T>(work: () => Promise<T>): Promise<T> {
+  try {
+    return await work();
+  } catch (error) {
+    if (unavailable(error)) throw new StoreUnavailableError();
+    throw error;
+  }
+}
+
 function zoneColumns(definition: ZoneDefinition) {
   const { bounds } = definition.ring;
   return {
     name: definition.name,
+    nameEn: definition.nameEn,
     datasetRef: definition.datasetRef,
     ring: ringToJson(definition.ring),
     minLat: new Decimal(microToDecimal(bounds.minLat)),
@@ -99,6 +198,16 @@ class PrismaGeoTransaction implements GeoTransaction {
     return row ? toZone(row) : null;
   }
 
+  async advanceDatasetRevision(now: Date): Promise<number> {
+    const rows = await this.tx.$queryRawUnsafe<{ revision: number }[]>(
+      `UPDATE "${this.schema}"."geo_dataset_state" SET revision = revision + 1, updated_at = $1 WHERE id = 1 RETURNING revision`,
+      now,
+    );
+    const revision = rows[0]?.revision;
+    if (revision === undefined) throw new Error('GEO_DATASET_STATE_MISSING');
+    return revision;
+  }
+
   async appendOutbox(event: OutboxEvent): Promise<void> {
     await this.tx.outboxMessage.create({
       data: {
@@ -139,35 +248,84 @@ export class PrismaGeoStore implements GeoStore {
   }
 
   async activeZones(): Promise<Zone[]> {
-    const rows = await this.client.serviceZone.findMany({
-      where: { status: 'ACTIVE' },
-      orderBy: [{ code: 'asc' }],
-    });
+    const rows = await guarded(() =>
+      this.client.serviceZone.findMany({
+        where: { status: 'ACTIVE' },
+        orderBy: [{ code: 'asc' }],
+      }),
+    );
     return rows.map(toZone);
   }
 
-  /** Both reads come from one REPEATABLE READ snapshot. */
-  coverageSnapshot(point: Point): Promise<{ anyActive: boolean; candidates: Zone[] }> {
+  /** All three reads come from one REPEATABLE READ snapshot. */
+  coverageSnapshot(point: Point): Promise<CoverageSnapshot> {
     const lat = new Decimal(point.latitude);
     const lng = new Decimal(point.longitude);
-    return this.client.$transaction(
-      async (tx) => {
-        const any = await tx.serviceZone.findFirst({
-          where: { status: 'ACTIVE' },
-          select: { id: true },
-        });
-        const rows = await tx.serviceZone.findMany({
-          where: {
-            status: 'ACTIVE',
-            minLat: { lte: lat },
-            maxLat: { gte: lat },
-            minLng: { lte: lng },
-            maxLng: { gte: lng },
-          },
-        });
-        return { anyActive: any !== null, candidates: rows.map(toZone) };
-      },
-      { ...TRANSACTION_OPTIONS, isolationLevel: TransactionIsolationLevel.RepeatableRead },
+    return guarded(() =>
+      this.client.$transaction(
+        async (tx) => {
+          const state = await tx.geoDatasetState.findUnique({ where: { id: 1 } });
+          if (!state) throw new Error('GEO_DATASET_STATE_MISSING');
+          const any = await tx.serviceZone.findFirst({
+            where: { status: 'ACTIVE' },
+            select: { id: true },
+          });
+          const rows = await tx.serviceZone.findMany({
+            where: {
+              status: 'ACTIVE',
+              minLat: { lte: lat },
+              maxLat: { gte: lat },
+              minLng: { lte: lng },
+              maxLng: { gte: lng },
+            },
+          });
+          return {
+            anyActive: any !== null,
+            candidates: rows.map(toZone),
+            datasetRevision: state.revision,
+          };
+        },
+        { ...TRANSACTION_OPTIONS, isolationLevel: TransactionIsolationLevel.RepeatableRead },
+      ),
+    );
+  }
+
+  async recordDecision(decision: Decision): Promise<void> {
+    await guarded(() =>
+      this.client.serviceabilityDecision.create({
+        data: {
+          id: decision.id,
+          decision: decision.outcome,
+          reason: decision.reason,
+          detail: decision.detail,
+          zoneId: decision.zone?.zoneId ?? null,
+          zoneRevision: decision.zone?.revision ?? null,
+          datasetRevision: decision.datasetRevision,
+          latitude: new Decimal(fixedDecimal(decision.point.lat)),
+          longitude: new Decimal(fixedDecimal(decision.point.lng)),
+          checkedAt: decision.checkedAt,
+          expiresAt: decision.expiresAt,
+        },
+      }),
+    );
+  }
+
+  async findDecision(id: string): Promise<Decision | null> {
+    const row = await guarded(() =>
+      this.client.serviceabilityDecision.findUnique({ where: { id } }),
+    );
+    return row ? toDecision(row) : null;
+  }
+
+  purgeDecisions(before: Date, limit: number): Promise<number> {
+    return guarded(() =>
+      this.client.$executeRawUnsafe(
+        `DELETE FROM "${this.schema}"."serviceability_decision"
+           WHERE id IN (SELECT id FROM "${this.schema}"."serviceability_decision"
+                         WHERE expires_at < $1 ORDER BY expires_at LIMIT $2)`,
+        before,
+        limit,
+      ),
     );
   }
 }

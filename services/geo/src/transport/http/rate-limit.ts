@@ -1,5 +1,5 @@
 /**
- * Per-replica fixed-window limiter for the guest-safe serviceability route.
+ * Per-replica fixed-window limiter for the serviceability route.
  *
  * It bounds abuse from one client on one replica. It is NOT a distributed
  * budget: N replicas allow up to N times the limit. A shared Redis budget needs
@@ -18,6 +18,11 @@ export class FixedWindowRateLimit {
   ) {
     if (!Number.isSafeInteger(perWindow) || perWindow < 1) throw new Error('INVALID_RATE_LIMIT');
     if (!Number.isSafeInteger(windowMs) || windowMs < 1_000) throw new Error('INVALID_RATE_WINDOW');
+  }
+
+  /** Milliseconds until the current window ends (at least 1). */
+  retryAfterMs(): number {
+    return Math.max(1, this.windowStart + this.windowMs - this.now());
   }
 
   take(key: string): boolean {

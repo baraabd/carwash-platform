@@ -174,20 +174,56 @@ test('geo: an invalid serviceability rate limit stops startup instead of guessin
   assert.ok(rateLimitFromEnv({}));
 });
 
-test('geo: invalid serviceability input is 422 before any database access', async () => {
+interface Envelope {
+  error: {
+    code: string;
+    retryable: boolean;
+    requestId: string;
+    correlationId: string;
+    issues: { field: string; code: string }[];
+  };
+}
+
+test('geo: serviceability fails closed without Identity; envelopes follow P01-E1', async () => {
   process.env.DATABASE_URL = DSN;
+  delete process.env.GEO_IDENTITY_ORIGIN;
   const app = await createHttpApplication();
   await app.listen(0, '127.0.0.1');
   try {
     const url = await app.getUrl();
-    const response = await fetch(url + '/internal/v1/geo/serviceability', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ coordinates: { crs: 'EPSG:4326', latitude: 'NaN', longitude: '0' } }),
+    const post = (route: string, body: string, headers: Record<string, string> = {}) =>
+      fetch(url + '/internal/v1/geo' + route, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...headers },
+        body,
+      });
+    const unconfigured = await post(
+      '/serviceability',
+      JSON.stringify({ point: { latitude: '0.500000', longitude: '0.500000' } }),
+      { authorization: 'Bearer anything', 'x-correlation-id': 'corr-1' },
+    );
+    assert.equal(unconfigured.status, 503);
+    const body = (await unconfigured.json()) as Envelope;
+    assert.equal(body.error.code, 'DEPENDENCY_UNAVAILABLE');
+    assert.equal(body.error.retryable, true);
+    assert.equal(body.error.correlationId, 'corr-1');
+    assert.equal(unconfigured.headers.get('x-correlation-id'), 'corr-1');
+    assert.equal(unconfigured.headers.get('cache-control'), 'no-store');
+
+    const malformed = await post('/serviceability', '{"point":');
+    assert.equal(malformed.status, 400);
+    assert.equal(((await malformed.json()) as Envelope).error.code, 'REQUEST_INVALID');
+
+    const validate = await post('/serviceability/validate', '{}', {
+      'x-service-client': 'booking',
+      'x-service-token': 'not-a-credential',
     });
-    assert.equal(response.status, 422);
-    const body = (await response.json()) as { error: { code: string } };
-    assert.equal(body.error.code, 'INVALID_COORDINATES');
+    assert.equal(validate.status, 403, 'service routes stay closed without workload identity');
+    assert.equal(((await validate.json()) as Envelope).error.code, 'AUTH_FORBIDDEN');
+
+    const unknown = await fetch(url + '/internal/v1/geo/zones/admin');
+    assert.equal(unknown.status, 404);
+    assert.equal(((await unknown.json()) as Envelope).error.code, 'NOT_FOUND');
   } finally {
     await app.close();
   }
@@ -222,10 +258,9 @@ async function clientRateStatuses(trustedProxy: string, forwarded: string[]) {
       const response = await fetch(base + '/internal/v1/geo/serviceability', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-forwarded-for': address },
-        // Invalid input exercises the actual transport and limiter without a DB.
-        body: JSON.stringify({
-          coordinates: { crs: 'EPSG:4326', latitude: 'NaN', longitude: '0' },
-        }),
+        // Without an Identity origin every admitted request fails closed (503)
+        // before any database access, which exercises the real limiter alone.
+        body: JSON.stringify({ point: { latitude: '0.500000', longitude: '0.500000' } }),
       });
       statuses.push(response.status);
     }
@@ -247,12 +282,12 @@ test('geo: clients behind one trusted proxy have independent rate budgets', asyn
       '198.51.100.20',
       '198.51.100.20',
     ]),
-    [422, 429, 422, 429],
+    [503, 429, 503, 429],
   );
 });
 
 test('geo: an untrusted caller cannot rotate forwarded addresses to evade its rate limit', async () => {
-  assert.deepEqual(await clientRateStatuses('', ['198.51.100.10', '198.51.100.20']), [422, 429]);
+  assert.deepEqual(await clientRateStatuses('', ['198.51.100.10', '198.51.100.20']), [503, 429]);
 });
 
 test('geo: spoofed prefixes cannot override the nearest untrusted forwarded hop', async () => {
@@ -261,6 +296,6 @@ test('geo: spoofed prefixes cannot override the nearest untrusted forwarded hop'
       '198.51.100.99, 198.51.100.10',
       '198.51.100.98, 198.51.100.10',
     ]),
-    [422, 429],
+    [503, 429],
   );
 });

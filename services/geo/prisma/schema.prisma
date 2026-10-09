@@ -34,6 +34,7 @@ model ServiceZone {
   id         String    @id @db.Uuid
   code       String    @unique(map: "service_zone_code_key") @db.VarChar(40)
   name       String    @db.VarChar(80)
+  nameEn     String?   @map("name_en") @db.VarChar(80)
   datasetRef String    @map("dataset_ref") @db.VarChar(120)
   ring       Json
   minLat     Decimal   @map("min_lat") @db.Decimal(9, 6)
@@ -48,6 +49,37 @@ model ServiceZone {
 
   @@index([status, minLat, maxLat, minLng, maxLng], map: "service_zone_active_bbox_idx")
   @@map("service_zone")
+}
+
+/// Singleton (id = 1): the revision of the whole zone dataset. Advanced in the
+/// same transaction as every zone change; a decision records the revision it
+/// was evaluated against.
+model GeoDatasetState {
+  id        Int      @id @db.SmallInt
+  revision  Int
+  updatedAt DateTime @map("updated_at") @db.Timestamptz(3)
+
+  @@map("geo_dataset_state")
+}
+
+/// geo.v1 serviceability decisions. Append-only (UPDATE refused by trigger);
+/// rows hold a precise point (personal data) and are purged after expiry +
+/// retention by the decisions job.
+model ServiceabilityDecision {
+  id              String   @id @db.Uuid
+  decision        String   @db.VarChar(16)
+  reason          String?  @db.VarChar(32)
+  detail          String?  @db.VarChar(32)
+  zoneId          String?  @map("zone_id") @db.Uuid
+  zoneRevision    Int?     @map("zone_revision")
+  datasetRevision Int      @map("dataset_revision")
+  latitude        Decimal  @db.Decimal(9, 6)
+  longitude       Decimal  @db.Decimal(9, 6)
+  checkedAt       DateTime @map("checked_at") @db.Timestamptz(3)
+  expiresAt       DateTime @map("expires_at") @db.Timestamptz(3)
+
+  @@index([expiresAt], map: "serviceability_decision_expires_idx")
+  @@map("serviceability_decision")
 }
 
 /// Transactional outbox. Rows are written with the state change they describe.

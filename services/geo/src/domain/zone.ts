@@ -19,7 +19,10 @@ export type ZoneStatus = 'ACTIVE' | 'RETIRED';
 export interface Zone {
   readonly id: string;
   readonly code: string;
+  /** Arabic display name (geo.v1 `name.ar`). */
   readonly name: string;
+  /** Optional English display name (geo.v1 `name.en`). */
+  readonly nameEn: string | null;
   readonly datasetRef: string;
   readonly ring: Ring;
   readonly status: ZoneStatus;
@@ -32,6 +35,7 @@ export interface Zone {
 export interface ZoneDefinition {
   readonly code: string;
   readonly name: string;
+  readonly nameEn: string | null;
   readonly datasetRef: string;
   readonly ring: Ring;
 }
@@ -45,26 +49,33 @@ export function parseZoneCode(raw: unknown): string {
   return raw;
 }
 
+function zoneName(raw: unknown, field: string): string {
+  const name = typeof raw === 'string' ? raw.normalize('NFC').trim().replace(/\s+/g, ' ') : '';
+  // eslint-disable-next-line no-control-regex
+  if (name.length < 2 || [...name].length > 80 || /[\u0000-\u001F\u007F-\u009F]/.test(name)) {
+    throw new GeoDomainError('INVALID_ZONE_NAME', field);
+  }
+  return name;
+}
+
 export function parseZoneDefinition(raw: unknown): ZoneDefinition {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw))
     throw new GeoDomainError('INVALID_INPUT');
   const value = raw as Record<string, unknown>;
   const extra = Object.keys(value).find(
-    (key) => !['code', 'name', 'datasetRef', 'polygon'].includes(key),
+    (key) => !['code', 'name', 'nameEn', 'datasetRef', 'polygon'].includes(key),
   );
   if (extra !== undefined) throw new GeoDomainError('INVALID_INPUT', extra);
-  const name =
-    typeof value.name === 'string' ? value.name.normalize('NFC').trim().replace(/\s+/g, ' ') : '';
-  // eslint-disable-next-line no-control-regex
-  if (name.length < 2 || [...name].length > 80 || /[\u0000-\u001F\u007F-\u009F]/.test(name)) {
-    throw new GeoDomainError('INVALID_ZONE_NAME', 'name');
-  }
+  const name = zoneName(value.name, 'name');
+  const nameEn =
+    value.nameEn === undefined || value.nameEn === null ? null : zoneName(value.nameEn, 'nameEn');
   if (typeof value.datasetRef !== 'string' || !DATASET_REF.test(value.datasetRef)) {
     throw new GeoDomainError('INVALID_DATASET_REF', 'datasetRef');
   }
   return {
     code: parseZoneCode(value.code),
     name,
+    nameEn,
     datasetRef: value.datasetRef,
     ring: parseRing(value.polygon),
   };
@@ -73,6 +84,7 @@ export function parseZoneDefinition(raw: unknown): ZoneDefinition {
 export function sameZoneDefinition(zone: Zone, definition: ZoneDefinition): boolean {
   return (
     zone.name === definition.name &&
+    zone.nameEn === definition.nameEn &&
     zone.datasetRef === definition.datasetRef &&
     JSON.stringify(zone.ring.vertices.map((p) => [p.longitude, p.latitude])) ===
       JSON.stringify(definition.ring.vertices.map((p) => [p.longitude, p.latitude]))
