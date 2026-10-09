@@ -273,7 +273,14 @@
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
       "persistenceModels": [
-        "ServiceMarker"
+        "ServiceMarker",
+        "HoldObservation",
+        "Assignment",
+        "DispatchOffer",
+        "IdempotencyRecord",
+        "InboxMessage",
+        "OutboxMessage",
+        "AuditEntry"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"

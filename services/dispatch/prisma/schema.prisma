@@ -26,3 +26,123 @@ model ServiceMarker {
 
   @@map("service_marker")
 }
+
+/// Highest Scheduling hold revision applied per hold (scheduling.hold-changed.v1).
+/// Events at or below it are stale and ignored.
+model HoldObservation {
+  holdId    String   @id @map("hold_id") @db.Uuid
+  version   Int
+  state     String
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  @@map("hold_observation")
+}
+
+/// One job per booking. The resource CHECK and the exclusion constraint that
+/// forbids overlapping ASSIGNED jobs per resource live in the migration SQL.
+model Assignment {
+  id                String          @id @db.Uuid
+  bookingId         String          @unique @map("booking_id") @db.Uuid
+  holdId            String          @unique @map("hold_id") @db.Uuid
+  zoneId            String          @map("zone_id") @db.Uuid
+  startsAt          DateTime        @map("starts_at") @db.Timestamptz(3)
+  endsAt            DateTime        @map("ends_at") @db.Timestamptz(3)
+  status            String
+  resourceId        String?         @map("resource_id") @db.Uuid
+  technicianSubject String?         @map("technician_subject") @db.Uuid
+  cancelReason      String?         @map("cancel_reason")
+  version           Int             @default(1)
+  createdAt         DateTime        @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime        @map("updated_at") @db.Timestamptz(3)
+  offers            DispatchOffer[]
+
+  @@index([zoneId, startsAt])
+  @@map("assignment")
+}
+
+/// Offer of a job to one workforce resource. The partial unique indexes (one
+/// OFFERED and one ACCEPTED offer per assignment) live in the migration SQL.
+model DispatchOffer {
+  id                String     @id @db.Uuid
+  assignmentId      String     @map("assignment_id") @db.Uuid
+  resourceId        String     @map("resource_id") @db.Uuid
+  technicianSubject String     @map("technician_subject") @db.Uuid
+  status            String
+  expiresAt         DateTime   @map("expires_at") @db.Timestamptz(3)
+  declineReason     String?    @map("decline_reason")
+  withdrawReason    String?    @map("withdraw_reason")
+  createdBy         String     @map("created_by") @db.VarChar(80)
+  version           Int        @default(1)
+  createdAt         DateTime   @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime   @map("updated_at") @db.Timestamptz(3)
+  assignment        Assignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+
+  @@index([assignmentId])
+  @@index([technicianSubject, status])
+  @@index([status, expiresAt])
+  @@map("dispatch_offer")
+}
+
+/// Completed idempotent commands, kept for the documented retention window.
+model IdempotencyRecord {
+  scope              String   @db.VarChar(200)
+  idempotencyKey     String   @map("idempotency_key") @db.VarChar(128)
+  requestFingerprint String   @map("request_fingerprint") @db.Char(64)
+  resultType         String   @map("result_type")
+  resultId           String   @map("result_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@id([scope, idempotencyKey])
+  @@index([createdAt])
+  @@map("idempotency_record")
+}
+
+/// Consumed events; the row and the local effect commit in one transaction.
+model InboxMessage {
+  eventId       String   @id @map("event_id") @db.Uuid
+  eventType     String   @map("event_type")
+  payloadHash   String   @map("payload_hash") @db.Char(64)
+  correlationId String   @map("correlation_id") @db.Uuid
+  outcome       String?  @db.VarChar(32)
+  receivedAt    DateTime @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  @@map("inbox_message")
+}
+
+/// Transactional outbox, same lease semantics as the catalog relay store.
+model OutboxMessage {
+  id            String    @id @db.Uuid
+  eventId       String    @unique @map("event_id") @db.Uuid
+  eventType     String    @map("event_type")
+  exchange      String
+  routingKey    String    @map("routing_key")
+  payload       String
+  correlationId String    @map("correlation_id") @db.Uuid
+  traceParent   String?   @map("trace_parent") @db.VarChar(55)
+  attempts      Int       @default(0)
+  lockedBy      String?   @map("locked_by")
+  lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(3)
+  lastError     String?   @map("last_error")
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
+  deadAt        DateTime? @map("dead_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([publishedAt, deadAt, createdAt], map: "outbox_message_pending_idx")
+  @@map("outbox_message")
+}
+
+/// Append-only audit of sensitive mutations. Opaque identifiers only.
+model AuditEntry {
+  id            String   @id @db.Uuid
+  occurredAt    DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  actorKind     String   @map("actor_kind")
+  actorId       String   @map("actor_id") @db.VarChar(80)
+  action        String   @db.VarChar(64)
+  targetType    String   @map("target_type") @db.VarChar(32)
+  targetId      String   @map("target_id") @db.Uuid
+  correlationId String   @map("correlation_id") @db.Uuid
+  details       Json
+
+  @@index([targetType, targetId])
+  @@map("audit_entry")
+}

@@ -1,7 +1,7 @@
 /**
- * dispatch application layer.
- *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
+ * dispatch application layer: commands, queries and the hold-change handler.
  */
-export {};
+export * from './authorization';
+export * from './canonical-json';
+export * from './dispatch.service';
+export * from './hold-events';
