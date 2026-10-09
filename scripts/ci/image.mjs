@@ -8,6 +8,7 @@ import { ROOT, inventory, readJson, trivyFindings, runtimeEnvironment } from './
 import { checked, command, tool, toolLock, stage, git, sourceDirty } from './runtime.mjs';
 import { assessUnfilteredImageScan } from './image-security.mjs';
 import { assertNativeSbom, NATIVE_RUNTIME_PROBE } from './native-runtime.mjs';
+import { pullImageWithMirrors } from '../lib/image-references.mjs';
 const id = process.argv[2];
 const target = inventory().targets.find((t) => t.id === id);
 assert.ok(target, 'Target must be an actual catalog-owned runtime');
@@ -18,6 +19,8 @@ const temporary = mkdtempSync(path.join(tmpdir(), 'cw-f009-image-'));
 const vexPath = path.join(ROOT, 'security/vex/CVE-2026-97399.openvex.json');
 const docker = (...args) =>
   checked('docker', args, { timeoutMs: 1800000, capture: !['build', 'pull'].includes(args[0]) });
+const dockerResult = (args, options = {}) =>
+  command('docker', args, { timeoutMs: 1800000, capture: true, ...options });
 let created = false;
 try {
   await stage(`image-${id}`, async (step) => {
@@ -28,9 +31,15 @@ try {
       ) ?? [])[1];
       assert.ok(nodeImage, 'Missing pinned image');
       const digests = await step('resolve-pinned-base', async () => {
-        await docker('pull', nodeImage);
+        const pulled = await pullImageWithMirrors(nodeImage, dockerResult);
         return JSON.parse(
-          await docker('image', 'inspect', '--format', '{{json .RepoDigests}}', nodeImage),
+          await docker(
+            'image',
+            'inspect',
+            '--format',
+            '{{json .RepoDigests}}',
+            pulled.pullReference,
+          ),
         );
       });
       assert.ok(digests.length > 0 && /@sha256:[a-f0-9]{64}$/.test(digests[0]));

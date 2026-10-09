@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { run, registerSecret, redact } from './acceptance/lib/exec.mjs';
+import { pullImageWithMirrors } from './lib/image-references.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const includeGateway = process.argv.includes('--include-gateway');
@@ -46,6 +47,14 @@ async function checked(command, args, options = {}) {
     );
   }
   return result;
+}
+
+async function pullPinnedImage(image) {
+  return pullImageWithMirrors(
+    image,
+    (args, options = {}) => run('docker', args, { cwd: ROOT, timeoutMs: 180_000, ...options }),
+    { quiet: false },
+  );
 }
 async function phase(name, operation) {
   try {
@@ -118,7 +127,7 @@ try {
   const redisImage = 'redis:8.2.10-alpine';
   await phase('resolve fixed infrastructure images', async () => {
     for (const image of [pgImage, redisImage]) {
-      await checked('docker', ['pull', image]);
+      await pullPinnedImage(image);
       report.images[image] = JSON.parse(
         (await checked('docker', ['image', 'inspect', image, '--format', '{{json .RepoDigests}}']))
           .stdout,
