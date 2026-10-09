@@ -26,3 +26,161 @@ model ServiceMarker {
 
   @@map("service_marker")
 }
+
+// ---------------------------------------------------------------------------
+// P02-B1. Money is BIGINT minor units plus an explicit currency. CHECK
+// constraints and the state-machine / append-only / ledger-balance triggers
+// live in the migration (Prisma cannot describe them); this file mirrors the
+// tables, keys and indexes exactly so `prisma migrate diff` reports no drift.
+// ---------------------------------------------------------------------------
+
+/// What one customer owes for one priced quote. Never "paid" until a
+/// reconciled payment is posted to the ledger.
+model BillingObligation {
+  id            String              @id @db.Uuid
+  ownerKind     String              @map("owner_kind") @db.VarChar(8)
+  ownerSubject  String              @map("owner_subject") @db.Uuid
+  quoteId       String              @unique @map("quote_id") @db.Uuid
+  currency      String              @db.Char(3)
+  amountMinor   BigInt              @map("amount_minor")
+  verifiedMinor BigInt              @map("verified_minor")
+  status        String              @db.VarChar(8)
+  revision      Int
+  createdAt     DateTime            @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime            @map("updated_at") @db.Timestamptz(3)
+  correlationId String              @map("correlation_id") @db.Uuid
+  intents       PaymentIntent[]
+  attempts      PaymentAttempt[]
+  journals      LedgerJournal[]
+  auditEvents   BillingAuditEvent[]
+
+  @@index([ownerKind, ownerSubject, createdAt], map: "billing_obligation_owner_idx")
+  @@map("billing_obligation")
+}
+
+/// The chosen payment method with the amount fixed at selection time.
+/// activeSlot = 1 for the single active intent, NULL once closed.
+model PaymentIntent {
+  id            String            @id @db.Uuid
+  obligationId  String            @map("obligation_id") @db.Uuid
+  method        String            @db.VarChar(24)
+  status        String            @db.VarChar(32)
+  activeSlot    Int?              @map("active_slot") @db.SmallInt
+  currency      String            @db.Char(3)
+  amountMinor   BigInt            @map("amount_minor")
+  createdAt     DateTime          @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime          @map("updated_at") @db.Timestamptz(3)
+  correlationId String            @map("correlation_id") @db.Uuid
+  obligation    BillingObligation @relation(fields: [obligationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  attempts      PaymentAttempt[]
+
+  @@unique([obligationId, activeSlot])
+  @@map("payment_intent")
+}
+
+/// A customer-reported provider transaction reference awaiting reconciliation.
+model PaymentAttempt {
+  id                  String            @id @db.Uuid
+  intentId            String            @map("intent_id") @db.Uuid
+  obligationId        String            @map("obligation_id") @db.Uuid
+  method              String            @db.VarChar(24)
+  providerReference   String            @map("provider_reference") @db.VarChar(64)
+  status              String            @db.VarChar(16)
+  currency            String            @db.Char(3)
+  claimedMinor        BigInt            @map("claimed_minor")
+  observedMinor       BigInt?           @map("observed_minor")
+  submittedAt         DateTime          @map("submitted_at") @db.Timestamptz(3)
+  reconciledAt        DateTime?         @map("reconciled_at") @db.Timestamptz(3)
+  reconciledByKind    String?           @map("reconciled_by_kind") @db.VarChar(8)
+  reconciledBySubject String?           @map("reconciled_by_subject") @db.Uuid
+  correlationId       String            @map("correlation_id") @db.Uuid
+  intent              PaymentIntent     @relation(fields: [intentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  obligation          BillingObligation @relation(fields: [obligationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([method, providerReference])
+  @@index([obligationId])
+  @@index([status, submittedAt], map: "payment_attempt_status_submitted_idx")
+  @@map("payment_attempt")
+}
+
+/// Append-only double-entry journal header; one per unique business reference.
+model LedgerJournal {
+  id            String            @id @db.Uuid
+  kind          String            @db.VarChar(24)
+  businessRef   String            @unique @map("business_ref") @db.VarChar(96)
+  obligationId  String            @map("obligation_id") @db.Uuid
+  postedAt      DateTime          @map("posted_at") @db.Timestamptz(3)
+  correlationId String            @map("correlation_id") @db.Uuid
+  obligation    BillingObligation @relation(fields: [obligationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  lines         LedgerLine[]
+
+  @@index([obligationId])
+  @@map("ledger_journal")
+}
+
+model LedgerLine {
+  journalId   String        @map("journal_id") @db.Uuid
+  lineNo      Int           @map("line_no") @db.SmallInt
+  account     String        @db.VarChar(32)
+  side        String        @db.VarChar(6)
+  currency    String        @db.Char(3)
+  amountMinor BigInt        @map("amount_minor")
+  journal     LedgerJournal @relation(fields: [journalId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([journalId, lineNo])
+  @@map("ledger_line")
+}
+
+/// Committed successful command outcomes, replayed for the same key and request.
+model BillingIdempotencyReceipt {
+  actorKind          String   @map("actor_kind") @db.VarChar(8)
+  actorSubject       String   @map("actor_subject") @db.Uuid
+  operation          String   @db.VarChar(64)
+  idempotencyKey     String   @map("idempotency_key") @db.VarChar(128)
+  requestFingerprint String   @map("request_fingerprint") @db.Char(64)
+  responseStatus     Int      @map("response_status")
+  responseBody       Json     @map("response_body")
+  createdAt          DateTime @map("created_at") @db.Timestamptz(3)
+
+  @@id([actorKind, actorSubject, operation, idempotencyKey])
+  @@map("billing_idempotency_receipt")
+}
+
+model BillingAuditEvent {
+  id            String            @id @db.Uuid
+  occurredAt    DateTime          @map("occurred_at") @db.Timestamptz(3)
+  actorKind     String            @map("actor_kind") @db.VarChar(8)
+  actorSubject  String            @map("actor_subject") @db.Uuid
+  action        String            @db.VarChar(64)
+  obligationId  String            @map("obligation_id") @db.Uuid
+  attemptId     String?           @map("attempt_id") @db.Uuid
+  outcome       String            @db.VarChar(32)
+  correlationId String            @map("correlation_id") @db.Uuid
+  obligation    BillingObligation @relation(fields: [obligationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([obligationId, occurredAt], map: "billing_audit_event_obligation_idx")
+  @@map("billing_audit_event")
+}
+
+/// Transactional outbox (platform-messaging relay layout). Rows stay pending
+/// until Lane E registers the billing event contracts and topology.
+model OutboxMessage {
+  id            String    @id @db.Uuid
+  eventId       String    @unique @map("event_id") @db.Uuid
+  eventType     String    @map("event_type")
+  exchange      String
+  routingKey    String    @map("routing_key")
+  payload       String
+  correlationId String    @map("correlation_id") @db.Uuid
+  traceParent   String?   @map("trace_parent") @db.VarChar(55)
+  attempts      Int       @default(0)
+  lockedBy      String?   @map("locked_by")
+  lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(3)
+  lastError     String?   @map("last_error")
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
+  deadAt        DateTime? @map("dead_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([publishedAt, deadAt, createdAt], map: "outbox_message_pending_idx")
+  @@map("outbox_message")
+}

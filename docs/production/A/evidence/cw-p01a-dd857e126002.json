@@ -1,0 +1,86 @@
+{
+  "lane": "A",
+  "task": "P01-A",
+  "project": "cw-p01a-dd857e126002",
+  "services": [
+    "vehicle"
+  ],
+  "startedAt": "2026-10-08T03:00:38.514Z",
+  "node": "v24.21.0",
+  "images": {
+    "postgres:16.10-alpine": [
+      "postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297"
+    ],
+    "redis:8.2.10-alpine": [
+      "redis@sha256:b51665e66f00759be7c3152ad5ac3c66fb2f619c13ef62dea7cc1f9914524635"
+    ]
+  },
+  "source": {
+    "head": "032fd2791df4844e7fd1c6356aa50234bbf9c341",
+    "tree": "39be788cbbf8a926ad60c2df0e4a0bfc7e9f1256",
+    "dirtyTrackedFiles": 0
+  },
+  "phases": [
+    {
+      "name": "record exact source",
+      "status": "PASS",
+      "ms": 595
+    },
+    {
+      "name": "pin infrastructure images",
+      "status": "PASS",
+      "ms": 16172
+    },
+    {
+      "name": "start scoped disposable stack",
+      "status": "PASS",
+      "ms": 10120
+    },
+    {
+      "name": "PostgreSQL accepts every runtime identity",
+      "status": "PASS",
+      "ms": 1369
+    },
+    {
+      "name": "identity: migrate deploy with the migration identity",
+      "status": "PASS",
+      "ms": 18647
+    },
+    {
+      "name": "vehicle: migrate deploy with the migration identity",
+      "status": "PASS",
+      "ms": 8126
+    },
+    {
+      "name": "vehicle: Prisma schema mirrors the migrated database",
+      "status": "PASS",
+      "ms": 5417
+    },
+    {
+      "name": "integration suites",
+      "status": "PASS"
+    },
+    {
+      "name": "teardown owned infrastructure",
+      "status": "PASS",
+      "ms": 7162
+    }
+  ],
+  "suites": [
+    {
+      "files": [
+        "tests/production/A/vehicle.integration.test.mjs"
+      ],
+      "exit": 0,
+      "tests": 25,
+      "pass": 25,
+      "fail": 0,
+      "skipped": 0,
+      "todo": 0,
+      "cancelled": 0
+    }
+  ],
+  "scope": "Real PostgreSQL 16 (least-privilege roles from infra/postgres/provision.sh), real owner-service HTTP adapters on loopback (vehicle). Real Identity Nest application and Redis; only the OTP delivery port is captured in-process. No broker relay, no gateway, no browser, no production deployment.",
+  "finishedAt": "2026-10-08T03:03:28.033Z",
+  "result": "PASSED"
+}

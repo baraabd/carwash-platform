@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Test } from '@nestjs/testing';
-import { HealthController, HEALTH_OPTIONS, type HealthOptions } from '@carwash/service-kit';
+import {
+  AppExceptionFilter,
+  HealthController,
+  HEALTH_OPTIONS,
+  type HealthOptions,
+} from '@carwash/service-kit';
 import {
   AppModule,
   BUSINESS_READY,
@@ -175,13 +180,13 @@ test('vehicle: business routes fail closed when Identity is not configured', asy
     assert.equal(response.status, 503);
     assert.equal(response.headers.get('cache-control'), 'no-store');
     const body = (await response.json()) as { error: { code: string } };
-    assert.equal(body.error.code, 'IDENTITY_UNAVAILABLE');
+    assert.equal(body.error.code, 'DEPENDENCY_UNAVAILABLE');
   } finally {
     await app.close();
   }
 });
 
-test('vehicle: an unreachable Identity is IDENTITY_UNAVAILABLE, never a session', async () => {
+test('vehicle: an unreachable Identity is DEPENDENCY_UNAVAILABLE, never a session', async () => {
   process.env.DATABASE_URL = DSN;
   // Port 9 (discard) on loopback is not served in the test environment.
   process.env.VEHICLE_IDENTITY_ORIGIN = 'http://127.0.0.1:9';
@@ -197,7 +202,7 @@ test('vehicle: an unreachable Identity is IDENTITY_UNAVAILABLE, never a session'
     });
     assert.equal(response.status, 503);
     const body = (await response.json()) as { error: { code: string } };
-    assert.equal(body.error.code, 'IDENTITY_UNAVAILABLE');
+    assert.equal(body.error.code, 'DEPENDENCY_UNAVAILABLE');
   } finally {
     await app.close();
     delete process.env.VEHICLE_IDENTITY_ORIGIN;
@@ -218,4 +223,77 @@ test('vehicle: an invalid Identity origin stops startup instead of guessing', ()
       }),
     /INVALID_IDENTITY_TIMEOUT/,
   );
+});
+
+const ENVELOPE_KEYS = [
+  'code',
+  'correlationId',
+  'issues',
+  'message',
+  'reason',
+  'requestId',
+  'retryAfterMs',
+  'retryable',
+];
+
+test('vehicle: contract routes answer in the vehicle.v1 envelope even under the platform filter', async () => {
+  process.env.DATABASE_URL = DSN;
+  delete process.env.VEHICLE_IDENTITY_ORIGIN;
+  const app = await createHttpApplication();
+  // bootstrapService registers the platform filter after createHttpApplication.
+  app.useGlobalFilters(new AppExceptionFilter());
+  await app.listen(0, '127.0.0.1');
+  try {
+    const url = (await app.getUrl()) + '/internal/v1/vehicle';
+    const cases: [string, string, RequestInit, number, string][] = [
+      [
+        'malformed JSON',
+        '/mine',
+        { method: 'POST', body: '{bad', headers: { 'content-type': 'application/json' } },
+        400,
+        'REQUEST_INVALID',
+      ],
+      [
+        'oversized body',
+        '/mine',
+        {
+          method: 'POST',
+          body: JSON.stringify({ x: 'y'.repeat(20_000) }),
+          headers: { 'content-type': 'application/json' },
+        },
+        400,
+        'REQUEST_INVALID',
+      ],
+      ['no credential', '/mine', {}, 503, 'DEPENDENCY_UNAVAILABLE'],
+      [
+        'closed service route',
+        '/vehicle-snapshots/resolve',
+        { method: 'POST', body: '{}', headers: { 'content-type': 'application/json' } },
+        401,
+        'AUTH_REQUIRED',
+      ],
+      [
+        'session is not a workload',
+        '/vehicle-snapshots/resolve',
+        {
+          method: 'POST',
+          body: '{}',
+          headers: { 'content-type': 'application/json', authorization: 'Bearer user' },
+        },
+        403,
+        'AUTH_FORBIDDEN',
+      ],
+    ];
+    for (const [name, path, init, status, code] of cases) {
+      const response = await fetch(url + path, init);
+      assert.equal(response.status, status, name);
+      assert.equal(response.headers.get('cache-control'), 'no-store', name);
+      const body = (await response.json()) as { error: Record<string, unknown> };
+      assert.deepEqual(Object.keys(body.error).sort(), ENVELOPE_KEYS, name);
+      assert.equal(body.error.code, code, name);
+      assert.equal(body.error.retryable, code === 'DEPENDENCY_UNAVAILABLE', name);
+    }
+  } finally {
+    await app.close();
+  }
 });

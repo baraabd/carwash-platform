@@ -5,6 +5,7 @@ import {
   HttpIdentityAuthorizer,
   UnconfiguredIdentityAuthorizer,
 } from './infrastructure/identity/http-identity-authorizer';
+import { NoWorkloadIdentity } from './infrastructure/identity/no-workload-identity';
 import { PrismaVehicleStore } from './infrastructure/persistence/prisma-vehicle.store';
 import {
   DATABASE_URL,
@@ -35,7 +36,6 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
 }
 
 const DEFAULT_IDENTITY_TIMEOUT_MS = 2_000;
-const DEFAULT_MAX_ACTIVE_VEHICLES = 100;
 
 function positiveInteger(raw: string | undefined, fallback: number, code: string): number {
   if (raw === undefined || raw === '') return fallback;
@@ -45,7 +45,7 @@ function positiveInteger(raw: string | undefined, fallback: number, code: string
 
 /**
  * A missing Identity origin leaves every business endpoint failing closed with
- * IDENTITY_UNAVAILABLE; a present but invalid one stops startup.
+ * DEPENDENCY_UNAVAILABLE; a present but invalid one stops startup.
  */
 export function identityAuthorizerFromEnv(
   env: NodeJS.ProcessEnv = process.env,
@@ -69,15 +69,10 @@ export function vehicleApplicationFactory(
   return new VehicleApplication(
     new PrismaVehicleStore(prisma.client),
     identityAuthorizerFromEnv(env),
+    // Workload identity is P01-E5 (Lane E); service routes stay deny-by-default.
+    new NoWorkloadIdentity(),
     systemClock,
     randomIds,
-    {
-      maxActiveVehicles: positiveInteger(
-        env.VEHICLE_MAX_ACTIVE_VEHICLES,
-        DEFAULT_MAX_ACTIVE_VEHICLES,
-        'INVALID_MAX_ACTIVE_VEHICLES',
-      ),
-    },
   );
 }
 

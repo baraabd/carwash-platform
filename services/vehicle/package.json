@@ -11,7 +11,7 @@
     "migrate:deploy": "prisma migrate deploy",
     "start": "node dist/main.js",
     "test:runtime": "pnpm run build:tests && node --test dist-tests/test/vehicle.nest.spec.js",
-    "test:unit": "pnpm run build:tests && node --test dist-tests/test/domain/vehicle-domain.spec.js dist-tests/test/idempotency-retention.spec.js dist-tests/test/vehicle.nest.spec.js"
+    "test:unit": "pnpm run build:tests && node --test dist-tests/test/domain/vehicle-domain.spec.js dist-tests/test/unit/vehicle-application.spec.js dist-tests/test/unit/identity-session.spec.js dist-tests/test/idempotency-retention.spec.js dist-tests/test/vehicle.nest.spec.js"
   },
   "dependencies": {
     "@carwash/event-contracts": "workspace:*",
