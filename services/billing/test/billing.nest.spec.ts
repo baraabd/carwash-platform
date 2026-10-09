@@ -138,6 +138,43 @@ test('billing: dependency failure is DOWN without credential leakage', async () 
   await moduleRef.close();
 });
 
+test('billing: the composed owner API fails closed without Identity configuration', async () => {
+  process.env.DATABASE_URL = DSN;
+  delete process.env.IDENTITY_SESSION_ORIGIN;
+  delete process.env.PRICING_ORIGIN;
+  const app = await createHttpApplication();
+  await app.listen(0, '127.0.0.1');
+  try {
+    const url = await app.getUrl();
+    const body = JSON.stringify({ quoteId: '6f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f' });
+    const headers = {
+      'content-type': 'application/json',
+      'idempotency-key': 'nest-spec-key-000001',
+    };
+    const anonymous = await fetch(url + '/internal/v1/billing/obligations', {
+      method: 'POST',
+      headers,
+      body,
+    });
+    assert.equal(anonymous.status, 401);
+    const unverifiable = await fetch(url + '/internal/v1/billing/obligations', {
+      method: 'POST',
+      headers: { ...headers, authorization: 'Bearer eyJhbGciOiJSUzI1NiJ9.e30.c2ln' },
+      body,
+    });
+    assert.equal(unverifiable.status, 503, 'no Identity origin means no decision, never a grant');
+    const read = await fetch(
+      url + '/internal/v1/billing/obligations/6f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f',
+      {
+        headers: { authorization: 'Bearer eyJhbGciOiJSUzI1NiJ9.e30.c2ln' },
+      },
+    );
+    assert.equal(read.status, 503);
+  } finally {
+    await app.close();
+  }
+});
+
 test('billing: the service is declared foundation-only, not business ready', () => {
   assert.equal(SERVICE_NAME, 'billing');
   assert.equal(BUSINESS_READY, false);
