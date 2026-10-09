@@ -313,7 +313,15 @@
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
       "persistenceModels": [
-        "ServiceMarker"
+        "ServiceMarker",
+        "BillingObligation",
+        "PaymentIntent",
+        "PaymentAttempt",
+        "LedgerJournal",
+        "LedgerLine",
+        "BillingIdempotencyReceipt",
+        "BillingAuditEvent",
+        "OutboxMessage"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
- * P01-B real PostgreSQL acceptance for Lane B owner services.
+ * Lane B real PostgreSQL acceptance for owner services (P01-B catalog/pricing,
+ * P02-B billing).
  *
- *   node scripts/production/B/postgres-acceptance.mjs --service catalog [--record]
+ *   node scripts/production/B/postgres-acceptance.mjs --service catalog|pricing|billing [--record]
  *
  * 1. Starts ONE disposable, pinned PostgreSQL container bound to 127.0.0.1 and
  *    provisions it with the shared infra/postgres/provision.sh (database per
@@ -29,9 +30,34 @@ import { redact, registerSecret, run } from '../../acceptance/lib/exec.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const PG_IMAGE = 'postgres:16.10-alpine';
+const IDENTITY_STUB = {
+  postgres: 'REAL (disposable container)',
+  identity: 'LOCAL HTTP STUB',
+  broker: 'NOT USED',
+};
 const SERVICES = {
-  catalog: { previousMigrations: 2, env: 'CATALOG_TEST_DATABASE_URL' },
-  pricing: { previousMigrations: 1, env: 'PRICING_TEST_DATABASE_URL' },
+  catalog: {
+    task: 'P01-B',
+    previousMigrations: 2,
+    env: 'CATALOG_TEST_DATABASE_URL',
+    dependencies: IDENTITY_STUB,
+  },
+  pricing: {
+    task: 'P01-B',
+    previousMigrations: 1,
+    env: 'PRICING_TEST_DATABASE_URL',
+    dependencies: IDENTITY_STUB,
+  },
+  billing: {
+    task: 'P02-B',
+    previousMigrations: 1,
+    env: 'BILLING_TEST_DATABASE_URL',
+    dependencies: {
+      ...IDENTITY_STUB,
+      pricing: 'LOCAL HTTP STUB (published pricing.v1 getQuote shape)',
+      broker: 'NOT USED (outbox rows written; relay not started until E registers billing events)',
+    },
+  },
 };
 
 function arg(name) {
@@ -49,7 +75,7 @@ const serviceDir = path.join(ROOT, 'services', service);
 const { Client } = createRequire(path.join(serviceDir, 'package.json'))('pg');
 
 const runId = randomBytes(6).toString('hex');
-const container = `cw-p01b-${service}-${runId}`;
+const container = `cw-${spec.task.toLowerCase().replace('-', '')}-${service}-${runId}`;
 const work = path.join(ROOT, '.acceptance', container);
 const credentials = {
   bootstrap: randomBytes(32).toString('base64url'),
@@ -59,7 +85,7 @@ const credentials = {
 Object.values(credentials).forEach(registerSecret);
 
 const report = {
-  task: 'P01-B',
+  task: spec.task,
   service,
   runId,
   startedAt: new Date().toISOString(),
@@ -69,11 +95,7 @@ const report = {
   node: process.version,
   docker: null,
   image: { name: PG_IMAGE, repoDigests: null, serverVersion: null },
-  dependencies: {
-    postgres: 'REAL (disposable container)',
-    identity: 'LOCAL HTTP STUB',
-    broker: 'NOT USED',
-  },
+  dependencies: spec.dependencies,
   phases: [],
   tests: null,
   accepted: false,

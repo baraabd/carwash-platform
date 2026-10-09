@@ -49,7 +49,8 @@ function sessionCookies(header: string | undefined): string | undefined {
 }
 
 function parseSession(body: unknown): AuthorizedSession {
-  if (body === null || typeof body !== 'object') throw new ApplicationError('IDENTITY_UNAVAILABLE');
+  if (body === null || typeof body !== 'object')
+    throw new ApplicationError('DEPENDENCY_UNAVAILABLE');
   const view = body as Record<string, unknown>;
   const permissions = view.permissions;
   if (
@@ -61,14 +62,18 @@ function parseSession(body: unknown): AuthorizedSession {
     !Number.isSafeInteger(view.authVersion) ||
     view.authVersion < 1 ||
     !Array.isArray(permissions) ||
-    !permissions.every((permission): permission is string => typeof permission === 'string')
+    !permissions.every((permission): permission is string => typeof permission === 'string') ||
+    // P01-E3: every session view names its principal kind. A view without one
+    // is refused rather than assumed to be an account, and a guest never holds
+    // staff roles (Identity and its database refuse that; so does this check).
+    (view.principalKind !== 'account' && view.principalKind !== 'guest') ||
+    !Array.isArray(view.roles) ||
+    (view.principalKind === 'guest' && view.roles.length > 0)
   ) {
-    throw new ApplicationError('IDENTITY_UNAVAILABLE');
+    throw new ApplicationError('DEPENDENCY_UNAVAILABLE');
   }
   return {
-    // Identity V1 issues account sessions only. Guest sessions are a pending
-    // Identity contract; until one exists no request can carry a guest principal.
-    principal: { kind: 'account', subject: view.subject.toLowerCase() },
+    principal: { kind: view.principalKind, subject: view.subject.toLowerCase() },
     sessionId: view.sessionId.toLowerCase(),
     permissions,
   };
@@ -80,7 +85,7 @@ function parseSession(body: unknown): AuthorizedSession {
  * alone is not enough, because a revoked session still carries a valid token.
  *
  * Fails closed: timeouts, transport errors, 5xx and malformed bodies become
- * IDENTITY_UNAVAILABLE, never a session. There is no retry - authorization sits
+ * DEPENDENCY_UNAVAILABLE, never a session. There is no retry - authorization sits
  * on the request path and one bounded attempt keeps the latency budget honest.
  */
 export class HttpIdentityAuthorizer implements IdentityAuthorizer {
@@ -124,23 +129,23 @@ export class HttpIdentityAuthorizer implements IdentityAuthorizer {
         },
       );
     } catch {
-      throw new ApplicationError('IDENTITY_UNAVAILABLE');
+      throw new ApplicationError('DEPENDENCY_UNAVAILABLE');
     }
     if (response.status === 401) throw new ApplicationError('AUTH_REQUIRED');
     if (response.status === 403) throw new ApplicationError('AUTH_FORBIDDEN');
-    if (response.status !== 200) throw new ApplicationError('IDENTITY_UNAVAILABLE');
+    if (response.status !== 200) throw new ApplicationError('DEPENDENCY_UNAVAILABLE');
     let text: string;
     try {
       text = await response.text();
     } catch {
-      throw new ApplicationError('IDENTITY_UNAVAILABLE');
+      throw new ApplicationError('DEPENDENCY_UNAVAILABLE');
     }
-    if (text.length > MAX_RESPONSE_BYTES) throw new ApplicationError('IDENTITY_UNAVAILABLE');
+    if (text.length > MAX_RESPONSE_BYTES) throw new ApplicationError('DEPENDENCY_UNAVAILABLE');
     let body: unknown;
     try {
       body = JSON.parse(text);
     } catch {
-      throw new ApplicationError('IDENTITY_UNAVAILABLE');
+      throw new ApplicationError('DEPENDENCY_UNAVAILABLE');
     }
     return parseSession(body);
   }
@@ -149,6 +154,6 @@ export class HttpIdentityAuthorizer implements IdentityAuthorizer {
 /** Used when no Identity origin is configured: every request fails closed. */
 export class UnconfiguredIdentityAuthorizer implements IdentityAuthorizer {
   authorize(): Promise<AuthorizedSession> {
-    return Promise.reject(new ApplicationError('IDENTITY_UNAVAILABLE'));
+    return Promise.reject(new ApplicationError('DEPENDENCY_UNAVAILABLE'));
   }
 }
