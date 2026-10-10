@@ -19,6 +19,23 @@ CR-D-P03-02/06/08).
 
 ## CR-D-P04-01 (Lane B, then E): Billing refund and reversal command
 
+**Update (2026-10-10):** Lane B's open PR #125 (P04-B1) provides the owner
+side: `POST provider-credits/:id/refunds` (`billing.refund`, body
+`{ expectedRevision, amount, reason }`), `POST refunds/:id/decision` by a
+DIFFERENT `billing.refund` holder, and provider or manual completion. It also
+replaces a reviewer's `MATCHED` with two-person statement credits
+(`POST provider-credits`, `POST provider-credits/:id/decision`); a manual
+`MATCHED` then answers `409 PROVIDER_CREDIT_REQUIRED`. Lane D does not
+consume an unmerged provider branch. Once #125 merges, the Support Billing
+adapter maps: refund proposal → `provider-credits/:id/refunds` (as the
+proposer), refund approval → `refunds/:id/decision` (as the approver);
+`APPROVE_MATCH` → statement credit recorded by the decider and approved in
+Billing by a second reviewer. Until then Support's behavior below stands; with
+#125 merged and the adapter unchanged, `APPROVE_MATCH` would be refused by
+Billing and recorded as `OWNER_REJECTED` (fail-safe, never "paid").
+
+The original request, kept for the record:
+
 Support records a four-eyes refund decision (proposer and a different
 approver, both holding `billing.refund`) and then needs ONE owner command to
 carry it out. Billing has none. Requested, in `billing.v1`:
@@ -94,6 +111,11 @@ standing service credential). The exact change used for the candidate tree is
 `docs/production/D/P04_CANDIDATE_GATEWAY.patch` (P04-D2).
 
 ## CR-D-P04-05 (Lane B): DEFECT — hardened Billing cannot create an obligation
+
+**Update (2026-10-10):** Lane B found the same defect independently; open PR
+#125 makes the four calling trigger functions `SECURITY DEFINER` with a pinned
+`search_path`. When #125 merges, Lane D's suite logs `NOT_NEEDED` and stops
+applying the grant.
 
 Found while running P04-D1 on real PostgreSQL. Migration
 `20261009100000_p03b_cash_custody_settlement` runs
