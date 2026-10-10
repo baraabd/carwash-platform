@@ -536,6 +536,8 @@ test('X4: operations opens cancellation and reschedule cases from the booking; B
   try {
     await page.waitForURL(/#\/dashboard$/);
     await page.locator('.nav button[data-screen="bookings"]').click();
+    // The doubles' slot may fall on tomorrow in Damascus; widen the period.
+    await page.locator('#periodFilter').selectOption('month');
     const row = page.locator(`#bookingRows tr[data-booking="${booking.bookingId}"]`);
     await row.click();
     const dialog = page.getByRole('dialog');

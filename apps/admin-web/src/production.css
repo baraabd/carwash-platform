@@ -211,3 +211,12 @@ button:disabled {
   margin: 0;
   font-size: 13px;
 }
+/*
+ * D4-SD-08: a case dialog can be taller than the screen. The reference modal
+ * never scrolls (its own forms are short), so its controls would become
+ * unreachable; the body scrolls inside the viewport instead (WCAG 1.4.10).
+ */
+.modal-body {
+  max-height: calc(100dvh - 160px);
+  overflow-y: auto;
+}
