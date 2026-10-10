@@ -41,6 +41,7 @@ import { ROOT, appDsn, context, migrationDsn, sql } from '../../integration/_sup
 import { hardenPrivileges, migrateDeploy } from '../../../scripts/acceptance/lib/migrations.mjs';
 import { STAFF_PASSWORD, account, bearer, staff, startIdentity } from './_identity.mjs';
 import { comparePngBuffers } from '../../../scripts/f010/pixel-compare.mjs';
+import { startWorkforceDouble } from '../C/support/dispatch-workforce-double.mjs';
 
 const require = createRequire(path.join(ROOT, 'package.json'));
 const EVIDENCE = path.join(ROOT, 'docs', 'production', 'D', 'evidence', 'p03-d3');
@@ -178,6 +179,9 @@ async function startStack() {
   );
   const doubles = await startOwnerDoubles();
   const quotes = await startQuoteDouble();
+  // Declared double: Lane C's published workforce.v1 capacity-resources double
+  // (Dispatch checks eligibility before every offer since P03-C4).
+  const workforce = await startWorkforceDouble();
   const env = {
     reporting: {
       DATABASE_URL: appDsn(context, 'reporting'),
@@ -194,6 +198,7 @@ async function startStack() {
       IDENTITY_URL: identity.base,
       DISPATCH_SERVICE_CLIENTS: '',
       DISPATCH_USER_REQUESTS_PER_MINUTE: '600',
+      ...workforce.env(),
     },
     booking: {
       ...bookingEnv(doubles, appDsn(context, 'booking')),
@@ -245,6 +250,7 @@ async function startStack() {
     identity,
     doubles,
     quotes,
+    workforce,
     services,
     async stopService(name) {
       await services[name].app.close();
@@ -258,6 +264,7 @@ async function startStack() {
         await new Promise((resolve) => server.close(resolve));
       }
       quotes.close();
+      await workforce.close();
       await doubles.close();
       for (const app of [gateway, ...Object.values(services).map((s) => s.app), identity.app])
         await app.close().catch(() => {});
@@ -705,8 +712,8 @@ test.before(async () => {
   principals.finance = await staff(stack.identity, ['finance']);
   principals.superAdmin = await staff(stack.identity, ['super-admin']);
   principals.customer = await account(stack.identity);
-  resourceOne = randomUUID();
-  resourceTwo = randomUUID();
+  resourceOne = stack.workforce.resource();
+  resourceTwo = stack.workforce.resource();
 });
 
 test.after(async () => {
