@@ -4,7 +4,11 @@
  * Framework-free. Adapters live in infrastructure/ and transport/.
  */
 import type {
+  AvailabilityExceptionState,
   AvailabilityState,
+  EquipmentState,
+  ServiceAreaState,
+  WeeklyScheduleState,
   CapacityCandidate,
   OperatorState,
   ShiftState,
@@ -55,7 +59,13 @@ export interface OutboxAppend {
 export interface AuditAppend {
   readonly action: string;
   readonly actor: Actor;
-  readonly targetType: 'OPERATOR' | 'VERIFICATION_CASE' | 'WORK_GRANT' | 'WORK_SHIFT';
+  readonly targetType:
+    | 'OPERATOR'
+    | 'VERIFICATION_CASE'
+    | 'WORK_GRANT'
+    | 'WORK_SHIFT'
+    | 'EQUIPMENT'
+    | 'AVAILABILITY_EXCEPTION';
   readonly targetId: string;
   readonly correlationId: string;
   readonly details: Readonly<Record<string, string | number | boolean | null>>;
@@ -63,6 +73,7 @@ export interface AuditAppend {
 
 export type InsertResult = 'CREATED' | 'DUPLICATE';
 export type InsertShiftResult = 'CREATED' | 'DUPLICATE_IDEMPOTENCY_KEY' | 'OVERLAPS';
+export type InsertExceptionResult = 'CREATED' | 'DUPLICATE_IDEMPOTENCY_KEY' | 'OVERLAPS';
 
 export interface WorkforceTransaction {
   lockOperator(id: string): Promise<OperatorState | null>;
@@ -90,6 +101,8 @@ export interface WorkforceTransaction {
 
   lockShift(id: string): Promise<ShiftState | null>;
   findShiftByIdempotency(requester: string, key: string): Promise<ShiftState | null>;
+  /** Shifts of `requester` for any of `keys`, in one statement. */
+  findShiftsByIdempotencyKeys(requester: string, keys: readonly string[]): Promise<ShiftState[]>;
   insertShift(state: ShiftState): Promise<InsertShiftResult>;
   updateShift(state: ShiftState, expectedVersion: number): Promise<void>;
 
@@ -99,6 +112,37 @@ export interface WorkforceTransaction {
   insertAvailability(state: AvailabilityState): Promise<InsertResult>;
   /** Version-guarded; false when the stored revision is no longer the expected one. */
   updateAvailability(state: AvailabilityState, expectedRevision: number): Promise<boolean>;
+
+  // P05-C1: service area, weekly schedule, exceptions, equipment.
+  /** Stored service area under FOR UPDATE; null while never configured. */
+  lockServiceArea(operatorId: string): Promise<ServiceAreaState | null>;
+  /** Insert at revision 1 or version-guarded replace; false on a lost race. */
+  saveServiceArea(state: ServiceAreaState, expectedRevision: number): Promise<boolean>;
+  /** Plain read inside the transaction (no lock). */
+  readServiceArea(operatorId: string): Promise<ServiceAreaState | null>;
+
+  lockSchedule(operatorId: string): Promise<WeeklyScheduleState | null>;
+  saveSchedule(state: WeeklyScheduleState, expectedRevision: number): Promise<boolean>;
+
+  findExceptionByIdempotency(
+    requester: string,
+    key: string,
+  ): Promise<AvailabilityExceptionState | null>;
+  /** Serialised per operator; OVERLAPS when an ACTIVE exception intersects. */
+  insertException(state: AvailabilityExceptionState): Promise<InsertExceptionResult>;
+  lockException(id: string): Promise<AvailabilityExceptionState | null>;
+  updateException(state: AvailabilityExceptionState, expectedVersion: number): Promise<void>;
+  /** ACTIVE exceptions of the operator overlapping [from, to). */
+  listActiveExceptions(
+    operatorId: string,
+    from: Date,
+    to: Date,
+  ): Promise<AvailabilityExceptionState[]>;
+
+  /** All items of the operator, FOR UPDATE, ordered by kind. */
+  lockEquipment(operatorId: string): Promise<EquipmentState[]>;
+  insertEquipment(state: EquipmentState): Promise<InsertResult>;
+  updateEquipment(state: EquipmentState, expectedRevision: number): Promise<void>;
 
   appendEvent(entry: OutboxAppend): Promise<void>;
   appendAudit(entry: AuditAppend): Promise<void>;
@@ -115,6 +159,13 @@ export interface WorkforceReadModel {
   findVerificationCase(id: string): Promise<VerificationCaseState | null>;
   listShifts(operatorId: string, from: Date, to: Date): Promise<ShiftState[]>;
   findAvailability(operatorId: string): Promise<AvailabilityState | null>;
+  findServiceArea(operatorId: string): Promise<ServiceAreaState | null>;
+  findSchedule(operatorId: string): Promise<WeeklyScheduleState | null>;
+  /** Exceptions (any status) overlapping [from, to), by start, at most 100. */
+  listExceptions(operatorId: string, from: Date, to: Date): Promise<AvailabilityExceptionState[]>;
+  listEquipment(operatorId: string): Promise<EquipmentState[]>;
+  /** The most recently submitted verification case of the operator. */
+  latestVerificationCase(operatorId: string): Promise<VerificationCaseState | null>;
   /**
    * Operators with an ACTIVE shift in `zoneId` overlapping [from, to), ordered
    * by operator id, strictly after `afterOperatorId`, at most `limit` rows,

@@ -19,9 +19,14 @@ export interface OperatorState {
   /**
    * Capacity-resource eligibility revision. Increases together with `version`
    * on every change of an eligibility input (employment, suspension,
-   * verification status/validity, skills) and never otherwise.
+   * verification status/validity, skills, equipment block) and never otherwise.
    */
   readonly eligibilityRevision: number;
+  /**
+   * A REQUIRED equipment item is UNAVAILABLE (P05-C1). Mirrors the equipment
+   * rows and is written in the same transaction; an eligibility input.
+   */
+  readonly equipmentBlocked: boolean;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -63,6 +68,7 @@ export function createOperator(input: {
     verifiedUntil: null,
     version: 1,
     eligibilityRevision: 1,
+    equipmentBlocked: false,
     createdAt: input.now,
     updatedAt: input.now,
   };
@@ -148,6 +154,21 @@ export function setVerificationProjection(
 /** A skill was granted or revoked: the skill set is an eligibility input. */
 export function recordSkillChange(state: OperatorState, now: Date): OperatorState {
   return eligibilityInputChanged(state, now);
+}
+
+/** The equipment block moved: an eligibility input. No-op when unchanged. */
+export function setEquipmentBlock(
+  state: OperatorState,
+  blocked: boolean,
+  now: Date,
+): OperatorState {
+  if (state.equipmentBlocked === blocked) return state;
+  return eligibilityInputChanged({ ...state, equipmentBlocked: blocked }, now);
+}
+
+/** Employment active and not suspended: the operator may declare new working time. */
+export function canTakeNewWork(state: OperatorState): boolean {
+  return state.employmentStatus === 'ACTIVE' && state.suspensionReason === null;
 }
 
 function eligibilityInputChanged(state: OperatorState, now: Date): OperatorState {
