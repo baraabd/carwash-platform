@@ -220,3 +220,94 @@ The routes in `P03-B1-CASH-CUSTODY.md` ("Owner API") with the error codes
 are needed for the technician app (collect, my custody, declare/cancel handover)
 and admin finance (treasury receipt, reconciliation, holder positions, report);
 their screens are not designed yet and must not be inferred.
+
+## CR-B-09 Provider credits, reconciliation and refunds (from P04-B1)
+
+Status: **SUBMITTED, not accepted**. Provider implementation: `services/billing`
+at the head of `prod/p04-b-implement-production-grade-payment-provider-adapters--r-b1`
+(`docs/production/B/P04-B1-PROVIDER-RECONCILIATION-REFUNDS.md`). Billing consumes
+only E's merged result.
+
+### CR-B-09.1 Identity permissions
+
+No new permission. P04-B1 uses the published grants only:
+
+| Permission | Used for | Separation enforced by Billing |
+| --- | --- | --- |
+| `billing.reconcile` | Record a merchant-statement credit; approve/reject it; ask a provider to verify one claim | recorder ≠ approver; neither may own the obligation |
+| `billing.refund` | Request, approve/reject, execute (provider API) and record (manual) refunds | requester ≠ approver; manual recorder ≠ requester; never the obligation owner |
+| `billing.read` | Credit and refund queues, provider diagnostics | read only |
+
+Request: confirm the roles holding each grant (proposed: `finance`; `super-admin`
+for break-glass) and that no role holds both sides of a separated step by default.
+
+### CR-B-09.2 Event contracts (envelope v2, producer `billing`)
+
+```ts
+// billing.provider-credit-changed.v1  aggregate billing-provider-credit (version = credit revision)
+data: { provider: 'SHAM_CASH' | 'SYRIATEL_CASH';
+        source: 'PROVIDER_NOTIFICATION' | 'PROVIDER_QUERY' | 'MERCHANT_STATEMENT';
+        previousStatus: CreditStatusV1 | null; status: CreditStatusV1;           // previous !== status
+        unallocatedReason: UnallocatedReasonV1 | null;                          // set iff UNALLOCATED
+        amount: Money; obligationId: string | null }                            // set iff ALLOCATED; closed
+type CreditStatusV1 = 'PENDING_APPROVAL' | 'REJECTED' | 'UNALLOCATED' | 'ALLOCATED';
+type UnallocatedReasonV1 = 'NO_CLAIM' | 'CLAIM_CLOSED' | 'OBLIGATION_NOT_OPEN'
+                         | 'CURRENCY_MISMATCH' | 'AMOUNT_MISMATCH' | 'REFUND_RESERVED';
+// billing.refund-changed.v1  aggregate billing-refund (version = refund revision)
+data: { creditId: string; obligationId: string | null; provider: ...;
+        channel: 'PROVIDER_API' | 'MANUAL_OUT_OF_BAND';
+        reason: 'SERVICE_NOT_DELIVERED' | 'BOOKING_CANCELLED' | 'DUPLICATE_PAYMENT' | 'UNALLOCATABLE_CREDIT';
+        previousStatus: RefundStatusV1 | null; status: RefundStatusV1; amount: Money }   // closed
+type RefundStatusV1 = 'REQUESTED' | 'REJECTED' | 'APPROVED' | 'SUBMITTED' | 'UNKNOWN' | 'SUCCEEDED' | 'FAILED';
+```
+
+The envelope actor is the Identity principal, or `{ kind: 'system', id: null }`
+when a provider's authenticated notification caused the change.
+`billing.obligation-status-changed.v1` gains the `FinancialStatusV1` values
+`PARTIALLY_REFUNDED` and `REFUNDED` (derived; a refund does not bump the
+obligation revision, so consumers learn it from `billing.refund-changed.v1`,
+which names the obligation). No event carries a provider reference, merchant
+account or evidence digest.
+
+### CR-B-09.3 HTTP routes for `billing.v1` and Gateway aliases
+
+The routes in `P04-B1-PROVIDER-RECONCILIATION-REFUNDS.md` ("Owner API") with the
+error codes listed there. Note: the published Gateway route `admin.refund`
+(`POST /admin/billing/:id/refund` → `/internal/v1/billing/:id/refund`) does not
+match Billing's owner API (`POST /internal/v1/billing/provider-credits/:id/refunds`,
+then decision / execution / completion). E should re-target or replace it. Admin
+finance screens for these queues are not designed yet and must not be inferred.
+
+### CR-B-09.4 Public provider callback ingress (only once an official adapter exists)
+
+`POST /internal/v1/billing/providers/{sham_cash|syriatel_cash}/notifications`
+receives raw provider bytes without an Identity session; the adapter
+authenticates them. No production adapter declares notifications today (no
+official merchant API), so the route answers 404. When an official adapter
+exists, E owns: the public ingress host/TLS, an allowlist or mTLS as the provider
+documents, body size limit (Billing caps at 16 KiB), no Gateway body re-encoding
+(signatures cover the exact bytes), and secret delivery as mounted files
+(`BILLING_<PROVIDER>_*_FILE`). Inline secret environment values are refused.
+
+### CR-B-09.5 Merchant configuration delivery
+
+`BILLING_SHAM_CASH_MERCHANT_ACCOUNTS` and `BILLING_SYRIATEL_CASH_MERCHANT_ACCOUNTS`
+(comma-separated opaque account identifiers of the company's receiving accounts).
+Unset means no account is accepted (fail closed). Values are configuration, not
+secrets, but are never logged, evented or returned unmasked.
+
+### CR-B-09.6 Divergences from E's open, contract-first PR #120 (not merged)
+
+PR #120 (P04-E1) proposes refund and notification shapes before a provider existed.
+Billing does not consume an unmerged contract, so P04-B1 implements the model
+below and asks E to reconcile before merging #120 (or B conforms afterwards):
+
+| Topic | #120 proposal | P04-B1 implementation | Why |
+| --- | --- | --- | --- |
+| Refund target | `POST /obligations/:id/refunds` on a SETTLED obligation | `POST /provider-credits/:id/refunds` | Money that never settled an obligation (wrong amount, closed claim, duplicate) must be refundable too; the cap is the received credit, not `verified` |
+| Refund control | request (`billing.refund`) → outcome (`billing.reconcile`, ≠ requester) | request → **approval by a second person** (`billing.refund`) → provider execution or manual completion (≠ requester, evidence digest required) | No money leaves on one person's decision; the API channel exists for an official adapter |
+| Refund statuses | REQUESTED / SUCCEEDED / FAILED / UNKNOWN | REQUESTED, REJECTED, APPROVED, SUBMITTED, UNKNOWN, SUCCEEDED, FAILED | Approval, rejection and provider-accepted-but-pending are distinct facts |
+| Refund event | `billing.refund-status-changed.v1` | `billing.refund-changed.v1` (names credit and obligation) | Either name is fine; one must be chosen |
+| Financial status | unchanged by refunds in v1 | `PARTIALLY_REFUNDED` / `REFUNDED` after completion only | The customer view must not say PAID after the money was returned |
+| Notifications | `POST /provider-notifications/:provider` (`sham-cash`), `204`, WashGo HMAC headers, `503 NOTIFICATION_PROVIDER_DISABLED` | `POST /providers/:provider/notifications` (`sham_cash`), `201/200/202`, authentication delegated to the provider's own adapter, `404` while no official adapter declares the capability | A provider defines its own signature scheme; Billing must not impose one on ShamCash/Syriatel |
+| Settlement by notification | a notification is a claim | an authenticated **final** credit from an official adapter is a received-money fact; allocated only on an exact match | Same safety; the credit is recorded even when it cannot be allocated |

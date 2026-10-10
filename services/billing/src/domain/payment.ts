@@ -8,7 +8,8 @@ import type { Money } from './money';
  *
  * The rules that matter most:
  *  - Choosing a method or reporting a transaction number NEVER means money was
- *    received. Only a MATCHED reconciliation increases the verified amount.
+ *    received. Only a confirmed provider credit allocated to the claim
+ *    (domain/provider.ts) increases the verified amount and MATCHES it.
  *  - A reconciliation that cannot be decided is UNKNOWN, never success.
  *  - Cash after the wash stays AWAITING_CASH_COLLECTION until an authorised
  *    collection receipt (domain/cash.ts) moves it to SUCCEEDED; custody,
@@ -53,10 +54,9 @@ export type PaymentRuleCode =
   | 'INTENT_NOT_ACCEPTING_ATTEMPTS'
   | 'ATTEMPT_LIMIT_REACHED'
   | 'ATTEMPT_NOT_OPEN'
-  | 'AMOUNT_NOT_EQUAL_OUTSTANDING'
-  | 'OBSERVED_AMOUNT_REQUIRED'
   | 'OBSERVED_AMOUNT_NOT_ALLOWED'
-  | 'ALREADY_UNKNOWN';
+  | 'ALREADY_UNKNOWN'
+  | 'PROVIDER_CREDIT_REQUIRED';
 
 export class PaymentRuleError extends Error {
   constructor(readonly code: PaymentRuleCode) {
@@ -132,16 +132,15 @@ export function planAttemptSubmission(input: {
 export interface ReconciliationPlan {
   readonly attemptStatus: AttemptStatus;
   readonly intentStatus: IntentStatus;
-  /** Present only for MATCHED: the exact amount to recognise as received. */
-  readonly received: Money | null;
   readonly obligationStatus: ObligationStatus;
 }
 
 /**
- * MATCHED requires the observed amount to equal the outstanding amount exactly
- * (no partial or over-payment is silently accepted; a different amount is a
- * MISMATCHED outcome). UNKNOWN keeps the intent under review; an UNKNOWN attempt
- * can later be resolved to MATCHED or MISMATCHED, never back to UNKNOWN.
+ * Finance's decision on a claim. MATCHED is never a reviewer's word: money is
+ * recognised only by allocating a confirmed provider credit (planCreditAllocation),
+ * so a MATCHED reconciliation is refused here. MISMATCHED returns the intent
+ * for a new reference; UNKNOWN keeps it under review and can later be resolved
+ * (by a credit or by MISMATCHED), never back to UNKNOWN.
  */
 export function planReconciliation(input: {
   readonly obligation: ObligationState;
@@ -155,23 +154,12 @@ export function planReconciliation(input: {
   // exists, settlement closes the attempt); this is defence in depth.
   assertOpen(input.obligation);
   switch (input.outcome) {
-    case 'MATCHED': {
-      if (!input.observed) throw new PaymentRuleError('OBSERVED_AMOUNT_REQUIRED');
-      const due = outstanding(input.obligation);
-      if (due.isZero() || !input.observed.equals(due))
-        throw new PaymentRuleError('AMOUNT_NOT_EQUAL_OUTSTANDING');
-      return {
-        attemptStatus: 'MATCHED',
-        intentStatus: 'SUCCEEDED',
-        received: input.observed,
-        obligationStatus: 'SETTLED',
-      };
-    }
+    case 'MATCHED':
+      throw new PaymentRuleError('PROVIDER_CREDIT_REQUIRED');
     case 'MISMATCHED':
       return {
         attemptStatus: 'MISMATCHED',
         intentStatus: 'AWAITING_CUSTOMER_PAYMENT',
-        received: null,
         obligationStatus: input.obligation.status,
       };
     case 'UNKNOWN':
@@ -180,7 +168,6 @@ export function planReconciliation(input: {
       return {
         attemptStatus: 'UNKNOWN',
         intentStatus: 'UNDER_REVIEW',
-        received: null,
         obligationStatus: input.obligation.status,
       };
   }
@@ -206,6 +193,10 @@ export const FINANCIAL_STATUSES = [
   'PAID',
   /** Settled by an authorised cash collection receipt; company custody is a separate fact. */
   'CASH_COLLECTED',
+  /** Paid electronically, then part of the money was refunded to the payer. */
+  'PARTIALLY_REFUNDED',
+  /** Paid electronically, then all of it was refunded to the payer. */
+  'REFUNDED',
   'UNPAID',
   'AWAITING_CASH',
   'AWAITING_PAYMENT',
@@ -218,16 +209,23 @@ export type FinancialStatus = (typeof FINANCIAL_STATUSES)[number];
  * Customer-facing financial summary derived only from server facts. An
  * obligation settled by cash shows CASH_COLLECTED, never PAID: the customer
  * owes nothing, but whether that cash reached the company is a separate
- * custody/settlement fact.
+ * custody/settlement fact. A refund is shown only once the provider (or the
+ * recorded manual transfer) completed it; a requested refund is still PAID.
  */
 export function financialStatus(input: {
   readonly obligation: ObligationState;
   readonly activeIntent: IntentState | null;
   readonly hasUnknownAttempt: boolean;
   readonly settledByCash: boolean;
+  /** Completed refunds of the money that settled this obligation. */
+  readonly refunded: Money | null;
 }): FinancialStatus {
   if (input.obligation.status === 'VOIDED') return 'VOIDED';
-  if (input.obligation.status === 'SETTLED') return input.settledByCash ? 'CASH_COLLECTED' : 'PAID';
+  if (input.obligation.status === 'SETTLED') {
+    if (input.settledByCash) return 'CASH_COLLECTED';
+    if (!input.refunded || input.refunded.isZero()) return 'PAID';
+    return input.refunded.equals(input.obligation.amount) ? 'REFUNDED' : 'PARTIALLY_REFUNDED';
+  }
   const intent = input.activeIntent;
   if (!intent) return 'UNPAID';
   switch (intent.status) {

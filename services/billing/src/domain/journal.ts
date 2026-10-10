@@ -23,6 +23,11 @@ export const LEDGER_ACCOUNTS = [
   'TREASURY_CASH',
   'CUSTODY_SHORTAGE_RECEIVABLE',
   'CUSTODY_OVERAGE_SUSPENSE',
+  // P04-B provider credits and refunds (technical, provisional; no revenue/tax).
+  /** Money received at a provider and not (yet) applied to an obligation. */
+  'PROVIDER_CREDITS_UNALLOCATED',
+  /** Refunds of money that had settled an obligation (classification: B-06). */
+  'REFUNDS_CONTROL',
 ] as const;
 export type LedgerAccount = (typeof LEDGER_ACCOUNTS)[number];
 /** Accounts whose lines carry the custody holder (an Identity subject). */
@@ -38,6 +43,9 @@ export const JOURNAL_KINDS = [
   'CASH_COLLECTION_REVERSED',
   'CUSTODY_RECEIVED',
   'CUSTODY_RECONCILED',
+  'CREDIT_RECEIVED',
+  'CREDIT_ALLOCATED',
+  'REFUND_PAID',
 ] as const;
 export type JournalKind = (typeof JOURNAL_KINDS)[number];
 /** Journals posted against one handover rather than one obligation. */
@@ -45,6 +53,10 @@ export const HANDOVER_JOURNAL_KINDS: readonly JournalKind[] = [
   'CUSTODY_RECEIVED',
   'CUSTODY_RECONCILED',
 ];
+/** Journals posted against one provider credit only. */
+export const CREDIT_JOURNAL_KINDS: readonly JournalKind[] = ['CREDIT_RECEIVED', 'REFUND_PAID'];
+/** Journals posted against an obligation AND the credit that settled it. */
+export const ALLOCATION_JOURNAL_KINDS: readonly JournalKind[] = ['CREDIT_ALLOCATED'];
 export type JournalSide = 'DEBIT' | 'CREDIT';
 
 export interface JournalLine {
@@ -100,26 +112,10 @@ export function obligationVoidedJournal(obligationId: string, amount: Money): Jo
   });
 }
 
-function clearingAccount(method: PaymentMethod): LedgerAccount {
+export function clearingAccount(method: PaymentMethod): LedgerAccount {
   if (method === 'SHAM_CASH') return 'CLEARING_SHAM_CASH';
   if (method === 'SYRIATEL_CASH') return 'CLEARING_SYRIATEL_CASH';
   throw new Error('NO_CLEARING_ACCOUNT_FOR_METHOD');
-}
-
-/** A reconciled electronic receipt settles the receivable through clearing. */
-export function paymentMatchedJournal(
-  attemptId: string,
-  method: PaymentMethod,
-  received: Money,
-): JournalPlan {
-  return balanced({
-    kind: 'PAYMENT_MATCHED',
-    businessRef: `attempt:${attemptId}:matched`,
-    lines: [
-      { account: clearingAccount(method), side: 'DEBIT', amount: received },
-      { account: 'CUSTOMER_RECEIVABLE', side: 'CREDIT', amount: received },
-    ],
-  });
 }
 
 /**
@@ -197,6 +193,62 @@ export function custodyReconciledJournal(handoverId: string, counted: Money): Jo
     lines: [
       { account: 'TREASURY_CASH', side: 'DEBIT', amount: counted },
       { account: 'TREASURY_CASH_UNRECONCILED', side: 'CREDIT', amount: counted },
+    ],
+  });
+}
+
+/**
+ * A provider credit is established: the money is in the provider clearing
+ * account and, until it is applied to an obligation, unallocated.
+ */
+export function creditReceivedJournal(
+  creditId: string,
+  provider: PaymentMethod,
+  amount: Money,
+): JournalPlan {
+  return balanced({
+    kind: 'CREDIT_RECEIVED',
+    businessRef: `credit:${creditId}:received`,
+    lines: [
+      { account: clearingAccount(provider), side: 'DEBIT', amount },
+      { account: 'PROVIDER_CREDITS_UNALLOCATED', side: 'CREDIT', amount },
+    ],
+  });
+}
+
+/** The credit settles the obligation whose claim carried its reference. */
+export function creditAllocatedJournal(creditId: string, amount: Money): JournalPlan {
+  return balanced({
+    kind: 'CREDIT_ALLOCATED',
+    businessRef: `credit:${creditId}:allocated`,
+    lines: [
+      { account: 'PROVIDER_CREDITS_UNALLOCATED', side: 'DEBIT', amount },
+      { account: 'CUSTOMER_RECEIVABLE', side: 'CREDIT', amount },
+    ],
+  });
+}
+
+/**
+ * Money left the provider account back to the payer. Refunding money that had
+ * settled an obligation is booked to the refunds control account; refunding
+ * unallocated money relieves the unallocated balance.
+ */
+export function refundPaidJournal(
+  refundId: string,
+  provider: PaymentMethod,
+  amount: Money,
+  creditWasAllocated: boolean,
+): JournalPlan {
+  return balanced({
+    kind: 'REFUND_PAID',
+    businessRef: `refund:${refundId}:paid`,
+    lines: [
+      {
+        account: creditWasAllocated ? 'REFUNDS_CONTROL' : 'PROVIDER_CREDITS_UNALLOCATED',
+        side: 'DEBIT',
+        amount,
+      },
+      { account: clearingAccount(provider), side: 'CREDIT', amount },
     ],
   });
 }

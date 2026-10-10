@@ -84,7 +84,8 @@ export interface EventContext {
   readonly eventId: string;
   readonly occurredAt: Date;
   readonly correlationId: string;
-  readonly actor: PrincipalRef;
+  /** Null when a provider notification (no Identity principal) caused the change. */
+  readonly actor: PrincipalRef | null;
   readonly obligationId: string;
   /** The obligation revision this event describes (consumers apply newer only). */
   readonly revision: number;
@@ -106,7 +107,9 @@ function outboxRow<TType extends string, TData>(
     causationId: null,
     traceparent: null,
     aggregate: { type: OBLIGATION_AGGREGATE, id: context.obligationId, version: context.revision },
-    actor: { kind: context.actor.kind, id: context.actor.subjectId },
+    actor: context.actor
+      ? { kind: context.actor.kind, id: context.actor.subjectId }
+      : { kind: 'system', id: null },
     data,
   };
   // Never write an envelope the shared parser would reject.
