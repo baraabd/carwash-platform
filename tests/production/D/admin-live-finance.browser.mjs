@@ -549,6 +549,40 @@ async function auditRows(service, statement) {
 
 /* ---------------------------- browser helpers ---------------------------- */
 
+/**
+ * The bookings list is a calendar window (today / week from Saturday / month,
+ * Damascus time) and is paged. A slot three hours ahead can fall on tomorrow,
+ * so the journey picks the window holding the slot and loads more until listed.
+ */
+async function findBookingRow(page, booking) {
+  const day = (ms) => new Date(ms + SYRIA_OFFSET_MS).toISOString().slice(0, 10);
+  const now = Date.now();
+  const sameDay = day(booking.startsAt) === day(now);
+  const weekStart =
+    damascusToday(0) - ((new Date(now + SYRIA_OFFSET_MS).getUTCDay() + 1) % 7) * 1440 * MIN;
+  const period = sameDay
+    ? 'today'
+    : booking.startsAt < weekStart + 7 * 1440 * MIN
+      ? 'week'
+      : 'month';
+  await page.locator('#bookingRows tr').first().waitFor();
+  if (period !== 'today') await page.locator('#periodFilter').selectOption(period);
+  await page.locator('#bookings[aria-busy="false"]').waitFor();
+  const row = page.locator(`#bookingRows tr[data-booking="${booking.bookingId}"]`);
+  for (let i = 0; i < 40 && (await row.count()) === 0; i++) {
+    const more = page.locator('#bookingLoadMore');
+    if ((await more.count()) === 0) break;
+    const rows = await page.locator('#bookingRows tr').count();
+    await more.click();
+    await page.waitForFunction(
+      (n) => document.querySelectorAll('#bookingRows tr').length > n,
+      rows,
+    );
+  }
+  await row.waitFor();
+  return row;
+}
+
 const DISABLE_MOTION = `*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}`;
 
 async function signInUi(page, principal) {
@@ -718,8 +752,7 @@ test('O1: operations — dashboard KPIs equal Reporting, live assignment, offer/
 
     // Live table: Dispatch is the source of the technician column.
     await page.locator('.nav button[data-screen="bookings"]').click();
-    const row = page.locator(`#bookingRows tr[data-booking="${booking.bookingId}"]`);
-    await row.waitFor();
+    const row = await findBookingRow(page, booking);
     await row.locator('td[data-assignment="UNASSIGNED"]').waitFor();
 
     // Detail: each owner answers for its own section.
@@ -817,7 +850,7 @@ test('O2: operations — a lost answer is UNKNOWN; only the same command is rese
   const { page, browserContext, errors } = await asUser(operations);
   try {
     await page.goto(`${stack.origin}/#/bookings`);
-    const row = page.locator(`#bookingRows tr[data-booking="${booking.bookingId}"]`);
+    const row = await findBookingRow(page, booking);
     await row.click();
     const dialog = page.getByRole('dialog');
     await dialog.locator('#detailAssignment [data-status="UNASSIGNED"]').waitFor();
