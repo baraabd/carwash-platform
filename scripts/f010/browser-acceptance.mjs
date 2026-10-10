@@ -109,19 +109,38 @@ async function openReference(browser, server, app, width) {
   return { context, page, externalRequests, pageErrors };
 }
 
+async function captureScreenshotWithRetry(page, label) {
+  let lastError;
+  for (let attempt = 1; attempt <= deterministicCaptureAttempts; attempt += 1) {
+    try {
+      return await page.screenshot(deterministicScreenshot);
+    } catch (error) {
+      lastError = error;
+      if (attempt < deterministicCaptureAttempts) {
+        await page.waitForTimeout(50 * attempt);
+      }
+    }
+  }
+  throw new Error(
+    `Unable to capture deterministic screenshot for ${label} after ${deterministicCaptureAttempts} attempts: ${
+      lastError instanceof Error ? lastError.message : String(lastError)
+    }`,
+  );
+}
+
 async function captureStableScreenshot(browser, page) {
   // The first capture intentionally warms Chromium's full-page raster path.
   // Consecutive captures can still differ by a handful of subpixel edge pixels
   // on fresh CI browser installs, so accept the first stable adjacent pair.
-  await page.screenshot(deterministicScreenshot);
+  await captureScreenshotWithRetry(page, 'stable warmup');
   await page.waitForTimeout(25);
-  let previous = await page.screenshot(deterministicScreenshot);
+  let previous = await captureScreenshotWithRetry(page, 'stable first');
   let comparison = null;
   let current = previous;
   let comparedPrevious = previous;
   for (let attempt = 1; attempt <= deterministicCaptureAttempts; attempt += 1) {
     await page.waitForTimeout(25);
-    current = await page.screenshot(deterministicScreenshot);
+    current = await captureScreenshotWithRetry(page, `stable attempt ${attempt}`);
     comparedPrevious = previous;
     comparison = await comparePngBuffers(browser, previous, current, contract.channelThreshold);
     if (comparison.sameDimensions && comparison.changedPixels === 0) {
@@ -302,7 +321,6 @@ try {
             attempts: stableCapture.attempts,
             changedPixels: deterministic.changedPixels,
             diffRatio: deterministic.diffRatio,
-            attempts: stableCapture.attempts,
           },
           geometry,
           accessibility: {
