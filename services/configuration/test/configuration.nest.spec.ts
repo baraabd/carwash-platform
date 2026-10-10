@@ -5,6 +5,7 @@ import { HealthController, HEALTH_OPTIONS, type HealthOptions } from '@carwash/s
 import { AppModule, BUSINESS_READY, SERVICE_NAME, postgresProbe } from '../src/app.module';
 import { PrismaService, databaseUrlFromEnv } from '../src/prisma.service';
 import { createHttpApplication } from '../src/transport/http/create-app';
+import { FixedWindowRateLimit, rateLimitsFromEnv } from '../src/transport/http/rate-limit';
 
 const DSN =
   'postgresql://cw_configuration_app:placeholder@127.0.0.1:5432/cw_configuration?schema=app';
@@ -157,4 +158,58 @@ test('configuration: the postgres probe is wired to this service own client', as
   assert.equal(probe.name, 'postgres');
   assert.equal(probe.kind, 'postgres');
   await moduleRef.close();
+});
+
+test('configuration.v1: without IDENTITY_ORIGIN the service boots and staff routes fail closed (503)', async () => {
+  process.env.DATABASE_URL = DSN;
+  delete process.env.IDENTITY_ORIGIN;
+  delete process.env.CONFIGURATION_SERVICE_CLIENTS;
+  const app = await createHttpApplication();
+  await app.listen(0, '127.0.0.1');
+  try {
+    const url = `${await app.getUrl()}/internal/v1/configuration`;
+    const staff = await fetch(`${url}/scopes/sy/booking.policy.v1`, {
+      headers: { authorization: `Bearer ${'a'.repeat(40)}` },
+    });
+    assert.equal(staff.status, 503);
+    assert.equal(
+      ((await staff.json()) as { error: { code: string } }).error.code,
+      'AUTH_UNAVAILABLE',
+    );
+    // The dotted namespace segment routes, and the service-only read refuses
+    // a caller without a workload credential before touching the database.
+    const anonymous = await fetch(`${url}/scopes/sy/booking.policy.v1/current`);
+    assert.equal(anonymous.status, 401);
+    const bearerOnly = await fetch(`${url}/scopes/sy/booking.policy.v1/current`, {
+      headers: { authorization: `Bearer ${'a'.repeat(40)}` },
+    });
+    assert.equal(bearerOnly.status, 401, 'a staff bearer is not a service credential');
+    const unknownClient = await fetch(`${url}/scopes/sy/booking.policy.v1/current`, {
+      headers: { 'x-service-client': 'scheduling', 'x-service-token': 'b'.repeat(40) },
+    });
+    assert.equal(unknownClient.status, 401, 'no configured clients: every caller is refused');
+  } finally {
+    await app.close();
+    process.env.IDENTITY_ORIGIN = 'http://127.0.0.1:9';
+  }
+});
+
+test('configuration.v1: per-subject budgets block after the limit, reset per window, and refuse bad config', () => {
+  let now = 1_000_000;
+  const limit = new FixedWindowRateLimit(2, 60_000, 10, () => now);
+  assert.equal(limit.take('a'), true);
+  assert.equal(limit.take('a'), true);
+  assert.equal(limit.take('a'), false, 'third command in the window is refused');
+  assert.equal(limit.take('b'), true, 'budgets are per subject');
+  now += 60_000;
+  assert.equal(limit.take('a'), true, 'a new window resets the budget');
+  assert.throws(
+    () => rateLimitsFromEnv({ CONFIGURATION_RATE_COMMANDS_PER_MINUTE: '0' }),
+    /CONFIGURATION_RATE_COMMANDS_PER_MINUTE_INVALID/,
+  );
+  assert.throws(
+    () => rateLimitsFromEnv({ CONFIGURATION_RATE_READS_PER_MINUTE: 'unlimited' }),
+    /CONFIGURATION_RATE_READS_PER_MINUTE_INVALID/,
+  );
+  assert.ok(rateLimitsFromEnv({}).commands instanceof FixedWindowRateLimit);
 });
