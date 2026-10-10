@@ -27,6 +27,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { redact, registerSecret, run } from '../../acceptance/lib/exec.mjs';
+import { pullImageWithMirrors } from '../../lib/image-references.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const PG_IMAGE = 'postgres:16.10-alpine';
@@ -110,6 +111,14 @@ async function checked(command, args, options = {}) {
   return result;
 }
 
+async function pullPinnedImage(image) {
+  return pullImageWithMirrors(
+    image,
+    (args, options = {}) => run('docker', args, { cwd: ROOT, timeoutMs: 600_000, ...options }),
+    { quiet: false },
+  );
+}
+
 async function phase(name, operation) {
   try {
     const value = await operation();
@@ -163,7 +172,7 @@ try {
   });
 
   await phase('pull pinned PostgreSQL image', async () => {
-    await checked('docker', ['pull', PG_IMAGE]);
+    await pullPinnedImage(PG_IMAGE);
     report.image.repoDigests = JSON.parse(
       (await checked('docker', ['image', 'inspect', PG_IMAGE, '--format', '{{json .RepoDigests}}']))
         .stdout,

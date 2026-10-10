@@ -242,6 +242,14 @@ for (const role of IDENTITY_ROLES) {
     if (role !== 'super-admin') assert.ok(!permissions.includes('identity.roles.assign'));
     if (role !== 'finance' && role !== 'super-admin')
       assert.ok(!permissions.includes('billing.refund'));
+    // P03-E1: reconciliation is finance/super-admin only; publication is
+    // super-admin only until the owner approves a narrower mapping (E-P03-D1).
+    assert.equal(
+      permissions.includes('billing.reconcile'),
+      role === 'finance' || role === 'super-admin',
+    );
+    for (const publish of ['catalog.publish', 'pricing.publish'])
+      assert.equal(permissions.includes(publish), role === 'super-admin');
   });
 }
 test('F006 contracts: user input cannot assign roles or supply unknown credential fields', () => {
