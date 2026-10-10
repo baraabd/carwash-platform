@@ -39,7 +39,9 @@ export class RequestBudget {
       return;
     }
     current.count += 1;
-    if (current.count > this.limit) throw new RateLimited();
+    if (current.count > this.limit) {
+      throw new RateLimited(current.start + this.windowMs - at);
+    }
   }
 }
 

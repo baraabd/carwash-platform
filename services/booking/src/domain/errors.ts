@@ -19,6 +19,8 @@ export type BookingErrorCode =
   | 'VEHICLE_NOT_USABLE'
   | 'ADDRESS_NOT_USABLE'
   | 'DEPENDENCY_UNAVAILABLE'
+  /** Dispatch could not confirm the caller's assignment: fail closed, never allow. */
+  | 'ASSIGNMENT_UNVERIFIED'
   | 'INVALID_TRANSITION'
   | 'VERSION_CONFLICT';
 

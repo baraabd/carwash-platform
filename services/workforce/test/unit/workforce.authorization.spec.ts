@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { WorkforceService } from '../src/application/workforce.service';
-import { WorkforceError } from '../src/domain';
-import type { Actor, WorkforceReadModel, WorkforceUnitOfWork } from '../src/ports';
+import { WorkforceService } from '../../src/application/workforce.service';
+import { WorkforceError } from '../../src/domain';
+import type { Actor, WorkforceReadModel, WorkforceUnitOfWork } from '../../src/ports';
 
 const subject = '11111111-1111-4111-8111-111111111111';
 const operatorId = '22222222-2222-4222-8222-222222222222';
@@ -19,6 +19,8 @@ function authorizationHarness() {
     findVerificationCase: unexpectedRead,
     listShifts: unexpectedRead,
     eligibleOperators: unexpectedRead,
+    findAvailability: unexpectedRead,
+    listCapacityCandidates: unexpectedRead,
   };
   const uow: WorkforceUnitOfWork = {
     run() {

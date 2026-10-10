@@ -7,14 +7,16 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   Res,
   UseFilters,
 } from '@nestjs/common';
-import { WorkforceService } from '../../application';
+import { WorkforceService, type CapacityResourcePage } from '../../application';
 import {
   invalid,
+  type AvailabilityState,
   type DecisionReason,
   type EmploymentStatus,
   type OperatorState,
@@ -98,6 +100,36 @@ function shiftView(state: ShiftState) {
     status: state.status,
     version: state.version,
   };
+}
+/** Published workforce.v1 Page<CapacityResourceV1>. */
+function capacityPageView(page: CapacityResourcePage) {
+  return {
+    items: page.items.map((resource) => ({
+      resourceId: resource.resourceId,
+      revision: resource.revision,
+      eligibility: resource.eligibility,
+      eligibilityRevision: resource.eligibilityRevision,
+      zoneIds: [...resource.zoneIds],
+      shifts: resource.shifts.map((shift) => ({
+        startsAt: shift.startsAt.toISOString(),
+        endsAt: shift.endsAt.toISOString(),
+      })),
+    })),
+    nextCursor: page.nextCursor,
+    asOf: page.asOf.toISOString(),
+  };
+}
+/** Requested view: exactly {status, revision, updatedAt}; no operator or subject id. */
+function availabilityView(state: AvailabilityState) {
+  return {
+    status: state.status,
+    revision: state.revision,
+    updatedAt: state.updatedAt?.toISOString() ?? null,
+  };
+}
+function queryRecord(query: unknown): Readonly<Record<string, unknown>> {
+  if (typeof query !== 'object' || query === null || Array.isArray(query)) return {};
+  return Object.fromEntries(Object.entries(query));
 }
 @Controller(WORKFORCE_V1)
 @UseFilters(WorkforceHttpFilter)
@@ -280,6 +312,22 @@ export class WorkforceController {
     const meta = await this.actors.resolve(req);
     objectBody(body ?? {}, [], []);
     return shiftView(await this.workforce.cancelShift(meta, id));
+  }
+  @Get('capacity-resources')
+  async capacityResources(@Req() req: HeaderBag, @Query() query: unknown) {
+    const meta = await this.actors.resolve(req);
+    return capacityPageView(await this.workforce.listCapacityResources(meta, queryRecord(query)));
+  }
+  @Get('me/availability')
+  async availability(@Req() req: HeaderBag) {
+    const meta = await this.actors.resolve(req);
+    return availabilityView(await this.workforce.availability(meta));
+  }
+  @Put('me/availability')
+  async setAvailability(@Req() req: HeaderBag, @Body() body: unknown) {
+    const meta = await this.actors.resolve(req);
+    // The closed body is parsed after authorization, inside the application.
+    return availabilityView(await this.workforce.setAvailability(meta, body));
   }
   @Get('eligible')
   async eligible(

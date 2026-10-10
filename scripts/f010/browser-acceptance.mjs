@@ -299,6 +299,7 @@ try {
           screenshot: fileName,
           sha256: sha256(first),
           pixelDeterminism: {
+            attempts: stableCapture.attempts,
             changedPixels: deterministic.changedPixels,
             diffRatio: deterministic.diffRatio,
             attempts: stableCapture.attempts,
@@ -317,12 +318,12 @@ try {
 
   const drift = await openReference(browser, server, 'customer', 390);
   try {
-    await drift.page.screenshot(deterministicScreenshot);
-    const baseline = await drift.page.screenshot(deterministicScreenshot);
+    await captureScreenshotWithRetry(drift.page, 'drift warmup');
+    const baseline = await captureScreenshotWithRetry(drift.page, 'drift baseline');
     await drift.page.evaluate(() => {
       globalThis.document.documentElement.style.filter = 'hue-rotate(35deg)';
     });
-    const changed = await drift.page.screenshot(deterministicScreenshot);
+    const changed = await captureScreenshotWithRetry(drift.page, 'drift changed');
     const comparison = await comparePngBuffers(
       browser,
       baseline,

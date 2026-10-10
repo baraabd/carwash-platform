@@ -19,20 +19,23 @@ model ServiceMarker {
 }
 
 model Operator {
-  id                 String             @id @db.Uuid
-  identitySubject    String             @unique @map("identity_subject") @db.Uuid
-  displayName        String             @map("display_name") @db.VarChar(80)
-  homeZoneId         String             @map("home_zone_id") @db.Uuid
-  employmentStatus   String             @default("ACTIVE") @map("employment_status")
-  suspensionReason   String?            @map("suspension_reason")
-  verificationStatus String             @default("UNVERIFIED") @map("verification_status")
-  verifiedUntil      DateTime?          @map("verified_until") @db.Timestamptz(3)
-  version            Int                @default(1)
-  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime           @default(now()) @map("updated_at") @db.Timestamptz(3)
-  grants             WorkGrant[]
-  cases              VerificationCase[]
-  shifts             WorkShift[]
+  id                  String                @id @db.Uuid
+  identitySubject     String                @unique @map("identity_subject") @db.Uuid
+  displayName         String                @map("display_name") @db.VarChar(80)
+  homeZoneId          String                @map("home_zone_id") @db.Uuid
+  employmentStatus    String                @default("ACTIVE") @map("employment_status")
+  suspensionReason    String?               @map("suspension_reason")
+  verificationStatus  String                @default("UNVERIFIED") @map("verification_status")
+  verifiedUntil       DateTime?             @map("verified_until") @db.Timestamptz(3)
+  version             Int                   @default(1)
+  /// Capacity-resource eligibility revision (P03-C1); CHECK 1 <= value <= version lives in SQL.
+  eligibilityRevision Int                   @default(1) @map("eligibility_revision")
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime              @default(now()) @map("updated_at") @db.Timestamptz(3)
+  grants              WorkGrant[]
+  cases               VerificationCase[]
+  shifts              WorkShift[]
+  availability        OperatorAvailability?
 
   @@index([homeZoneId], map: "operator_home_zone_idx")
   @@map("operator")
@@ -94,6 +97,18 @@ model WorkShift {
   @@index([operatorId, startsAt])
   @@index([zoneId, status, startsAt])
   @@map("work_shift")
+}
+
+/// Technician ready/break state (P03-C1). Status CHECK lives in SQL.
+/// No row means "never set": ON_BREAK at revision 0.
+model OperatorAvailability {
+  operatorId String   @id @map("operator_id") @db.Uuid
+  status     String
+  version    Int
+  updatedAt  DateTime @map("updated_at") @db.Timestamptz(3)
+  operator   Operator @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+
+  @@map("operator_availability")
 }
 
 model OutboxMessage {

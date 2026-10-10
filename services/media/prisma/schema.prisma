@@ -26,3 +26,71 @@ model ServiceMarker {
 
   @@map("service_marker")
 }
+
+/// One evidence object. Status CHECKs, the transition/immutability trigger and
+/// the no-delete rule live in the migration SQL only.
+model MediaObject {
+  id                   String        @id @db.Uuid
+  ownerSubject         String        @map("owner_subject") @db.Uuid
+  purpose              String        @db.VarChar(32)
+  contentType          String        @map("content_type") @db.VarChar(32)
+  byteLength           Int           @map("byte_length")
+  sha256               String        @db.Char(64)
+  status               String        @db.VarChar(16)
+  rejectReason         String?       @map("reject_reason") @db.VarChar(32)
+  reservationExpiresAt DateTime      @map("reservation_expires_at") @db.Timestamptz(3)
+  finalizedAt          DateTime?     @map("finalized_at") @db.Timestamptz(3)
+  expiredAt            DateTime?     @map("expired_at") @db.Timestamptz(3)
+  purgedAt             DateTime?     @map("purged_at") @db.Timestamptz(3)
+  storageSweptAt       DateTime?     @map("storage_swept_at") @db.Timestamptz(3)
+  version              Int           @default(1)
+  createdAt            DateTime      @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime      @map("updated_at") @db.Timestamptz(3)
+  claims               ObjectClaim[]
+
+  @@index([status, reservationExpiresAt])
+  @@index([status, finalizedAt])
+  @@index([storageSweptAt, reservationExpiresAt])
+  @@map("media_object")
+}
+
+/// A holder's claim on an AVAILABLE object; append-only (trigger in SQL).
+model ObjectClaim {
+  objectId  String      @map("object_id") @db.Uuid
+  claimRef  String      @map("claim_ref") @db.Uuid
+  holder    String      @db.VarChar(64)
+  createdAt DateTime    @map("created_at") @db.Timestamptz(3)
+  object    MediaObject @relation(fields: [objectId], references: [id], onDelete: Restrict)
+
+  @@id([objectId, claimRef])
+  @@map("object_claim")
+}
+
+/// Completed idempotent commands, kept for the documented retention window.
+model IdempotencyRecord {
+  scope              String   @db.VarChar(200)
+  idempotencyKey     String   @map("idempotency_key") @db.VarChar(128)
+  requestFingerprint String   @map("request_fingerprint") @db.Char(64)
+  objectId           String?  @map("object_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@id([scope, idempotencyKey])
+  @@index([createdAt])
+  @@map("idempotency_record")
+}
+
+/// Append-only audit of sensitive actions. Opaque identifiers only.
+model AuditEntry {
+  id            String   @id @db.Uuid
+  occurredAt    DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  actorKind     String   @map("actor_kind")
+  actorId       String   @map("actor_id") @db.VarChar(80)
+  action        String   @db.VarChar(64)
+  targetType    String   @map("target_type") @db.VarChar(32)
+  targetId      String   @map("target_id") @db.Uuid
+  correlationId String   @map("correlation_id") @db.Uuid
+  details       Json
+
+  @@index([targetType, targetId])
+  @@map("audit_entry")
+}

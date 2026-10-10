@@ -283,21 +283,56 @@ test('financial status is derived from server facts only', () => {
     status: 'AWAITING_CASH_COLLECTION' as const,
   };
   const cases: [Parameters<typeof financialStatus>[0], string][] = [
-    [{ obligation: open(), activeIntent: null, hasUnknownAttempt: false }, 'UNPAID'],
-    [{ obligation: open(), activeIntent: cash, hasUnknownAttempt: false }, 'AWAITING_CASH'],
-    [{ obligation: open(), activeIntent: awaiting, hasUnknownAttempt: false }, 'AWAITING_PAYMENT'],
-    [{ obligation: open(), activeIntent: review, hasUnknownAttempt: false }, 'UNDER_REVIEW'],
-    [{ obligation: open(), activeIntent: review, hasUnknownAttempt: true }, 'OUTCOME_UNKNOWN'],
+    [
+      { obligation: open(), activeIntent: null, hasUnknownAttempt: false, settledByCash: false },
+      'UNPAID',
+    ],
+    [
+      { obligation: open(), activeIntent: cash, hasUnknownAttempt: false, settledByCash: false },
+      'AWAITING_CASH',
+    ],
+    [
+      {
+        obligation: open(),
+        activeIntent: awaiting,
+        hasUnknownAttempt: false,
+        settledByCash: false,
+      },
+      'AWAITING_PAYMENT',
+    ],
+    [
+      { obligation: open(), activeIntent: review, hasUnknownAttempt: false, settledByCash: false },
+      'UNDER_REVIEW',
+    ],
+    [
+      { obligation: open(), activeIntent: review, hasUnknownAttempt: true, settledByCash: false },
+      'OUTCOME_UNKNOWN',
+    ],
     [
       {
         obligation: { ...open(), verified: syp(150_000n), status: 'SETTLED' },
         activeIntent: null,
         hasUnknownAttempt: false,
+        settledByCash: false,
       },
       'PAID',
     ],
     [
-      { obligation: { ...open(), status: 'VOIDED' }, activeIntent: null, hasUnknownAttempt: false },
+      {
+        obligation: { ...open(), verified: syp(150_000n), status: 'SETTLED' },
+        activeIntent: null,
+        hasUnknownAttempt: false,
+        settledByCash: true,
+      },
+      'CASH_COLLECTED',
+    ],
+    [
+      {
+        obligation: { ...open(), status: 'VOIDED' },
+        activeIntent: null,
+        hasUnknownAttempt: false,
+        settledByCash: false,
+      },
       'VOIDED',
     ],
   ];

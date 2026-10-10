@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { HealthModule, createLogger, type DependencyProbe } from '@carwash/service-kit';
-import { DispatchService } from './application';
+import { DispatchService, TaskService } from './application';
+import { ServiceHttp, parseServiceTarget } from './infrastructure/http/service-http';
+import { MediaEvidenceClient } from './infrastructure/media/media-evidence.client';
+import { WorkforceCapacityClient } from './infrastructure/workforce/workforce-capacity.client';
 import { IdentitySessionClient } from './infrastructure/identity/identity-session.client';
 import {
   DATABASE_URL,
@@ -15,6 +18,23 @@ import {
 } from './infrastructure/security/service-clients';
 import { ActorResolver, RequestBudget } from './transport/http/actor-resolver';
 import { DispatchController } from './transport/http/dispatch.controller';
+import { TaskController } from './transport/http/task.controller';
+import { DISPATCH_READ_MODEL } from './transport/http/tokens';
+
+/**
+ * Outbound adapters. Absent configuration means the dependency is unavailable
+ * (offers/acceptance or evidence linking answer 503); partial or malformed
+ * configuration refuses to start.
+ */
+function workforceFromEnv(): WorkforceCapacityClient | null {
+  const target = parseServiceTarget(process.env, 'DISPATCH_WORKFORCE');
+  return target === null ? null : new WorkforceCapacityClient(new ServiceHttp(target));
+}
+
+function mediaFromEnv(): MediaEvidenceClient | null {
+  const target = parseServiceTarget(process.env, 'DISPATCH_MEDIA');
+  return target === null ? null : new MediaEvidenceClient(new ServiceHttp(target));
+}
 
 /**
  * Composition root for the dispatch service.
@@ -52,7 +72,7 @@ function positiveInt(raw: string | undefined, fallback: number): number {
       logger: createLogger({ service: SERVICE_NAME }),
     }),
   ],
-  controllers: [DispatchController],
+  controllers: [DispatchController, TaskController],
   providers: [
     { provide: DATABASE_URL, useFactory: () => databaseUrlFromEnv() },
     PrismaService,
@@ -64,9 +84,16 @@ function positiveInt(raw: string | undefined, fallback: number): number {
     {
       provide: DispatchService,
       useFactory: (store: PrismaDispatchStore) =>
-        new DispatchService(store, store, systemClock, uuidGenerator),
+        new DispatchService(store, store, systemClock, uuidGenerator, workforceFromEnv()),
       inject: [PrismaDispatchStore],
     },
+    {
+      provide: TaskService,
+      useFactory: (store: PrismaDispatchStore) =>
+        new TaskService(store, store, systemClock, uuidGenerator, mediaFromEnv()),
+      inject: [PrismaDispatchStore],
+    },
+    { provide: DISPATCH_READ_MODEL, useExisting: PrismaDispatchStore },
     {
       provide: ActorResolver,
       useFactory: () =>

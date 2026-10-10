@@ -19,6 +19,8 @@ import {
   type AuditRecord,
   type BillingRepository,
   type BillingUnitOfWork,
+  type CustodyReader,
+  type CustodyStore,
   type FinancialSnapshot,
   type IdempotencyReceipt,
   type IntentRecord,
@@ -30,6 +32,11 @@ import {
   type PrincipalRef,
 } from '../../ports';
 import { Prisma, type PrismaClient } from '../../generated/prisma/client';
+import {
+  PrismaCustodyReader,
+  PrismaCustodyStore,
+  toReceipt as toCashReceipt,
+} from './prisma-custody.store';
 import { PrismaService } from './prisma.service';
 
 type Tx = Prisma.TransactionClient;
@@ -149,15 +156,21 @@ async function snapshot(db: Db, obligationId: string): Promise<FinancialSnapshot
     where: { obligationId },
     orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }],
   });
+  const receipt = await db.cashReceipt.findFirst({ where: { obligationId, activeSlot: 1 } });
   return {
     obligation: toObligation(row),
     activeIntent: intent ? toIntent(intent) : null,
     attempts: attempts.map(toAttempt),
+    cashReceipt: receipt ? toCashReceipt(receipt) : null,
   };
 }
 
 class PrismaBillingUnitOfWork implements BillingUnitOfWork {
-  constructor(private readonly tx: Tx) {}
+  readonly custody: CustodyStore;
+
+  constructor(private readonly tx: Tx) {
+    this.custody = new PrismaCustodyStore(tx);
+  }
 
   findReceipt(actor: PrincipalRef, operation: string, key: string) {
     return findReceipt(this.tx, actor, operation, key);
@@ -330,6 +343,7 @@ class PrismaBillingUnitOfWork implements BillingUnitOfWork {
         kind: journal.kind,
         businessRef: journal.businessRef,
         obligationId: meta.obligationId,
+        handoverId: meta.handoverId,
         postedAt: meta.postedAt,
         correlationId: meta.correlationId,
       },
@@ -342,6 +356,7 @@ class PrismaBillingUnitOfWork implements BillingUnitOfWork {
         side: line.side,
         currency: line.amount.currency,
         amountMinor: line.amount.amountMinor,
+        holderSubject: line.holder ?? null,
       })),
     });
   }
@@ -356,6 +371,8 @@ class PrismaBillingUnitOfWork implements BillingUnitOfWork {
         action: record.action,
         obligationId: record.obligationId,
         attemptId: record.attemptId,
+        receiptId: record.receiptId,
+        handoverId: record.handoverId,
         outcome: record.outcome,
         correlationId: record.correlationId,
       },
@@ -382,9 +399,11 @@ class PrismaBillingUnitOfWork implements BillingUnitOfWork {
 @Injectable()
 export class PrismaBillingRepository implements BillingRepository {
   private readonly client: PrismaClient;
+  readonly custody: CustodyReader;
 
   constructor(prisma: PrismaService) {
     this.client = prisma.client;
+    this.custody = new PrismaCustodyReader(prisma.client);
   }
 
   transaction<T>(work: (uow: BillingUnitOfWork) => Promise<T>): Promise<T> {

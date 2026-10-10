@@ -6,3 +6,4 @@
 export * from './runtime.ports';
 export * from './owner.ports';
 export * from './store.ports';
+export * from './assignment.ports';

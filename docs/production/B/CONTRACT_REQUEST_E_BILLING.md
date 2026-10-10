@@ -146,3 +146,77 @@ unimplemented `/internal/v1/billing/summary`; E should retire or re-point it.
 
 Billing keeps `BUSINESS_READY = false` (readiness 503). Promotion is E's gate
 after CR-B-01..06, real cross-service acceptance and merchant setup.
+
+## CR-B-08 Cash collection, technician custody and settlement (from P03-B1)
+
+Status: **SUBMITTED, not accepted**. Provider implementation: `services/billing`
+at the head of `prod/p03-b-implement-cash-collection--receipt--technician-custody-b1`
+(`docs/production/B/P03-B1-CASH-CUSTODY.md`). Billing consumes only E's merged result.
+
+### CR-B-08.1 Identity permissions
+
+| Permission | Proposed roles | Purpose |
+| --- | --- | --- |
+| `billing.cash.collect` | `technician` | Record cash collected for the caller's own assigned, completed job; declare/cancel own custody handovers; read own custody |
+| `billing.cash.correct` | `finance`, `super-admin` | Linked reversal of a collection recorded in error (never the collector) |
+| `billing.treasury.receive` | `finance` (or a new treasury role, owner decision B-07) | Count a handover into the treasury (never the holder) |
+| `billing.reconcile` | `finance`, `super-admin` (already CR-B-03.1) | Settle a received handover (never the holder or receiver) |
+
+Until these are granted, every such command is 403 in production. They are kept
+separate from `work.execute:assigned` and `billing.read` on purpose: neither
+should imply authority over money.
+
+### CR-B-08.2 Event contracts (envelope v2, producer `billing`)
+
+```ts
+// billing.cash-collected.v1        aggregate billing-cash-receipt (version = receipt revision)
+data: { obligationId: string; bookingId: string; assignmentId: string; amount: Money;
+        custodyStatus: 'HELD' }                                                     // closed
+// billing.cash-collection-reversed.v1  aggregate billing-cash-receipt
+data: { obligationId: string; bookingId: string; amount: Money;
+        reason: 'RECORDED_IN_ERROR' | 'WRONG_BOOKING' | 'AMOUNT_NOT_RECEIVED' | 'DUPLICATE_RECORD' }
+// billing.custody-handover-changed.v1  aggregate billing-custody-handover (version = handover revision)
+data: { holder: string /* Identity subject */; previousStatus: HandoverStatusV1 | null;
+        status: HandoverStatusV1; receiptCount: number /* 1..200 */; declared: Money;
+        counted: Money | null; shortage: Money | null; overage: Money | null }       // closed, previous !== status
+type HandoverStatusV1 = 'PENDING' | 'RECEIVED' | 'RECONCILED' | 'CANCELLED';
+```
+
+`billing.obligation-status-changed.v1` gains the `FinancialStatusV1` value
+`CASH_COLLECTED` (settled by an authorised cash receipt; distinct from `PAID`).
+No event carries a treasury/settlement reference or customer data. Consumers:
+Wallet projection (B2), Reporting, Communications, Booking (customer owes nothing).
+
+### CR-B-08.3 Work-completion authority (lane C, coordinated by E)
+
+Billing's `WorkAuthority` port needs one read, on behalf of the calling technician
+(their own bearer token, Billing never trusts a body claim):
+
+```ts
+GET <work owner>/bookings/:bookingId/work   // caller = the technician
+200 { bookingId: string; quoteId: string /* the booking's pinned quote */;
+      assignmentId: string; assignmentRevision: number;
+      technicianSubject: string | null /* current assignee */;
+      workState: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' }
+404 when the booking does not exist for this caller; 5xx/timeout -> Billing 503
+```
+
+Today Dispatch has no work-execution state (it stops at `ASSIGNED`) and does not
+know the quote; Booking knows the quote. C/E decide which owner (or a C-owned
+composition) serves this. Billing's adapter will be written against the merged
+contract only; until then the production adapter fails closed.
+
+### CR-B-08.4 HTTP routes for `billing.v1` and Gateway aliases
+
+The routes in `P03-B1-CASH-CUSTODY.md` ("Owner API") with the error codes
+`COLLECTION_ALREADY_RECORDED` 409, `TREASURY_REFERENCE_TAKEN` 409,
+`INTENT_NOT_CASH` 409, `WORK_NOT_COMPLETED` 409, `COLLECTOR_NOT_ASSIGNED` 403,
+`SELF_COLLECTION_FORBIDDEN` 403, `SEPARATION_OF_DUTIES` 403,
+`RECEIPT_ALREADY_REVERSED` 409, `RECEIPT_NOT_HELD` 409, `HANDOVER_NOT_PENDING` 409,
+`HANDOVER_NOT_RECEIVED` 409, 422 `HANDOVER_EMPTY`, `HANDOVER_TOO_LARGE`,
+`HANDOVER_DUPLICATE_RECEIPT`, `HANDOVER_MIXED_CURRENCY`, `DECLARED_TOTAL_MISMATCH`,
+`CURRENCY_MISMATCH`, `AMOUNT_NOT_EQUAL_OUTSTANDING`. `ObligationV1` gains
+`cashReceipt: { receiptId; amount: Money; collectedAt } | null`. Gateway aliases
+are needed for the technician app (collect, my custody, declare/cancel handover)
+and admin finance (treasury receipt, reconciliation, holder positions, report);
+their screens are not designed yet and must not be inferred.

@@ -285,7 +285,12 @@
         "IdempotencyRecord",
         "InboxMessage",
         "OutboxMessage",
-        "AuditEntry"
+        "AuditEntry",
+        "ResourceObservation",
+        "Task",
+        "TaskEvidence",
+        "TaskNote",
+        "TaskEvent"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
@@ -305,6 +310,7 @@
         "WorkGrant",
         "VerificationCase",
         "WorkShift",
+        "OperatorAvailability",
         "OutboxMessage",
         "AuditEntry"
       ],
@@ -329,7 +335,11 @@
         "LedgerLine",
         "BillingIdempotencyReceipt",
         "BillingAuditEvent",
-        "OutboxMessage"
+        "OutboxMessage",
+        "CashReceipt",
+        "CashReceiptReversal",
+        "CustodyHandover",
+        "CustodyHandoverItem"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
@@ -374,7 +384,11 @@
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
       "persistenceModels": [
-        "ServiceMarker"
+        "ServiceMarker",
+        "MediaObject",
+        "ObjectClaim",
+        "IdempotencyRecord",
+        "AuditEntry"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"

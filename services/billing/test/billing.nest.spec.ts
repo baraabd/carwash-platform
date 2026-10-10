@@ -175,6 +175,54 @@ test('billing: the composed owner API fails closed without Identity configuratio
   }
 });
 
+test('billing: the composed cash/custody API is mounted and fails closed', async () => {
+  process.env.DATABASE_URL = DSN;
+  delete process.env.IDENTITY_SESSION_ORIGIN;
+  const app = await createHttpApplication();
+  await app.listen(0, '127.0.0.1');
+  try {
+    const url = await app.getUrl();
+    const id = '6f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f';
+    const bearer = 'Bearer eyJhbGciOiJSUzI1NiJ9.e30.c2ln';
+    const commands: [string, unknown][] = [
+      [`/obligations/${id}/cash-collections`, { expectedRevision: 2, bookingId: id, amount: null }],
+      [`/cash-receipts/${id}/reversal`, { expectedRevision: 1, reason: 'RECORDED_IN_ERROR' }],
+      ['/custody/handovers', { receiptIds: [id], declaredAmount: null }],
+      [`/custody/handovers/${id}/cancel`, { expectedRevision: 1 }],
+      [`/custody/handovers/${id}/treasury-receipt`, { expectedRevision: 1 }],
+      [`/custody/handovers/${id}/reconciliation`, { expectedRevision: 2 }],
+    ];
+    for (const [path, body] of commands) {
+      const init = {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'idempotency-key': 'nest-custody-key-0001' },
+        body: JSON.stringify(body),
+      };
+      const anonymous = await fetch(url + '/internal/v1/billing' + path, init);
+      assert.equal(anonymous.status, 401, path);
+      const unverifiable = await fetch(url + '/internal/v1/billing' + path, {
+        ...init,
+        headers: { ...init.headers, authorization: bearer },
+      });
+      assert.equal(unverifiable.status, 503, path);
+    }
+    for (const path of [
+      `/cash-receipts/${id}`,
+      `/custody/handovers/${id}`,
+      '/custody/holders/me',
+      `/custody/holders/${id}`,
+      '/custody/reconciliation',
+    ]) {
+      const read = await fetch(url + '/internal/v1/billing' + path, {
+        headers: { authorization: bearer },
+      });
+      assert.equal(read.status, 503, path);
+    }
+  } finally {
+    await app.close();
+  }
+});
+
 test('billing: the service is declared foundation-only, not business ready', () => {
   assert.equal(SERVICE_NAME, 'billing');
   assert.equal(BUSINESS_READY, false);

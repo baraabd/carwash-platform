@@ -17,6 +17,8 @@ export type WorkforceErrorCode =
   | 'SHIFT_NOT_ACTIVE'
   | 'SHIFT_OVERLAPS'
   | 'VERSION_CONFLICT'
+  | 'REVISION_CONFLICT'
+  | 'INVALID_CURSOR'
   | 'IDEMPOTENCY_KEY_REUSED';
 
 export class WorkforceError extends Error {
