@@ -110,3 +110,129 @@ model AggregateSnapshot {
   @@id([projection, aggregateType, aggregateId])
   @@map("aggregate_snapshot")
 }
+
+/// P02-D operations read model. Derived from Booking, Scheduling and Workforce
+/// published events only; never the source of truth for any of them.
+
+/// One row per scheduling hold Reporting has seen. booking_id is learned from
+/// the COMMITTED event (the contract carries it only then) and kept, so a
+/// later RELEASED/EXPIRED of the same hold can still be attributed.
+model OpsSlotHold {
+  holdId        String   @id @map("hold_id") @db.Uuid
+  version       Int
+  state         String   @db.VarChar(12)
+  zoneId        String   @map("zone_id") @db.Uuid
+  startsAt      DateTime @map("starts_at") @db.Timestamptz(3)
+  endsAt        DateTime @map("ends_at") @db.Timestamptz(3)
+  bookingId     String?  @map("booking_id") @db.Uuid
+  fingerprint   String   @db.Char(64)
+  sourceEventId String   @map("source_event_id") @db.Uuid
+  occurredAt    DateTime @map("occurred_at") @db.Timestamptz(3)
+
+  @@index([bookingId])
+  @@map("ops_slot_hold")
+}
+
+/// Operational view of a booking: the confirmation fact plus its current slot,
+/// recomputed from ops_slot_hold. confirmed_at is the source occurrence time.
+model OpsBooking {
+  bookingId               String    @id @map("booking_id") @db.Uuid
+  customerRef             String?   @map("customer_ref") @db.Uuid
+  confirmedAt             DateTime? @map("confirmed_at") @db.Timestamptz(3)
+  confirmationVersion     Int?      @map("confirmation_version")
+  confirmationFingerprint String?   @map("confirmation_fingerprint") @db.Char(64)
+  slotHoldId              String?   @map("slot_hold_id") @db.Uuid
+  slotState               String?   @map("slot_state") @db.VarChar(12)
+  slotZoneId              String?   @map("slot_zone_id") @db.Uuid
+  slotStartsAt            DateTime? @map("slot_starts_at") @db.Timestamptz(3)
+  slotEndsAt              DateTime? @map("slot_ends_at") @db.Timestamptz(3)
+  updatedAt               DateTime  @map("updated_at") @db.Timestamptz(3)
+
+  @@index([slotStartsAt, bookingId])
+  @@index([slotZoneId, slotStartsAt])
+  @@index([confirmedAt, bookingId])
+  @@map("ops_booking")
+}
+
+/// Latest eligibility per Workforce capacity resource, by the owner's version.
+model OpsResourceEligibility {
+  resourceId    String   @id @map("resource_id") @db.Uuid
+  version       Int
+  eligibility   String   @db.VarChar(12)
+  fingerprint   String   @db.Char(64)
+  sourceEventId String   @map("source_event_id") @db.Uuid
+  occurredAt    DateTime @map("occurred_at") @db.Timestamptz(3)
+
+  @@index([eligibility, resourceId])
+  @@map("ops_resource_eligibility")
+}
+
+/// Per-source ingestion checkpoint used to report projection freshness.
+model OpsFreshness {
+  source              String   @id @db.VarChar(16)
+  lastEventOccurredAt DateTime @map("last_event_occurred_at") @db.Timestamptz(3)
+  lastAppliedAt       DateTime @map("last_applied_at") @db.Timestamptz(3)
+  appliedCount        BigInt   @map("applied_count")
+
+  @@map("ops_freshness")
+}
+
+/// P03-D live-operations read model. Derived from Dispatch and Billing facts
+/// only; Dispatch owns assignments and Billing owns obligations.
+
+/// Latest observed state of one Dispatch assignment, plus the earliest source
+/// occurrence of each milestone (delivery-order independent).
+model OpsAssignment {
+  assignmentId    String    @id @map("assignment_id") @db.Uuid
+  bookingId       String    @map("booking_id") @db.Uuid
+  version         Int
+  status          String    @db.VarChar(12)
+  zoneId          String    @map("zone_id") @db.Uuid
+  startsAt        DateTime  @map("starts_at") @db.Timestamptz(3)
+  endsAt          DateTime  @map("ends_at") @db.Timestamptz(3)
+  resourceId      String?   @map("resource_id") @db.Uuid
+  fingerprint     String    @db.Char(64)
+  sourceEventId   String    @map("source_event_id") @db.Uuid
+  occurredAt      DateTime  @map("occurred_at") @db.Timestamptz(3)
+  firstObservedAt DateTime  @map("first_observed_at") @db.Timestamptz(3)
+  firstOfferedAt  DateTime? @map("first_offered_at") @db.Timestamptz(3)
+  firstAssignedAt DateTime? @map("first_assigned_at") @db.Timestamptz(3)
+
+  resources OpsAssignmentResource[]
+
+  @@index([bookingId])
+  @@index([startsAt, assignmentId])
+  @@index([zoneId, startsAt])
+  @@map("ops_assignment")
+}
+
+/// Every distinct capacity resource an assignment was ASSIGNED to; more than
+/// one row means the job was reassigned.
+model OpsAssignmentResource {
+  assignmentId    String   @map("assignment_id") @db.Uuid
+  resourceId      String   @map("resource_id") @db.Uuid
+  firstAssignedAt DateTime @map("first_assigned_at") @db.Timestamptz(3)
+
+  assignment OpsAssignment @relation(fields: [assignmentId], references: [assignmentId], onDelete: Cascade)
+
+  @@id([assignmentId, resourceId])
+  @@map("ops_assignment_resource")
+}
+
+/// Latest observed financial state of one Billing obligation. Amounts are
+/// exact integer minor units with explicit currency and scale.
+model OpsObligation {
+  obligationId     String   @id @map("obligation_id") @db.Uuid
+  version          Int
+  cashState        String   @map("cash_state") @db.VarChar(16)
+  outstandingMinor BigInt   @map("outstanding_minor")
+  currency         String   @db.Char(3)
+  scale            Int      @db.SmallInt
+  stateSince       DateTime @map("state_since") @db.Timestamptz(3)
+  fingerprint      String   @db.Char(64)
+  sourceEventId    String   @map("source_event_id") @db.Uuid
+  occurredAt       DateTime @map("occurred_at") @db.Timestamptz(3)
+
+  @@index([cashState, stateSince])
+  @@map("ops_obligation")
+}

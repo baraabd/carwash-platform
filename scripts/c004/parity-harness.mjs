@@ -133,6 +133,7 @@ export const screenshotOptions = Object.freeze({
   fullPage: true,
   animations: 'disabled',
   caret: 'hide',
+  timeout: 30_000,
   style: `
     html { scrollbar-width: none !important; }
     *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }

@@ -477,7 +477,14 @@
         "ProbeProjection",
         "ProjectionContribution",
         "MetricBucket",
-        "AggregateSnapshot"
+        "AggregateSnapshot",
+        "OpsSlotHold",
+        "OpsBooking",
+        "OpsResourceEligibility",
+        "OpsFreshness",
+        "OpsAssignment",
+        "OpsAssignmentResource",
+        "OpsObligation"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"

@@ -128,19 +128,19 @@ async function captureScreenshotWithRetry(page, label) {
   );
 }
 
-async function captureStableScreenshot(browser, page, label) {
+async function captureStableScreenshot(browser, page) {
   // The first capture intentionally warms Chromium's full-page raster path.
-  // CI can also reject a capture transiently; retry the capture itself before
-  // comparing adjacent screenshots for deterministic pixels.
-  await captureScreenshotWithRetry(page, `${label} warmup`);
+  // Consecutive captures can still differ by a handful of subpixel edge pixels
+  // on fresh CI browser installs, so accept the first stable adjacent pair.
+  await captureScreenshotWithRetry(page, 'stable warmup');
   await page.waitForTimeout(25);
-  let previous = await captureScreenshotWithRetry(page, `${label} first`);
+  let previous = await captureScreenshotWithRetry(page, 'stable first');
   let comparison = null;
   let current = previous;
   let comparedPrevious = previous;
   for (let attempt = 1; attempt <= deterministicCaptureAttempts; attempt += 1) {
     await page.waitForTimeout(25);
-    current = await captureScreenshotWithRetry(page, `${label} attempt ${attempt}`);
+    current = await captureScreenshotWithRetry(page, `stable attempt ${attempt}`);
     comparedPrevious = previous;
     comparison = await comparePngBuffers(browser, previous, current, contract.channelThreshold);
     if (comparison.sameDimensions && comparison.changedPixels === 0) {
@@ -261,11 +261,7 @@ try {
     for (const width of contract.viewports) {
       const session = await openReference(browser, server, app, width);
       try {
-        const stableCapture = await captureStableScreenshot(
-          browser,
-          session.page,
-          `${app}-${width}`,
-        );
+        const stableCapture = await captureStableScreenshot(browser, session.page);
         const first = stableCapture.screenshot;
         const deterministic = stableCapture.comparison;
         assert.equal(deterministic.sameDimensions, true);
