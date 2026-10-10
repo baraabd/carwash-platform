@@ -48,9 +48,11 @@ jobs:
         target: ${{ fromJSON(needs.plan.outputs.targets) }}
     env:
       TARGET: ${{ matrix.target }}
-      RELEASE_OUT: ${{ runner.temp }}/release
       REGISTRY: ${{ inputs.publish && format('ghcr.io/{0}', github.repository_owner) || 'localhost:5000/baraabd' }}
     steps:
+      # runner.temp is not available in job-level env, so it is derived here.
+      - name: Evidence directory
+        run: echo "RELEASE_OUT=$RUNNER_TEMP/release" >> "$GITHUB_ENV"
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
