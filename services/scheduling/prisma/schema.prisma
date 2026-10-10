@@ -53,7 +53,7 @@ model CapacityWindow {
 /// C1 rows carry the client request columns; scheduling.v1 rows carry the
 /// beneficiary/zone/slot/quote facts. capacity_hold_shape_ck (SQL) enforces
 /// exactly one shape, and the partial unique index on booking_id (SQL only)
-/// lets one booking commit at most one hold.
+/// lets one booking hold at most one CONFIRMED commitment at a time (P04-C1).
 model CapacityHold {
   id                 String         @id @db.Uuid
   windowId           String         @map("window_id") @db.Uuid

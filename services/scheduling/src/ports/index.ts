@@ -17,7 +17,10 @@ export interface IdGenerator {
  * Service-to-service scopes this service grants (scheduling.v1 `service:` access).
  * Deny by default.
  */
-export const SCHEDULING_SCOPES = ['scheduling.hold.commit'] as const;
+export const SCHEDULING_SCOPES = [
+  'scheduling.hold.commit',
+  'scheduling.commitment.change',
+] as const;
 export type SchedulingScope = (typeof SCHEDULING_SCOPES)[number];
 
 /**

@@ -79,7 +79,7 @@ export interface HoldRequest {
   readonly quoteRef: { readonly quoteId: string; readonly revision: number };
 }
 
-const CONTRACT = 'scheduling.v1';
+export const CONTRACT = 'scheduling.v1';
 const MINUTE = 60_000;
 const DAY = 86_400_000;
 const MAX_SLOTS = 200;
@@ -115,7 +115,7 @@ function canonical(value: unknown): string {
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(',')}}`;
 }
 
-function fingerprint(
+export function fingerprint(
   operation: string,
   actor: string,
   target: string | null,
@@ -127,7 +127,7 @@ function fingerprint(
 
 const IDEMPOTENCY_KEY = /^[A-Za-z0-9_-]{16,128}$/;
 
-function requireKey(key: string | undefined): string {
+export function requireKey(key: string | undefined): string {
   if (key === undefined || key === '') {
     throw new SchedulingError('IDEMPOTENCY_KEY_REQUIRED', 'Idempotency-Key is required.');
   }
@@ -136,7 +136,7 @@ function requireKey(key: string | undefined): string {
 }
 
 /** NEW proceeds (null); REPLAY returns the stored outcome; the rest are refusals. */
-function settle(claim: IdempotencyClaim): StoredResponse | null {
+export function settle(claim: IdempotencyClaim): StoredResponse | null {
   switch (claim.kind) {
     case 'NEW':
       return null;

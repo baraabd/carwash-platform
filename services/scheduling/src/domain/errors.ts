@@ -24,6 +24,7 @@ export type SchedulingErrorCode =
   | 'OUTSIDE_HORIZON'
   | 'HOLD_LIMIT_REACHED'
   | 'BOOKING_ALREADY_COMMITTED'
+  | 'COMMITMENT_NOT_FOUND'
   | 'FORBIDDEN';
 
 export class SchedulingError extends Error {

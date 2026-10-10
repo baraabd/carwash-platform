@@ -17,6 +17,7 @@ import { laneContext } from './support';
  */
 const SERVICE_TOKEN = 's'.repeat(48);
 const NOSCOPE_TOKEN = 'n'.repeat(48);
+const LEGACY_TOKEN = 'l'.repeat(48);
 
 interface Session {
   readonly subject: string;
@@ -73,7 +74,12 @@ before(async () => {
   process.env.SCHEDULING_USER_REQUESTS_PER_MINUTE = '60';
   process.env.SCHEDULING_PUBLIC_REQUESTS_PER_MINUTE = '30';
   process.env.SCHEDULING_SERVICE_CLIENTS = JSON.stringify([
-    { id: 'booking', tokenSha256: digest(SERVICE_TOKEN), scopes: ['scheduling.hold.commit'] },
+    {
+      id: 'booking',
+      tokenSha256: digest(SERVICE_TOKEN),
+      scopes: ['scheduling.hold.commit', 'scheduling.commitment.change'],
+    },
+    { id: 'legacy-booking', tokenSha256: digest(LEGACY_TOKEN), scopes: ['scheduling.hold.commit'] },
   ]);
   app = await createHttpApplication();
   await app.listen(0, '127.0.0.1');
@@ -424,4 +430,126 @@ test('request budgets answer 429 RATE_LIMITED (retryable) instead of exhausting 
   assert.ok(limited, 'the public budget of 30/min must trip');
   assert.equal(limited.body.error?.code, 'RATE_LIMITED');
   assert.equal(limited.body.error?.retryable, true);
+});
+
+test('booking commitment changes (P04-C1): scope, strict bodies, replay by booking, published views', async () => {
+  const { zoneId, startsAt } = await newWindow(2);
+  const legacy = { 'x-service-client': 'legacy-booking', 'x-service-token': LEGACY_TOKEN };
+  const hold = async (offsetMinutes: number) => {
+    const reply = await call(
+      'POST',
+      '/holds',
+      { ...guest, ...idem() },
+      holdBody(GUEST, zoneId, new Date(startsAt.getTime() + offsetMinutes * 60_000)),
+    );
+    assert.equal(reply.status, 201, JSON.stringify(reply.body));
+    return String(reply.body.holdId);
+  };
+  const first = await hold(0);
+  const bookingId = randomUUID();
+  const committed = await call(
+    'POST',
+    `/holds/${first}/commit`,
+    { ...booking, ...idem() },
+    { expectedRevision: 1, bookingId },
+  );
+  assert.equal(committed.status, 200);
+  const second = await hold(60);
+  const replace = { fromHoldId: first, toHoldId: second, toExpectedRevision: 1 };
+
+  for (const who of [guest, ops, legacy]) {
+    expectError(
+      await call(
+        'POST',
+        `/bookings/${bookingId}/commitment/replace`,
+        { ...who, ...idem() },
+        replace,
+      ),
+      403,
+      'AUTH_FORBIDDEN',
+    );
+    expectError(
+      await call(
+        'POST',
+        `/bookings/${bookingId}/commitment/release`,
+        { ...who, ...idem() },
+        { holdId: first },
+      ),
+      403,
+      'AUTH_FORBIDDEN',
+    );
+  }
+  expectError(
+    await call('POST', `/bookings/${bookingId}/commitment/replace`, booking, replace),
+    428,
+    'IDEMPOTENCY_KEY_REQUIRED',
+  );
+  expectError(
+    await call(
+      'POST',
+      `/bookings/${bookingId}/commitment/replace`,
+      { ...booking, ...idem() },
+      { ...replace, extra: 1 },
+    ),
+    400,
+    'REQUEST_INVALID',
+  );
+  expectError(
+    await call(
+      'POST',
+      `/bookings/not-a-uuid/commitment/release`,
+      { ...booking, ...idem() },
+      { holdId: first },
+    ),
+    400,
+    'REQUEST_INVALID',
+  );
+  expectError(
+    await call(
+      'POST',
+      `/bookings/${randomUUID()}/commitment/release`,
+      { ...booking, ...idem() },
+      { holdId: first },
+    ),
+    409,
+    'CONFLICT',
+    'COMMITMENT_NOT_FOUND',
+  );
+
+  const moved = await call(
+    'POST',
+    `/bookings/${bookingId}/commitment/replace`,
+    { ...booking, ...idem() },
+    replace,
+  );
+  assert.equal(moved.status, 200, JSON.stringify(moved.body));
+  assert.deepEqual(Object.keys(moved.body).sort(), ['bookingId', 'committed', 'released']);
+  const again = await call(
+    'POST',
+    `/bookings/${bookingId}/commitment/replace`,
+    { ...booking, ...idem() },
+    replace,
+  );
+  assert.deepEqual(again, moved, 'a lost response is replayed for the same booking');
+
+  const released = await call(
+    'POST',
+    `/bookings/${bookingId}/commitment/release`,
+    { ...booking, ...idem() },
+    { holdId: second },
+  );
+  assert.equal(released.status, 200);
+  assert.equal(released.body.state, 'RELEASED');
+  assert.equal(released.body.bookingId, null);
+  expectError(
+    await call(
+      'POST',
+      `/bookings/${bookingId}/commitment/release`,
+      { ...booking, ...idem() },
+      { holdId: first },
+    ),
+    409,
+    'CONFLICT',
+    'COMMITMENT_NOT_FOUND',
+  );
 });
