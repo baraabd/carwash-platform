@@ -3,7 +3,13 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { createHttpApplication } from '../../src/transport/http/create-app';
-import { bookingEnv, startOwnerDoubles, type OwnerDoubles } from '../support/owner-doubles';
+import {
+  bookingEnv,
+  dispatchEnv,
+  startOwnerDoubles,
+  type OwnerDoubles,
+} from '../support/owner-doubles';
+import { HOUR, holdWire } from '../support/fixtures';
 import { laneContext } from './support';
 
 /**
@@ -55,10 +61,15 @@ before(async () => {
     permissions: self,
   });
   doubles.sessions.set('identity-down-token-01', 'DOWN');
-  Object.assign(process.env, bookingEnv(doubles, laneContext().databases.booking!.appUrl), {
-    BOOKING_USER_REQUESTS_PER_MINUTE: '25',
-    BOOKING_OWNER_TIMEOUT_MS: '1500',
-  });
+  Object.assign(
+    process.env,
+    bookingEnv(doubles, laneContext().databases.booking!.appUrl),
+    dispatchEnv(doubles),
+    {
+      BOOKING_USER_REQUESTS_PER_MINUTE: '25',
+      BOOKING_OWNER_TIMEOUT_MS: '1500',
+    },
+  );
   app = await createHttpApplication();
   await app.listen(0, '127.0.0.1');
   base = (await app.getUrl()).replace('[::1]', '127.0.0.1');
@@ -294,4 +305,151 @@ test('rate limit: a single principal is throttled with 429 and the envelope', as
     }
   }
   assert.equal(last, 429);
+});
+
+test('P04-C3 change routes: cancel 202 then replay 200, reschedule, history, booking view, envelopes', async () => {
+  const token = OTHER;
+  const who = { kind: 'account' as const, subjectId: ids.other };
+  const created = await call('POST', '/bookings', { token, key: key(), body: body(who) });
+  assert.equal(created.status, 201, created.text);
+  const bookingId = created.json.bookingId!;
+  const view = async () =>
+    (await call('GET', `/bookings/${bookingId}`, { token })).json as unknown as {
+      revision: number;
+      schedule: { revision: number; holdId: string; zoneId: string; startsAt: string };
+      slot: { holdId: string };
+      cancellation: unknown;
+      pendingChange: unknown;
+    };
+  let current = await view();
+  assert.equal(current.schedule.revision, 1);
+  assert.equal(current.cancellation, null);
+  assert.equal(current.pendingChange, null);
+
+  // Reschedule to a slot the customer holds (same zone and duration).
+  const now = new Date();
+  const target = {
+    ...holdWire({
+      beneficiary: who,
+      zoneId: current.schedule.zoneId,
+      startsAt: new Date(now.getTime() + 7 * HOUR),
+      now,
+    }),
+    owner: who.subjectId,
+  };
+  doubles.holds.set(target.holdId, target);
+  const rescheduleKey = key();
+  const rescheduleRevision = current.revision;
+  const moved = await call('POST', `/bookings/${bookingId}/reschedule`, {
+    token,
+    key: rescheduleKey,
+    body: { expectedRevision: rescheduleRevision, holdId: target.holdId, holdRevision: 1 },
+  });
+  assert.equal(moved.status, 202, moved.text);
+  const change = moved.json as unknown as Record<string, unknown>;
+  assert.deepEqual(Object.keys(change).sort(), [
+    'attention',
+    'bookingId',
+    'changeId',
+    'completedAt',
+    'from',
+    'kind',
+    'reason',
+    'refusal',
+    'requestedAt',
+    'settlement',
+    'state',
+    'to',
+  ]);
+  assert.equal(change.state, 'COMPLETED');
+  current = await view();
+  assert.equal(current.schedule.revision, 2);
+  assert.equal(current.schedule.holdId, target.holdId);
+  assert.notEqual(current.slot.holdId, target.holdId, 'slot stays the original snapshot');
+  const replayed = await call('POST', `/bookings/${bookingId}/reschedule`, {
+    token,
+    key: rescheduleKey,
+    body: { expectedRevision: rescheduleRevision, holdId: target.holdId, holdRevision: 1 },
+  });
+  assert.equal(replayed.status, 200, 'a lost response is replayed even after the booking moved on');
+  assert.equal((replayed.json as unknown as { changeId: string }).changeId, change.changeId);
+
+  // Envelopes: stale revision 412, missing key 428, staff reason 400, other customer 404.
+  const stale = await call('POST', `/bookings/${bookingId}/cancellation`, {
+    token,
+    key: key(),
+    body: { expectedRevision: 1, reason: 'CUSTOMER_REQUEST' },
+  });
+  assert.equal(stale.status, 412, stale.text);
+  assert.equal(stale.json.error?.code, 'REVISION_CONFLICT');
+  assert.equal(
+    (
+      await call('POST', `/bookings/${bookingId}/cancellation`, {
+        token,
+        body: { expectedRevision: current.revision, reason: 'CUSTOMER_REQUEST' },
+      })
+    ).status,
+    428,
+  );
+  assert.equal(
+    (
+      await call('POST', `/bookings/${bookingId}/cancellation`, {
+        token,
+        key: key(),
+        body: { expectedRevision: current.revision, reason: 'OPERATIONS_REQUEST' },
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await call('POST', `/bookings/${bookingId}/cancellation`, {
+        token: CUSTOMER,
+        key: key(),
+        body: { expectedRevision: current.revision, reason: 'CUSTOMER_REQUEST' },
+      })
+    ).status,
+    404,
+  );
+
+  // Cancellation, then its replay with the same key.
+  const cancelKey = key();
+  const cancelBody = { expectedRevision: current.revision, reason: 'CUSTOMER_REQUEST' };
+  const cancelled = await call('POST', `/bookings/${bookingId}/cancellation`, {
+    token,
+    key: cancelKey,
+    body: cancelBody,
+  });
+  assert.equal(cancelled.status, 202, cancelled.text);
+  const cancellation = cancelled.json as unknown as { state: string; settlement: string };
+  assert.deepEqual([cancellation.state, cancellation.settlement], ['COMPLETED', 'VOIDED']);
+  const again = await call('POST', `/bookings/${bookingId}/cancellation`, {
+    token,
+    key: cancelKey,
+    body: cancelBody,
+  });
+  assert.equal(again.status, 200);
+  const twice = await call('POST', `/bookings/${bookingId}/cancellation`, {
+    token,
+    key: key(),
+    body: { expectedRevision: (await view()).revision, reason: 'CUSTOMER_REQUEST' },
+  });
+  assert.equal(twice.status, 409);
+  assert.equal(twice.json.error?.reason, 'BOOKING_CANCELLED');
+  const final = await view();
+  assert.ok(final.cancellation !== null);
+  const history = await call('GET', `/bookings/${bookingId}/changes`, { token });
+  const items = (history.json as unknown as { items: { kind: string }[] }).items;
+  assert.deepEqual(
+    items.map((i) => i.kind),
+    ['CANCELLATION', 'RESCHEDULE'],
+  );
+  assert.equal((await call('GET', `/bookings/${bookingId}/changes`, { token: OPS })).status, 200);
+  assert.equal(
+    (await call('GET', `/bookings/${bookingId}/changes`, { token: CUSTOMER })).status,
+    404,
+  );
+  for (const secret of ['سارة', '0912345678']) {
+    assert.equal(history.text.includes(secret), false);
+  }
 });

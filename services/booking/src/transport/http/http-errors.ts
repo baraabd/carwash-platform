@@ -28,6 +28,7 @@ type ApiCode =
   | 'AUTH_FORBIDDEN'
   | 'NOT_FOUND'
   | 'CONFLICT'
+  | 'REVISION_CONFLICT'
   | 'IDEMPOTENCY_KEY_REQUIRED'
   | 'IDEMPOTENCY_CONFLICT'
   | 'IDEMPOTENCY_IN_PROGRESS'
@@ -42,6 +43,7 @@ const STATUS: Readonly<Record<ApiCode, number>> = {
   AUTH_FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  REVISION_CONFLICT: 412,
   IDEMPOTENCY_KEY_REQUIRED: 428,
   IDEMPOTENCY_CONFLICT: 409,
   IDEMPOTENCY_IN_PROGRESS: 409,
@@ -75,6 +77,12 @@ const BY_DOMAIN: Readonly<Record<BookingErrorCode, ApiCode>> = {
   ASSIGNMENT_UNVERIFIED: 'DEPENDENCY_UNAVAILABLE',
   INVALID_TRANSITION: 'CONFLICT',
   VERSION_CONFLICT: 'CONFLICT',
+  REVISION_CONFLICT: 'REVISION_CONFLICT',
+  BOOKING_NOT_CONFIRMED: 'CONFLICT',
+  BOOKING_CANCELLED: 'CONFLICT',
+  CHANGE_IN_PROGRESS: 'CONFLICT',
+  CHANGE_NOT_FOUND: 'NOT_FOUND',
+  HOLD_NOT_USABLE: 'BUSINESS_RULE_VIOLATION',
 };
 
 const MESSAGE: Readonly<Record<ApiCode, string>> = {
@@ -83,6 +91,7 @@ const MESSAGE: Readonly<Record<ApiCode, string>> = {
   AUTH_FORBIDDEN: 'The operation is not allowed.',
   NOT_FOUND: 'The requested resource was not found.',
   CONFLICT: 'The resource changed concurrently; reload it.',
+  REVISION_CONFLICT: 'The booking changed; reload it and retry.',
   IDEMPOTENCY_KEY_REQUIRED: 'A valid Idempotency-Key header is required.',
   IDEMPOTENCY_CONFLICT: 'The Idempotency-Key was already used for a different request.',
   IDEMPOTENCY_IN_PROGRESS: 'The same request is still being processed; retry shortly.',
@@ -93,6 +102,8 @@ const MESSAGE: Readonly<Record<ApiCode, string>> = {
 };
 
 const REASON = /^[A-Z][A-Z0-9_]{2,63}$/;
+/** P04-C3 conflicts whose domain code is the public reason. */ const REASONED: ReadonlySet<BookingErrorCode> =
+  new Set<BookingErrorCode>(['BOOKING_NOT_CONFIRMED', 'BOOKING_CANCELLED', 'CHANGE_IN_PROGRESS']);
 
 export interface MappedError {
   readonly code: ApiCode;
@@ -110,7 +121,9 @@ export function mapError(error: unknown): MappedError {
     const code = BY_DOMAIN[error.code];
     return build(
       code,
-      code === 'BUSINESS_RULE_VIOLATION' ? (error.reason ?? error.code) : error.reason,
+      code === 'BUSINESS_RULE_VIOLATION' || REASONED.has(error.code)
+        ? (error.reason ?? error.code)
+        : error.reason,
     );
   }
   if (error instanceof IdentityAuthFailure) {
