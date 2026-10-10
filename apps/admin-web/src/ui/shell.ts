@@ -102,7 +102,9 @@ export function openModal(content: ModalContent): void {
   replace(byId('modalFoot'), ...content.foot);
   byId('modalClose').setAttribute('aria-label', copy().close);
   backdrop.classList.add('open');
-  const first = focusable()[1] ?? focusable()[0];
+  // The scrollable body is reachable by keyboard (D4-SD-08) but never the first stop.
+  const controls = focusable().filter((element) => element.id !== 'modalBody');
+  const first = controls[1] ?? controls[0];
   first?.focus();
 }
 

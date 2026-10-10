@@ -204,6 +204,8 @@ async function fillDecision(page, { action, reason, note, evidence, amount }) {
 /** The queue is oldest first and the database is shared: load more until listed. */
 async function findCaseRow(page, caseId) {
   const row = page.locator(`#caseRows tr[data-case="${caseId}"]`);
+  // A filter change reloads the queue: wait until that load has settled.
+  await page.locator('#disputes[aria-busy="false"]').waitFor();
   await page.locator('#caseRows tr').first().waitFor();
   for (let i = 0; i < 40 && (await row.count()) === 0; i++) {
     const more = page.locator('#caseMoreButton');
