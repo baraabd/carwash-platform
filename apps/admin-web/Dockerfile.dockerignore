@@ -13,7 +13,6 @@ apps/*
 .github
 .acceptance
 evidence
-design
 docs
 tests
 infra

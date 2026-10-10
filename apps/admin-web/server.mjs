@@ -9,7 +9,12 @@ export const WEB_RUNTIME = Object.freeze({
   businessReady: false,
 });
 
-/** Stateless technical boot only; no authenticated application or business API. */
+/**
+ * Static host of the operations console bundle. It owns no business API or
+ * state: the browser calls the Gateway at /api/v1 on the same origin, which
+ * the ingress routes (such calls never reach this process). Readiness stays
+ * 503 until the Gateway routes and owner reads it depends on are accepted.
+ */
 export function createWebRuntime({ documentRoot = new URL('./dist/', import.meta.url) } = {}) {
   const root = path.resolve(
     documentRoot instanceof URL ? fileURLToPath(documentRoot) : documentRoot,
@@ -19,7 +24,7 @@ export function createWebRuntime({ documentRoot = new URL('./dist/', import.meta
     response.setHeader('Cache-Control', 'no-store');
     response.setHeader(
       'Content-Security-Policy',
-      "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+      "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
     );
     const send = (code, type, content) => {
       response.writeHead(code, { 'Content-Type': type });

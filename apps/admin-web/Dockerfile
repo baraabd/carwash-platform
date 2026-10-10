@@ -13,6 +13,7 @@ COPY packages ./packages
 COPY services ./services
 COPY apps/operator-web ./apps/operator-web
 COPY apps/admin-web ./apps/admin-web
+COPY design/reference/approved/washgo-admin-prototype.html ./design/reference/approved/washgo-admin-prototype.html
 RUN corepack enable && corepack prepare --activate
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter "@carwash/${APP}" run build

@@ -2,15 +2,301 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="robots" content="noindex" />
-    <title>WashGo — admin-web technical bootstrap</title>
+    <title>WashGo Admin</title>
   </head>
   <body>
-    <!-- W01 technical boot only; approved product screens remain unported. -->
-    <main id="app" aria-busy="true">
-      <output id="runtime-status">تهيئة تقنية فقط — وظائف التطبيق غير متاحة.</output>
-    </main>
+    <!--
+      Port of design/reference/approved/washgo-admin-prototype.html (shell,
+      "bookings" and "technicians" screens, modal and toast). Markup and copy
+      follow the reference; declared production differences are listed in
+      docs/production/D/P02-D2_ADMIN_OPERATIONS_CONSOLE.md.
+    -->
+    <div class="app" id="appRoot" aria-busy="true">
+      <aside class="sidebar" id="sidebar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">🚙</div>
+          <div><strong>WashGo</strong><small data-i18n="adminPanel">لوحة الإدارة</small></div>
+        </div>
+        <div class="nav-label" data-i18n="operations">العمليات</div>
+        <nav class="nav" aria-label="العمليات">
+          <button data-screen="dashboard" disabled>
+            <span class="ic">⌂</span><span data-i18n="dashboard">لوحة التحكم</span>
+          </button>
+          <button data-screen="bookings">
+            <span class="ic">▣</span><span data-i18n="bookings">الحجوزات</span>
+          </button>
+          <button data-screen="customers" disabled>
+            <span class="ic">◉</span><span data-i18n="customers">الزبائن</span>
+          </button>
+          <button data-screen="technicians">
+            <span class="ic">♟</span><span data-i18n="technicians">الفنيون</span>
+          </button>
+          <button data-screen="services" disabled>
+            <span class="ic">✦</span><span data-i18n="services">الخدمات والباقات</span>
+          </button>
+          <button data-screen="fleet" disabled>
+            <span class="ic">▱</span><span data-i18n="fleet">الأسطول والمركبات</span>
+          </button>
+        </nav>
+        <div class="nav-label" data-i18n="finance">المال</div>
+        <nav class="nav" aria-label="المال">
+          <button data-screen="payments" disabled>
+            <span class="ic">▤</span><span data-i18n="payments">المدفوعات</span>
+          </button>
+          <button data-screen="wallets" disabled>
+            <span class="ic">◫</span><span data-i18n="wallets">المحافظ</span>
+          </button>
+          <button data-screen="subscriptions" disabled>
+            <span class="ic">◎</span><span data-i18n="subscriptions">الاشتراكات</span>
+          </button>
+          <button data-screen="promotions" disabled>
+            <span class="ic">◇</span><span data-i18n="promotions">العروض والكوبونات</span>
+          </button>
+        </nav>
+        <div class="nav-label" data-i18n="control">التحكم</div>
+        <nav class="nav" aria-label="التحكم">
+          <button data-screen="coverage" disabled>
+            <span class="ic">⌖</span><span data-i18n="coverage">المناطق والتغطية</span>
+          </button>
+          <button data-screen="live" disabled>
+            <span class="ic">◌</span><span data-i18n="liveMap">الخريطة الحية</span>
+          </button>
+          <button data-screen="reviews" disabled>
+            <span class="ic">★</span><span data-i18n="reviews">التقييمات</span>
+          </button>
+          <button data-screen="disputes" disabled>
+            <span class="ic">⚠</span><span data-i18n="disputes">النزاعات</span>
+          </button>
+          <button data-screen="notifications" disabled>
+            <span class="ic">◔</span><span data-i18n="notifications">الإشعارات</span>
+          </button>
+          <button data-screen="reports" disabled>
+            <span class="ic">▥</span><span data-i18n="reports">التقارير والتحليلات</span>
+          </button>
+          <button data-screen="settings" disabled>
+            <span class="ic">⚙</span><span data-i18n="settings">الإعدادات</span>
+          </button>
+        </nav>
+        <div class="profile">
+          <div class="avatar" id="profileAvatar" aria-hidden="true">·</div>
+          <div><b id="profileName">—</b><small id="profileRole"></small></div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div class="topbar-start">
+            <button
+              class="ghost mobile-menu"
+              id="menuBtn"
+              aria-label="القائمة"
+              aria-controls="sidebar"
+              aria-expanded="false"
+            >
+              ☰
+            </button>
+            <div class="search">
+              <input
+                id="globalSearch"
+                placeholder="ابحث عن حجز، زبون، فني..."
+                aria-label="ابحث عن حجز، زبون، فني..."
+                autocomplete="off"
+              />
+            </div>
+          </div>
+          <div class="top-actions">
+            <button class="ghost" id="langBtn" lang="en">EN</button>
+            <button class="ghost notify" disabled aria-label="الإشعارات">♢</button>
+            <button class="ghost" id="accountBtn">— ▾</button>
+          </div>
+        </header>
+        <div class="content">
+          <section class="screen" id="dashboard" aria-labelledby="dashboardTitle">
+            <div class="page-head">
+              <div>
+                <h1 data-i18n="dashboard" id="dashboardTitle">لوحة التحكم</h1>
+                <p data-i18n="todaySummary">إليك ملخص ما يحدث في منصة WashGo اليوم.</p>
+              </div>
+            </div>
+            <div class="grid kpis" id="dashboardKpis" aria-live="polite"></div>
+            <div
+              class="freshness-strip"
+              id="dashboardFreshness"
+              role="status"
+              aria-live="polite"
+            ></div>
+            <div class="grid layout3">
+              <div class="card panel">
+                <div class="panel-head">
+                  <h3 data-i18n="bookingStatus">حالة الحجوزات</h3>
+                </div>
+                <div class="mini-list" id="dashboardStatus"></div>
+              </div>
+              <div class="card panel">
+                <div class="panel-head"><h3 id="assignmentPanelTitle">الإسناد</h3></div>
+                <div class="mini-list" id="dashboardAssignments"></div>
+              </div>
+              <div class="card panel">
+                <div class="panel-head"><h3 id="timingPanelTitle">زمن الإسناد (دقائق)</h3></div>
+                <div class="mini-list" id="dashboardTiming"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="screen" id="bookings" aria-labelledby="bookingsTitle">
+            <div class="page-head">
+              <div>
+                <h1 data-i18n="bookings" id="bookingsTitle">الحجوزات</h1>
+                <p>إدارة الحجوزات، الإسناد، إعادة الجدولة والإلغاء.</p>
+              </div>
+              <button class="primary" id="manualBooking" disabled>+ حجز يدوي</button>
+            </div>
+            <div class="toolbar">
+              <input
+                id="bookingSearch"
+                placeholder="بحث برقم الحجز أو الزبون"
+                aria-label="بحث برقم الحجز أو الزبون"
+                autocomplete="off"
+              />
+              <select id="statusFilter" aria-label="الحالة"></select>
+              <select id="periodFilter" aria-label="الفترة"></select>
+            </div>
+            <div
+              class="freshness-strip"
+              id="bookingFreshness"
+              role="status"
+              aria-live="polite"
+            ></div>
+            <div class="card panel table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">الحجز</th>
+                    <th scope="col">الزبون</th>
+                    <th scope="col">السيارة</th>
+                    <th scope="col">الباقة</th>
+                    <th scope="col">الموعد</th>
+                    <th scope="col">الفني</th>
+                    <th scope="col">الدفع</th>
+                    <th scope="col">الحالة</th>
+                  </tr>
+                </thead>
+                <tbody id="bookingRows"></tbody>
+              </table>
+            </div>
+            <div class="load-more" id="bookingMore"></div>
+          </section>
+
+          <section class="screen" id="technicians" aria-labelledby="techniciansTitle">
+            <div class="page-head">
+              <div>
+                <h1 data-i18n="technicians" id="techniciansTitle">الفنيون</h1>
+                <p>الموافقات، التحقق، المناوبات، التغطية والأداء.</p>
+              </div>
+              <button class="primary" id="addTechnician" disabled>+ إضافة فني</button>
+            </div>
+            <div class="grid section-grid">
+              <div class="card simple">
+                <h3 id="kpiEligible">—</h3>
+                <p id="kpiEligibleLabel">نشط الآن</p>
+              </div>
+              <div class="card simple">
+                <h3 id="kpiPending">—</h3>
+                <p>طلبات تحتاج الموافقة</p>
+              </div>
+              <div class="card simple">
+                <h3 id="kpiRating">—</h3>
+                <p>متوسط التقييم</p>
+              </div>
+            </div>
+            <div
+              class="freshness-strip"
+              id="resourceFreshness"
+              role="status"
+              aria-live="polite"
+            ></div>
+            <div class="side-detail">
+              <div class="card panel table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">الفني</th>
+                      <th scope="col">الحالة</th>
+                      <th scope="col">المنطقة</th>
+                      <th scope="col">المهام اليوم</th>
+                      <th scope="col">التقييم</th>
+                    </tr>
+                  </thead>
+                  <tbody id="resourceRows"></tbody>
+                </table>
+                <div class="load-more" id="resourceMore"></div>
+              </div>
+              <div class="card panel">
+                <div class="panel-head">
+                  <h3 id="joinTitle">طلبات الانضمام</h3>
+                  <span class="status s-red" id="joinCount">—</span>
+                </div>
+                <div class="pending" id="joinRequests"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="screen" id="payments" aria-labelledby="paymentsTitle">
+            <div class="page-head">
+              <div>
+                <h1 data-i18n="payments" id="paymentsTitle">المدفوعات</h1>
+                <p>متابعة الدفع النقدي والإلكتروني، التسويات والاستردادات.</p>
+              </div>
+              <button class="primary" id="reconcileToday" type="button">مطابقة اليوم</button>
+            </div>
+            <div class="grid section-grid" id="paymentCards" aria-live="polite"></div>
+            <div
+              class="freshness-strip"
+              id="paymentFreshness"
+              role="status"
+              aria-live="polite"
+            ></div>
+            <div class="card panel table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">الحالة</th>
+                    <th scope="col">العدد</th>
+                    <th scope="col">المبلغ المتبقي</th>
+                    <th scope="col">الأقدم منذ</th>
+                  </tr>
+                </thead>
+                <tbody id="paymentRows"></tbody>
+              </table>
+            </div>
+            <div class="card panel lookup-panel">
+              <form class="lookup-form" id="obligationLookup" novalidate>
+                <label for="obligationRef">رقم المطالبة المرجعي</label>
+                <input id="obligationRef" autocomplete="off" spellcheck="false" dir="ltr" />
+                <p class="field-error" id="obligationProblem" role="alert"></p>
+                <button class="primary" type="submit">فتح المطالبة</button>
+              </form>
+            </div>
+          </section>
+
+          <section class="screen" id="console-state" aria-live="polite"></section>
+        </div>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="modalBackdrop">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-head">
+          <b id="modalTitle">إضافة</b
+          ><button class="ghost" id="modalClose" aria-label="إغلاق">✕</button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-foot" id="modalFoot"></div>
+      </div>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script type="module" src="/src/index.ts"></script>
   </body>
 </html>
