@@ -1,0 +1,156 @@
+diff --git a/apps/api-gateway/src/application/gateway.service.ts b/apps/api-gateway/src/application/gateway.service.ts
+index 0562747..e14f59e 100644
+--- a/apps/api-gateway/src/application/gateway.service.ts
++++ b/apps/api-gateway/src/application/gateway.service.ts
+@@ -42,12 +42,16 @@ export class GatewayService {
+       throw new GatewayFault(403, 'AUTH_CSRF');
+     if (unsafe && input.headers['sec-fetch-site'] === 'cross-site')
+       throw new GatewayFault(403, 'AUTH_CSRF');
+-    const requiresAuth = list.some(({ route }) => !!route.permission);
++    const requiresAuth = list.some(({ route }) => !!route.permission || !!route.anyPermission);
+     const identity = requiresAuth
+       ? await this.auth.authenticate(input.headers, unsafe, input.context)
+       : undefined;
+     for (const { route } of list)
+-      if (route.permission && !identity?.session.permissions.includes(route.permission))
++      if (
++        (route.permission && !identity?.session.permissions.includes(route.permission)) ||
++        (route.anyPermission &&
++          !route.anyPermission.some((p) => identity?.session.permissions.includes(p)))
++      )
+         throw new GatewayFault(403, 'AUTH_FORBIDDEN');
+     const results = await Promise.all(list.map((match) => this.forward(match, input, identity)));
+     if (Array.isArray(matched)) {
+diff --git a/apps/api-gateway/src/domain/policy.ts b/apps/api-gateway/src/domain/policy.ts
+index 5400edc..7681012 100644
+--- a/apps/api-gateway/src/domain/policy.ts
++++ b/apps/api-gateway/src/domain/policy.ts
+@@ -19,10 +19,27 @@ export interface Match {
+   readonly upstream: string;
+ }
+ /** Match exact allowlisted path segments. Never derive an origin from request data. */
+-export function routeMatch(method: string, raw: string): Match | readonly Match[] {
++/** CR-D-P02-01: validate the query against the route allowlist and re-encode it. */
++function allowedQuery(route: GatewayRoute, search: string | undefined): string {
++  if (search === undefined) return '';
++  if (!route.query || route.method !== 'GET') throw new GatewayFault(404, 'NOT_FOUND');
++  const params = new URLSearchParams(search);
++  const seen = new Set<string>();
++  const out = new URLSearchParams();
++  for (const [name, value] of params) {
++    const rule = route.query.find((q) => q.name === name);
++    if (!rule || seen.has(name) || !rule.pattern.test(value))
++      throw new GatewayFault(400, 'REQUEST_INVALID');
++    seen.add(name);
++    out.set(name, value);
++  }
++  return out.size > 0 ? `?${out.toString()}` : '';
++}
++export function routeMatch(method: string, full: string): Match | readonly Match[] {
++  const [raw = '', search, extra] = full.split('?');
++  if (extra !== undefined) throw new GatewayFault(404, 'NOT_FOUND');
+   if (
+     !raw.startsWith(`${GATEWAY_V1}/`) ||
+-    raw.includes('?') ||
+     /[%\\#]/.test(raw) ||
+     [...raw].some((char) => char.charCodeAt(0) <= 32)
+   )
+@@ -31,6 +48,7 @@ export function routeMatch(method: string, raw: string): Match | readonly Match[
+   const parts = path.split('/');
+   if (parts.some((x) => x === '.' || x === '..')) throw new GatewayFault(404, 'NOT_FOUND');
+   const composition = GATEWAY_COMPOSITIONS.find((c) => c.path === path);
++  if (composition && search !== undefined) throw new GatewayFault(404, 'NOT_FOUND');
+   if (composition && method === 'GET')
+     return composition.routes.map((id) => {
+       const route = GATEWAY_ROUTES.find((r) => r.id === id);
+@@ -48,7 +66,7 @@ export function routeMatch(method: string, raw: string): Match | readonly Match[
+       )
+     )
+       continue;
+-    return { route, upstream: route.upstream.replace(':id', id) };
++    return { route, upstream: route.upstream.replace(':id', id) + allowedQuery(route, search) };
+   }
+   throw new GatewayFault(404, 'NOT_FOUND');
+ }
+diff --git a/packages/contracts/src/gateway.ts b/packages/contracts/src/gateway.ts
+index b180b5b..2240d94 100644
+--- a/packages/contracts/src/gateway.ts
++++ b/packages/contracts/src/gateway.ts
+@@ -25,7 +25,22 @@ export interface GatewayRoute {
+    */
+   readonly public?: true;
+   readonly idempotency?: 'required';
++  /**
++   * CR-D-P02-01: GET-only allowlist of query parameters. Unknown, repeated or
++   * non-matching parameters are REQUEST_INVALID; only these are forwarded.
++   */
++  readonly query?: readonly GatewayQueryParam[];
++  /** CR-D-P02-01: authenticated, and at least one of these permissions. */
++  readonly anyPermission?: readonly IdentityPermission[];
++}
++export interface GatewayQueryParam {
++  readonly name: string;
++  readonly pattern: RegExp;
+ }
++const INSTANT_QUERY = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
++const UUID_QUERY = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
++const LIMIT_QUERY = /^[1-9][0-9]{0,2}$/;
++const CURSOR_QUERY = /^[A-Za-z0-9_-]{8,200}$/;
+ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
+   {
+     id: 'auth.csrf',
+@@ -182,6 +197,54 @@ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
+     permission: 'verification.review',
+     idempotency: 'required',
+   },
++  {
++    id: 'admin.operations.bookings',
++    method: 'GET',
++    path: '/admin/operations/bookings',
++    owner: 'reporting',
++    upstream: '/internal/v1/reporting/operations/bookings',
++    permission: 'operations.dispatch',
++    query: [
++      { name: 'from', pattern: INSTANT_QUERY },
++      { name: 'to', pattern: INSTANT_QUERY },
++      { name: 'zoneId', pattern: UUID_QUERY },
++      {
++        name: 'status',
++        pattern: /^(SCHEDULED|CONFIRMED_UNSCHEDULED|SLOT_COMMITTED_UNCONFIRMED|SLOT_RELEASED)$/,
++      },
++      { name: 'limit', pattern: LIMIT_QUERY },
++      { name: 'cursor', pattern: CURSOR_QUERY },
++    ],
++  },
++  {
++    id: 'admin.operations.booking',
++    method: 'GET',
++    path: '/admin/operations/bookings/:id',
++    owner: 'reporting',
++    upstream: '/internal/v1/reporting/operations/bookings/:id',
++    permission: 'operations.dispatch',
++  },
++  {
++    id: 'admin.operations.resources',
++    method: 'GET',
++    path: '/admin/operations/resources',
++    owner: 'reporting',
++    upstream: '/internal/v1/reporting/operations/resources',
++    anyPermission: ['operations.dispatch', 'verification.review'],
++    query: [
++      { name: 'eligibility', pattern: /^(ELIGIBLE|INELIGIBLE)$/ },
++      { name: 'limit', pattern: LIMIT_QUERY },
++      { name: 'cursor', pattern: CURSOR_QUERY },
++    ],
++  },
++  {
++    id: 'admin.operations.freshness',
++    method: 'GET',
++    path: '/admin/operations/freshness',
++    owner: 'reporting',
++    upstream: '/internal/v1/reporting/operations/freshness',
++    anyPermission: ['operations.dispatch', 'verification.review'],
++  },
+   {
+     id: 'admin.status',
+     method: 'POST',

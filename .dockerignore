@@ -7,7 +7,12 @@
 .github
 .acceptance
 evidence
-design
+design/*
+!design/reference/
+design/reference/*
+!design/reference/approved/
+design/reference/approved/*
+!design/reference/approved/washgo-admin-prototype.html
 docs
 apps
 tests
