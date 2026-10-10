@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from 'node:fs';
+import { closeSync, fstatSync, openSync, readFileSync } from 'node:fs';
 import { inspect } from 'node:util';
 
 const MAX_SECRET_BYTES = 4_096;
@@ -36,15 +36,19 @@ export class SecretValue {
     if (env[name] !== undefined) throw new SecretUnavailable(name);
     const path = env[`${name}_FILE`];
     if (path === undefined || path === '') return null;
+    let fd: number | null = null;
     try {
-      if (statSync(path).size > MAX_SECRET_BYTES) throw new SecretUnavailable(name);
-      const value = readFileSync(path, 'utf8').replace(/\r?\n$/, '');
+      fd = openSync(path, 'r');
+      if (fstatSync(fd).size > MAX_SECRET_BYTES) throw new SecretUnavailable(name);
+      const value = readFileSync(fd, 'utf8').replace(/\r?\n$/, '');
       if (value.length === 0) throw new SecretUnavailable(name);
       return new SecretValue(name, value);
     } catch (error: unknown) {
       if (error instanceof SecretUnavailable) throw error;
       // The file system error may contain the path only; never the content.
       throw new SecretUnavailable(name);
+    } finally {
+      if (fd !== null) closeSync(fd);
     }
   }
 
