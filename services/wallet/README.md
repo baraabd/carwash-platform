@@ -1,16 +1,33 @@
-# wallet technical runtime
+# wallet
 
-W01 adds a service-local Nest foundation shell, Prisma client and initial ServiceMarker migration. This service has no accepted business API or business events. It returns HTTP 200 from /health/live and HTTP 503 with FOUNDATION_NOT_READY from /health/ready; a healthy database never implies business readiness.
+Owner of the **technician-custody read projection** (P05-B3). Owner decision B-08
+approves exactly this Wallet use case: showing the cash a technician holds for the
+company. Wallet is "balances and holds referencing Billing ledger postings; no
+second financial ledger": Billing stays the only financial authority, and every
+Wallet movement cites the registered Billing event it mirrors. There is **no
+customer wallet**, top-up, transfer or withdrawal (not approved; no route exists).
 
-Its reserved database is cw_wallet. Runtime replicas use cw_wallet_app; isolated migration jobs use cw_wallet_migrate. DATABASE_URL is supplied by the allocated environment. Runtime startup never performs migrations. This source does not provision a database or prove its privileges.
+- Consumed events (registered by Lane E, parsed with `@carwash/event-contracts`):
+  `billing.cash-collected.v1`, `billing.cash-collection-reversed.v1`,
+  `billing.custody-handover-changed.v1`.
+- Idempotent inbox (`wallet_inbox`, one row per event id), per-aggregate ordering,
+  recorded rejections, deferral (retryable) when an earlier event is missing.
+- Buckets per (holder, currency): held, inHandover, deposited, settled, shortage,
+  overage. COMMIT-time assertion: account = sum of its movements.
+- Read API (`/internal/v1/wallet`): `GET custody/holders/:holder[/movements]`
+  (finance, `billing.read`), `GET custody/me[/movements]` (technician,
+  `work.read:assigned`). Deny by default; Identity outage fails closed (503).
+- The application message handler exists; the runtime broker binding is blocked
+  on Lane E (CR-B-12.3 in `docs/production/B/CONTRACT_REQUEST_E_WALLET.md`).
+- `BUSINESS_READY = false`; `/health/ready` stays 503.
+
+Its database is cw_wallet. Runtime replicas use cw_wallet_app; migration jobs use
+cw_wallet_migrate. Runtime startup never performs migrations.
 
 From the repository root:
 
-- pnpm --filter @carwash/wallet generate
-- pnpm --filter @carwash/wallet build
-- pnpm --filter @carwash/wallet typecheck
-- pnpm --filter @carwash/wallet test:runtime
-- pnpm --filter @carwash/wallet migrate:deploy (only with its migration identity in an allocated environment)
-- docker build -f services/wallet/Dockerfile -t washgo/wallet:w01 .
+- pnpm --filter @carwash/wallet generate | build | typecheck | test:runtime
+- node scripts/production/B/postgres-acceptance.mjs --service wallet [--record] (real PostgreSQL)
+- node scripts/production/B/wallet-broker-acceptance.mjs [--record] (real RabbitMQ + PostgreSQL)
 
-The framework tests start a real local HTTP listener but do not connect to PostgreSQL or RabbitMQ. Real migration, isolation and image acceptance remain separate mandatory gates. E's bootstrap lease expires only at verified BASE_W02; the permanent domain owner then owns service source and append-only migrations.
+Details and evidence: `docs/production/B/P05-B3-WALLET-CUSTODY.md`.

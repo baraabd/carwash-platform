@@ -63,6 +63,16 @@ const SERVICES = {
       broker: 'NOT USED (outbox rows written; relay not started until E registers billing events)',
     },
   },
+  wallet: {
+    task: 'P05-B',
+    previousMigrations: 1,
+    env: 'WALLET_TEST_DATABASE_URL',
+    dependencies: {
+      ...IDENTITY_STUB,
+      billing: 'NOT RUNNING (events built in the registered billing.v1 envelope-v2 shape)',
+      broker: 'NOT USED by these specs (see scripts/production/B/wallet-broker-acceptance.mjs)',
+    },
+  },
 };
 
 function arg(name) {
@@ -452,12 +462,16 @@ try {
   const migrateUrl = `postgresql://${db}_migrate:${credentials.migration}@127.0.0.1:${port}/${db}?schema=app`;
 
   await phase('runtime identity can connect after provisioning', async () => {
-    const deadline = Date.now() + 90_000;
+    const deadline = Date.now() + 180_000;
     let last;
     while (Date.now() < deadline) {
       try {
-        // The init script finishes before the final server restart; require the
-        // provisioned runtime role, not just a listening socket.
+        // The init script finishes before the final server restart. On a loaded
+        // host the restart can land after a first successful connection, so wait
+        // for the entrypoint to report init complete before trusting the server.
+        const logs = await run('docker', ['logs', container], { cwd: ROOT, timeoutMs: 30_000 });
+        if (!(logs.stdout + logs.stderr).includes('PostgreSQL init process complete'))
+          throw new Error('INIT_NOT_COMPLETE');
         const result = await query(appUrl, 'SELECT current_user, version()');
         report.image.serverVersion = String(result.rows[0].version)
           .split(' ')
