@@ -1,8 +1,24 @@
 /** Shell-free probes: output alone can never turn a failed Docker exec green. */
 export function identityBootEnvironment(service) {
-  // Both image harnesses must provide configuration's required authority URL.
-  // Closed loopback port: startup can be tested, but authentication cannot pass.
-  return service === 'configuration' ? ['--env', 'IDENTITY_ORIGIN=http://127.0.0.1:9'] : [];
+  // Image harnesses boot with closed loopback dependencies: startup can be
+  // tested, but authentication/storage/database calls cannot pass.
+  if (service === 'configuration') return ['--env', 'IDENTITY_ORIGIN=http://127.0.0.1:9'];
+  if (service === 'media')
+    return [
+      '--env',
+      'IDENTITY_URL=http://127.0.0.1:9',
+      '--env',
+      'MEDIA_S3_ENDPOINT=http://127.0.0.1:9',
+      '--env',
+      'MEDIA_S3_REGION=us-east-1',
+      '--env',
+      'MEDIA_S3_BUCKET=washgo-media-test',
+      '--env',
+      'MEDIA_S3_ACCESS_KEY_ID=mediatestkey',
+      '--env',
+      'MEDIA_S3_SECRET_ACCESS_KEY=media-test-secret',
+    ];
+  return [];
 }
 
 export const BAKED_SECRET_PROBE =
