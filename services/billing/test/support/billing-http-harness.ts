@@ -1,11 +1,16 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { BillingService } from '../../src/application';
-import type { BillingRepository, Clock } from '../../src/ports';
+import { BillingService, CashCustodyService } from '../../src/application';
+import type { BillingRepository, Clock, WorkAuthority } from '../../src/ports';
 import { IdentitySessionAuthority } from '../../src/infrastructure/identity/identity-session.authority';
 import { PricingQuoteReader } from '../../src/infrastructure/pricing/pricing-quote.reader';
 import { RandomIds, Sha256Hasher } from '../../src/infrastructure/system/system.adapters';
+import { UnpublishedWorkAuthority } from '../../src/infrastructure/work/unpublished-work.authority';
 import { BILLING_SERVICE, BillingController } from '../../src/transport/http/billing.controller';
+import {
+  CASH_CUSTODY_SERVICE,
+  CustodyController,
+} from '../../src/transport/http/custody.controller';
 import { tokenFor, type PricingStub, type Stub } from './upstream-stubs';
 
 export const SUBJECTS = {
@@ -14,6 +19,10 @@ export const SUBJECTS = {
   otherCustomer: '8b3c4d5e-6f7a-4b8c-ad9e-2f3a4b5c6d7e',
   finance: '9c4d5e6f-7a8b-4c9d-be0f-3a4b5c6d7e8f',
   reconciler: 'ad5e6f7a-8b9c-4dae-8f1a-4b5c6d7e8f9a',
+  technician: 'be6f7a8b-9c0d-4ebf-9a2b-5c6d7e8f9a0b',
+  otherTechnician: 'cf7a8b9c-0d1e-4fc0-8b3c-6d7e8f9a0b1c',
+  treasury: 'd08b9c0d-1e2f-4ad1-9c4d-7e8f9a0b1c2d',
+  corrector: 'e19c0d1e-2f3a-4be2-8d5e-8f9a0b1c2d3e',
 } as const;
 
 export const TOKENS = {
@@ -24,8 +33,20 @@ export const TOKENS = {
   reconciler: tokenFor('reconciler'),
   /** Holds billing.reconcile AND owns obligations: separation-of-duty check. */
   selfReconciler: tokenFor('self-reconciler'),
+  technician: tokenFor('technician'),
+  otherTechnician: tokenFor('other-technician'),
+  /** Holds the collect grant but is a guest session: never a cash holder. */
+  guestCollector: tokenFor('guest-collector'),
+  treasury: tokenFor('treasury'),
+  /** Treasury receiver who also holds billing.reconcile (separation-of-duty check). */
+  treasuryReconciler: tokenFor('treasury-reconciler'),
+  corrector: tokenFor('corrector'),
+  /** A technician who also holds the correction grant (cannot reverse own receipt). */
+  selfCorrector: tokenFor('self-corrector'),
   unknown: tokenFor('unknown'),
 };
+
+const COLLECTOR = ['work.read:assigned', 'work.execute:assigned', 'billing.cash.collect'];
 
 const CUSTOMER = ['profile.read:self', 'bookings.read:self', 'bookings.create:self'];
 
@@ -47,6 +68,33 @@ export const SESSIONS = {
     subject: SUBJECTS.customer,
     kind: 'account',
     permissions: [...CUSTOMER, 'billing.reconcile'],
+  },
+  technician: { subject: SUBJECTS.technician, kind: 'account', permissions: COLLECTOR },
+  'other-technician': {
+    subject: SUBJECTS.otherTechnician,
+    kind: 'account',
+    permissions: COLLECTOR,
+  },
+  'guest-collector': { subject: SUBJECTS.guest, kind: 'guest', permissions: COLLECTOR },
+  treasury: {
+    subject: SUBJECTS.treasury,
+    kind: 'account',
+    permissions: ['billing.read', 'billing.treasury.receive'],
+  },
+  'treasury-reconciler': {
+    subject: SUBJECTS.treasury,
+    kind: 'account',
+    permissions: ['billing.read', 'billing.treasury.receive', 'billing.reconcile'],
+  },
+  corrector: {
+    subject: SUBJECTS.corrector,
+    kind: 'account',
+    permissions: ['billing.read', 'billing.cash.correct'],
+  },
+  'self-corrector': {
+    subject: SUBJECTS.technician,
+    kind: 'account',
+    permissions: [...COLLECTOR, 'billing.cash.correct'],
   },
 } as const;
 
@@ -86,21 +134,35 @@ export async function startBillingHttp(input: {
   clock: Clock;
   identity: Stub;
   pricing: PricingStub;
+  /** Work-owner double; defaults to the fail-closed production adapter. */
+  work?: WorkAuthority;
 }): Promise<BillingHttpHarness> {
+  const authority = new IdentitySessionAuthority({
+    origin: new URL(input.identity.origin),
+    timeoutMs: 1_000,
+  });
+  const custody = new CashCustodyService({
+    repository: input.repository,
+    authority,
+    work: input.work ?? new UnpublishedWorkAuthority(),
+    clock: input.clock,
+    ids: new RandomIds(),
+    hasher: new Sha256Hasher(),
+  });
   const service = new BillingService({
     repository: input.repository,
-    authority: new IdentitySessionAuthority({
-      origin: new URL(input.identity.origin),
-      timeoutMs: 1_000,
-    }),
+    authority,
     quotes: new PricingQuoteReader({ origin: new URL(input.pricing.origin), timeoutMs: 1_000 }),
     clock: input.clock,
     ids: new RandomIds(),
     hasher: new Sha256Hasher(),
   });
   const moduleRef = await Test.createTestingModule({
-    controllers: [BillingController],
-    providers: [{ provide: BILLING_SERVICE, useValue: service }],
+    controllers: [BillingController, CustodyController],
+    providers: [
+      { provide: BILLING_SERVICE, useValue: service },
+      { provide: CASH_CUSTODY_SERVICE, useValue: custody },
+    ],
   }).compile();
   const app: INestApplication = moduleRef.createNestApplication({ logger: false });
   await app.listen(0, '127.0.0.1');

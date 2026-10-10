@@ -1,6 +1,6 @@
 # billing-service
 
-**Status: owner core implemented (P02-B1); not business ready (readiness 503); INTEGRATION_PENDING.**
+**Status: owner core (P02-B1) and cash custody (P03-B1) implemented; not business ready (readiness 503); INTEGRATION_PENDING.**
 
 Payments, cash collection, refunds, ledger and customer entitlements.
 
@@ -12,9 +12,16 @@ reported payment attempts, Finance reconciliation with an explicit UNKNOWN outco
 an append-only balanced ledger, idempotent commands, audit, and a transactional
 outbox (relay not started until Lane E registers the events).
 
-Not implemented: cash collection/custody, refunds, subscriptions, entitlements,
-provider APIs or real QR/merchant data. Choosing a method or reporting a
-transaction number never marks money as received.
+P03-B1 (see `docs/production/B/P03-B1-CASH-CUSTODY.md`): cash collection
+receipts by the assigned technician after the work owner reports completion,
+linked reversals, technician custody as a ledger balance per holder, handover to
+the company, independent treasury count with explicit shortage/overage, and
+settlement reconciliation, with separation of duties enforced in the database.
+Collection fails closed (503) until lane C publishes work completion.
+
+Not implemented: refunds, subscriptions, entitlements, provider APIs or real
+QR/merchant data. Choosing a method or reporting a transaction number never
+marks money as received; collecting cash shows CASH_COLLECTED, never PAID.
 
 Configuration: `DATABASE_URL` (runtime role), `IDENTITY_SESSION_ORIGIN`,
 `PRICING_ORIGIN` (+ `*_TIMEOUT_MS`). Unset origins fail closed with 503.

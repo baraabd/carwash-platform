@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Lane B real PostgreSQL acceptance for owner services (P01-B catalog/pricing,
- * P02-B billing).
+ * P02-B billing core, P03-B billing cash custody).
  *
  *   node scripts/production/B/postgres-acceptance.mjs --service catalog|pricing|billing [--record]
  *
@@ -9,8 +9,9 @@
  *    provisions it with the shared infra/postgres/provision.sh (database per
  *    service, separate migration/runtime identities).
  * 2. Upgrade path: applies only the migrations that existed before this change,
- *    writes sentinel data, then applies the full history and proves the data
- *    survived (expand-only compatibility).
+ *    writes sentinel data (for billing: a real P02-B1 cash obligation with its
+ *    journal and intent), then applies the full history and proves the data
+ *    survived and still works with the new code paths (expand-only compatibility).
  * 3. Re-runs the provisioner (migration-history restriction) and proves the
  *    runtime role cannot read _prisma_migrations.
  * 4. Proves the committed Prisma schema mirror has no drift from the migrated
@@ -20,7 +21,7 @@
  * Credentials are random per run and never printed. The container is removed in
  * every outcome. This is local disposable evidence, NOT production evidence.
  */
-import { randomBytes } from 'node:crypto';
+import crypto, { randomBytes } from 'node:crypto';
 import { cp, mkdir, readdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -50,8 +51,8 @@ const SERVICES = {
     dependencies: IDENTITY_STUB,
   },
   billing: {
-    task: 'P02-B',
-    previousMigrations: 1,
+    task: 'P03-B',
+    previousMigrations: 2,
     env: 'BILLING_TEST_DATABASE_URL',
     dependencies: {
       ...IDENTITY_STUB,
@@ -145,6 +146,122 @@ async function query(url, statement, values = []) {
     await client.end().catch(() => {});
   }
 }
+
+/** Runs statements in ONE transaction on one connection (COMMIT-time triggers apply). */
+async function transaction(url, statements) {
+  const client = new Client({ connectionString: url, connectionTimeoutMillis: 3_000 });
+  try {
+    await client.connect();
+    await client.query('BEGIN');
+    for (const [statement, values] of statements) await client.query(statement, values);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
+/**
+ * Billing upgrade sentinel: a P02-B1 obligation awaiting cash, written under the
+ * PREVIOUS schema by the runtime role (all P02-B1 triggers apply), then - after
+ * the upgrade - collected into technician custody under the NEW schema. Proves
+ * the widened constraints accepted existing rows and old facts work with new code.
+ */
+const BILLING_SENTINEL = (() => {
+  const ids = Object.fromEntries(
+    [
+      'obligation',
+      'owner',
+      'quote',
+      'journal',
+      'intent',
+      'correlation',
+      'receipt',
+      'collection',
+      'holder',
+      'booking',
+      'assignment',
+    ].map((name) => [name, crypto.randomUUID()]),
+  );
+  return {
+    async write(url) {
+      await transaction(url, [
+        [
+          `INSERT INTO app.billing_obligation (id, owner_kind, owner_subject, quote_id, currency, amount_minor,
+             verified_minor, status, revision, created_at, updated_at, correlation_id)
+           VALUES ($1, 'account', $2, $3, 'SYP', 150000, 0, 'OPEN', 1, now(), now(), $4)`,
+          [ids.obligation, ids.owner, ids.quote, ids.correlation],
+        ],
+        [
+          `INSERT INTO app.ledger_journal (id, kind, business_ref, obligation_id, posted_at, correlation_id)
+           VALUES ($1, 'OBLIGATION_BILLED', $2, $3, now(), $4)`,
+          [ids.journal, `obligation:${ids.obligation}:billed`, ids.obligation, ids.correlation],
+        ],
+        [
+          `INSERT INTO app.ledger_line (journal_id, line_no, account, side, currency, amount_minor) VALUES
+             ($1, 0, 'CUSTOMER_RECEIVABLE', 'DEBIT', 'SYP', 150000),
+             ($1, 1, 'BILLED_OBLIGATIONS_CONTROL', 'CREDIT', 'SYP', 150000)`,
+          [ids.journal],
+        ],
+        [
+          `INSERT INTO app.payment_intent (id, obligation_id, method, status, active_slot, currency, amount_minor,
+             created_at, updated_at, correlation_id)
+           VALUES ($1, $2, 'CASH_ON_COMPLETION', 'AWAITING_CASH_COLLECTION', 1, 'SYP', 150000, now(), now(), $3)`,
+          [ids.intent, ids.obligation, ids.correlation],
+        ],
+      ]);
+    },
+    async verify(url) {
+      await transaction(url, [
+        [
+          `INSERT INTO app.cash_receipt (id, obligation_id, intent_id, booking_id, assignment_id, assignment_revision,
+             collector_subject, currency, amount_minor, custody_status, active_slot, revision, collected_at,
+             updated_at, correlation_id)
+           VALUES ($1, $2, $3, $4, $5, 1, $6, 'SYP', 150000, 'HELD', 1, 1, now(), now(), $7)`,
+          [
+            ids.receipt,
+            ids.obligation,
+            ids.intent,
+            ids.booking,
+            ids.assignment,
+            ids.holder,
+            ids.correlation,
+          ],
+        ],
+        [
+          `UPDATE app.payment_intent SET status = 'SUCCEEDED', active_slot = NULL, updated_at = now() WHERE id = $1`,
+          [ids.intent],
+        ],
+        [
+          `INSERT INTO app.ledger_journal (id, kind, business_ref, obligation_id, posted_at, correlation_id)
+           VALUES ($1, 'CASH_COLLECTED', $2, $3, now(), $4)`,
+          [ids.collection, `receipt:${ids.receipt}:collected`, ids.obligation, ids.correlation],
+        ],
+        [
+          `INSERT INTO app.ledger_line (journal_id, line_no, account, side, currency, amount_minor, holder_subject) VALUES
+             ($1, 0, 'CASH_IN_CUSTODY', 'DEBIT', 'SYP', 150000, $2),
+             ($1, 1, 'CUSTOMER_RECEIVABLE', 'CREDIT', 'SYP', 150000, NULL)`,
+          [ids.collection, ids.holder],
+        ],
+        [
+          `UPDATE app.billing_obligation SET verified_minor = 150000, status = 'SETTLED', revision = revision + 1,
+             updated_at = now() WHERE id = $1`,
+          [ids.obligation],
+        ],
+      ]);
+      const settled = await query(
+        url,
+        `SELECT o.status, r.custody_status FROM app.billing_obligation o
+           JOIN app.cash_receipt r ON r.obligation_id = o.id WHERE o.id = $1`,
+        [ids.obligation],
+      );
+      if (settled.rows[0]?.status !== 'SETTLED' || settled.rows[0]?.custody_status !== 'HELD')
+        throw new Error('UPGRADED_OBLIGATION_NOT_COLLECTABLE');
+    },
+  };
+})();
 
 async function prisma(args, databaseUrl) {
   return checked('pnpm', ['--filter', `@carwash/${service}`, 'exec', 'prisma', ...args], {
@@ -259,7 +376,9 @@ try {
     await query(appUrl, 'INSERT INTO app.service_marker(service, schema_rev) VALUES ($1, 1)', [
       `p01b-${runId}`,
     ]);
+    if (service === 'billing') await BILLING_SENTINEL.write(appUrl);
     await prisma(['migrate', 'deploy'], migrateUrl);
+    if (service === 'billing') await BILLING_SENTINEL.verify(appUrl);
     const kept = await query(appUrl, 'SELECT 1 FROM app.service_marker WHERE service = $1', [
       `p01b-${runId}`,
     ]);
