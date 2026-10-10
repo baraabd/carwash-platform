@@ -12,7 +12,7 @@ import {
   Res,
   UseFilters,
 } from '@nestjs/common';
-import { CapacityService, HoldsV1Service, holdView } from '../../application';
+import { CapacityService, CommitmentsService, HoldsV1Service, holdView } from '../../application';
 import type { CapacityWindowState } from '../../domain';
 import type { StoredResponse } from '../../ports';
 import { ActorResolver, type HeaderBag } from './actor-resolver';
@@ -24,7 +24,9 @@ import {
   integer,
   localDate,
   queryInteger,
+  releaseCommitmentRequest,
   releaseRequest,
+  replaceCommitmentRequest,
   utc,
   uuid,
 } from './wire';
@@ -67,6 +69,7 @@ export class SchedulingController {
   constructor(
     @Inject(HoldsV1Service) private readonly holds: HoldsV1Service,
     @Inject(CapacityService) private readonly capacity: CapacityService,
+    @Inject(CommitmentsService) private readonly commitments: CommitmentsService,
     @Inject(ActorResolver) private readonly actors: ActorResolver,
   ) {}
 
@@ -142,6 +145,50 @@ export class SchedulingController {
         meta,
         uuid(holdId, 'path.holdId'),
         releaseRequest(body),
+        key(req),
+      ),
+    );
+  }
+
+  // ------------------- booking commitment changes (REQUESTED, CR-P04-C1)
+
+  /** Booking cancelled: give the committed unit back (service scope). */
+  @Post('bookings/:bookingId/commitment/release')
+  @HttpCode(200)
+  async releaseCommitment(
+    @Req() req: HeaderBag,
+    @Param('bookingId') bookingId: string,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: StatusResponse,
+  ): Promise<unknown> {
+    const meta = await this.actors.resolve(req);
+    return send(
+      res,
+      await this.commitments.releaseCommitment(
+        meta,
+        uuid(bookingId, 'path.bookingId'),
+        releaseCommitmentRequest(body),
+        key(req),
+      ),
+    );
+  }
+
+  /** Booking rescheduled: move the commitment to another hold atomically (service scope). */
+  @Post('bookings/:bookingId/commitment/replace')
+  @HttpCode(200)
+  async replaceCommitment(
+    @Req() req: HeaderBag,
+    @Param('bookingId') bookingId: string,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: StatusResponse,
+  ): Promise<unknown> {
+    const meta = await this.actors.resolve(req);
+    return send(
+      res,
+      await this.commitments.replaceCommitment(
+        meta,
+        uuid(bookingId, 'path.bookingId'),
+        replaceCommitmentRequest(body),
         key(req),
       ),
     );

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { HealthModule, createLogger, type DependencyProbe } from '@carwash/service-kit';
-import { CapacityService, HoldsV1Service } from './application';
+import { CapacityService, CommitmentsService, HoldsV1Service } from './application';
 import { IdentitySessionClient } from './infrastructure/identity/identity-session.client';
 import {
   DATABASE_URL,
@@ -64,6 +64,12 @@ function positiveInt(raw: string | undefined, fallback: number): number {
       provide: HoldsV1Service,
       useFactory: (store: PrismaSchedulingStore) =>
         new HoldsV1Service(store, store, systemClock, uuidGenerator),
+      inject: [PrismaSchedulingStore],
+    },
+    {
+      provide: CommitmentsService,
+      useFactory: (store: PrismaSchedulingStore) =>
+        new CommitmentsService(store, store, systemClock, uuidGenerator),
       inject: [PrismaSchedulingStore],
     },
     {

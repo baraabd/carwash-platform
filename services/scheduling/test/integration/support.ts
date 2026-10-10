@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { CapacityService, HoldsV1Service } from '../../src/application';
+import { CapacityService, CommitmentsService, HoldsV1Service } from '../../src/application';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma.service';
 import { PrismaSchedulingStore } from '../../src/infrastructure/persistence/prisma-scheduling.store';
 import { uuidGenerator } from '../../src/infrastructure/runtime/system';
@@ -49,6 +49,7 @@ export interface Replica {
   readonly store: PrismaSchedulingStore;
   readonly holds: HoldsV1Service;
   readonly capacity: CapacityService;
+  readonly commitments: CommitmentsService;
 }
 
 /** One "replica" = its own connection pool, like a separate process would have. */
@@ -60,6 +61,7 @@ export function replica(clock: Clock): Replica {
     store,
     holds: new HoldsV1Service(store, store, clock, uuidGenerator),
     capacity: new CapacityService(store, store, clock, uuidGenerator),
+    commitments: new CommitmentsService(store, store, clock, uuidGenerator),
   };
 }
 
@@ -72,7 +74,7 @@ export const OPS: Actor = {
 export const BOOKING: Actor = {
   kind: 'SERVICE',
   clientId: 'booking',
-  scopes: ['scheduling.hold.commit'],
+  scopes: ['scheduling.hold.commit', 'scheduling.commitment.change'],
 };
 export const NO_SCOPE: Actor = { kind: 'SERVICE', clientId: 'dispatch', scopes: [] };
 

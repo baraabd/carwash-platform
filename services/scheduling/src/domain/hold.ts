@@ -9,7 +9,9 @@ import { SchedulingError, invalid } from './errors';
  *   CONFIRMED                COMMITTED   (bookingId set; units become reserved)
  *   RELEASED                 RELEASED    (beneficiary gave it back)
  *   EXPIRED                  EXPIRED     (deadline passed; units returned)
- *   CANCELLED                RELEASED    (staff override of a committed hold)
+ *   CANCELLED                RELEASED    (a committed hold given back: staff override,
+ *                                         booking cancelled, or the booking moved
+ *                                         to another hold by a reschedule)
  *
  * Expiry is decided only by the injected clock compared with `expiresAt`,
  * never by whether a sweeper ran. `version` is the contract `revision`.
@@ -18,12 +20,18 @@ export type HoldStatus = 'ACTIVE' | 'CONFIRMED' | 'RELEASED' | 'EXPIRED' | 'CANC
 export type HoldStateV1 = 'HELD' | 'COMMITTED' | 'RELEASED' | 'EXPIRED';
 export type PrincipalKind = 'account' | 'guest';
 
-/** scheduling.v1 reasons a beneficiary may give, plus the staff-only override. */
+/**
+ * scheduling.v1 reasons a beneficiary may give, the staff-only override, and
+ * the two reasons Booking gives when it changes a committed booking (P04-C1).
+ * Every value is already allowed by capacity_hold_reason_ck.
+ */
 export const RELEASE_REASONS = [
   'CUSTOMER_CHANGED',
   'BOOKING_FAILED',
   'EXPIRED_BY_CLIENT',
   'OPERATIONS_OVERRIDE',
+  'BOOKING_CANCELLED',
+  'RESCHEDULED',
 ] as const;
 export type ReleaseReason = (typeof RELEASE_REASONS)[number];
 export const PRINCIPAL_RELEASE_REASONS: readonly ReleaseReason[] = [
@@ -199,4 +207,102 @@ export function releaseByOperations(hold: HoldState, now: Date): ReleaseOutcome 
     };
   }
   return null;
+}
+
+/**
+ * Booking cancelled a committed booking: its reserved unit comes back.
+ *
+ * Replay policy: a hold already given back for the SAME booking (by Booking,
+ * or earlier by a staff override) answers with the hold and frees nothing
+ * again. A hold that is not (or no longer) committed to this booking is refused.
+ */
+export function releaseCommitment(
+  hold: HoldState,
+  input: { readonly bookingId: string; readonly now: Date },
+): { readonly hold: HoldState; readonly replay: boolean } {
+  if (hold.bookingId !== input.bookingId) {
+    throw new SchedulingError('COMMITMENT_NOT_FOUND', 'The hold is not committed to the booking.');
+  }
+  // A hold the booking was moved away from is not its commitment any more.
+  if (hold.status === 'CANCELLED' && hold.releaseReason !== 'RESCHEDULED') {
+    return { hold, replay: true };
+  }
+  if (hold.status !== 'CONFIRMED') {
+    throw new SchedulingError('COMMITMENT_NOT_FOUND', 'The hold is not committed to the booking.');
+  }
+  return {
+    hold: {
+      ...hold,
+      status: 'CANCELLED',
+      releaseReason: 'BOOKING_CANCELLED',
+      updatedAt: input.now,
+      version: hold.version + 1,
+    },
+    replay: false,
+  };
+}
+
+export interface CommitmentReplacement {
+  /** The previously committed hold, now CANCELLED with reason RESCHEDULED. */
+  readonly from: HoldState;
+  /** The new hold, now CONFIRMED for the same booking. */
+  readonly to: HoldState;
+  readonly replay: boolean;
+}
+
+/**
+ * Reschedule: move a booking's commitment from one hold to another in ONE
+ * decision, so capacity is never held twice for it nor lost in between.
+ *
+ * The new hold must be live, at the expected revision, and belong to the same
+ * beneficiary as the committed one (another principal's hold is reported as
+ * absent). A replacement that already happened for this booking is a replay.
+ */
+export function replaceCommitment(
+  from: HoldState,
+  to: HoldState,
+  input: {
+    readonly bookingId: string;
+    readonly expectedRevision: number;
+    readonly now: Date;
+  },
+): CommitmentReplacement {
+  if (from.id === to.id) throw invalid('The new hold must differ from the committed one.');
+  if (
+    from.status === 'CANCELLED' &&
+    from.releaseReason === 'RESCHEDULED' &&
+    from.bookingId === input.bookingId &&
+    to.status === 'CONFIRMED' &&
+    to.bookingId === input.bookingId
+  ) {
+    return { from, to, replay: true };
+  }
+  if (from.status !== 'CONFIRMED' || from.bookingId !== input.bookingId) {
+    throw new SchedulingError('COMMITMENT_NOT_FOUND', 'The hold is not committed to the booking.');
+  }
+  if (
+    to.beneficiaryKind !== from.beneficiaryKind ||
+    to.beneficiarySubject !== from.beneficiarySubject
+  ) {
+    throw new SchedulingError('HOLD_NOT_FOUND', 'Hold not found.');
+  }
+  assertLive(to, input.now);
+  assertRevision(to, input.expectedRevision);
+  return {
+    from: {
+      ...from,
+      status: 'CANCELLED',
+      releaseReason: 'RESCHEDULED',
+      updatedAt: input.now,
+      version: from.version + 1,
+    },
+    to: {
+      ...to,
+      status: 'CONFIRMED',
+      bookingId: input.bookingId,
+      updatedAt: input.now,
+      version: to.version + 1,
+    },
+    replay: false,
+  };
 }

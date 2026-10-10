@@ -34,7 +34,7 @@ import type { PrismaService } from './prisma.service';
  *   - the CHECK constraint held + reserved <= capacity rejects any write that
  *     would oversell, even one produced by a defect above this layer;
  *   - capacity_hold_shape_ck and the partial unique index on booking_id keep
- *     every v1 hold complete and one booking to one committed hold.
+ *     every v1 hold complete and one booking to one CONFIRMED hold at a time.
  *
  * Tables are qualified with the "app" schema; the runtime role has DML on that
  * schema only.
@@ -425,7 +425,7 @@ class PrismaSchedulingTransaction implements SchedulingTransaction {
         hold.bookingId,
       );
     } catch (error) {
-      // capacity_hold_booking_id_key: this booking already committed another hold.
+      // capacity_hold_booking_confirmed_key: the booking already has a CONFIRMED hold.
       if (sqlState(error) === '23505') {
         throw new SchedulingError('BOOKING_ALREADY_COMMITTED', 'The booking holds another slot.');
       }

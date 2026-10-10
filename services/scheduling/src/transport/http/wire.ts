@@ -119,3 +119,23 @@ export function releaseRequest(body: unknown): {
   }
   return { expectedRevision: revision(v.expectedRevision, '$.expectedRevision'), reason: allowed };
 }
+
+/** REQUESTED scheduling.v1 `releaseCommitment` body (CR-P04-C1). */
+export function releaseCommitmentRequest(body: unknown): { readonly holdId: string } {
+  const v = closed(body, '$', ['holdId']);
+  return { holdId: uuid(v.holdId, '$.holdId') };
+}
+
+/** REQUESTED scheduling.v1 `replaceCommitment` body (CR-P04-C1). */
+export function replaceCommitmentRequest(body: unknown): {
+  readonly fromHoldId: string;
+  readonly toHoldId: string;
+  readonly toExpectedRevision: number;
+} {
+  const v = closed(body, '$', ['fromHoldId', 'toHoldId', 'toExpectedRevision']);
+  return {
+    fromHoldId: uuid(v.fromHoldId, '$.fromHoldId'),
+    toHoldId: uuid(v.toHoldId, '$.toHoldId'),
+    toExpectedRevision: revision(v.toExpectedRevision, '$.toExpectedRevision'),
+  };
+}
