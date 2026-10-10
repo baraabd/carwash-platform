@@ -33,6 +33,9 @@
 export const DEFAULT_MAX_CAPTURES = 8;
 /** Consecutive equal captures a page must produce before it counts as settled. */
 export const DEFAULT_SETTLED_FRAMES = 3;
+/** Transient capture failures allowed before a single capture attempt fails. */
+export const DEFAULT_CAPTURE_RETRIES = 2;
+const DEFAULT_RETRY_DELAY_MS = 250;
 
 /** Byte equality: the strictest possible "unchanged". */
 export const sameBytes = async (previous, next) =>
@@ -49,6 +52,8 @@ export async function captureStable(
     unchanged = sameBytes,
     maxCaptures = DEFAULT_MAX_CAPTURES,
     settledFrames = DEFAULT_SETTLED_FRAMES,
+    captureRetries = DEFAULT_CAPTURE_RETRIES,
+    retryDelayMs = DEFAULT_RETRY_DELAY_MS,
   } = {},
 ) {
   if (!Number.isSafeInteger(settledFrames) || settledFrames < 2) {
@@ -57,10 +62,29 @@ export async function captureStable(
   if (!Number.isSafeInteger(maxCaptures) || maxCaptures < settledFrames) {
     throw new TypeError('maxCaptures must be an integer of at least settledFrames');
   }
-  let previous = await capture();
+  if (!Number.isSafeInteger(captureRetries) || captureRetries < 0) {
+    throw new TypeError('captureRetries must be a non-negative integer');
+  }
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const captureWithRetry = async () => {
+    let lastError = null;
+    for (let attempt = 0; attempt <= captureRetries; attempt += 1) {
+      try {
+        return await capture();
+      } catch (error) {
+        lastError = error;
+        if (attempt < captureRetries) await sleep(retryDelayMs);
+      }
+    }
+    throw new Error(
+      `capture failed after ${captureRetries + 1} attempt(s): ${lastError?.message ?? lastError}`,
+    );
+  };
+
+  let previous = await captureWithRetry();
   let run = 1;
   for (let count = 2; count <= maxCaptures; count += 1) {
-    const next = await capture();
+    const next = await captureWithRetry();
     run = (await unchanged(previous, next)) ? run + 1 : 1;
     if (run >= settledFrames) return { image: next, captures: count };
     previous = next;
