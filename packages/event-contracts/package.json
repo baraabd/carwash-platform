@@ -33,6 +33,10 @@
     "./business-v1": {
       "types": "./dist/business-v1.d.ts",
       "default": "./dist/business-v1.js"
+    },
+    "./billing-v1": {
+      "types": "./dist/billing-v1.d.ts",
+      "default": "./dist/billing-v1.js"
     }
   },
   "files": [

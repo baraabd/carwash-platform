@@ -392,6 +392,284 @@
         "SELF_APPROVAL_FORBIDDEN",
         "DRAFT_NOT_APPROVED"
       ]
+    },
+    "billing.v1": {
+      "owner": "billing",
+      "prefix": "/internal/v1/billing",
+      "routes": {
+        "createObligation": {
+          "method": "POST",
+          "path": "/obligations",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getObligation": {
+          "method": "GET",
+          "path": "/obligations/:obligationId",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getFinancialStatus": {
+          "method": "GET",
+          "path": "/obligations/:obligationId/financial-status",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "initializePayment": {
+          "method": "POST",
+          "path": "/obligations/:obligationId/payment-intents",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "submitAttempt": {
+          "method": "POST",
+          "path": "/obligations/:obligationId/payment-attempts",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "voidObligation": {
+          "method": "POST",
+          "path": "/obligations/:obligationId/void",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "reconcileAttempt": {
+          "method": "POST",
+          "path": "/payment-attempts/:attemptId/reconciliation",
+          "access": "permission:billing.reconcile",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "createBookingObligation": {
+          "method": "POST",
+          "path": "/booking-obligations",
+          "access": "service:billing.obligation.write",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "voidBookingObligation": {
+          "method": "POST",
+          "path": "/booking-obligations/:obligationId/void",
+          "access": "service:billing.obligation.write",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "recordCashCollection": {
+          "method": "POST",
+          "path": "/obligations/:obligationId/cash-collections",
+          "access": "permission:billing.cash.collect",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getCashReceipt": {
+          "method": "GET",
+          "path": "/cash-receipts/:receiptId",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "reverseCashCollection": {
+          "method": "POST",
+          "path": "/cash-receipts/:receiptId/reversal",
+          "access": "permission:billing.cash.correct",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "declareHandover": {
+          "method": "POST",
+          "path": "/custody/handovers",
+          "access": "permission:billing.cash.collect",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getHandover": {
+          "method": "GET",
+          "path": "/custody/handovers/:handoverId",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "cancelHandover": {
+          "method": "POST",
+          "path": "/custody/handovers/:handoverId/cancel",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "receiveHandover": {
+          "method": "POST",
+          "path": "/custody/handovers/:handoverId/treasury-receipt",
+          "access": "permission:billing.treasury.receive",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "reconcileHandover": {
+          "method": "POST",
+          "path": "/custody/handovers/:handoverId/reconciliation",
+          "access": "permission:billing.reconcile",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getMyCustody": {
+          "method": "GET",
+          "path": "/custody/holders/me",
+          "access": "permission:billing.cash.collect",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getHolderCustody": {
+          "method": "GET",
+          "path": "/custody/holders/:subject",
+          "access": "permission:billing.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getCustodyReconciliation": {
+          "method": "GET",
+          "path": "/custody/reconciliation",
+          "access": "permission:billing.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "requestRefund": {
+          "method": "POST",
+          "path": "/obligations/:obligationId/refunds",
+          "access": "permission:billing.refund",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "listObligationRefunds": {
+          "method": "GET",
+          "path": "/obligations/:obligationId/refunds",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getRefund": {
+          "method": "GET",
+          "path": "/refunds/:refundId",
+          "access": "permission:billing.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "recordRefundOutcome": {
+          "method": "POST",
+          "path": "/refunds/:refundId/outcome",
+          "access": "permission:billing.reconcile",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "receiveProviderNotification": {
+          "method": "POST",
+          "path": "/provider-notifications/:provider",
+          "access": "provider-signed",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "QUOTE_NOT_USABLE",
+        "OBLIGATION_ALREADY_EXISTS",
+        "AMOUNT_INVALID",
+        "CURRENCY_UNSUPPORTED",
+        "CURRENCY_MISMATCH",
+        "PROVIDER_REFERENCE_TAKEN",
+        "OBLIGATION_SETTLED",
+        "OBLIGATION_VOIDED",
+        "VOID_NOT_ALLOWED",
+        "METHOD_UNCHANGED",
+        "PAYMENT_IN_REVIEW",
+        "NO_ACTIVE_INTENT",
+        "INTENT_NOT_ACCEPTING_ATTEMPTS",
+        "ATTEMPT_NOT_OPEN",
+        "ALREADY_UNKNOWN",
+        "ATTEMPT_LIMIT_REACHED",
+        "AMOUNT_NOT_EQUAL_OUTSTANDING",
+        "OBSERVED_AMOUNT_REQUIRED",
+        "OBSERVED_AMOUNT_NOT_ALLOWED",
+        "COLLECTION_ALREADY_RECORDED",
+        "TREASURY_REFERENCE_TAKEN",
+        "INTENT_NOT_CASH",
+        "WORK_NOT_COMPLETED",
+        "COLLECTOR_NOT_ASSIGNED",
+        "SELF_COLLECTION_FORBIDDEN",
+        "SEPARATION_OF_DUTIES",
+        "RECEIPT_ALREADY_REVERSED",
+        "RECEIPT_NOT_HELD",
+        "HANDOVER_NOT_PENDING",
+        "HANDOVER_NOT_RECEIVED",
+        "HANDOVER_EMPTY",
+        "HANDOVER_TOO_LARGE",
+        "HANDOVER_DUPLICATE_RECEIPT",
+        "HANDOVER_MIXED_CURRENCY",
+        "DECLARED_TOTAL_MISMATCH",
+        "OBLIGATION_NOT_SETTLED",
+        "REFUND_EXCEEDS_REFUNDABLE",
+        "REFUND_IN_PROGRESS",
+        "REFUND_NOT_OPEN",
+        "REFUND_REFERENCE_REQUIRED",
+        "REFUND_REFERENCE_NOT_ALLOWED",
+        "REFUND_REFERENCE_TAKEN",
+        "NOTIFICATION_SIGNATURE_INVALID",
+        "NOTIFICATION_STALE",
+        "NOTIFICATION_PROVIDER_DISABLED"
+      ]
     }
   },
   "errorCodes": [
@@ -470,6 +748,36 @@
     "configuration.configuration-published.v1": {
       "producer": "configuration",
       "aggregateType": "configuration-scope",
+      "envelopeVersion": 2
+    },
+    "billing.obligation-created.v1": {
+      "producer": "billing",
+      "aggregateType": "billing-obligation",
+      "envelopeVersion": 2
+    },
+    "billing.obligation-status-changed.v1": {
+      "producer": "billing",
+      "aggregateType": "billing-obligation",
+      "envelopeVersion": 2
+    },
+    "billing.cash-collected.v1": {
+      "producer": "billing",
+      "aggregateType": "billing-cash-receipt",
+      "envelopeVersion": 2
+    },
+    "billing.cash-collection-reversed.v1": {
+      "producer": "billing",
+      "aggregateType": "billing-cash-receipt",
+      "envelopeVersion": 2
+    },
+    "billing.custody-handover-changed.v1": {
+      "producer": "billing",
+      "aggregateType": "billing-custody-handover",
+      "envelopeVersion": 2
+    },
+    "billing.refund-status-changed.v1": {
+      "producer": "billing",
+      "aggregateType": "billing-refund",
       "envelopeVersion": 2
     }
   }

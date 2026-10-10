@@ -7,3 +7,4 @@ export * from './principal';
 export * from './coordinates';
 export * from './vehicle-type';
 export * from './route';
+export * from './payment-method';

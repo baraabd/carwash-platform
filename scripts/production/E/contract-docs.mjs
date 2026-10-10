@@ -122,21 +122,18 @@ function openApi(contract) {
   };
 }
 
-function asyncApi() {
+function asyncApi(set, title, description) {
   const lines = [
     "asyncapi: '2.6.0'",
     'info:',
-    '  title: WashGo business events V1 (envelope v2)',
+    `  title: ${title}`,
     "  version: '1.0.0'",
     '  description: >',
-    '    Published wire contracts for the first business event set. Status',
-    '    published-producer-pending: no accepted producer emits these yet.',
-    '    Data is closed and carries opaque IDs/revisions only; data shapes are',
-    '    defined by the parsers in @carwash/event-contracts business-v1.',
+    ...description.map((line) => `    ${line}`),
     'defaultContentType: application/json',
     'channels:',
   ];
-  for (const spec of events.BUSINESS_EVENTS_V1) {
+  for (const spec of set) {
     const message = spec.eventType.replace(/[^a-z0-9]+/gi, '_');
     lines.push(
       `  ${spec.producer}.events/${spec.eventType}:`,
@@ -177,7 +174,26 @@ for (const contract of contracts.OWNER_CONTRACTS) {
     JSON.stringify(openApi(contract), null, 2) + '\n',
   );
 }
-outputs.set('docs/asyncapi/business-events-v1.yaml', asyncApi());
+outputs.set(
+  'docs/asyncapi/business-events-v1.yaml',
+  asyncApi(events.BUSINESS_EVENTS_V1, 'WashGo business events V1 (envelope v2)', [
+    'Published wire contracts for the first business event set. Status',
+    'published-producer-pending: no accepted producer emits these yet.',
+    'Data is closed and carries opaque IDs/revisions only; data shapes are',
+    'defined by the parsers in @carwash/event-contracts business-v1.',
+  ]),
+);
+outputs.set(
+  'docs/asyncapi/billing-events-v1.yaml',
+  asyncApi(events.BILLING_EVENTS_V1, 'WashGo billing events V1 (envelope v2)', [
+    'Published wire contracts for Billing payment, cash custody and refund',
+    'events (exchange washgo.billing.events, routing key = event type).',
+    'Status published-producer-pending: no accepted relay publishes these yet.',
+    'Data is closed and carries opaque IDs, statuses, closed reasons and exact',
+    'minor-unit amounts only; shapes are defined by the parsers in',
+    '@carwash/event-contracts billing-v1.',
+  ]),
+);
 outputs.set(
   'docs/asyncapi/contract-registry.json',
   JSON.stringify(

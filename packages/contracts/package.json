@@ -59,6 +59,10 @@
       "types": "./dist/configuration/v1.d.ts",
       "default": "./dist/configuration/v1.js"
     },
+    "./billing-v1": {
+      "types": "./dist/billing/v1.d.ts",
+      "default": "./dist/billing/v1.js"
+    },
     "./common": {
       "types": "./dist/common/index.d.ts",
       "default": "./dist/common/index.js"
