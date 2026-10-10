@@ -247,10 +247,12 @@ async function custodyStatus(receiptId: unknown): Promise<string | undefined> {
   return result.rows[0]?.status;
 }
 
+/** Ordered by aggregate version: events of one command share created_at under the fixed clock. */
 async function outbox(aggregateId: unknown): Promise<{ event_type: string; payload: string }[]> {
   const result = await sql.query<{ event_type: string; payload: string }>(
     `SELECT event_type, payload FROM app.outbox_message
-      WHERE payload::jsonb #>> '{aggregate,id}' = $1 ORDER BY created_at, event_type`,
+      WHERE payload::jsonb #>> '{aggregate,id}' = $1
+      ORDER BY created_at, (payload::jsonb #>> '{aggregate,version}')::int, event_type`,
     [aggregateId],
   );
   return result.rows;

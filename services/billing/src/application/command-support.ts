@@ -1,4 +1,11 @@
-import { CashRuleError, Money, MoneyError, PaymentRuleError } from '../domain';
+import {
+  CashRuleError,
+  Money,
+  MoneyError,
+  PaymentRuleError,
+  ProviderRuleError,
+  RefundRuleError,
+} from '../domain';
 import {
   AccessDenied,
   ConcurrentModification,
@@ -95,7 +102,12 @@ export function decide<T>(work: () => T): T {
   try {
     return work();
   } catch (error: unknown) {
-    if (error instanceof PaymentRuleError || error instanceof CashRuleError)
+    if (
+      error instanceof PaymentRuleError ||
+      error instanceof CashRuleError ||
+      error instanceof ProviderRuleError ||
+      error instanceof RefundRuleError
+    )
       throw new BillingApplicationError(error.code);
     throw error;
   }

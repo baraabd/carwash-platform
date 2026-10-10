@@ -1,7 +1,18 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { BillingService, CashCustodyService } from '../../src/application';
-import type { BillingRepository, Clock, WorkAuthority } from '../../src/ports';
+import {
+  BillingService,
+  CashCustodyService,
+  ProviderPaymentsService,
+  RefundService,
+} from '../../src/application';
+import type {
+  BillingRepository,
+  Clock,
+  PaymentProviderRegistry,
+  WorkAuthority,
+} from '../../src/ports';
+import { productionProviderRegistry } from '../../src/infrastructure/providers/merchant-providers';
 import { IdentitySessionAuthority } from '../../src/infrastructure/identity/identity-session.authority';
 import { PricingQuoteReader } from '../../src/infrastructure/pricing/pricing-quote.reader';
 import { RandomIds, Sha256Hasher } from '../../src/infrastructure/system/system.adapters';
@@ -11,6 +22,11 @@ import {
   CASH_CUSTODY_SERVICE,
   CustodyController,
 } from '../../src/transport/http/custody.controller';
+import {
+  PROVIDER_PAYMENTS_SERVICE,
+  ProviderController,
+  REFUND_SERVICE,
+} from '../../src/transport/http/provider.controller';
 import { tokenFor, type PricingStub, type Stub } from './upstream-stubs';
 
 export const SUBJECTS = {
@@ -23,6 +39,9 @@ export const SUBJECTS = {
   otherTechnician: 'cf7a8b9c-0d1e-4fc0-8b3c-6d7e8f9a0b1c',
   treasury: 'd08b9c0d-1e2f-4ad1-9c4d-7e8f9a0b1c2d',
   corrector: 'e19c0d1e-2f3a-4be2-8d5e-8f9a0b1c2d3e',
+  approver: 'f2ad1e2f-3a4b-4cf3-9e6f-9a0b1c2d3e4f',
+  refunder: '03be2f3a-4b5c-4d04-8f7a-0b1c2d3e4f5a',
+  refundApprover: '14cf3a4b-5c6d-4e15-9a8b-1c2d3e4f5a6b',
 } as const;
 
 export const TOKENS = {
@@ -43,6 +62,14 @@ export const TOKENS = {
   corrector: tokenFor('corrector'),
   /** A technician who also holds the correction grant (cannot reverse own receipt). */
   selfCorrector: tokenFor('self-corrector'),
+  /** A second reconciler: approves statement credits recorded by `reconciler`. */
+  approver: tokenFor('approver'),
+  refunder: tokenFor('refunder'),
+  refundApprover: tokenFor('refund-approver'),
+  /** Holds billing.refund AND owns obligations: cannot refund their own payment. */
+  selfRefunder: tokenFor('self-refunder'),
+  /** A guest session holding the refund grant: money decisions need an account. */
+  guestRefunder: tokenFor('guest-refunder'),
   unknown: tokenFor('unknown'),
 };
 
@@ -96,6 +123,31 @@ export const SESSIONS = {
     kind: 'account',
     permissions: [...COLLECTOR, 'billing.cash.correct'],
   },
+  approver: {
+    subject: SUBJECTS.approver,
+    kind: 'account',
+    permissions: ['billing.read', 'billing.reconcile'],
+  },
+  refunder: {
+    subject: SUBJECTS.refunder,
+    kind: 'account',
+    permissions: ['billing.read', 'billing.refund'],
+  },
+  'refund-approver': {
+    subject: SUBJECTS.refundApprover,
+    kind: 'account',
+    permissions: ['billing.read', 'billing.refund'],
+  },
+  'self-refunder': {
+    subject: SUBJECTS.customer,
+    kind: 'account',
+    permissions: [...CUSTOMER, 'billing.read', 'billing.refund'],
+  },
+  'guest-refunder': {
+    subject: SUBJECTS.guest,
+    kind: 'guest',
+    permissions: ['billing.read', 'billing.refund'],
+  },
 } as const;
 
 export class FixedClock implements Clock {
@@ -119,7 +171,15 @@ export interface BillingHttpHarness {
   request(
     method: 'GET' | 'POST',
     path: string,
-    options?: { token?: string; key?: string; body?: unknown; correlationId?: string },
+    options?: {
+      token?: string;
+      key?: string;
+      body?: unknown;
+      correlationId?: string;
+      /** Sent byte-for-byte instead of a JSON-serialised body (provider notifications). */
+      raw?: string;
+      headers?: Record<string, string>;
+    },
   ): Promise<HttpReply>;
   close(): Promise<void>;
 }
@@ -136,6 +196,8 @@ export async function startBillingHttp(input: {
   pricing: PricingStub;
   /** Work-owner double; defaults to the fail-closed production adapter. */
   work?: WorkAuthority;
+  /** Provider registry; defaults to the production (documentation-pending) adapters. */
+  providers?: PaymentProviderRegistry;
 }): Promise<BillingHttpHarness> {
   const authority = new IdentitySessionAuthority({
     origin: new URL(input.identity.origin),
@@ -157,14 +219,34 @@ export async function startBillingHttp(input: {
     ids: new RandomIds(),
     hasher: new Sha256Hasher(),
   });
+  const providers = input.providers ?? productionProviderRegistry({});
+  const payments = new ProviderPaymentsService({
+    repository: input.repository,
+    authority,
+    providers,
+    clock: input.clock,
+    ids: new RandomIds(),
+    hasher: new Sha256Hasher(),
+  });
+  const refunds = new RefundService({
+    repository: input.repository,
+    authority,
+    providers,
+    clock: input.clock,
+    ids: new RandomIds(),
+    hasher: new Sha256Hasher(),
+  });
   const moduleRef = await Test.createTestingModule({
-    controllers: [BillingController, CustodyController],
+    controllers: [BillingController, CustodyController, ProviderController],
     providers: [
       { provide: BILLING_SERVICE, useValue: service },
       { provide: CASH_CUSTODY_SERVICE, useValue: custody },
+      { provide: PROVIDER_PAYMENTS_SERVICE, useValue: payments },
+      { provide: REFUND_SERVICE, useValue: refunds },
     ],
   }).compile();
-  const app: INestApplication = moduleRef.createNestApplication({ logger: false });
+  // Same transport options as createHttpApplication (raw notification bytes).
+  const app: INestApplication = moduleRef.createNestApplication({ logger: false, rawBody: true });
   await app.listen(0, '127.0.0.1');
   const url = await app.getUrl();
   return {
@@ -174,11 +256,19 @@ export async function startBillingHttp(input: {
       if (options.token) headers.authorization = `Bearer ${options.token}`;
       if (options.key) headers['idempotency-key'] = options.key;
       if (options.correlationId) headers['x-correlation-id'] = options.correlationId;
-      if (options.body !== undefined) headers['content-type'] = 'application/json';
+      if (options.body !== undefined || options.raw !== undefined)
+        headers['content-type'] = 'application/json';
+      Object.assign(headers, options.headers ?? {});
+      const payload =
+        options.raw !== undefined
+          ? options.raw
+          : options.body !== undefined
+            ? JSON.stringify(options.body)
+            : undefined;
       const response = await fetch(url + path, {
         method,
         headers,
-        ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
+        ...(payload !== undefined ? { body: payload } : {}),
       });
       const text = await response.text();
       return {

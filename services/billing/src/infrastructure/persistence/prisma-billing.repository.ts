@@ -21,6 +21,8 @@ import {
   type BillingUnitOfWork,
   type CustodyReader,
   type CustodyStore,
+  type ProviderReader,
+  type ProviderStore,
   type FinancialSnapshot,
   type IdempotencyReceipt,
   type IntentRecord,
@@ -37,6 +39,7 @@ import {
   PrismaCustodyStore,
   toReceipt as toCashReceipt,
 } from './prisma-custody.store';
+import { PrismaProviderReader, PrismaProviderStore } from './prisma-provider.store';
 import { PrismaService } from './prisma.service';
 
 type Tx = Prisma.TransactionClient;
@@ -157,19 +160,34 @@ async function snapshot(db: Db, obligationId: string): Promise<FinancialSnapshot
     orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }],
   });
   const receipt = await db.cashReceipt.findFirst({ where: { obligationId, activeSlot: 1 } });
+  const credit = await db.providerCredit.findFirst({
+    where: { obligationId, status: 'ALLOCATED' },
+    select: { id: true },
+  });
+  let refunded: Money | null = null;
+  if (credit) {
+    const total = await db.paymentRefund.aggregate({
+      where: { creditId: credit.id, status: 'SUCCEEDED' },
+      _sum: { amountMinor: true },
+    });
+    refunded = Money.of(row.currency, total._sum.amountMinor ?? 0n);
+  }
   return {
     obligation: toObligation(row),
     activeIntent: intent ? toIntent(intent) : null,
     attempts: attempts.map(toAttempt),
     cashReceipt: receipt ? toCashReceipt(receipt) : null,
+    refunded,
   };
 }
 
 class PrismaBillingUnitOfWork implements BillingUnitOfWork {
   readonly custody: CustodyStore;
+  readonly providers: ProviderStore;
 
   constructor(private readonly tx: Tx) {
     this.custody = new PrismaCustodyStore(tx);
+    this.providers = new PrismaProviderStore(tx);
   }
 
   findReceipt(actor: PrincipalRef, operation: string, key: string) {
@@ -328,9 +346,10 @@ class PrismaBillingUnitOfWork implements BillingUnitOfWork {
       data: {
         status: change.to,
         reconciledAt: change.at,
-        reconciledByKind: change.by.kind,
-        reconciledBySubject: change.by.subjectId,
+        reconciledByKind: change.by?.kind ?? null,
+        reconciledBySubject: change.by?.subjectId ?? null,
         observedMinor: change.observed?.amountMinor ?? null,
+        creditId: change.creditId,
       },
     });
     if (result.count !== 1) throw new ConcurrentModification();
@@ -344,6 +363,7 @@ class PrismaBillingUnitOfWork implements BillingUnitOfWork {
         businessRef: journal.businessRef,
         obligationId: meta.obligationId,
         handoverId: meta.handoverId,
+        creditId: meta.creditId ?? null,
         postedAt: meta.postedAt,
         correlationId: meta.correlationId,
       },
@@ -373,6 +393,8 @@ class PrismaBillingUnitOfWork implements BillingUnitOfWork {
         attemptId: record.attemptId,
         receiptId: record.receiptId,
         handoverId: record.handoverId,
+        creditId: record.creditId ?? null,
+        refundId: record.refundId ?? null,
         outcome: record.outcome,
         correlationId: record.correlationId,
       },
@@ -400,10 +422,12 @@ class PrismaBillingUnitOfWork implements BillingUnitOfWork {
 export class PrismaBillingRepository implements BillingRepository {
   private readonly client: PrismaClient;
   readonly custody: CustodyReader;
+  readonly providers: ProviderReader;
 
   constructor(prisma: PrismaService) {
     this.client = prisma.client;
     this.custody = new PrismaCustodyReader(prisma.client);
+    this.providers = new PrismaProviderReader(prisma.client);
   }
 
   transaction<T>(work: (uow: BillingUnitOfWork) => Promise<T>): Promise<T> {
