@@ -1,5 +1,6 @@
 import type {
   Channel,
+  NotificationSubject,
   DeliveryState,
   NotificationRequest,
   SubmissionOutcome,
@@ -103,3 +104,47 @@ export interface NotificationRepository extends NotificationIntake {
 
 export type Hasher = (canonical: string) => string;
 export type IdGenerator = () => string;
+
+/** What staff may see of one notification: delivery facts, never recipient or content. */
+export interface StaffNotificationView {
+  readonly id: string;
+  readonly sourceService: string;
+  readonly subject: NotificationSubject | null;
+  readonly channel: Channel;
+  readonly templateKey: string;
+  readonly templateVersion: number;
+  readonly state: DeliveryState;
+  readonly attemptCount: number;
+  readonly nextAttemptAt: Date | null;
+  readonly expiresAt: Date;
+  readonly lastErrorCode: string | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+}
+
+export interface StaffAttemptView {
+  readonly attemptNo: number;
+  readonly startedAt: Date;
+  readonly finishedAt: Date | null;
+  readonly outcome: string | null;
+  readonly errorCode: string | null;
+}
+
+export interface StaffNotificationDetail extends StaffNotificationView {
+  readonly attempts: readonly StaffAttemptView[];
+}
+
+export interface StaffNotificationPage {
+  readonly items: readonly StaffNotificationView[];
+  readonly nextCursor: string | null;
+}
+
+export interface NotificationReader {
+  list(input: {
+    subject: NotificationSubject | null;
+    state: DeliveryState | null;
+    limit: number;
+    cursor: string | null;
+  }): Promise<StaffNotificationPage>;
+  detail(id: string): Promise<StaffNotificationDetail | null>;
+}

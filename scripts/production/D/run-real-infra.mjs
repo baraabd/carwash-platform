@@ -89,13 +89,14 @@ function docker(args) {
  * redaction and handed to the suites through the environment only.
  */
 async function startRedis(context) {
-  const password = randomBytes(24).toString('hex');
-  registerSecret(password);
+  const aclSecret = randomBytes(24).toString('hex');
+  registerSecret(aclSecret);
   const acl = path.join(context.workDir, 'lane-d-redis.acl');
+  const digest = createHash('sha256').update(aclSecret).digest('hex');
   await writeFile(
     acl,
     'user default off\n' +
-      `user cw_identity_rate on >${password} ~identity:rate:* -@all +hello +auth +ping +quit ` +
+      `user cw_identity_rate on #${digest} ~identity:rate:* -@all +hello +auth +ping +quit ` +
       '+select +client|setinfo +client|setname +client|id +eval +incr +pexpire +pttl\n',
     { mode: 0o644 },
   );
@@ -126,7 +127,7 @@ async function startRedis(context) {
   ]);
   const port = Number(docker(['port', name, '6379/tcp']).split('\n')[0].split(':').at(-1));
   if (!Number.isInteger(port) || port < 1) throw new Error('REDIS_PORT_UNKNOWN');
-  const url = `redis://cw_identity_rate:${password}@127.0.0.1:${port}`;
+  const url = `redis://cw_identity_rate:${aclSecret}@127.0.0.1:${port}`;
   registerSecret(url);
   return {
     url,

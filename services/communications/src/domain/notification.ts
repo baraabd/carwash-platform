@@ -76,6 +76,29 @@ export const DEFAULT_DELIVERY_POLICY: DeliveryPolicy = Object.freeze({
  * authorized adapter at send time; raw phone numbers or addresses are never
  * stored, logged or put into events by this service.
  */
+/**
+ * What a notification is ABOUT, as an opaque owner reference (for example a
+ * booking). It lets staff see a booking's notification state without
+ * Communications becoming the source of truth for that booking.
+ */
+export interface NotificationSubject {
+  readonly type: string;
+  readonly ref: string;
+}
+
+const SUBJECT_TYPE = /^[a-z][a-z0-9-]{1,30}[a-z0-9]$/;
+
+export function notificationSubject(value: unknown): NotificationSubject | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'object' || Array.isArray(value))
+    throw new NotificationRuleError('INVALID_SUBJECT');
+  const { type, ref } = value as { type?: unknown; ref?: unknown };
+  return {
+    type: text(SUBJECT_TYPE, type, 'INVALID_SUBJECT'),
+    ref: text(UUID, ref, 'INVALID_SUBJECT').toLowerCase(),
+  };
+}
+
 export interface NotificationRequest {
   readonly sourceService: string;
   readonly idempotencyKey: string;
@@ -85,6 +108,7 @@ export interface NotificationRequest {
   readonly templateVersion: number;
   readonly parameters: Readonly<Record<string, string>>;
   readonly expiresAt: Date;
+  readonly subject: NotificationSubject | null;
 }
 
 function text(pattern: RegExp, value: unknown, code: string): string {
@@ -101,6 +125,7 @@ export function notificationRequest(input: {
   templateVersion: unknown;
   parameters: unknown;
   expiresAt: unknown;
+  subject?: unknown;
   now: Date;
 }): NotificationRequest {
   const channel = input.channel;
@@ -136,6 +161,7 @@ export function notificationRequest(input: {
     templateVersion: version,
     parameters: Object.freeze(parameters),
     expiresAt: new Date(expiresAt.getTime()),
+    subject: notificationSubject(input.subject),
   };
 }
 
@@ -153,6 +179,9 @@ export function requestFingerprint(request: NotificationRequest): string {
     request.templateVersion,
     Object.entries(request.parameters),
     request.expiresAt.toISOString(),
+    // Appended only when present, so fingerprints of subject-less requests
+    // persisted before subjects existed are unchanged and still replay.
+    ...(request.subject ? [request.subject.type, request.subject.ref] : []),
   ]);
 }
 

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { Prisma, PrismaClient } from '../../generated/prisma/client';
 import {
   CHANNELS,
+  NotificationRuleError,
   DELIVERY_STATES,
   afterLeaseExpiry,
   afterReceipt,
@@ -14,8 +15,12 @@ import type {
   EnqueueResult,
   Hasher,
   NotificationIntake,
+  NotificationReader,
   NotificationRepository,
   NotificationView,
+  StaffNotificationDetail,
+  StaffNotificationPage,
+  StaffNotificationView,
 } from '../../ports/notification.ports';
 
 export const sha256Hex: Hasher = (canonical) =>
@@ -73,6 +78,8 @@ export class PrismaNotificationIntake implements NotificationIntake {
           state: 'QUEUED',
           nextAttemptAt: now,
           expiresAt: request.expiresAt,
+          subjectType: request.subject?.type ?? null,
+          subjectRef: request.subject?.ref ?? null,
           createdAt: now,
           updatedAt: now,
         },
@@ -309,6 +316,97 @@ export class PrismaNotificationRepository
       lastErrorCode: row.lastErrorCode,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+    };
+  }
+}
+
+const CURSOR_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** Opaque keyset cursor over (created_at DESC, id DESC): `<iso>|<uuid>` in base64url. */
+function encodeCursor(at: Date, id: string): string {
+  return Buffer.from(`${at.toISOString()}|${id}`, 'utf8').toString('base64url');
+}
+
+function decodeCursor(cursor: string | null): { at: Date; id: string } | null {
+  if (cursor === null) return null;
+  const [iso, id, extra] = Buffer.from(cursor, 'base64url').toString('utf8').split('|');
+  const at = new Date(iso ?? '');
+  if (extra !== undefined || !id || !CURSOR_ID.test(id) || !Number.isFinite(at.getTime()))
+    throw new NotificationRuleError('INVALID_CURSOR');
+  return { at, id };
+}
+
+type NotificationRecord = Prisma.NotificationGetPayload<object>;
+
+function staffView(row: NotificationRecord): StaffNotificationView {
+  return {
+    id: row.id,
+    sourceService: row.sourceService,
+    subject:
+      row.subjectType !== null && row.subjectRef !== null
+        ? { type: row.subjectType, ref: row.subjectRef }
+        : null,
+    channel: asChannel(row.channel),
+    templateKey: row.templateKey,
+    templateVersion: row.templateVersion,
+    state: asState(row.state),
+    attemptCount: row.attemptCount,
+    nextAttemptAt: row.nextAttemptAt,
+    expiresAt: row.expiresAt,
+    lastErrorCode: row.lastErrorCode,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+/**
+ * Read-only staff view. It never returns the recipient reference, the
+ * template parameters or provider message ids: staff see whether and how a
+ * notification was delivered, not to whom or with what content.
+ */
+export class PrismaNotificationReader implements NotificationReader {
+  constructor(private readonly client: PrismaClient) {}
+
+  async list(input: Parameters<NotificationReader['list']>[0]): Promise<StaffNotificationPage> {
+    const after = decodeCursor(input.cursor);
+    const rows = await this.client.notification.findMany({
+      where: {
+        AND: [
+          input.subject ? { subjectType: input.subject.type, subjectRef: input.subject.ref } : {},
+          input.state ? { state: input.state } : {},
+          after
+            ? {
+                OR: [
+                  { createdAt: { lt: after.at } },
+                  { createdAt: after.at, id: { lt: after.id } },
+                ],
+              }
+            : {},
+        ],
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: input.limit + 1,
+    });
+    const items = rows.slice(0, input.limit).map(staffView);
+    const last = rows.length > input.limit ? rows[input.limit - 1] : undefined;
+    return { items, nextCursor: last ? encodeCursor(last.createdAt, last.id) : null };
+  }
+
+  async detail(id: string): Promise<StaffNotificationDetail | null> {
+    const row = await this.client.notification.findUnique({
+      where: { id },
+      include: { attempts: { orderBy: { attemptNo: 'asc' }, take: 50 } },
+    });
+    if (!row) return null;
+    return {
+      ...staffView(row),
+      attempts: row.attempts.map((a) => ({
+        attemptNo: a.attemptNo,
+        startedAt: a.startedAt,
+        finishedAt: a.finishedAt,
+        outcome: a.outcome,
+        errorCode: a.errorCode,
+      })),
     };
   }
 }
