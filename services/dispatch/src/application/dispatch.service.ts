@@ -1,13 +1,11 @@
-import type { EventActor } from '@carwash/event-contracts';
 import {
-  DISPATCH_ASSIGNMENT_CHANGED_V1,
-  DISPATCH_EVENTS_EXCHANGE,
   DispatchError,
   accept,
   assertOpen,
   assertRevision,
-  assignmentChangedEvent,
   createOffer,
+  createTask,
+  decideEligibility,
   decline,
   expire,
   isDue,
@@ -20,11 +18,13 @@ import {
   type AssignmentState,
   type AssignmentStatus,
   type DeclineReason,
+  type EligibilityVerdict,
   type OfferState,
+  type ResourceObservation,
+  type TaskState,
   type WithdrawReason,
 } from '../domain';
 import type {
-  Actor,
   Clock,
   DispatchReadModel,
   DispatchTransaction,
@@ -32,6 +32,7 @@ import type {
   IdGenerator,
   IdempotentResult,
   RequestMeta,
+  WorkforceCapacity,
 } from '../ports';
 import {
   OPERATIONS_DISPATCH,
@@ -42,7 +43,11 @@ import {
   isOperations,
   requirePermission,
 } from './authorization';
-import { fingerprint } from './canonical-json';
+import { Effects } from './effects';
+import { assertIdempotencyKey, revision, runIdempotent, type Outcome } from './idempotency';
+
+export { IDEMPOTENCY_RETENTION_MS } from './idempotency';
+export { eventActor } from './effects';
 
 export interface CommandResult<T> {
   readonly value: T;
@@ -57,6 +62,8 @@ export interface AssignmentView {
    * Technician results: the offer the technician acted on, in its current state.
    */
   readonly offer: OfferState | null;
+  /** Operations: the live task (CLOSED included). Technician: the task of their offer. */
+  readonly task: TaskState | null;
 }
 
 export interface OfferInput {
@@ -66,37 +73,46 @@ export interface OfferInput {
   readonly ttlSeconds?: number;
 }
 
-/** Idempotency records are kept this long, then purged by the expiry worker. */
-export const IDEMPOTENCY_RETENTION_MS = 7 * 24 * 3_600_000;
-
-const KEY = /^[A-Za-z0-9_-]{16,128}$/;
 const MAX_QUERY_SPAN_MS = 31 * 24 * 3_600_000;
 
-type Outcome =
-  | { readonly kind: 'DONE'; readonly result: IdempotentResult }
-  /** Committed (e.g. an expiry was recorded) but the command itself is refused. */
-  | { readonly kind: 'REFUSED'; readonly error: DispatchError };
-
-export function eventActor(actor: Actor): EventActor {
-  if (actor.kind === 'USER') return { kind: 'account', id: actor.subject };
-  if (actor.kind === 'SERVICE') return { kind: 'service', id: actor.clientId };
-  return { kind: 'system', id: null };
+/** A newer INELIGIBLE watermark overrides an older eligible read. */
+function stillEligible(verdict: EligibilityVerdict, observed: ResourceObservation | null): boolean {
+  return (
+    verdict.eligible &&
+    !(
+      observed !== null &&
+      observed.eligibility === 'INELIGIBLE' &&
+      observed.revision > verdict.eligibilityRevision
+    )
+  );
 }
 
 /**
  * Dispatch application service: commands and queries over assignments/offers.
  *
  * Every mutation runs in one local transaction that also appends its outbox
- * event and audit row. Decisions are made on rows read under FOR UPDATE in the
- * lock order documented on DispatchTransaction.
+ * events and audit rows. Decisions are made on rows read under FOR UPDATE in
+ * the lock order documented on DispatchTransaction. Workforce eligibility is
+ * read over HTTP BEFORE the transaction (never while holding row locks); the
+ * transaction then re-checks the pushed eligibility watermark under a shared
+ * per-resource lock taken BEFORE the assignment lock, which serialises
+ * against the eligibility consumer (exclusive resource lock, then assignments).
+ *
+ * `workforce` is null in processes that never offer or accept (the expiry
+ * worker); offering or accepting there fails closed as unavailable.
  */
 export class DispatchService {
+  private readonly effects: Effects;
+
   constructor(
     private readonly uow: DispatchUnitOfWork,
     private readonly read: DispatchReadModel,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
-  ) {}
+    private readonly workforce: WorkforceCapacity | null = null,
+  ) {
+    this.effects = new Effects(ids);
+  }
 
   // ---------------------------------------------------------------- queries
 
@@ -104,7 +120,7 @@ export class DispatchService {
     requirePermission(meta.actor, OPERATIONS_DISPATCH);
     const assignment = await this.read.findAssignment(uuid(id, 'assignmentId'));
     if (!assignment) throw notFound();
-    return { assignment, offer: await this.read.findCurrentOffer(assignment.id) };
+    return this.current(assignment);
   }
 
   /** Operations, or a service with `dispatch.assignment.read` (e.g. Booking display). */
@@ -114,7 +130,7 @@ export class DispatchService {
     }
     const assignment = await this.read.findAssignmentByBooking(uuid(bookingId, 'bookingId'));
     if (!assignment) throw notFound();
-    return { assignment, offer: await this.read.findCurrentOffer(assignment.id) };
+    return this.current(assignment);
   }
 
   async listAssignments(
@@ -152,14 +168,25 @@ export class DispatchService {
     requirePermission(meta.actor, OPERATIONS_DISPATCH);
     const id = uuid(assignmentId, 'assignmentId');
     const normalized = normalizeOffer(input);
-    return this.idempotent(meta, 'offer', id, idempotencyKey, normalized, (tx, now) =>
-      this.withAssignment(tx, id, normalized.expectedRevision, now, meta, async (current) => {
-        if (current.assignment.status === 'ASSIGNED') {
-          throw new DispatchError('ASSIGNMENT_ALREADY_ASSIGNED', 'The job is already assigned.');
-        }
-        return this.placeOffer(tx, current.assignment, normalized, now, meta);
-      }),
-    );
+    assertIdempotencyKey(idempotencyKey);
+    const verdict = await this.eligibilityFor(id, normalized.resourceId, meta);
+    return this.command(meta, 'offer', id, idempotencyKey, normalized, async (tx, now) => {
+      const observed = await tx.readResourceObservation(normalized.resourceId);
+      return this.withAssignment(
+        tx,
+        id,
+        normalized.expectedRevision,
+        now,
+        meta,
+        async (current) => {
+          if (current.assignment.status === 'ASSIGNED') {
+            throw new DispatchError('ASSIGNMENT_ALREADY_ASSIGNED', 'The job is already assigned.');
+          }
+          if (!stillEligible(verdict, observed)) throw ineligible();
+          return this.placeOffer(tx, current.assignment, normalized, now, meta);
+        },
+      );
+    });
   }
 
   /** Withdraws the live or accepted offer and offers the job to another resource. */
@@ -172,12 +199,23 @@ export class DispatchService {
     requirePermission(meta.actor, OPERATIONS_DISPATCH);
     const id = uuid(assignmentId, 'assignmentId');
     const normalized = normalizeOffer(input);
-    return this.idempotent(meta, 'reassign', id, idempotencyKey, normalized, (tx, now) =>
-      this.withAssignment(tx, id, normalized.expectedRevision, now, meta, async (current) => {
-        const released = await this.releaseCurrent(tx, current, 'REASSIGNED', now, meta);
-        return this.placeOffer(tx, released, normalized, now, meta);
-      }),
-    );
+    assertIdempotencyKey(idempotencyKey);
+    const verdict = await this.eligibilityFor(id, normalized.resourceId, meta);
+    return this.command(meta, 'reassign', id, idempotencyKey, normalized, async (tx, now) => {
+      const observed = await tx.readResourceObservation(normalized.resourceId);
+      return this.withAssignment(
+        tx,
+        id,
+        normalized.expectedRevision,
+        now,
+        meta,
+        async (current) => {
+          if (!stillEligible(verdict, observed)) throw ineligible();
+          const released = await this.releaseCurrent(tx, current, 'REASSIGNED', now, meta);
+          return this.placeOffer(tx, released, normalized, now, meta);
+        },
+      );
+    });
   }
 
   /** Takes the job back to UNASSIGNED (withdraws the live or accepted offer). */
@@ -190,7 +228,7 @@ export class DispatchService {
     requirePermission(meta.actor, OPERATIONS_DISPATCH);
     const id = uuid(assignmentId, 'assignmentId');
     const body = { expectedRevision: revision(input.expectedRevision) };
-    return this.idempotent(meta, 'unassign', id, idempotencyKey, body, (tx, now) =>
+    return this.command(meta, 'unassign', id, idempotencyKey, body, (tx, now) =>
       this.withAssignment(tx, id, body.expectedRevision, now, meta, async (current) => {
         await this.releaseCurrent(tx, current, 'UNASSIGNED', now, meta);
         return { kind: 'DONE', result: { resultType: 'ASSIGNMENT', resultId: id } };
@@ -200,6 +238,12 @@ export class DispatchService {
 
   // ------------------------------------------------------ technician commands
 
+  /**
+   * Accepts the technician's own live offer. Workforce eligibility of the
+   * offered resource is re-read first (an offer may be minutes old); a
+   * resource that is no longer eligible gets its offer withdrawn and the job
+   * returns to operations. Acceptance creates the task in the same transaction.
+   */
   async acceptOffer(
     meta: RequestMeta,
     offerId: string,
@@ -207,26 +251,57 @@ export class DispatchService {
   ): Promise<CommandResult<AssignmentView>> {
     const user = requirePermission(meta.actor, WORK_EXECUTE);
     const id = uuid(offerId, 'offerId');
-    return this.idempotent(meta, 'accept', id, idempotencyKey, {}, (tx, now) =>
-      this.withOwnOffer(tx, id, user.subject, now, meta, async (assignment, offer) => {
+    assertIdempotencyKey(idempotencyKey);
+    const seen = await this.read.findOffer(id);
+    if (!seen || seen.technicianSubject !== user.subject) throw offerNotFound();
+    let verdict: EligibilityVerdict | null = null;
+    if (seen.status === 'OFFERED' && !isDue(seen, this.clock.now())) {
+      verdict = await this.eligibilityFor(seen.assignmentId, seen.resourceId, meta);
+    }
+    return this.command(meta, 'accept', id, idempotencyKey, {}, (tx, now) =>
+      this.withOwnOffer(tx, id, user.subject, now, meta, async (assignment, offer, observed) => {
         if (offer.status === 'ACCEPTED' && assignment.status === 'ASSIGNED') {
           // Accepting the offer one already holds is a natural replay.
           return { kind: 'DONE', result: { resultType: 'OFFER', resultId: offer.id } };
+        }
+        if (offer.status === 'OFFERED' && verdict === null) {
+          // The offer became live/undue between the pre-read and the lock; retry re-reads.
+          throw new DispatchError('OFFER_NOT_LIVE', 'The offer changed; refetch it.');
+        }
+        if (offer.status === 'OFFERED' && verdict !== null && !stillEligible(verdict, observed)) {
+          await this.withdrawForIneligibility(tx, assignment, offer, now, meta);
+          return { kind: 'REFUSED', error: ineligible() };
         }
         const accepted = accept(offer, now);
         const assigned = markAssigned(assignment, accepted, now);
         await tx.updateOffer(accepted, offer.version);
         // RESOURCE_BUSY from the exclusion constraint rolls everything back.
         await tx.updateAssignment(assigned, assignment.version);
-        await this.emit(tx, assigned, meta, null);
-        await tx.appendAudit({
-          action: 'offer.accepted',
-          actor: meta.actor,
-          targetType: 'OFFER',
-          targetId: offer.id,
-          correlationId: meta.correlationId,
-          details: { assignmentId: assignment.id, resourceId: offer.resourceId },
+        const task = createTask({
+          id: this.ids.next(),
+          assignmentId: assigned.id,
+          offerId: accepted.id,
+          bookingId: assigned.bookingId,
+          resourceId: accepted.resourceId,
+          technicianSubject: accepted.technicianSubject,
+          now,
         });
+        await tx.insertTask(task);
+        await this.effects.assignmentChanged(tx, assigned, meta);
+        await this.effects.taskProgressed(tx, task, 'accepted', meta);
+        await this.effects.audit(
+          tx,
+          meta,
+          'offer.accepted',
+          { type: 'OFFER', id: offer.id },
+          {
+            assignmentId: assignment.id,
+            resourceId: offer.resourceId,
+            taskId: task.id,
+            eligibilityRevision:
+              verdict !== null && verdict.eligible ? verdict.eligibilityRevision : null,
+          },
+        );
         return { kind: 'DONE', result: { resultType: 'OFFER', resultId: offer.id } };
       }),
     );
@@ -236,25 +311,26 @@ export class DispatchService {
     meta: RequestMeta,
     offerId: string,
     reason: DeclineReason,
+    note: string | null,
     idempotencyKey: string | undefined,
   ): Promise<CommandResult<AssignmentView>> {
     const user = requirePermission(meta.actor, WORK_EXECUTE);
     const id = uuid(offerId, 'offerId');
-    return this.idempotent(meta, 'decline', id, idempotencyKey, { reason }, (tx, now) =>
+    const body = note === null ? { reason } : { reason, note };
+    return this.command(meta, 'decline', id, idempotencyKey, body, (tx, now) =>
       this.withOwnOffer(tx, id, user.subject, now, meta, async (assignment, offer) => {
-        const declined = decline(offer, reason, now);
+        const declined = decline(offer, reason, now, note);
         const unassigned = markUnassigned(assignment, now);
         await tx.updateOffer(declined, offer.version);
         await tx.updateAssignment(unassigned, assignment.version);
-        await this.emit(tx, unassigned, meta, null);
-        await tx.appendAudit({
-          action: 'offer.declined',
-          actor: meta.actor,
-          targetType: 'OFFER',
-          targetId: offer.id,
-          correlationId: meta.correlationId,
-          details: { assignmentId: assignment.id, reason },
-        });
+        await this.effects.assignmentChanged(tx, unassigned, meta);
+        await this.effects.audit(
+          tx,
+          meta,
+          'offer.declined',
+          { type: 'OFFER', id: offer.id },
+          { assignmentId: assignment.id, reason, withNote: note !== null },
+        );
         return { kind: 'DONE', result: { resultType: 'OFFER', resultId: offer.id } };
       }),
     );
@@ -289,7 +365,7 @@ export class DispatchService {
 
   // --------------------------------------------------------------- internals
 
-  private async idempotent(
+  private async command(
     meta: RequestMeta,
     operation: string,
     target: string,
@@ -297,31 +373,47 @@ export class DispatchService {
     body: unknown,
     work: (tx: DispatchTransaction, now: Date) => Promise<Outcome>,
   ): Promise<CommandResult<AssignmentView>> {
-    if (key === undefined || key === '') {
-      throw new DispatchError('IDEMPOTENCY_KEY_REQUIRED', 'An Idempotency-Key header is required.');
-    }
-    if (!KEY.test(key)) throw new DispatchError('INVALID_INPUT', 'Idempotency-Key is malformed.');
-    const scope = `${actorKey(meta.actor)}|${operation}|${target}`;
-    const print = fingerprint(body);
     const now = this.clock.now();
-    const outcome = await this.uow.run(async (tx) => {
-      const claim = await tx.claimIdempotency(scope, key, print);
-      if (claim.kind === 'CONFLICT') {
-        throw new DispatchError(
-          'IDEMPOTENCY_CONFLICT',
-          'The Idempotency-Key was already used for a different request.',
-        );
-      }
-      if (claim.kind === 'REPLAY') return { replayed: true, outcome: claim.result };
-      const result = await work(tx, now);
-      // A refusal commits its side effects (e.g. a recorded expiry) but no
-      // idempotency record, so a retry is evaluated against the new state.
-      if (result.kind === 'REFUSED') return { replayed: false, outcome: result.error };
-      await tx.completeIdempotency(scope, key, result.result);
-      return { replayed: false, outcome: result.result };
-    });
-    if (outcome.outcome instanceof DispatchError) throw outcome.outcome;
-    return { value: await this.view(outcome.outcome), replayed: outcome.replayed };
+    const { result, replayed } = await runIdempotent(
+      this.uow,
+      meta,
+      { operation, target },
+      key,
+      body,
+      (tx) => work(tx, now),
+    );
+    return { value: await this.view(result), replayed };
+  }
+
+  /**
+   * Reads Workforce for the job's window. Unknown assignments are reported as
+   * not found before any remote call; Workforce failure is 503, never "eligible".
+   */
+  private async eligibilityFor(
+    assignmentId: string,
+    resourceId: string,
+    meta: RequestMeta,
+  ): Promise<EligibilityVerdict> {
+    const assignment = await this.read.findAssignment(assignmentId);
+    if (!assignment) throw notFound();
+    if (this.workforce === null) {
+      throw new DispatchError('ELIGIBILITY_UNAVAILABLE', 'Workforce eligibility is unavailable.');
+    }
+    const job = {
+      zoneId: assignment.zoneId,
+      startsAt: assignment.startsAt,
+      endsAt: assignment.endsAt,
+    };
+    const resource = await this.workforce.findResource(job, resourceId, meta.correlationId);
+    return decideEligibility(job, resource, await this.read.findResourceObservation(resourceId));
+  }
+
+  private async current(assignment: AssignmentState): Promise<AssignmentView> {
+    return {
+      assignment,
+      offer: await this.read.findCurrentOffer(assignment.id),
+      task: await this.read.findLiveTask(assignment.id),
+    };
   }
 
   /** Replays re-read the CURRENT state of what the original command produced. */
@@ -330,11 +422,12 @@ export class DispatchService {
       const offer = await this.read.findOffer(result.resultId);
       const assignment = offer ? await this.read.findAssignment(offer.assignmentId) : null;
       if (!offer || !assignment) throw offerNotFound();
-      return { assignment, offer };
+      return { assignment, offer, task: await this.read.findTaskByOffer(offer.id) };
     }
+    if (result.resultType === 'TASK') throw new Error('TASK_RESULT_IN_DISPATCH_VIEW');
     const assignment = await this.read.findAssignment(result.resultId);
     if (!assignment) throw notFound();
-    return { assignment, offer: await this.read.findCurrentOffer(assignment.id) };
+    return this.current(assignment);
   }
 
   /** Locks the assignment, checks the client's revision and settles a due offer first. */
@@ -344,7 +437,10 @@ export class DispatchService {
     expectedRevision: number,
     now: Date,
     meta: RequestMeta,
-    work: (current: AssignmentView) => Promise<Outcome>,
+    work: (current: {
+      readonly assignment: AssignmentState;
+      readonly offer: OfferState | null;
+    }) => Promise<Outcome>,
   ): Promise<Outcome> {
     const locked = await tx.lockAssignment(id);
     if (!locked) throw notFound();
@@ -361,7 +457,9 @@ export class DispatchService {
 
   /**
    * Locks the technician's own offer. Another technician's offer is reported
-   * as not found, never as forbidden, so offer ids cannot be probed.
+   * as not found, never as forbidden, so offer ids cannot be probed. The
+   * shared lock on the offered resource's eligibility watermark is taken
+   * before the assignment lock (documented lock order).
    */
   private async withOwnOffer(
     tx: DispatchTransaction,
@@ -369,11 +467,15 @@ export class DispatchService {
     subject: string,
     now: Date,
     meta: RequestMeta,
-    work: (assignment: AssignmentState, offer: OfferState) => Promise<Outcome>,
+    work: (
+      assignment: AssignmentState,
+      offer: OfferState,
+      observed: ResourceObservation | null,
+    ) => Promise<Outcome>,
   ): Promise<Outcome> {
     const seen = await tx.readOffer(offerId);
     if (!seen || seen.technicianSubject !== subject) throw offerNotFound();
-    // Lock order: assignment -> offer, then re-read the offer under the lock.
+    const observed = await tx.readResourceObservation(seen.resourceId);
     const assignment = await tx.lockAssignment(seen.assignmentId);
     const offer = await tx.lockOffer(offerId);
     if (!assignment || !offer || offer.technicianSubject !== subject) throw offerNotFound();
@@ -384,7 +486,7 @@ export class DispatchService {
         error: new DispatchError('OFFER_EXPIRED', 'The offer has expired.'),
       };
     }
-    return work(assignment, offer);
+    return work(assignment, offer, observed);
   }
 
   private async placeOffer(
@@ -407,50 +509,79 @@ export class DispatchService {
     });
     await tx.updateAssignment(offered, assignment.version);
     await tx.insertOffer(offer);
-    await this.emit(tx, offered, meta, null);
-    await tx.appendAudit({
-      action: 'offer.created',
-      actor: meta.actor,
-      targetType: 'OFFER',
-      targetId: offer.id,
-      correlationId: meta.correlationId,
-      details: {
+    await this.effects.assignmentChanged(tx, offered, meta);
+    await this.effects.audit(
+      tx,
+      meta,
+      'offer.created',
+      { type: 'OFFER', id: offer.id },
+      {
         assignmentId: assignment.id,
         resourceId: offer.resourceId,
         technicianSubject: offer.technicianSubject,
         expiresAt: offer.expiresAt.toISOString(),
       },
-    });
+    );
     return { kind: 'DONE', result: { resultType: 'ASSIGNMENT', resultId: assignment.id } };
   }
 
-  /** Withdraws the current offer (live or accepted) and returns the job to UNASSIGNED. */
+  /**
+   * Withdraws the current offer (live or accepted), ends the live task and
+   * returns the job to UNASSIGNED. Completed work (a CLOSED task) is never
+   * taken away.
+   */
   private async releaseCurrent(
     tx: DispatchTransaction,
-    current: AssignmentView,
-    reason: WithdrawReason,
+    current: { readonly assignment: AssignmentState; readonly offer: OfferState | null },
+    reason: Extract<WithdrawReason, 'REASSIGNED' | 'UNASSIGNED'>,
     now: Date,
     meta: RequestMeta,
   ): Promise<AssignmentState> {
     const { assignment, offer } = current;
     if (assignment.status === 'UNASSIGNED') return assignment;
+    const live = await tx.lockLiveTask(assignment.id);
+    if (live?.stage === 'CLOSED') {
+      throw new DispatchError('TASK_CLOSED', 'The job was completed and cannot be taken back.');
+    }
     if (offer) await tx.updateOffer(withdraw(offer, reason, now), offer.version);
+    const ended = await this.effects.endLiveTask(tx, assignment.id, reason, now, meta);
     const unassigned = markUnassigned(assignment, now);
     await tx.updateAssignment(unassigned, assignment.version);
-    await this.emit(tx, unassigned, meta, null);
-    await tx.appendAudit({
-      action: reason === 'REASSIGNED' ? 'assignment.reassigned' : 'assignment.unassigned',
-      actor: meta.actor,
-      targetType: 'ASSIGNMENT',
-      targetId: assignment.id,
-      correlationId: meta.correlationId,
-      details: {
+    await this.effects.assignmentChanged(tx, unassigned, meta);
+    await this.effects.audit(
+      tx,
+      meta,
+      reason === 'REASSIGNED' ? 'assignment.reassigned' : 'assignment.unassigned',
+      { type: 'ASSIGNMENT', id: assignment.id },
+      {
         previousStatus: assignment.status,
         withdrawnOfferId: offer?.id ?? null,
         previousResourceId: assignment.resourceId,
+        endedTaskId: ended?.id ?? null,
+        endedTaskStage: live?.stage ?? null,
       },
-    });
+    );
     return unassigned;
+  }
+
+  private async withdrawForIneligibility(
+    tx: DispatchTransaction,
+    assignment: AssignmentState,
+    offer: OfferState,
+    now: Date,
+    meta: RequestMeta,
+  ): Promise<void> {
+    await tx.updateOffer(withdraw(offer, 'RESOURCE_INELIGIBLE', now), offer.version);
+    const unassigned = markUnassigned(assignment, now);
+    await tx.updateAssignment(unassigned, assignment.version);
+    await this.effects.assignmentChanged(tx, unassigned, meta);
+    await this.effects.audit(
+      tx,
+      meta,
+      'offer.withdrawn-ineligible',
+      { type: 'OFFER', id: offer.id },
+      { assignmentId: assignment.id, resourceId: offer.resourceId },
+    );
   }
 
   private async recordExpiry(
@@ -464,36 +595,16 @@ export class DispatchService {
     const unassigned = markUnassigned(assignment, now);
     await tx.updateOffer(expired, offer.version);
     await tx.updateAssignment(unassigned, assignment.version);
-    await this.emit(tx, unassigned, meta, null);
-    await tx.appendAudit({
-      action: 'offer.expired',
-      actor: meta.actor,
-      targetType: 'OFFER',
-      targetId: offer.id,
-      correlationId: meta.correlationId,
-      // The deadline is the fact; when it was noticed is the audit row's own time.
-      details: { assignmentId: assignment.id, expiredAt: offer.expiresAt.toISOString() },
-    });
+    await this.effects.assignmentChanged(tx, unassigned, meta);
+    // The deadline is the fact; when it was noticed is the audit row's own time.
+    await this.effects.audit(
+      tx,
+      meta,
+      'offer.expired',
+      { type: 'OFFER', id: offer.id },
+      { assignmentId: assignment.id, expiredAt: offer.expiresAt.toISOString() },
+    );
     return unassigned;
-  }
-
-  private async emit(
-    tx: DispatchTransaction,
-    assignment: AssignmentState,
-    meta: RequestMeta,
-    causationId: string | null,
-  ): Promise<void> {
-    await tx.appendEvent({
-      event: assignmentChangedEvent({
-        eventId: this.ids.next(),
-        correlationId: meta.correlationId,
-        causationId,
-        actor: eventActor(meta.actor),
-        assignment,
-      }),
-      exchange: DISPATCH_EVENTS_EXCHANGE,
-      routingKey: DISPATCH_ASSIGNMENT_CHANGED_V1,
-    });
   }
 }
 
@@ -505,11 +616,8 @@ function offerNotFound(): DispatchError {
   return new DispatchError('OFFER_NOT_FOUND', 'The offer was not found.');
 }
 
-function revision(value: number): number {
-  if (!Number.isSafeInteger(value) || value < 1 || value > 2_147_483_647) {
-    throw new DispatchError('INVALID_INPUT', 'expectedRevision must be a positive integer.');
-  }
-  return value;
+function ineligible(): DispatchError {
+  return new DispatchError('RESOURCE_INELIGIBLE', 'The resource is not eligible for this job.');
 }
 
 function normalizeOffer(input: OfferInput): Required<OfferInput> {

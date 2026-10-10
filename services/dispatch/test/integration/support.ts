@@ -1,7 +1,20 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { DispatchService, HoldChangeHandler, parseHoldChanged } from '../../src/application';
+import {
+  DispatchService,
+  EligibilityChangeHandler,
+  HoldChangeHandler,
+  TaskService,
+  parseEligibilityChanged,
+  parseHoldChanged,
+} from '../../src/application';
+import {
+  DispatchError,
+  type CapacityResource,
+  type Eligibility,
+  type JobWindow,
+} from '../../src/domain';
 import {
   PrismaInboxStore,
   type InboxOutcome,
@@ -9,7 +22,14 @@ import {
 import { PrismaService } from '../../src/infrastructure/persistence/prisma.service';
 import { PrismaDispatchStore } from '../../src/infrastructure/persistence/prisma-dispatch.store';
 import { uuidGenerator } from '../../src/infrastructure/runtime/system';
-import type { Actor, Clock, RequestMeta } from '../../src/ports';
+import type {
+  Actor,
+  Clock,
+  EvidenceObject,
+  EvidenceObjects,
+  RequestMeta,
+  WorkforceCapacity,
+} from '../../src/ports';
 
 /**
  * Real-infrastructure test support. Requires the lane-C stack:
@@ -46,12 +66,98 @@ export class TestClock implements Clock {
   }
 }
 
+/**
+ * DOUBLE of Workforce's published listCapacityResources, narrowed to one
+ * resource (port WorkforceCapacity). Default: every resource is ELIGIBLE with
+ * a shift covering the job in its zone. The real provider/consumer pairing is
+ * proven in tests/production/C (contract parity) and the P03-C merge candidate.
+ */
+export class WorkforceDouble implements WorkforceCapacity {
+  private readonly state = new Map<
+    string,
+    { eligibility: Eligibility | 'UNLISTED'; revision: number }
+  >();
+  unavailable = false;
+  calls = 0;
+
+  set(resourceId: string, eligibility: Eligibility | 'UNLISTED', revision: number): void {
+    this.state.set(resourceId, { eligibility, revision });
+  }
+
+  findResource(job: JobWindow, resourceId: string): Promise<CapacityResource | null> {
+    return Promise.resolve().then(() => this.lookup(job, resourceId));
+  }
+
+  private lookup(job: JobWindow, resourceId: string): CapacityResource | null {
+    this.calls += 1;
+    if (this.unavailable) {
+      throw new DispatchError('ELIGIBILITY_UNAVAILABLE', 'Workforce eligibility is unavailable.');
+    }
+    const entry = this.state.get(resourceId) ?? { eligibility: 'ELIGIBLE' as const, revision: 1 };
+    if (entry.eligibility === 'UNLISTED') return null;
+    return {
+      resourceId,
+      revision: 1,
+      eligibility: entry.eligibility,
+      eligibilityRevision: entry.revision,
+      zoneIds: [job.zoneId],
+      shifts: [
+        {
+          startsAt: new Date(job.startsAt.getTime() - 3_600_000),
+          endsAt: new Date(job.endsAt.getTime() + 3_600_000),
+        },
+      ],
+    };
+  }
+}
+
+/** DOUBLE of the requested media.v1 object read/claim (port EvidenceObjects). */
+export class MediaDouble implements EvidenceObjects {
+  readonly objects = new Map<string, EvidenceObject>();
+  readonly claims = new Map<string, Set<string>>();
+  unavailable = false;
+
+  add(ownerSubjectId: string, overrides: Partial<EvidenceObject> = {}): string {
+    const objectId = randomUUID();
+    this.objects.set(objectId, {
+      objectId,
+      status: 'AVAILABLE',
+      purpose: 'WORK_EVIDENCE',
+      contentType: 'image/jpeg',
+      ownerSubjectId,
+      ...overrides,
+    });
+    return objectId;
+  }
+
+  inspect(objectId: string): Promise<EvidenceObject | null> {
+    return Promise.resolve().then(() => {
+      if (this.unavailable) throw new DispatchError('EVIDENCE_UNAVAILABLE', 'Media unavailable.');
+      return this.objects.get(objectId) ?? null;
+    });
+  }
+
+  claim(objectId: string, claimRef: string): Promise<void> {
+    return Promise.resolve().then(() => {
+      if (this.unavailable) throw new DispatchError('EVIDENCE_UNAVAILABLE', 'Media unavailable.');
+      const set = this.claims.get(objectId) ?? new Set<string>();
+      set.add(claimRef);
+      this.claims.set(objectId, set);
+    });
+  }
+}
+
+export const workforce = new WorkforceDouble();
+export const media = new MediaDouble();
+
 export interface Replica {
   readonly prisma: PrismaService;
   readonly store: PrismaDispatchStore;
   readonly service: DispatchService;
+  readonly tasks: TaskService;
   readonly inbox: PrismaInboxStore;
   readonly handler: HoldChangeHandler;
+  readonly eligibility: EligibilityChangeHandler;
 }
 
 /** One "replica" = its own connection pool, like a separate process would have. */
@@ -61,9 +167,11 @@ export function replica(clock: Clock): Replica {
   return {
     prisma,
     store,
-    service: new DispatchService(store, store, clock, uuidGenerator),
+    service: new DispatchService(store, store, clock, uuidGenerator, workforce),
+    tasks: new TaskService(store, store, clock, uuidGenerator, media),
     inbox: new PrismaInboxStore(store),
     handler: new HoldChangeHandler(clock, uuidGenerator),
+    eligibility: new EligibilityChangeHandler(clock, uuidGenerator),
   };
 }
 
@@ -173,4 +281,48 @@ export async function errorCode(promise: Promise<unknown>): Promise<string> {
     return typeof code === 'string' ? code : (error as Error).name;
   }
   return 'OK';
+}
+
+/** A workforce.eligibility-changed.v1 envelope exactly as the published contract defines it. */
+export function eligibilityEvent(
+  resourceId: string,
+  revision: number,
+  eligibility: Eligibility,
+  eventId: string = randomUUID(),
+): Record<string, unknown> {
+  return {
+    eventId,
+    eventType: 'workforce.eligibility-changed.v1',
+    envelopeVersion: 2,
+    producer: 'workforce',
+    occurredAt: new Date().toISOString(),
+    correlationId: randomUUID(),
+    causationId: null,
+    traceparent: null,
+    aggregate: { type: 'capacity-resource', id: resourceId, version: revision },
+    actor: { kind: 'system', id: null },
+    data: { eligibility },
+  };
+}
+
+export async function deliverEligibility(
+  target: Replica,
+  raw: Record<string, unknown>,
+): Promise<{ outcome: InboxOutcome; effect: string | null }> {
+  const body = JSON.stringify(raw);
+  const message = parseEligibilityChanged(JSON.parse(body));
+  let effect: string | null = null;
+  const outcome = await target.inbox.applyOnce(
+    {
+      eventId: message.eventId,
+      eventType: message.eventType,
+      payloadHash: createHash('sha256').update(body, 'utf8').digest('hex'),
+      correlationId: message.correlationId,
+    },
+    async (tx) => {
+      effect = await target.eligibility.apply(tx, message);
+      return effect;
+    },
+  );
+  return { outcome, effect };
 }

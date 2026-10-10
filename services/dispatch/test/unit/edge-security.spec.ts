@@ -88,7 +88,7 @@ test('deny by default: every command refuses a caller without the exact permissi
     ],
     [
       'decline by service',
-      service.declineOffer(svc('dispatch.assignment.read'), ID, 'OTHER', 'k'.repeat(16)),
+      service.declineOffer(svc('dispatch.assignment.read'), ID, 'OTHER', null, 'k'.repeat(16)),
     ],
     ['ops read by technician', service.getAssignment(user('work.read:assigned'), ID)],
     ['booking read by service without scope', service.getAssignmentByBooking(svc(), ID)],

@@ -337,6 +337,7 @@ test('decline returns the job to UNASSIGNED; reassign withdraws an accepted offe
     meta(first.tech),
     first.view.offer!.id,
     'TOO_FAR',
+    null,
     key(),
   );
   assert.equal(declined.value.offer?.status, 'DECLINED');
