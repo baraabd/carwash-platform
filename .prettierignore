@@ -8,6 +8,8 @@
 # ---------------------------------------------------------------------------
 design/
 apps/customer-web/prototype/
+apps/operator-web/index.html
+apps/operator-web/src/styles/*.css
 docs/design/tokens.source.json
 docs/design/reference-manifest.json
 docs/sources/
