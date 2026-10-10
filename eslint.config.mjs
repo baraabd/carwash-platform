@@ -53,6 +53,8 @@ export default tseslint.config(
       'packages/*/src/**/*.ts',
       'services/*/src/**/*.ts',
       'apps/api-gateway/src/**/*.ts',
+      'apps/admin-web/src/**/*.ts',
+      'apps/operator-web/src/**/*.ts',
       'services/*/test/**/*.ts',
     ],
     extends: [...tseslint.configs.recommendedTypeChecked],
