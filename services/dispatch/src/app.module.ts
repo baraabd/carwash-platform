@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { HealthModule, createLogger, type DependencyProbe } from '@carwash/service-kit';
-import { DispatchService, TaskService } from './application';
+import { BookingChangeService, DispatchService, TaskService } from './application';
 import { ServiceHttp, parseServiceTarget } from './infrastructure/http/service-http';
 import { MediaEvidenceClient } from './infrastructure/media/media-evidence.client';
 import { WorkforceCapacityClient } from './infrastructure/workforce/workforce-capacity.client';
@@ -19,6 +19,7 @@ import {
 import { ActorResolver, RequestBudget } from './transport/http/actor-resolver';
 import { DispatchController } from './transport/http/dispatch.controller';
 import { TaskController } from './transport/http/task.controller';
+import { BookingChangeController } from './transport/http/booking-change.controller';
 import { DISPATCH_READ_MODEL } from './transport/http/tokens';
 
 /**
@@ -72,7 +73,7 @@ function positiveInt(raw: string | undefined, fallback: number): number {
       logger: createLogger({ service: SERVICE_NAME }),
     }),
   ],
-  controllers: [DispatchController, TaskController],
+  controllers: [DispatchController, TaskController, BookingChangeController],
   providers: [
     { provide: DATABASE_URL, useFactory: () => databaseUrlFromEnv() },
     PrismaService,
@@ -85,6 +86,12 @@ function positiveInt(raw: string | undefined, fallback: number): number {
       provide: DispatchService,
       useFactory: (store: PrismaDispatchStore) =>
         new DispatchService(store, store, systemClock, uuidGenerator, workforceFromEnv()),
+      inject: [PrismaDispatchStore],
+    },
+    {
+      provide: BookingChangeService,
+      useFactory: (store: PrismaDispatchStore) =>
+        new BookingChangeService(store, store, systemClock, uuidGenerator),
       inject: [PrismaDispatchStore],
     },
     {
