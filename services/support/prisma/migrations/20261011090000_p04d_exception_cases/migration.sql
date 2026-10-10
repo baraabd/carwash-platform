@@ -242,6 +242,7 @@ BEGIN
     RAISE EXCEPTION 'SUPPORT_APPEND_ONLY: % on %', TG_OP, TG_TABLE_NAME USING ERRCODE = 'P0001';
 END;
 $$;
+REVOKE ALL ON FUNCTION "app"."support_reject_mutation"() FROM PUBLIC;
 
 CREATE TRIGGER "case_event_append_only"
     BEFORE UPDATE OR DELETE ON "case_event"
@@ -285,6 +286,7 @@ BEGIN
     RETURN NEW;
 END;
 $$;
+REVOKE ALL ON FUNCTION "app"."support_reject_frozen_change"() FROM PUBLIC;
 
 CREATE TRIGGER "support_case_frozen"
     BEFORE UPDATE OR DELETE ON "support_case"
