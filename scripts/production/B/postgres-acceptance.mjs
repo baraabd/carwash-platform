@@ -151,7 +151,7 @@ async function phase(name, operation) {
 }
 
 async function query(url, statement, values = []) {
-  const client = new Client({ connectionString: url, connectionTimeoutMillis: 3_000 });
+  const client = new Client({ connectionString: url, connectionTimeoutMillis: 30_000 });
   try {
     await client.connect();
     return await client.query(statement, values);
@@ -162,7 +162,7 @@ async function query(url, statement, values = []) {
 
 /** Runs statements in ONE transaction on one connection (COMMIT-time triggers apply). */
 async function transaction(url, statements) {
-  const client = new Client({ connectionString: url, connectionTimeoutMillis: 3_000 });
+  const client = new Client({ connectionString: url, connectionTimeoutMillis: 30_000 });
   try {
     await client.connect();
     await client.query('BEGIN');
@@ -394,10 +394,24 @@ const BILLING_SENTINEL = (() => {
   };
 })();
 
+/**
+ * Prisma CLI with a generous connect timeout. A loaded host can briefly refuse
+ * connections (P1001) or time out; those transient failures are retried, every
+ * other failure is raised at once.
+ */
 async function prisma(args, databaseUrl) {
-  return checked('pnpm', ['--filter', `@carwash/${service}`, 'exec', 'prisma', ...args], {
-    env: { ...process.env, DATABASE_URL: databaseUrl },
-  });
+  const url = `${databaseUrl}&connect_timeout=30`;
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await checked('pnpm', ['--filter', `@carwash/${service}`, 'exec', 'prisma', ...args], {
+        env: { ...process.env, DATABASE_URL: url },
+      });
+    } catch (error) {
+      const transient = /P1001|P1002|timeout/i.test(String(error?.message ?? error));
+      if (!transient || attempt >= 3) throw error;
+      await delay(5_000 * attempt);
+    }
+  }
 }
 
 let started = false;
