@@ -3,3 +3,4 @@ export * from './projection.service';
 export * from './foundation-probe.projection';
 export * from './operations.service';
 export * from './access';
+export * from './reports.service';

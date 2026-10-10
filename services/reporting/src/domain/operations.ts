@@ -36,7 +36,8 @@ export type IntegrityCode =
   | 'FACT_VERSION_CONFLICT'
   | 'HOLD_BOOKING_CONFLICT'
   | 'ASSIGNMENT_BOOKING_CONFLICT'
-  | 'OBLIGATION_CURRENCY_CONFLICT';
+  | 'OBLIGATION_CURRENCY_CONFLICT'
+  | 'REFUND_IDENTITY_CONFLICT';
 
 export class OperationsIntegrityError extends Error {
   constructor(readonly code: IntegrityCode) {

@@ -54,3 +54,21 @@ export class RequestBudget {
     if (current.count > this.limit) throw new AccessFault('AUTH_RATE_LIMITED');
   }
 }
+
+/**
+ * Who may read (and export) which report. Existing Identity permissions whose
+ * meaning matches the desk (decision D-P05-D4-01; `reporting.read` stays
+ * requested in CR-D-P02-02): revenue is a finance read (`billing.read`), the
+ * operational report belongs to operations (`operations.dispatch`). An export
+ * requires exactly the permission of the report it exports. Deny by default.
+ */
+export const REPORT_READS = Object.freeze({
+  revenue: ['billing.read'],
+  operations: ['operations.dispatch'],
+} as const);
+
+export function requireReport(session: VerifiedSession, report: keyof typeof REPORT_READS): void {
+  const allowed: readonly string[] = REPORT_READS[report];
+  if (!allowed.some((permission) => session.permissions.includes(permission)))
+    throw new AccessFault('AUTH_FORBIDDEN');
+}

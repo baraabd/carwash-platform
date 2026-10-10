@@ -236,3 +236,85 @@ model OpsObligation {
   @@index([cashState, stateSince])
   @@map("ops_obligation")
 }
+
+/// P05-D reports. Revenue facts are derived from Billing's published events
+/// only; Billing owns obligations, verification, custody and refunds.
+
+/// Latest observed revenue view of one Billing obligation by Billing's
+/// version. created_at/amount_minor come from the creation event whatever the
+/// delivery order; settled_at is the occurrence of the status event that
+/// settled it (PAID or CASH_COLLECTED) and is cleared if it leaves that state.
+model RptObligation {
+  obligationId     String    @id @map("obligation_id") @db.Uuid
+  version          Int
+  financialStatus  String    @map("financial_status") @db.VarChar(16)
+  currency         String    @db.Char(3)
+  scale            Int       @db.SmallInt
+  amountMinor      BigInt?   @map("amount_minor")
+  verifiedMinor    BigInt?   @map("verified_minor")
+  outstandingMinor BigInt?   @map("outstanding_minor")
+  createdAt        DateTime? @map("created_at") @db.Timestamptz(3)
+  settledAt        DateTime? @map("settled_at") @db.Timestamptz(3)
+  fingerprint      String    @db.Char(64)
+  sourceEventId    String    @map("source_event_id") @db.Uuid
+  occurredAt       DateTime  @map("occurred_at") @db.Timestamptz(3)
+
+  @@index([currency, settledAt])
+  @@index([currency, createdAt])
+  @@map("rpt_obligation")
+}
+
+/// Latest observed state of one Billing refund by Billing's version.
+model RptRefund {
+  refundId        String    @id @map("refund_id") @db.Uuid
+  obligationId    String    @map("obligation_id") @db.Uuid
+  version         Int
+  status          String    @db.VarChar(16)
+  currency        String    @db.Char(3)
+  scale           Int       @db.SmallInt
+  amountMinor     BigInt    @map("amount_minor")
+  firstObservedAt DateTime  @map("first_observed_at") @db.Timestamptz(3)
+  succeededAt     DateTime? @map("succeeded_at") @db.Timestamptz(3)
+  fingerprint     String    @db.Char(64)
+  sourceEventId   String    @map("source_event_id") @db.Uuid
+  occurredAt      DateTime  @map("occurred_at") @db.Timestamptz(3)
+
+  @@index([currency, succeededAt])
+  @@index([currency, firstObservedAt])
+  @@map("rpt_refund")
+}
+
+/// One row per finished report export: who, which report, a hash of the
+/// parameters, the row count and when it was generated. Never report data.
+/// Append-only (database trigger). (subject, idempotency_key) is unique, so a
+/// retried or concurrent request can never write a second audit row.
+model ReportExportAudit {
+  exportId       String   @id @map("export_id") @db.Uuid
+  subject        String   @db.Uuid
+  idempotencyKey String   @map("idempotency_key") @db.VarChar(128)
+  report         String   @db.VarChar(16)
+  parametersHash String   @map("parameters_hash") @db.Char(64)
+  rowCount       Int      @map("row_count")
+  generatedAt    DateTime @map("generated_at") @db.Timestamptz(3)
+  contentSha256  String   @map("content_sha256") @db.Char(64)
+  recordedAt     DateTime @default(now()) @map("recorded_at") @db.Timestamptz(3)
+
+  content ReportExportContent?
+
+  @@unique([subject, idempotencyKey])
+  @@index([generatedAt])
+  @@map("report_export_audit")
+}
+
+/// The exported bytes, kept only for idempotent replay until expires_at and
+/// then purged. Separate from the audit row so the audit never holds data.
+model ReportExportContent {
+  exportId  String   @id @map("export_id") @db.Uuid
+  content   String
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+
+  audit ReportExportAudit @relation(fields: [exportId], references: [exportId], onDelete: Restrict)
+
+  @@index([expiresAt])
+  @@map("report_export_content")
+}

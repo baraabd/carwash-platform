@@ -2,3 +2,4 @@
 export * from './projection.ports';
 export * from './operations.ports';
 export * from './identity.ports';
+export * from './reports.ports';

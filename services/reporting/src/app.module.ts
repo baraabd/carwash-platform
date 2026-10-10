@@ -9,6 +9,14 @@ import { PrismaInboxStore } from './inbox/prisma-inbox.store';
 import { RequestBudget } from './application/access';
 import { OperationsQueries } from './application/operations.service';
 import { PrismaOperationsReader } from './infrastructure/persistence/prisma-operations.store';
+import { randomUUID } from 'node:crypto';
+import { ReportExports, ReportQueries } from './application/reports.service';
+import {
+  PrismaExportStore,
+  PrismaReportsReader,
+} from './infrastructure/persistence/prisma-reports.store';
+import { sha256Hex } from './infrastructure/persistence/prisma-projection.store';
+import { EXPORT_BUDGET, ReportsController } from './transport/http/reports.controller';
 import {
   IdentitySessionClient,
   UnconfiguredSessionAuthority,
@@ -58,6 +66,13 @@ export function readBudgetFromEnv(env: NodeJS.ProcessEnv = process.env): Request
   return new RequestBudget(Number(raw));
 }
 
+/** Per-subject report exports per minute on one replica; deliberately small. */
+export function exportBudgetFromEnv(env: NodeJS.ProcessEnv = process.env): RequestBudget {
+  const raw = env.REPORTING_EXPORTS_PER_MINUTE ?? '10';
+  if (!/^[1-9][0-9]{0,3}$/.test(raw)) throw new Error('REPORTING_EXPORTS_PER_MINUTE_INVALID');
+  return new RequestBudget(Number(raw));
+}
+
 const systemClock = { now: () => new Date() };
 
 @Module({
@@ -68,7 +83,7 @@ const systemClock = { now: () => new Date() };
       logger: createLogger({ service: SERVICE_NAME }),
     }),
   ],
-  controllers: [OperationsController],
+  controllers: [OperationsController, ReportsController],
   providers: [
     { provide: DATABASE_URL, useFactory: () => databaseUrlFromEnv() },
     PrismaService,
@@ -83,7 +98,26 @@ const systemClock = { now: () => new Date() };
       provide: SESSION_AUTHORITY,
       useFactory: () => sessionAuthorityFromEnv(),
     },
+    {
+      provide: ReportQueries,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService) =>
+        new ReportQueries(new PrismaReportsReader(prisma.client), systemClock),
+    },
+    {
+      provide: ReportExports,
+      inject: [ReportQueries, PrismaService],
+      useFactory: (queries: ReportQueries, prisma: PrismaService) =>
+        new ReportExports(
+          queries,
+          new PrismaExportStore(prisma.client),
+          sha256Hex,
+          systemClock,
+          randomUUID,
+        ),
+    },
     { provide: READ_BUDGET, useFactory: () => readBudgetFromEnv() },
+    { provide: EXPORT_BUDGET, useFactory: () => exportBudgetFromEnv() },
   ],
   exports: [PrismaService],
 })

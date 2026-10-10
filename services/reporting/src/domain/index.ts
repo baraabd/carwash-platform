@@ -2,3 +2,5 @@
 export * from './projection';
 export * from './operations';
 export * from './live-operations';
+export * from './reports';
+export * from './revenue';
