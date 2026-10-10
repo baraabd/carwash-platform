@@ -797,3 +797,188 @@ test('reporting.v1 conforms to the MERGED Reporting operations controller', asyn
   assert.deepEqual([...access.OPERATIONS_READS.cashKpis], published('getCashKpis'));
   assert.deepEqual([...access.OPERATIONS_READS.operationsKpis], published('getOperationsKpis'));
 });
+
+// ---------------------------------------------------------------- support provider conformance
+
+test('support.v1 conforms to the MERGED Support cases controller (PR #126)', async () => {
+  const kit = (name) => require(path.join(root, `packages/service-kit/dist/${name}.js`));
+  const serviceKit = { ...kit('errors'), ...kit('correlation'), ...kit('logging') };
+  const load = createTsLoader(root, {
+    '@nestjs/common': nestStub(),
+    '@carwash/service-kit': serviceKit,
+  });
+  const { CasesController } = load('services/support/src/transport/http/cases.controller.ts');
+  const domain = load('services/support/src/domain/index.ts');
+  const caseId = id();
+  const decider = id();
+  const approver = id();
+  const obligationId = id();
+  const record = {
+    id: caseId,
+    kind: 'REFUND',
+    status: 'RESOLVED',
+    subject: domain.caseSubject('REFUND', { type: 'billing.obligation', id: obligationId }),
+    summary: domain.caseSummary('Customer paid twice for one booking'),
+    snapshot: {
+      owner: 'billing',
+      readAt: T0,
+      state: { obligationId, revision: 4, financialStatus: 'PAID', verifiedMinor: '150000' },
+    },
+    openedBy: decider,
+    openedAt: new Date(T0),
+    revision: 5,
+    updatedAt: new Date(T1),
+    openKey: 'open-key-0000000000000001',
+    openFingerprint: SHA,
+  };
+  const decision = {
+    caseId,
+    decisionNo: 1,
+    action: 'REFUND',
+    reasonCode: 'DUPLICATE_PAYMENT',
+    reasonNote: domain.reason('REFUND', {
+      code: 'DUPLICATE_PAYMENT',
+      note: 'Two identical transfers on the statement',
+    }).note,
+    evidence: domain.evidenceList([{ kind: 'PROVIDER_STATEMENT', reference: 'stmt-2026-10-11' }]),
+    amount: domain.exactAmount({ currency: 'SYP', amountMinor: '150000', scale: 2 }),
+    window: null,
+    status: 'APPLIED',
+    decidedBy: decider,
+    decidedAt: new Date(T0),
+    idempotencyKey: 'decide-key-000000000001',
+    fingerprint: SHA,
+    approvedBy: approver,
+    approvedAt: new Date(T1),
+    approvalNote: 'Verified against provider statement',
+    approvalKey: 'approve-key-00000000001',
+    ownerRequest: {
+      operation: 'billing.refund',
+      targetId: obligationId,
+      key: domain.ownerCommandKey(caseId, 1),
+      body: {},
+    },
+    ownerHttpStatus: 202,
+    ownerCode: null,
+    ownerState: 'REQUESTED',
+    executionAttempts: 1,
+    executionFence: 2,
+    lastExecutedAt: new Date(T1),
+  };
+  const history = [
+    {
+      id: id(),
+      caseId,
+      occurredAt: new Date(T0),
+      actorSubject: decider,
+      action: 'case.opened',
+      decisionNo: null,
+      fromStatus: null,
+      toStatus: 'OPEN',
+      outcome: null,
+      correlationId: id(),
+    },
+    {
+      id: id(),
+      caseId,
+      occurredAt: new Date(T1),
+      actorSubject: approver,
+      action: 'decision.approved',
+      decisionNo: 1,
+      fromStatus: 'AWAITING_APPROVAL',
+      toStatus: 'RESOLVED',
+      outcome: 'APPLIED',
+      correlationId: id(),
+    },
+  ];
+  const detail = { record, decisions: [decision], events: history };
+  const queries = {
+    list: async () => ({ items: [record], nextCursor: 'MjAyNi0xMC0xMXwx' }),
+    detail: async () => detail,
+    current: async () => ({
+      owner: 'billing',
+      readAt: T1,
+      obligation: {
+        obligationId,
+        revision: 4,
+        status: 'SETTLED',
+        financialStatus: 'PAID',
+        amount: SYP(150000),
+        verified: SYP(300000),
+        outstanding: SYP(0),
+        attempts: [
+          { attemptId: id(), status: 'MATCHED', method: 'SHAM_CASH', claimed: SYP(150000) },
+        ],
+      },
+    }),
+  };
+  const commands = {
+    open: async () => ({ created: true, detail }),
+    decide: async () => detail,
+    approve: async () => detail,
+    resend: async () => detail,
+  };
+  const controller = new CasesController(
+    commands,
+    queries,
+    { verify: async () => ({ subject: decider, permissions: ['billing.refund', 'billing.read'] }) },
+    { take: () => undefined },
+  );
+  const headers = { authorization: 'Bearer x', 'x-correlation-id': id() };
+  const response = { status: () => response, setHeader: () => undefined };
+  const page = sup.parseCasePageV1(await controller.list(headers, {}));
+  assert.equal(page.items[0].subject.parentId, null);
+  assert.equal(page.authority.length, 3);
+  const parsed = sup.parseCaseDetailV1(await controller.detail(headers, caseId));
+  assert.equal(parsed.decisions[0].owner.commandKey, domain.ownerCommandKey(caseId, 1));
+  assert.equal(parsed.decisions[0].approval.by, approver);
+  for (const result of [
+    await controller.open(headers, {}, response),
+    await controller.decide(headers, caseId, {}, response),
+    await controller.approve(headers, caseId, '1', {}, response),
+    await controller.resend(headers, caseId, '1', response),
+  ])
+    assert.equal(sup.parseCaseDetailV1(result).case.caseId, caseId);
+  const current = sup.parseCaseSubjectCurrentV1(await controller.current(headers, caseId));
+  assert.equal(current.current.owner, 'billing');
+  // The provider's own vocabulary is exactly the published one.
+  assert.deepEqual([...domain.CASE_KINDS], [...sup.CASE_KINDS]);
+  assert.deepEqual([...domain.CASE_STATUSES], [...sup.CASE_STATUSES]);
+  assert.deepEqual([...domain.CASE_ACTIONS], [...sup.CASE_ACTIONS]);
+  assert.deepEqual([...domain.DECISION_STATUSES], [...sup.DECISION_STATUSES]);
+  assert.deepEqual([...domain.EVIDENCE_KINDS], [...sup.EVIDENCE_KINDS]);
+  assert.deepEqual([...domain.REASON_CODES], [...sup.CASE_REASON_CODES]);
+  assert.deepEqual([...domain.OWNER_OPERATIONS], [...sup.OWNER_OPERATIONS]);
+  for (const kind of sup.CASE_KINDS)
+    assert.equal(domain.KIND_POLICIES[kind].subject, sup.CASE_KIND_SUBJECT[kind], kind);
+  // Provider outbox rows parse under the published events and exchange.
+  const app = load('services/support/src/application/events.ts');
+  const ctx = {
+    eventId: id(),
+    occurredAt: new Date(T1),
+    correlationId: id(),
+    actorSubject: decider,
+    caseId,
+    revision: 2,
+  };
+  const opened = app.caseOpenedEvent(
+    { kind: 'REFUND', subjectType: 'billing.obligation', subjectId: obligationId, status: 'OPEN' },
+    ctx,
+  );
+  assert.equal(events.SUPPORT_CASE_OPENED_V1.parse(JSON.parse(opened.payload)).data.kind, 'REFUND');
+  assert.equal(opened.exchange, events.PRODUCT_EVENT_EXCHANGES.support);
+  const changed = app.caseStatusChangedEvent(
+    {
+      kind: 'REFUND',
+      previousStatus: 'AWAITING_APPROVAL',
+      status: 'EXECUTING',
+      decisionNo: 1,
+      action: 'REFUND',
+    },
+    { ...ctx, eventId: id(), revision: 3 },
+  );
+  assert.equal(
+    events.SUPPORT_CASE_STATUS_CHANGED_V1.parse(JSON.parse(changed.payload)).data.status,
+    'EXECUTING',
+  );
+});

@@ -9,8 +9,8 @@ import { parseEnvelopeV2, type EventEnvelopeV2, type EventProducer } from './env
  * Data is closed and carries opaque IDs, statuses, closed codes and counts
  * only. Never: a review comment, case summary/note, phone, name, address,
  * plate, promotion code or provider reference.
- * Support events conform to the provider in open PR #126; every other event
- * has no accepted producer yet (`published-producer-pending`).
+ * Support events conform to the merged provider (PR #126), which writes them to
+ * its outbox (no relay runs yet); every other event has no accepted producer yet.
  */
 
 const ASYNCAPI = 'docs/asyncapi/product-events-v1.yaml';

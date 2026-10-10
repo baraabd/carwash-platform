@@ -17,10 +17,9 @@ import {
  * support.v1 — owner: Support service (Lane D). Staff exception cases
  * (payment review, refund, late payment, booking cancellation/reschedule).
  *
- * Published from Lane D request CR-D-P04-02/04 and conformed to the provider in
- * open PR #126 (P04-D1, head 89d9492). Status stays `published-provider-pending`
- * until that provider merges; its conformance test must then run against the
- * merged source.
+ * Published from Lane D request CR-D-P04-02/04 and conformed to the MERGED
+ * provider (PR #126, P04-D1): tests/production/E/contracts-product.test.mjs runs
+ * its controller and outbox functions from the exact source and parses them here.
  *
  * Owner rules (not expressible on the wire):
  *  - Support records reasons, evidence and decisions; it never writes money or
@@ -613,3 +612,114 @@ export const CASE_LIST_QUERY = [
   'limit',
   'cursor',
 ] as const;
+
+/**
+ * GET /cases/:caseId/current — what the subject's OWNER says now, read on behalf
+ * of the caller. Support keeps none of it; statuses are the owner's vocabulary.
+ */
+export interface ObligationStateV1 {
+  readonly obligationId: string;
+  readonly revision: number;
+  readonly status: string;
+  readonly financialStatus: string;
+  readonly amount: Money;
+  readonly verified: Money;
+  readonly outstanding: Money;
+  readonly attempts: readonly {
+    readonly attemptId: string;
+    readonly status: string;
+    readonly method: string;
+    readonly claimed: Money;
+  }[];
+}
+
+export interface BookingStateV1 {
+  readonly bookingId: string;
+  readonly revision: number;
+  readonly status: string;
+  readonly confirmation: string;
+  readonly startsAt: UtcTimestamp;
+  readonly endsAt: UtcTimestamp;
+}
+
+export type CaseSubjectCurrentV1 =
+  | {
+      readonly owner: 'billing';
+      readonly readAt: UtcTimestamp;
+      readonly obligation: ObligationStateV1;
+    }
+  | { readonly owner: 'booking'; readonly readAt: UtcTimestamp; readonly booking: BookingStateV1 };
+
+/** The provider normalises owner states to this shape (owner-http.ts `state`). */
+const OWNER_STATE = /^[A-Z][A-Z_]{1,39}$/;
+const ownerState = (value: unknown, path: string) =>
+  text(value, path, { max: 40, pattern: OWNER_STATE });
+
+export function parseCaseSubjectCurrentV1(
+  value: unknown,
+  path = '$',
+): { readonly authority: readonly AuthorityV1[]; readonly current: CaseSubjectCurrentV1 } {
+  const v = closed(value, path, ['authority', 'current']);
+  const at = `${path}.current`;
+  const owner = oneOf(record(v.current, at).owner, `${at}.owner`, ['billing', 'booking'] as const);
+  let current: CaseSubjectCurrentV1;
+  if (owner === 'booking') {
+    const c = closed(v.current, at, ['owner', 'readAt', 'booking']);
+    const b = closed(c.booking, `${at}.booking`, [
+      'bookingId',
+      'revision',
+      'status',
+      'confirmation',
+      'startsAt',
+      'endsAt',
+    ]);
+    const window = parseWindow({ startsAt: b.startsAt, endsAt: b.endsAt }, `${at}.booking`);
+    current = {
+      owner,
+      readAt: parseUtc(c.readAt, `${at}.readAt`),
+      booking: {
+        bookingId: uuid(b.bookingId, `${at}.booking.bookingId`),
+        revision: parseRevision(b.revision, `${at}.booking.revision`),
+        status: ownerState(b.status, `${at}.booking.status`),
+        confirmation: ownerState(b.confirmation, `${at}.booking.confirmation`),
+        ...window,
+      },
+    };
+  } else {
+    const c = closed(v.current, at, ['owner', 'readAt', 'obligation']);
+    const o = closed(c.obligation, `${at}.obligation`, [
+      'obligationId',
+      'revision',
+      'status',
+      'financialStatus',
+      'amount',
+      'verified',
+      'outstanding',
+      'attempts',
+    ]);
+    const p = `${at}.obligation`;
+    current = {
+      owner,
+      readAt: parseUtc(c.readAt, `${at}.readAt`),
+      obligation: {
+        obligationId: uuid(o.obligationId, `${p}.obligationId`),
+        revision: parseRevision(o.revision, `${p}.revision`),
+        status: ownerState(o.status, `${p}.status`),
+        financialStatus: ownerState(o.financialStatus, `${p}.financialStatus`),
+        amount: parseNonNegativeMoney(o.amount, `${p}.amount`),
+        verified: parseNonNegativeMoney(o.verified, `${p}.verified`),
+        outstanding: parseNonNegativeMoney(o.outstanding, `${p}.outstanding`),
+        attempts: list(o.attempts, `${p}.attempts`, 50, (item, aAt) => {
+          const a = closed(item, aAt, ['attemptId', 'status', 'method', 'claimed']);
+          return {
+            attemptId: uuid(a.attemptId, `${aAt}.attemptId`),
+            status: ownerState(a.status, `${aAt}.status`),
+            method: ownerState(a.method, `${aAt}.method`),
+            claimed: parseNonNegativeMoney(a.claimed, `${aAt}.claimed`),
+          };
+        }),
+      },
+    };
+  }
+  return { authority: parseAuthority(v.authority, `${path}.authority`), current };
+}

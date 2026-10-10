@@ -8,8 +8,7 @@ route-access convention. The Identity privacy contract (`privacy.v1`) ships with
 provider in P05-E2, so neither child is stacked on the other. It adds no provider, no migration, no Gateway route and no
 runtime behaviour. The only runtime-reachable change is the Gateway reason lookup in §5.
 
-Base: `origin/main` `66aa7528500a06f65a4b73305506feee7c3fc3b3`
-(tree `3a2203e360a534dc3f98529717a7625257aaccd0`).
+Base: `origin/main` `3e1ab23` (after #124–#127 merged; first drafted on `66aa752`).
 
 ## 1. What this publishes
 
@@ -17,7 +16,7 @@ Base: `origin/main` `66aa7528500a06f65a4b73305506feee7c3fc3b3`
 | --- | --- | --- | --- |
 | `subscription.v1` (`./subscription-v1`, `subscriptionV1`) | Subscription (B) | foundation shell (503) | `published-provider-pending` |
 | `promotion.v1` (`./promotion-v1`, `promotionV1`), prefix `/internal/v1/pricing` | Pricing (B) | none | `published-provider-pending` |
-| `support.v1` (`./support-v1`, `supportV1`) | Support (D) | open PR #126 (P04-D1) | `published-provider-pending` |
+| `support.v1` (`./support-v1`, `supportV1`) | Support (D) | **merged** PR #126 (P04-D1) | conformance tested (§3) |
 | `reviews.v1` (`./reviews-v1`, `reviewsV1`) | Reviews (D) | foundation shell; P05-D2 to conform | `published-provider-pending` |
 | `reporting.v1` (`./reporting-v1`, `reportingV1`) | Reporting (D) | **merged** operations projections | conformance tested (§3) |
 | `IDENTITY_PERMISSIONS` `reviews.moderate` | Identity (E) | role grant in P05-E2 | additive |
@@ -59,7 +58,7 @@ Each rule below is enforced by a parser, so a provider that breaks it fails its 
   - The client never sends a discount, a percentage or a total.
   - `REDEEMED` is final.
   - Ineligibility reasons never reveal another beneficiary's usage or a campaign counter.
-- **Support** (from PR #126).
+- **Support** (merged PR #126).
   - The route set, closed enums, kind-to-subject binding and request bodies match the provider.
   - On the wire, an approval is never by the person who decided (`SAME_PERSON_APPROVAL`).
   - A decision that left the pre-execution states must name its frozen owner command.
@@ -79,9 +78,10 @@ Each rule below is enforced by a parser, so a provider that breaks it fails its 
   - `NO_DATA` means exactly "no checkpoint".
   - The window is at most 31 days.
   - The cash-state vocabulary is Billing's. Reporting is never a payment fact.
+
 ## 3. Evidence
 
-`tests/production/E/contracts-product.test.mjs` contains 16 tests, all executed against the
+`tests/production/E/contracts-product.test.mjs` contains 17 tests, all executed against the
 built packages:
 
 - lint, registry and honest status for all five contracts;
@@ -95,15 +95,21 @@ built packages:
   error, correlation and logging modules. Domain-built freshness rows are fed through it.
   All six responses must parse under `reporting.v1`. The provider's own `OPERATIONS_READS`
   must equal the published any-of permission sets.
+- **support provider conformance:** the merged `CasesController` is run the same way, using
+  records built with the provider's own domain functions (`caseSubject`, `reason`,
+  `evidenceList`, `exactAmount`, `ownerCommandKey`). All seven routes, including `current`,
+  must parse under `support.v1`. The provider's enums and kind-to-subject map must equal the
+  published ones. Its outbox rows (`caseOpenedEvent`, `caseStatusChangedEvent`) must parse
+  under the published events and exchange.
 
-Commands on the final tree: see the PR description. Existing Lane E suites: 93 of 93 passing.
+Commands and results on the final tree are listed in the PR description.
 
 ## 4. Requests to other lanes (submitted by E)
 
 | ID | Lane | Request |
 | --- | --- | --- |
-| CR-E-P05-01 | D (P05-D1 / PR #126) | Once #126 merges, Lane E adds a transpiled provider-conformance test like the reporting one. Until then support.v1 is checked by fixture against #126 head `89d9492`. Any change to the #126 views requires a contract change. |
-| CR-E-P05-02 | D (P05-D2) | The Reviews provider implements `reviews.v1` exactly: consent and moderation invariants, one review per Booking, no comment in events. Moderation uses `reviews.moderate`; P05-E2 grants it to the `support` role. |
+| CR-E-P05-01 | D (Support) | Done for the merged #126 views; any later view change needs a `support.v1` change, and the conformance test fails until it has one. Customer complaint intake needs an approved design and owner flow before a contract exists. |
+| CR-E-P05-02 | D (P05-D2) | The Reviews provider implements `reviews.v1` exactly: consent and moderation invariants, one review per Booking, no comment in events. Moderation uses `reviews.moderate`. Following decision E-P03-D1, it is held only by `super-admin` until the owner approves a narrower staff role (decision E-P05-D1). |
 | CR-E-P05-03 | D (P05-D5) | The merged Configuration provider is a generic key/value store. Its routes (`values/:namespace/:key`, `revisions`) do not match the published `configuration.v1` (`scopes/:marketId/:namespace/current`, drafts). Reads require a human `configuration.read` session, and no service scope exists, so no owner can read approved policy service-to-service today. P05-D5 must conform to `configuration.v1`. |
 | CR-E-P05-04 | D (Reporting) | Reporting's `CashState` omits Billing's `CASH_COLLECTED` (billing.v1, P03-B1). A `billing.cash-collected.v1`/status-changed fact with that value has no Reporting representation. `reporting.v1` already accepts the full Billing vocabulary. |
 | CR-E-P05-05 | B | The Subscription provider implements `subscription.v1`, and the Pricing provider implements `promotion.v1`. Plans, units, validity, budgets and stacking are B/product policy inputs; none are fixed here. |
