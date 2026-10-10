@@ -1,4 +1,4 @@
-import type { MoneyWire, ReconcileDraft } from '../domain/finance';
+import type { MoneyWire } from '../domain/finance';
 import {
   INSTANT,
   UUID,
@@ -13,8 +13,8 @@ import {
 import { money } from './kpis';
 
 /**
- * Billing reads and the reconciliation command, through the Gateway routes
- * requested in CR-D-P03-02. Billing alone decides whether money was received;
+ * Billing reads through the Gateway routes requested in CR-D-P03-02. Finance
+ * decisions go through Support cases (P04-D), which Billing carries out. Billing alone decides whether money was received;
  * the console shows Billing's answer and never infers "paid".
  */
 export interface Attempt {
@@ -75,26 +75,4 @@ export function readObligation(obligationId: string): Promise<Result<Obligation>
   return request(`/admin/billing/obligations/${encodeURIComponent(obligationId)}`, {
     read: obligation,
   });
-}
-
-export function reconcileAttempt(input: {
-  readonly attemptId: string;
-  readonly expectedRevision: number;
-  readonly draft: ReconcileDraft;
-  readonly key: string;
-}): Promise<Result<Obligation>> {
-  return request(
-    `/admin/billing/payment-attempts/${encodeURIComponent(input.attemptId)}/reconciliation`,
-    {
-      method: 'POST',
-      body: {
-        expectedRevision: input.expectedRevision,
-        outcome: input.draft.outcome,
-        observedAmount: input.draft.observedAmount,
-      },
-      idempotencyKey: input.key,
-      // Billing answers with the obligation as it stands after the command.
-      read: obligation,
-    },
-  );
 }

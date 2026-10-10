@@ -36,7 +36,9 @@ let hooks: TechniciansHooks = {
     reviewDecisions: false,
     assignmentActions: false,
     payments: false,
-    reconcile: false,
+    cases: false,
+    financeCases: false,
+    operationsCases: false,
   }),
 };
 let cursor: string | null = null;

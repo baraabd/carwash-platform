@@ -41,7 +41,9 @@ test('access: each role sees only its screens; customers, technicians and guests
     reviewDecisions: false,
     assignmentActions: true,
     payments: false,
-    reconcile: false,
+    cases: true,
+    financeCases: false,
+    operationsCases: true,
   });
   assert.equal(defaultScreen(operations), 'dashboard');
   assert.equal(canOpen('payments', operations), false);
@@ -53,7 +55,9 @@ test('access: each role sees only its screens; customers, technicians and guests
     reviewDecisions: true,
     assignmentActions: false,
     payments: false,
-    reconcile: false,
+    cases: false,
+    financeCases: false,
+    operationsCases: false,
   });
   assert.equal(defaultScreen(reviewer), 'technicians');
   assert.equal(canOpen('bookings', reviewer), false);

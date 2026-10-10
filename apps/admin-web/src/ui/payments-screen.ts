@@ -1,32 +1,34 @@
-import { newCommandKey } from '../api/live';
-import { readObligation, reconcileAttempt, type Attempt, type Obligation } from '../api/finance';
+import { listCases } from '../api/cases';
+import { readObligation, type Attempt, type Obligation } from '../api/finance';
 import { cashKpis, type CashKpis, type CashState } from '../api/kpis';
 import { isUuid } from '../domain/bookings';
-import {
-  RECONCILIATION_OUTCOMES,
-  isOpenAttempt,
-  validateReconciliation,
-  formatMoney,
-  type MoneyWire,
-} from '../domain/finance';
+import { ACTIVE_STATUSES } from '../domain/cases';
+import { isOpenAttempt, formatMoney, type MoneyWire } from '../domain/finance';
+import { startCase } from './case-detail';
 import { append, byId, h, replace } from './dom';
 import { copy } from './i18n';
-import { closeModal, openModal, toast } from './shell';
+import { closeModal, openModal } from './shell';
 import { failureMessage, formatInstant, freshnessStrip } from './states';
 
 /**
  * The approved "المدفوعات" screen. Cards and the state table come from
  * Reporting's derived cash-state KPIs (with freshness); an obligation and its
- * attempts are read from Billing, the owner, and finance records
- * reconciliation through Billing. Nothing here marks money as received:
- * only Billing's answer is shown.
+ * attempts are read from Billing, the owner. Every finance decision on a
+ * payment (match, mismatch, unknown, late payment, refund) is taken in a
+ * Support case with a reason and evidence and carried out by Billing (P04-D).
+ * Nothing here marks money as received: only Billing's answer is shown.
  */
 export interface PaymentsHooks {
   readonly unauthenticated: () => void;
-  readonly canReconcile: () => boolean;
+  readonly canOpenCases: () => boolean;
+  readonly canReadCases: () => boolean;
 }
 
-let hooks: PaymentsHooks = { unauthenticated: () => undefined, canReconcile: () => false };
+let hooks: PaymentsHooks = {
+  unauthenticated: () => undefined,
+  canOpenCases: () => false,
+  canReadCases: () => false,
+};
 let generation = 0;
 
 export function wirePayments(next: PaymentsHooks): void {
@@ -71,8 +73,9 @@ function render(k: CashKpis): void {
     byId('paymentCards'),
     card('cardAwaitingCash', String(by('AWAITING_CASH')?.count ?? 0), c.cardAwaitingCash),
     card('cardReview', String(reviewCount), c.cardAwaitingReconciliation),
-    card('cardPaid', String(by('PAID')?.count ?? 0), c.cardPaid),
+    card('cardRefunds', c.unavailableCell, c.cardRefundRequests),
   );
+  void fillRefundCard();
   replace(
     byId('paymentRows'),
     ...k.states.map((row) =>
@@ -94,6 +97,16 @@ function render(k: CashKpis): void {
   replace(strip, ...freshnessStrip(k.freshness));
   if (k.incompleteSources.length > 0)
     append(strip, h('span', { class: 'status s-amber', 'data-partial': 'true' }, c.partialKpi));
+}
+
+/** "طلبات استرداد": open refund cases in Support (the reference's own third card). */
+async function fillRefundCard(): Promise<void> {
+  if (!hooks.canReadCases()) return;
+  const result = await listCases({ kind: ['REFUND'], status: ACTIVE_STATUSES, limit: 100 });
+  const value = document.querySelector('#cardRefunds h3');
+  if (!value || !result.ok) return;
+  const n = result.value.items.length;
+  value.textContent = result.value.nextCursor ? `${n}+` : String(n);
 }
 
 export async function showPayments(): Promise<void> {
@@ -126,7 +139,7 @@ export async function showPayments(): Promise<void> {
     return;
   }
   render(result.value);
-  byId('reconcileToday').title = hooks.canReconcile() ? '' : c.reconcileNotPermitted;
+  byId('reconcileToday').title = hooks.canOpenCases() ? '' : c.reconcileNotPermitted;
 }
 
 /* ------------------------------- obligation ------------------------------- */
@@ -143,16 +156,24 @@ function attemptRow(o: Obligation, a: Attempt): HTMLElement {
     h('td', {}, formatInstant(a.submittedAt)),
   );
   const action = h('td', {});
-  if (isOpenAttempt(a.status)) {
-    if (hooks.canReconcile()) {
-      const button = h(
-        'button',
-        { class: 'primary', type: 'button', id: `reconcile-${a.attemptId}` },
-        c.reconcile,
-      );
-      button.addEventListener('click', () => reconcileForm(o, a, null));
-      append(action, button);
-    } else append(action, h('span', { class: 'muted' }, c.reconcileNotPermitted));
+  if (!hooks.canOpenCases()) append(action, h('span', { class: 'muted' }, c.reconcileNotPermitted));
+  else {
+    // An attempt still under review gets a review case; any other attempt
+    // (mismatched, or paid after the obligation closed) a late-payment case.
+    const review = isOpenAttempt(a.status);
+    const button = h(
+      'button',
+      { class: 'primary', type: 'button', id: `${review ? 'review' : 'late'}-${a.attemptId}` },
+      review ? c.openReviewCase : c.openLatePayment,
+    );
+    button.addEventListener('click', () =>
+      startCase(review ? 'PAYMENT_REVIEW' : 'LATE_PAYMENT', {
+        type: 'billing.payment-attempt',
+        id: a.attemptId,
+        parentId: o.obligationId,
+      }),
+    );
+    append(action, button);
   }
   append(cells, action);
   return cells;
@@ -201,7 +222,20 @@ function obligationBody(o: Obligation): Node[] {
       ),
     ),
     h('p', { class: 'muted' }, c.billingDecides),
+    ...(hooks.canOpenCases() && o.verified.amountMinor !== '0' ? [refundButton(o)] : []),
   ];
+}
+
+function refundButton(o: Obligation): HTMLElement {
+  const button = h(
+    'button',
+    { class: 'ghost', type: 'button', id: `refund-${o.obligationId}` },
+    copy().requestRefund,
+  );
+  button.addEventListener('click', () =>
+    startCase('REFUND', { type: 'billing.obligation', id: o.obligationId, parentId: null }),
+  );
+  return button;
 }
 
 export async function openObligation(obligationId: string): Promise<void> {
@@ -223,132 +257,6 @@ export async function openObligation(obligationId: string): Promise<void> {
     return;
   }
   replace(byId('modalBody'), ...obligationBody(result.value));
-}
-
-interface PendingReconciliation {
-  readonly key: string;
-  readonly outcome: string;
-  readonly observed: string;
-}
-
-function reconcileForm(o: Obligation, a: Attempt, pending: PendingReconciliation | null): void {
-  const c = copy();
-  const outcome = h(
-    'select',
-    { id: 'reconcileOutcome', disabled: pending !== null },
-    h('option', { value: '' }, c.chooseOutcome),
-    ...RECONCILIATION_OUTCOMES.map((value) =>
-      h('option', { value, selected: pending?.outcome === value }, c.outcomes[value]),
-    ),
-  );
-  const observed = h('input', {
-    id: 'reconcileObserved',
-    inputmode: 'decimal',
-    dir: 'ltr',
-    autocomplete: 'off',
-    value: pending?.observed ?? '',
-    disabled: pending !== null,
-  });
-  const problem = h('p', { class: 'field-error', id: 'reconcileProblem', role: 'alert' });
-  const status = h(
-    'p',
-    { id: 'reconcileStatus', role: 'status', 'aria-live': 'polite' },
-    pending ? c.unknownReconcile : '',
-  );
-  const cancel = h('button', { class: 'ghost', type: 'button' }, c.cancel);
-  cancel.addEventListener('click', () => void openObligation(o.obligationId));
-  const submit = h(
-    'button',
-    { class: 'primary', type: 'button', id: 'reconcileSubmit' },
-    pending ? c.retrySameCommand : c.recordReconciliation,
-  );
-  submit.addEventListener('click', () => {
-    const checked = validateReconciliation({
-      outcome: outcome.value,
-      observed: observed.value,
-      currency: a.claimed.currency,
-      scale: a.claimed.scale,
-    });
-    if (!checked.ok) {
-      replace(problem, c.reconcileProblems[checked.problem]);
-      return;
-    }
-    replace(problem);
-    const attempt = pending ?? {
-      key: newCommandKey(),
-      outcome: outcome.value,
-      observed: observed.value,
-    };
-    submit.disabled = true;
-    cancel.disabled = true;
-    replace(status, c.submitting);
-    void reconcileAttempt({
-      attemptId: a.attemptId,
-      expectedRevision: o.revision,
-      draft: checked.value,
-      key: attempt.key,
-    }).then((result) => {
-      if (result.ok) {
-        replace(
-          byId('modalBody'),
-          ...obligationBody(result.value),
-          h(
-            'p',
-            { role: 'status', 'data-correlation': result.correlationId },
-            `${c.reconciled} ${c.followUp}: ${result.correlationId.slice(0, 8)}`,
-          ),
-        );
-        replace(byId('modalFoot'), cancelToClose());
-        toast(c.reconciled);
-        void showPayments();
-        return;
-      }
-      if (result.failure === 'UNAUTHENTICATED') hooks.unauthenticated();
-      if (result.failure === 'UNKNOWN_OUTCOME') {
-        reconcileForm(o, a, attempt);
-        return;
-      }
-      submit.disabled = false;
-      cancel.disabled = false;
-      replace(
-        status,
-        h(
-          'span',
-          { 'data-state': result.failure },
-          `${result.failure === 'CONFLICT' ? c.reconcileConflict : failureMessage(result.failure)} ${c.followUp}: ${result.correlationId.slice(0, 8)}`,
-        ),
-      );
-    });
-  });
-  openModal({
-    title: c.reconcileTitle,
-    body: [
-      h(
-        'dl',
-        { class: 'detail-list' },
-        h('dt', {}, c.reference),
-        h('dd', {}, a.reference),
-        h('dt', {}, c.claimed),
-        h('dd', {}, formatMoney(a.claimed)),
-      ),
-      h('label', { for: 'reconcileOutcome' }, c.outcome, outcome),
-      h(
-        'label',
-        { for: 'reconcileObserved' },
-        `${c.observedAmount} (${a.claimed.currency})`,
-        observed,
-      ),
-      problem,
-      status,
-    ],
-    foot: [cancel, submit],
-  });
-}
-
-function cancelToClose(): HTMLElement {
-  const close = h('button', { class: 'ghost', type: 'button' }, copy().close);
-  close.addEventListener('click', closeModal);
-  return close;
 }
 
 /** "مطابقة اليوم": opens the obligation lookup, the only discovery path until Billing lists attempts (CR-D-P03-04). */

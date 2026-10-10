@@ -24,8 +24,12 @@ export interface Capabilities {
   readonly assignmentActions: boolean;
   /** Billing obligations and cash-state KPIs (finance). */
   readonly payments: boolean;
-  /** Record a reconciliation outcome through Billing (finance). */
-  readonly reconcile: boolean;
+  /** Read exception cases of at least one desk (finance, operations or the support desk). */
+  readonly cases: boolean;
+  /** Open and decide payment cases (finance: billing.reconcile or billing.refund). */
+  readonly financeCases: boolean;
+  /** Open and decide booking cancellation and reschedule cases (operations). */
+  readonly operationsCases: boolean;
 }
 
 export function capabilities(session: StaffSession): Capabilities {
@@ -37,23 +41,32 @@ export function capabilities(session: StaffSession): Capabilities {
     reviewDecisions: has('verification.review'),
     assignmentActions: has('operations.dispatch'),
     payments: has('billing.read'),
-    reconcile: has('billing.reconcile'),
+    cases: has('billing.read') || has('operations.dispatch') || has('support.cases.read'),
+    financeCases: has('billing.reconcile') || has('billing.refund'),
+    operationsCases: has('operations.dispatch'),
   };
 }
 
 /** A customer, technician or guest has no business in this console at all. */
 export function isStaff(caps: Capabilities): boolean {
-  return caps.bookings || caps.resources || caps.reviewDecisions || caps.payments;
+  return caps.bookings || caps.resources || caps.reviewDecisions || caps.payments || caps.cases;
 }
 
-export type Screen = 'dashboard' | 'bookings' | 'technicians' | 'payments';
+export type Screen = 'dashboard' | 'bookings' | 'technicians' | 'payments' | 'disputes';
 
-export const SCREENS: readonly Screen[] = ['dashboard', 'bookings', 'technicians', 'payments'];
+export const SCREENS: readonly Screen[] = [
+  'dashboard',
+  'bookings',
+  'technicians',
+  'payments',
+  'disputes',
+];
 
 export function defaultScreen(caps: Capabilities): Screen | null {
   if (caps.bookings) return 'dashboard';
   if (caps.payments) return 'payments';
   if (caps.resources || caps.reviewDecisions) return 'technicians';
+  if (caps.cases) return 'disputes';
   return null;
 }
 
@@ -66,5 +79,7 @@ export function canOpen(screen: Screen, caps: Capabilities): boolean {
       return caps.resources || caps.reviewDecisions;
     case 'payments':
       return caps.payments;
+    case 'disputes':
+      return caps.cases;
   }
 }

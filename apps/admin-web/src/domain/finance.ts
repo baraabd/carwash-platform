@@ -45,38 +45,8 @@ export function parseAmount(
   return { ok: true, value: { currency, amountMinor: minor, scale } };
 }
 
-/**
- * Finance reconciliation of one payment attempt against the provider
- * statement. Billing decides; the console only refuses an incomplete form.
- * MATCHED and MISMATCHED need the amount the statement shows; UNKNOWN keeps
- * the attempt under review and records no amount.
- */
-export const RECONCILIATION_OUTCOMES = ['MATCHED', 'MISMATCHED', 'UNKNOWN'] as const;
-export type ReconciliationOutcome = (typeof RECONCILIATION_OUTCOMES)[number];
-
-/** Attempts finance may still reconcile. */
+/** Attempts Billing still has under review (a review case may be opened). */
 export const OPEN_ATTEMPT_STATUSES = ['PENDING_REVIEW', 'UNKNOWN'] as const;
-
-export type ReconcileProblem = 'OUTCOME_REQUIRED' | AmountProblem;
-
-export interface ReconcileDraft {
-  readonly outcome: ReconciliationOutcome;
-  readonly observedAmount: MoneyWire | null;
-}
-
-export function validateReconciliation(input: {
-  readonly outcome: string;
-  readonly observed: string;
-  readonly currency: string;
-  readonly scale: number;
-}): { ok: true; value: ReconcileDraft } | { ok: false; problem: ReconcileProblem } {
-  const outcome = RECONCILIATION_OUTCOMES.find((o) => o === input.outcome);
-  if (!outcome) return { ok: false, problem: 'OUTCOME_REQUIRED' };
-  if (outcome === 'UNKNOWN') return { ok: true, value: { outcome, observedAmount: null } };
-  const amount = parseAmount(input.observed, input.currency, input.scale);
-  if (!amount.ok) return { ok: false, problem: amount.problem };
-  return { ok: true, value: { outcome, observedAmount: amount.value } };
-}
 
 export function isOpenAttempt(status: string): boolean {
   return OPEN_ATTEMPT_STATUSES.some((s) => s === status);

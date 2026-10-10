@@ -43,10 +43,12 @@
   padding: 22px 10px;
 }
 
-tbody tr[data-booking] {
+tbody tr[data-booking],
+tbody tr[data-case] {
   cursor: pointer;
 }
-tbody tr[data-booking]:hover {
+tbody tr[data-booking]:hover,
+tbody tr[data-case]:hover {
   background: var(--surface2);
 }
 
@@ -181,4 +183,31 @@ button:disabled {
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 10px;
+}
+
+/* P04-D2 exception cases, inside the reference modal (see P04-D2 SD list). */
+/* The reference styles every modal label as a grid; a hidden field must stay hidden. */
+.modal-body [hidden] {
+  display: none;
+}
+.evidence-rows,
+.evidence-row,
+.window-fields,
+.approval,
+.decision {
+  display: grid;
+  gap: 8px;
+}
+.evidence-row,
+.window-fields {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+.decision {
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.decision h4,
+.approval h4 {
+  margin: 0;
+  font-size: 13px;
 }

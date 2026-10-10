@@ -1,6 +1,6 @@
 /**
- * P03-D3 pure rules (three staff roles, Dispatch commands, exact money and
- * reconciliation), executed on the TypeScript sources with Node's built-in
+ * P03-D3 pure rules (three staff roles, Dispatch commands and exact money; P04-D
+ * moved reconciliation into Support cases, see cases.test.mjs), executed on the TypeScript sources with Node's built-in
  * type stripping. Browser behaviour is covered by
  * tests/production/D/admin-live-finance.browser.mjs.
  */
@@ -9,12 +9,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { capabilities, canOpen, defaultScreen, isStaff } from '../src/domain/access.ts';
 import { allowedCommands, validateOffer } from '../src/domain/assignment.ts';
-import {
-  formatMoney,
-  isOpenAttempt,
-  parseAmount,
-  validateReconciliation,
-} from '../src/domain/finance.ts';
+import { formatMoney, isOpenAttempt, parseAmount } from '../src/domain/finance.ts';
 
 const session = (permissions, principalKind = 'account') => ({
   subject: crypto.randomUUID(),
@@ -46,13 +41,13 @@ test('three roles: operations, finance and super-admin each open exactly their s
   assert.deepEqual(screens(sup), ['dashboard', 'bookings', 'technicians', 'payments']);
   assert.equal(defaultScreen(fin), 'payments');
   assert.equal(ops.assignmentActions, true);
-  assert.equal(ops.reconcile, false);
+  assert.equal(ops.financeCases, false);
   assert.equal(fin.assignmentActions, false);
-  assert.equal(fin.reconcile, true);
-  assert.equal(sup.assignmentActions && sup.reconcile, true);
-  // Finance without the reconcile permission (main before P03-E1) reads only.
-  const readOnly = capabilities(session(['billing.read', 'billing.refund']));
-  assert.equal(readOnly.payments && !readOnly.reconcile, true);
+  assert.equal(fin.financeCases, true);
+  assert.equal(sup.assignmentActions && sup.financeCases && sup.operationsCases, true);
+  // Reading payments alone never opens or decides a payment case.
+  const readOnly = capabilities(session(['billing.read']));
+  assert.equal(readOnly.payments && !readOnly.financeCases, true);
   assert.equal(isStaff(capabilities(session(['billing.read'], 'guest'))), false);
 });
 
@@ -96,27 +91,7 @@ test('money: exact minor units both ways, no float, no rounding', () => {
     assert.equal(parseAmount(bad, 'SYP', 2).problem, 'AMOUNT_INVALID', bad);
 });
 
-test('reconciliation: MATCHED/MISMATCHED need the statement amount; UNKNOWN records none', () => {
-  const base = { currency: 'SYP', scale: 2 };
-  assert.deepEqual(validateReconciliation({ ...base, outcome: 'MATCHED', observed: '2500' }), {
-    ok: true,
-    value: {
-      outcome: 'MATCHED',
-      observedAmount: { currency: 'SYP', amountMinor: '250000', scale: 2 },
-    },
-  });
-  assert.deepEqual(validateReconciliation({ ...base, outcome: 'UNKNOWN', observed: 'ignored' }), {
-    ok: true,
-    value: { outcome: 'UNKNOWN', observedAmount: null },
-  });
-  assert.equal(
-    validateReconciliation({ ...base, outcome: 'MISMATCHED', observed: '' }).problem,
-    'AMOUNT_REQUIRED',
-  );
-  assert.equal(
-    validateReconciliation({ ...base, outcome: 'PAID', observed: '1' }).problem,
-    'OUTCOME_REQUIRED',
-  );
+test('a review case is offered only for attempts Billing still has under review', () => {
   assert.equal(isOpenAttempt('PENDING_REVIEW'), true);
   assert.equal(isOpenAttempt('UNKNOWN'), true);
   assert.equal(isOpenAttempt('MATCHED'), false);

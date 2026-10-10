@@ -12,6 +12,14 @@ import {
   type StaffSession,
 } from './domain/access';
 import { isUuid } from './domain/bookings';
+import { readableKinds } from './domain/cases';
+import { wireCases } from './ui/case-detail';
+import {
+  refreshDisputes,
+  renderDisputeFilters,
+  showDisputes,
+  wireDisputes,
+} from './ui/disputes-screen';
 import { wireBookingDetail } from './ui/booking-detail';
 import { refreshBookings, renderFilters, showBookings, wireBookings } from './ui/bookings-screen';
 import { showDashboard, wireDashboard } from './ui/dashboard-screen';
@@ -33,7 +41,7 @@ import { openReview, showTechnicians, wireTechnicians } from './ui/technicians-s
 /**
  * Admin console entry: session, capability gating and hash routing.
  * Routes: #/dashboard, #/bookings, #/technicians, #/technicians/review/<caseId>,
- * #/payments.
+ * #/payments, #/disputes.
  */
 export const WEB_RUNTIME = Object.freeze({
   app: 'admin-web',
@@ -47,7 +55,9 @@ const NO_CAPABILITIES: Capabilities = {
   reviewDecisions: false,
   assignmentActions: false,
   payments: false,
-  reconcile: false,
+  cases: false,
+  financeCases: false,
+  operationsCases: false,
 };
 let session: StaffSession | null = null;
 let caps: Capabilities = NO_CAPABILITIES;
@@ -110,6 +120,9 @@ async function render(): Promise<void> {
     case 'payments':
       await showPayments();
       return;
+    case 'disputes':
+      await showDisputes();
+      return;
     case 'technicians':
       await showTechnicians();
       if (caseId) openReview(caseId);
@@ -143,6 +156,7 @@ async function boot(): Promise<void> {
   applyLanguage(storedLanguage());
   wireShell(() => {
     renderFilters();
+    if (session) renderDisputeFilters();
     renderProfile();
     gateNavigation();
     void render();
@@ -152,12 +166,23 @@ async function boot(): Promise<void> {
   wireBookingDetail({
     unauthenticated,
     canAct: () => caps.assignmentActions,
+    canOpenCases: () => caps.operationsCases,
     changed: () => {
       if (route().screen === 'bookings') void refreshBookings();
     },
   });
   wireTechnicians({ unauthenticated, capabilities: () => caps });
-  wirePayments({ unauthenticated, canReconcile: () => caps.reconcile });
+  wirePayments({
+    unauthenticated,
+    canOpenCases: () => caps.financeCases,
+    canReadCases: () => caps.cases,
+  });
+  wireDisputes({ unauthenticated, readableKinds: () => readableKinds(session?.permissions ?? []) });
+  wireCases({
+    unauthenticated,
+    viewer: () => ({ subject: session?.subject ?? '', permissions: session?.permissions ?? [] }),
+    changed: refreshDisputes,
+  });
   byId('reconcileToday').addEventListener('click', focusLookup);
   byId('accountBtn').addEventListener('click', () => {
     if (session) void leave();

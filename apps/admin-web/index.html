@@ -9,9 +9,10 @@
   <body>
     <!--
       Port of design/reference/approved/washgo-admin-prototype.html (shell,
-      "bookings" and "technicians" screens, modal and toast). Markup and copy
-      follow the reference; declared production differences are listed in
-      docs/production/D/P02-D2_ADMIN_OPERATIONS_CONSOLE.md.
+      "dashboard", "bookings", "technicians", "payments" and "disputes"
+      screens, modal and toast). Markup and copy follow the reference; declared
+      production differences are listed in docs/production/D/P02-D2_*, P03-D3_*
+      and P04-D2_* documents.
     -->
     <div class="app" id="appRoot" aria-busy="true">
       <aside class="sidebar" id="sidebar">
@@ -66,7 +67,7 @@
           <button data-screen="reviews" disabled>
             <span class="ic">★</span><span data-i18n="reviews">التقييمات</span>
           </button>
-          <button data-screen="disputes" disabled>
+          <button data-screen="disputes">
             <span class="ic">⚠</span><span data-i18n="disputes">النزاعات</span>
           </button>
           <button data-screen="notifications" disabled>
@@ -279,6 +280,35 @@
                 <button class="primary" type="submit">فتح المطالبة</button>
               </form>
             </div>
+          </section>
+
+          <section class="screen" id="disputes" aria-labelledby="disputesTitle">
+            <div class="page-head">
+              <div>
+                <h1 data-i18n="disputes" id="disputesTitle">مركز النزاعات</h1>
+                <p>شكاوى الحجوزات، الأدلة والقرارات.</p>
+              </div>
+            </div>
+            <div class="toolbar">
+              <select id="caseKindFilter" aria-label="السبب"></select>
+              <select id="caseStatusFilter" aria-label="الحالة"></select>
+            </div>
+            <div class="card panel table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">القضية</th>
+                    <th scope="col">الحجز</th>
+                    <th scope="col">السبب</th>
+                    <th scope="col">العمر</th>
+                    <th scope="col">الأولوية</th>
+                    <th scope="col">الحالة</th>
+                  </tr>
+                </thead>
+                <tbody id="caseRows"></tbody>
+              </table>
+            </div>
+            <div class="load-more" id="caseMore"></div>
           </section>
 
           <section class="screen" id="console-state" aria-live="polite"></section>

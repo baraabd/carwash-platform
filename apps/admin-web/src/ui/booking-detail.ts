@@ -1,4 +1,5 @@
 import type { Result } from '../api/http';
+import { startCase } from './case-detail';
 import {
   bookingAssignment,
   bookingNotifications,
@@ -32,6 +33,8 @@ import { failureMessage, formatInstant, freshnessStrip } from './states';
 export interface DetailHooks {
   readonly unauthenticated: () => void;
   readonly canAct: () => boolean;
+  /** Open an operational cancellation or reschedule case in Support (operations). */
+  readonly canOpenCases: () => boolean;
   /** Called after Dispatch accepted a command, so the live table refreshes. */
   readonly changed: () => void;
 }
@@ -39,6 +42,7 @@ export interface DetailHooks {
 let hooks: DetailHooks = {
   unauthenticated: () => undefined,
   canAct: () => false,
+  canOpenCases: () => false,
   changed: () => undefined,
 };
 
@@ -94,7 +98,27 @@ async function fillBooking(bookingId: string, into: HTMLElement): Promise<void> 
       [c.revision, String(b.revision)],
     ]),
     h('p', { class: 'muted' }, c.contactWithheld),
+    hooks.canOpenCases() ? exceptionActions(bookingId) : null,
   );
+}
+
+/** Cancellation and reschedule are exceptions decided in Support and carried out by Booking. */
+function exceptionActions(bookingId: string): HTMLElement {
+  const c = copy();
+  const subject = { type: 'booking', id: bookingId, parentId: null } as const;
+  const cancel = h(
+    'button',
+    { class: 'ghost', type: 'button', id: 'caseCancelBooking' },
+    c.cancelBookingCase,
+  );
+  cancel.addEventListener('click', () => startCase('BOOKING_CANCELLATION', subject));
+  const move = h(
+    'button',
+    { class: 'ghost', type: 'button', id: 'caseRescheduleBooking' },
+    c.rescheduleBookingCase,
+  );
+  move.addEventListener('click', () => startCase('BOOKING_RESCHEDULE', subject));
+  return h('div', { class: 'form-actions' }, cancel, move);
 }
 
 async function fillNotifications(bookingId: string, into: HTMLElement): Promise<void> {
