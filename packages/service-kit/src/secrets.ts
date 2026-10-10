@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from 'node:fs';
+import { closeSync, openSync, readSync } from 'node:fs';
 import path from 'node:path';
 
 /**
@@ -52,11 +52,30 @@ function raw(env: NodeJS.ProcessEnv, name: string): string | null {
   if (hasDirect) return direct;
   if (!hasFile) return null;
   if (!path.isAbsolute(file)) throw new SecretConfigurationError('SECRET_FILE_NOT_ABSOLUTE', name);
+  return readBounded(file, name);
+}
+
+/**
+ * One descriptor, one bounded read: no separate stat-then-read window, and a
+ * file that grows past the limit is refused instead of being read whole.
+ */
+function readBounded(file: string, name: string): string {
+  let fd: number | undefined;
   try {
-    if (statSync(file).size > MAX_FILE_BYTES) throw new Error('too large');
-    return readFileSync(file, 'utf8');
+    fd = openSync(file, 'r');
+    const buffer = Buffer.alloc(MAX_FILE_BYTES + 1);
+    let length = 0;
+    while (length < buffer.length) {
+      const read = readSync(fd, buffer, length, buffer.length - length, null);
+      if (read === 0) break;
+      length += read;
+    }
+    if (length > MAX_FILE_BYTES) throw new Error('too large');
+    return buffer.subarray(0, length).toString('utf8');
   } catch {
     throw new SecretConfigurationError('SECRET_FILE_UNREADABLE', name);
+  } finally {
+    if (fd !== undefined) closeSync(fd);
   }
 }
 

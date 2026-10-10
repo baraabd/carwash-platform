@@ -210,6 +210,9 @@ test('secrets: env or mounted file, never both; rotation lines; errors never ech
     failure({ PAY_SIGNING_FILE: 'relative/path' }, 'SECRET_FILE_NOT_ABSOLUTE');
     failure({ PAY_SIGNING_FILE: path.join(dir, 'missing') }, 'SECRET_FILE_UNREADABLE');
     failure({ PAY_SIGNING: value.slice(0, 10) }, 'SECRET_TOO_SHORT');
+    const big = path.join(dir, 'big');
+    writeFileSync(big, 'x'.repeat(16_385));
+    failure({ PAY_SIGNING_FILE: big }, 'SECRET_FILE_UNREADABLE');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
