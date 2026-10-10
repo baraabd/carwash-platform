@@ -1,8 +1,6 @@
 import {
   Money,
-  MoneyError,
   PAYMENT_METHODS,
-  PaymentRuleError,
   RECONCILIATION_OUTCOMES,
   normalizeProviderReference,
   obligationBilledJournal,
@@ -18,12 +16,9 @@ import {
   type ReconciliationOutcome,
 } from '../domain';
 import {
-  AccessDenied,
-  ConcurrentModification,
   ObligationAlreadyExists,
   ProviderReferenceTaken,
   QuoteUnavailable,
-  ReceiptAlreadyExists,
   type AccessAuthority,
   type AuditAction,
   type BillingRepository,
@@ -32,7 +27,6 @@ import {
   type FinancialSnapshot,
   type Hasher,
   type IdGenerator,
-  type IdempotencyReceipt,
   type ObligationRecord,
   type PrincipalRef,
   type QuoteReader,
@@ -40,7 +34,21 @@ import {
   type VerifiedPrincipal,
 } from '../ports';
 import { BillingApplicationError } from './billing-errors';
-import { canonicalJson } from './canonical-json';
+import {
+  CommandSupport,
+  decide,
+  moneyInput,
+  objectWithKeys,
+  oneOf,
+  refOf,
+  revision,
+  sameRef,
+  target,
+  uuid,
+  type Command,
+  type CommandResult,
+  type RequestContext,
+} from './command-support';
 import { obligationCreatedEvent, obligationStatusChangedEvent } from './events';
 import { financialStatusView, obligationView, snapshotFinancialStatus } from './views';
 
@@ -60,84 +68,6 @@ export const OPERATIONS = {
   void: 'billing.obligation.void.v1',
 } as const;
 
-export const IDEMPOTENCY_KEY = /^[A-Za-z0-9_-]{16,128}$/;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const MAX_REVISION = 2_147_483_647;
-
-export interface RequestContext {
-  readonly credential: string | undefined;
-  readonly correlationId: string;
-}
-
-export interface CommandResult {
-  readonly status: number;
-  readonly body: Readonly<Record<string, unknown>>;
-  readonly replayed: boolean;
-}
-
-function objectWithKeys(body: unknown, keys: readonly string[]): Record<string, unknown> {
-  if (typeof body !== 'object' || body === null || Array.isArray(body))
-    throw new BillingApplicationError('REQUEST_INVALID');
-  const input = body as Record<string, unknown>;
-  if (Object.keys(input).sort().join(',') !== [...keys].sort().join(','))
-    throw new BillingApplicationError('REQUEST_INVALID');
-  return input;
-}
-
-function uuid(value: unknown, field: string): string {
-  if (typeof value !== 'string' || !UUID.test(value))
-    throw new BillingApplicationError('REQUEST_INVALID', { field });
-  return value;
-}
-
-function revision(value: unknown): number {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value >= MAX_REVISION)
-    throw new BillingApplicationError('REQUEST_INVALID', { field: 'expectedRevision' });
-  return value;
-}
-
-function oneOf<T extends string>(value: unknown, allowed: readonly T[], field: string): T {
-  const found = allowed.find((candidate) => candidate === value);
-  if (!found) throw new BillingApplicationError('REQUEST_INVALID', { field });
-  return found;
-}
-
-function moneyInput(value: unknown, field: string): Money {
-  try {
-    return Money.parse(value);
-  } catch (error: unknown) {
-    if (!(error instanceof MoneyError)) throw error;
-    if (error.code === 'CURRENCY_UNSUPPORTED')
-      throw new BillingApplicationError('CURRENCY_UNSUPPORTED', { field });
-    throw new BillingApplicationError('REQUEST_INVALID', { field });
-  }
-}
-
-function sameRef(a: PrincipalRef, b: PrincipalRef): boolean {
-  return a.kind === b.kind && a.subjectId === b.subjectId;
-}
-
-function refOf(principal: VerifiedPrincipal): PrincipalRef {
-  return { kind: principal.kind, subjectId: principal.subject };
-}
-
-/** Runs a domain decision and converts its rule failure to a public code. */
-function decide<T>(work: () => T): T {
-  try {
-    return work();
-  } catch (error: unknown) {
-    if (error instanceof PaymentRuleError) throw new BillingApplicationError(error.code);
-    throw error;
-  }
-}
-
-interface Command {
-  readonly principal: VerifiedPrincipal;
-  readonly operation: string;
-  readonly key: string;
-  readonly fingerprint: string;
-}
-
 interface LockedCommand {
   readonly uow: BillingUnitOfWork;
   readonly before: FinancialSnapshot;
@@ -148,14 +78,16 @@ interface LockedCommand {
  * Billing application service: financial obligations, payment intents, payment
  * attempts and reconciliation.
  *
- * Every mutating command: verify the caller with Identity -> validate input ->
- * fingerprint -> replay a committed receipt if one exists -> ONE local ACID
- * transaction that locks the obligation row, checks ownership and the expected
- * revision, applies the domain plan, posts balanced journals, appends audit and
- * outbox rows, and stores the idempotency receipt. Only committed successes are
- * stored as receipts; a rejected command leaves no receipt and may be retried.
+ * Every mutating command follows the CommandSupport protocol: verify the caller
+ * with Identity -> validate input -> fingerprint -> replay a committed receipt
+ * if one exists -> ONE local ACID transaction that locks the obligation row,
+ * checks ownership and the expected revision, applies the domain plan, posts
+ * balanced journals, appends audit and outbox rows, and stores the idempotency
+ * receipt. A rejected command leaves no receipt and may be retried.
  */
 export class BillingService {
+  private readonly commands: CommandSupport;
+
   constructor(
     private readonly deps: {
       readonly repository: BillingRepository;
@@ -165,85 +97,8 @@ export class BillingService {
       readonly ids: IdGenerator;
       readonly hasher: Hasher;
     },
-  ) {}
-
-  private async principal(context: RequestContext): Promise<VerifiedPrincipal> {
-    try {
-      return await this.deps.authority.verify(context.credential, context.correlationId);
-    } catch (error: unknown) {
-      if (error instanceof AccessDenied) throw new BillingApplicationError(error.reason);
-      throw new BillingApplicationError('AUTH_UNAVAILABLE');
-    }
-  }
-
-  private async permitted(context: RequestContext, permission: string) {
-    const principal = await this.principal(context);
-    if (!principal.permissions.includes(permission))
-      throw new BillingApplicationError('AUTH_FORBIDDEN');
-    return principal;
-  }
-
-  private key(value: unknown): string {
-    if (typeof value !== 'string' || !IDEMPOTENCY_KEY.test(value))
-      throw new BillingApplicationError('IDEMPOTENCY_KEY_INVALID');
-    return value;
-  }
-
-  private command(
-    principal: VerifiedPrincipal,
-    operation: string,
-    key: string,
-    request: Record<string, unknown>,
-  ): Command {
-    const fingerprint = this.deps.hasher.sha256Hex(
-      canonicalJson({ operation, actor: refOf(principal), request }),
-    );
-    return { principal, operation, key, fingerprint };
-  }
-
-  private replay(receipt: IdempotencyReceipt, command: Command): CommandResult {
-    if (receipt.requestFingerprint !== command.fingerprint)
-      throw new BillingApplicationError('IDEMPOTENCY_CONFLICT');
-    return { ...receipt.outcome, replayed: true };
-  }
-
-  /**
-   * Replay-or-execute. A concurrent request with the same key that commits first
-   * makes our receipt insert fail; the winner's outcome is then replayed.
-   */
-  private async execute(
-    command: Command,
-    work: (uow: BillingUnitOfWork, now: Date) => Promise<RecordedOutcome>,
-  ): Promise<CommandResult> {
-    const actor = refOf(command.principal);
-    const existing = await this.deps.repository.findReceipt(actor, command.operation, command.key);
-    if (existing) return this.replay(existing, command);
-    try {
-      return await this.deps.repository.transaction(async (uow) => {
-        const raced = await uow.findReceipt(actor, command.operation, command.key);
-        if (raced) return this.replay(raced, command);
-        const now = this.deps.clock.now();
-        const outcome = await work(uow, now);
-        await uow.saveReceipt(
-          {
-            actor,
-            operation: command.operation,
-            idempotencyKey: command.key,
-            requestFingerprint: command.fingerprint,
-            outcome,
-          },
-          now,
-        );
-        return { ...outcome, replayed: false };
-      });
-    } catch (error: unknown) {
-      if (error instanceof ConcurrentModification)
-        throw new BillingApplicationError('REVISION_CONFLICT');
-      if (!(error instanceof ReceiptAlreadyExists)) throw error;
-      const winner = await this.deps.repository.findReceipt(actor, command.operation, command.key);
-      if (!winner) throw error;
-      return this.replay(winner, command);
-    }
+  ) {
+    this.commands = new CommandSupport(deps);
   }
 
   /** Lock -> owner/finance access check -> revision check, inside the transaction. */
@@ -289,6 +144,8 @@ export class BillingService {
       action: audit.action,
       obligationId,
       attemptId: audit.attemptId,
+      receiptId: null,
+      handoverId: null,
       outcome: audit.outcome,
       correlationId: context.correlationId,
     });
@@ -338,17 +195,13 @@ export class BillingService {
     idempotencyKey: unknown,
     body: unknown,
   ): Promise<CommandResult> {
-    const principal = await this.permitted(context, CREATE_PERMISSION);
-    const key = this.key(idempotencyKey);
+    const principal = await this.commands.permitted(context, CREATE_PERMISSION);
+    const key = this.commands.key(idempotencyKey);
     const input = objectWithKeys(body, ['quoteId']);
     const quoteId = uuid(input.quoteId, 'quoteId');
-    const command = this.command(principal, OPERATIONS.create, key, { quoteId });
-    const existing = await this.deps.repository.findReceipt(
-      refOf(principal),
-      command.operation,
-      key,
-    );
-    if (existing) return this.replay(existing, command);
+    const command = this.commands.command(principal, OPERATIONS.create, key, { quoteId });
+    const existing = await this.commands.committed(command);
+    if (existing) return existing;
 
     let quote;
     try {
@@ -365,7 +218,7 @@ export class BillingService {
     const total = quote.total;
 
     try {
-      return await this.execute(command, async (uow, now) => {
+      return await this.commands.execute(command, async (uow, now) => {
         const already = await uow.obligationIdForQuote(quoteId);
         if (already) throw new ObligationAlreadyExists();
         const obligation: ObligationRecord = {
@@ -383,6 +236,7 @@ export class BillingService {
         await uow.postJournal(obligationBilledJournal(obligation.id, total), {
           id: this.deps.ids.uuid(),
           obligationId: obligation.id,
+          handoverId: null,
           postedAt: now,
           correlationId: context.correlationId,
         });
@@ -393,6 +247,8 @@ export class BillingService {
           action: 'billing.obligation.created',
           obligationId: obligation.id,
           attemptId: null,
+          receiptId: null,
+          handoverId: null,
           outcome: 'OPEN',
           correlationId: context.correlationId,
         });
@@ -425,7 +281,7 @@ export class BillingService {
         command.operation,
         key,
       );
-      if (receipt) return this.replay(receipt, command);
+      if (receipt) return this.commands.replay(receipt, command);
       // One quote has exactly one obligation. Only the quote's owner reaches this
       // point (Pricing confirmed it), so returning their existing obligation
       // (200, not 201) discloses nothing and makes creation safe to repeat.
@@ -455,18 +311,18 @@ export class BillingService {
     idempotencyKey: unknown,
     body: unknown,
   ): Promise<CommandResult> {
-    const principal = await this.permitted(context, CREATE_PERMISSION);
-    const id = this.target(obligationId);
-    const key = this.key(idempotencyKey);
+    const principal = await this.commands.permitted(context, CREATE_PERMISSION);
+    const id = target(obligationId);
+    const key = this.commands.key(idempotencyKey);
     const input = objectWithKeys(body, ['expectedRevision', 'method']);
     const expectedRevision = revision(input.expectedRevision);
     const method: PaymentMethod = oneOf(input.method, PAYMENT_METHODS, 'method');
-    const command = this.command(principal, OPERATIONS.initialize, key, {
+    const command = this.commands.command(principal, OPERATIONS.initialize, key, {
       obligationId: id,
       expectedRevision,
       method,
     });
-    return this.execute(command, async (uow, now) => {
+    return this.commands.execute(command, async (uow, now) => {
       const before = await this.locked(uow, id, expectedRevision, this.isOwner(principal));
       const plan = decide(() =>
         planMethodSelection({
@@ -519,21 +375,21 @@ export class BillingService {
     idempotencyKey: unknown,
     body: unknown,
   ): Promise<CommandResult> {
-    const principal = await this.permitted(context, CREATE_PERMISSION);
-    const id = this.target(obligationId);
-    const key = this.key(idempotencyKey);
+    const principal = await this.commands.permitted(context, CREATE_PERMISSION);
+    const id = target(obligationId);
+    const key = this.commands.key(idempotencyKey);
     const input = objectWithKeys(body, ['expectedRevision', 'providerReference']);
     const expectedRevision = revision(input.expectedRevision);
     const reference = normalizeProviderReference(input.providerReference);
     if (!reference)
       throw new BillingApplicationError('REQUEST_INVALID', { field: 'providerReference' });
-    const command = this.command(principal, OPERATIONS.submit, key, {
+    const command = this.commands.command(principal, OPERATIONS.submit, key, {
       obligationId: id,
       expectedRevision,
       providerReference: reference,
     });
     try {
-      return await this.execute(command, async (uow, now) => {
+      return await this.commands.execute(command, async (uow, now) => {
         const before = await this.locked(uow, id, expectedRevision, this.isOwner(principal));
         const attemptsSoFar = await uow.countAttempts(id);
         decide(() =>
@@ -594,27 +450,27 @@ export class BillingService {
     idempotencyKey: unknown,
     body: unknown,
   ): Promise<CommandResult> {
-    const principal = await this.permitted(context, RECONCILE_PERMISSION);
-    const target = this.target(attemptId);
-    const key = this.key(idempotencyKey);
+    const principal = await this.commands.permitted(context, RECONCILE_PERMISSION);
+    const attemptTarget = target(attemptId);
+    const key = this.commands.key(idempotencyKey);
     const input = objectWithKeys(body, ['expectedRevision', 'outcome', 'observedAmount']);
     const expectedRevision = revision(input.expectedRevision);
     const outcome: ReconciliationOutcome = oneOf(input.outcome, RECONCILIATION_OUTCOMES, 'outcome');
     const observed =
       input.observedAmount === null ? null : moneyInput(input.observedAmount, 'observedAmount');
-    const command = this.command(principal, OPERATIONS.reconcile, key, {
-      attemptId: target,
+    const command = this.commands.command(principal, OPERATIONS.reconcile, key, {
+      attemptId: attemptTarget,
       expectedRevision,
       outcome,
       observedAmount: observed?.toWire() ?? null,
     });
-    const obligationId = await this.deps.repository.obligationIdForAttempt(target);
+    const obligationId = await this.deps.repository.obligationIdForAttempt(attemptTarget);
     if (!obligationId) throw new BillingApplicationError('NOT_FOUND');
-    return this.execute(command, async (uow, now) => {
+    return this.commands.execute(command, async (uow, now) => {
       const before = await this.locked(uow, obligationId, expectedRevision, () => true);
       if (sameRef(before.obligation.owner, refOf(principal)))
         throw new BillingApplicationError('AUTH_FORBIDDEN');
-      const attempt = before.attempts.find((candidate) => candidate.id === target);
+      const attempt = before.attempts.find((candidate) => candidate.id === attemptTarget);
       if (!attempt) throw new BillingApplicationError('NOT_FOUND');
       if (observed && observed.currency !== before.obligation.amount.currency)
         throw new BillingApplicationError('CURRENCY_UNSUPPORTED', { field: 'observedAmount' });
@@ -645,6 +501,7 @@ export class BillingService {
         await uow.postJournal(paymentMatchedJournal(attempt.id, attempt.method, plan.received), {
           id: this.deps.ids.uuid(),
           obligationId,
+          handoverId: null,
           postedAt: now,
           correlationId: context.correlationId,
         });
@@ -677,16 +534,16 @@ export class BillingService {
     idempotencyKey: unknown,
     body: unknown,
   ): Promise<CommandResult> {
-    const principal = await this.permitted(context, CREATE_PERMISSION);
-    const id = this.target(obligationId);
-    const key = this.key(idempotencyKey);
+    const principal = await this.commands.permitted(context, CREATE_PERMISSION);
+    const id = target(obligationId);
+    const key = this.commands.key(idempotencyKey);
     const input = objectWithKeys(body, ['expectedRevision']);
     const expectedRevision = revision(input.expectedRevision);
-    const command = this.command(principal, OPERATIONS.void, key, {
+    const command = this.commands.command(principal, OPERATIONS.void, key, {
       obligationId: id,
       expectedRevision,
     });
-    return this.execute(command, async (uow, now) => {
+    return this.commands.execute(command, async (uow, now) => {
       const before = await this.locked(uow, id, expectedRevision, this.isOwner(principal));
       const attemptsSoFar = await uow.countAttempts(id);
       decide(() => planVoid({ obligation: before.obligation, attemptsSoFar }));
@@ -695,6 +552,7 @@ export class BillingService {
       await uow.postJournal(obligationVoidedJournal(id, before.obligation.amount), {
         id: this.deps.ids.uuid(),
         obligationId: id,
+        handoverId: null,
         postedAt: now,
         correlationId: context.correlationId,
       });
@@ -715,14 +573,9 @@ export class BillingService {
 
   // ------------------------------------------------------------------ queries
 
-  private target(id: string): string {
-    if (!UUID.test(id)) throw new BillingApplicationError('NOT_FOUND');
-    return id;
-  }
-
   private async readable(context: RequestContext, obligationId: string) {
-    const principal = await this.principal(context);
-    const id = this.target(obligationId);
+    const principal = await this.commands.principal(context);
+    const id = target(obligationId);
     const snapshot = await this.deps.repository.snapshot(id);
     const owner =
       snapshot !== null &&

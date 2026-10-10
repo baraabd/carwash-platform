@@ -16,6 +16,12 @@ export interface OperatorState {
   readonly verificationStatus: VerificationStatus;
   readonly verifiedUntil: Date | null;
   readonly version: number;
+  /**
+   * Capacity-resource eligibility revision. Increases together with `version`
+   * on every change of an eligibility input (employment, suspension,
+   * verification status/validity, skills) and never otherwise.
+   */
+  readonly eligibilityRevision: number;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -56,6 +62,7 @@ export function createOperator(input: {
     verificationStatus: 'UNVERIFIED',
     verifiedUntil: null,
     version: 1,
+    eligibilityRevision: 1,
     createdAt: input.now,
     updatedAt: input.now,
   };
@@ -94,12 +101,7 @@ export function setEmployment(
     invalid('Unknown employment status.');
   }
   if (state.employmentStatus === status) return state;
-  return {
-    ...state,
-    employmentStatus: status,
-    version: state.version + 1,
-    updatedAt: now,
-  };
+  return eligibilityInputChanged({ ...state, employmentStatus: status }, now);
 }
 
 export function setSuspension(
@@ -116,12 +118,7 @@ export function setSuspension(
     invalid('Unknown suspension reason.');
   }
   if (state.suspensionReason === reason) return state;
-  return {
-    ...state,
-    suspensionReason: reason,
-    version: state.version + 1,
-    updatedAt: now,
-  };
+  return eligibilityInputChanged({ ...state, suspensionReason: reason }, now);
 }
 
 export function setVerificationProjection(
@@ -137,11 +134,27 @@ export function setVerificationProjection(
   } else if (validUntil !== null) {
     invalid('Only VERIFIED operators may have verifiedUntil.');
   }
+  const unchanged =
+    state.verificationStatus === status &&
+    (state.verifiedUntil?.getTime() ?? null) === (validUntil?.getTime() ?? null);
+  const next = { ...state, verificationStatus: status, verifiedUntil: validUntil };
+  // The projection always records a new operator version (existing P01-C2
+  // behaviour); the eligibility revision moves only when an input changed.
+  return unchanged
+    ? { ...next, version: state.version + 1, updatedAt: now }
+    : eligibilityInputChanged(next, now);
+}
+
+/** A skill was granted or revoked: the skill set is an eligibility input. */
+export function recordSkillChange(state: OperatorState, now: Date): OperatorState {
+  return eligibilityInputChanged(state, now);
+}
+
+function eligibilityInputChanged(state: OperatorState, now: Date): OperatorState {
   return {
     ...state,
-    verificationStatus: status,
-    verifiedUntil: validUntil,
     version: state.version + 1,
+    eligibilityRevision: state.eligibilityRevision + 1,
     updatedAt: now,
   };
 }

@@ -8,7 +8,7 @@ import {
   createVerificationCase,
   operationalReadiness,
   setVerificationProjection,
-} from '../src/domain';
+} from '../../src/domain';
 
 const ids = {
   operator: '11111111-1111-4111-8111-111111111111',

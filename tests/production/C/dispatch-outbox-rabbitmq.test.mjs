@@ -13,6 +13,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { ROOT, amqplib, messaging, readContext, require, serviceDist } from './_support.mjs';
+import { eligibleWorkforce } from './support/dispatch-workforce-double.mjs';
 
 const { parseEnvelopeV2 } = require(
   path.join(ROOT, 'packages', 'event-contracts', 'dist', 'index.js'),
@@ -155,7 +156,7 @@ test('assignment changes commit with their events and reach the broker exactly a
     },
     (tx) => handler.apply(tx, message),
   );
-  const service = new DispatchService(store, store, clock, ids);
+  const service = new DispatchService(store, store, clock, ids, eligibleWorkforce);
   const assignment = await store.findAssignmentByBooking(hold.bookingId);
   const correlationId = randomUUID();
   const tech = { kind: 'USER', subject: randomUUID(), permissions: ['work.execute:assigned'] };
@@ -209,6 +210,26 @@ test('assignment changes commit with their events and reach the broker exactly a
     const text = JSON.stringify(event.body.data);
     assert.ok(!text.includes(tech.subject), 'event data carries no technician identity');
   }
+
+  // The task milestone created by the acceptance is relayed too (producer-pending
+  // dispatch.task-progressed.v1): routing key = event type, opaque ids only.
+  const task = (
+    await waitReceived(
+      (m) =>
+        m.routingKey === 'dispatch.task-progressed.v1' &&
+        m.body.data?.assignmentId === assignment.id,
+      1,
+    )
+  )[0];
+  assert.equal(task.body.data.stage, 'ACCEPTED');
+  assert.equal(task.body.aggregate.type, 'task');
+  assert.equal(task.properties.correlationId, task.body.correlationId);
+  assert.deepEqual(Object.keys(task.body.data).sort(), [
+    'assignmentId',
+    'bookingId',
+    'stage',
+    'taskId',
+  ]);
 
   // A second drain publishes nothing more for these rows.
   const before = received.filter(mine).length;

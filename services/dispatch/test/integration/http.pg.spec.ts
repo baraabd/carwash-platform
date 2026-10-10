@@ -5,6 +5,13 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { INestApplication } from '@nestjs/common';
 import { createHttpApplication } from '../../src/transport/http/create-app';
+import {
+  DISPATCH_CLIENT,
+  DISPATCH_CLIENT_TOKEN,
+  workforceDouble,
+  type Double,
+  type ResourceSetting,
+} from './http-doubles';
 import { TestClock, laneContext, openJob, replica, type Replica } from './support';
 
 /**
@@ -13,7 +20,8 @@ import { TestClock, laneContext, openJob, replica, type Replica } from './suppor
  * Identity is a local HTTP double of `GET /internal/v1/identity/session`
  * (Identity V1 contract shape). It is the only substitute in this suite and it
  * is declared as such in the evidence; token verification itself is Identity's
- * own tested responsibility.
+ * own tested responsibility. Workforce eligibility comes from an HTTP double
+ * of the PUBLISHED workforce.v1 capacity-resources route (./http-doubles).
  */
 const SERVICE_TOKEN = 's'.repeat(48);
 const TECH_A = randomUUID();
@@ -37,6 +45,15 @@ const SESSIONS: Record<string, { subject: string; permissions: string[] } | 'DOW
 };
 
 let identity: Server;
+let workforce: Double;
+const RESOURCES = new Map<string, ResourceSetting>();
+
+/** A resource the Workforce double lists as ELIGIBLE for any job window. */
+function eligible(): string {
+  const id = randomUUID();
+  RESOURCES.set(id, { eligibility: 'ELIGIBLE', eligibilityRevision: 1 });
+  return id;
+}
 let app: INestApplication;
 let base: string;
 let seed: Replica;
@@ -63,6 +80,10 @@ before(async () => {
   await new Promise<void>((resolve) => identity.listen(0, '127.0.0.1', resolve));
   process.env.DATABASE_URL = laneContext().databases.dispatch!.appUrl;
   process.env.IDENTITY_URL = `http://127.0.0.1:${(identity.address() as AddressInfo).port}`;
+  workforce = await workforceDouble(RESOURCES);
+  process.env.DISPATCH_WORKFORCE_URL = workforce.url;
+  process.env.DISPATCH_WORKFORCE_CLIENT_ID = DISPATCH_CLIENT;
+  process.env.DISPATCH_WORKFORCE_CLIENT_TOKEN = DISPATCH_CLIENT_TOKEN;
   process.env.DISPATCH_USER_REQUESTS_PER_MINUTE = '60';
   process.env.DISPATCH_SERVICE_CLIENTS = JSON.stringify([
     { id: 'booking', tokenSha256: digest(SERVICE_TOKEN), scopes: ['dispatch.assignment.read'] },
@@ -77,6 +98,7 @@ after(async () => {
   await app.close();
   await seed.prisma.client.$disconnect();
   await new Promise<void>((resolve) => identity.close(() => resolve()));
+  await workforce.close();
 });
 
 const user = (token: string) => ({ authorization: `Bearer ${token}` });
@@ -125,7 +147,7 @@ async function call(
 const idem = () => ({ 'idempotency-key': `http-${randomUUID()}` });
 
 function offerBody(revision: number, technician = TECH_A) {
-  return { expectedRevision: revision, resourceId: randomUUID(), technicianSubjectId: technician };
+  return { expectedRevision: revision, resourceId: eligible(), technicianSubjectId: technician };
 }
 
 test('authentication: none, ambiguous, invalid and Identity outage fail closed', async () => {
@@ -234,7 +256,7 @@ test('idempotency at the edge: header required, replay 200 with the same offer, 
   assert.equal(first.status, 201);
   assert.equal(replay.status, 200);
   assert.deepEqual(replay.body.offer, first.body.offer);
-  const misuse = await call('POST', path, headers, { ...body, resourceId: randomUUID() });
+  const misuse = await call('POST', path, headers, { ...body, resourceId: eligible() });
   assert.equal(misuse.status, 409);
   assert.equal(misuse.body.error?.code, 'IDEMPOTENCY_CONFLICT');
   const stale = await call(

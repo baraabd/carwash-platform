@@ -17,16 +17,42 @@ export const LEDGER_ACCOUNTS = [
   'BILLED_OBLIGATIONS_CONTROL',
   'CLEARING_SHAM_CASH',
   'CLEARING_SYRIATEL_CASH',
+  // P03-B cash custody chart (technical, provisional; no revenue/tax).
+  'CASH_IN_CUSTODY',
+  'TREASURY_CASH_UNRECONCILED',
+  'TREASURY_CASH',
+  'CUSTODY_SHORTAGE_RECEIVABLE',
+  'CUSTODY_OVERAGE_SUSPENSE',
 ] as const;
 export type LedgerAccount = (typeof LEDGER_ACCOUNTS)[number];
-export const JOURNAL_KINDS = ['OBLIGATION_BILLED', 'OBLIGATION_VOIDED', 'PAYMENT_MATCHED'] as const;
+/** Accounts whose lines carry the custody holder (an Identity subject). */
+export const HOLDER_ACCOUNTS: readonly LedgerAccount[] = [
+  'CASH_IN_CUSTODY',
+  'CUSTODY_SHORTAGE_RECEIVABLE',
+];
+export const JOURNAL_KINDS = [
+  'OBLIGATION_BILLED',
+  'OBLIGATION_VOIDED',
+  'PAYMENT_MATCHED',
+  'CASH_COLLECTED',
+  'CASH_COLLECTION_REVERSED',
+  'CUSTODY_RECEIVED',
+  'CUSTODY_RECONCILED',
+] as const;
 export type JournalKind = (typeof JOURNAL_KINDS)[number];
+/** Journals posted against one handover rather than one obligation. */
+export const HANDOVER_JOURNAL_KINDS: readonly JournalKind[] = [
+  'CUSTODY_RECEIVED',
+  'CUSTODY_RECONCILED',
+];
 export type JournalSide = 'DEBIT' | 'CREDIT';
 
 export interface JournalLine {
   readonly account: LedgerAccount;
   readonly side: JournalSide;
   readonly amount: Money;
+  /** Required exactly for HOLDER_ACCOUNTS. */
+  readonly holder?: string;
 }
 
 export interface JournalPlan {
@@ -36,6 +62,9 @@ export interface JournalPlan {
 }
 
 function balanced(plan: JournalPlan): JournalPlan {
+  for (const line of plan.lines)
+    if (HOLDER_ACCOUNTS.includes(line.account) !== (line.holder !== undefined))
+      throw new Error('INVALID_HOLDER_DIMENSION');
   assertBalancedJournal(
     plan.lines.map((line) => ({
       accountId: line.account,
@@ -89,6 +118,85 @@ export function paymentMatchedJournal(
     lines: [
       { account: clearingAccount(method), side: 'DEBIT', amount: received },
       { account: 'CUSTOMER_RECEIVABLE', side: 'CREDIT', amount: received },
+    ],
+  });
+}
+
+/**
+ * Cash handed to the assigned technician settles the customer's receivable;
+ * the company now holds that cash through the technician (custody).
+ */
+export function cashCollectedJournal(
+  receiptId: string,
+  holder: string,
+  received: Money,
+): JournalPlan {
+  return balanced({
+    kind: 'CASH_COLLECTED',
+    businessRef: `receipt:${receiptId}:collected`,
+    lines: [
+      { account: 'CASH_IN_CUSTODY', side: 'DEBIT', amount: received, holder },
+      { account: 'CUSTOMER_RECEIVABLE', side: 'CREDIT', amount: received },
+    ],
+  });
+}
+
+/** Linked reversal of a collection recorded in error: the receivable returns. */
+export function cashCollectionReversedJournal(
+  receiptId: string,
+  holder: string,
+  amount: Money,
+): JournalPlan {
+  return balanced({
+    kind: 'CASH_COLLECTION_REVERSED',
+    businessRef: `receipt:${receiptId}:reversed`,
+    lines: [
+      { account: 'CUSTOMER_RECEIVABLE', side: 'DEBIT', amount },
+      { account: 'CASH_IN_CUSTODY', side: 'CREDIT', amount, holder },
+    ],
+  });
+}
+
+/**
+ * The treasury counted a handover. The holder's custody is relieved by the
+ * declared total; the counted cash is treasury cash awaiting reconciliation;
+ * any difference is an explicit shortage receivable from the holder or an
+ * overage held in suspense. Zero-amount lines are never written.
+ */
+export function custodyReceivedJournal(
+  handoverId: string,
+  holder: string,
+  declared: Money,
+  plan: { readonly counted: Money; readonly shortage: Money; readonly overage: Money },
+): JournalPlan {
+  const lines: JournalLine[] = [];
+  if (!plan.counted.isZero())
+    lines.push({ account: 'TREASURY_CASH_UNRECONCILED', side: 'DEBIT', amount: plan.counted });
+  if (!plan.shortage.isZero())
+    lines.push({
+      account: 'CUSTODY_SHORTAGE_RECEIVABLE',
+      side: 'DEBIT',
+      amount: plan.shortage,
+      holder,
+    });
+  lines.push({ account: 'CASH_IN_CUSTODY', side: 'CREDIT', amount: declared, holder });
+  if (!plan.overage.isZero())
+    lines.push({ account: 'CUSTODY_OVERAGE_SUSPENSE', side: 'CREDIT', amount: plan.overage });
+  return balanced({
+    kind: 'CUSTODY_RECEIVED',
+    businessRef: `handover:${handoverId}:received`,
+    lines,
+  });
+}
+
+/** Settlement confirmed against the treasury reference: the cash is reconciled. */
+export function custodyReconciledJournal(handoverId: string, counted: Money): JournalPlan {
+  return balanced({
+    kind: 'CUSTODY_RECONCILED',
+    businessRef: `handover:${handoverId}:reconciled`,
+    lines: [
+      { account: 'TREASURY_CASH', side: 'DEBIT', amount: counted },
+      { account: 'TREASURY_CASH_UNRECONCILED', side: 'CREDIT', amount: counted },
     ],
   });
 }

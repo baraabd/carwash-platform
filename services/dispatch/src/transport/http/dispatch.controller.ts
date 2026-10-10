@@ -12,15 +12,13 @@ import {
   UseFilters,
 } from '@nestjs/common';
 import { DispatchService, type AssignmentView, type OfferInput } from '../../application';
-import {
-  invalid,
-  isDeclineReason,
-  type AssignmentState,
-  type AssignmentStatus,
-  type OfferState,
-} from '../../domain';
+import { invalid, isDeclineReason, noteText, type AssignmentStatus } from '../../domain';
 import { ActorResolver, type HeaderBag } from './actor-resolver';
 import { DispatchHttpFilter } from './http-errors';
+import { idempotencyKey, instant, int, objectBody, str } from './http-input';
+import { assignmentView, operationsView, technicianView } from './views';
+
+export { operationsView, technicianView } from './views';
 
 export const DISPATCH_V1 = '/internal/v1/dispatch';
 
@@ -35,49 +33,6 @@ const ASSIGNMENT_STATUSES: readonly AssignmentStatus[] = [
   'CANCELLED',
 ];
 
-/** Closed body: unknown fields are refused, never ignored. */
-function objectBody(
-  body: unknown,
-  allowed: readonly string[],
-  required: readonly string[],
-): Record<string, unknown> {
-  if (typeof body !== 'object' || body === null || Array.isArray(body))
-    throw invalid('Body must be a JSON object.');
-  const record = body as Record<string, unknown>;
-  for (const key of Object.keys(record)) {
-    if (!allowed.includes(key)) throw invalid(`Unexpected field: ${key.slice(0, 40)}.`);
-  }
-  for (const key of required) if (!(key in record)) throw invalid(`Missing field: ${key}.`);
-  return record;
-}
-
-function str(value: unknown, field: string): string {
-  if (typeof value !== 'string' || value.length > 200) throw invalid(`${field} must be a string.`);
-  return value;
-}
-
-function int(value: unknown, field: string): number {
-  if (typeof value !== 'number' || !Number.isSafeInteger(value))
-    throw invalid(`${field} must be an integer.`);
-  return value;
-}
-
-const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
-
-/** UTC instants only; an offset-less or local time is rejected, never guessed. */
-function instant(value: unknown, field: string): Date {
-  const text = str(value, field);
-  if (!INSTANT.test(text)) throw invalid(`${field} must be a UTC ISO-8601 instant.`);
-  const date = new Date(text);
-  if (!Number.isFinite(date.getTime())) throw invalid(`${field} is not a valid instant.`);
-  return date;
-}
-
-function idempotencyKey(req: HeaderBag): string | undefined {
-  const value = req.headers['idempotency-key'];
-  return typeof value === 'string' ? value : undefined;
-}
-
 function offerInput(body: unknown): OfferInput {
   const input = objectBody(
     body,
@@ -89,68 +44,6 @@ function offerInput(body: unknown): OfferInput {
     resourceId: str(input.resourceId, 'resourceId'),
     technicianSubject: str(input.technicianSubjectId, 'technicianSubjectId'),
     ...(input.ttlSeconds === undefined ? {} : { ttlSeconds: int(input.ttlSeconds, 'ttlSeconds') }),
-  };
-}
-
-function offerView(offer: OfferState) {
-  return {
-    offerId: offer.id,
-    revision: offer.version,
-    status: offer.status,
-    resourceId: offer.resourceId,
-    technicianSubjectId: offer.technicianSubject,
-    expiresAt: offer.expiresAt.toISOString(),
-    declineReason: offer.declineReason,
-    withdrawReason: offer.withdrawReason,
-    createdAt: offer.createdAt.toISOString(),
-    updatedAt: offer.updatedAt.toISOString(),
-  };
-}
-
-function assignmentView(assignment: AssignmentState) {
-  return {
-    assignmentId: assignment.id,
-    revision: assignment.version,
-    bookingId: assignment.bookingId,
-    holdId: assignment.holdId,
-    zoneId: assignment.zoneId,
-    startsAt: assignment.startsAt.toISOString(),
-    endsAt: assignment.endsAt.toISOString(),
-    status: assignment.status,
-    resourceId: assignment.resourceId,
-    technicianSubjectId: assignment.technicianSubject,
-    cancelReason: assignment.cancelReason,
-    createdAt: assignment.createdAt.toISOString(),
-    updatedAt: assignment.updatedAt.toISOString(),
-  };
-}
-
-/** Operations view: the job plus its current offer. */
-export function operationsView(view: AssignmentView) {
-  return {
-    ...assignmentView(view.assignment),
-    offer: view.offer ? offerView(view.offer) : null,
-  };
-}
-
-/**
- * Technician view: their own offer and the job window only. No booking
- * revision, no other technician, no resource of another offer.
- */
-export function technicianView(offer: OfferState, assignment: AssignmentState) {
-  return {
-    offerId: offer.id,
-    revision: offer.version,
-    status: offer.status,
-    expiresAt: offer.expiresAt.toISOString(),
-    job: {
-      assignmentId: assignment.id,
-      bookingId: assignment.bookingId,
-      zoneId: assignment.zoneId,
-      startsAt: assignment.startsAt.toISOString(),
-      endsAt: assignment.endsAt.toISOString(),
-      status: assignment.status,
-    },
   };
 }
 
@@ -238,7 +131,7 @@ export class DispatchController {
   async myOffers(@Req() req: HeaderBag) {
     const meta = await this.actors.resolve(req);
     const items = await this.dispatch.listMyOffers(meta);
-    return { items: items.map(({ offer, assignment }) => technicianView(offer, assignment)) };
+    return { items: items.map(({ offer, assignment }) => technicianView(offer, assignment, null)) };
   }
 
   @Post('offers/:id/accept')
@@ -254,14 +147,21 @@ export class DispatchController {
   @HttpCode(200)
   async decline(@Req() req: HeaderBag, @Param('id') id: string, @Body() body: unknown) {
     const meta = await this.actors.resolve(req);
-    const input = objectBody(body, ['reason'], ['reason']);
+    const input = objectBody(body, ['reason', 'note'], ['reason']);
     if (!isDeclineReason(input.reason)) throw invalid('Unknown decline reason.');
-    const { value } = await this.dispatch.declineOffer(meta, id, input.reason, idempotencyKey(req));
+    const note = input.note === undefined ? null : noteText(input.note, 'note');
+    const { value } = await this.dispatch.declineOffer(
+      meta,
+      id,
+      input.reason,
+      note,
+      idempotencyKey(req),
+    );
     return technicianOf(value);
   }
 }
 
 function technicianOf(view: AssignmentView) {
   if (!view.offer) throw new Error('TECHNICIAN_RESULT_WITHOUT_OFFER');
-  return technicianView(view.offer, view.assignment);
+  return technicianView(view.offer, view.assignment, view.task?.id ?? null);
 }

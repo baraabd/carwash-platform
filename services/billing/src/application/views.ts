@@ -13,6 +13,7 @@ export function snapshotFinancialStatus(snapshot: FinancialSnapshot): FinancialS
     obligation: snapshot.obligation,
     activeIntent: snapshot.activeIntent,
     hasUnknownAttempt: snapshot.attempts.some((attempt) => attempt.status === 'UNKNOWN'),
+    settledByCash: snapshot.cashReceipt !== null,
   });
 }
 
@@ -59,6 +60,14 @@ export function obligationView(snapshot: FinancialSnapshot): Record<string, unkn
         : outstanding(obligation).toWire(),
     activeIntent: snapshot.activeIntent ? intentView(snapshot.activeIntent) : null,
     attempts: snapshot.attempts.map(attemptView),
+    // Owner-safe summary only; custody and settlement are Finance/holder facts.
+    cashReceipt: snapshot.cashReceipt
+      ? {
+          receiptId: snapshot.cashReceipt.id,
+          amount: snapshot.cashReceipt.amount.toWire(),
+          collectedAt: snapshot.cashReceipt.collectedAt.toISOString(),
+        }
+      : null,
     createdAt: obligation.createdAt.toISOString(),
     updatedAt: obligation.updatedAt.toISOString(),
   };

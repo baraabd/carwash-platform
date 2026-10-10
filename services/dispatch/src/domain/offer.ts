@@ -18,7 +18,13 @@ export type OfferStatus = 'OFFERED' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'WIT
 export const DECLINE_REASONS = ['UNAVAILABLE', 'TOO_FAR', 'OTHER'] as const;
 export type DeclineReason = (typeof DECLINE_REASONS)[number];
 
-export const WITHDRAW_REASONS = ['REASSIGNED', 'UNASSIGNED', 'JOB_CANCELLED'] as const;
+export const WITHDRAW_REASONS = [
+  'REASSIGNED',
+  'UNASSIGNED',
+  'JOB_CANCELLED',
+  'RELEASED_BY_TECHNICIAN',
+  'RESOURCE_INELIGIBLE',
+] as const;
 export type WithdrawReason = (typeof WITHDRAW_REASONS)[number];
 
 export interface OfferState {
@@ -29,6 +35,8 @@ export interface OfferState {
   readonly status: OfferStatus;
   readonly expiresAt: Date;
   readonly declineReason: DeclineReason | null;
+  /** Optional free text from the technician (3-500 printable characters). */
+  readonly declineNote: string | null;
   readonly withdrawReason: WithdrawReason | null;
   readonly createdBy: string;
   readonly createdAt: Date;
@@ -81,6 +89,7 @@ export function createOffer(input: {
     status: 'OFFERED',
     expiresAt: new Date(deadline),
     declineReason: null,
+    declineNote: null,
     withdrawReason: null,
     createdBy: input.createdBy,
     createdAt: input.now,
@@ -111,9 +120,14 @@ export function accept(offer: OfferState, now: Date): OfferState {
   return bump(offer, { status: 'ACCEPTED' }, now);
 }
 
-export function decline(offer: OfferState, reason: DeclineReason, now: Date): OfferState {
+export function decline(
+  offer: OfferState,
+  reason: DeclineReason,
+  now: Date,
+  note: string | null = null,
+): OfferState {
   assertLive(offer, now);
-  return bump(offer, { status: 'DECLINED', declineReason: reason }, now);
+  return bump(offer, { status: 'DECLINED', declineReason: reason, declineNote: note }, now);
 }
 
 export function expire(offer: OfferState, now: Date): OfferState {

@@ -3,7 +3,8 @@
 Owner of job assignment: one assignment per confirmed booking, offers of that
 job to workforce resources, acceptance, decline, expiry and reassignment. It
 never owns the booking lifecycle, payment, capacity or technician personal
-data. Design and evidence: `docs/production/C/P02-C3-dispatch.md`.
+data. Design and evidence: `docs/production/C/P02-C3-dispatch.md` (assignments/offers)
+and `docs/production/C/P03-C4-dispatch-task-execution.md` (eligibility, technician task execution).
 
 Status: assignment/offer API, hold-changed consumer parts and offer-expiry
 worker implemented and verified on real PostgreSQL and RabbitMQ in the lane-C
@@ -40,7 +41,9 @@ Lock order everywhere: idempotency record -> hold observation -> assignment -> o
 | POST | `/assignments/:id/unassign` | `operations.dispatch`, `Idempotency-Key` |
 | GET | `/me/offers` | technician, `work.read:assigned` |
 | POST | `/offers/:id/accept` | technician named on the offer, `work.execute:assigned`, `Idempotency-Key` |
-| POST | `/offers/:id/decline` | technician named on the offer, `work.execute:assigned`, `Idempotency-Key` |
+| POST | `/offers/:id/decline` | technician named on the offer, `work.execute:assigned`, `Idempotency-Key` (optional `note`) |
+| GET | `/me/jobs`, `/me/tasks/:taskId`, `/me/bookings/:bookingId/work` | technician, `work.read:assigned`, own objects only |
+| POST/PUT/DELETE | `/tasks/:id/...` (depart, arrive, evidence, condition-note, start, checklist, document, finish, close, cash-collection, release, notes) | task technician, `work.execute:assigned`, `Idempotency-Key`, `expectedRevision` |
 
 ## Processes
 
@@ -55,6 +58,9 @@ Lock order everywhere: idempotency record -> hold observation -> assignment -> o
 
 `DATABASE_URL` (runtime role `cw_dispatch_app`), `IDENTITY_URL`,
 `IDENTITY_TIMEOUT_MS`, `DISPATCH_SERVICE_CLIENTS` (JSON, SHA-256 digests only),
-`DISPATCH_USER_REQUESTS_PER_MINUTE`, `DISPATCH_SERVICE_REQUESTS_PER_MINUTE`.
+`DISPATCH_USER_REQUESTS_PER_MINUTE`, `DISPATCH_SERVICE_REQUESTS_PER_MINUTE`,
+`DISPATCH_WORKFORCE_{URL,CLIENT_ID,CLIENT_TOKEN,TIMEOUT_MS}` and
+`DISPATCH_MEDIA_{URL,CLIENT_ID,CLIENT_TOKEN,TIMEOUT_MS}` (absent = unavailable, offers/acceptance
+or evidence linking answer 503; partial = refuse to start).
 Migrations run only as `cw_dispatch_migrate` in a separate job; runtime startup
 never migrates.

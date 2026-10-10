@@ -48,8 +48,11 @@ export class PrismaOutboxStore {
     limit: number;
     maxAttempts: number;
   }): Promise<OutboxLeaseRecord[]> {
+    // RETURNING has no defined order, so the leased rows are re-sorted: a batch
+    // is published in commit order (created_at, id), never in heap order.
     const rows = await this.prisma.client.$queryRawUnsafe<LeasedRow[]>(
-      `UPDATE app.outbox_message AS o
+      `WITH leased AS (
+       UPDATE app.outbox_message AS o
           SET locked_by = $1,
               locked_until = now() + ($2::bigint * interval '1 millisecond'),
               attempts = o.attempts + 1
@@ -64,8 +67,13 @@ export class PrismaOutboxStore {
            FOR UPDATE SKIP LOCKED
            LIMIT $4
         )
-      RETURNING o.id::text, o.event_id::text, o.event_type, o.exchange, o.routing_key,
-                o.payload, o.correlation_id::text, o.attempts, o.trace_parent, o.created_at`,
+      RETURNING o.id, o.event_id, o.event_type, o.exchange, o.routing_key,
+                o.payload, o.correlation_id, o.attempts, o.trace_parent, o.created_at
+      )
+      SELECT id::text, event_id::text, event_type, exchange, routing_key, payload,
+             correlation_id::text, attempts, trace_parent, created_at
+        FROM leased
+       ORDER BY created_at, id`,
       input.workerId,
       input.leaseMs,
       input.maxAttempts,

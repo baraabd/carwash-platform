@@ -11,6 +11,7 @@ import {
   type HoldEventState,
 } from '../domain';
 import type { Actor, Clock, DispatchTransaction, IdGenerator } from '../ports';
+import { Effects } from './effects';
 
 /**
  * Consumer side of the PUBLISHED `scheduling.hold-changed.v1` (envelope v2,
@@ -50,6 +51,7 @@ export function parseHoldChanged(raw: unknown): HoldChangedMessage {
 export type HoldApplyOutcome =
   | 'OPENED'
   | 'CANCELLED'
+  | 'COMPLETED_KEPT'
   | 'NOTED'
   | 'STALE'
   | 'ALREADY_OPEN'
@@ -64,10 +66,14 @@ const CONSUMER: Actor = { kind: 'SYSTEM', component: 'hold-changed-consumer' };
  * make redelivery, duplicates and out-of-order arrival harmless.
  */
 export class HoldChangeHandler {
+  private readonly effects: Effects;
+
   constructor(
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
-  ) {}
+  ) {
+    this.effects = new Effects(ids);
+  }
 
   async apply(tx: DispatchTransaction, message: HoldChangedMessage): Promise<HoldApplyOutcome> {
     const previous = await tx.lockHoldObservation(message.holdId);
@@ -135,7 +141,33 @@ export class HoldChangeHandler {
     const assignment = await tx.lockAssignmentByHold(message.holdId);
     if (!assignment || assignment.status === 'CANCELLED') return 'NOTHING_TO_CANCEL';
     const offer = await tx.lockCurrentOffer(assignment.id);
+    const live = await tx.lockLiveTask(assignment.id);
+    if (live?.stage === 'CLOSED') {
+      // The work was delivered; a slot released afterwards never erases it.
+      // Recorded for reconciliation with Scheduling/Booking instead.
+      await tx.appendAudit({
+        action: 'hold.released-after-completion',
+        actor: CONSUMER,
+        targetType: 'TASK',
+        targetId: live.id,
+        correlationId: message.correlationId,
+        details: {
+          assignmentId: assignment.id,
+          holdState: message.state,
+          holdVersion: message.version,
+        },
+      });
+      return 'COMPLETED_KEPT';
+    }
     if (offer) await tx.updateOffer(withdraw(offer, 'JOB_CANCELLED', now), offer.version);
+    const endedTask = await this.effects.endLiveTask(
+      tx,
+      assignment.id,
+      'JOB_CANCELLED',
+      now,
+      { actor: CONSUMER, correlationId: message.correlationId },
+      message.eventId,
+    );
     const cancelled = cancel(
       assignment,
       message.state === 'EXPIRED' ? 'HOLD_EXPIRED' : 'HOLD_RELEASED',
@@ -152,6 +184,7 @@ export class HoldChangeHandler {
       details: {
         previousStatus: assignment.status,
         withdrawnOfferId: offer?.id ?? null,
+        cancelledTaskId: endedTask?.id ?? null,
         holdState: message.state,
       },
     });
