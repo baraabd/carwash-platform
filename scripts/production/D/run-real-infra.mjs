@@ -92,11 +92,10 @@ async function startRedis(context) {
   const password = randomBytes(24).toString('hex');
   registerSecret(password);
   const acl = path.join(context.workDir, 'lane-d-redis.acl');
-  const digest = createHash('sha256').update(password).digest('hex');
   await writeFile(
     acl,
     'user default off\n' +
-      `user cw_identity_rate on #${digest} ~identity:rate:* -@all +hello +auth +ping +quit ` +
+      `user cw_identity_rate on >${password} ~identity:rate:* -@all +hello +auth +ping +quit ` +
       '+select +client|setinfo +client|setname +client|id +eval +incr +pexpire +pttl\n',
     { mode: 0o644 },
   );
