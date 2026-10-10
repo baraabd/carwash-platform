@@ -305,6 +305,7 @@
         "WorkGrant",
         "VerificationCase",
         "WorkShift",
+        "OperatorAvailability",
         "OutboxMessage",
         "AuditEntry"
       ],

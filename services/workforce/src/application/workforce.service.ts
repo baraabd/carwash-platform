@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { EVENT_PRODUCERS, type EventActor } from '@carwash/event-contracts';
 import {
   ELIGIBILITY_CHANGED_V1,
   SHIFT_UPDATED_V1,
@@ -6,18 +7,27 @@ import {
   WorkforceError,
   approveVerification,
   cancelShift,
+  changeAvailability,
   changeProfile,
   createOperator,
   createShift,
   createVerificationCase,
-  eligibilityEvent,
+  eligibilityAt,
+  eligibilityChangedEvent,
+  initialAvailability,
   operationalReadiness,
+  parseAvailabilityCommand,
+  parseCapacityQuery,
+  recordSkillChange,
   rejectVerification,
   setEmployment,
   setSuspension,
   setVerificationProjection,
   shiftEvent,
+  toCapacityResource,
   withdrawVerification,
+  type AvailabilityState,
+  type CapacityResource,
   type DecisionReason,
   type EmploymentStatus,
   type OperatorState,
@@ -35,6 +45,26 @@ import type {
   WorkforceUnitOfWork,
 } from '../ports';
 import { requirePermission, requireScope, requireSelf } from './authorization';
+import { cursorScope, decodeCursor, encodeCursor } from './capacity-cursor';
+
+export interface CapacityResourcePage {
+  readonly items: readonly CapacityResource[];
+  readonly nextCursor: string | null;
+  readonly asOf: Date;
+}
+
+/**
+ * PII-free envelope actor. Users are their Identity subject; a service is named
+ * only when it is a declared event producer. Every eligibility input is changed
+ * by a user today, so the service branch exists for completeness only.
+ */
+function eventActor(actor: Actor): EventActor {
+  if (actor.kind === 'USER') return { kind: 'account', id: actor.subject };
+  if (actor.kind === 'SYSTEM') return { kind: 'system', id: null };
+  const producer = EVENT_PRODUCERS.find((name) => name === actor.clientId);
+  if (producer === undefined) throw new Error('EVENT_ACTOR_UNSUPPORTED');
+  return { kind: 'service', id: producer };
+}
 
 function requestFingerprint(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value), 'utf8').digest('hex');
@@ -168,7 +198,7 @@ export class WorkforceService {
       }
       const projected = setVerificationProjection(current, 'PENDING', null, now);
       await tx.updateOperator(projected, current.version);
-      await this.appendEligibility(tx, meta, projected);
+      await this.appendEligibility(tx, meta, current, projected);
       await tx.appendAudit({
         action: 'VERIFICATION_SUBMITTED',
         actor: meta.actor,
@@ -204,7 +234,7 @@ export class WorkforceService {
           ? setVerificationProjection(operator, 'VERIFIED', next.validUntil, now)
           : setVerificationProjection(operator, 'REJECTED', null, now);
       await tx.updateOperator(projected, operator.version);
-      await this.appendEligibility(tx, meta, projected);
+      await this.appendEligibility(tx, meta, operator, projected);
       await tx.appendAudit({
         action: next.status === 'APPROVED' ? 'VERIFICATION_APPROVED' : 'VERIFICATION_REJECTED',
         actor: meta.actor,
@@ -229,7 +259,7 @@ export class WorkforceService {
       await tx.updateVerificationCase(next, verification.version);
       const projected = setVerificationProjection(operator, 'UNVERIFIED', null, now);
       await tx.updateOperator(projected, operator.version);
-      await this.appendEligibility(tx, meta, projected);
+      await this.appendEligibility(tx, meta, operator, projected);
       return next;
     });
   }
@@ -251,10 +281,10 @@ export class WorkforceService {
         grantedBy: admin.subject,
         grantedAt: now,
       });
-      const next = { ...operator, version: operator.version + 1, updatedAt: now };
+      const next = recordSkillChange(operator, now);
       await tx.updateOperator(next, operator.version);
       const skills = [...currentSkills, code].sort();
-      await this.appendEligibility(tx, meta, next, skills);
+      await this.appendEligibility(tx, meta, operator, next, skills);
       await tx.appendAudit({
         action: 'SKILL_GRANTED',
         actor: meta.actor,
@@ -281,10 +311,10 @@ export class WorkforceService {
       if (!(await tx.removeSkill(operator.id, code))) {
         throw new WorkforceError('SKILL_NOT_FOUND', 'Skill is not granted.');
       }
-      const next = { ...operator, version: operator.version + 1, updatedAt: now };
+      const next = recordSkillChange(operator, now);
       await tx.updateOperator(next, operator.version);
       const skills = await tx.listSkills(operator.id);
-      await this.appendEligibility(tx, meta, next, skills);
+      await this.appendEligibility(tx, meta, operator, next, skills);
       await tx.appendAudit({
         action: 'SKILL_REVOKED',
         actor: meta.actor,
@@ -314,7 +344,7 @@ export class WorkforceService {
         next = setSuspension(next, input.suspensionReason, now);
       if (next.version !== current.version) {
         await tx.updateOperator(next, current.version);
-        await this.appendEligibility(tx, meta, next);
+        await this.appendEligibility(tx, meta, current, next);
       }
       return next;
     });
@@ -401,6 +431,79 @@ export class WorkforceService {
     });
   }
 
+  /**
+   * Published workforce.v1 listCapacityResources. Deny by default: only a
+   * service holding workforce.capacity.read, checked before the query is read.
+   */
+  async listCapacityResources(
+    meta: RequestMeta,
+    rawQuery: Readonly<Record<string, unknown>>,
+  ): Promise<CapacityResourcePage> {
+    requireScope(meta.actor, 'workforce.capacity.read');
+    const query = parseCapacityQuery(rawQuery);
+    const scope = cursorScope(query);
+    const after = query.cursor === null ? null : decodeCursor(query.cursor, scope);
+    const asOf = this.clock.now();
+    const rows = await this.read.listCapacityCandidates({
+      zoneId: query.zoneId,
+      from: query.from,
+      to: query.to,
+      afterOperatorId: after,
+      limit: query.limit + 1,
+    });
+    const page = rows.slice(0, query.limit);
+    const last = page[page.length - 1];
+    return {
+      items: page.map((candidate) => toCapacityResource(candidate, query)),
+      nextCursor:
+        rows.length > query.limit && last !== undefined
+          ? encodeCursor(scope, last.operator.id)
+          : null,
+      asOf,
+    };
+  }
+
+  /** The caller's own availability; ON_BREAK at revision 0 when never set. */
+  async availability(meta: RequestMeta): Promise<AvailabilityState> {
+    const user = requirePermission(meta.actor, 'work.read:assigned');
+    const operator = await this.read.findOperatorBySubject(user.subject);
+    if (!operator) throw new WorkforceError('OPERATOR_NOT_FOUND', 'Operator profile not found.');
+    return (await this.read.findAvailability(operator.id)) ?? initialAvailability(operator.id);
+  }
+
+  /**
+   * Sets the caller's own availability with optimistic concurrency. Never
+   * touches the operator row, its version, eligibility or the outbox.
+   */
+  async setAvailability(meta: RequestMeta, body: unknown): Promise<AvailabilityState> {
+    const user = requirePermission(meta.actor, 'work.execute:assigned');
+    const command = parseAvailabilityCommand(body);
+    const now = this.clock.now();
+    return this.uow.run(async (tx) => {
+      const operator = await tx.readOperatorBySubject(user.subject);
+      if (!operator) throw new WorkforceError('OPERATOR_NOT_FOUND', 'Operator profile not found.');
+      const current = (await tx.lockAvailability(operator.id)) ?? initialAvailability(operator.id);
+      const { next, changed } = changeAvailability(current, command, now);
+      if (!changed) return current;
+      const stored =
+        current.revision === 0
+          ? (await tx.insertAvailability(next)) === 'CREATED'
+          : await tx.updateAvailability(next, current.revision);
+      if (!stored) {
+        throw new WorkforceError('REVISION_CONFLICT', 'Availability changed; refetch and retry.');
+      }
+      await tx.appendAudit({
+        action: 'AVAILABILITY_CHANGED',
+        actor: meta.actor,
+        targetType: 'OPERATOR',
+        targetId: operator.id,
+        correlationId: meta.correlationId,
+        details: { status: next.status, previousStatus: current.status, revision: next.revision },
+      });
+      return next;
+    });
+  }
+
   async eligible(meta: RequestMeta, input: { zoneId: string; at: Date; skillCode?: string }) {
     requireScope(meta.actor, 'workforce.eligibility.read');
     const code = input.skillCode === undefined ? undefined : skillCode(input.skillCode);
@@ -418,27 +521,26 @@ export class WorkforceService {
       .filter((candidate) => candidate.readiness.ready);
   }
 
+  /**
+   * Published workforce.eligibility-changed.v1, written to the outbox in the
+   * caller's transaction, exactly when the eligibility revision moved. The
+   * data is the eligibility at the instant of the change.
+   */
   private async appendEligibility(
     tx: WorkforceTransaction,
     meta: RequestMeta,
-    operator: OperatorState,
+    before: OperatorState,
+    after: OperatorState,
     knownSkills?: readonly string[],
   ): Promise<void> {
-    const skills = knownSkills ?? (await tx.listSkills(operator.id));
-    const readiness = operationalReadiness(operator, skills, this.clock.now());
-    const event = eligibilityEvent({
+    if (after.eligibilityRevision === before.eligibilityRevision) return;
+    const skills = knownSkills ?? (await tx.listSkills(after.id));
+    const event = eligibilityChangedEvent({
       eventId: this.ids.next(),
-      occurredAt: this.clock.now().toISOString(),
       correlationId: meta.correlationId,
-      aggregateVersion: operator.version,
-      data: {
-        operatorId: operator.id,
-        eligible: readiness.ready,
-        employmentStatus: operator.employmentStatus,
-        verificationStatus: operator.verificationStatus,
-        suspended: operator.suspensionReason !== null,
-        skillCodes: skills,
-      },
+      actor: eventActor(meta.actor),
+      operator: after,
+      eligibility: eligibilityAt(after, skills, after.updatedAt),
     });
     await tx.appendEvent({
       event,
