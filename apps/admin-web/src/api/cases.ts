@@ -219,7 +219,8 @@ function audit(raw: unknown, path: string): AuditEntry {
     decisionNo: e.decisionNo === null ? null : integer(e.decisionNo, `${path}.decisionNo`),
     from: e.from === null ? null : oneOf(e.from, CASE_STATUSES, `${path}.from`),
     to: oneOf(e.to, CASE_STATUSES, `${path}.to`),
-    outcome: nullableText(e.outcome, `${path}.outcome`, CODE),
+    // Support's audit outcome: "attempt-2", "APPLIED:MATCHED", "UNKNOWN:OWNER_NO_ANSWER".
+    outcome: nullableText(e.outcome, `${path}.outcome`, /^[A-Za-z0-9_:.-]{1,96}$/),
     correlationId: text(e.correlationId, `${path}.correlationId`, UUID),
   };
 }

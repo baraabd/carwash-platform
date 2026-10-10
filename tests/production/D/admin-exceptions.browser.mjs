@@ -32,16 +32,14 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { chromium } from '@playwright/test';
-import { ROOT, appDsn, context } from '../../integration/_support.mjs';
+import { ROOT } from '../../integration/_support.mjs';
 import { STAFF_PASSWORD, account, staff } from './_identity.mjs';
 import {
   commandKey,
   createBooking,
-  dist,
   listen,
   obligationUnderReview,
   ok2xx,
-  owned,
   ownerCall,
   ownerRows,
   startStack,
@@ -52,12 +50,10 @@ const require = createRequire(path.join(ROOT, 'package.json'));
 const EVIDENCE = path.join(ROOT, 'docs', 'production', 'D', 'evidence', 'p04-d2');
 const REFERENCE = path.join(ROOT, 'design', 'reference', 'approved', 'washgo-admin-prototype.html');
 const TIMEZONE = 'Asia/Damascus';
-const MIN = 60_000;
 const DISABLE_MOTION = `*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}`;
 
 let stack;
 let browser;
-let reportingDb;
 const principals = {};
 const sessions = new Map();
 const report = {
@@ -69,53 +65,6 @@ const report = {
 };
 
 /* ------------------------------- fixtures ------------------------------- */
-
-/** Reporting rows through Reporting's own projector, so the booking is listed. */
-async function projectBooking(booking, customerId) {
-  const { OperationsProjector, parseOperationsEvent } = dist(
-    'reporting',
-    'application/operations.service.js',
-  );
-  const { PrismaOperationsWriter } = dist(
-    'reporting',
-    'infrastructure/persistence/prisma-operations.store.js',
-  );
-  const { sha256Hex } = dist('reporting', 'infrastructure/persistence/prisma-projection.store.js');
-  const projector = new OperationsProjector(sha256Hex, { now: () => new Date() });
-  const facts = [
-    parseOperationsEvent({
-      eventId: randomUUID(),
-      eventType: 'booking.confirmed.v1',
-      schemaVersion: 1,
-      producer: 'booking',
-      occurredAt: new Date(Date.now() - 2 * MIN).toISOString(),
-      correlationId: randomUUID(),
-      aggregateVersion: 1,
-      data: { bookingId: booking.bookingId, customerId },
-    }).fact,
-    parseOperationsEvent({
-      eventId: randomUUID(),
-      eventType: 'scheduling.hold-changed.v1',
-      envelopeVersion: 2,
-      producer: 'scheduling',
-      occurredAt: new Date(Date.now() - MIN).toISOString(),
-      correlationId: randomUUID(),
-      causationId: null,
-      traceparent: null,
-      aggregate: { type: 'hold', id: booking.holdId, version: 2 },
-      actor: { kind: 'service', id: 'scheduling' },
-      data: {
-        state: 'COMMITTED',
-        zoneId: booking.zoneId,
-        startsAt: new Date(booking.startsAt).toISOString(),
-        endsAt: new Date(booking.endsAt).toISOString(),
-        bookingId: booking.bookingId,
-      },
-    }).fact,
-  ];
-  for (const fact of facts)
-    await reportingDb.$transaction((tx) => projector.apply(new PrismaOperationsWriter(tx), fact));
-}
 
 /** A finance-side MATCH through Support's HTTP API (fixture for the refund journey). */
 async function paidThroughSupport(finance, payer, amountMinor) {
@@ -252,6 +201,28 @@ async function fillDecision(page, { action, reason, note, evidence, amount }) {
   if (amount !== undefined) await dialog.locator('#caseAmount').fill(amount);
 }
 
+/** The queue is oldest first and the database is shared: load more until listed. */
+async function findCaseRow(page, caseId) {
+  const row = page.locator(`#caseRows tr[data-case="${caseId}"]`);
+  await page.locator('#caseRows tr').first().waitFor();
+  for (let i = 0; i < 40 && (await row.count()) === 0; i++) {
+    const more = page.locator('#caseMoreButton');
+    if ((await more.count()) === 0) break;
+    const rows = await page.locator('#caseRows tr').count();
+    await more.click();
+    await page.waitForFunction((n) => document.querySelectorAll('#caseRows tr').length > n, rows);
+  }
+  await row.waitFor();
+  return row;
+}
+
+/** Opens a booking's detail by its full reference (the bookings search). */
+async function openBooking(page, bookingId) {
+  await page.locator('#bookingSearch').fill(bookingId);
+  await page.locator('#bookingSearch').press('Enter');
+  await page.getByRole('dialog').locator('#caseCancelBooking').waitFor();
+}
+
 const caseStatus = (page, status) =>
   page.locator(`#modalBody[data-case-status="${status}"]`).waitFor();
 
@@ -261,11 +232,6 @@ test.before(async () => {
   stack = await startStack();
   report.billingLedgerGrant = stack.billingGrant;
   browser = await chromium.launch({ args: ['--font-render-hinting=none', '--disable-lcd-text'] });
-  const { PrismaClient } = dist('reporting', 'generated/prisma/client.js');
-  const { PrismaPg } = owned('reporting')('@prisma/adapter-pg');
-  reportingDb = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: appDsn(context, 'reporting') }, { schema: 'app' }),
-  });
   mkdirSync(EVIDENCE, { recursive: true });
   const probe = await fetch(`${stack.origin}/api/v1/admin/cases`);
   assert.notEqual(probe.status, 404, 'GATEWAY_ROUTES_MISSING: apply P04_CANDIDATE_GATEWAY.patch');
@@ -280,7 +246,6 @@ test.before(async () => {
 
 test.after(async () => {
   writeFileSync(path.join(EVIDENCE, 'browser-report.json'), `${JSON.stringify(report, null, 2)}\n`);
-  await reportingDb?.$disconnect();
   await browser?.close();
   await stack?.stop();
 });
@@ -436,9 +401,8 @@ test('X2: a lost answer locks the form; the same key is resent; refresh shows Su
     await page.goto(`${stack.origin}/#/disputes`);
     await page.reload();
     await page.locator('#caseStatusFilter').selectOption('all');
-    await page
-      .locator(`#caseRows tr[data-case="${caseId}"][data-case-status="RESOLVED"]`)
-      .waitFor();
+    const listed = await findCaseRow(page, caseId);
+    assert.equal(await listed.getAttribute('data-case-status'), 'RESOLVED');
 
     const decisions = await ownerRows(
       'support',
@@ -498,7 +462,7 @@ test('X3: refund four-eyes — the proposer cannot approve; a second reviewer do
     await page.waitForURL(/#\/payments$/);
     await page.locator('.nav button[data-screen="disputes"]').click();
     await page.locator('#caseKindFilter').selectOption('REFUND');
-    const row = page.locator(`#caseRows tr[data-case="${caseId}"]`);
+    const row = await findCaseRow(page, caseId);
     await row.click();
     await caseStatus(page, 'AWAITING_APPROVAL');
     const dialog = page.getByRole('dialog');
@@ -531,17 +495,12 @@ test('X3: refund four-eyes — the proposer cannot approve; a second reviewer do
 test('X4: operations opens cancellation and reschedule cases from the booking; Booking is read live and unchanged', async () => {
   const { operations, customer } = principals;
   const booking = await createBooking(stack, customer);
-  await projectBooking(booking, customer.subject);
   const { page, browserContext, errors } = await asUser(operations);
   try {
     await page.waitForURL(/#\/dashboard$/);
     await page.locator('.nav button[data-screen="bookings"]').click();
-    // The doubles' slot may fall on tomorrow in Damascus; widen the period.
-    await page.locator('#periodFilter').selectOption('month');
-    const row = page.locator(`#bookingRows tr[data-booking="${booking.bookingId}"]`);
-    await row.click();
+    await openBooking(page, booking.bookingId);
     const dialog = page.getByRole('dialog');
-    await dialog.locator('#caseCancelBooking').waitFor();
     await openCaseFrom(page, '#caseCancelBooking');
     assert.match(await dialog.locator('#caseSnapshot').innerText(), new RegExp(booking.status));
     await dialog.locator('#caseCurrent [data-current-status]').waitFor();
@@ -559,7 +518,7 @@ test('X4: operations opens cancellation and reschedule cases from the booking; B
 
     // Reschedule: a Damascus window becomes exact UTC in the decision.
     await page.keyboard.press('Escape');
-    await row.click();
+    await openBooking(page, booking.bookingId);
     await openCaseFrom(page, '#caseRescheduleBooking');
     await fillDecision(page, {
       action: 'RESCHEDULE_BOOKING',
@@ -652,7 +611,7 @@ test('X5: denials — desks, the support desk, customers, technicians, anonymous
       await page.waitForURL(/#\/disputes$/);
       for (const screen of ['dashboard', 'bookings', 'payments'])
         assert.equal(await page.locator(`.nav button[data-screen="${screen}"]`).isDisabled(), true);
-      await page.locator(`#caseRows tr[data-case="${financeCase}"]`).click();
+      await (await findCaseRow(page, financeCase)).click();
       await caseStatus(page, 'OPEN');
       assert.equal(await page.locator('#caseDecisionForm').count(), 0);
       // The Gateway refuses: the support desk holds none of the decision grants.
