@@ -31,6 +31,7 @@ import {
   MANIFEST_KIND,
   MANIFEST_SCHEMA_VERSION,
   blobAt,
+  canonicalOfficialReference,
   gitAt,
   manifestDigest,
   ownerMigrationSet,
@@ -117,7 +118,13 @@ async function resolveNodeBase() {
     const digest = JSON.parse(result.stdout).digest;
     assert.match(digest, /^sha256:[0-9a-f]{64}$/);
     const repository = candidate.replace(/:[^:/]+$/, '');
-    return { tag, reference: `${repository}@${digest}` };
+    // Recorded canonically so parts that pulled through different mirrors agree;
+    // the build pulls through the mirror that answered (same content digest).
+    return {
+      tag,
+      reference: canonicalOfficialReference(tag, digest),
+      pullReference: `${repository}@${digest}`,
+    };
   }
   throw new Error(`Cannot resolve ${tag} to a digest:\n${failures.join('\n')}`);
 }
@@ -171,7 +178,7 @@ async function buildOne({ target, role, registry, source, nodeBase, out, work })
   const dockerfile =
     role === 'migration' ? 'infra/release/Dockerfile.migrate' : `${target.path}/Dockerfile`;
   const metadataFile = path.join(work, `${target.id}-${role}.metadata.json`);
-  const buildArgs = ['--build-arg', `NODE_IMAGE=${nodeBase.reference}`];
+  const buildArgs = ['--build-arg', `NODE_IMAGE=${nodeBase.pullReference}`];
   if (role === 'runtime') {
     buildArgs.push('--build-arg', `RUNTIME_IMAGE=${toolLock.runtime.image}`);
     buildArgs.push('--build-arg', `NATIVE_RUNTIME_IMAGE=${toolLock.nativeLibraries.image}`);
@@ -287,6 +294,7 @@ async function build(options) {
         runtime: toolLock.runtime.image,
         nativeLibraries: toolLock.nativeLibraries.image,
       },
+      baseImagePulledFrom: { node: nodeBase.pullReference },
       artifacts,
     };
     writeFileSync(path.join(out, `part-${id}.json`), `${JSON.stringify(part, null, 2)}\n`);

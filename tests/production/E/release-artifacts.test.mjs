@@ -10,6 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inventory } from '../../../scripts/ci/policy.mjs';
 import {
+  canonicalOfficialReference,
   manifestDigest,
   migrationNames,
   migrationSetDigest,
@@ -107,6 +108,22 @@ test('a tag (floating or not) is never a deployable reference', () => {
     repository: 'localhost:5000/baraabd/carwash-booking',
     digest: D('b'),
   });
+});
+
+test('an official base image is recorded canonically whatever mirror served it', () => {
+  const digest = D('d');
+  assert.equal(
+    canonicalOfficialReference('node:24.21.0-bookworm-slim', digest),
+    `docker.io/library/node@${digest}`,
+  );
+  assert.ok(parseDigestReference(canonicalOfficialReference('node:24', digest)));
+  assert.throws(
+    () => canonicalOfficialReference('public.ecr.aws/docker/library/node:24', digest),
+    /NOT_AN_OFFICIAL_IMAGE/,
+  );
+  const m = validManifest();
+  m.baseImages.node = `node@${digest}`;
+  assert.ok(codes(validateManifest(m, inventory().targets)).includes('BASE_IMAGE_NOT_BY_DIGEST'));
 });
 
 test('dirty source, tag base images, missing attestations and digest mismatch are refused', () => {

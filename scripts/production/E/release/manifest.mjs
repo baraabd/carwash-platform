@@ -26,6 +26,16 @@ export function repositoryFor(registry, id, role) {
   return `${registry.replace(/\/+$/, '')}/${name}`;
 }
 
+/**
+ * Canonical name of an official Docker Library image by digest, independent of
+ * the mirror it was pulled through: `node:24` + digest -> docker.io/library/node@digest.
+ */
+export function canonicalOfficialReference(tag, digest) {
+  const name = tag.split('@')[0].replace(/:[^:/]+$/, '');
+  if (name.includes('/') || !DIGEST.test(digest)) throw new Error(`NOT_AN_OFFICIAL_IMAGE: ${tag}`);
+  return `docker.io/library/${name}@${digest}`;
+}
+
 /** Splits `repo@sha256:..`; returns null for anything that is not by digest. */
 export function parseDigestReference(reference) {
   if (typeof reference !== 'string') return null;
