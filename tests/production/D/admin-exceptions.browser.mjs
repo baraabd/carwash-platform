@@ -613,6 +613,7 @@ test('X5: denials — desks, the support desk, customers, technicians, anonymous
       await page.waitForURL(/#\/disputes$/);
       for (const screen of ['dashboard', 'bookings', 'payments'])
         assert.equal(await page.locator(`.nav button[data-screen="${screen}"]`).isDisabled(), true);
+      report.accessibility.disputesPage = await axe(page);
       await (await findCaseRow(page, financeCase)).click();
       await caseStatus(page, 'OPEN');
       assert.equal(await page.locator('#caseDecisionForm').count(), 0);
@@ -621,7 +622,7 @@ test('X5: denials — desks, the support desk, customers, technicians, anonymous
         await tamper(page, `/api/v1/admin/cases/${financeCase}/decisions`, decision),
         403,
       );
-      report.accessibility.disputes = await axe(page);
+      report.accessibility.supportCaseDialog = await axe(page, '.modal');
       assert.deepEqual(errors, []);
     } finally {
       await browserContext.close();
@@ -664,15 +665,24 @@ test('X5: denials — desks, the support desk, customers, technicians, anonymous
   report.journeys.X5 = 'PASSED';
 });
 
-test('A11Y: the disputes screen and the case dialogs have no serious or critical violations', () => {
-  for (const [surface, violations] of Object.entries(report.accessibility))
-    assert.deepEqual(serious(violations), [], surface);
-  assert.deepEqual(Object.keys(report.accessibility).sort(), [
-    'bookingCaseDialog',
-    'caseDialog',
-    'disputes',
-  ]);
-  report.journeys.A11Y = 'PASSED';
+test('A11Y-DIALOGS: the case dialogs have no serious or critical violations', () => {
+  const dialogs = ['bookingCaseDialog', 'caseDialog', 'supportCaseDialog'];
+  for (const surface of dialogs) {
+    assert.ok(report.accessibility[surface], `${surface} was not measured`);
+    assert.deepEqual(serious(report.accessibility[surface]), [], surface);
+  }
+  report.journeys['A11Y-DIALOGS'] = 'PASSED';
+});
+
+/**
+ * Strict on purpose: the ported page head keeps the approved reference's
+ * `.page-head p` colour, which axe measures at 4.43:1 (< 4.5). It stays
+ * FAILED until the owner decides CR-D-P03-09; the colour is not changed here.
+ */
+test('A11Y-PAGE: the disputes page has no serious or critical violations', () => {
+  assert.ok(report.accessibility.disputesPage, 'disputesPage was not measured');
+  assert.deepEqual(serious(report.accessibility.disputesPage), [], 'disputesPage');
+  report.journeys['A11Y-PAGE'] = 'PASSED';
 });
 
 test('V1: reference / candidate / diff screenshots of the disputes screen at three widths', async () => {

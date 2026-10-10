@@ -589,7 +589,11 @@ function render(detail: CaseDetail, correlationId: string | null): void {
     'caseAudit',
     c.auditTitle,
     c.ownerSupport,
-    h('div', { class: 'table-wrap' }, h('table', {}, h('tbody', {}, ...auditRows))),
+    h(
+      'div',
+      { class: 'table-wrap', tabindex: '0', 'aria-labelledby': 'caseAuditTitle' },
+      h('table', {}, h('tbody', {}, ...auditRows)),
+    ),
   );
   const body: Node[] = [head, snapshot, current, decisions];
   if (actions.length > 0) body.push(decisionForm(detail, actions, null));
