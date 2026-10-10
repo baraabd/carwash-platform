@@ -49,7 +49,8 @@ test('F007 route manifest has unique method/path and explicit owners, all compos
   );
   for (const r of GATEWAY_ROUTES) {
     assert.ok(r.owner);
-    if (r.method !== 'GET' && !r.authTransport) assert.equal(r.idempotency, 'required');
+    if (r.method !== 'GET' && !r.authTransport && !r.providerIngress)
+      assert.equal(r.idempotency, 'required');
   }
   for (const c of GATEWAY_COMPOSITIONS)
     for (const id of c.routes) assert.equal(GATEWAY_ROUTES.find((r) => r.id === id)?.method, 'GET');
@@ -67,8 +68,8 @@ test('F007 route matcher rejects arbitrary origins, traversal, query injection a
   assert.throws(() => gateway.routeMatch('DELETE', '/api/v1/customer/profile'));
   const id = randomUUID();
   assert.equal(
-    gateway.routeMatch('POST', `/api/v1/admin/billing/${id}/refund`).upstream,
-    `/internal/v1/billing/${id}/refund`,
+    gateway.routeMatch('POST', `/api/v1/admin/billing/obligations/${id}/refunds`).upstream,
+    `/internal/v1/billing/obligations/${id}/refunds`,
   );
 });
 test('F007 invalid idempotency keys cannot reach an upstream', () => {

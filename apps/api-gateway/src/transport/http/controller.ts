@@ -38,6 +38,7 @@ export class GatewayController {
       url: request.originalUrl,
       headers: scalarHeaders(request.headers),
       body: request.body,
+      ...(request.rawBody ? { rawBody: request.rawBody } : {}),
       context,
     });
     response.setHeader('cache-control', 'no-store');

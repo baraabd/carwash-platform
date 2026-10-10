@@ -47,6 +47,7 @@ export class GatewayFilter implements ExceptionFilter {
     const body: GatewayErrorEnvelope = {
       error: {
         code,
+        ...(error instanceof GatewayFault && error.reason ? { reason: error.reason } : {}),
         message: MESSAGES[code],
         requestId: context.requestId,
         correlationId: context.correlationId,

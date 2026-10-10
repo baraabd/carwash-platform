@@ -2327,6 +2327,1190 @@
         }
       }
     },
+    "/api/v1/customer/payments": {
+      "post": {
+        "operationId": "customer.payments.create",
+        "x-owning-service": "billing",
+        "x-required-permission": "bookings.create:self",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "required": false,
+            "description": "A UUID is preserved; absent or invalid values are replaced by the gateway.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "description": "Forwarded unchanged. A timeout is an unknown outcome, not rollback; never retry with a new key.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Owner reports creation.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Owner accepted the command; completion is not implied.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Owner reports success without a response body.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "401": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "403": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "404": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "409": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "413": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "422": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "429": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "500": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "502": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "503": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayError"
+          }
+        }
+      }
+    },
+    "/api/v1/customer/payments/{id}": {
+      "get": {
+        "operationId": "customer.payments.read",
+        "x-owning-service": "billing",
+        "x-required-permission": "bookings.read:self",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "required": false,
+            "description": "A UUID is preserved; absent or invalid values are replaced by the gateway.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "401": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "403": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "404": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "409": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "413": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "422": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "429": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "500": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "502": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "503": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayError"
+          }
+        }
+      }
+    },
+    "/api/v1/customer/payments/{id}/status": {
+      "get": {
+        "operationId": "customer.payments.status",
+        "x-owning-service": "billing",
+        "x-required-permission": "bookings.read:self",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "required": false,
+            "description": "A UUID is preserved; absent or invalid values are replaced by the gateway.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "401": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "403": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "404": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "409": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "413": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "422": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "429": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "500": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "502": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "503": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayError"
+          }
+        }
+      }
+    },
+    "/api/v1/customer/payments/{id}/method": {
+      "post": {
+        "operationId": "customer.payments.method",
+        "x-owning-service": "billing",
+        "x-required-permission": "bookings.create:self",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "required": false,
+            "description": "A UUID is preserved; absent or invalid values are replaced by the gateway.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "description": "Forwarded unchanged. A timeout is an unknown outcome, not rollback; never retry with a new key.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Owner reports creation.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Owner accepted the command; completion is not implied.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Owner reports success without a response body.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "401": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "403": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "404": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "409": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "413": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "422": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "429": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "500": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "502": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "503": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayError"
+          }
+        }
+      }
+    },
+    "/api/v1/customer/payments/{id}/transaction-reference": {
+      "post": {
+        "operationId": "customer.payments.reference",
+        "x-owning-service": "billing",
+        "x-required-permission": "bookings.create:self",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "required": false,
+            "description": "A UUID is preserved; absent or invalid values are replaced by the gateway.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "description": "Forwarded unchanged. A timeout is an unknown outcome, not rollback; never retry with a new key.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Owner reports creation.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Owner accepted the command; completion is not implied.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Owner reports success without a response body.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "401": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "403": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "404": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "409": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "413": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "422": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "429": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "500": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "502": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "503": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayError"
+          }
+        }
+      }
+    },
+    "/api/v1/customer/payments/{id}/refunds": {
+      "get": {
+        "operationId": "customer.payments.refunds",
+        "x-owning-service": "billing",
+        "x-required-permission": "bookings.read:self",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "required": false,
+            "description": "A UUID is preserved; absent or invalid values are replaced by the gateway.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "401": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "403": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "404": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "409": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "413": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "422": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "429": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "500": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "502": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "503": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayError"
+          }
+        }
+      }
+    },
+    "/api/v1/payments/provider-notifications/sham-cash": {
+      "post": {
+        "operationId": "payments.provider.sham-cash",
+        "x-owning-service": "billing",
+        "x-provider-ingress": true,
+        "x-signature-verification-owner": "billing",
+        "security": [],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "required": false,
+            "description": "A UUID is preserved; absent or invalid values are replaced by the gateway.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Owner reports creation.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Owner accepted the command; completion is not implied.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Owner reports success without a response body.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "401": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "403": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "404": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "409": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "413": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "422": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "429": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "500": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "502": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "503": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayError"
+          }
+        }
+      }
+    },
+    "/api/v1/payments/provider-notifications/syriatel-cash": {
+      "post": {
+        "operationId": "payments.provider.syriatel-cash",
+        "x-owning-service": "billing",
+        "x-provider-ingress": true,
+        "x-signature-verification-owner": "billing",
+        "security": [],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "required": false,
+            "description": "A UUID is preserved; absent or invalid values are replaced by the gateway.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Owner reports creation.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Owner accepted the command; completion is not implied.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Owner reports success without a response body.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "401": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "403": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "404": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "409": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "413": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "422": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "429": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "500": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "502": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "503": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayError"
+          }
+        }
+      }
+    },
     "/api/v1/technician/work": {
       "get": {
         "operationId": "technician.work.read",
@@ -2988,11 +4172,697 @@
         }
       }
     },
-    "/api/v1/admin/billing/{id}/refund": {
+    "/api/v1/admin/billing/obligations/{id}": {
+      "get": {
+        "operationId": "admin.billing.obligation",
+        "x-owning-service": "billing",
+        "x-required-permission": "billing.read",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "required": false,
+            "description": "A UUID is preserved; absent or invalid values are replaced by the gateway.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "401": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "403": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "404": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "409": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "413": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "422": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "429": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "500": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "502": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "503": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayError"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/billing/payment-attempts/{id}/reconciliation": {
       "post": {
-        "operationId": "admin.refund",
+        "operationId": "admin.billing.reconcile",
+        "x-owning-service": "billing",
+        "x-required-permission": "billing.reconcile",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "required": false,
+            "description": "A UUID is preserved; absent or invalid values are replaced by the gateway.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "description": "Forwarded unchanged. A timeout is an unknown outcome, not rollback; never retry with a new key.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Owner reports creation.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Owner accepted the command; completion is not implied.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Owner reports success without a response body.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "401": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "403": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "404": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "409": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "413": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "422": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "429": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "500": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "502": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "503": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayError"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/billing/obligations/{id}/refunds": {
+      "get": {
+        "operationId": "admin.billing.refunds.list",
+        "x-owning-service": "billing",
+        "x-required-permission": "billing.read",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "required": false,
+            "description": "A UUID is preserved; absent or invalid values are replaced by the gateway.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "401": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "403": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "404": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "409": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "413": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "422": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "429": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "500": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "502": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "503": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "admin.billing.refunds.request",
         "x-owning-service": "billing",
         "x-required-permission": "billing.refund",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "required": false,
+            "description": "A UUID is preserved; absent or invalid values are replaced by the gateway.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "description": "Forwarded unchanged. A timeout is an unknown outcome, not rollback; never retry with a new key.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Owner reports creation.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Owner accepted the command; completion is not implied.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Owner reports success without a response body.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "401": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "403": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "404": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "409": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "413": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "422": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "429": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "500": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "502": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "503": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayError"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/billing/refunds/{id}": {
+      "get": {
+        "operationId": "admin.billing.refund",
+        "x-owning-service": "billing",
+        "x-required-permission": "billing.read",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "required": false,
+            "description": "A UUID is preserved; absent or invalid values are replaced by the gateway.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "traceparent",
+            "required": false,
+            "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owning service response; route-specific schema belongs to the owner.",
+            "headers": {
+              "X-Request-Id": {
+                "description": "Server-generated request UUID. External values are not trusted.",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Correlation-Id": {
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "traceparent": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "401": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "403": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "404": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "409": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "413": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "422": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "429": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "500": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "502": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "503": {
+            "$ref": "#/components/responses/GatewayError"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayError"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/billing/refunds/{id}/outcome": {
+      "post": {
+        "operationId": "admin.billing.refund.outcome",
+        "x-owning-service": "billing",
+        "x-required-permission": "billing.reconcile",
         "security": [
           {
             "bearer": []
