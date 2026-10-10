@@ -243,7 +243,9 @@
         "BookingRequest",
         "BookingSaga",
         "OutboxMessage",
-        "AuditEntry"
+        "AuditEntry",
+        "BookingChange",
+        "BookingSchedule"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
