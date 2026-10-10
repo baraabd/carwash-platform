@@ -1,0 +1,62 @@
+{
+  "journeys": {
+    "X1": "PASSED",
+    "X2": "PASSED",
+    "X3": "PASSED",
+    "X4": "PASSED",
+    "X5": "PASSED",
+    "A11Y-DIALOGS": "PASSED",
+    "V1": "PASSED"
+  },
+  "accessibility": {
+    "caseDialog": [],
+    "bookingCaseDialog": [],
+    "disputesPage": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 1,
+        "targets": [
+          "#disputes > .page-head > div > p"
+        ]
+      }
+    ],
+    "supportCaseDialog": []
+  },
+  "visual": [
+    {
+      "screen": "disputes",
+      "width": 390,
+      "sameDimensions": true,
+      "diffRatio": 0.6531025641025641
+    },
+    {
+      "screen": "disputes",
+      "width": 768,
+      "sameDimensions": true,
+      "diffRatio": 0.6767809606481482
+    },
+    {
+      "screen": "disputes",
+      "width": 1440,
+      "sameDimensions": true,
+      "diffRatio": 0.5427492283950617
+    }
+  ],
+  "audit": {
+    "X1": {
+      "billing": {
+        "action": "billing.attempt.reconciled",
+        "actorIsFinance": true,
+        "outcome": "MATCHED"
+      },
+      "support": [
+        "decision.recorded",
+        "execution.started",
+        "execution.finished"
+      ],
+      "correlationId": "651fcada-8bb1-4f1c-9824-9e90c3092b74"
+    }
+  },
+  "billingLedgerGrant": "NOT_NEEDED"
+}
