@@ -42,6 +42,7 @@ function fixtureRepo(t) {
   sh(dir, 'config', 'user.email', 'barrier@test.invalid');
   sh(dir, 'config', 'user.name', 'barrier-test');
   sh(dir, 'config', 'commit.gpgsign', 'false');
+  sh(dir, 'config', 'core.autocrlf', 'false');
   writeFileSync(path.join(dir, 'source.txt'), 'release candidate\n');
   sh(dir, 'add', '.');
   sh(dir, 'commit', '-q', '-m', 'rc');
