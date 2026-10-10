@@ -96,15 +96,31 @@ async function startQuoteDouble() {
  * Support sees a reset connection although Billing acted.
  */
 async function startBillingRelay(target) {
+  const owner = new URL(target);
+  assert.equal(owner.protocol, 'http:');
+  assert.equal(owner.hostname, '127.0.0.1');
+  const ownerPort = Number(owner.port);
+  assert.ok(Number.isSafeInteger(ownerPort) && ownerPort > 0);
   const state = { dropNextReconciliation: false, reconciliations: 0 };
   const server = createServer((req, res) => {
-    const reconciliation = req.method === 'POST' && /\/reconciliation$/.test(req.url ?? '');
+    const path = relayBillingPath(req.url);
+    if (!path) {
+      res.writeHead(400).end();
+      return;
+    }
+    const reconciliation = req.method === 'POST' && /\/reconciliation$/.test(path);
     if (reconciliation) state.reconciliations += 1;
     const drop = reconciliation && state.dropNextReconciliation;
     if (drop) state.dropNextReconciliation = false;
     const upstream = httpRequest(
-      `${target}${req.url}`,
-      { method: req.method, headers: req.headers },
+      {
+        protocol: 'http:',
+        hostname: '127.0.0.1',
+        port: ownerPort,
+        path,
+        method: req.method,
+        headers: req.headers,
+      },
       (reply) => {
         const chunks = [];
         reply.on('data', (c) => chunks.push(c));
@@ -129,6 +145,13 @@ async function startBillingRelay(target) {
       server.close();
     },
   };
+}
+
+function relayBillingPath(requestUrl) {
+  if (!requestUrl || !requestUrl.startsWith('/internal/v1/billing/')) return null;
+  if (requestUrl.startsWith('//') || requestUrl.includes('://') || /[\r\n]/.test(requestUrl))
+    return null;
+  return requestUrl;
 }
 
 async function migrateOwners() {
