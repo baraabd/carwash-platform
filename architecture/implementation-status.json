@@ -285,7 +285,12 @@
         "IdempotencyRecord",
         "InboxMessage",
         "OutboxMessage",
-        "AuditEntry"
+        "AuditEntry",
+        "ResourceObservation",
+        "Task",
+        "TaskEvidence",
+        "TaskNote",
+        "TaskEvent"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
