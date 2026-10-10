@@ -6,4 +6,3 @@ dialog{border:1px solid #dce5d3;background:var(--bg);color:var(--ink);padding:0;
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}html{scroll-behavior:auto!important}.ripple{display:none!important}}
 html[data-motion=off] *,html[data-motion=off] *::before,html[data-motion=off] *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}html[data-motion=off]{scroll-behavior:auto!important}html[data-motion=off] .ripple{display:none!important}
 @media print{.bottom-nav,.task-dock,.prototype-bar,.icon-button,dialog,.toast{display:none!important}.app{max-width:none;box-shadow:none}.main{padding-bottom:20px}}
-
