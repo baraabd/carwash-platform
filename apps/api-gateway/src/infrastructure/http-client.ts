@@ -25,7 +25,9 @@ export class BoundedHttpClient implements HttpPort {
         headers,
         redirect: 'error',
         signal: controller.signal,
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        ...(body === undefined
+          ? {}
+          : { body: Buffer.isBuffer(body) ? new Uint8Array(body) : JSON.stringify(body) }),
       });
       const reader = response.body?.getReader();
       const chunks: Uint8Array[] = [];

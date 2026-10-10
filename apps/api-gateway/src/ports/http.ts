@@ -15,6 +15,7 @@ export interface HttpPort {
     path: string,
     method: string,
     headers: Readonly<Record<string, string>>,
+    /** A Buffer is sent byte-for-byte (provider ingress); anything else as JSON. */
     body?: unknown,
   ): Promise<UpstreamReply>;
 }
@@ -34,5 +35,7 @@ export interface GatewayInput {
   readonly url: string;
   readonly headers: Readonly<Record<string, string>>;
   readonly body?: unknown;
+  /** Exact request bytes as received; used only by providerIngress routes. */
+  readonly rawBody?: Buffer;
   readonly context: RequestContext;
 }

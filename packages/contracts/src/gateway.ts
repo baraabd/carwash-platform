@@ -25,7 +25,26 @@ export interface GatewayRoute {
    */
   readonly public?: true;
   readonly idempotency?: 'required';
+  /**
+   * P04-E2: an external payment provider's server notification. No identity,
+   * cookie, bearer or browser header is ever forwarded; the exact raw request
+   * bytes (bounded) and only the allowlisted provider headers reach the owner,
+   * which verifies the signature and de-duplicates. POST only; never combined
+   * with permission/public/authTransport/idempotency.
+   */
+  readonly providerIngress?: true;
 }
+/** Provider headers the Gateway forwards on a providerIngress route; nothing else. */
+export const PROVIDER_INGRESS_HEADERS = [
+  'x-provider-signature',
+  'x-provider-timestamp',
+  'x-provider-notification-id',
+] as const;
+export const PROVIDER_INGRESS_CONTENT_TYPES = [
+  'application/json',
+  'application/x-www-form-urlencoded',
+] as const;
+export const PROVIDER_INGRESS_MAX_BYTES = 16_384;
 export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
   {
     id: 'auth.csrf',
@@ -115,6 +134,75 @@ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
     idempotency: 'required',
   },
   {
+    id: 'customer.payments.create',
+    method: 'POST',
+    path: '/customer/payments',
+    owner: 'billing',
+    upstream: '/internal/v1/billing/obligations',
+    permission: 'bookings.create:self',
+    idempotency: 'required',
+  },
+  {
+    id: 'customer.payments.read',
+    method: 'GET',
+    path: '/customer/payments/:id',
+    owner: 'billing',
+    upstream: '/internal/v1/billing/obligations/:id',
+    permission: 'bookings.read:self',
+  },
+  {
+    id: 'customer.payments.status',
+    method: 'GET',
+    path: '/customer/payments/:id/status',
+    owner: 'billing',
+    upstream: '/internal/v1/billing/obligations/:id/financial-status',
+    permission: 'bookings.read:self',
+  },
+  {
+    id: 'customer.payments.method',
+    method: 'POST',
+    path: '/customer/payments/:id/method',
+    owner: 'billing',
+    upstream: '/internal/v1/billing/obligations/:id/payment-intents',
+    permission: 'bookings.create:self',
+    idempotency: 'required',
+  },
+  {
+    id: 'customer.payments.reference',
+    method: 'POST',
+    path: '/customer/payments/:id/transaction-reference',
+    owner: 'billing',
+    upstream: '/internal/v1/billing/obligations/:id/payment-attempts',
+    permission: 'bookings.create:self',
+    idempotency: 'required',
+  },
+  {
+    id: 'customer.payments.refunds',
+    method: 'GET',
+    path: '/customer/payments/:id/refunds',
+    owner: 'billing',
+    upstream: '/internal/v1/billing/obligations/:id/refunds',
+    permission: 'bookings.read:self',
+  },
+  {
+    // P04-E2: provider server notification; signature verified by Billing.
+    id: 'payments.provider.sham-cash',
+    method: 'POST',
+    path: '/payments/provider-notifications/sham-cash',
+    owner: 'billing',
+    upstream: '/internal/v1/billing/provider-notifications/sham-cash',
+    providerIngress: true,
+  },
+  {
+    // P04-E2: provider server notification; signature verified by Billing.
+    id: 'payments.provider.syriatel-cash',
+    method: 'POST',
+    path: '/payments/provider-notifications/syriatel-cash',
+    owner: 'billing',
+    upstream: '/internal/v1/billing/provider-notifications/syriatel-cash',
+    providerIngress: true,
+  },
+  {
     id: 'technician.work.read',
     method: 'GET',
     path: '/technician/work',
@@ -157,12 +245,54 @@ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
     permission: 'billing.read',
   },
   {
-    id: 'admin.refund',
-    method: 'POST',
-    path: '/admin/billing/:id/refund',
+    id: 'admin.billing.obligation',
+    method: 'GET',
+    path: '/admin/billing/obligations/:id',
     owner: 'billing',
-    upstream: '/internal/v1/billing/:id/refund',
+    upstream: '/internal/v1/billing/obligations/:id',
+    permission: 'billing.read',
+  },
+  {
+    id: 'admin.billing.reconcile',
+    method: 'POST',
+    path: '/admin/billing/payment-attempts/:id/reconciliation',
+    owner: 'billing',
+    upstream: '/internal/v1/billing/payment-attempts/:id/reconciliation',
+    permission: 'billing.reconcile',
+    idempotency: 'required',
+  },
+  {
+    id: 'admin.billing.refunds.list',
+    method: 'GET',
+    path: '/admin/billing/obligations/:id/refunds',
+    owner: 'billing',
+    upstream: '/internal/v1/billing/obligations/:id/refunds',
+    permission: 'billing.read',
+  },
+  {
+    id: 'admin.billing.refunds.request',
+    method: 'POST',
+    path: '/admin/billing/obligations/:id/refunds',
+    owner: 'billing',
+    upstream: '/internal/v1/billing/obligations/:id/refunds',
     permission: 'billing.refund',
+    idempotency: 'required',
+  },
+  {
+    id: 'admin.billing.refund',
+    method: 'GET',
+    path: '/admin/billing/refunds/:id',
+    owner: 'billing',
+    upstream: '/internal/v1/billing/refunds/:id',
+    permission: 'billing.read',
+  },
+  {
+    id: 'admin.billing.refund.outcome',
+    method: 'POST',
+    path: '/admin/billing/refunds/:id/outcome',
+    owner: 'billing',
+    upstream: '/internal/v1/billing/refunds/:id/outcome',
+    permission: 'billing.reconcile',
     idempotency: 'required',
   },
   {
@@ -230,6 +360,12 @@ export type GatewayErrorCode =
 export interface GatewayErrorEnvelope {
   readonly error: {
     readonly code: GatewayErrorCode;
+    /**
+     * P04-E2: the owner's published business reason (e.g. PAYMENT_IN_REVIEW) for
+     * CONFLICT / VALIDATION_FAILED, forwarded only when it is in that owner's
+     * merged contract `reasons`. Absent otherwise. Never internal detail.
+     */
+    readonly reason?: string;
     readonly message: string;
     readonly requestId: string;
     readonly correlationId: string;

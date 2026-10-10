@@ -2,13 +2,17 @@ import {
   GATEWAY_COMPOSITIONS,
   GATEWAY_ROUTES,
   GATEWAY_V1,
+  OWNER_CONTRACTS,
   type GatewayErrorCode,
+  type GatewayOwner,
   type GatewayRoute,
 } from '@carwash/contracts';
 export class GatewayFault extends Error {
   constructor(
     readonly status: number,
     readonly code: GatewayErrorCode,
+    /** Owner business reason from that owner's MERGED contract; never free text. */
+    readonly reason?: string,
   ) {
     super(code);
   }
@@ -57,7 +61,13 @@ export function idempotencyKey(value: string | undefined): string {
     throw new GatewayFault(400, 'REQUEST_INVALID');
   return value;
 }
-export function upstreamFault(status: number, body: unknown): GatewayFault {
+/** Published reasons of the owner's merged contract; an unpublished owner forwards none. */
+function publishedReason(owner: GatewayOwner | undefined, code: unknown): string | undefined {
+  if (typeof code !== 'string' || owner === undefined) return undefined;
+  const contract = OWNER_CONTRACTS.find((candidate) => candidate.owner === owner);
+  return (contract?.reasons as readonly string[] | undefined)?.includes(code) ? code : undefined;
+}
+export function upstreamFault(status: number, body: unknown, owner?: GatewayOwner): GatewayFault {
   const error =
     typeof body === 'object' && body !== null ? (body as Record<string, unknown>).error : undefined;
   const code =
@@ -71,8 +81,16 @@ export function upstreamFault(status: number, body: unknown): GatewayFault {
     403: 'AUTH_FORBIDDEN',
     404: 'NOT_FOUND',
     409: 'CONFLICT',
+    // CR-D-P03-08: a stale expectedRevision stays a conflict, never a 502.
+    412: 'CONFLICT',
     422: 'VALIDATION_FAILED',
     429: 'RATE_LIMITED',
   };
-  return new GatewayFault(status in known ? status : 502, known[status] ?? 'UPSTREAM_UNAVAILABLE');
+  // Business-rule rejections keep the owner's published reason (CR-B-01); nothing else does.
+  const reason = [409, 412, 422].includes(status) ? publishedReason(owner, code) : undefined;
+  return new GatewayFault(
+    status in known ? status : 502,
+    known[status] ?? 'UPSTREAM_UNAVAILABLE',
+    reason,
+  );
 }

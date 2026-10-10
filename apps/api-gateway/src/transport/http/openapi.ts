@@ -65,6 +65,13 @@ export function gatewayOpenApi() {
         : {}),
       ...(route.authTransport ? { 'x-auth-enforcement-owner': 'identity' } : {}),
       ...(route.public ? { 'x-public': true, security: [] } : {}),
+      ...(route.providerIngress
+        ? {
+            'x-provider-ingress': true,
+            'x-signature-verification-owner': route.owner,
+            security: [],
+          }
+        : {}),
       parameters: [
         ...CORRELATION_PARAMETERS,
         ...(route.path.includes(':id')

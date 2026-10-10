@@ -7,6 +7,7 @@ export interface GatewayRequest {
   readonly originalUrl: string;
   readonly headers: Record<string, string | string[] | undefined>;
   readonly body?: unknown;
+  readonly rawBody?: Buffer;
   gatewayContext?: RequestContext;
 }
 export interface GatewayResponse {
