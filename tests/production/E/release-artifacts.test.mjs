@@ -372,7 +372,8 @@ test('the build pins every image build arg by digest and records only the pushed
   const source = read('scripts/production/E/release/build-release.mjs');
   assert.match(source, /'--provenance=mode=max'/);
   assert.match(source, /'--sbom=true'/);
-  assert.match(source, /NODE_IMAGE=\$\{nodeBase\.reference\}/);
+  assert.match(source, /NODE_IMAGE=\$\{nodeBase\.pullReference\}/);
+  assert.match(source, /reference: canonicalOfficialReference\(tag, digest\)/);
   assert.match(source, /RUNTIME_IMAGE=\$\{toolLock\.runtime\.image\}/);
   assert.match(source, /containerimage\.digest/);
   assert.match(source, /assertCleanSource\(\)/);
