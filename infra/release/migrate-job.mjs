@@ -26,7 +26,15 @@
  */
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import {
+  closeSync,
+  existsSync,
+  fstatSync,
+  openSync,
+  readFileSync,
+  readSync,
+  readdirSync,
+} from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -46,15 +54,33 @@ export class JobRefused extends Error {
 }
 
 /** Reads the DSN from the mounted secret file; never from a plain env value. */
-export function readMigrationDsn(env, readFile = readFileSync, stat = statSync) {
+export function readMigrationDsn(env) {
   if (env.DATABASE_URL !== undefined) throw new JobRefused('PLAINTEXT_DATABASE_URL_REFUSED');
   const file = env.MIGRATION_DATABASE_URL_FILE;
   if (!file) throw new JobRefused('MIGRATION_DATABASE_URL_FILE_REQUIRED');
   if (!path.isAbsolute(file)) throw new JobRefused('SECRET_FILE_NOT_ABSOLUTE');
-  const info = stat(file);
-  if (!info.isFile()) throw new JobRefused('SECRET_FILE_NOT_REGULAR');
-  if (info.size === 0 || info.size > MAX_SECRET_BYTES) throw new JobRefused('SECRET_FILE_SIZE');
-  const lines = readFile(file, 'utf8')
+  // One descriptor for the type/size check AND the read, so the checked file is
+  // the file that is read (no stat-then-open race).
+  let descriptor;
+  try {
+    descriptor = openSync(file, 'r');
+  } catch (error) {
+    if (error.code === 'EISDIR') throw new JobRefused('SECRET_FILE_NOT_REGULAR');
+    throw new JobRefused('SECRET_FILE_UNREADABLE', { errno: error.code });
+  }
+  let text;
+  try {
+    const info = fstatSync(descriptor);
+    if (!info.isFile()) throw new JobRefused('SECRET_FILE_NOT_REGULAR');
+    if (info.size === 0 || info.size > MAX_SECRET_BYTES) throw new JobRefused('SECRET_FILE_SIZE');
+    const buffer = Buffer.alloc(MAX_SECRET_BYTES + 1);
+    const length = readSync(descriptor, buffer, 0, buffer.length, 0);
+    if (length === 0 || length > MAX_SECRET_BYTES) throw new JobRefused('SECRET_FILE_SIZE');
+    text = buffer.subarray(0, length).toString('utf8');
+  } finally {
+    closeSync(descriptor);
+  }
+  const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
