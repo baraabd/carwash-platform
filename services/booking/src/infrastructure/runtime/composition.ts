@@ -1,5 +1,11 @@
 import { createLogger, traceHeaders } from '@carwash/service-kit';
-import { BookingProcessManager, BookingService, TechnicianViewQuery } from '../../application';
+import {
+  BookingProcessManager,
+  BookingService,
+  ChangeProcessManager,
+  ChangeService,
+  TechnicianViewQuery,
+} from '../../application';
 import type { Observer } from '../../ports';
 import {
   DispatchAssignmentClient,
@@ -16,6 +22,12 @@ import {
   VehicleSnapshotAdapter,
 } from '../owners/owner-adapters';
 import { PrismaBookingStore } from '../persistence/prisma-booking.store';
+import { PrismaChangeStore } from '../persistence/prisma-change.store';
+import {
+  BillingCancellationAdapter,
+  DispatchChangesAdapter,
+  SchedulingCommitmentsAdapter,
+} from '../owners/change-adapters';
 import type { PrismaService } from '../persistence/prisma.service';
 import { systemClock, systemRandom, uuidGenerator } from './system';
 
@@ -62,6 +74,9 @@ export interface Composition {
   readonly service: BookingService;
   /** Technician read, authorized by Dispatch on every request (P03-C3). */
   readonly technicianView: TechnicianViewQuery;
+  /** P04-C3 change saga (cancellation / reschedule). */
+  readonly changeSaga: ChangeProcessManager;
+  readonly changes: ChangeService;
 }
 
 export function compose(
@@ -107,10 +122,47 @@ export function compose(
     inlineBudgetMs: positiveInt(env.BOOKING_INLINE_SAGA_BUDGET_MS, 4_000),
     claimLeaseMs: positiveInt(env.BOOKING_CLAIM_LEASE_MS, 30_000),
   });
+  const dispatchConfig = dispatchAssignmentConfig(env);
   const technicianView = new TechnicianViewQuery({
     store,
-    assignments: new DispatchAssignmentClient(dispatchAssignmentConfig(env), systemRandom),
+    assignments: new DispatchAssignmentClient(dispatchConfig, systemRandom),
     observer,
   });
-  return { store, saga, service, technicianView };
+  const changeStore = new PrismaChangeStore(prisma, { leaseMs: sagaLeaseMs });
+  const changeSaga = new ChangeProcessManager({
+    changes: changeStore,
+    bookings: store,
+    // Same validated BOOKING_DISPATCH_* configuration as the technician read (P03-C3).
+    dispatch: new DispatchChangesAdapter(
+      new OwnerHttpClient({
+        owner: 'dispatch',
+        baseUrl: dispatchConfig?.baseUrl.toString(),
+        timeoutMs,
+        service:
+          dispatchConfig === null
+            ? null
+            : { clientId: dispatchConfig.clientId, token: dispatchConfig.token },
+      }),
+    ),
+    commitments: new SchedulingCommitmentsAdapter(client('scheduling', env.SCHEDULING_URL, true)),
+    billing: new BillingCancellationAdapter(client('billing', env.BILLING_URL, true)),
+    clock: systemClock,
+    ids: uuidGenerator,
+    random: systemRandom,
+    observer,
+    leaseMs: sagaLeaseMs,
+    traceparent: () => traceHeaders()['traceparent'] ?? null,
+  });
+  const changes = new ChangeService({
+    bookings: store,
+    changes: changeStore,
+    holds: new SchedulingHoldReader(client('scheduling', env.SCHEDULING_URL, false)),
+    manager: changeSaga,
+    clock: systemClock,
+    ids: uuidGenerator,
+    observer,
+    instanceId: options.instanceId,
+    inlineBudgetMs: positiveInt(env.BOOKING_INLINE_SAGA_BUDGET_MS, 4_000),
+  });
+  return { store, saga, service, technicianView, changeSaga, changes };
 }

@@ -121,7 +121,7 @@ function actorParts(actor: Actor): { kind: 'USER' | 'SYSTEM'; id: string } {
     : { kind: 'SYSTEM', id: actor.component };
 }
 
-async function appendAudit(tx: Tx, fact: AuditFact): Promise<void> {
+export async function appendAudit(tx: Tx, fact: AuditFact): Promise<void> {
   const actor = actorParts(fact.actor);
   await tx.$executeRawUnsafe(
     `INSERT INTO app.audit_entry (id, actor_kind, actor_id, action, target_type, target_id, correlation_id, details)
