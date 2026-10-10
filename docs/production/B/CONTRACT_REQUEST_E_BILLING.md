@@ -295,3 +295,19 @@ documents, body size limit (Billing caps at 16 KiB), no Gateway body re-encoding
 (comma-separated opaque account identifiers of the company's receiving accounts).
 Unset means no account is accepted (fail closed). Values are configuration, not
 secrets, but are never logged, evented or returned unmasked.
+
+### CR-B-09.6 Divergences from E's open, contract-first PR #120 (not merged)
+
+PR #120 (P04-E1) proposes refund and notification shapes before a provider existed.
+Billing does not consume an unmerged contract, so P04-B1 implements the model
+below and asks E to reconcile before merging #120 (or B conforms afterwards):
+
+| Topic | #120 proposal | P04-B1 implementation | Why |
+| --- | --- | --- | --- |
+| Refund target | `POST /obligations/:id/refunds` on a SETTLED obligation | `POST /provider-credits/:id/refunds` | Money that never settled an obligation (wrong amount, closed claim, duplicate) must be refundable too; the cap is the received credit, not `verified` |
+| Refund control | request (`billing.refund`) → outcome (`billing.reconcile`, ≠ requester) | request → **approval by a second person** (`billing.refund`) → provider execution or manual completion (≠ requester, evidence digest required) | No money leaves on one person's decision; the API channel exists for an official adapter |
+| Refund statuses | REQUESTED / SUCCEEDED / FAILED / UNKNOWN | REQUESTED, REJECTED, APPROVED, SUBMITTED, UNKNOWN, SUCCEEDED, FAILED | Approval, rejection and provider-accepted-but-pending are distinct facts |
+| Refund event | `billing.refund-status-changed.v1` | `billing.refund-changed.v1` (names credit and obligation) | Either name is fine; one must be chosen |
+| Financial status | unchanged by refunds in v1 | `PARTIALLY_REFUNDED` / `REFUNDED` after completion only | The customer view must not say PAID after the money was returned |
+| Notifications | `POST /provider-notifications/:provider` (`sham-cash`), `204`, WashGo HMAC headers, `503 NOTIFICATION_PROVIDER_DISABLED` | `POST /providers/:provider/notifications` (`sham_cash`), `201/200/202`, authentication delegated to the provider's own adapter, `404` while no official adapter declares the capability | A provider defines its own signature scheme; Billing must not impose one on ShamCash/Syriatel |
+| Settlement by notification | a notification is a claim | an authenticated **final** credit from an official adapter is a received-money fact; allocated only on an exact match | Same safety; the credit is recorded even when it cannot be allocated |

@@ -1,0 +1,163 @@
+{
+  "task": "P04-B",
+  "service": "billing",
+  "runId": "64fed0fb8a64",
+  "startedAt": "2026-10-10T19:26:17.258Z",
+  "sourceSHA": "bf5a02261bfd81971bcf59784ea70dfe0702feca",
+  "sourceTree": "646f65c1c64defafde6a844fbeb8637be4fe4424",
+  "sourceDirty": false,
+  "node": "v24.21.0",
+  "docker": "29.1.3",
+  "image": {
+    "name": "postgres:16.10-alpine",
+    "repoDigests": [
+      "postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297"
+    ],
+    "serverVersion": "PostgreSQL 16.10"
+  },
+  "dependencies": {
+    "postgres": "REAL (disposable container)",
+    "identity": "LOCAL HTTP STUB",
+    "broker": "NOT USED (outbox rows written; relay not started until E registers billing events)",
+    "pricing": "LOCAL HTTP STUB (published pricing.v1 getQuote shape)"
+  },
+  "phases": [
+    {
+      "name": "toolchain and source provenance",
+      "status": "PASS"
+    },
+    {
+      "name": "build service and integration specs from this source",
+      "status": "PASS"
+    },
+    {
+      "name": "pull pinned PostgreSQL image",
+      "status": "PASS"
+    },
+    {
+      "name": "start disposable PostgreSQL with shared provisioner",
+      "status": "PASS"
+    },
+    {
+      "name": "runtime identity can connect after provisioning",
+      "status": "PASS"
+    },
+    {
+      "name": "upgrade from previous migration history preserves existing data",
+      "status": "PASS"
+    },
+    {
+      "name": "re-provision restricts migration history from the runtime role",
+      "status": "PASS"
+    },
+    {
+      "name": "committed Prisma schema mirror has no drift from migrated database",
+      "status": "PASS"
+    },
+    {
+      "name": "integration specs as the least-privileged runtime role",
+      "status": "PASS"
+    }
+  ],
+  "tests": {
+    "files": [
+      "services\\billing\\dist-tests\\test\\integration\\billing.custody.postgres.spec.js",
+      "services\\billing\\dist-tests\\test\\integration\\billing.postgres.spec.js",
+      "services\\billing\\dist-tests\\test\\integration\\billing.provider.postgres.spec.js"
+    ],
+    "summary": {
+      "tests": 72,
+      "pass": 72,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "names": [
+      "✔ lifecycle: completed service -> collected -> held -> handed over -> received -> reconciled (",
+      "✔ collection: the work owner decides assignment and completion, never the body (",
+      "✔ collection: work owner outage is 503 with no receipt; production fails closed until lane C (",
+      "✔ collection: grants, principal kind, exact amount and cash intent are enforced (",
+      "✔ retry: the same key replays the original outcome on any replica (",
+      "✔ race: concurrent collections (",
+      "✔ reversal: a linked correction reopens the obligation; history is kept; cash can be collected again (",
+      "✔ reversal: never by the collector, never twice, never once cash left the holder (",
+      "✔ race: reversal vs handover of the same receipt - exactly one wins, invariants hold (",
+      "✔ handover: only own HELD receipts, exact declared total, a set without duplicates (",
+      "✔ race: two handovers claiming the same receipt - one wins (",
+      "✔ race: the same handover key on two replicas declares once and replays (",
+      "✔ cancel: the holder withdraws a pending handover and the cash is held again (",
+      "✔ race: treasury receipt vs holder cancel on one handover - exactly one applies (",
+      "✔ treasury: shortage and overage are explicit ledger facts, never absorbed (",
+      "✔ separation of duties: holder, receiver and reconciler are three different people (",
+      "✔ treasury and settlement references are claimed once; competing receipts apply once (",
+      "✔ database: receipts are immutable facts with guarded transitions (",
+      "✔ database: a stray journal or a custody edit without its fact never commits (",
+      "✔ database: received counts are immutable and separation of duties is a CHECK (",
+      "✔ reconciliation report: Billing facts agree across holders, receipts and treasury (",
+      "✔ create: the obligation books a receivable only; no money is received (",
+      "✔ create: amounts beyond 2^53 are stored and returned exactly (",
+      "✔ create: guest principals own obligations as guests (",
+      "✔ create: same key + same request replays; same key + different request conflicts (",
+      "✔ create race: the same key on two replicas yields one obligation and one outcome (",
+      "✔ create race: different keys for one quote produce exactly one obligation (",
+      "✔ create: Pricing decides existence, ownership, usability and amount (",
+      "✔ create: authentication and permission are verified with Identity on every call (",
+      "✔ initialize: choosing a method never records money; cash awaits collection (",
+      "✔ stale revision: a command against an old revision is rejected without effect (",
+      "✔ revision race: concurrent commands on one revision commit exactly one (",
+      "✔ attempt: a reported transaction number is review only, never payment (",
+      "✔ attempt: a provider reference can be claimed once, across obligations and spellings (",
+      "✔ attempt race: one reference submitted concurrently to two obligations is stored once (",
+      "✔ attempt: retry of the same submission replays and does not double count (",
+      "✔ reconcile: UNKNOWN is never success; a reviewer cannot MATCH; only an approved provider credit settles (",
+      "✔ reconcile: MISMATCHED returns the intent for a new reference; money unchanged (",
+      "✔ reconcile: requires billing.reconcile and separation of duties (",
+      "✔ reconcile race: concurrent reviewer decisions on one revision apply at most once (",
+      "✔ void: compensation before payment reverses the receivable; terminal afterwards (",
+      "✔ read: owner and Finance only; everyone else sees not-found (",
+      "✔ restart safety: a fresh replica replays a committed command from its receipt (",
+      "✔ ledger invariant: every committed journal balances and the whole ledger nets to zero (",
+      "✔ database: an unbalanced or foreign-currency journal never commits (",
+      "✔ database: a balanced journal without its state change (",
+      "✔ database: financial facts are append-only and state machines are enforced (",
+      "✔ database: obligation revisions move by exactly one and amounts are immutable (",
+      "✔ database: one active intent, attempts only against an awaiting electronic intent (",
+      "✔ database: ledger lines cannot be added to an already committed journal (",
+      "✔ database: the runtime role cannot change schema or call trigger functions (",
+      "✔ statement: nothing changes until a second person approves; then it settles exactly once (",
+      "✔ statement: two people, never the owner, staff accounts with billing.reconcile only (",
+      "✔ statement: merchant account, time, duplicates and rejection (",
+      "✔ statement: a wrong amount is received but UNALLOCATED; the claim stays under review (",
+      "✔ late claim: a credit that arrived first is allocated when the customer reports it (",
+      "✔ late arrival: a credit for a closed claim stays visible money, never erased or re-applied (",
+      "✔ production adapters: no automated capability is pretended; diagnostics are redacted (",
+      "✔ notification: an authenticated final credit settles the open claim; provider-attributed (",
+      "✔ notification: replays are idempotent, conflicting facts are refused, concurrency is safe (",
+      "✔ notification: forged, stale, foreign-merchant or pending notifications write nothing (",
+      "✔ race: a claim and its credit arriving together always meet (",
+      "✔ verify: UNKNOWN is never success; a later verified answer settles; PENDING/NOT_FOUND change nothing (",
+      "✔ verify: a foreign merchant or a different transaction is not evidence (",
+      "✔ refund (",
+      "✔ refund: separation of duties, staff accounts only, failed transfers release the reservation (",
+      "✔ refund race: concurrent full refunds on two replicas reserve at most the credit (",
+      "✔ refund of unallocated money; a reserved credit is never applied to a late claim (",
+      "✔ refund (",
+      "✔ refund (",
+      "✔ refund: a transfer reference can evidence one refund only (",
+      "✔ database: money cannot be recognised, edited, refunded or deleted around the rules ("
+    ]
+  },
+  "accepted": true,
+  "migrations": {
+    "previous": [
+      "20260920000000_sprint_02_foundation",
+      "20261008100000_p02b_billing_obligations_payments",
+      "20261009100000_p03b_cash_custody_settlement"
+    ],
+    "added": [
+      "20261010100000_p04b_provider_credits_refunds"
+    ]
+  },
+  "finishedAt": "2026-10-10T19:28:16.672Z"
+}

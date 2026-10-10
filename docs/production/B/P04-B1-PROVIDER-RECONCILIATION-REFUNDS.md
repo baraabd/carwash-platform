@@ -225,10 +225,10 @@ validated through the shared envelope v2 parser before being written.
 
 | Family | Command | Result |
 | --- | --- | --- |
-| Domain/unit (provider credits, refunds, events + P02/P03 domain) | `node --test services/billing/dist-tests/test/*.spec.js` | see PR (all pass) |
+| Domain/unit (provider credits, refunds, events + P02/P03 domain) | `node --test services/billing/dist-tests/test/*.spec.js` | PASSED 54/54 (with the two rows below) |
 | Provider adapter contract + config/secret isolation + fake signed adapter | `billing.provider.adapters.spec.ts` (same command) | PASSED |
 | Nest composition: provider/refund routes mounted, 401/503 fail closed, callback 404, automation config fails startup | `billing.nest.spec.ts` | PASSED |
-| **Real PostgreSQL 16.10**: runtime role, 4 replicas, races, triggers, ledger, upgrade sentinel | `node scripts/production/B/postgres-acceptance.mjs --service billing --record` | see `evidence/billing-postgres-*.json` |
+| **Real PostgreSQL 16.10**: runtime role, 4 replicas, races, triggers, ledger, upgrade sentinel | `node scripts/production/B/postgres-acceptance.mjs --service billing --record` | **PASSED 72/72** (24 new + 48 P02/P03), every phase, upgrade sentinel (cash collection + electronic claim settled by a credit), no drift; `evidence/billing-postgres-bf5a02261bfd.json` (source `bf5a022`, tree `646f65c`, clean) |
 | Real RabbitMQ | — | **BLOCKED** (CR-B-05, CR-B-09.2) |
 | **Live / sandbox ShamCash, Syriatel Cash** | — | **BLOCKED: `LIVE_PROVIDER_ACCEPTANCE`** (no official documents, credentials or sandbox) |
 | Playwright / visual | — | **NOT APPLICABLE**: no UI change; refund and reconciliation screens are not designed |
