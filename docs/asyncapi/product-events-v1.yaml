@@ -1,0 +1,195 @@
+asyncapi: '2.6.0'
+info:
+  title: WashGo advanced product events V1 (envelope v2)
+  version: '1.0.0'
+  description: >
+    Subscription, promotion (Pricing), support case and review events
+    (exchange <producer>.events, routing key = event type). Status
+    published-producer-pending: no accepted producer
+    emits these yet. Data is closed and carries opaque IDs, statuses, closed
+    codes and counts only; never a comment, note, code or contact detail.
+    Shapes are defined by the parsers in @carwash/event-contracts product-v1.
+defaultContentType: application/json
+channels:
+  subscription.events/subscription.purchase-status-changed.v1:
+    publish:
+      operationId: publish_subscription_purchase_status_changed_v1
+      message:
+        name: subscription.purchase-status-changed.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: subscription.purchase-status-changed.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: subscription
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: subscription-purchase
+            data:
+              type: object
+              additionalProperties: false
+  subscription.events/subscription.subscription-changed.v1:
+    publish:
+      operationId: publish_subscription_subscription_changed_v1
+      message:
+        name: subscription.subscription-changed.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: subscription.subscription-changed.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: subscription
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: subscription
+            data:
+              type: object
+              additionalProperties: false
+  subscription.events/subscription.entitlement-reservation-changed.v1:
+    publish:
+      operationId: publish_subscription_entitlement_reservation_changed_v1
+      message:
+        name: subscription.entitlement-reservation-changed.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: subscription.entitlement-reservation-changed.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: subscription
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: subscription-entitlement-reservation
+            data:
+              type: object
+              additionalProperties: false
+  pricing.events/pricing.promotion-reservation-changed.v1:
+    publish:
+      operationId: publish_pricing_promotion_reservation_changed_v1
+      message:
+        name: pricing.promotion-reservation-changed.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: pricing.promotion-reservation-changed.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: pricing
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: pricing-promotion-reservation
+            data:
+              type: object
+              additionalProperties: false
+  support.events/support.case-opened.v1:
+    publish:
+      operationId: publish_support_case_opened_v1
+      message:
+        name: support.case-opened.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: support.case-opened.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: support
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: support-case
+            data:
+              type: object
+              additionalProperties: false
+  support.events/support.case-status-changed.v1:
+    publish:
+      operationId: publish_support_case_status_changed_v1
+      message:
+        name: support.case-status-changed.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: support.case-status-changed.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: support
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: support-case
+            data:
+              type: object
+              additionalProperties: false
+  reviews.events/reviews.review-status-changed.v1:
+    publish:
+      operationId: publish_reviews_review_status_changed_v1
+      message:
+        name: reviews.review-status-changed.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: reviews.review-status-changed.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: reviews
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: review
+            data:
+              type: object
+              additionalProperties: false

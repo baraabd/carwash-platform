@@ -670,6 +670,374 @@
         "NOTIFICATION_STALE",
         "NOTIFICATION_PROVIDER_DISABLED"
       ]
+    },
+    "subscription.v1": {
+      "owner": "subscription",
+      "prefix": "/internal/v1/subscription",
+      "routes": {
+        "listPlans": {
+          "method": "GET",
+          "path": "/plans",
+          "access": "public",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        },
+        "getPlan": {
+          "method": "GET",
+          "path": "/plans/:planId",
+          "access": "public",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "createPurchase": {
+          "method": "POST",
+          "path": "/purchases",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getPurchase": {
+          "method": "GET",
+          "path": "/purchases/:purchaseId",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "listSubscriptions": {
+          "method": "GET",
+          "path": "/subscriptions",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        },
+        "getSubscription": {
+          "method": "GET",
+          "path": "/subscriptions/:subscriptionId",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "requestChange": {
+          "method": "POST",
+          "path": "/subscriptions/:subscriptionId/changes",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "reserveEntitlement": {
+          "method": "POST",
+          "path": "/entitlement-reservations",
+          "access": "service:subscription.entitlement.reserve",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "resolveEntitlement": {
+          "method": "POST",
+          "path": "/entitlement-reservations/:reservationId/resolution",
+          "access": "service:subscription.entitlement.resolve",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getEntitlementReservation": {
+          "method": "GET",
+          "path": "/entitlement-reservations/:reservationId",
+          "access": "service:subscription.entitlement.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "PLAN_NOT_AVAILABLE",
+        "PLAN_VERSION_CHANGED",
+        "QUOTE_MISMATCH",
+        "PURCHASE_NOT_ACTIVATABLE",
+        "SUBSCRIPTION_NOT_ACTIVE",
+        "ENTITLEMENT_EXHAUSTED",
+        "PACKAGE_NOT_COVERED",
+        "RESERVATION_NOT_ACTIVE",
+        "RESERVATION_BOOKING_MISMATCH",
+        "CHANGE_NOT_ALLOWED",
+        "POLICY_UNAVAILABLE"
+      ]
+    },
+    "promotion.v1": {
+      "owner": "pricing",
+      "prefix": "/internal/v1/pricing",
+      "routes": {
+        "checkEligibility": {
+          "method": "POST",
+          "path": "/promotions/eligibility",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": true,
+          "paged": false
+        },
+        "createPromotionQuote": {
+          "method": "POST",
+          "path": "/promotion-quotes",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "reservePromotion": {
+          "method": "POST",
+          "path": "/promotion-reservations",
+          "access": "service:pricing.promotion.reserve",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "resolvePromotion": {
+          "method": "POST",
+          "path": "/promotion-reservations/:reservationId/resolution",
+          "access": "service:pricing.promotion.resolve",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getPromotionReservation": {
+          "method": "GET",
+          "path": "/promotion-reservations/:reservationId",
+          "access": "service:pricing.promotion.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "PROMOTION_INELIGIBLE",
+        "PROMOTION_UNAVAILABLE",
+        "PROMOTION_EXHAUSTED",
+        "PROMOTION_EXPIRED",
+        "PROMOTION_NOT_COMBINABLE",
+        "PROMOTION_QUOTE_MISMATCH",
+        "PROMOTION_RESERVATION_NOT_ACTIVE",
+        "PROMOTION_BOOKING_MISMATCH"
+      ]
+    },
+    "support.v1": {
+      "owner": "support",
+      "prefix": "/internal/v1/support",
+      "routes": {
+        "listCases": {
+          "method": "GET",
+          "path": "/cases",
+          "access": "permission:support.cases.read|billing.read|operations.dispatch",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        },
+        "openCase": {
+          "method": "POST",
+          "path": "/cases",
+          "access": "permission:billing.reconcile|billing.refund|operations.dispatch",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getCase": {
+          "method": "GET",
+          "path": "/cases/:caseId",
+          "access": "permission:support.cases.read|billing.read|operations.dispatch",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getCaseSubjectCurrent": {
+          "method": "GET",
+          "path": "/cases/:caseId/current",
+          "access": "permission:support.cases.read|billing.read|operations.dispatch",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "decideCase": {
+          "method": "POST",
+          "path": "/cases/:caseId/decisions",
+          "access": "permission:billing.reconcile|billing.refund|operations.dispatch",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "approveDecision": {
+          "method": "POST",
+          "path": "/cases/:caseId/decisions/:decisionNo/approval",
+          "access": "permission:billing.refund",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "resendDecision": {
+          "method": "POST",
+          "path": "/cases/:caseId/decisions/:decisionNo/execution",
+          "access": "permission:billing.reconcile|billing.refund|operations.dispatch",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "CASE_ALREADY_OPEN",
+        "CASE_CHANGED",
+        "SUBJECT_NOT_ELIGIBLE",
+        "SUBJECT_KIND_MISMATCH",
+        "CASE_NOT_DECIDABLE",
+        "CASE_NOT_AWAITING_APPROVAL",
+        "SAME_PERSON_APPROVAL",
+        "ACTION_NOT_ALLOWED_FOR_KIND",
+        "REASON_NOT_ALLOWED_FOR_KIND",
+        "REASON_NOTE_REQUIRED",
+        "EVIDENCE_REQUIRED",
+        "AMOUNT_REQUIRED",
+        "WINDOW_REQUIRED",
+        "NOTHING_TO_EXECUTE"
+      ]
+    },
+    "reviews.v1": {
+      "owner": "reviews",
+      "prefix": "/internal/v1/reviews",
+      "routes": {
+        "submitReview": {
+          "method": "POST",
+          "path": "/reviews",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getBookingReview": {
+          "method": "GET",
+          "path": "/bookings/:bookingId/review",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "listModerationQueue": {
+          "method": "GET",
+          "path": "/moderation/reviews",
+          "access": "permission:reviews.moderate",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        },
+        "moderateReview": {
+          "method": "POST",
+          "path": "/moderation/reviews/:reviewId/decision",
+          "access": "permission:reviews.moderate",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "NOT_REVIEWABLE",
+        "REVIEW_ALREADY_SUBMITTED",
+        "REVIEW_NOT_PENDING",
+        "CONSENT_REQUIRED"
+      ]
+    },
+    "reporting.v1": {
+      "owner": "reporting",
+      "prefix": "/internal/v1/reporting",
+      "routes": {
+        "listBookingOperations": {
+          "method": "GET",
+          "path": "/operations/bookings",
+          "access": "permission:operations.dispatch",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        },
+        "getBookingOperation": {
+          "method": "GET",
+          "path": "/operations/bookings/:bookingId",
+          "access": "permission:operations.dispatch",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "listResources": {
+          "method": "GET",
+          "path": "/operations/resources",
+          "access": "permission:verification.review|operations.dispatch",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        },
+        "getOperationsKpis": {
+          "method": "GET",
+          "path": "/operations/kpis/operations",
+          "access": "permission:operations.dispatch",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getCashKpis": {
+          "method": "GET",
+          "path": "/operations/kpis/cash",
+          "access": "permission:billing.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getFreshness": {
+          "method": "GET",
+          "path": "/operations/freshness",
+          "access": "permission:verification.review|operations.dispatch|billing.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "NOT_PROJECTED",
+        "INVALID_WINDOW",
+        "WINDOW_TOO_LARGE"
+      ]
     }
   },
   "errorCodes": [
@@ -778,6 +1146,41 @@
     "billing.refund-status-changed.v1": {
       "producer": "billing",
       "aggregateType": "billing-refund",
+      "envelopeVersion": 2
+    },
+    "subscription.purchase-status-changed.v1": {
+      "producer": "subscription",
+      "aggregateType": "subscription-purchase",
+      "envelopeVersion": 2
+    },
+    "subscription.subscription-changed.v1": {
+      "producer": "subscription",
+      "aggregateType": "subscription",
+      "envelopeVersion": 2
+    },
+    "subscription.entitlement-reservation-changed.v1": {
+      "producer": "subscription",
+      "aggregateType": "subscription-entitlement-reservation",
+      "envelopeVersion": 2
+    },
+    "pricing.promotion-reservation-changed.v1": {
+      "producer": "pricing",
+      "aggregateType": "pricing-promotion-reservation",
+      "envelopeVersion": 2
+    },
+    "support.case-opened.v1": {
+      "producer": "support",
+      "aggregateType": "support-case",
+      "envelopeVersion": 2
+    },
+    "support.case-status-changed.v1": {
+      "producer": "support",
+      "aggregateType": "support-case",
+      "envelopeVersion": 2
+    },
+    "reviews.review-status-changed.v1": {
+      "producer": "reviews",
+      "aggregateType": "review",
       "envelopeVersion": 2
     }
   }

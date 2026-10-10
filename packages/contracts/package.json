@@ -63,6 +63,26 @@
       "types": "./dist/billing/v1.d.ts",
       "default": "./dist/billing/v1.js"
     },
+    "./subscription-v1": {
+      "types": "./dist/subscription/v1.d.ts",
+      "default": "./dist/subscription/v1.js"
+    },
+    "./promotion-v1": {
+      "types": "./dist/promotion/v1.d.ts",
+      "default": "./dist/promotion/v1.js"
+    },
+    "./support-v1": {
+      "types": "./dist/support/v1.d.ts",
+      "default": "./dist/support/v1.js"
+    },
+    "./reviews-v1": {
+      "types": "./dist/reviews/v1.d.ts",
+      "default": "./dist/reviews/v1.js"
+    },
+    "./reporting-v1": {
+      "types": "./dist/reporting/v1.d.ts",
+      "default": "./dist/reporting/v1.js"
+    },
     "./common": {
       "types": "./dist/common/index.d.ts",
       "default": "./dist/common/index.js"
