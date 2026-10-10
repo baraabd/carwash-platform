@@ -339,7 +339,9 @@
         "CashReceipt",
         "CashReceiptReversal",
         "CustodyHandover",
-        "CustodyHandoverItem"
+        "CustodyHandoverItem",
+        "ProviderCredit",
+        "PaymentRefund"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
