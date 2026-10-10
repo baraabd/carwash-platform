@@ -92,6 +92,13 @@ test('X003 HTTP registry is versioned, bounded and source-linked', () => {
         prefix: '/internal/v1/configuration',
         status: 'published-provider-pending',
       },
+      {
+        id: 'billing.v1',
+        domain: 'billing',
+        version: 1,
+        prefix: '/internal/v1/billing',
+        status: 'published-provider-pending',
+      },
     ],
   );
   // Unpublished domains stay unknown; publication is explicit, never inferred.
@@ -236,6 +243,54 @@ test('X003 event registry matches public code and AsyncAPI documents', () => {
         status: 'published-producer-pending',
         asyncApi: 'docs/asyncapi/business-events-v1.yaml',
       },
+      {
+        id: 'billing.obligation-created.v1',
+        producer: 'billing',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/billing-events-v1.yaml',
+      },
+      {
+        id: 'billing.obligation-status-changed.v1',
+        producer: 'billing',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/billing-events-v1.yaml',
+      },
+      {
+        id: 'billing.cash-collected.v1',
+        producer: 'billing',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/billing-events-v1.yaml',
+      },
+      {
+        id: 'billing.cash-collection-reversed.v1',
+        producer: 'billing',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/billing-events-v1.yaml',
+      },
+      {
+        id: 'billing.custody-handover-changed.v1',
+        producer: 'billing',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/billing-events-v1.yaml',
+      },
+      {
+        id: 'billing.refund-status-changed.v1',
+        producer: 'billing',
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/billing-events-v1.yaml',
+      },
     ],
   );
   assert.throws(() => eventRegistry.eventContract('billing.paid.v1'), /UNKNOWN_EVENT_CONTRACT/);
@@ -276,6 +331,7 @@ test('X003 package exports expose versioned domains and reject private deep impo
     './scheduling-v1',
     './workforce-v1',
     './configuration-v1',
+    './billing-v1',
     './common',
   ]);
   assert.deepEqual(Object.keys(eventsPackage.exports), [
@@ -286,6 +342,7 @@ test('X003 package exports expose versioned domains and reject private deep impo
     './registry',
     './envelope-v2',
     './business-v1',
+    './billing-v1',
   ]);
 
   const consumer = mkdtempSync(path.join(tmpdir(), 'washgo-x003-consumer-'));
@@ -308,6 +365,7 @@ test('X003 package exports expose versioned domains and reject private deep impo
     '@carwash/event-contracts/registry',
     '@carwash/event-contracts/envelope-v2',
     '@carwash/event-contracts/business-v1',
+    '@carwash/event-contracts/billing-v1',
     '@carwash/contracts/customer-v1',
     '@carwash/contracts/vehicle-v1',
     '@carwash/contracts/geo-v1',
@@ -316,6 +374,7 @@ test('X003 package exports expose versioned domains and reject private deep impo
     '@carwash/contracts/scheduling-v1',
     '@carwash/contracts/workforce-v1',
     '@carwash/contracts/configuration-v1',
+    '@carwash/contracts/billing-v1',
     '@carwash/contracts/common',
   ];
   for (const specifier of allowed) {

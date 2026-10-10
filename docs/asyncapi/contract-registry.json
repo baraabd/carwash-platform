@@ -97,6 +97,54 @@
       "envelopeVersion": 2,
       "status": "published-producer-pending",
       "asyncApi": "docs/asyncapi/business-events-v1.yaml"
+    },
+    {
+      "id": "billing.obligation-created.v1",
+      "producer": "billing",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/billing-events-v1.yaml"
+    },
+    {
+      "id": "billing.obligation-status-changed.v1",
+      "producer": "billing",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/billing-events-v1.yaml"
+    },
+    {
+      "id": "billing.cash-collected.v1",
+      "producer": "billing",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/billing-events-v1.yaml"
+    },
+    {
+      "id": "billing.cash-collection-reversed.v1",
+      "producer": "billing",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/billing-events-v1.yaml"
+    },
+    {
+      "id": "billing.custody-handover-changed.v1",
+      "producer": "billing",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/billing-events-v1.yaml"
+    },
+    {
+      "id": "billing.refund-status-changed.v1",
+      "producer": "billing",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/billing-events-v1.yaml"
     }
   ]
 }

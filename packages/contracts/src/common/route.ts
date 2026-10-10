@@ -8,13 +8,19 @@
  *  - 'principal'              the authenticated account OR guest acts on its own records
  *  - 'permission:<name>'      staff permission issued by Identity
  *  - 'service:<scope>'        workload identity with that scope; never reachable from the Gateway
+ *  - 'provider-signed'        an external payment provider's server notification. No principal,
+ *                             cookie or bearer is ever forwarded; the OWNER verifies the provider's
+ *                             signature over the exact raw body and de-duplicates by the signed
+ *                             notification id (a provider cannot send an Idempotency-Key). Only
+ *                             POST; never idempotent/revisioned/safe/paged.
  *
  * Mutations require `idempotent: true` unless `safe: true` (a POST that only
  * reads/validates and changes no owner state). `revisioned` routes require
  * `If-Match`; commands that carry `expectedRevision` in the body are not
  * additionally revisioned.
  */
-export type RouteAccess = 'public' | 'principal' | `permission:${string}` | `service:${string}`;
+export type RouteAccess =
+  'public' | 'principal' | 'provider-signed' | `permission:${string}` | `service:${string}`;
 
 export interface RouteSpec {
   readonly method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -35,7 +41,8 @@ export interface OwnerContract {
 }
 
 const PATH = /^(\/(?:[a-z0-9-]+|:[a-zA-Z]+))+$/;
-const ACCESS = /^(public|principal|permission:[a-z][a-z.:-]{2,63}|service:[a-z][a-z.-]{2,63})$/;
+const ACCESS =
+  /^(public|principal|provider-signed|permission:[a-z][a-z.:-]{2,63}|service:[a-z][a-z.-]{2,63})$/;
 const REASON = /^[A-Z][A-Z0-9_]{2,63}$/;
 
 /** Structural lint for a contract descriptor; used by the contract test suite and CI. */
@@ -54,7 +61,10 @@ export function contractProblems(contract: OwnerContract): string[] {
     if (seen.has(key)) problems.push(`${where}: duplicate ${key}`);
     seen.add(key);
     const mutating = route.method !== 'GET';
-    if (mutating && !route.idempotent && !route.safe)
+    const signed = route.access === 'provider-signed';
+    if (signed && (route.method !== 'POST' || route.idempotent || route.revisioned || route.safe))
+      problems.push(`${where}: provider-signed is a plain POST de-duplicated by the owner`);
+    if (mutating && !signed && !route.idempotent && !route.safe)
       problems.push(`${where}: mutation needs idempotent or safe`);
     if (route.safe && (route.method !== 'POST' || route.idempotent || route.revisioned)) {
       problems.push(`${where}: safe is only for read-only POST`);
