@@ -51,11 +51,13 @@ model Assignment {
   resourceId        String?         @map("resource_id") @db.Uuid
   technicianSubject String?         @map("technician_subject") @db.Uuid
   cancelReason      String?         @map("cancel_reason")
+  pendingChangeId   String?         @map("pending_change_id") @db.Uuid
   version           Int             @default(1)
   createdAt         DateTime        @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime        @map("updated_at") @db.Timestamptz(3)
   offers            DispatchOffer[]
   tasks             Task[]
+  bookingChanges    BookingChange[]
 
   @@index([zoneId, startsAt])
   @@map("assignment")
@@ -248,4 +250,28 @@ model TaskEvent {
 
   @@unique([taskId, seq])
   @@map("task_event")
+}
+
+/// A change Booking asked Dispatch to apply to a booking's job (P04-C2):
+/// a cancellation (or its tombstone) or a rebind to a new slot. The partial
+/// unique indexes (one cancellation and one pending rebind per booking) and
+/// the shape CHECKs live in the migration SQL.
+model BookingChange {
+  changeId     String      @id @map("change_id") @db.Uuid
+  bookingId    String      @map("booking_id") @db.Uuid
+  kind         String
+  state        String
+  assignmentId String?     @map("assignment_id") @db.Uuid
+  fromHoldId   String?     @map("from_hold_id") @db.Uuid
+  fromStartsAt DateTime?   @map("from_starts_at") @db.Timestamptz(3)
+  fromEndsAt   DateTime?   @map("from_ends_at") @db.Timestamptz(3)
+  toHoldId     String?     @map("to_hold_id") @db.Uuid
+  toStartsAt   DateTime?   @map("to_starts_at") @db.Timestamptz(3)
+  toEndsAt     DateTime?   @map("to_ends_at") @db.Timestamptz(3)
+  createdAt    DateTime    @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime    @map("updated_at") @db.Timestamptz(3)
+  assignment   Assignment? @relation(fields: [assignmentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([bookingId])
+  @@map("booking_change")
 }

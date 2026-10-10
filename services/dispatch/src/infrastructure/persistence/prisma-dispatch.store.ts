@@ -4,11 +4,15 @@ import {
   DispatchError,
   type AssignmentState,
   type AssignmentStatus,
+  type BookingChange,
+  type BookingChangeKind,
+  type BookingChangeState,
   type CancelReason,
   type DeclineReason,
   type EvidenceLink,
   type HoldEventState,
   type HoldObservation,
+  type JobSlot,
   type OfferState,
   type OfferStatus,
   type ResourceObservation,
@@ -72,6 +76,7 @@ interface AssignmentRow {
   resource_id: string | null;
   technician_subject: string | null;
   cancel_reason: string | null;
+  pending_change_id: string | null;
   version: number;
   created_at: Date;
   updated_at: Date;
@@ -94,7 +99,8 @@ interface OfferRow {
 }
 
 const ASSIGNMENT_COLUMNS = `id::text, booking_id::text, hold_id::text, zone_id::text, starts_at, ends_at,
-  status, resource_id::text, technician_subject::text, cancel_reason, version, created_at, updated_at`;
+  status, resource_id::text, technician_subject::text, cancel_reason, pending_change_id::text, version,
+  created_at, updated_at`;
 const OFFER_COLUMNS = `id::text, assignment_id::text, resource_id::text, technician_subject::text, status,
   expires_at, decline_reason, decline_note, withdraw_reason, created_by, version, created_at, updated_at`;
 
@@ -138,7 +144,53 @@ function toAssignment(row: AssignmentRow): AssignmentState {
     resourceId: row.resource_id,
     technicianSubject: row.technician_subject,
     cancelReason: row.cancel_reason as CancelReason | null,
+    pendingChangeId: row.pending_change_id,
     version: row.version,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function resultTypeOf(value: string): IdempotentResult['resultType'] {
+  if (value === 'OFFER' || value === 'TASK' || value === 'BOOKING_CHANGE') return value;
+  return 'ASSIGNMENT';
+}
+
+interface BookingChangeRow {
+  change_id: string;
+  booking_id: string;
+  kind: string;
+  state: string;
+  assignment_id: string | null;
+  from_hold_id: string | null;
+  from_starts_at: Date | null;
+  from_ends_at: Date | null;
+  to_hold_id: string | null;
+  to_starts_at: Date | null;
+  to_ends_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+const BOOKING_CHANGE_COLUMNS = `change_id::text, booking_id::text, kind, state, assignment_id::text,
+  from_hold_id::text, from_starts_at, from_ends_at, to_hold_id::text, to_starts_at, to_ends_at,
+  created_at, updated_at`;
+
+function slotOf(holdId: string | null, startsAt: Date | null, endsAt: Date | null): JobSlot | null {
+  return holdId === null || startsAt === null || endsAt === null
+    ? null
+    : { holdId, startsAt, endsAt };
+}
+
+function toBookingChange(row: BookingChangeRow): BookingChange {
+  return {
+    changeId: row.change_id,
+    bookingId: row.booking_id,
+    kind: row.kind as BookingChangeKind,
+    state: row.state as BookingChangeState,
+    assignmentId: row.assignment_id,
+    from: slotOf(row.from_hold_id, row.from_starts_at, row.from_ends_at),
+    to: slotOf(row.to_hold_id, row.to_starts_at, row.to_ends_at),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -203,7 +255,7 @@ class PrismaDispatchTransaction implements DispatchTransaction {
     return {
       kind: 'REPLAY',
       result: {
-        resultType: row.result_type === 'OFFER' ? 'OFFER' : 'ASSIGNMENT',
+        resultType: resultTypeOf(row.result_type),
         resultId: row.result_id,
       },
     };
@@ -301,13 +353,77 @@ class PrismaDispatchTransaction implements DispatchTransaction {
     return row ? toAssignment(row) : null;
   }
 
+  async lockBooking(bookingId: string): Promise<void> {
+    await this.tx.$executeRawUnsafe(
+      `SELECT pg_advisory_xact_lock(hashtextextended('dispatch.booking:' || $1::text, 0))`,
+      bookingId,
+    );
+  }
+
+  async lockAssignmentByBooking(bookingId: string): Promise<AssignmentState | null> {
+    const [row] = await this.tx.$queryRawUnsafe<AssignmentRow[]>(
+      `SELECT ${ASSIGNMENT_COLUMNS} FROM app.assignment WHERE booking_id = $1::uuid FOR UPDATE`,
+      bookingId,
+    );
+    return row ? toAssignment(row) : null;
+  }
+
+  async findBookingChange(changeId: string): Promise<BookingChange | null> {
+    const [row] = await this.tx.$queryRawUnsafe<BookingChangeRow[]>(
+      `SELECT ${BOOKING_CHANGE_COLUMNS} FROM app.booking_change WHERE change_id = $1::uuid`,
+      changeId,
+    );
+    return row ? toBookingChange(row) : null;
+  }
+
+  async findCancellation(bookingId: string): Promise<BookingChange | null> {
+    const [row] = await this.tx.$queryRawUnsafe<BookingChangeRow[]>(
+      `SELECT ${BOOKING_CHANGE_COLUMNS} FROM app.booking_change
+        WHERE booking_id = $1::uuid AND kind = 'CANCELLATION'`,
+      bookingId,
+    );
+    return row ? toBookingChange(row) : null;
+  }
+
+  async findPendingRebind(bookingId: string): Promise<BookingChange | null> {
+    const [row] = await this.tx.$queryRawUnsafe<BookingChangeRow[]>(
+      `SELECT ${BOOKING_CHANGE_COLUMNS} FROM app.booking_change
+        WHERE booking_id = $1::uuid AND kind = 'REBIND' AND state = 'REBOUND'`,
+      bookingId,
+    );
+    return row ? toBookingChange(row) : null;
+  }
+
+  async insertBookingChange(change: BookingChange): Promise<void> {
+    await this.tx.$executeRawUnsafe(
+      `INSERT INTO app.booking_change (change_id, booking_id, kind, state, assignment_id,
+         from_hold_id, from_starts_at, from_ends_at, to_hold_id, to_starts_at, to_ends_at,
+         created_at, updated_at)
+       VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid, $6::uuid, $7, $8, $9::uuid, $10, $11, $12, $13)`,
+      ...changeParameters(change),
+    );
+  }
+
+  async updateBookingChange(change: BookingChange): Promise<void> {
+    const rows = await this.tx.$queryRawUnsafe<{ change_id: string }[]>(
+      `UPDATE app.booking_change SET state = $4, assignment_id = $5::uuid,
+         from_hold_id = $6::uuid, from_starts_at = $7, from_ends_at = $8,
+         to_hold_id = $9::uuid, to_starts_at = $10, to_ends_at = $11, updated_at = $13
+        WHERE change_id = $1::uuid AND booking_id = $2::uuid AND kind = $3 AND created_at = $12
+      RETURNING change_id::text`,
+      ...changeParameters(change),
+    );
+    if (rows.length !== 1) throw new ConcurrencyViolation('BOOKING_CHANGE');
+  }
+
   async updateAssignment(assignment: AssignmentState, expectedVersion: number): Promise<void> {
     let rows: { id: string }[];
     try {
       rows = await this.tx.$queryRawUnsafe<{ id: string }[]>(
         `UPDATE app.assignment
             SET status = $3, resource_id = $4::uuid, technician_subject = $5::uuid,
-                cancel_reason = $6, version = $7, updated_at = $8
+                cancel_reason = $6, version = $7, updated_at = $8, hold_id = $9::uuid,
+                starts_at = $10, ends_at = $11, pending_change_id = $12::uuid
           WHERE id = $1::uuid AND version = $2
         RETURNING id::text`,
         assignment.id,
@@ -318,6 +434,10 @@ class PrismaDispatchTransaction implements DispatchTransaction {
         assignment.cancelReason,
         assignment.version,
         assignment.updatedAt,
+        assignment.holdId,
+        assignment.startsAt,
+        assignment.endsAt,
+        assignment.pendingChangeId,
       );
     } catch (error) {
       // 23P01: the resource already has an ASSIGNED job overlapping this window.
@@ -696,6 +816,14 @@ export class PrismaDispatchStore
     return row ? toAssignment(row) : null;
   }
 
+  async findBookingChange(changeId: string): Promise<BookingChange | null> {
+    const [row] = await this.prisma.client.$queryRawUnsafe<BookingChangeRow[]>(
+      `SELECT ${BOOKING_CHANGE_COLUMNS} FROM app.booking_change WHERE change_id = $1::uuid`,
+      changeId,
+    );
+    return row ? toBookingChange(row) : null;
+  }
+
   async findOffer(id: string): Promise<OfferState | null> {
     const [row] = await this.prisma.client.$queryRawUnsafe<OfferRow[]>(
       `SELECT ${OFFER_COLUMNS} FROM app.dispatch_offer WHERE id = $1::uuid`,
@@ -864,4 +992,22 @@ export class PrismaDispatchStore
       limit,
     );
   }
+}
+
+function changeParameters(change: BookingChange): unknown[] {
+  return [
+    change.changeId,
+    change.bookingId,
+    change.kind,
+    change.state,
+    change.assignmentId,
+    change.from?.holdId ?? null,
+    change.from?.startsAt ?? null,
+    change.from?.endsAt ?? null,
+    change.to?.holdId ?? null,
+    change.to?.startsAt ?? null,
+    change.to?.endsAt ?? null,
+    change.createdAt,
+    change.updatedAt,
+  ];
 }

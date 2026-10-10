@@ -24,6 +24,7 @@ import { TestClock, laneContext, openJob, replica, type Replica } from './suppor
  * of the PUBLISHED workforce.v1 capacity-resources route (./http-doubles).
  */
 const SERVICE_TOKEN = 's'.repeat(48);
+const CHANGE_TOKEN = 'c'.repeat(48);
 const TECH_A = randomUUID();
 const TECH_B = randomUUID();
 const SESSIONS: Record<string, { subject: string; permissions: string[] } | 'DOWN'> = {
@@ -87,6 +88,11 @@ before(async () => {
   process.env.DISPATCH_USER_REQUESTS_PER_MINUTE = '60';
   process.env.DISPATCH_SERVICE_CLIENTS = JSON.stringify([
     { id: 'booking', tokenSha256: digest(SERVICE_TOKEN), scopes: ['dispatch.assignment.read'] },
+    {
+      id: 'booking-saga',
+      tokenSha256: digest(CHANGE_TOKEN),
+      scopes: ['dispatch.assignment.read', 'dispatch.booking.change'],
+    },
   ]);
   app = await createHttpApplication();
   await app.listen(0, '127.0.0.1');
@@ -362,4 +368,121 @@ test('per-actor budget answers 429 with a retry hint; other actors are unaffecte
   assert.ok((last?.body.error?.retryAfterMs ?? 0) > 0);
   assert.ok(Number(last?.headers.get('retry-after')) > 0);
   assert.equal((await call('GET', `/assignments/${randomUUID()}`, OPS)).status, 404);
+});
+
+test('booking changes at the edge (P04-C2): scope, strict bodies, replay, refusal envelope', async () => {
+  const saga = { 'x-service-client': 'booking-saga', 'x-service-token': CHANGE_TOKEN };
+  const { hold } = await openJob(seed, clock, 200 * 3_600_000);
+  const path = `/bookings/${hold.bookingId}`;
+  const slot = {
+    holdId: randomUUID(),
+    zoneId: hold.zoneId,
+    startsAt: new Date(hold.startsAt.getTime() + 3_600_000).toISOString(),
+    endsAt: new Date(hold.endsAt.getTime() + 3_600_000).toISOString(),
+  };
+  for (const who of [OPS, booking]) {
+    const reply = await call(
+      'POST',
+      `${path}/cancellation`,
+      { ...who, ...idem() },
+      { changeId: randomUUID() },
+    );
+    assert.equal(reply.status, 403, JSON.stringify(reply.body));
+  }
+  assert.equal(
+    (await call('POST', `${path}/cancellation`, saga, { changeId: randomUUID() })).status,
+    428,
+  );
+  const extra = await call(
+    'POST',
+    `${path}/rebinding`,
+    { ...saga, ...idem() },
+    {
+      changeId: randomUUID(),
+      ...slot,
+      note: 'x',
+    },
+  );
+  assert.equal(extra.status, 400);
+  const offset = await call(
+    'POST',
+    `${path}/rebinding`,
+    { ...saga, ...idem() },
+    {
+      changeId: randomUUID(),
+      ...slot,
+      startsAt: '2026-10-20T10:00:00+03:00',
+    },
+  );
+  assert.equal(offset.status, 400, 'local times are refused, never guessed');
+
+  const changeId = randomUUID();
+  const rebound = await call(
+    'POST',
+    `${path}/rebinding`,
+    { ...saga, ...idem() },
+    { changeId, ...slot },
+  );
+  assert.equal(rebound.status, 200, JSON.stringify(rebound.body));
+  assert.deepEqual(Object.keys(rebound.body).sort(), [
+    'assignmentRevision',
+    'bookingId',
+    'changeId',
+    'outcome',
+  ]);
+  assert.equal(rebound.body.outcome, 'REBOUND');
+  const replay = await call(
+    'POST',
+    `${path}/rebinding`,
+    { ...saga, ...idem() },
+    { changeId, ...slot },
+  );
+  assert.deepEqual(replay.body, rebound.body, 'a lost response replays by change id');
+  const reverted = await call(
+    'POST',
+    `${path}/rebinding/revert`,
+    { ...saga, ...idem() },
+    { changeId },
+  );
+  assert.equal(reverted.body.outcome, 'REVERTED');
+  const confirm = await call(
+    'POST',
+    `${path}/rebinding/confirm`,
+    { ...saga, ...idem() },
+    { changeId },
+  );
+  assert.equal(confirm.status, 409);
+  assert.equal(confirm.body.error?.reason, 'CHANGE_REVERTED');
+
+  const cancelled = await call(
+    'POST',
+    `${path}/cancellation`,
+    { ...saga, ...idem() },
+    { changeId: randomUUID() },
+  );
+  assert.equal(cancelled.body.outcome, 'CANCELLED');
+  const late = await call(
+    'POST',
+    `${path}/rebinding`,
+    { ...saga, ...idem() },
+    {
+      changeId: randomUUID(),
+      ...slot,
+    },
+  );
+  assert.equal(late.status, 422);
+  assert.equal(late.body.error?.code, 'BUSINESS_RULE_VIOLATION');
+  assert.equal(late.body.error?.reason, 'BOOKING_CANCELLED');
+  assert.equal(late.body.error?.retryable, false);
+  const notOpen = await call(
+    'POST',
+    `/bookings/${randomUUID()}/rebinding`,
+    { ...saga, ...idem() },
+    {
+      changeId: randomUUID(),
+      ...slot,
+    },
+  );
+  assert.equal(notOpen.status, 409);
+  assert.equal(notOpen.body.error?.reason, 'ASSIGNMENT_NOT_OPEN');
 });

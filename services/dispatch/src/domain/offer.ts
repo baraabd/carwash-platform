@@ -24,6 +24,7 @@ export const WITHDRAW_REASONS = [
   'JOB_CANCELLED',
   'RELEASED_BY_TECHNICIAN',
   'RESOURCE_INELIGIBLE',
+  'JOB_RESCHEDULED',
 ] as const;
 export type WithdrawReason = (typeof WITHDRAW_REASONS)[number];
 
