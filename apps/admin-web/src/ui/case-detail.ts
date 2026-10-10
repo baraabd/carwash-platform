@@ -495,7 +495,7 @@ function decisionForm(
           h(
             'span',
             { 'data-state': result.failure, 'data-code': result.code ?? undefined },
-            `${result.code === 'CASE_NOT_DECIDABLE' ? c.notDecidable : failureMessage(result.failure)} ${follow(result.correlationId)}`,
+            `${result.failure === 'CONFLICT' ? c.notDecidable : failureMessage(result.failure)} ${follow(result.correlationId)}`,
           ),
         );
         return;
@@ -686,7 +686,9 @@ export function startCase(kind: CaseKind, subject: CaseSubject): void {
         render(result.value, result.correlationId);
         return;
       }
-      if (result.code === 'CASE_ALREADY_OPEN') {
+      // The Gateway reports every owner 409 as CONFLICT: an open case for the
+      // subject is looked up; otherwise the owner state did not allow opening.
+      if (result.failure === 'CONFLICT') {
         const found = await listCases({
           kind: [kind],
           status: ACTIVE_STATUSES,
@@ -707,7 +709,7 @@ export function startCase(kind: CaseKind, subject: CaseSubject): void {
         h(
           'span',
           { 'data-state': result.failure, 'data-code': result.code ?? undefined },
-          `${result.code === 'SUBJECT_NOT_ELIGIBLE' ? c.subjectNotEligible : failureMessage(result.failure)} ${follow(result.correlationId)}`,
+          `${result.failure === 'CONFLICT' ? c.subjectNotEligible : failureMessage(result.failure)} ${follow(result.correlationId)}`,
         ),
       );
     });

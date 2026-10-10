@@ -1,0 +1,115 @@
+diff --git a/apps/api-gateway/src/domain/policy.ts b/apps/api-gateway/src/domain/policy.ts
+index 1a4ce6b..dd9a50c 100644
+--- a/apps/api-gateway/src/domain/policy.ts
++++ b/apps/api-gateway/src/domain/policy.ts
+@@ -60,13 +60,21 @@ export function routeMatch(method: string, full: string): Match | readonly Match
+     const expected = route.path.split('/');
+     if (expected.length !== parts.length) continue;
+     let id = '';
++    let no = '';
+     if (
+       !expected.every((part, i) =>
+-        part === ':id' ? UUID.test((id = parts[i] ?? '')) : part === parts[i],
++        part === ':id'
++          ? UUID.test((id = parts[i] ?? ''))
++          : part === ':no' // CR-D-P04-04: a decision number, never free text.
++            ? /^[1-9][0-9]{0,5}$/.test((no = parts[i] ?? ''))
++            : part === parts[i],
+       )
+     )
+       continue;
+-    return { route, upstream: route.upstream.replace(':id', id) + allowedQuery(route, search) };
++    return {
++      route,
++      upstream: route.upstream.replace(':id', id).replace(':no', no) + allowedQuery(route, search),
++    };
+   }
+   throw new GatewayFault(404, 'NOT_FOUND');
+ }
+diff --git a/packages/contracts/src/gateway.ts b/packages/contracts/src/gateway.ts
+index b25c831..5f35bf1 100644
+--- a/packages/contracts/src/gateway.ts
++++ b/packages/contracts/src/gateway.ts
+@@ -377,6 +377,82 @@ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
+     upstream: '/internal/v1/communications/notifications/:id',
+     permission: 'operations.dispatch',
+   },
++  // CR-D-P04-04: Support exception cases. Support and the owners authorize again.
++  {
++    id: 'admin.cases.list',
++    method: 'GET',
++    path: '/admin/cases',
++    owner: 'support',
++    upstream: '/internal/v1/support/cases',
++    anyPermission: ['billing.read', 'operations.dispatch', 'support.cases.read'],
++    query: [
++      {
++        name: 'kind',
++        pattern:
++          /^(PAYMENT_REVIEW|REFUND|LATE_PAYMENT|BOOKING_CANCELLATION|BOOKING_RESCHEDULE)(,(PAYMENT_REVIEW|REFUND|LATE_PAYMENT|BOOKING_CANCELLATION|BOOKING_RESCHEDULE)){0,4}$/,
++      },
++      {
++        name: 'status',
++        pattern:
++          /^(OPEN|AWAITING_APPROVAL|EXECUTING|OUTCOME_UNKNOWN|BLOCKED_ON_OWNER|OWNER_REJECTED|RESOLVED|CLOSED)(,(OPEN|AWAITING_APPROVAL|EXECUTING|OUTCOME_UNKNOWN|BLOCKED_ON_OWNER|OWNER_REJECTED|RESOLVED|CLOSED)){0,7}$/,
++      },
++      { name: 'subjectType', pattern: /^(billing\.payment-attempt|billing\.obligation|booking)$/ },
++      { name: 'subjectId', pattern: UUID_QUERY },
++      { name: 'limit', pattern: LIMIT_QUERY },
++      { name: 'cursor', pattern: CURSOR_QUERY },
++    ],
++  },
++  {
++    id: 'admin.cases.open',
++    method: 'POST',
++    path: '/admin/cases',
++    owner: 'support',
++    upstream: '/internal/v1/support/cases',
++    anyPermission: ['billing.reconcile', 'billing.refund', 'operations.dispatch'],
++    idempotency: 'required',
++  },
++  {
++    id: 'admin.cases.get',
++    method: 'GET',
++    path: '/admin/cases/:id',
++    owner: 'support',
++    upstream: '/internal/v1/support/cases/:id',
++    anyPermission: ['billing.read', 'operations.dispatch', 'support.cases.read'],
++  },
++  {
++    id: 'admin.cases.current',
++    method: 'GET',
++    path: '/admin/cases/:id/current',
++    owner: 'support',
++    upstream: '/internal/v1/support/cases/:id/current',
++    anyPermission: ['billing.read', 'operations.dispatch', 'support.cases.read'],
++  },
++  {
++    id: 'admin.cases.decide',
++    method: 'POST',
++    path: '/admin/cases/:id/decisions',
++    owner: 'support',
++    upstream: '/internal/v1/support/cases/:id/decisions',
++    anyPermission: ['billing.reconcile', 'billing.refund', 'operations.dispatch'],
++    idempotency: 'required',
++  },
++  {
++    id: 'admin.cases.approve',
++    method: 'POST',
++    path: '/admin/cases/:id/decisions/:no/approval',
++    owner: 'support',
++    upstream: '/internal/v1/support/cases/:id/decisions/:no/approval',
++    permission: 'billing.refund',
++    idempotency: 'required',
++  },
++  {
++    id: 'admin.cases.resend',
++    method: 'POST',
++    path: '/admin/cases/:id/decisions/:no/execution',
++    owner: 'support',
++    upstream: '/internal/v1/support/cases/:id/decisions/:no/execution',
++    anyPermission: ['billing.reconcile', 'billing.refund', 'operations.dispatch'],
++  },
+   {
+     id: 'admin.status',
+     method: 'POST',

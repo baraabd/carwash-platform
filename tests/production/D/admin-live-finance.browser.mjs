@@ -37,7 +37,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { chromium } from '@playwright/test';
-import { ROOT, appDsn, context, sql } from '../../integration/_support.mjs';
+import { ROOT, appDsn, context, migrationDsn, sql } from '../../integration/_support.mjs';
 import { hardenPrivileges, migrateDeploy } from '../../../scripts/acceptance/lib/migrations.mjs';
 import { STAFF_PASSWORD, account, bearer, staff, startIdentity } from './_identity.mjs';
 import { comparePngBuffers } from '../../../scripts/f010/pixel-compare.mjs';
@@ -144,6 +144,22 @@ async function migrateOwners() {
     const hardened = await hardenPrivileges(ctx, service);
     assert.equal(hardened.code, 0, `${service} hardening: ${hardened.stderr}`);
   }
+  // CR-D-P04-05 (Lane B #125 fixes it): the hardened Billing runtime identity
+  // cannot run its own ledger helpers on main. Proven refused, then granted.
+  const refused = await sql(
+    appDsn(context, 'billing'),
+    "SELECT app.billing_assert_obligation_ledger('00000000-0000-4000-8000-000000000000'::uuid)",
+  );
+  if (!refused.ok) {
+    assert.match(refused.message ?? '', /permission denied for function/);
+    const granted = await sql(
+      migrationDsn(context, 'billing'),
+      'GRANT EXECUTE ON FUNCTION app.billing_assert_obligation_ledger(uuid), ' +
+        'app.billing_assert_custody_holder(uuid, char(3)), app.billing_assert_handover(uuid) ' +
+        'TO cw_billing_app',
+    );
+    assert.ok(granted.ok, granted.message ?? 'grant failed');
+  }
 }
 
 async function startStack() {
@@ -196,6 +212,15 @@ async function startStack() {
   const services = {};
   for (const name of Object.keys(env))
     services[name] = await nestService(name, { ...env[name], PORT: '' });
+  // P04-D: Support calls Billing and Booking on behalf of the staff member.
+  env.support = {
+    DATABASE_URL: appDsn(context, 'support'),
+    IDENTITY_ORIGIN: identity.base,
+    BILLING_ORIGIN: services.billing.origin,
+    BOOKING_ORIGIN: services.booking.origin,
+    SUPPORT_REQUESTS_PER_MINUTE: '600',
+  };
+  services.support = await nestService('support', { ...env.support, PORT: '' });
   const gatewayRequire = createRequire(path.join(ROOT, 'apps', 'api-gateway', 'package.json'));
   gatewayRequire('reflect-metadata');
   const { createGatewayApplication, loadGatewayConfig } = gatewayRequire('./dist/index.js');
@@ -857,7 +882,7 @@ test('O2: operations — a lost answer is UNKNOWN; only the same command is rese
   }
 });
 
-test('F1: finance — cash KPIs equal Reporting; reconcile through Billing with audit; operations screens refused', async () => {
+test('F1: finance — cash KPIs equal Reporting; payment decisions go through a case; operations screens refused', async () => {
   const finance = principals.finance;
   const customer = principals.customer;
   const due = await obligationUnderReview(customer, '250000');
@@ -895,36 +920,10 @@ test('F1: finance — cash KPIs equal Reporting; reconcile through Billing with 
       .locator(`tr[data-attempt="${due.attemptId}"][data-attempt-status="PENDING_REVIEW"]`)
       .waitFor();
     assert.match(await dialog.innerText(), /نظام المدفوعات وحده يقرر وصول المال/);
-    await dialog.locator(`#reconcile-${due.attemptId}`).click();
-    await dialog.locator('#reconcileSubmit').click();
-    await dialog.locator('#reconcileProblem').getByText('اختر نتيجة المطابقة.').waitFor();
-    await dialog.locator('#reconcileOutcome').selectOption('MATCHED');
-    await dialog.locator('#reconcileObserved').fill('2500.001');
-    await dialog.locator('#reconcileSubmit').click();
-    await dialog.locator('#reconcileProblem').getByText('كسور أكثر مما تسمح به العملة.').waitFor();
-    await dialog.locator('#reconcileObserved').fill('2,500');
+    // P04-D: no reconciliation without a reasoned case (admin-exceptions X1).
+    await dialog.locator(`#review-${due.attemptId}`).waitFor();
+    assert.equal(await dialog.locator(`#reconcile-${due.attemptId}`).count(), 0);
     report.accessibility.reconcileDialog = await axe(page, '.modal');
-    const correlation = capture(page, /\/reconciliation$/);
-    await dialog.locator('#reconcileSubmit').click();
-    await dialog.locator('[data-financial-status="PAID"]').waitFor();
-    const reconciled = await correlation;
-
-    const audit = await auditRows(
-      'billing',
-      `SELECT action, actor_subject::text AS actor, outcome, correlation_id::text AS correlation_id FROM app.billing_audit_event WHERE correlation_id = '${reconciled}'`,
-    );
-    assert.equal(audit.length, 1, JSON.stringify(audit));
-    assert.equal(audit[0].action, 'billing.attempt.reconciled');
-    assert.equal(audit[0].actor, finance.subject);
-    assert.equal(audit[0].outcome, 'MATCHED');
-    report.audit.billing = [
-      {
-        action: audit[0].action,
-        actorIsFinance: true,
-        outcome: audit[0].outcome,
-        correlationId: reconciled,
-      },
-    ];
 
     // Denied by the Gateway even when hand-made with a valid CSRF token.
     assert.equal(
@@ -950,7 +949,7 @@ test('F1: finance — cash KPIs equal Reporting; reconcile through Billing with 
   }
 });
 
-test('S1: super-admin — every screen; reconcile MISMATCHED; may not reconcile its own payment', async () => {
+test('S1: super-admin — every screen; payment decisions are offered as cases only', async () => {
   const superAdmin = principals.superAdmin;
   const customer = principals.customer;
   const due = await obligationUnderReview(customer, '120000');
@@ -958,7 +957,7 @@ test('S1: super-admin — every screen; reconcile MISMATCHED; may not reconcile 
   const { page, browserContext, errors } = await asUser(superAdmin);
   try {
     await page.waitForURL(/#\/dashboard$/);
-    for (const screen of ['dashboard', 'bookings', 'technicians', 'payments'])
+    for (const screen of ['dashboard', 'bookings', 'technicians', 'payments', 'disputes'])
       assert.equal(
         await page.locator(`.nav button[data-screen="${screen}"]`).isDisabled(),
         false,
@@ -970,29 +969,13 @@ test('S1: super-admin — every screen; reconcile MISMATCHED; may not reconcile 
     await page.locator('#obligationRef').fill(due.obligationId);
     await page.locator('#obligationLookup button[type="submit"]').click();
     const dialog = page.getByRole('dialog');
-    await dialog.locator(`#reconcile-${due.attemptId}`).click();
-    await dialog.locator('#reconcileOutcome').selectOption('MISMATCHED');
-    await dialog.locator('#reconcileObserved').fill('1000');
-    const correlation = capture(page, /\/reconciliation$/);
-    await dialog.locator('#reconcileSubmit').click();
-    await dialog
-      .locator(`tr[data-attempt="${due.attemptId}"][data-attempt-status="MISMATCHED"]`)
-      .waitFor();
-    const audit = await auditRows(
-      'billing',
-      `SELECT actor_subject::text AS actor, outcome FROM app.billing_audit_event WHERE correlation_id = '${await correlation}'`,
-    );
-    assert.deepEqual(audit, [{ actor: superAdmin.subject, outcome: 'MISMATCHED' }]);
+    await dialog.locator(`#review-${due.attemptId}`).waitFor();
+    assert.equal(await dialog.locator(`#reconcile-${due.attemptId}`).count(), 0);
     await page.keyboard.press('Escape');
-
-    // Billing refuses self-reconciliation even for super-admin.
+    // Its own payment too: Billing refuses the decision itself (admin-exceptions X5).
     await page.locator('#obligationRef').fill(own.obligationId);
     await page.locator('#obligationLookup button[type="submit"]').click();
-    await dialog.locator(`#reconcile-${own.attemptId}`).click();
-    await dialog.locator('#reconcileOutcome').selectOption('MATCHED');
-    await dialog.locator('#reconcileObserved').fill('500');
-    await dialog.locator('#reconcileSubmit').click();
-    await dialog.locator('#reconcileStatus [data-state="FORBIDDEN"]').waitFor();
+    await dialog.locator(`#review-${own.attemptId}`).waitFor();
     assert.deepEqual(errors, []);
     report.journeys.S1 = 'PASSED';
   } finally {
