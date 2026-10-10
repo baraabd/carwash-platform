@@ -1,0 +1,7 @@
+$ C:\Program Files\GitHub CLI\gh.exe api repos/baraabd/carwash-platform/branches/main/protection
+exit 1 signal none in 34076ms
+
+--- stdout ---
+
+--- stderr ---
+Get "https://api.github.com/repos/baraabd/carwash-platform/branches/main/protection": net/http: TLS handshake timeout
