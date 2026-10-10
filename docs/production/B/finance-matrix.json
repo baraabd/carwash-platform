@@ -1,0 +1,826 @@
+{
+  "version": 1,
+  "task": "P06-B",
+  "base": "66aa7528500a06f65a4b73305506feee7c3fc3b3",
+  "checker": "node scripts/production/B/check-finance-matrix.mjs",
+  "statusMeaning": {
+    "IMPLEMENTED": "Served on this tree at the published path, with owner tests and migrations present. Says nothing about production readiness; see productionGate.",
+    "IN_REVIEW": "Implemented in an open Lane B pull request (pr) or P06-B child (child); not on this tree.",
+    "BLOCKED": "Cannot be implemented truthfully until the named blockers are resolved."
+  },
+  "functions": [
+    {
+      "id": "FIN-CAT-01",
+      "area": "catalog",
+      "function": "Published wash package/extra definitions read (customer step 2 source)",
+      "owner": "catalog",
+      "status": "IN_REVIEW",
+      "child": "P06-B1",
+      "contractRoutes": [
+        "getPublished",
+        "getDefinition"
+      ],
+      "gatewayRoutes": [
+        "customer.catalog"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-P06-05"
+      ]
+    },
+    {
+      "id": "FIN-CAT-02",
+      "area": "catalog",
+      "function": "Catalog publication with revision concurrency and audit",
+      "owner": "catalog",
+      "status": "IN_REVIEW",
+      "child": "P06-B1",
+      "contractRoutes": [
+        "publish"
+      ],
+      "productionGate": "OPEN",
+      "blockers": []
+    },
+    {
+      "id": "FIN-PRC-01",
+      "area": "pricing",
+      "function": "Price book publication (exact Money, effective windows, immutable versions)",
+      "owner": "pricing",
+      "status": "IN_REVIEW",
+      "child": "P06-B2",
+      "contractRoutes": [
+        "publishPriceBook"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-P06-08",
+        "B-04"
+      ]
+    },
+    {
+      "id": "FIN-PRC-02",
+      "area": "pricing",
+      "function": "Server-issued immutable expiring quote (issue and read by beneficiary)",
+      "owner": "pricing",
+      "status": "IN_REVIEW",
+      "child": "P06-B2",
+      "contractRoutes": [
+        "createQuote",
+        "getQuote"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-03",
+        "B-05"
+      ]
+    },
+    {
+      "id": "FIN-PRC-03",
+      "area": "pricing",
+      "function": "Quote validation for Billing/Booking (service scope, revision and beneficiary checks)",
+      "owner": "pricing",
+      "status": "IN_REVIEW",
+      "child": "P06-B2",
+      "contractRoutes": [
+        "validateQuote"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-P06-01"
+      ]
+    },
+    {
+      "id": "FIN-PRC-04",
+      "area": "promotion",
+      "function": "Promotion eligibility, DISCOUNT quote lines, reservation and redemption",
+      "owner": "pricing",
+      "status": "BLOCKED",
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-10"
+      ]
+    },
+    {
+      "id": "FIN-PRC-05",
+      "area": "pricing",
+      "function": "Zone/travel FEE and TAX quote lines",
+      "owner": "pricing",
+      "status": "BLOCKED",
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-04"
+      ]
+    },
+    {
+      "id": "FIN-PAY-01",
+      "area": "electronic-payment",
+      "function": "Payment obligation from a usable quote; owner/finance read and financial status",
+      "owner": "billing",
+      "status": "IMPLEMENTED",
+      "contractRoutes": [
+        "createObligation",
+        "getObligation",
+        "getFinancialStatus"
+      ],
+      "gatewayRoutes": [
+        "customer.payments.create",
+        "customer.payments.read",
+        "customer.payments.status",
+        "admin.billing.obligation"
+      ],
+      "files": [
+        "services/billing/src/application/billing.service.ts",
+        "services/billing/src/domain/payment.ts",
+        "services/billing/src/infrastructure/pricing/pricing-quote.reader.ts"
+      ],
+      "tables": [
+        "billing_obligation",
+        "billing_idempotency_receipt",
+        "billing_audit_event",
+        "outbox_message"
+      ],
+      "tests": [
+        "services/billing/test/billing.domain.spec.ts",
+        "services/billing/test/billing.nest.spec.ts",
+        "services/billing/test/billing.adapters.spec.ts",
+        "services/billing/test/integration/billing.postgres.spec.ts"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-P06-01"
+      ]
+    },
+    {
+      "id": "FIN-PAY-02",
+      "area": "electronic-payment",
+      "function": "Payment method selection (cash after wash / ShamCash / Syriatel Cash) as a PaymentIntent",
+      "owner": "billing",
+      "status": "IMPLEMENTED",
+      "contractRoutes": [
+        "initializePayment"
+      ],
+      "gatewayRoutes": [
+        "customer.payments.method"
+      ],
+      "files": [
+        "services/billing/src/domain/payment.ts"
+      ],
+      "tables": [
+        "payment_intent"
+      ],
+      "tests": [
+        "services/billing/test/billing.domain.spec.ts",
+        "services/billing/test/integration/billing.postgres.spec.ts"
+      ],
+      "productionGate": "OPEN",
+      "blockers": []
+    },
+    {
+      "id": "FIN-PAY-03",
+      "area": "electronic-payment",
+      "function": "Customer-reported transaction reference moves the payment to review (never to paid)",
+      "owner": "billing",
+      "status": "IMPLEMENTED",
+      "contractRoutes": [
+        "submitAttempt"
+      ],
+      "gatewayRoutes": [
+        "customer.payments.reference"
+      ],
+      "files": [
+        "services/billing/src/domain/payment.ts"
+      ],
+      "tables": [
+        "payment_attempt"
+      ],
+      "tests": [
+        "services/billing/test/billing.domain.spec.ts",
+        "services/billing/test/integration/billing.postgres.spec.ts"
+      ],
+      "productionGate": "OPEN",
+      "blockers": []
+    },
+    {
+      "id": "FIN-PAY-04",
+      "area": "electronic-payment",
+      "function": "Obligation void before any payment was reported (owner compensation)",
+      "owner": "billing",
+      "status": "IMPLEMENTED",
+      "contractRoutes": [
+        "voidObligation"
+      ],
+      "files": [
+        "services/billing/src/domain/payment.ts"
+      ],
+      "tables": [
+        "billing_obligation"
+      ],
+      "tests": [
+        "services/billing/test/billing.domain.spec.ts",
+        "services/billing/test/integration/billing.postgres.spec.ts"
+      ],
+      "productionGate": "OPEN",
+      "blockers": []
+    },
+    {
+      "id": "FIN-PAY-05",
+      "area": "electronic-payment",
+      "function": "Paymera or any fourth payment method",
+      "owner": "billing",
+      "status": "BLOCKED",
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-02"
+      ]
+    },
+    {
+      "id": "FIN-PAY-06",
+      "area": "electronic-payment",
+      "function": "Merchant payee/QR transfer instructions per wallet",
+      "owner": "billing",
+      "status": "BLOCKED",
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-11"
+      ]
+    },
+    {
+      "id": "FIN-SAGA-01",
+      "area": "electronic-payment",
+      "function": "Booking saga obligation create and compensating void (service scope billing.obligation.write)",
+      "owner": "billing",
+      "status": "IN_REVIEW",
+      "child": "P06-B4",
+      "contractRoutes": [
+        "createBookingObligation",
+        "voidBookingObligation"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-P06-06"
+      ]
+    },
+    {
+      "id": "FIN-REC-01",
+      "area": "reconciliation",
+      "function": "Finance reconciliation of a payment attempt (MATCHED/MISMATCH/UNKNOWN, owner can never reconcile own payment)",
+      "owner": "billing",
+      "status": "IMPLEMENTED",
+      "contractRoutes": [
+        "reconcileAttempt"
+      ],
+      "gatewayRoutes": [
+        "admin.billing.reconcile"
+      ],
+      "files": [
+        "services/billing/src/domain/payment.ts",
+        "services/billing/src/domain/ledger.ts"
+      ],
+      "tables": [
+        "payment_attempt",
+        "ledger_journal",
+        "ledger_line"
+      ],
+      "tests": [
+        "services/billing/test/billing.domain.spec.ts",
+        "services/billing/test/billing.nest.spec.ts",
+        "services/billing/test/integration/billing.postgres.spec.ts"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-11"
+      ]
+    },
+    {
+      "id": "FIN-REC-02",
+      "area": "reconciliation",
+      "function": "Provider statement credits as the only source of recognised electronic money (two-person approval)",
+      "owner": "billing",
+      "status": "IN_REVIEW",
+      "pr": 125,
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-11",
+        "B-P06-03"
+      ]
+    },
+    {
+      "id": "FIN-ADM-01",
+      "area": "admin-finance",
+      "function": "Admin finance summary with ledger-vs-projection consistency (Gateway admin.billing)",
+      "owner": "billing",
+      "status": "IN_REVIEW",
+      "child": "P06-B6",
+      "gatewayRoutes": [
+        "admin.billing"
+      ],
+      "ownerRoutes": [
+        "GET /internal/v1/billing/summary"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-P06-07"
+      ]
+    },
+    {
+      "id": "FIN-ADM-02",
+      "area": "admin-finance",
+      "function": "Finance reconciliation work queue (attempts awaiting review, keyset pagination)",
+      "owner": "billing",
+      "status": "IN_REVIEW",
+      "child": "P06-B6",
+      "ownerRoutes": [
+        "GET /internal/v1/billing/payment-attempts"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-P06-07"
+      ]
+    },
+    {
+      "id": "FIN-CASH-01",
+      "area": "cash",
+      "function": "Cash collection receipt by the assigned technician after completed work",
+      "owner": "billing",
+      "status": "IMPLEMENTED",
+      "contractRoutes": [
+        "recordCashCollection",
+        "getCashReceipt"
+      ],
+      "files": [
+        "services/billing/src/application/cash-custody.service.ts",
+        "services/billing/src/domain/cash.ts",
+        "services/billing/src/infrastructure/work/unpublished-work.authority.ts"
+      ],
+      "tables": [
+        "cash_receipt",
+        "ledger_journal",
+        "ledger_line"
+      ],
+      "tests": [
+        "services/billing/test/billing.cash.domain.spec.ts",
+        "services/billing/test/integration/billing.custody.postgres.spec.ts"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-P03-01",
+        "B-P06-08"
+      ]
+    },
+    {
+      "id": "FIN-CASH-02",
+      "area": "cash",
+      "function": "Linked cash receipt reversal (correction, never deletion)",
+      "owner": "billing",
+      "status": "IMPLEMENTED",
+      "contractRoutes": [
+        "reverseCashCollection"
+      ],
+      "files": [
+        "services/billing/src/domain/cash.ts"
+      ],
+      "tables": [
+        "cash_receipt_reversal"
+      ],
+      "tests": [
+        "services/billing/test/billing.cash.domain.spec.ts",
+        "services/billing/test/integration/billing.custody.postgres.spec.ts"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-P06-08"
+      ]
+    },
+    {
+      "id": "FIN-CASH-03",
+      "area": "refund",
+      "function": "Cash refunds and partial/no-show charges",
+      "owner": "billing",
+      "status": "BLOCKED",
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-06"
+      ]
+    },
+    {
+      "id": "FIN-CUST-01",
+      "area": "cash",
+      "function": "Technician custody handover declare/read/cancel",
+      "owner": "billing",
+      "status": "IMPLEMENTED",
+      "contractRoutes": [
+        "declareHandover",
+        "getHandover",
+        "cancelHandover"
+      ],
+      "files": [
+        "services/billing/src/domain/cash.ts"
+      ],
+      "tables": [
+        "custody_handover",
+        "custody_handover_item"
+      ],
+      "tests": [
+        "services/billing/test/billing.cash.domain.spec.ts",
+        "services/billing/test/integration/billing.custody.postgres.spec.ts"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-P06-08"
+      ]
+    },
+    {
+      "id": "FIN-CUST-02",
+      "area": "cash",
+      "function": "Treasury receipt with explicit shortage/overage",
+      "owner": "billing",
+      "status": "IMPLEMENTED",
+      "contractRoutes": [
+        "receiveHandover"
+      ],
+      "files": [
+        "services/billing/src/domain/cash.ts"
+      ],
+      "tables": [
+        "custody_handover"
+      ],
+      "tests": [
+        "services/billing/test/billing.cash.domain.spec.ts",
+        "services/billing/test/integration/billing.custody.postgres.spec.ts"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-P06-08",
+        "B-07"
+      ]
+    },
+    {
+      "id": "FIN-CUST-03",
+      "area": "reconciliation",
+      "function": "Handover settlement reconciliation and custody reconciliation report",
+      "owner": "billing",
+      "status": "IMPLEMENTED",
+      "contractRoutes": [
+        "reconcileHandover",
+        "getCustodyReconciliation"
+      ],
+      "files": [
+        "services/billing/src/application/custody-views.ts"
+      ],
+      "tables": [
+        "custody_handover",
+        "ledger_line"
+      ],
+      "tests": [
+        "services/billing/test/billing.cash.domain.spec.ts",
+        "services/billing/test/integration/billing.custody.postgres.spec.ts"
+      ],
+      "productionGate": "OPEN",
+      "blockers": []
+    },
+    {
+      "id": "FIN-CUST-04",
+      "area": "cash",
+      "function": "Custody holder balance views (own technician, finance for any holder)",
+      "owner": "billing",
+      "status": "IMPLEMENTED",
+      "contractRoutes": [
+        "getMyCustody",
+        "getHolderCustody"
+      ],
+      "files": [
+        "services/billing/src/application/custody-views.ts"
+      ],
+      "tables": [
+        "ledger_line"
+      ],
+      "tests": [
+        "services/billing/test/integration/billing.custody.postgres.spec.ts"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-P06-08"
+      ]
+    },
+    {
+      "id": "FIN-REF-01",
+      "area": "refund",
+      "function": "Electronic refund request, listing, read and outcome (requester differs from recorder; UNKNOWN never success)",
+      "owner": "billing",
+      "status": "IN_REVIEW",
+      "pr": 125,
+      "contractRoutes": [
+        "requestRefund",
+        "listObligationRefunds",
+        "getRefund",
+        "recordRefundOutcome"
+      ],
+      "gatewayRoutes": [
+        "customer.payments.refunds",
+        "admin.billing.refunds.list",
+        "admin.billing.refunds.request",
+        "admin.billing.refund",
+        "admin.billing.refund.outcome"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-P06-02",
+        "B-11"
+      ]
+    },
+    {
+      "id": "FIN-PROV-01",
+      "area": "electronic-payment",
+      "function": "Signed provider server notification ingress",
+      "owner": "billing",
+      "status": "IN_REVIEW",
+      "pr": 125,
+      "contractRoutes": [
+        "receiveProviderNotification"
+      ],
+      "gatewayRoutes": [
+        "payments.provider.sham-cash",
+        "payments.provider.syriatel-cash"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-P06-02",
+        "B-11"
+      ]
+    },
+    {
+      "id": "FIN-LEDGER-01",
+      "area": "ledger",
+      "function": "Append-only double-entry journal, COMMIT-time ledger/state agreement, audit facts",
+      "owner": "billing",
+      "status": "IMPLEMENTED",
+      "files": [
+        "services/billing/src/domain/ledger.ts",
+        "services/billing/src/domain/journal.ts"
+      ],
+      "tables": [
+        "ledger_journal",
+        "ledger_line",
+        "billing_audit_event"
+      ],
+      "tests": [
+        "services/billing/test/billing.domain.spec.ts",
+        "services/billing/test/integration/billing.postgres.spec.ts",
+        "services/billing/test/integration/billing.custody.postgres.spec.ts"
+      ],
+      "productionGate": "OPEN",
+      "blockers": []
+    },
+    {
+      "id": "FIN-EVT-01",
+      "area": "ledger",
+      "function": "Billing outbox relay of published billing.v1 events to RabbitMQ",
+      "owner": "billing",
+      "status": "BLOCKED",
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-P06-04"
+      ]
+    },
+    {
+      "id": "FIN-WAL-01",
+      "area": "wallet",
+      "function": "Technician custody projection from billing.v1 events (no second ledger)",
+      "owner": "wallet",
+      "status": "IN_REVIEW",
+      "child": "P06-B3",
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-P06-04",
+        "B-P06-07"
+      ]
+    },
+    {
+      "id": "FIN-WAL-02",
+      "area": "wallet",
+      "function": "Customer stored value, funding, withdrawal, balances and holds",
+      "owner": "wallet",
+      "status": "BLOCKED",
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-08"
+      ]
+    },
+    {
+      "id": "FIN-SUB-01",
+      "area": "subscription",
+      "function": "Customer wash plans, renewal, entitlement reserve/consume/release",
+      "owner": "subscription",
+      "status": "BLOCKED",
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-09"
+      ]
+    },
+    {
+      "id": "FIN-PRIV-01",
+      "area": "ledger",
+      "function": "Financial export, deletion intake fulfilment and retention",
+      "owner": "billing",
+      "status": "BLOCKED",
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-12"
+      ]
+    }
+  ],
+  "legacyRoutes": [
+    {
+      "owner": "catalog",
+      "route": "GET /internal/v1/catalog/definitions",
+      "supersededBy": "FIN-CAT-01"
+    },
+    {
+      "owner": "catalog",
+      "route": "GET /internal/v1/catalog/definitions/:revision",
+      "supersededBy": "FIN-CAT-01"
+    },
+    {
+      "owner": "catalog",
+      "route": "GET /internal/v1/catalog/revisions",
+      "supersededBy": "FIN-CAT-01"
+    },
+    {
+      "owner": "catalog",
+      "route": "POST /internal/v1/catalog/definitions",
+      "supersededBy": "FIN-CAT-02"
+    },
+    {
+      "owner": "pricing",
+      "route": "GET /internal/v1/pricing/prices",
+      "supersededBy": "FIN-PRC-01"
+    },
+    {
+      "owner": "pricing",
+      "route": "GET /internal/v1/pricing/price-versions",
+      "supersededBy": "FIN-PRC-01"
+    },
+    {
+      "owner": "pricing",
+      "route": "POST /internal/v1/pricing/prices",
+      "supersededBy": "FIN-PRC-01"
+    },
+    {
+      "owner": "pricing",
+      "route": "POST /internal/v1/pricing/quotes",
+      "supersededBy": "FIN-PRC-02"
+    },
+    {
+      "owner": "pricing",
+      "route": "GET /internal/v1/pricing/quotes/:id",
+      "supersededBy": "FIN-PRC-02"
+    },
+    {
+      "owner": "pricing",
+      "route": "POST /internal/v1/pricing/quotes/:id/validate",
+      "supersededBy": "FIN-PRC-03"
+    }
+  ],
+  "blockers": [
+    {
+      "id": "B-02",
+      "external": true,
+      "kind": "OWNER_DECISION",
+      "tracking": "POLICY B-02",
+      "summary": "Paymera launch scope (required, deferred or excluded) and any owner-approved UI change for a fourth method."
+    },
+    {
+      "id": "B-03",
+      "external": true,
+      "kind": "OWNER_DECISION",
+      "tracking": "POLICY B-03",
+      "summary": "Settlement/display currencies, minor-unit exponent and maximum amount; Pricing fails closed with POLICY_UNAVAILABLE until configured."
+    },
+    {
+      "id": "B-04",
+      "external": true,
+      "kind": "OWNER_DECISION",
+      "tracking": "POLICY B-04",
+      "summary": "Real package/add-on rates per vehicle category, zone/travel fees, tax treatment and rounding order."
+    },
+    {
+      "id": "B-05",
+      "external": true,
+      "kind": "OWNER_DECISION",
+      "tracking": "POLICY B-05",
+      "summary": "Quote TTL, price-change honouring, revocation conditions and idempotency replay lifetime."
+    },
+    {
+      "id": "B-06",
+      "external": true,
+      "kind": "OWNER_DECISION",
+      "tracking": "POLICY B-06",
+      "summary": "Cancellation windows, no-show and partial-refund rules, cash refund method and approval separation."
+    },
+    {
+      "id": "B-07",
+      "external": true,
+      "kind": "OWNER_DECISION",
+      "tracking": "POLICY B-07",
+      "summary": "Custody holder model, treasury identity, handover thresholds and shortage/overage accountability policy."
+    },
+    {
+      "id": "B-08",
+      "external": true,
+      "kind": "OWNER_DECISION",
+      "tracking": "POLICY B-08",
+      "summary": "Whether any customer stored value, funding, withdrawal or hold product exists; the Wallet name creates none."
+    },
+    {
+      "id": "B-09",
+      "external": true,
+      "kind": "OWNER_DECISION",
+      "tracking": "POLICY B-09",
+      "summary": "Customer wash plan prices, entitlement units/expiry, reserve/consume trigger, freeze/cancel/renewal/refund rules."
+    },
+    {
+      "id": "B-10",
+      "external": true,
+      "kind": "OWNER_DECISION",
+      "tracking": "POLICY B-10",
+      "summary": "Promotion eligibility, dates/timezone, stacking, budgets, per-owner limits and reservation/redemption timing."
+    },
+    {
+      "id": "B-11",
+      "external": true,
+      "kind": "PROVIDER",
+      "tracking": "POLICY B-11",
+      "summary": "ShamCash/Syriatel merchant agreements, official verification/refund/notification documents, sandbox and responsible contacts."
+    },
+    {
+      "id": "B-12",
+      "external": true,
+      "kind": "OWNER_DECISION",
+      "tracking": "POLICY B-12",
+      "summary": "Financial export fields, deletion fulfilment ownership, retention durations and legal-hold handling."
+    },
+    {
+      "id": "B-P03-01",
+      "external": false,
+      "lane": "C",
+      "tracking": "docs/production/B/P03-B1-CASH-CUSTODY.md",
+      "summary": "No published work-execution contract states that a booking is COMPLETED for the calling technician; cash collection fails closed with 503."
+    },
+    {
+      "id": "B-P06-01",
+      "external": false,
+      "lane": "B",
+      "tracking": "docs/production/B/P06-B-FINANCE-MATRIX.md",
+      "summary": "Pricing on main does not serve the published pricing.v1 quote/validate shape that Billing's quote reader consumes; closed by child P06-B2."
+    },
+    {
+      "id": "B-P06-02",
+      "external": false,
+      "lane": "B",
+      "tracking": "PR #125",
+      "summary": "PR #125 serves refunds and provider notifications at paths that differ from billing.v1 and from the Gateway upstreams (provider-notifications/:provider, obligations/:id/refunds, refunds/:id/outcome)."
+    },
+    {
+      "id": "B-P06-03",
+      "external": false,
+      "lane": "E",
+      "tracking": "docs/production/B/CONTRACT_REQUEST_E_P06.md",
+      "summary": "Provider-credit statement recording/approval routes of PR #125 have no billing.v1 contract entry or Gateway admin route."
+    },
+    {
+      "id": "B-P06-04",
+      "external": false,
+      "lane": "E",
+      "tracking": "docs/production/B/CONTRACT_REQUEST_E_P06.md",
+      "summary": "Billing and Wallet do not depend on @carwash/platform-messaging; adding it changes the E-owned lockfile, so no relay/consumer binds to RabbitMQ."
+    },
+    {
+      "id": "B-P06-05",
+      "external": false,
+      "lane": "E",
+      "tracking": "docs/production/B/CONTRACT_REQUEST_E_P06.md",
+      "summary": "Gateway customer.catalog forwards to /internal/v1/catalog/packages while catalog.v1 publishes /definitions."
+    },
+    {
+      "id": "B-P06-06",
+      "external": false,
+      "lane": "C",
+      "tracking": "docs/production/B/CONTRACT_REQUEST_E_P06.md",
+      "summary": "Booking saga does not yet call Billing booking-obligations with a billing.obligation.write service credential."
+    },
+    {
+      "id": "B-P06-07",
+      "external": false,
+      "lane": "E",
+      "tracking": "docs/production/B/CONTRACT_REQUEST_E_P06.md",
+      "summary": "Finance summary, reconciliation queue and wallet.v1 custody read are owner-implemented but not published contracts or Gateway routes."
+    },
+    {
+      "id": "B-P06-08",
+      "external": false,
+      "lane": "E",
+      "tracking": "docs/production/B/CONTRACT_REQUEST_E_P06.md",
+      "summary": "Identity does not grant contract permissions pricing.prices.publish, billing.cash.collect, billing.cash.correct and billing.treasury.receive."
+    }
+  ]
+}
