@@ -329,7 +329,11 @@
         "LedgerLine",
         "BillingIdempotencyReceipt",
         "BillingAuditEvent",
-        "OutboxMessage"
+        "OutboxMessage",
+        "CashReceipt",
+        "CashReceiptReversal",
+        "CustodyHandover",
+        "CustodyHandoverItem"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
