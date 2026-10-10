@@ -350,6 +350,10 @@ export class PrismaBookingStore implements BookingStore {
     return { booking: toBooking(row), saga: toSaga(row), correlationId: row.correlation_id };
   }
 
+  async recordAudit(fact: AuditFact): Promise<void> {
+    await this.run((tx) => appendAudit(tx, fact));
+  }
+
   async leaseSaga(
     bookingId: string,
     owner: string,

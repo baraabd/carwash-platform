@@ -1,9 +1,10 @@
 import { Body, Controller, Get, Inject, Param, Post, Req, Res, UseFilters } from '@nestjs/common';
-import { BookingService } from '../../application';
+import { BookingService, TechnicianViewQuery } from '../../application';
 import { BookingError, isUuid } from '../../domain';
 import { ActorResolver, type HeaderBag } from './actor-resolver';
 import { bookingView } from './booking-view';
 import { BookingHttpFilter } from './http-errors';
+import { technicianBookingView } from './technician-view';
 
 export const BOOKING_V1 = '/internal/v1/booking';
 
@@ -22,6 +23,7 @@ export class BookingController {
   constructor(
     @Inject(BookingService) private readonly bookings: BookingService,
     @Inject(ActorResolver) private readonly actors: ActorResolver,
+    @Inject(TechnicianViewQuery) private readonly technician: TechnicianViewQuery,
   ) {}
 
   @Post('bookings')
@@ -43,5 +45,12 @@ export class BookingController {
     if (!isUuid(bookingId)) throw new BookingError('BOOKING_NOT_FOUND', 'Booking not found.');
     const view = await this.bookings.get(meta, bookingId.toLowerCase());
     return bookingView(view.booking, view.saga);
+  }
+
+  /** Assigned technician's purpose-limited view; Dispatch authorizes every call (P03-C3). */
+  @Get('bookings/:bookingId/technician-view')
+  async technicianView(@Req() req: HeaderBag, @Param('bookingId') bookingId: string) {
+    const meta = await this.actors.resolve(req);
+    return technicianBookingView(await this.technician.read(meta, bookingId));
   }
 }

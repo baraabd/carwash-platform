@@ -7,3 +7,4 @@ export * from './booking.service';
 export * from './canonical-json';
 export * from './commands';
 export * from './process-manager';
+export * from './technician-view';

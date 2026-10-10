@@ -1,6 +1,10 @@
 import { createLogger, traceHeaders } from '@carwash/service-kit';
-import { BookingProcessManager, BookingService } from '../../application';
+import { BookingProcessManager, BookingService, TechnicianViewQuery } from '../../application';
 import type { Observer } from '../../ports';
+import {
+  DispatchAssignmentClient,
+  dispatchAssignmentConfig,
+} from '../dispatch/dispatch-assignment.client';
 import { OwnerHttpClient, type ServiceCredential } from '../http/owner-http.client';
 import {
   AddressSnapshotAdapter,
@@ -56,6 +60,8 @@ export interface Composition {
   readonly store: PrismaBookingStore;
   readonly saga: BookingProcessManager;
   readonly service: BookingService;
+  /** Technician read, authorized by Dispatch on every request (P03-C3). */
+  readonly technicianView: TechnicianViewQuery;
 }
 
 export function compose(
@@ -101,5 +107,10 @@ export function compose(
     inlineBudgetMs: positiveInt(env.BOOKING_INLINE_SAGA_BUDGET_MS, 4_000),
     claimLeaseMs: positiveInt(env.BOOKING_CLAIM_LEASE_MS, 30_000),
   });
-  return { store, saga, service };
+  const technicianView = new TechnicianViewQuery({
+    store,
+    assignments: new DispatchAssignmentClient(dispatchAssignmentConfig(env), systemRandom),
+    observer,
+  });
+  return { store, saga, service, technicianView };
 }
