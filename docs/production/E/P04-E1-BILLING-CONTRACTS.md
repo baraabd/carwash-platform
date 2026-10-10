@@ -10,10 +10,10 @@ no provider code and no runtime change.
 
 | Artifact | Version | Status |
 | --- | --- | --- |
-| `@carwash/contracts` `billing.v1` (`./billing-v1`, `billingV1`) | 1 (package 0.2.0) | `published-provider-pending` |
+| `@carwash/contracts` `billing.v1` (`./billing-v1`, `billingV1`) | 1 | `published-provider-pending` |
 | `@carwash/contracts` `common/payment-method` | additive | published |
 | `RouteAccess` `provider-signed` | additive convention | published |
-| `@carwash/event-contracts` `billing-v1` (6 events, envelope v2) | 1 (package 0.2.0) | `published-producer-pending` |
+| `@carwash/event-contracts` `billing-v1` (6 events, envelope v2) | 1 | `published-producer-pending` |
 | `docs/contracts/billing.v1.openapi.json`, `docs/asyncapi/billing-events-v1.yaml` | generated from the built packages | checked by `check:contract-docs` |
 | `architecture/contract-surface.lock.json` | additive (new contract, new events) | checked by `check:contract-surface` |
 
