@@ -32,33 +32,41 @@ model ServiceMarker {
 /// quote is a partial unique index (WHERE status <> 'REJECTED') and CHECKs keep
 /// status/slot/money consistent; Prisma cannot express those, the SQL is the authority.
 model Booking {
-  id                String       @id @db.Uuid
-  principalKind     String       @map("principal_kind")
-  principalSubject  String       @map("principal_subject") @db.Uuid
-  status            String
-  rejectionReason   String?      @map("rejection_reason")
-  paymentMethod     String       @map("payment_method")
-  contact           Json
-  vehicleSnapshot   Json         @map("vehicle_snapshot")
-  addressSnapshot   Json         @map("address_snapshot")
-  quoteSnapshot     Json         @map("quote_snapshot")
-  quoteId           String       @map("quote_id") @db.Uuid
-  quoteRevision     Int          @map("quote_revision")
-  currency          String
-  totalMinor        BigInt       @map("total_minor")
-  totalScale        Int          @map("total_scale") @db.SmallInt
-  holdId            String       @map("hold_id") @db.Uuid
-  holdRevision      Int          @map("hold_revision")
-  zoneId            String       @map("zone_id") @db.Uuid
-  requestedStartsAt DateTime     @map("requested_starts_at") @db.Timestamptz(3)
-  requestedEndsAt   DateTime     @map("requested_ends_at") @db.Timestamptz(3)
-  slotStartsAt      DateTime?    @map("slot_starts_at") @db.Timestamptz(3)
-  slotEndsAt        DateTime?    @map("slot_ends_at") @db.Timestamptz(3)
-  version           Int          @default(1)
-  createdAt         DateTime     @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime     @map("updated_at") @db.Timestamptz(3)
-  confirmedAt       DateTime?    @map("confirmed_at") @db.Timestamptz(3)
-  saga              BookingSaga?
+  id                 String            @id @db.Uuid
+  principalKind      String            @map("principal_kind")
+  principalSubject   String            @map("principal_subject") @db.Uuid
+  status             String
+  rejectionReason    String?           @map("rejection_reason")
+  paymentMethod      String            @map("payment_method")
+  contact            Json
+  vehicleSnapshot    Json              @map("vehicle_snapshot")
+  addressSnapshot    Json              @map("address_snapshot")
+  quoteSnapshot      Json              @map("quote_snapshot")
+  quoteId            String            @map("quote_id") @db.Uuid
+  quoteRevision      Int               @map("quote_revision")
+  currency           String
+  totalMinor         BigInt            @map("total_minor")
+  totalScale         Int               @map("total_scale") @db.SmallInt
+  holdId             String            @map("hold_id") @db.Uuid
+  holdRevision       Int               @map("hold_revision")
+  zoneId             String            @map("zone_id") @db.Uuid
+  requestedStartsAt  DateTime          @map("requested_starts_at") @db.Timestamptz(3)
+  requestedEndsAt    DateTime          @map("requested_ends_at") @db.Timestamptz(3)
+  slotStartsAt       DateTime?         @map("slot_starts_at") @db.Timestamptz(3)
+  slotEndsAt         DateTime?         @map("slot_ends_at") @db.Timestamptz(3)
+  version            Int               @default(1)
+  createdAt          DateTime          @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime          @map("updated_at") @db.Timestamptz(3)
+  confirmedAt        DateTime?         @map("confirmed_at") @db.Timestamptz(3)
+  cancellationReason String?           @map("cancellation_reason")
+  cancelledAt        DateTime?         @map("cancelled_at") @db.Timestamptz(3)
+  scheduleRevision   Int               @default(1) @map("schedule_revision")
+  scheduleHoldId     String?           @map("schedule_hold_id") @db.Uuid
+  scheduleStartsAt   DateTime?         @map("schedule_starts_at") @db.Timestamptz(3)
+  scheduleEndsAt     DateTime?         @map("schedule_ends_at") @db.Timestamptz(3)
+  saga               BookingSaga?
+  changes            BookingChange[]
+  schedules          BookingSchedule[]
 
   @@index([principalKind, principalSubject, createdAt])
   @@map("booking")
@@ -141,4 +149,69 @@ model AuditEntry {
 
   @@index([targetType, targetId])
   @@map("audit_entry")
+}
+
+/// A cancellation or reschedule of a confirmed booking (P04-C3 change saga),
+/// fenced by lease like the creation saga. Partial unique indexes (one open
+/// change per booking), CHECKs and the immutability trigger live in SQL only.
+model BookingChange {
+  changeId         String           @id @map("change_id") @db.Uuid
+  bookingId        String           @map("booking_id") @db.Uuid
+  kind             String
+  step             String
+  outcome          String?
+  reason           String?
+  refusal          String?
+  requesterKind    String           @map("requester_kind")
+  requesterSubject String           @map("requester_subject") @db.Uuid
+  idempotencyKey   String           @map("idempotency_key") @db.VarChar(128)
+  fingerprint      String           @db.Char(64)
+  fromHoldId       String           @map("from_hold_id") @db.Uuid
+  zoneId           String           @map("zone_id") @db.Uuid
+  fromStartsAt     DateTime         @map("from_starts_at") @db.Timestamptz(3)
+  fromEndsAt       DateTime         @map("from_ends_at") @db.Timestamptz(3)
+  toHoldId         String?          @map("to_hold_id") @db.Uuid
+  toHoldRevision   Int?             @map("to_hold_revision")
+  toStartsAt       DateTime?        @map("to_starts_at") @db.Timestamptz(3)
+  toEndsAt         DateTime?        @map("to_ends_at") @db.Timestamptz(3)
+  toExpiresAt      DateTime?        @map("to_expires_at") @db.Timestamptz(3)
+  settlement       String?
+  pivotAttempted   Boolean          @default(false) @map("pivot_attempted")
+  attempts         Int              @default(0)
+  nextAttemptAt    DateTime         @map("next_attempt_at") @db.Timestamptz(3)
+  deadlineAt       DateTime?        @map("deadline_at") @db.Timestamptz(3)
+  lastError        String?          @map("last_error") @db.VarChar(64)
+  attention        Boolean          @default(false)
+  fence            Int              @default(0)
+  leaseOwner       String?          @map("lease_owner") @db.VarChar(80)
+  leaseUntil       DateTime?        @map("lease_until") @db.Timestamptz(3)
+  correlationId    String           @map("correlation_id") @db.Uuid
+  version          Int              @default(1)
+  createdAt        DateTime         @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime         @map("updated_at") @db.Timestamptz(3)
+  completedAt      DateTime?        @map("completed_at") @db.Timestamptz(3)
+  booking          Booking          @relation(fields: [bookingId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  schedule         BookingSchedule?
+
+  @@unique([requesterKind, requesterSubject, idempotencyKey], map: "booking_change_request_key")
+  @@index([bookingId, createdAt], map: "booking_change_booking_created_idx")
+  @@map("booking_change")
+}
+
+/// Append-only history of a booking's schedule after reschedules (revision >= 2).
+model BookingSchedule {
+  bookingId      String        @map("booking_id") @db.Uuid
+  revision       Int
+  changeId       String        @unique @map("change_id") @db.Uuid
+  previousHoldId String        @map("previous_hold_id") @db.Uuid
+  holdId         String        @map("hold_id") @db.Uuid
+  zoneId         String        @map("zone_id") @db.Uuid
+  startsAt       DateTime      @map("starts_at") @db.Timestamptz(3)
+  endsAt         DateTime      @map("ends_at") @db.Timestamptz(3)
+  createdAt      DateTime      @map("created_at") @db.Timestamptz(3)
+  booking        Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  change         BookingChange @relation(fields: [changeId], references: [changeId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([bookingId, revision])
+  @@map("booking_schedule")
 }

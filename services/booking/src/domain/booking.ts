@@ -1,3 +1,4 @@
+import type { CancellationReason } from './change';
 import { BookingError } from './errors';
 import { transitionBooking, type BookingState as LifecycleState } from './lifecycle';
 import { sameMoney, type Money } from './money';
@@ -59,6 +60,14 @@ export interface Booking {
   readonly requestedSlot: RequestedSlot;
   /** Set exactly when CONFIRMED (or later); equals the committed hold. */
   readonly slot: SlotSnapshot | null;
+  /**
+   * The schedule after reschedules (P04-C3): null while the booking keeps its
+   * original `slot`. `slot` itself never changes once confirmed.
+   */
+  readonly rescheduledSlot: SlotSnapshot | null;
+  /** 1 = the original slot; +1 per completed reschedule. */
+  readonly scheduleRevision: number;
+  readonly cancellation: { readonly reason: CancellationReason; readonly cancelledAt: Date } | null;
   readonly total: Money;
   readonly version: number;
   readonly createdAt: Date;
@@ -123,6 +132,9 @@ export function createBooking(input: NewBooking): Booking {
     quote,
     requestedSlot,
     slot: null,
+    rescheduledSlot: null,
+    scheduleRevision: 1,
+    cancellation: null,
     total: quote.total,
     version: 1,
     createdAt: input.now,
@@ -183,4 +195,62 @@ export function rejectBooking(booking: Booking, reason: RejectionReason, now: Da
 /** Pricing's validated total must equal the snapshot the customer saw. */
 export function totalMatches(booking: Booking, validatedTotal: Money): boolean {
   return sameMoney(booking.total, validatedTotal);
+}
+
+/** The slot the booking is currently committed to (null before confirmation). */
+export function currentSlot(booking: Booking): SlotSnapshot | null {
+  return booking.rescheduledSlot ?? booking.slot;
+}
+
+/**
+ * Whether a change may be requested now (P04-C3). Work progress is NOT decided
+ * here: Booking cannot see it, Dispatch refuses (decision P04-C-D1).
+ */
+export function assertChangeable(
+  booking: Booking,
+  input: { readonly expectedRevision: number; readonly changeOpen: boolean },
+): SlotSnapshot {
+  if (booking.status === 'CANCELLED') {
+    throw new BookingError('BOOKING_CANCELLED', 'The booking is already cancelled.');
+  }
+  const slot = currentSlot(booking);
+  if (booking.status !== 'CONFIRMED' || slot === null) {
+    throw new BookingError('BOOKING_NOT_CONFIRMED', 'Only a confirmed booking can be changed.');
+  }
+  if (input.changeOpen) {
+    throw new BookingError('CHANGE_IN_PROGRESS', 'Another change of this booking is running.');
+  }
+  if (booking.version !== input.expectedRevision) {
+    throw new BookingError('REVISION_CONFLICT', 'The booking changed; reload it.');
+  }
+  return slot;
+}
+
+export function cancelBooking(booking: Booking, reason: CancellationReason, now: Date): Booking {
+  const next = transitionBooking(
+    { id: booking.id, state: booking.status, version: booking.version },
+    'CANCELLED',
+    booking.version,
+  );
+  return {
+    ...booking,
+    status: next.state,
+    version: next.version,
+    cancellation: { reason, cancelledAt: now },
+    updatedAt: now,
+  };
+}
+
+/** The commitment moved to `slot`: a new schedule revision, same status. */
+export function rescheduleBooking(booking: Booking, slot: SlotSnapshot, now: Date): Booking {
+  if (booking.status !== 'CONFIRMED') {
+    throw new BookingError('INVALID_TRANSITION', 'Only a confirmed booking can be rescheduled.');
+  }
+  return {
+    ...booking,
+    rescheduledSlot: slot,
+    scheduleRevision: booking.scheduleRevision + 1,
+    version: booking.version + 1,
+    updatedAt: now,
+  };
 }

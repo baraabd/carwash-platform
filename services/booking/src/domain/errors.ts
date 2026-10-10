@@ -22,7 +22,14 @@ export type BookingErrorCode =
   /** Dispatch could not confirm the caller's assignment: fail closed, never allow. */
   | 'ASSIGNMENT_UNVERIFIED'
   | 'INVALID_TRANSITION'
-  | 'VERSION_CONFLICT';
+  | 'VERSION_CONFLICT'
+  /** The client's expectedRevision is stale (412). */
+  | 'REVISION_CONFLICT'
+  | 'BOOKING_NOT_CONFIRMED'
+  | 'BOOKING_CANCELLED'
+  | 'CHANGE_IN_PROGRESS'
+  | 'CHANGE_NOT_FOUND'
+  | 'HOLD_NOT_USABLE';
 
 export class BookingError extends Error {
   constructor(
