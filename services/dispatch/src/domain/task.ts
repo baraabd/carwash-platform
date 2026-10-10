@@ -44,7 +44,13 @@ export const FIELD_STAGES: readonly TaskStage[] = [
 ];
 
 export type TaskEndReason =
-  'RELEASED_BY_TECHNICIAN' | 'REASSIGNED' | 'UNASSIGNED' | 'RESOURCE_INELIGIBLE' | 'JOB_CANCELLED';
+  | 'RELEASED_BY_TECHNICIAN'
+  | 'REASSIGNED'
+  | 'UNASSIGNED'
+  | 'RESOURCE_INELIGIBLE'
+  | 'JOB_CANCELLED'
+  /** Booking moved the job to another time before the technician left (P04-C2). */
+  | 'JOB_RESCHEDULED';
 
 export const EVIDENCE_PHASES = ['BEFORE', 'AFTER'] as const;
 export type EvidencePhase = (typeof EVIDENCE_PHASES)[number];

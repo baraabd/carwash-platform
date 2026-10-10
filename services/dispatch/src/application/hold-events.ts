@@ -11,6 +11,7 @@ import {
   type HoldEventState,
 } from '../domain';
 import type { Actor, Clock, DispatchTransaction, IdGenerator } from '../ports';
+import { confirmRebind } from './booking-change.service';
 import { Effects } from './effects';
 
 /**
@@ -56,7 +57,13 @@ export type HoldApplyOutcome =
   | 'STALE'
   | 'ALREADY_OPEN'
   | 'BOOKING_CONFLICT'
-  | 'NOTHING_TO_CANCEL';
+  | 'NOTHING_TO_CANCEL'
+  /** P04-C2: the booking was cancelled before its job was opened. */
+  | 'SUPPRESSED_CANCELLED'
+  /** P04-C2: the COMMITTED event of a rebind's new hold made the binding final. */
+  | 'BINDING_CONFIRMED'
+  /** P04-C2: the bound hold is not committed yet; Booking confirms or reverts. */
+  | 'PENDING_BINDING_KEPT';
 
 const CONSUMER: Actor = { kind: 'SYSTEM', component: 'hold-changed-consumer' };
 
@@ -97,6 +104,20 @@ export class HoldChangeHandler {
   ): Promise<HoldApplyOutcome> {
     // The published parser binds bookingId to COMMITTED exactly.
     if (message.bookingId === null) throw new Error('COMMITTED_WITHOUT_BOOKING');
+    // Booking lock: serialises against Booking's cancellation and rebind commands.
+    await tx.lockBooking(message.bookingId);
+    const cancellation = await tx.findCancellation(message.bookingId);
+    if (cancellation) {
+      await tx.appendAudit({
+        action: 'hold.commit-after-cancellation',
+        actor: CONSUMER,
+        targetType: 'HOLD',
+        targetId: message.holdId,
+        correlationId: message.correlationId,
+        details: { bookingId: message.bookingId, changeId: cancellation.changeId },
+      });
+      return 'SUPPRESSED_CANCELLED';
+    }
     const assignment = openAssignment({
       id: this.ids.next(),
       bookingId: message.bookingId,
@@ -107,7 +128,7 @@ export class HoldChangeHandler {
       now,
     });
     const inserted = await tx.insertAssignment(assignment);
-    if (inserted === 'DUPLICATE_HOLD') return 'ALREADY_OPEN';
+    if (inserted === 'DUPLICATE_HOLD') return this.confirmPending(tx, message, now);
     if (inserted === 'DUPLICATE_BOOKING') {
       // A second, different committed hold for one booking is a cross-service
       // anomaly; it is recorded for reconciliation, never silently merged.
@@ -140,6 +161,21 @@ export class HoldChangeHandler {
   ): Promise<HoldApplyOutcome> {
     const assignment = await tx.lockAssignmentByHold(message.holdId);
     if (!assignment || assignment.status === 'CANCELLED') return 'NOTHING_TO_CANCEL';
+    if (assignment.pendingChangeId !== null) {
+      // Booking bound the job to this hold for a reschedule but has not
+      // committed it (or it could not be committed): Booking's saga confirms or
+      // reverts the binding. A release of an uncommitted hold must not cancel
+      // the booking's job.
+      await tx.appendAudit({
+        action: 'hold.released-while-rebinding',
+        actor: CONSUMER,
+        targetType: 'ASSIGNMENT',
+        targetId: assignment.id,
+        correlationId: message.correlationId,
+        details: { holdState: message.state, changeId: assignment.pendingChangeId },
+      });
+      return 'PENDING_BINDING_KEPT';
+    }
     const offer = await tx.lockCurrentOffer(assignment.id);
     const live = await tx.lockLiveTask(assignment.id);
     if (live?.stage === 'CLOSED') {
@@ -189,6 +225,28 @@ export class HoldChangeHandler {
       },
     });
     return 'CANCELLED';
+  }
+
+  /** The hold already has its job: if a rebind is waiting for this commit, make it final. */
+  private async confirmPending(
+    tx: DispatchTransaction,
+    message: HoldChangedMessage,
+    now: Date,
+  ): Promise<HoldApplyOutcome> {
+    const bound = await tx.lockAssignmentByHold(message.holdId);
+    if (!bound || bound.pendingChangeId === null || bound.bookingId !== message.bookingId) {
+      return 'ALREADY_OPEN';
+    }
+    const change = await tx.findBookingChange(bound.pendingChangeId);
+    if (!change || change.state !== 'REBOUND') return 'ALREADY_OPEN';
+    await confirmRebind(
+      tx,
+      this.effects,
+      { actor: CONSUMER, correlationId: message.correlationId },
+      change,
+      now,
+    );
+    return 'BINDING_CONFIRMED';
   }
 
   private async emit(

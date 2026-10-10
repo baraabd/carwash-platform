@@ -9,3 +9,4 @@ export * from './events';
 export * from './money';
 export * from './task';
 export * from './eligibility';
+export * from './booking-change';
