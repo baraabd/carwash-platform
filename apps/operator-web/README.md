@@ -1,16 +1,25 @@
-# operator-web technical bootstrap
+# operator-web — technician app (P03-C5 port)
 
-W01 supplies a Vite/TypeScript browser entry and an independent stateless Node HTTP artifact. It does not implement any approved product screen, authentication, navigation, persisted state or business API. The technical placeholder is not an approved UI port and carries no demo business data. The approved product reference remains unchanged in design/reference/approved/.
+Framework-free TypeScript port of the approved technician prototype
+`design/reference/approved/washgo-technician-interactive.html`, wired to the
+same-origin gateway paths `/api/operator/*` (requested from Lane E; see
+`docs/production/C/contract-requests/CR-P03-C5-operator-gateway.md`).
+Port method, declared differences, pending designs and evidence:
+`docs/production/C/P03-C5-operator-web.md`.
+
+- `src/styles/*.css` are the reference `<style>` block, byte for byte. Do not reformat.
+- `index.html` carries the reference SVG sprite verbatim.
+- No business data is stored on the device; localStorage holds only the motion
+  preference and the current filters.
 
 Commands from the root:
 
-- pnpm --filter @carwash/operator-web dev -- --port <allocated-port>
-- pnpm --filter @carwash/operator-web build
-- pnpm --filter @carwash/operator-web typecheck
-- pnpm --filter @carwash/operator-web test:runtime
-- HOST=127.0.0.1 PORT=<allocated-port> pnpm --filter @carwash/operator-web start
-- docker build -f apps/operator-web/Dockerfile -t washgo/operator-web:w01 .
+- pnpm --filter @carwash/operator-web build | typecheck | test:runtime
+- HOST=127.0.0.1 PORT=<port> OPERATOR_MEDIA_ORIGINS=<https://object-store-origin> pnpm --filter @carwash/operator-web start
+- node scripts/production/C/operator-web-acceptance.mjs (browser suites against fixture doubles)
 
-/health/live reports the HTTP process. /health/ready always returns 503 FOUNDATION_NOT_READY until a later owner-reviewed capability implementation. Unknown routes cannot become simulated APIs. App tests start a real HTTP listener with labeled static fixtures; they do not prove browser parity, accessibility or business integration.
-
-This app owns no business database. E's exact bootstrap lease expires at verified BASE_W02. The permanent app owner ports the approved reference and implements future flows.
+`server.mjs` serves only the built document and assets with a strict CSP
+(`connect-src`/`img-src` add the configured object-store origins). It never
+serves `/api/*`. `/health/ready` stays 503 until business readiness is accepted;
+the app is not production-ready while the gateway routes, session flow and real
+services are unproven.
