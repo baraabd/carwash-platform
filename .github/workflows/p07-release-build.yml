@@ -1,0 +1,150 @@
+# Reusable release build (P07-E1). Called by p07-release-artifacts.yml only.
+#
+# One matrix job per catalog target builds its runtime image and, for a database
+# owner, its migration job image; pushes them with an SBOM and max-mode SLSA
+# provenance; verifies them back FROM THE REGISTRY by digest; and rehearses the
+# published migration job against a real PostgreSQL.
+#
+# publish=false: pushes to a loopback registry run by digest inside the job.
+#                No registry credential exists in that job.
+# publish=true:  pushes to GHCR and adds a Sigstore-signed GitHub attestation.
+name: P07 release build
+on:
+  workflow_call:
+    inputs:
+      publish:
+        type: boolean
+        required: true
+# No top-level permissions: a called workflow can only DOWNGRADE the caller's
+# token, so each job states its own needs and build inherits the caller grant
+# (read-only for pull-request rehearsal, write for main publication).
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      targets: ${{ steps.plan.outputs.targets }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Catalog runtime targets
+        id: plan
+        run: |
+          targets=$(node --input-type=module -e "import { inventory } from './scripts/ci/policy.mjs'; console.log(JSON.stringify(inventory().targets.map((t) => t.id)))")
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+  build:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.plan.outputs.targets) }}
+    env:
+      TARGET: ${{ matrix.target }}
+      RELEASE_OUT: ${{ runner.temp }}/release
+      REGISTRY: ${{ inputs.publish && format('ghcr.io/{0}', github.repository_owner) || 'localhost:5000/baraabd' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+        with:
+          # host networking lets the builder reach the loopback rehearsal registry.
+          driver-opts: network=host
+      - name: Start loopback rehearsal registry (pull request only)
+        if: ${{ !inputs.publish }}
+        run: node scripts/production/E/release/build-release.mjs local-registry --port 5000
+      - name: Log in to GHCR (main only)
+        if: ${{ inputs.publish }}
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build, push and record by digest
+        run: node scripts/production/E/release/build-release.mjs build --target "$TARGET" --registry "$REGISTRY" --out "$RELEASE_OUT"
+      - name: Read pushed digests
+        id: digests
+        run: |
+          node --input-type=module -e "
+          import { readFileSync, appendFileSync } from 'node:fs';
+          const part = JSON.parse(readFileSync(process.env.RELEASE_OUT + '/part-' + process.env.TARGET + '.json', 'utf8'));
+          for (const a of part.artifacts) {
+            appendFileSync(process.env.GITHUB_OUTPUT, a.role + '_repository=' + a.repository + '\n' + a.role + '_digest=' + a.digest + '\n');
+          }"
+      - name: Attest runtime image provenance
+        if: ${{ inputs.publish }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
+        with:
+          subject-name: ${{ steps.digests.outputs.runtime_repository }}
+          subject-digest: ${{ steps.digests.outputs.runtime_digest }}
+          push-to-registry: true
+      - name: Attest migration image provenance
+        if: ${{ inputs.publish && steps.digests.outputs.migration_digest != '' }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8
+        with:
+          subject-name: ${{ steps.digests.outputs.migration_repository }}
+          subject-digest: ${{ steps.digests.outputs.migration_digest }}
+          push-to-registry: true
+      - name: Verify from the registry and pull by digest
+        run: node scripts/production/E/release/verify-release.mjs --part "$RELEASE_OUT/part-$TARGET.json" --pull true --report "$RELEASE_OUT/verify-$TARGET.json"
+      - name: Rehearse the published migration job on real PostgreSQL
+        if: ${{ steps.digests.outputs.migration_digest != '' }}
+        run: node scripts/production/E/release/rehearse-migration-job.mjs --manifest-part "$RELEASE_OUT/part-$TARGET.json" --report "$RELEASE_OUT/migration-job-$TARGET.json"
+      - name: Retain release part and evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p07-release-${{ inputs.publish && 'ghcr' || 'rehearsal' }}-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/release/
+          if-no-files-found: error
+          retention-days: 90
+  assemble:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    env:
+      REGISTRY: ${{ inputs.publish && format('ghcr.io/{0}', github.repository_owner) || 'localhost:5000/baraabd' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          pattern: p07-release-${{ inputs.publish && 'ghcr' || 'rehearsal' }}-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/parts
+      - name: Assemble the release manifest (every target, one source, one base set)
+        run: node scripts/production/E/release/build-release.mjs assemble --registry "$REGISTRY" --parts "$RUNNER_TEMP/parts" --out "$RUNNER_TEMP/manifest/release-manifest.json"
+      - name: Log in to GHCR (main only)
+        if: ${{ inputs.publish }}
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify the whole release from GHCR by digest (main only)
+        if: ${{ inputs.publish }}
+        run: node scripts/production/E/release/verify-release.mjs --manifest "$RUNNER_TEMP/manifest/release-manifest.json" --pull true --report "$RUNNER_TEMP/manifest/verify-release.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: p07-release-manifest-${{ inputs.publish && 'ghcr' || 'rehearsal' }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/manifest/
+          if-no-files-found: error
+          retention-days: 90
