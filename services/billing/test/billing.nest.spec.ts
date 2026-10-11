@@ -285,6 +285,32 @@ test('billing: the composed provider/refund API is mounted and fails closed', as
   }
 });
 
+test('billing: the composed booking-saga API stays mounted beside provider/refund routes', async () => {
+  process.env.DATABASE_URL = DSN;
+  const previousClients = process.env.BILLING_SERVICE_CLIENTS;
+  delete process.env.BILLING_SERVICE_CLIENTS;
+  const app = await createHttpApplication();
+  await app.listen(0, '127.0.0.1');
+  try {
+    const url = await app.getUrl();
+    const id = '6f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f';
+    for (const route of ['/booking-obligations', `/booking-obligations/${id}/void`]) {
+      const response = await fetch(url + '/internal/v1/billing' + route, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      assert.equal(response.status, 401, route);
+      const body = (await response.json()) as { error: { code: string } };
+      assert.equal(body.error.code, 'AUTH_REQUIRED', route);
+    }
+  } finally {
+    await app.close();
+    if (previousClients === undefined) delete process.env.BILLING_SERVICE_CLIENTS;
+    else process.env.BILLING_SERVICE_CLIENTS = previousClients;
+  }
+});
+
 test('billing: provider automation settings without an adapter fail startup', async () => {
   process.env.DATABASE_URL = DSN;
   process.env.BILLING_SHAM_CASH_WEBHOOK_SECRET_FILE = '/run/secrets/never-read';
