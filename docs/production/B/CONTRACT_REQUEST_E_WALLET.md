@@ -66,3 +66,16 @@ their screens are designed (none is approved yet):
 `wallet.balance-updated.v1` / `wallet.hold-released.v1` in the service catalog
 have no approved consumer and would duplicate Billing facts. Wallet emits no
 event; the catalog entries should stay `planned-not-implemented`.
+
+## CR-B-12.6 Source inventory registration (blocks CI `static` on the P05-B3 PR)
+
+`tests/parallel/E/status.test.mjs` compares the Prisma models with the E-owned
+`architecture/implementation-status.json`. Exact delta for
+`services[id=wallet].persistenceModels`:
+
+```json
+["ServiceMarker", "WalletInbox", "CustodySource", "CustodyAccount", "CustodyMovement"]
+```
+
+Until E applies it, the `static` job fails on this PR by design (registration gap,
+not a behaviour failure).
