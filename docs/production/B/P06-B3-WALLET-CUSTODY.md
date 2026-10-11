@@ -9,8 +9,9 @@ live events until Lane E accepts CR-W-01/02.
   (tree `3a2203e360a534dc3f98529717a7625257aaccd0`), refreshed 2026-10-11. The
   audited `f875d31` is an older ancestor and was no longer current.
 - Branch: `prod/p06-b-close-commerce-finance-functional-matrix-and-admin-fina-b3-wallet-custody`
-- Head/tree: see the PR and the evidence JSON. The evidence file names the exact
-  commit it ran on.
+- Accepted source: `56fd88b5fa34032045705b769977adcb2d20ca9d` (tree
+  `30e31ff391384bd488e6b894cb3d23fa2d94e3f0`, clean). The commit that adds this
+  document and the evidence JSON changes only `docs/`.
 
 ## What this closes
 
@@ -134,15 +135,14 @@ leaves the new tables unused. There is no destructive down-migration.
 
 ## Commands and results
 
-Results are filled in from the final runs (see the PR body for the exact
-head):
+All results were produced on the accepted source above:
 
 | Family | Command | Result |
 | ------ | ------- | ------ |
 | Domain/application unit + model-based (40 seeded histories, shuffled with duplicates) | `node --test services/wallet/dist-tests/test/wallet.custody.spec.js` | PASSED 13/13 |
 | HTTP auth/object access (real Nest + real Identity adapter, local Identity double) | `node --test services/wallet/dist-tests/test/wallet.http.spec.js` | PASSED 5/5 |
-| Runtime/foundation (existing) | `pnpm --filter @carwash/wallet test:runtime` | PASSED (all root specs) |
-| Real PostgreSQL (upgrade, re-provision, schema drift, runtime-role integration incl. 2-replica concurrency and model-based) | `node scripts/production/B/postgres-acceptance.mjs --service wallet --record` | see evidence JSON |
+| Runtime/foundation (existing) | `node --test services/wallet/dist-tests/test/*.spec.js` | PASSED 27/27 (custody 13, HTTP 5, foundation 9) |
+| Real PostgreSQL (upgrade, re-provision, schema drift, runtime-role integration incl. 2-replica concurrency and model-based) | `node scripts/production/B/postgres-acceptance.mjs --service wallet --record` | ACCEPTED: all 9 phases PASS; integration 8/8, 0 skipped (`evidence/wallet-postgres-56fd88b5fa34.json`) |
 | Typecheck | `pnpm --filter @carwash/wallet typecheck` | PASSED |
 | Migration guards | `node scripts/check-migrations.mjs --base-ref origin/main` | PASSED |
 | Boundaries/layers | `node scripts/check-boundaries.mjs`, `node scripts/check-layers.mjs`, `node scripts/dev/generate-service-shells.mjs --check` | PASSED |
@@ -159,6 +159,15 @@ Dependencies, real vs. not real:
 - Billing is a **test model** of its custody state machine. It emits envelopes
   that the shared `billing.v1` parsers accept.
 - RabbitMQ is **NOT USED**.
+
+Two earlier runs on this branch failed and were fixed, not hidden:
+
+- `a38e07f`: schema drift. The unique index name in the Prisma mirror was not
+  mapped.
+- `c611653`: the two-replica burst test hit Prisma `Unable to start a
+  transaction in the given time`. The fix adds `maxWait` for pooled
+  connections. That error is a retryable infra failure, never an applied
+  event.
 
 ## Security and privacy
 
