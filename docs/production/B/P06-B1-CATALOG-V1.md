@@ -99,12 +99,17 @@ reviewed data plan.
 | HTTP auth/idempotency/race/outbox | `node --test services/catalog/dist-tests/test/catalog.http.spec.js` | PASSED | in-memory repository double, local Identity HTTP stub |
 | Nest runtime/health | `node --test services/catalog/dist-tests/test/catalog.nest.spec.js` | PASSED | none |
 | Provider contract (published parsers) | `node --test tests/production/B/catalog-v1-provider.test.mjs` | PASSED (4/4) | published `@carwash/contracts` dist; in-memory repository |
-| Real PostgreSQL | `node scripts/production/B/postgres-acceptance.mjs --service catalog --record` | see `evidence/catalog-postgres-*.json` | REAL disposable PostgreSQL 16.10; Identity LOCAL HTTP STUB; broker NOT USED |
+| Real PostgreSQL | `node scripts/production/B/postgres-acceptance.mjs --service catalog --record` | PASSED on `ea85f21` (8/8 phases, 6/6 specs) — `evidence/catalog-postgres-ea85f21dbbb5.json` | REAL disposable PostgreSQL 16.10; Identity LOCAL HTTP STUB; broker NOT USED |
 | Typecheck / lint / format | `pnpm --filter @carwash/catalog typecheck`, `eslint`, `prettier --check` | PASSED | — |
 | Migration / boundary / layer guards | `check-migrations`, `check-boundaries`, `check-layers` | PASSED | — |
 | Design lock | `node scripts/check-design-reference.mjs` | PASSED (no UI touched) | — |
 | E source inventory | `node --test tests/parallel/E/status.test.mjs` | FAILED by design until CR-B-P06-05 registers the three new models | — |
 | RabbitMQ relay | — | BLOCKED (CR-B-P06-04: topology/relay are E-owned); rows are written and parsed, not published | — |
+
+An earlier run on `d9615bd` FAILED (schema mirror index name drift) and a run
+on the next commit FAILED 4/6 (a republished unchanged definition was
+re-inserted into the insert-only identity table → 500). Both were fixed in
+code; the in-memory double now enforces the identity rule too.
 
 The PostgreSQL suite proves: exact round-trip across two replicas (separate
 pools); audit and outbox rows in the same transaction with a valid envelope;
