@@ -20,6 +20,7 @@
  *   node scripts/check-images.mjs                     default service set
  *   node scripts/check-images.mjs catalog reporting   explicit services
  */
+import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
@@ -27,7 +28,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { run } from './acceptance/lib/exec.mjs';
-import { officialImagePullCandidates } from './lib/image-references.mjs';
+import { pullImageWithMirrors } from './lib/image-references.mjs';
 import {
   verifiedNonRoot,
   verifiedNoBakedSecrets,
@@ -40,7 +41,6 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Must match the Dockerfile default and the image the acceptance run pins. */
 const NODE_IMAGE = 'node:24.21.0-bookworm-slim';
-const NODE_BUILD_IMAGE = officialImagePullCandidates(NODE_IMAGE)[0];
 
 /**
  * Every owner runtime that boots with isolated dependency fixtures. identity needs Redis
@@ -89,20 +89,49 @@ function pass(service, check, detail = '') {
   return { service, check, ok: true, detail };
 }
 
-async function buildImage(service, tag) {
-  const result = await docker([
+function imageRepository(reference) {
+  return reference
+    .split('@')[0]
+    .replace(/:[^:/]+$/, '')
+    .replace(/^docker\.io\/(?:library\/)?/, '')
+    .replace(/^library\//, '');
+}
+
+export async function buildImage(service, tag, dockerCommand = docker) {
+  // Acquire the pinned version before building: a preferred mirror can serve
+  // metadata but rate-limit the following layer requests. Only image acquisition
+  // falls back; application build failures are never retried or suppressed.
+  const pulled = await pullImageWithMirrors(NODE_IMAGE, dockerCommand);
+  const inspected = await dockerCommand([
+    'image',
+    'inspect',
+    '--format',
+    '{{json .RepoDigests}}',
+    pulled.pullReference,
+  ]);
+  assert.equal(inspected.code, 0, `Cannot inspect acquired Node base: ${inspected.stderr}`);
+  const digests = JSON.parse(inspected.stdout);
+  assert.ok(Array.isArray(digests) && digests.length > 0, 'Acquired Node base has no digest');
+  const baseImage = digests.find(
+    (reference) =>
+      typeof reference === 'string' &&
+      /^[^\s@]+@sha256:[a-f0-9]{64}$/.test(reference) &&
+      imageRepository(reference) === imageRepository(pulled.pullReference),
+  );
+  assert.ok(baseImage, 'Acquired Node base has no matching digest');
+  const result = await dockerCommand([
     'build',
     '--file',
     'Dockerfile',
     '--build-arg',
     `SERVICE=${service}`,
     '--build-arg',
-    `NODE_IMAGE=${NODE_BUILD_IMAGE}`,
+    `NODE_IMAGE=${baseImage}`,
     '--tag',
     tag,
     '.',
   ]);
-  return result;
+  return { ...result, baseImage };
 }
 
 /** Poll an endpoint from INSIDE the container, so no port has to be published. */
@@ -145,13 +174,7 @@ async function verifyService(service) {
     );
     return results;
   }
-  results.push(
-    pass(
-      service,
-      'image builds',
-      NODE_BUILD_IMAGE === NODE_IMAGE ? `from ${NODE_IMAGE}` : `from ${NODE_IMAGE} via mirror`,
-    ),
-  );
+  results.push(pass(service, 'image builds', `from ${NODE_IMAGE} resolved to ${built.baseImage}`));
 
   const port = await freePort();
   const started = await docker([
@@ -283,7 +306,9 @@ async function main() {
   process.exit(failures.length === 0 ? 0 : 1);
 }
 
-main().catch((error) => {
-  console.error(error.stack ?? error.message);
-  process.exit(1);
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error.stack ?? error.message);
+    process.exit(1);
+  });
+}
