@@ -41,6 +41,16 @@ const IDENTITY_STUB = {
   broker: 'NOT USED',
 };
 const SERVICES = {
+  wallet: {
+    task: 'P05-B',
+    previousMigrations: 1,
+    env: 'WALLET_TEST_DATABASE_URL',
+    dependencies: {
+      ...IDENTITY_STUB,
+      billing: 'NOT RUNNING (events built in the registered billing.v1 envelope-v2 shape)',
+      broker: 'NOT USED by these specs (see scripts/production/B/wallet-broker-acceptance.mjs)',
+    },
+  },
   catalog: {
     task: 'P01-B',
     previousMigrations: 2,
@@ -61,16 +71,6 @@ const SERVICES = {
       ...IDENTITY_STUB,
       pricing: 'LOCAL HTTP STUB (published pricing.v1 getQuote shape)',
       broker: 'NOT USED (outbox rows written; relay not started until E registers billing events)',
-    },
-  },
-  wallet: {
-    task: 'P05-B',
-    previousMigrations: 1,
-    env: 'WALLET_TEST_DATABASE_URL',
-    dependencies: {
-      ...IDENTITY_STUB,
-      billing: 'NOT RUNNING (events built in the registered billing.v1 envelope-v2 shape)',
-      broker: 'NOT USED by these specs (see scripts/production/B/wallet-broker-acceptance.mjs)',
     },
   },
 };
@@ -151,7 +151,7 @@ async function phase(name, operation) {
 }
 
 async function query(url, statement, values = []) {
-  const client = new Client({ connectionString: url, connectionTimeoutMillis: 30_000 });
+  const client = new Client({ connectionString: url, connectionTimeoutMillis: 60_000 });
   try {
     await client.connect();
     return await client.query(statement, values);
@@ -162,7 +162,7 @@ async function query(url, statement, values = []) {
 
 /** Runs statements in ONE transaction on one connection (COMMIT-time triggers apply). */
 async function transaction(url, statements) {
-  const client = new Client({ connectionString: url, connectionTimeoutMillis: 30_000 });
+  const client = new Client({ connectionString: url, connectionTimeoutMillis: 60_000 });
   try {
     await client.connect();
     await client.query('BEGIN');
@@ -395,21 +395,24 @@ const BILLING_SENTINEL = (() => {
 })();
 
 /**
- * Prisma CLI with a generous connect timeout. A loaded host can briefly refuse
- * connections (P1001) or time out; those transient failures are retried, every
- * other failure is raised at once.
+ * Prisma CLI as the given identity, with a generous connect timeout. A P1001
+ * (server not reachable) on a loaded host is retried up to twice after a pause;
+ * any other failure is final.
  */
 async function prisma(args, databaseUrl) {
-  const url = `${databaseUrl}&connect_timeout=30`;
+  const url = databaseUrl.includes('connect_timeout=')
+    ? databaseUrl
+    : `${databaseUrl}&connect_timeout=30`;
+  const invoke = () =>
+    checked('pnpm', ['--filter', `@carwash/${service}`, 'exec', 'prisma', ...args], {
+      env: { ...process.env, DATABASE_URL: url },
+    });
   for (let attempt = 1; ; attempt += 1) {
     try {
-      return await checked('pnpm', ['--filter', `@carwash/${service}`, 'exec', 'prisma', ...args], {
-        env: { ...process.env, DATABASE_URL: url },
-      });
+      return await invoke();
     } catch (error) {
-      const transient = /P1001|P1002|timeout/i.test(String(error?.message ?? error));
-      if (!transient || attempt >= 3) throw error;
-      await delay(5_000 * attempt);
+      if (attempt >= 3 || !String(error?.message ?? error).includes('P1001')) throw error;
+      await delay(5_000);
     }
   }
 }
@@ -569,7 +572,11 @@ try {
         'prisma/schema.prisma',
         '--exit-code',
       ],
-      { cwd: ROOT, timeoutMs: 180_000, env: { ...process.env, DATABASE_URL: migrateUrl } },
+      {
+        cwd: ROOT,
+        timeoutMs: 180_000,
+        env: { ...process.env, DATABASE_URL: `${migrateUrl}&connect_timeout=30` },
+      },
     );
     if (result.code !== 0)
       throw new Error(`SCHEMA_DRIFT: ${redact(result.stdout + result.stderr).slice(-4000)}`);
