@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
  * Lane B real PostgreSQL acceptance for owner services (P01-B catalog/pricing,
- * P02-B billing core, P03-B billing cash custody, P04-B provider credits and refunds).
+ * P02-B billing core, P03-B billing cash custody, P04-B provider credits and refunds,
+ * P05-B subscription).
  *
- *   node scripts/production/B/postgres-acceptance.mjs --service catalog|pricing|billing [--record]
+ *   node scripts/production/B/postgres-acceptance.mjs --service catalog|pricing|billing|subscription [--record]
  *
  * 1. Starts ONE disposable, pinned PostgreSQL container bound to 127.0.0.1 and
  *    provisions it with the shared infra/postgres/provision.sh (database per
@@ -71,6 +72,18 @@ const SERVICES = {
       ...IDENTITY_STUB,
       pricing: 'LOCAL HTTP STUB (published pricing.v1 getQuote shape)',
       broker: 'NOT USED (outbox rows written; relay not started until E registers billing events)',
+    },
+  },
+  subscription: {
+    task: 'P05-B',
+    previousMigrations: 1,
+    env: 'SUBSCRIPTION_TEST_DATABASE_URL',
+    dependencies: {
+      ...IDENTITY_STUB,
+      serviceCallers:
+        'REAL shared ServiceClientAuthenticator with test credentials (Booking is not running)',
+      broker:
+        'NOT USED (outbox rows written; relay not started until E registers subscription events)',
     },
   },
 };
