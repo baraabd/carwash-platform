@@ -14,6 +14,7 @@ export function snapshotFinancialStatus(snapshot: FinancialSnapshot): FinancialS
     activeIntent: snapshot.activeIntent,
     hasUnknownAttempt: snapshot.attempts.some((attempt) => attempt.status === 'UNKNOWN'),
     settledByCash: snapshot.cashReceipt !== null,
+    refunded: snapshot.refunded,
   });
 }
 

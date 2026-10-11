@@ -24,6 +24,7 @@ import {
   type PricingStub,
   type Stub,
 } from '../support/upstream-stubs';
+import { acceptanceProviders, approvedStatement } from '../support/provider-flows';
 
 /*
  * REAL PostgreSQL evidence, run as the least-privileged runtime role
@@ -62,12 +63,14 @@ before(async () => {
     clock,
     identity,
     pricing,
+    providers: acceptanceProviders(),
   });
   replicaB = await startBillingHttp({
     repository: new PrismaBillingRepository(prismaB),
     clock,
     identity,
     pricing,
+    providers: acceptanceProviders(),
   });
   sql = new Client({ connectionString: DATABASE_URL.replace(/\?schema=app$/, '') });
   await sql.connect();
@@ -578,10 +581,11 @@ test('attempt: retry of the same submission replays and does not double count', 
 
 // ---------------------------------------------------------------- reconciliation
 
-test('reconcile: UNKNOWN is never success, then an exact MATCHED settles through the ledger', async () => {
+test('reconcile: UNKNOWN is never success; a reviewer cannot MATCH; only an approved provider credit settles', async () => {
   const body = await created('customer', '275050');
   await initialize(body.obligationId, 1, 'SHAM_CASH');
-  const submitted = await submit(body.obligationId, 2, reference());
+  const ref = reference();
+  const submitted = await submit(body.obligationId, 2, ref);
   const [attempt] = submitted.body.attempts as { attemptId: string }[];
   const attemptId = attempt?.attemptId;
 
@@ -592,35 +596,48 @@ test('reconcile: UNKNOWN is never success, then an exact MATCHED settles through
   assert.deepEqual(unknown.body.verified, syp('0'));
   assert.equal(await receivable(body.obligationId), '275050');
 
-  const partial = await reconcile(attemptId, 4, 'MATCHED', syp('275000'));
-  assert.equal(partial.status, 422);
-  assert.equal(errorCode(partial), 'AMOUNT_NOT_EQUAL_OUTSTANDING');
-  const wrongCurrency = await reconcile(attemptId, 4, 'MATCHED', {
-    currency: 'USD',
-    amountMinor: '275050',
-    scale: 2,
-  });
-  assert.equal(errorCode(wrongCurrency), 'CURRENCY_UNSUPPORTED');
+  const manual = await reconcile(attemptId, 4, 'MATCHED', syp('275050'));
+  assert.equal(manual.status, 409);
+  assert.equal(errorCode(manual), 'PROVIDER_CREDIT_REQUIRED');
+  assert.equal(await receivable(body.obligationId), '275050');
 
-  const matched = await reconcile(attemptId, 4, 'MATCHED', syp('275050'));
-  assert.equal(matched.status, 200, JSON.stringify(matched.body));
-  assert.equal(matched.body.status, 'SETTLED');
-  assert.equal(matched.body.financialStatus, 'PAID');
-  assert.deepEqual(matched.body.verified, syp('275050'));
-  assert.deepEqual(matched.body.outstanding, syp('0'));
+  const credit = await approvedStatement(replicaA, {
+    provider: 'SHAM_CASH',
+    reference: ref,
+    amount: syp('275050'),
+    occurredAt: new Date(clock.now().getTime() - 30_000),
+  });
+  assert.equal(credit.status, 'ALLOCATED');
+  assert.equal(credit.obligationId, body.obligationId);
+  const settled = await replicaA.request(
+    'GET',
+    `${PATH}/obligations/${String(body.obligationId)}`,
+    {
+      token: TOKENS.customer,
+    },
+  );
+  assert.equal(settled.body.status, 'SETTLED');
+  assert.equal(settled.body.financialStatus, 'PAID');
+  assert.deepEqual(settled.body.verified, syp('275050'));
+  assert.deepEqual(settled.body.outstanding, syp('0'));
   assert.equal(await receivable(body.obligationId), '0');
   const cleared = await sql.query<{ net: string }>(
     `SELECT SUM(CASE l.side WHEN 'DEBIT' THEN l.amount_minor ELSE -l.amount_minor END)::text AS net
        FROM app.ledger_line l JOIN app.ledger_journal j ON j.id = l.journal_id
-      WHERE j.obligation_id = $1 AND l.account = 'CLEARING_SHAM_CASH'`,
-    [body.obligationId],
+      WHERE j.credit_id = $1 AND l.account = 'CLEARING_SHAM_CASH'`,
+    [credit.creditId],
   );
   assert.equal(cleared.rows[0]?.net, '275050');
-  const reviewer = await sql.query<{ kind: string; subject: string }>(
-    'SELECT reconciled_by_kind AS kind, reconciled_by_subject::text AS subject FROM app.payment_attempt WHERE id = $1',
+  const reviewer = await sql.query<{ kind: string; subject: string; credit: string }>(
+    `SELECT reconciled_by_kind AS kind, reconciled_by_subject::text AS subject, credit_id::text AS credit
+       FROM app.payment_attempt WHERE id = $1`,
     [attemptId],
   );
-  assert.deepEqual(reviewer.rows[0], { kind: 'account', subject: SUBJECTS.reconciler });
+  assert.deepEqual(reviewer.rows[0], {
+    kind: 'account',
+    subject: SUBJECTS.approver,
+    credit: credit.creditId,
+  });
 
   const again = await reconcile(attemptId, 5, 'MATCHED', syp('275050'));
   assert.equal(errorCode(again), 'ATTEMPT_NOT_OPEN');
@@ -676,18 +693,18 @@ test('reconcile: requires billing.reconcile and separation of duties', async () 
   const submitted = await submit(body.obligationId, 2, reference());
   const attemptId = (submitted.body.attempts as { attemptId: string }[])[0]?.attemptId;
   assert.equal(
-    (await reconcile(attemptId, 3, 'MATCHED', syp('150000'), { token: TOKENS.customer })).status,
+    (await reconcile(attemptId, 3, 'MISMATCHED', null, { token: TOKENS.customer })).status,
     403,
   );
   assert.equal(
-    (await reconcile(attemptId, 3, 'MATCHED', syp('150000'), { token: TOKENS.finance })).status,
+    (await reconcile(attemptId, 3, 'MISMATCHED', null, { token: TOKENS.finance })).status,
     403,
   );
-  const self = await reconcile(attemptId, 3, 'MATCHED', syp('150000'), {
+  const self = await reconcile(attemptId, 3, 'MISMATCHED', null, {
     token: TOKENS.selfReconciler,
   });
-  assert.equal(self.status, 403, 'an owner can never confirm their own payment');
-  assert.equal((await reconcile(randomUUID(), 3, 'MATCHED', syp('150000'))).status, 404);
+  assert.equal(self.status, 403, 'an owner can never decide their own payment');
+  assert.equal((await reconcile(randomUUID(), 3, 'MISMATCHED', null)).status, 404);
   const view = await replicaA.request(
     'GET',
     `${PATH}/obligations/${String(body.obligationId)}/financial-status`,
@@ -698,15 +715,15 @@ test('reconcile: requires billing.reconcile and separation of duties', async () 
   assert.equal(view.body.financialStatus, 'UNDER_REVIEW');
 });
 
-test('reconcile race: two reviewers on one revision settle at most once', async () => {
+test('reconcile race: concurrent reviewer decisions on one revision apply at most once', async () => {
   const body = await created();
   await initialize(body.obligationId, 1, 'SHAM_CASH');
   const submitted = await submit(body.obligationId, 2, reference());
   const attemptId = (submitted.body.attempts as { attemptId: string }[])[0]?.attemptId;
   const results = await Promise.all([
-    reconcile(attemptId, 3, 'MATCHED', syp('150000'), { replica: replicaA }),
-    reconcile(attemptId, 3, 'MATCHED', syp('150000'), { replica: replicaB }),
     reconcile(attemptId, 3, 'MISMATCHED', null, { replica: replicaA }),
+    reconcile(attemptId, 3, 'UNKNOWN', null, { replica: replicaB }),
+    reconcile(attemptId, 3, 'MISMATCHED', null, { replica: replicaB }),
   ]);
   assert.equal(
     results.filter((r) => r.status === 200).length,
@@ -714,11 +731,14 @@ test('reconcile race: two reviewers on one revision settle at most once', async 
     JSON.stringify(results.map((r) => r.body)),
   );
   assert.equal(
-    await count('ledger_journal', "obligation_id = $1 AND kind = 'PAYMENT_MATCHED'", [
-      body.obligationId,
-    ]),
-    results.find((r) => r.status === 200)?.body.status === 'SETTLED' ? 1 : 0,
+    await count(
+      'billing_audit_event',
+      "attempt_id = $1 AND action = 'billing.attempt.reconciled'",
+      [attemptId],
+    ),
+    1,
   );
+  assert.equal(await receivable(body.obligationId), '150000');
 });
 
 // ---------------------------------------------------------------- void / compensation
@@ -904,9 +924,16 @@ test('database: a balanced journal without its state change (or vice versa) neve
 test('database: financial facts are append-only and state machines are enforced', async () => {
   const body = await created();
   await initialize(body.obligationId, 1, 'SHAM_CASH');
-  const submitted = await submit(body.obligationId, 2, reference());
+  const ref = reference();
+  const submitted = await submit(body.obligationId, 2, ref);
   const attemptId = (submitted.body.attempts as { attemptId: string }[])[0]?.attemptId;
-  await reconcile(attemptId, 3, 'MATCHED', syp('150000'));
+  const credit = await approvedStatement(replicaA, {
+    provider: 'SHAM_CASH',
+    reference: ref,
+    amount: syp('150000'),
+    occurredAt: clock.now(),
+  });
+  assert.equal(credit.status, 'ALLOCATED');
   const id = body.obligationId;
   await rejected(
     [

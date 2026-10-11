@@ -5,8 +5,9 @@ import { PrismaService, databaseUrlFromEnv } from '../infrastructure/persistence
 import { compose, positiveInt } from '../infrastructure/runtime/composition';
 
 /**
- * Booking saga worker (process manager). Runs as its own process; any number
- * of replicas.
+ * Booking saga worker (process manager): the creation saga and, since P04-C3,
+ * the change saga (cancellation / reschedule). Runs as its own process; any
+ * number of replicas.
  *
  * It holds no state of its own: every pass leases due sagas from PostgreSQL
  * (SKIP LOCKED, fenced lease) and advances them with idempotent owner calls.
@@ -44,7 +45,10 @@ async function main(): Promise<void> {
   const telemetry = serviceTelemetry('booking');
   const logger = createLogger({ service: 'booking', base: { component: 'saga-worker', workerId } });
   const prisma = new PrismaService(databaseUrlFromEnv());
-  const { saga } = compose(prisma, process.env, { instanceId: workerId, component: 'saga-worker' });
+  const { saga, changeSaga } = compose(prisma, process.env, {
+    instanceId: workerId,
+    component: 'saga-worker',
+  });
   const budgetMs = positiveInt(process.env.BOOKING_WORKER_SAGA_BUDGET_MS, 10_000);
 
   let stopping = false;
@@ -63,11 +67,13 @@ async function main(): Promise<void> {
     while (!stopping) {
       try {
         const leased = await saga.runDue(workerId, args.batch, budgetMs);
+        // P04-C3: cancellations and reschedules run in the same worker.
+        const changes = await changeSaga.runDue(workerId, args.batch, budgetMs);
         passes += 1;
         failures = 0;
-        logger.info('saga_pass', { pass: passes, leased });
+        logger.info('saga_pass', { pass: passes, leased, changes });
         if (args.once) break;
-        if (leased === 0) await sleep(args.intervalMs);
+        if (leased === 0 && changes === 0) await sleep(args.intervalMs);
       } catch (error: unknown) {
         failures += 1;
         logger.warn('saga_pass_failed', {

@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import {
+  BookingChangeService,
   DispatchService,
   EligibilityChangeHandler,
   HoldChangeHandler,
@@ -155,6 +156,7 @@ export interface Replica {
   readonly store: PrismaDispatchStore;
   readonly service: DispatchService;
   readonly tasks: TaskService;
+  readonly changes: BookingChangeService;
   readonly inbox: PrismaInboxStore;
   readonly handler: HoldChangeHandler;
   readonly eligibility: EligibilityChangeHandler;
@@ -169,6 +171,7 @@ export function replica(clock: Clock): Replica {
     store,
     service: new DispatchService(store, store, clock, uuidGenerator, workforce),
     tasks: new TaskService(store, store, clock, uuidGenerator, media),
+    changes: new BookingChangeService(store, store, clock, uuidGenerator),
     inbox: new PrismaInboxStore(store),
     handler: new HoldChangeHandler(clock, uuidGenerator),
     eligibility: new EligibilityChangeHandler(clock, uuidGenerator),
@@ -184,6 +187,13 @@ export const OPS: Actor = {
 export function technician(subject: string = randomUUID()): Extract<Actor, { kind: 'USER' }> {
   return { kind: 'USER', subject, permissions: ['work.read:assigned', 'work.execute:assigned'] };
 }
+
+/** Booking's service credential for the P04-C2 change commands. */
+export const BOOKING: Actor = {
+  kind: 'SERVICE',
+  clientId: 'booking',
+  scopes: ['dispatch.assignment.read', 'dispatch.booking.change'],
+};
 
 export function meta(actor: Actor): RequestMeta {
   return { actor, correlationId: randomUUID() };

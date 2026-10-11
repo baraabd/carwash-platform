@@ -7,6 +7,7 @@ import type {
   PaymentMethod,
 } from '../domain';
 import type { CashReceiptRecord, CustodyReader, CustodyStore } from './custody.ports';
+import type { ProviderReader, ProviderStore } from './provider.ports';
 
 export type PrincipalKind = 'account' | 'guest';
 
@@ -81,19 +82,35 @@ export const AUDIT_ACTIONS = [
   'billing.custody.handover-cancelled',
   'billing.custody.handover-received',
   'billing.custody.handover-reconciled',
+  'billing.credit.recorded',
+  'billing.credit.approved',
+  'billing.credit.rejected',
+  'billing.credit.allocated',
+  'billing.refund.requested',
+  'billing.refund.approved',
+  'billing.refund.rejected',
+  'billing.refund.outcome-recorded',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
+/**
+ * Who caused an audited fact: an Identity principal, or a payment provider
+ * whose authenticated notification recorded a credit (fixed subject per provider).
+ */
+export type AuditActor = PrincipalRef | { readonly kind: 'provider'; readonly subjectId: string };
 
 export interface AuditRecord {
   readonly id: string;
   readonly occurredAt: Date;
-  readonly actor: PrincipalRef;
+  readonly actor: AuditActor;
   readonly action: AuditAction;
   /** Null only for handover-scoped custody facts (then handoverId is set). */
   readonly obligationId: string | null;
   readonly attemptId: string | null;
   readonly receiptId: string | null;
   readonly handoverId: string | null;
+  readonly creditId?: string | null;
+  readonly refundId?: string | null;
   /** A fixed machine value (status or outcome), never free text. */
   readonly outcome: string;
   readonly correlationId: string;
@@ -148,6 +165,8 @@ export interface FinancialSnapshot {
   readonly attempts: readonly AttemptRecord[];
   /** The effective (non-reversed) cash collection receipt, if any. */
   readonly cashReceipt: CashReceiptRecord | null;
+  /** Completed refunds of the provider credit that settled this obligation. */
+  readonly refunded: Money | null;
 }
 
 export interface ObligationChange {
@@ -159,15 +178,19 @@ export interface ObligationChange {
 export interface AttemptReconciliation {
   readonly to: AttemptStatus;
   readonly at: Date;
-  readonly by: PrincipalRef;
+  /** Null only for MATCHED by a provider-notified credit (creditId is then set). */
+  readonly by: PrincipalRef | null;
   readonly observed: Money | null;
+  /** The allocated provider credit; set exactly for MATCHED. */
+  readonly creditId: string | null;
 }
 
-/** Exactly one of obligationId / handoverId is set (ledger_journal_scope). */
+/** The scope columns allowed per journal kind are fixed by ledger_journal_scope. */
 export interface JournalMeta {
   readonly id: string;
   readonly obligationId: string | null;
   readonly handoverId: string | null;
+  readonly creditId?: string | null;
   readonly postedAt: Date;
   readonly correlationId: string;
 }
@@ -205,6 +228,7 @@ export interface BillingUnitOfWork {
   appendAudit(record: AuditRecord): Promise<void>;
   appendOutbox(event: OutboxEvent): Promise<void>;
   readonly custody: CustodyStore;
+  readonly providers: ProviderStore;
 }
 
 export interface BillingRepository {
@@ -218,6 +242,7 @@ export interface BillingRepository {
   obligationIdForQuote(quoteId: string): Promise<string | null>;
   obligationIdForAttempt(attemptId: string): Promise<string | null>;
   readonly custody: CustodyReader;
+  readonly providers: ProviderReader;
 }
 
 /** A priced quote as confirmed by its owner, Pricing, for the calling principal. */

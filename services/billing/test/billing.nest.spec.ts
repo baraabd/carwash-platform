@@ -223,6 +223,78 @@ test('billing: the composed cash/custody API is mounted and fails closed', async
   }
 });
 
+test('billing: the composed provider/refund API is mounted and fails closed', async () => {
+  process.env.DATABASE_URL = DSN;
+  delete process.env.IDENTITY_SESSION_ORIGIN;
+  const app = await createHttpApplication();
+  await app.listen(0, '127.0.0.1');
+  try {
+    const url = await app.getUrl();
+    const id = '6f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f';
+    const bearer = 'Bearer eyJhbGciOiJSUzI1NiJ9.e30.c2ln';
+    const commands: [string, unknown][] = [
+      ['/provider-credits', { provider: 'SHAM_CASH' }],
+      [`/provider-credits/${id}/decision`, { expectedRevision: 1 }],
+      [`/payment-attempts/${id}/provider-verification`, {}],
+      [`/provider-credits/${id}/refunds`, { expectedRevision: 1 }],
+      [`/refunds/${id}/decision`, { expectedRevision: 1 }],
+      [`/refunds/${id}/provider-execution`, { expectedRevision: 2 }],
+      [`/refunds/${id}/manual-completion`, { expectedRevision: 2 }],
+    ];
+    for (const [path, body] of commands) {
+      const init = {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'idempotency-key': 'nest-provider-key-001' },
+        body: JSON.stringify(body),
+      };
+      const anonymous = await fetch(url + '/internal/v1/billing' + path, init);
+      assert.equal(anonymous.status, 401, path);
+      const unverifiable = await fetch(url + '/internal/v1/billing' + path, {
+        ...init,
+        headers: { ...init.headers, authorization: bearer },
+      });
+      assert.equal(unverifiable.status, 503, path);
+    }
+    for (const path of [
+      '/providers',
+      '/provider-credits?status=UNALLOCATED',
+      `/provider-credits/${id}`,
+      '/refunds?status=REQUESTED',
+      `/refunds/${id}`,
+    ]) {
+      const read = await fetch(url + '/internal/v1/billing' + path, {
+        headers: { authorization: bearer },
+      });
+      assert.equal(read.status, 503, path);
+    }
+    // Production adapters have no notification capability (no official API):
+    // the provider callback is indistinguishable from a missing route.
+    for (const provider of ['sham_cash', 'syriatel_cash', 'unknown']) {
+      const callback = await fetch(
+        `${url}/internal/v1/billing/providers/${provider}/notifications`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ type: 'credit.final' }),
+        },
+      );
+      assert.equal(callback.status, 404, provider);
+    }
+  } finally {
+    await app.close();
+  }
+});
+
+test('billing: provider automation settings without an adapter fail startup', async () => {
+  process.env.DATABASE_URL = DSN;
+  process.env.BILLING_SHAM_CASH_WEBHOOK_SECRET_FILE = '/run/secrets/never-read';
+  try {
+    await assert.rejects(compile(), /BILLING_SHAM_CASH_AUTOMATION_NOT_IMPLEMENTED/);
+  } finally {
+    delete process.env.BILLING_SHAM_CASH_WEBHOOK_SECRET_FILE;
+  }
+});
+
 test('billing: the service is declared foundation-only, not business ready', () => {
   assert.equal(SERVICE_NAME, 'billing');
   assert.equal(BUSINESS_READY, false);

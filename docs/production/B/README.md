@@ -1,5 +1,21 @@
 # Lane B — Commerce & Finance production work
 
+## P04-B — Payment provider adapters, reconciliation and refunds
+
+Parent status: **INTEGRATION_PENDING**. Not production-ready, not deployed, not
+integrated, no live provider contacted. Started from main
+`c65db708b9a7c50e5a885799330479426e863758` (tree
+`9b0d9bef560cc4ea441c142839f772004de5275a`), refreshed on 2026-10-10; the audited
+`f875d31` was no longer current.
+
+| Child | Branch | Scope | Status |
+| ----- | ------ | ----- | ------ |
+| B1 | `prod/p04-b-implement-production-grade-payment-provider-adapters--r-b1` | PaymentProvider port + capabilities, documentation-pending ShamCash/Syriatel adapters, provider credits and allocation, notifications/verified query (provider-neutral), refunds with reservation and two-person control, fix for the main permission defect, real PG | PR open — review required |
+| E-req | (Lane E) | CR-B-09: events, `billing.v1` routes (and the mismatched `admin.refund` alias), callback ingress, merchant config delivery — `CONTRACT_REQUEST_E_BILLING.md` | SUBMITTED, not accepted |
+| External | (Owner + providers) | LIVE_PROVIDER_ACCEPTANCE: official merchant docs, credentials, sandbox | BLOCKED |
+
+Details, evidence and blockers B-P04-01..06: `P04-B1-PROVIDER-RECONCILIATION-REFUNDS.md`.
+
 ## P03-B — Cash collection, receipt, technician custody and settlement
 
 Parent status: **INTEGRATION_PENDING**. Not production-ready, not deployed, not

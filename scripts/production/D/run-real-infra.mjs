@@ -62,11 +62,13 @@ async function discoverSuites(filter, browser) {
  * The probe producer (catalog) is migrated because the broker suites drive it.
  * Identity is migrated because the P02 suites authorize through the REAL
  * Identity service; Workforce because the admin journeys act on its records.
+ * Support is Lane D's own exception-case service (P04-D1).
  */
 const SERVICES = [
   'catalog',
   'communications',
   'reporting',
+  'support',
   'configuration',
   'identity',
   'workforce',

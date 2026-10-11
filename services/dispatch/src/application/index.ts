@@ -9,3 +9,4 @@ export * from './idempotency';
 export * from './effects';
 export * from './task.service';
 export * from './eligibility-events';
+export * from './booking-change.service';
