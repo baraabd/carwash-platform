@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
  * Lane B real PostgreSQL acceptance for owner services (P01-B catalog/pricing,
- * P02-B billing core, P03-B billing cash custody, P04-B provider credits and refunds).
+ * P02-B billing core, P03-B billing cash custody, P04-B provider credits and refunds,
+ * P05-B subscription).
  *
- *   node scripts/production/B/postgres-acceptance.mjs --service catalog|pricing|billing [--record]
+ *   node scripts/production/B/postgres-acceptance.mjs --service catalog|pricing|billing|subscription [--record]
  *
  * 1. Starts ONE disposable, pinned PostgreSQL container bound to 127.0.0.1 and
  *    provisions it with the shared infra/postgres/provision.sh (database per
@@ -61,6 +62,18 @@ const SERVICES = {
       ...IDENTITY_STUB,
       pricing: 'LOCAL HTTP STUB (published pricing.v1 getQuote shape)',
       broker: 'NOT USED (outbox rows written; relay not started until E registers billing events)',
+    },
+  },
+  subscription: {
+    task: 'P05-B',
+    previousMigrations: 1,
+    env: 'SUBSCRIPTION_TEST_DATABASE_URL',
+    dependencies: {
+      ...IDENTITY_STUB,
+      serviceCallers:
+        'REAL shared ServiceClientAuthenticator with test credentials (Booking is not running)',
+      broker:
+        'NOT USED (outbox rows written; relay not started until E registers subscription events)',
     },
   },
 };
@@ -141,7 +154,7 @@ async function phase(name, operation) {
 }
 
 async function query(url, statement, values = []) {
-  const client = new Client({ connectionString: url, connectionTimeoutMillis: 3_000 });
+  const client = new Client({ connectionString: url, connectionTimeoutMillis: 60_000 });
   try {
     await client.connect();
     return await client.query(statement, values);
@@ -152,7 +165,7 @@ async function query(url, statement, values = []) {
 
 /** Runs statements in ONE transaction on one connection (COMMIT-time triggers apply). */
 async function transaction(url, statements) {
-  const client = new Client({ connectionString: url, connectionTimeoutMillis: 3_000 });
+  const client = new Client({ connectionString: url, connectionTimeoutMillis: 60_000 });
   try {
     await client.connect();
     await client.query('BEGIN');
@@ -384,10 +397,27 @@ const BILLING_SENTINEL = (() => {
   };
 })();
 
+/**
+ * Prisma CLI as the given identity, with a generous connect timeout. A P1001
+ * (server not reachable) on a loaded host is retried up to twice after a pause;
+ * any other failure is final.
+ */
 async function prisma(args, databaseUrl) {
-  return checked('pnpm', ['--filter', `@carwash/${service}`, 'exec', 'prisma', ...args], {
-    env: { ...process.env, DATABASE_URL: databaseUrl },
-  });
+  const url = databaseUrl.includes('connect_timeout=')
+    ? databaseUrl
+    : `${databaseUrl}&connect_timeout=30`;
+  const invoke = () =>
+    checked('pnpm', ['--filter', `@carwash/${service}`, 'exec', 'prisma', ...args], {
+      env: { ...process.env, DATABASE_URL: url },
+    });
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await invoke();
+    } catch (error) {
+      if (attempt >= 3 || !String(error?.message ?? error).includes('P1001')) throw error;
+      await delay(5_000);
+    }
+  }
 }
 
 let started = false;
@@ -541,7 +571,11 @@ try {
         'prisma/schema.prisma',
         '--exit-code',
       ],
-      { cwd: ROOT, timeoutMs: 180_000, env: { ...process.env, DATABASE_URL: migrateUrl } },
+      {
+        cwd: ROOT,
+        timeoutMs: 180_000,
+        env: { ...process.env, DATABASE_URL: `${migrateUrl}&connect_timeout=30` },
+      },
     );
     if (result.code !== 0)
       throw new Error(`SCHEMA_DRIFT: ${redact(result.stdout + result.stderr).slice(-4000)}`);
