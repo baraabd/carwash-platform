@@ -23,9 +23,10 @@ an obligation. Both routes now exist and respond with `ObligationV1`.
 
 | Item | Value |
 | ---- | ----- |
-| Base (main) | `66aa7528500a06f65a4b73305506feee7c3fc3b3`, tree `3a2203e360a534dc3f98529717a7625257aaccd0` |
+| Started from main | `66aa7528500a06f65a4b73305506feee7c3fc3b3`, tree `3a2203e360a534dc3f98529717a7625257aaccd0` |
+| Rebased onto main | `3e1ab23bff450235858ea13e049f8fb373df393f` (includes the merged P04-B1 #125, plus #124, #126 and #127) |
 | Branch | `prod/p06-b-close-commerce-finance-functional-matrix-and-admin-fina-b4-billing-booking-saga` |
-| Head / tree | Named in the PR and in `evidence/billing-postgres-<sha12>.json` (the evidence records the exact SHA/tree it ran on) |
+| Tested source | `b7b6602a36ca9137f4d22f312fe441a013651c1d`, tree `e63ae3cd5a2f21b3e29144c3cd5e759e394885e6`. Commits after it change `docs/` only. |
 | Contract | `billing.v1` (`@carwash/contracts`), events `billing.obligation-created.v1`, `billing.obligation-status-changed.v1` (unchanged) |
 | Upstream contract | `pricing.v1` `validateQuote` (`service:pricing.quote.validate`, purpose `booking-create`) |
 | Migration | `20261011100000_p06b4_booking_obligations` (expand-only) |
@@ -42,7 +43,7 @@ an obligation. Both routes now exist and respond with `ObligationV1`.
 - `services/billing/src/infrastructure/security/service-callers.ts` (new)
 - `services/billing/src/transport/http/booking-obligation.controller.ts` (new), `src/app.module.ts`
 - `services/billing/test/billing.booking-saga.spec.ts`, `test/integration/billing.booking-saga.postgres.spec.ts`, `test/support/booking-saga-harness.ts` (new)
-- `scripts/production/B/postgres-acceptance.mjs` (billing baseline and sentinel role)
+- `scripts/production/B/postgres-acceptance.mjs` (billing baseline = the 4 migrations on main; dependency notes)
 
 ## Behaviour
 
@@ -131,21 +132,18 @@ an obligation. Both routes now exist and respond with `ObligationV1`.
   stamp is allowed only when the obligation is already `VOIDED`.
 - DELETE and TRUNCATE are rejected (`billing_reject_mutation`).
 
-### Runtime write defect repaired
+### Runtime write defect (now fixed on main)
 
-Main commit `5503125` revoked PUBLIC EXECUTE on the `billing_assert_*` helpers.
-The COMMIT-time constraint triggers PERFORM those helpers, so **every runtime
-obligation write on main failed** with "permission denied". This migration
-makes these four caller functions `SECURITY DEFINER`:
+Before the rebase, this branch also repaired the defect from main commit
+`5503125`. That commit revoked EXECUTE on the `billing_assert_*` helpers, and
+the COMMIT-time trigger functions call those helpers, so every runtime billing
+write failed with "permission denied".
 
-- `billing_check_obligation_ledger`
-- `billing_check_custody_holder`
-- `billing_check_handover`
-- `billing_check_journal_effects`
-
-Their bodies are unchanged and their `search_path` stays pinned to
-`pg_catalog, pg_temp`. EXECUTE stays revoked from PUBLIC. The open P04-B1
-migration applies the same end state, so both merge orders converge.
+The first real-PG run on the pre-rebase branch showed that
+`billing_check_journal_effects` must be repaired as well. The merged P04-B1
+migration `20261010100000` repairs all four functions. After the rebase, this
+migration therefore adds only the new table, its two guard functions and their
+triggers. It changes no existing function.
 
 ## Evidence
 
@@ -159,10 +157,10 @@ names the exact source SHA and tree it ran on.
 Phases:
 
 1. A pinned disposable PostgreSQL 16.10 is started with the shared provisioner.
-2. The upgrade baseline is the previous three migrations. The sentinel is
-   written as the migration role, then all migrations are applied, then the
-   sentinel is collected into custody **as the runtime role**. This proves the
-   repair.
+2. The upgrade baseline is the four migrations already on main, including
+   P04-B1. The sentinel rows (cash, and a provider claim under review) are
+   written before the upgrade. After all migrations are applied, the runtime
+   role continues them. This proves the existing data survives.
 3. Re-applying the migrations is a no-op.
 4. The runtime role cannot read `_prisma_migrations`.
 5. Prisma reports no schema drift.
@@ -179,39 +177,40 @@ Dependencies:
 | Workload credentials | Local test values |
 | RabbitMQ | NOT USED (outbox rows are asserted; the relay is not started) |
 
-Recorded run: `docs/production/B/evidence/billing-postgres-937f637fba4a.json`.
-It ran on source `937f637fba4a11fbacf729cfbafdc169d654b94d` (tree
-`5bfe43ab192b258f2ab961dd9c37f5628ac8837a`), clean, `accepted: true`:
-67 tests, 67 passed, 0 skipped. The previous history was the three earlier
-migrations; the added one is `20261011100000_p06b4_booking_obligations`.
-The commit that adds this document and the evidence file changes only
-`docs/`, so the evidence covers the exact service source of the PR head.
+Recorded run on the rebased tree:
+`docs/production/B/evidence/billing-postgres-b7b6602a36ca.json`.
 
-Failed runs before acceptance, reported rather than hidden:
+- Source `b7b6602a36ca9137f4d22f312fe441a013651c1d`, tree
+  `e63ae3cd5a2f21b3e29144c3cd5e759e394885e6`, clean.
+- Result: `accepted: true`, 88 tests, 88 passed, 0 failed, 0 skipped.
+- Migrations: the four existing ones as the previous history, plus the added
+  `20261011100000_p06b4_booking_obligations`.
+- The 88 tests are the P02, P03 and P04 billing integration specs plus 16
+  booking-saga specs.
 
-1. On `5a22f62`: the upgrade phase failed with
-   `permission denied for function billing_assert_obligation_ledger`.
-   `billing_check_journal_effects` also calls the helpers. It was added to
-   the repair in `e7b1c60`.
-2. On `e7b1c60`: all 16 booking-saga integration tests passed. One existing custody test
-   failed (`lifecycle ... reconciled`) because the outbox order was ambiguous
-   on equal `created_at` under `FixedClock`. Fixed in `937f637`: events are
-   now ordered by aggregate version on ties (the same change as open P04-B1).
-3. On `937f637`: the first run failed one existing test,
-   `create race: the same key on two replicas yields one obligation and one
-   outcome`. It took 10.08 s while three other lanes were building on the
-   same machine. That test uses 1 s upstream-stub timeouts. The immediate
-   re-run on the same source passed 67/67; that run is the recorded one.
-   This is a load-sensitive timing in an existing test, not a fixed defect.
-   It is noted for the reviewer.
+Earlier runs on the pre-rebase branch (base `66aa752`) are kept here for the
+record. Their evidence files were removed because they do not describe this
+tree.
+
+1. The upgrade phase failed with
+   `permission denied for function billing_assert_obligation_ledger`. The
+   cause was `billing_check_journal_effects`. P04-B1 now covers it on main.
+2. One existing custody spec ordered outbox rows ambiguously when timestamps
+   tied under `FixedClock`. The fix (order by aggregate version) is the same
+   as P04-B1's, so it is now on main.
+3. One existing test, `create race: the same key on two replicas …`, failed
+   once after 10 s. Three other lanes were building on the same machine, and
+   the test uses 1 s upstream-stub timeouts. An immediate re-run on the same
+   source passed (67/67), and so did the rebased run. Reviewers should treat
+   this test as load-sensitive.
 
 ## Results
 
 | Family | Result |
 | ------ | ------ |
 | Billing typecheck / build | PASSED (`tsc --noEmit`, `tsc -p tsconfig.build.json`) |
-| Billing unit + adapter specs (`test/*.spec.ts`) | PASSED 51/51 (11 of them are new booking-saga specs) |
-| Real PostgreSQL acceptance (all billing integration specs) | PASSED 67/67 on `937f637` (one earlier run on the same source failed under load; see above) |
+| Billing unit + adapter specs (`test/*.spec.ts`) | PASSED 65/65 on the rebased tree, including 11 new booking-saga specs |
+| Real PostgreSQL acceptance (all billing integration specs) | PASSED 88/88 on `b7b6602` (rebased on `3e1ab23`) |
 | ESLint / Prettier (billing, script) | PASSED |
 | `check-migrations` (incl. `--base-ref origin/main`), boundaries, layers, service shells | PASSED |
 | `check-design-reference` | PASSED (no UI change) |
@@ -221,32 +220,28 @@ Failed runs before acceptance, reported rather than hidden:
 ## Rollback / compensation
 
 - **Before any booking link exists:** revert the code, then drop the table,
-  its triggers and its two guard functions. Keep `SECURITY DEFINER`, because
-  removing it re-breaks runtime writes.
+  its triggers and its two guard functions. No other object was changed.
 - **After links exist:** the link is a financial fact. Rollback needs a
   reviewed data plan; never drop it silently.
 - **Saga compensation is the void route itself.** It is idempotent per key.
   It never reverses money, because a void requires that no payment was
   reported.
 
-## Expected rebase interaction with PR #125 (P04-B1)
+## Rebase onto merged P04-B1 (#125)
 
-#125 also edits these files:
+This branch was rebased onto main `3e1ab23`. The conflicts were all additive:
 
-- `billing.ports.ts` (UoW and repository members);
-- `prisma-billing.repository.ts`;
-- `schema.prisma` (relation lines);
-- `app.module.ts`;
-- the acceptance script (`previousMigrations`, sentinel role).
+- `billing.ports.ts`, `prisma-billing.repository.ts`: the repository and
+  unit of work now have both `providers` and `bookings` members.
+- `schema.prisma`: both back relations are kept on the obligation.
+- `app.module.ts`: both controllers and both factories are kept.
+- `ports/index.ts`: both exports are kept.
+- Acceptance script: billing `previousMigrations` is 4. The sentinel keeps
+  P04-B1's migration-role write and comments.
 
-Every hunk here is additive and small. The rebase that lands second must:
-
-- keep both sets of members;
-- order migrations by timestamp (`20261010100000` before `20261011100000`);
-- set the billing `previousMigrations` to the pre-change count of the merged
-  history.
-
-The `SECURITY DEFINER` statements are idempotent across both migrations.
+The duplicate `SECURITY DEFINER` statements were removed from this
+migration, which has never been applied anywhere except in disposable
+acceptance databases.
 
 ## Blockers (exact, none generic)
 
