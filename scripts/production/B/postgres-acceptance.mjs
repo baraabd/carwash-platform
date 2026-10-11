@@ -54,14 +54,15 @@ const SERVICES = {
     dependencies: IDENTITY_STUB,
   },
   billing: {
-    task: 'P04-B',
-    previousMigrations: 3,
+    task: 'P06-B',
+    previousMigrations: 4,
     env: 'BILLING_TEST_DATABASE_URL',
     // Run ALONE after the parallel batch: they assert exact database-wide deltas (P06-B6).
     isolatedSpecs: ['billing.finance.postgres.spec.js'],
     dependencies: {
       ...IDENTITY_STUB,
-      pricing: 'LOCAL HTTP STUB (published pricing.v1 getQuote shape)',
+      pricing: 'LOCAL HTTP STUB (published pricing.v1 getQuote and validateQuote shapes)',
+      workloads: 'LOCAL TEST CREDENTIALS (service-kit x-service-client / x-service-token)',
       broker: 'NOT USED (outbox rows written; relay not started until E registers billing events)',
     },
   },
@@ -499,11 +500,9 @@ try {
     await query(appUrl, 'INSERT INTO app.service_marker(service, schema_rev) VALUES ($1, 1)', [
       `p01b-${runId}`,
     ]);
-    // On main before P04-B the runtime role cannot write billing rows at all (the
-    // P03 helpers lost PUBLIC EXECUTE; fixed by the P04-B migration), so the
-    // pre-upgrade rows are written by the owner role; every guard still applies.
-    // After the upgrade everything runs as the least-privileged runtime role.
-    if (service === 'billing') await BILLING_SENTINEL.write(migrateUrl);
+    // P04-B repaired the deferred ledger trigger privileges. The upgrade sentinel
+    // now exercises both the pre-upgrade and post-upgrade schemas as the runtime role.
+    if (service === 'billing') await BILLING_SENTINEL.write(appUrl);
     await prisma(['migrate', 'deploy'], migrateUrl);
     if (service === 'billing') await BILLING_SENTINEL.verify(appUrl);
     const kept = await query(appUrl, 'SELECT 1 FROM app.service_marker WHERE service = $1', [

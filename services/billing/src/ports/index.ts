@@ -7,3 +7,4 @@ export * from './billing.ports';
 export * from './custody.ports';
 export * from './provider.ports';
 export * from './finance.ports';
+export * from './booking-obligation.ports';

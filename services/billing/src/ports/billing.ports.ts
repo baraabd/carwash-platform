@@ -6,6 +6,7 @@ import type {
   ObligationStatus,
   PaymentMethod,
 } from '../domain';
+import type { BookingLinkReader, BookingLinkStore } from './booking-obligation.ports';
 import type { CashReceiptRecord, CustodyReader, CustodyStore } from './custody.ports';
 import type { ProviderReader, ProviderStore } from './provider.ports';
 
@@ -229,6 +230,7 @@ export interface BillingUnitOfWork {
   appendOutbox(event: OutboxEvent): Promise<void>;
   readonly custody: CustodyStore;
   readonly providers: ProviderStore;
+  readonly bookings: BookingLinkStore;
 }
 
 export interface BillingRepository {
@@ -243,6 +245,7 @@ export interface BillingRepository {
   obligationIdForAttempt(attemptId: string): Promise<string | null>;
   readonly custody: CustodyReader;
   readonly providers: ProviderReader;
+  readonly bookings: BookingLinkReader;
 }
 
 /** A priced quote as confirmed by its owner, Pricing, for the calling principal. */
