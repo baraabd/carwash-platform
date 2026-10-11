@@ -1,4 +1,4 @@
-import type { CashRuleCode, PaymentRuleCode } from '../domain';
+import type { CashRuleCode, PaymentRuleCode, ProviderRuleCode, RefundRuleCode } from '../domain';
 
 /**
  * Application failures with a fixed public code; the transport maps them to the
@@ -21,8 +21,16 @@ export type BillingErrorCode =
   | 'UPSTREAM_UNAVAILABLE'
   | 'COLLECTION_ALREADY_RECORDED'
   | 'TREASURY_REFERENCE_TAKEN'
+  | 'PROVIDER_CAPABILITY_MISSING'
+  | 'MERCHANT_ACCOUNT_UNKNOWN'
+  | 'PROVIDER_CREDIT_CONFLICT'
+  | 'NOTIFICATION_REJECTED'
+  | 'PROVIDER_CREDIT_ALREADY_RECORDED'
+  | 'PROVIDER_REFUND_REFERENCE_TAKEN'
   | PaymentRuleCode
-  | CashRuleCode;
+  | CashRuleCode
+  | ProviderRuleCode
+  | RefundRuleCode;
 
 const STATUS: Readonly<Record<BillingErrorCode, number>> = {
   REQUEST_INVALID: 400,
@@ -51,7 +59,6 @@ const STATUS: Readonly<Record<BillingErrorCode, number>> = {
   ALREADY_UNKNOWN: 409,
   ATTEMPT_LIMIT_REACHED: 422,
   AMOUNT_NOT_EQUAL_OUTSTANDING: 422,
-  OBSERVED_AMOUNT_REQUIRED: 422,
   OBSERVED_AMOUNT_NOT_ALLOWED: 422,
   // Cash collection, custody and settlement.
   COLLECTION_ALREADY_RECORDED: 409,
@@ -73,6 +80,25 @@ const STATUS: Readonly<Record<BillingErrorCode, number>> = {
   HANDOVER_MIXED_CURRENCY: 422,
   DECLARED_TOTAL_MISMATCH: 422,
   CURRENCY_MISMATCH: 422,
+  // Provider credits, reconciliation and refunds.
+  PROVIDER_CREDIT_REQUIRED: 409,
+  PROVIDER_CAPABILITY_MISSING: 409,
+  MERCHANT_ACCOUNT_UNKNOWN: 422,
+  PROVIDER_CREDIT_CONFLICT: 409,
+  NOTIFICATION_REJECTED: 401,
+  PROVIDER_CREDIT_ALREADY_RECORDED: 409,
+  PROVIDER_REFUND_REFERENCE_TAKEN: 409,
+  CREDIT_NOT_PENDING: 409,
+  CREDIT_NOT_CONFIRMED: 409,
+  OCCURRED_IN_FUTURE: 422,
+  CREDIT_NOT_REFUNDABLE: 409,
+  REFUND_REASON_NOT_ALLOWED: 422,
+  REFUND_CURRENCY_MISMATCH: 422,
+  REFUND_EXCEEDS_AVAILABLE: 422,
+  REFUND_NOT_REQUESTED: 409,
+  REFUND_NOT_EXECUTABLE: 409,
+  REFUND_NOT_PENDING_AT_PROVIDER: 409,
+  REFUND_CHANNEL_MISMATCH: 409,
 };
 
 export class BillingApplicationError extends Error {

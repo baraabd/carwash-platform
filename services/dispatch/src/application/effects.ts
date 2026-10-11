@@ -95,7 +95,7 @@ export class Effects {
     meta: RequestMeta,
     action: string,
     target: {
-      readonly type: 'ASSIGNMENT' | 'OFFER' | 'HOLD' | 'TASK' | 'RESOURCE';
+      readonly type: 'ASSIGNMENT' | 'OFFER' | 'HOLD' | 'TASK' | 'RESOURCE' | 'BOOKING';
       readonly id: string;
     },
     details: Readonly<Record<string, string | number | boolean | null>>,

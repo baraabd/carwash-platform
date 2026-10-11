@@ -31,7 +31,16 @@ export type DispatchErrorCode =
   | 'EVIDENCE_INVALID'
   | 'EVIDENCE_IN_USE'
   | 'EVIDENCE_UNAVAILABLE'
-  | 'COLLECTION_NOT_OPEN';
+  | 'COLLECTION_NOT_OPEN'
+  | 'RESCHEDULE_PENDING'
+  | 'WORK_STARTED'
+  | 'WORK_COMPLETED'
+  | 'BOOKING_CANCELLED'
+  | 'ASSIGNMENT_NOT_OPEN'
+  | 'CHANGE_MISMATCH'
+  | 'CHANGE_NOT_FOUND'
+  | 'CHANGE_REVERTED'
+  | 'CHANGE_CONFIRMED';
 
 export class DispatchError extends Error {
   constructor(

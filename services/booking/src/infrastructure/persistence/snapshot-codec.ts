@@ -5,6 +5,7 @@ import {
   type AddressSnapshot,
   type Booking,
   type BookingStatus,
+  type CancellationReason,
   type ContactSnapshot,
   type Currency,
   type PaymentMethod,
@@ -81,13 +82,20 @@ export interface BookingRow {
   created_at: Date;
   updated_at: Date;
   confirmed_at: Date | null;
+  cancellation_reason: string | null;
+  cancelled_at: Date | null;
+  schedule_revision: number;
+  schedule_hold_id: string | null;
+  schedule_starts_at: Date | null;
+  schedule_ends_at: Date | null;
 }
 
 export const BOOKING_COLUMNS = `b.id::text, b.principal_kind, b.principal_subject::text, b.status,
   b.rejection_reason, b.payment_method, b.contact, b.vehicle_snapshot, b.address_snapshot,
   b.quote_snapshot, b.currency, b.total_minor, b.hold_id::text, b.hold_revision, b.zone_id::text,
   b.requested_starts_at, b.requested_ends_at, b.slot_starts_at, b.slot_ends_at, b.version,
-  b.created_at, b.updated_at, b.confirmed_at`;
+  b.created_at, b.updated_at, b.confirmed_at, b.cancellation_reason, b.cancelled_at,
+  b.schedule_revision, b.schedule_hold_id::text, b.schedule_starts_at, b.schedule_ends_at`;
 
 export function toBooking(row: BookingRow): Booking {
   const slot =
@@ -117,6 +125,25 @@ export function toBooking(row: BookingRow): Booking {
       endsAt: row.requested_ends_at,
     },
     slot,
+    rescheduledSlot:
+      row.schedule_hold_id !== null &&
+      row.schedule_starts_at !== null &&
+      row.schedule_ends_at !== null
+        ? {
+            holdId: row.schedule_hold_id,
+            zoneId: row.zone_id,
+            startsAt: row.schedule_starts_at,
+            endsAt: row.schedule_ends_at,
+          }
+        : null,
+    scheduleRevision: row.schedule_revision,
+    cancellation:
+      row.cancelled_at !== null && row.cancellation_reason !== null
+        ? {
+            reason: row.cancellation_reason as CancellationReason,
+            cancelledAt: row.cancelled_at,
+          }
+        : null,
     total: money(row.currency as Currency, row.total_minor),
     version: row.version,
     createdAt: row.created_at,

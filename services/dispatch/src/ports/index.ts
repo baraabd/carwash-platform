@@ -6,6 +6,7 @@
 import type {
   AssignmentState,
   AssignmentStatus,
+  BookingChange,
   CapacityResource,
   DispatchEvent,
   EvidenceLink,
@@ -26,7 +27,7 @@ export interface IdGenerator {
 }
 
 /** Service-to-service scopes this service grants. Deny by default. */
-export const DISPATCH_SCOPES = ['dispatch.assignment.read'] as const;
+export const DISPATCH_SCOPES = ['dispatch.assignment.read', 'dispatch.booking.change'] as const;
 export type DispatchScope = (typeof DISPATCH_SCOPES)[number];
 
 /**
@@ -63,7 +64,7 @@ export interface OutboxAppend {
 export interface AuditAppend {
   readonly action: string;
   readonly actor: Actor;
-  readonly targetType: 'ASSIGNMENT' | 'OFFER' | 'HOLD' | 'TASK' | 'RESOURCE';
+  readonly targetType: 'ASSIGNMENT' | 'OFFER' | 'HOLD' | 'TASK' | 'RESOURCE' | 'BOOKING';
   readonly targetId: string;
   readonly correlationId: string;
   /** Opaque, non-personal facts only. */
@@ -72,7 +73,7 @@ export interface AuditAppend {
 
 /** What a completed idempotent command produced; replays re-read it. */
 export interface IdempotentResult {
-  readonly resultType: 'ASSIGNMENT' | 'OFFER' | 'TASK';
+  readonly resultType: 'ASSIGNMENT' | 'OFFER' | 'TASK' | 'BOOKING_CHANGE';
   readonly resultId: string;
 }
 
@@ -100,7 +101,7 @@ export interface TaskHistoryEntry {
 /**
  * One local ACID transaction. Lock order is ALWAYS
  *   idempotency record -> hold observation | resource observation
- *     -> assignment(s, ascending id) -> offer -> task
+ *     -> booking -> assignment(s, ascending id) -> offer -> task
  * in every command, in the event handlers and in the expiry worker, so two
  * transactions cannot deadlock on these rows. Updates are version-guarded.
  */
@@ -125,6 +126,21 @@ export interface DispatchTransaction {
     options?: { readonly skipLocked?: boolean },
   ): Promise<AssignmentState | null>;
   lockAssignmentByHold(holdId: string): Promise<AssignmentState | null>;
+  /**
+   * Serialises everything that decides about one booking's job: Booking's
+   * change commands and the hold-changed consumer opening or cancelling it
+   * (transaction-scoped advisory lock; there may be no row yet).
+   */
+  lockBooking(bookingId: string): Promise<void>;
+  lockAssignmentByBooking(bookingId: string): Promise<AssignmentState | null>;
+  /** Caller holds the booking lock. */
+  findBookingChange(changeId: string): Promise<BookingChange | null>;
+  /** The booking's cancellation (job cancelled or tombstone), if any. Caller holds the booking lock. */
+  findCancellation(bookingId: string): Promise<BookingChange | null>;
+  /** The booking's rebind awaiting confirm/revert, if any. Caller holds the booking lock. */
+  findPendingRebind(bookingId: string): Promise<BookingChange | null>;
+  insertBookingChange(change: BookingChange): Promise<void>;
+  updateBookingChange(change: BookingChange): Promise<void>;
   /**
    * Version-guarded. Throws DispatchError RESOURCE_BUSY when the database
    * exclusion constraint rejects an overlapping assignment for the resource.
@@ -190,6 +206,7 @@ export interface AssignmentQuery {
 export interface DispatchReadModel {
   findAssignment(id: string): Promise<AssignmentState | null>;
   findAssignmentByBooking(bookingId: string): Promise<AssignmentState | null>;
+  findBookingChange(changeId: string): Promise<BookingChange | null>;
   findOffer(id: string): Promise<OfferState | null>;
   findCurrentOffer(assignmentId: string): Promise<OfferState | null>;
   /** Jobs of a zone starting in [from, to), ordered by start; bounded. */

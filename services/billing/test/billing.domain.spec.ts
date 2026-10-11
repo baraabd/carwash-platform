@@ -12,7 +12,9 @@ import {
   normalizeProviderReference,
   obligationBilledJournal,
   obligationVoidedJournal,
-  paymentMatchedJournal,
+  creditAllocatedJournal,
+  creditReceivedJournal,
+  refundPaidJournal,
   planAttemptSubmission,
   planMethodSelection,
   planReconciliation,
@@ -167,18 +169,20 @@ test('attempts are accepted only for an electronic intent awaiting payment, boun
   );
 });
 
-test('reconciliation: only an exact MATCHED amount recognises money; UNKNOWN is never success', () => {
-  const matched = planReconciliation({
-    obligation: open(),
-    attemptStatus: 'PENDING_REVIEW',
-    outcome: 'MATCHED',
-    observed: syp(150_000n),
-  });
-  assert.equal(matched.received?.amountMinor, 150_000n);
-  assert.deepEqual(
-    [matched.attemptStatus, matched.intentStatus, matched.obligationStatus],
-    ['MATCHED', 'SUCCEEDED', 'SETTLED'],
-  );
+test('reconciliation: a reviewer can never MATCH; UNKNOWN is never success', () => {
+  // Money is recognised only by allocating a confirmed provider credit
+  // (planCreditAllocation, billing.provider.domain.spec.ts).
+  for (const attemptStatus of ['PENDING_REVIEW', 'UNKNOWN'] as const)
+    assert.throws(
+      () =>
+        planReconciliation({
+          obligation: open(),
+          attemptStatus,
+          outcome: 'MATCHED',
+          observed: syp(150_000n),
+        }),
+      rule('PROVIDER_CREDIT_REQUIRED'),
+    );
 
   const unknown = planReconciliation({
     obligation: open(),
@@ -186,19 +190,10 @@ test('reconciliation: only an exact MATCHED amount recognises money; UNKNOWN is 
     outcome: 'UNKNOWN',
     observed: null,
   });
-  assert.equal(unknown.received, null);
   assert.deepEqual(
     [unknown.attemptStatus, unknown.intentStatus, unknown.obligationStatus],
     ['UNKNOWN', 'UNDER_REVIEW', 'OPEN'],
   );
-
-  const laterMatched = planReconciliation({
-    obligation: open(),
-    attemptStatus: 'UNKNOWN',
-    outcome: 'MATCHED',
-    observed: syp(150_000n),
-  });
-  assert.equal(laterMatched.obligationStatus, 'SETTLED');
 
   const mismatched = planReconciliation({
     obligation: open(),
@@ -207,32 +202,10 @@ test('reconciliation: only an exact MATCHED amount recognises money; UNKNOWN is 
     observed: syp(100n),
   });
   assert.deepEqual(
-    [mismatched.attemptStatus, mismatched.intentStatus, mismatched.received],
-    ['MISMATCHED', 'AWAITING_CUSTOMER_PAYMENT', null],
+    [mismatched.attemptStatus, mismatched.intentStatus, mismatched.obligationStatus],
+    ['MISMATCHED', 'AWAITING_CUSTOMER_PAYMENT', 'OPEN'],
   );
 
-  for (const observed of [syp(149_999n), syp(150_001n)])
-    assert.throws(
-      () =>
-        planReconciliation({
-          obligation: open(),
-          attemptStatus: 'PENDING_REVIEW',
-          outcome: 'MATCHED',
-          observed,
-        }),
-      rule('AMOUNT_NOT_EQUAL_OUTSTANDING'),
-      'partial and over-payments are never silently accepted',
-    );
-  assert.throws(
-    () =>
-      planReconciliation({
-        obligation: open(),
-        attemptStatus: 'PENDING_REVIEW',
-        outcome: 'MATCHED',
-        observed: null,
-      }),
-    rule('OBSERVED_AMOUNT_REQUIRED'),
-  );
   assert.throws(
     () =>
       planReconciliation({
@@ -259,8 +232,8 @@ test('reconciliation: only an exact MATCHED amount recognises money; UNKNOWN is 
         planReconciliation({
           obligation: open(),
           attemptStatus,
-          outcome: 'MATCHED',
-          observed: syp(150_000n),
+          outcome: 'MISMATCHED',
+          observed: null,
         }),
       rule('ATTEMPT_NOT_OPEN'),
     );
@@ -284,11 +257,23 @@ test('financial status is derived from server facts only', () => {
   };
   const cases: [Parameters<typeof financialStatus>[0], string][] = [
     [
-      { obligation: open(), activeIntent: null, hasUnknownAttempt: false, settledByCash: false },
+      {
+        obligation: open(),
+        activeIntent: null,
+        hasUnknownAttempt: false,
+        settledByCash: false,
+        refunded: null,
+      },
       'UNPAID',
     ],
     [
-      { obligation: open(), activeIntent: cash, hasUnknownAttempt: false, settledByCash: false },
+      {
+        obligation: open(),
+        activeIntent: cash,
+        hasUnknownAttempt: false,
+        settledByCash: false,
+        refunded: null,
+      },
       'AWAITING_CASH',
     ],
     [
@@ -297,15 +282,28 @@ test('financial status is derived from server facts only', () => {
         activeIntent: awaiting,
         hasUnknownAttempt: false,
         settledByCash: false,
+        refunded: null,
       },
       'AWAITING_PAYMENT',
     ],
     [
-      { obligation: open(), activeIntent: review, hasUnknownAttempt: false, settledByCash: false },
+      {
+        obligation: open(),
+        activeIntent: review,
+        hasUnknownAttempt: false,
+        settledByCash: false,
+        refunded: null,
+      },
       'UNDER_REVIEW',
     ],
     [
-      { obligation: open(), activeIntent: review, hasUnknownAttempt: true, settledByCash: false },
+      {
+        obligation: open(),
+        activeIntent: review,
+        hasUnknownAttempt: true,
+        settledByCash: false,
+        refunded: null,
+      },
       'OUTCOME_UNKNOWN',
     ],
     [
@@ -314,6 +312,7 @@ test('financial status is derived from server facts only', () => {
         activeIntent: null,
         hasUnknownAttempt: false,
         settledByCash: false,
+        refunded: null,
       },
       'PAID',
     ],
@@ -323,8 +322,39 @@ test('financial status is derived from server facts only', () => {
         activeIntent: null,
         hasUnknownAttempt: false,
         settledByCash: true,
+        refunded: null,
       },
       'CASH_COLLECTED',
+    ],
+    [
+      {
+        obligation: { ...open(), verified: syp(150_000n), status: 'SETTLED' },
+        activeIntent: null,
+        hasUnknownAttempt: false,
+        settledByCash: false,
+        refunded: syp(0n),
+      },
+      'PAID',
+    ],
+    [
+      {
+        obligation: { ...open(), verified: syp(150_000n), status: 'SETTLED' },
+        activeIntent: null,
+        hasUnknownAttempt: false,
+        settledByCash: false,
+        refunded: syp(50_000n),
+      },
+      'PARTIALLY_REFUNDED',
+    ],
+    [
+      {
+        obligation: { ...open(), verified: syp(150_000n), status: 'SETTLED' },
+        activeIntent: null,
+        hasUnknownAttempt: false,
+        settledByCash: false,
+        refunded: syp(150_000n),
+      },
+      'REFUNDED',
     ],
     [
       {
@@ -332,6 +362,7 @@ test('financial status is derived from server facts only', () => {
         activeIntent: null,
         hasUnknownAttempt: false,
         settledByCash: false,
+        refunded: null,
       },
       'VOIDED',
     ],
@@ -352,8 +383,11 @@ test('journals are balanced double entry; unbalanced input is refused', () => {
   for (const journal of [
     obligationBilledJournal(id, syp(150_000n)),
     obligationVoidedJournal(id, syp(150_000n)),
-    paymentMatchedJournal(id, 'SHAM_CASH', syp(150_000n)),
-    paymentMatchedJournal(id, 'SYRIATEL_CASH', syp(150_000n)),
+    creditReceivedJournal(id, 'SHAM_CASH', syp(150_000n)),
+    creditReceivedJournal(id, 'SYRIATEL_CASH', syp(150_000n)),
+    creditAllocatedJournal(id, syp(150_000n)),
+    refundPaidJournal(id, 'SHAM_CASH', syp(50_000n), true),
+    refundPaidJournal(id, 'SYRIATEL_CASH', syp(50_000n), false),
   ]) {
     let net = 0n;
     for (const line of journal.lines)
@@ -361,7 +395,7 @@ test('journals are balanced double entry; unbalanced input is refused', () => {
     assert.equal(net, 0n, journal.kind);
     assert.match(journal.businessRef, /^[a-z]+:[0-9a-f-]{36}:[a-z]+$/);
   }
-  assert.throws(() => paymentMatchedJournal(id, 'CASH_ON_COMPLETION', syp(1n)));
+  assert.throws(() => creditReceivedJournal(id, 'CASH_ON_COMPLETION', syp(1n)));
   assert.throws(
     () =>
       assertBalancedJournal([

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Lane B real PostgreSQL acceptance for owner services (P01-B catalog/pricing,
- * P02-B billing core, P03-B billing cash custody).
+ * P02-B billing core, P03-B billing cash custody, P04-B provider credits and refunds).
  *
  *   node scripts/production/B/postgres-acceptance.mjs --service catalog|pricing|billing [--record]
  *
@@ -9,9 +9,12 @@
  *    provisions it with the shared infra/postgres/provision.sh (database per
  *    service, separate migration/runtime identities).
  * 2. Upgrade path: applies only the migrations that existed before this change,
- *    writes sentinel data (for billing: a real P02-B1 cash obligation with its
- *    journal and intent), then applies the full history and proves the data
- *    survived and still works with the new code paths (expand-only compatibility).
+ *    writes sentinel data (for billing: a cash obligation awaiting collection and
+ *    an electronic obligation with a reported reference under review, written
+ *    under the previous schema), then applies the full history and proves the
+ *    data survived and still works with the new code paths (expand-only
+ *    compatibility): the cash is collected and the electronic claim is settled
+ *    by an allocated provider credit.
  * 3. Re-runs the provisioner (migration-history restriction) and proves the
  *    runtime role cannot read _prisma_migrations.
  * 4. Proves the committed Prisma schema mirror has no drift from the migrated
@@ -51,8 +54,8 @@ const SERVICES = {
     dependencies: IDENTITY_STUB,
   },
   billing: {
-    task: 'P03-B',
-    previousMigrations: 2,
+    task: 'P04-B',
+    previousMigrations: 3,
     env: 'BILLING_TEST_DATABASE_URL',
     dependencies: {
       ...IDENTITY_STUB,
@@ -164,10 +167,14 @@ async function transaction(url, statements) {
 }
 
 /**
- * Billing upgrade sentinel: a P02-B1 obligation awaiting cash, written under the
- * PREVIOUS schema by the runtime role (all P02-B1 triggers apply), then - after
- * the upgrade - collected into technician custody under the NEW schema. Proves
- * the widened constraints accepted existing rows and old facts work with new code.
+ * Billing upgrade sentinel, written under the PREVIOUS schema (all of its guard
+ * triggers apply) and continued after the upgrade by the runtime role:
+ *  - an obligation awaiting cash, collected into technician custody after the
+ *    upgrade;
+ *  - an electronic obligation whose reported reference is under review, settled
+ *    after the upgrade by a provider credit allocated to that claim.
+ * Proves the widened constraints accepted existing rows and old facts work with
+ * the new rules.
  */
 const BILLING_SENTINEL = (() => {
   const ids = Object.fromEntries(
@@ -183,8 +190,17 @@ const BILLING_SENTINEL = (() => {
       'holder',
       'booking',
       'assignment',
+      'eObligation',
+      'eQuote',
+      'eJournal',
+      'eIntent',
+      'eAttempt',
+      'credit',
+      'received',
+      'allocated',
     ].map((name) => [name, crypto.randomUUID()]),
   );
+  const eReference = `UPG${crypto.randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}`;
   return {
     async write(url) {
       await transaction(url, [
@@ -210,6 +226,44 @@ const BILLING_SENTINEL = (() => {
              created_at, updated_at, correlation_id)
            VALUES ($1, $2, 'CASH_ON_COMPLETION', 'AWAITING_CASH_COLLECTION', 1, 'SYP', 150000, now(), now(), $3)`,
           [ids.intent, ids.obligation, ids.correlation],
+        ],
+      ]);
+      await transaction(url, [
+        [
+          `INSERT INTO app.billing_obligation (id, owner_kind, owner_subject, quote_id, currency, amount_minor,
+             verified_minor, status, revision, created_at, updated_at, correlation_id)
+           VALUES ($1, 'account', $2, $3, 'SYP', 150000, 0, 'OPEN', 1, now() - interval '5 minutes',
+                   now() - interval '5 minutes', $4)`,
+          [ids.eObligation, ids.owner, ids.eQuote, ids.correlation],
+        ],
+        [
+          `INSERT INTO app.ledger_journal (id, kind, business_ref, obligation_id, posted_at, correlation_id)
+           VALUES ($1, 'OBLIGATION_BILLED', $2, $3, now(), $4)`,
+          [ids.eJournal, `obligation:${ids.eObligation}:billed`, ids.eObligation, ids.correlation],
+        ],
+        [
+          `INSERT INTO app.ledger_line (journal_id, line_no, account, side, currency, amount_minor) VALUES
+             ($1, 0, 'CUSTOMER_RECEIVABLE', 'DEBIT', 'SYP', 150000),
+             ($1, 1, 'BILLED_OBLIGATIONS_CONTROL', 'CREDIT', 'SYP', 150000)`,
+          [ids.eJournal],
+        ],
+        [
+          `INSERT INTO app.payment_intent (id, obligation_id, method, status, active_slot, currency, amount_minor,
+             created_at, updated_at, correlation_id)
+           VALUES ($1, $2, 'SHAM_CASH', 'AWAITING_CUSTOMER_PAYMENT', 1, 'SYP', 150000,
+                   now() - interval '5 minutes', now() - interval '5 minutes', $3)`,
+          [ids.eIntent, ids.eObligation, ids.correlation],
+        ],
+        [
+          `INSERT INTO app.payment_attempt (id, intent_id, obligation_id, method, provider_reference, status,
+             currency, claimed_minor, submitted_at, correlation_id)
+           VALUES ($1, $2, $3, 'SHAM_CASH', $4, 'PENDING_REVIEW', 'SYP', 150000,
+                   now() - interval '4 minutes', $5)`,
+          [ids.eAttempt, ids.eIntent, ids.eObligation, eReference, ids.correlation],
+        ],
+        [
+          `UPDATE app.payment_intent SET status = 'UNDER_REVIEW', updated_at = now() WHERE id = $1`,
+          [ids.eIntent],
         ],
       ]);
     },
@@ -259,6 +313,73 @@ const BILLING_SENTINEL = (() => {
       );
       if (settled.rows[0]?.status !== 'SETTLED' || settled.rows[0]?.custody_status !== 'HELD')
         throw new Error('UPGRADED_OBLIGATION_NOT_COLLECTABLE');
+      await transaction(url, [
+        [
+          `INSERT INTO app.provider_credit (id, provider, merchant_account, provider_reference, currency,
+             amount_minor, occurred_at, source, evidence_digest, status, attempt_id, obligation_id,
+             active_slot, revision, created_at, updated_at, correlation_id)
+           VALUES ($1, 'SHAM_CASH', 'upgrade-merchant', $2, 'SYP', 150000, now() - interval '1 minute',
+                   'PROVIDER_NOTIFICATION', $3, 'ALLOCATED', $4, $5, 1, 1, now(), now(), $6)`,
+          [
+            ids.credit,
+            eReference,
+            crypto.createHash('sha256').update(eReference).digest('hex'),
+            ids.eAttempt,
+            ids.eObligation,
+            ids.correlation,
+          ],
+        ],
+        [
+          `UPDATE app.payment_attempt SET status = 'MATCHED', reconciled_at = now(), observed_minor = 150000,
+             credit_id = $2 WHERE id = $1`,
+          [ids.eAttempt, ids.credit],
+        ],
+        [
+          `UPDATE app.payment_intent SET status = 'SUCCEEDED', active_slot = NULL, updated_at = now() WHERE id = $1`,
+          [ids.eIntent],
+        ],
+        [
+          `INSERT INTO app.ledger_journal (id, kind, business_ref, credit_id, posted_at, correlation_id)
+           VALUES ($1, 'CREDIT_RECEIVED', $2, $3, now(), $4)`,
+          [ids.received, `credit:${ids.credit}:received`, ids.credit, ids.correlation],
+        ],
+        [
+          `INSERT INTO app.ledger_line (journal_id, line_no, account, side, currency, amount_minor) VALUES
+             ($1, 0, 'CLEARING_SHAM_CASH', 'DEBIT', 'SYP', 150000),
+             ($1, 1, 'PROVIDER_CREDITS_UNALLOCATED', 'CREDIT', 'SYP', 150000)`,
+          [ids.received],
+        ],
+        [
+          `INSERT INTO app.ledger_journal (id, kind, business_ref, obligation_id, credit_id, posted_at, correlation_id)
+           VALUES ($1, 'CREDIT_ALLOCATED', $2, $3, $4, now(), $5)`,
+          [
+            ids.allocated,
+            `credit:${ids.credit}:allocated`,
+            ids.eObligation,
+            ids.credit,
+            ids.correlation,
+          ],
+        ],
+        [
+          `INSERT INTO app.ledger_line (journal_id, line_no, account, side, currency, amount_minor) VALUES
+             ($1, 0, 'PROVIDER_CREDITS_UNALLOCATED', 'DEBIT', 'SYP', 150000),
+             ($1, 1, 'CUSTOMER_RECEIVABLE', 'CREDIT', 'SYP', 150000)`,
+          [ids.allocated],
+        ],
+        [
+          `UPDATE app.billing_obligation SET verified_minor = 150000, status = 'SETTLED', revision = revision + 1,
+             updated_at = now() WHERE id = $1`,
+          [ids.eObligation],
+        ],
+      ]);
+      const paid = await query(
+        url,
+        `SELECT o.status, a.status AS attempt FROM app.billing_obligation o
+           JOIN app.payment_attempt a ON a.obligation_id = o.id WHERE o.id = $1`,
+        [ids.eObligation],
+      );
+      if (paid.rows[0]?.status !== 'SETTLED' || paid.rows[0]?.attempt !== 'MATCHED')
+        throw new Error('UPGRADED_CLAIM_NOT_SETTLEABLE_BY_CREDIT');
     },
   };
 })();
@@ -376,7 +497,11 @@ try {
     await query(appUrl, 'INSERT INTO app.service_marker(service, schema_rev) VALUES ($1, 1)', [
       `p01b-${runId}`,
     ]);
-    if (service === 'billing') await BILLING_SENTINEL.write(appUrl);
+    // On main before P04-B the runtime role cannot write billing rows at all (the
+    // P03 helpers lost PUBLIC EXECUTE; fixed by the P04-B migration), so the
+    // pre-upgrade rows are written by the owner role; every guard still applies.
+    // After the upgrade everything runs as the least-privileged runtime role.
+    if (service === 'billing') await BILLING_SENTINEL.write(migrateUrl);
     await prisma(['migrate', 'deploy'], migrateUrl);
     if (service === 'billing') await BILLING_SENTINEL.verify(appUrl);
     const kept = await query(appUrl, 'SELECT 1 FROM app.service_marker WHERE service = $1', [
@@ -434,6 +559,8 @@ try {
       env: { ...process.env, [spec.env]: appUrl, LOG_LEVEL: 'error' },
     });
     const out = redact(result.stdout);
+    // Full redacted output next to the report, so a failure is diagnosable.
+    await writeFile(path.join(work, 'integration-output.txt'), out + redact(result.stderr));
     const summary = Object.fromEntries(
       [...out.matchAll(/^ℹ (tests|pass|fail|cancelled|skipped|todo) (\d+)$/gm)].map((m) => [
         m[1],

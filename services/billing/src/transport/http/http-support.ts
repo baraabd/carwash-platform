@@ -39,7 +39,6 @@ export const MESSAGES: Readonly<Record<string, string>> = {
   ALREADY_UNKNOWN: 'The payment attempt is already marked unknown.',
   ATTEMPT_LIMIT_REACHED: 'Too many transaction references were reported for this obligation.',
   AMOUNT_NOT_EQUAL_OUTSTANDING: 'The amount does not equal the outstanding amount.',
-  OBSERVED_AMOUNT_REQUIRED: 'A matched payment requires the observed amount.',
   OBSERVED_AMOUNT_NOT_ALLOWED: 'An unknown outcome must not carry an observed amount.',
   COLLECTION_ALREADY_RECORDED: 'Cash for this obligation or booking was already recorded.',
   TREASURY_REFERENCE_TAKEN: 'This treasury or settlement reference was already used.',
@@ -59,6 +58,25 @@ export const MESSAGES: Readonly<Record<string, string>> = {
   HANDOVER_MIXED_CURRENCY: 'A handover must use one currency.',
   DECLARED_TOTAL_MISMATCH: 'The declared total does not equal the receipts.',
   CURRENCY_MISMATCH: 'The currency does not match.',
+  PROVIDER_CREDIT_REQUIRED: 'Money is recognised only from a confirmed provider credit.',
+  PROVIDER_CAPABILITY_MISSING: 'This payment provider does not support that operation.',
+  MERCHANT_ACCOUNT_UNKNOWN: 'The merchant account is not configured for this provider.',
+  PROVIDER_CREDIT_CONFLICT:
+    'This provider transaction was already recorded with different details.',
+  NOTIFICATION_REJECTED: 'The notification could not be authenticated.',
+  PROVIDER_CREDIT_ALREADY_RECORDED: 'This provider transaction is already recorded.',
+  PROVIDER_REFUND_REFERENCE_TAKEN: 'This refund transfer reference was already used.',
+  CREDIT_NOT_PENDING: 'The provider credit is not awaiting approval.',
+  CREDIT_NOT_CONFIRMED: 'The provider credit is not confirmed.',
+  OCCURRED_IN_FUTURE: 'The transaction time is in the future.',
+  CREDIT_NOT_REFUNDABLE: 'This provider credit cannot be refunded.',
+  REFUND_REASON_NOT_ALLOWED: 'This refund reason does not apply to this credit.',
+  REFUND_CURRENCY_MISMATCH: 'The refund currency does not match the credit.',
+  REFUND_EXCEEDS_AVAILABLE: 'The refund exceeds the amount still refundable.',
+  REFUND_NOT_REQUESTED: 'The refund is not awaiting a decision.',
+  REFUND_NOT_EXECUTABLE: 'The refund is not approved for execution.',
+  REFUND_NOT_PENDING_AT_PROVIDER: 'The refund has no open provider outcome.',
+  REFUND_CHANNEL_MISMATCH: 'This refund is executed through a different channel.',
 };
 
 export interface HttpResponse {

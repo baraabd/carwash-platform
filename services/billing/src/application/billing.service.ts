@@ -1,12 +1,12 @@
 import {
   Money,
   PAYMENT_METHODS,
+  PROVIDERS,
   RECONCILIATION_OUTCOMES,
   normalizeProviderReference,
   obligationBilledJournal,
   obligationVoidedJournal,
   outstanding,
-  paymentMatchedJournal,
   planAttemptSubmission,
   planMethodSelection,
   planReconciliation,
@@ -49,6 +49,7 @@ import {
   type CommandResult,
   type RequestContext,
 } from './command-support';
+import { CreditSettlement } from './credit-settlement';
 import { obligationCreatedEvent, obligationStatusChangedEvent } from './events';
 import { financialStatusView, obligationView, snapshotFinancialStatus } from './views';
 
@@ -87,6 +88,7 @@ interface LockedCommand {
  */
 export class BillingService {
   private readonly commands: CommandSupport;
+  private readonly settlement: CreditSettlement;
 
   constructor(
     private readonly deps: {
@@ -99,6 +101,7 @@ export class BillingService {
     },
   ) {
     this.commands = new CommandSupport(deps);
+    this.settlement = new CreditSettlement(deps.ids);
   }
 
   /** Lock -> owner/finance access check -> revision check, inside the transaction. */
@@ -367,7 +370,10 @@ export class BillingService {
 
   /**
    * Records the provider transaction reference the customer reports. The intent
-   * moves to UNDER_REVIEW; nothing is verified until Finance reconciles it.
+   * moves to UNDER_REVIEW; nothing is verified by the report itself. When the
+   * provider's credit for that reference already arrived (a late claim), it is
+   * allocated in the same transaction: the reference advisory lock makes this
+   * and a concurrently arriving credit see each other.
    */
   async submitAttempt(
     context: RequestContext,
@@ -401,6 +407,9 @@ export class BillingService {
         );
         const intent = before.activeIntent;
         if (!intent) throw new Error('PLAN_ACCEPTED_WITHOUT_INTENT');
+        const provider = PROVIDERS.find((candidate) => candidate === intent.method);
+        if (!provider) throw new Error('ELECTRONIC_INTENT_WITHOUT_PROVIDER');
+        await uow.providers.lockReference(provider, reference);
         const attemptId = this.deps.ids.uuid();
         await uow.insertAttempt(
           {
@@ -424,6 +433,14 @@ export class BillingService {
           status: before.obligation.status,
           updatedAt: now,
         });
+        const waiting = await uow.providers.unallocatedCreditFor(provider, reference);
+        const credit = waiting ? await uow.providers.lockCredit(waiting.id) : null;
+        if (credit?.status === 'UNALLOCATED')
+          await this.settlement.confirm(
+            { uow, now, correlationId: context.correlationId, actor: null },
+            credit,
+            credit,
+          );
         return this.finish(
           { uow, before, now },
           command,
@@ -440,9 +457,11 @@ export class BillingService {
   }
 
   /**
-   * Finance records what the provider statement shows for one attempt. MATCHED
-   * is the ONLY path that recognises money; UNKNOWN keeps it under review.
-   * The obligation's owner can never reconcile their own payment.
+   * Finance's decision on one claim: MISMATCHED (the provider shows no such
+   * payment; the customer may report another reference) or UNKNOWN (cannot be
+   * decided yet). MATCHED is refused: money is recognised only by allocating a
+   * confirmed provider credit (ProviderPaymentsService). The obligation's owner
+   * can never reconcile their own payment.
    */
   async reconcileAttempt(
     context: RequestContext,
@@ -491,22 +510,12 @@ export class BillingService {
         at: now,
         by: refOf(principal),
         observed: outcome === 'UNKNOWN' ? null : observed,
+        creditId: null,
       });
       if (plan.intentStatus !== intent.status)
         await uow.setIntentStatus(intent.id, intent.status, plan.intentStatus, now);
-      const verified = plan.received
-        ? before.obligation.verified.plus(plan.received)
-        : before.obligation.verified;
-      if (plan.received)
-        await uow.postJournal(paymentMatchedJournal(attempt.id, attempt.method, plan.received), {
-          id: this.deps.ids.uuid(),
-          obligationId,
-          handoverId: null,
-          postedAt: now,
-          correlationId: context.correlationId,
-        });
       await uow.updateObligation(obligationId, expectedRevision, {
-        verified,
+        verified: before.obligation.verified,
         status: plan.obligationStatus,
         updatedAt: now,
       });

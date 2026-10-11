@@ -5,3 +5,4 @@
  */
 export * from './billing.ports';
 export * from './custody.ports';
+export * from './provider.ports';
