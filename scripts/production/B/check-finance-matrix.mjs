@@ -168,7 +168,8 @@ export function checkMatrix(root, matrix) {
 
   const served = new Map();
   for (const service of SERVICES)
-    for (const r of cachedRoutes(root, service)) served.set(`${service}|${r.key}`, r);
+    for (const r of cachedRoutes(root, service))
+      served.set(`${service}|${r.key}`, { ...r, owner: service });
 
   const claimedContract = new Map();
   const claimedGateway = new Map();
@@ -270,7 +271,7 @@ export function checkMatrix(root, matrix) {
       fail(`unmapped Gateway route ${route.id} (${route.owner})`);
   for (const [key, r] of served)
     if (!claimedServed.has(key))
-      fail(`served route ${key.replace('|', ' ')} (${r.file}) is not claimed by the matrix`);
+      fail(`served route ${r.owner} ${r.key} (${r.file}) is not claimed by the matrix`);
   for (const id of blockers.keys())
     if (!usedBlockers.has(id)) fail(`blocker ${id} is not referenced`);
   return problems;

@@ -5,8 +5,8 @@
   "checker": "node scripts/production/B/check-finance-matrix.mjs",
   "statusMeaning": {
     "IMPLEMENTED": "Served on this tree at the published path, with owner tests and migrations present. Says nothing about production readiness; see productionGate.",
-    "IN_REVIEW": "Implemented in an open Lane B pull request (pr) or P06-B child (child); not on this tree.",
-    "BLOCKED": "Cannot be implemented truthfully until the named blockers are resolved."
+    "IN_REVIEW": "Owner implementation awaiting review or integration in the identified PR/child; ownerRoutes and tables record its inspected source surface without certifying acceptance or production readiness.",
+    "BLOCKED": "The complete function remains blocked by the named decisions or integrations; recorded ownerRoutes may describe partial source implementations and do not remove those blockers."
   },
   "functions": [
     {
@@ -39,7 +39,10 @@
         "publish"
       ],
       "productionGate": "OPEN",
-      "blockers": []
+      "blockers": [],
+      "ownerRoutes": [
+        "POST /internal/v1/catalog/publications"
+      ]
     },
     {
       "id": "FIN-PRC-01",
@@ -55,6 +58,14 @@
       "blockers": [
         "B-P06-08",
         "B-04"
+      ],
+      "ownerRoutes": [
+        "POST /internal/v1/pricing/price-books"
+      ],
+      "tables": [
+        "price_book",
+        "price_book_entry",
+        "pricing_audit_record"
       ]
     },
     {
@@ -72,6 +83,12 @@
       "blockers": [
         "B-03",
         "B-05"
+      ],
+      "tables": [
+        "pricing_quote",
+        "pricing_quote_line",
+        "pricing_idempotency_receipt",
+        "pricing_audit_record"
       ]
     },
     {
@@ -87,6 +104,10 @@
       "productionGate": "FAIL_CLOSED",
       "blockers": [
         "B-P06-01"
+      ],
+      "tables": [
+        "pricing_quote",
+        "price_book"
       ]
     },
     {
@@ -98,6 +119,24 @@
       "productionGate": "FAIL_CLOSED",
       "blockers": [
         "B-10"
+      ],
+      "ownerRoutes": [
+        "POST /internal/v1/pricing/promotions/:id/revisions",
+        "GET /internal/v1/pricing/promotions",
+        "GET /internal/v1/pricing/promotions/:id",
+        "POST /internal/v1/pricing/promotion-redemptions",
+        "GET /internal/v1/pricing/promotion-redemptions",
+        "POST /internal/v1/pricing/promotion-redemptions/:id/commit",
+        "POST /internal/v1/pricing/promotion-redemptions/:id/release"
+      ],
+      "tables": [
+        "quote",
+        "quote_discount",
+        "promotion",
+        "promotion_revision",
+        "promotion_redemption",
+        "promotion_audit_event",
+        "outbox_message"
       ]
     },
     {
@@ -258,6 +297,10 @@
       "productionGate": "FAIL_CLOSED",
       "blockers": [
         "B-P06-06"
+      ],
+      "ownerRoutes": [
+        "POST /internal/v1/billing/booking-obligations",
+        "POST /internal/v1/billing/booking-obligations/:id/void"
       ]
     },
     {
@@ -650,6 +693,12 @@
       "blockers": [
         "B-P06-04",
         "B-P06-07"
+      ],
+      "ownerRoutes": [
+        "GET /internal/v1/wallet/custody/me",
+        "GET /internal/v1/wallet/custody/me/movements",
+        "GET /internal/v1/wallet/custody/holders/:id",
+        "GET /internal/v1/wallet/custody/holders/:id/movements"
       ]
     },
     {
@@ -672,6 +721,27 @@
       "productionGate": "FAIL_CLOSED",
       "blockers": [
         "B-09"
+      ],
+      "ownerRoutes": [
+        "GET /internal/v1/subscription/plans",
+        "GET /internal/v1/subscription/plans/:id",
+        "POST /internal/v1/subscription/plans/:id/revisions",
+        "GET /internal/v1/subscription/offers",
+        "POST /internal/v1/subscription/subscriptions",
+        "GET /internal/v1/subscription/subscriptions",
+        "GET /internal/v1/subscription/subscriptions/:id",
+        "GET /internal/v1/subscription/subscriptions/:id/ledger",
+        "GET /internal/v1/subscription/customers/:id/subscriptions",
+        "POST /internal/v1/subscription/subscriptions/:id/activate",
+        "POST /internal/v1/subscription/subscriptions/:id/renew",
+        "POST /internal/v1/subscription/subscriptions/:id/freeze",
+        "POST /internal/v1/subscription/subscriptions/:id/unfreeze",
+        "POST /internal/v1/subscription/subscriptions/:id/cancel",
+        "POST /internal/v1/subscription/reservations",
+        "GET /internal/v1/subscription/reservations",
+        "POST /internal/v1/subscription/reservations/:id/commit",
+        "POST /internal/v1/subscription/reservations/:id/release",
+        "POST /internal/v1/subscription/reservations/:id/reverse"
       ]
     },
     {
@@ -741,6 +811,36 @@
       "owner": "billing",
       "route": "POST /internal/v1/billing/providers/:provider/notifications",
       "supersededBy": "FIN-PROV-01"
+    },
+    {
+      "owner": "pricing",
+      "route": "GET /internal/v1/pricing/legacy/prices",
+      "supersededBy": "FIN-PRC-01"
+    },
+    {
+      "owner": "pricing",
+      "route": "GET /internal/v1/pricing/legacy/price-versions",
+      "supersededBy": "FIN-PRC-01"
+    },
+    {
+      "owner": "pricing",
+      "route": "POST /internal/v1/pricing/legacy/prices",
+      "supersededBy": "FIN-PRC-01"
+    },
+    {
+      "owner": "pricing",
+      "route": "POST /internal/v1/pricing/legacy/quotes",
+      "supersededBy": "FIN-PRC-02"
+    },
+    {
+      "owner": "pricing",
+      "route": "GET /internal/v1/pricing/legacy/quotes/:id",
+      "supersededBy": "FIN-PRC-02"
+    },
+    {
+      "owner": "pricing",
+      "route": "POST /internal/v1/pricing/legacy/quotes/:id/validate",
+      "supersededBy": "FIN-PRC-03"
     }
   ],
   "blockers": [

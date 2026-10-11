@@ -6,7 +6,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkMatrix, routeKey } from '../../../scripts/production/B/check-finance-matrix.mjs';
@@ -49,27 +50,66 @@ test('an unclaimed Gateway route of a Lane B owner is reported', () => {
   );
 });
 
-test('claiming IMPLEMENTED for a route that is not served is reported', () => {
+test('claiming IMPLEMENTED for a route that is not served is reported', (t) => {
+  // The real Booking obligation provider may arrive in a sibling PR. Use an
+  // isolated tree with published contracts and no controllers for this negative case.
+  const fixture = mkdtempSync(path.join(tmpdir(), 'finance-matrix-missing-route-'));
+  t.after(() => rmSync(fixture, { recursive: true, force: true }));
+  cpSync(path.join(root, 'packages/contracts'), path.join(fixture, 'packages/contracts'), {
+    recursive: true,
+  });
   const matrix = load();
   Object.assign(byId(matrix, 'FIN-SAGA-01'), {
     status: 'IMPLEMENTED',
     tests: ['services/billing/test/billing.domain.spec.ts'],
   });
   assert.ok(
-    checkMatrix(root, matrix).some((p) =>
+    checkMatrix(fixture, matrix).some((p) =>
       p.includes('IMPLEMENTED but POST /internal/v1/billing/booking-obligations'),
     ),
   );
 });
 
-test('a served route that no function or legacy entry claims is reported', () => {
+test('a served route that no function or legacy entry claims is reported', (t) => {
+  // Keep the legacy-route guard independent of where a later provider mounts
+  // its compatibility API: the fixture deliberately serves the historical path.
+  const fixture = mkdtempSync(path.join(tmpdir(), 'finance-matrix-unclaimed-route-'));
+  t.after(() => rmSync(fixture, { recursive: true, force: true }));
+  cpSync(path.join(root, 'packages/contracts'), path.join(fixture, 'packages/contracts'), {
+    recursive: true,
+  });
+  const src = path.join(fixture, 'services/pricing/src');
+  mkdirSync(src, { recursive: true });
+  writeFileSync(
+    path.join(src, 'legacy.controller.ts'),
+    "@Controller('internal/v1/pricing')\nclass Legacy { @Get('price-versions') read() {} }\n",
+  );
   const matrix = load();
   matrix.legacyRoutes = matrix.legacyRoutes.filter(
     (l) => l.route !== 'GET /internal/v1/pricing/price-versions',
   );
   assert.ok(
-    checkMatrix(root, matrix).some((p) =>
+    checkMatrix(fixture, matrix).some((p) =>
       p.startsWith('served route pricing GET /internal/v1/pricing/price-versions'),
+    ),
+  );
+});
+
+test('unclaimed route diagnostics preserve literal separators in the route', (t) => {
+  const fixture = mkdtempSync(path.join(tmpdir(), 'finance-matrix-'));
+  t.after(() => rmSync(fixture, { recursive: true, force: true }));
+  cpSync(path.join(root, 'packages/contracts'), path.join(fixture, 'packages/contracts'), {
+    recursive: true,
+  });
+  const src = path.join(fixture, 'services/billing/src');
+  mkdirSync(src, { recursive: true });
+  writeFileSync(
+    path.join(src, 'diagnostic.controller.ts'),
+    "@Controller('internal/v1/billing/a|b|c')\nclass Diagnostic { @Get() read() {} }\n",
+  );
+  assert.ok(
+    checkMatrix(fixture, { functions: [], blockers: [] }).includes(
+      'served route billing GET /internal/v1/billing/a|b|c (services/billing/src/diagnostic.controller.ts) is not claimed by the matrix',
     ),
   );
 });
