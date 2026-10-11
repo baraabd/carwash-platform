@@ -34,6 +34,7 @@ model PricingPublicationLock {
   @@map("pricing_publication_lock")
 }
 
+/// DEPRECATED (P01-B2 pre-contract model; no writes since P06-B2).
 /// One immutable price version for one exact catalog revision. Versions form a
 /// linear chain with strictly increasing effective_from (non-overlapping
 /// windows). catalog_snapshot is Pricing's own immutable copy of the catalog
@@ -71,6 +72,7 @@ model PriceRate {
   @@map("price_rate")
 }
 
+/// DEPRECATED (P01-B2 pre-contract model; no writes since P06-B2).
 /// Immutable server-issued quote. Owner is the verified Identity subject.
 model Quote {
   id                String       @id @db.Uuid
@@ -136,4 +138,99 @@ model PricingAuditEvent {
 
   @@index([occurredAt], map: "pricing_audit_event_occurred_idx")
   @@map("pricing_audit_event")
+}
+
+// ---------------------------------------------------------------------------
+// pricing.v1 (P06-B2). The P01-B2 models above are deprecated: kept for
+// expand/contract compatibility, never written by this release.
+// ---------------------------------------------------------------------------
+
+/// One immutable, complete price book for the Catalog view stored with it.
+/// Revisions form a linear chain; the newest committed revision is in force.
+model PriceBook {
+  revision           Int              @id
+  previousRevision   Int?             @unique @map("previous_revision")
+  currency           String           @db.Char(3)
+  scale              Int              @db.SmallInt
+  policyRevision     String           @map("policy_revision") @db.VarChar(64)
+  catalogRevision    Int              @map("catalog_revision")
+  catalogFingerprint String           @map("catalog_fingerprint") @db.Char(64)
+  catalogView        Json             @map("catalog_view")
+  entriesFingerprint String           @map("entries_fingerprint") @db.Char(64)
+  publishedAt        DateTime         @map("published_at") @db.Timestamptz(3)
+  publishedBy        String           @map("published_by") @db.Uuid
+  correlationId      String           @map("correlation_id") @db.Uuid
+  previous           PriceBook?       @relation("PriceBookChain", fields: [previousRevision], references: [revision], onDelete: Restrict, onUpdate: Restrict)
+  next               PriceBook?       @relation("PriceBookChain")
+  entries            PriceBookEntry[]
+  quotes             PricingQuote[]
+
+  @@map("price_book")
+}
+
+/// vehicleScope '*' is the pricing.v1 `vehicleType: null` entry.
+model PriceBookEntry {
+  revision       Int
+  definitionId   String    @map("definition_id") @db.Uuid
+  vehicleScope   String    @map("vehicle_scope") @db.VarChar(8)
+  unitPriceMinor BigInt    @map("unit_price_minor")
+  book           PriceBook @relation(fields: [revision], references: [revision], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([revision, definitionId, vehicleScope])
+  @@map("price_book_entry")
+}
+
+/// Immutable server-issued pricing.v1 quote, owned by its beneficiary principal.
+model PricingQuote {
+  id                 String             @id @db.Uuid
+  revision           Int
+  beneficiaryKind    String             @map("beneficiary_kind") @db.VarChar(8)
+  beneficiarySubject String             @map("beneficiary_subject") @db.Uuid
+  requestedBy        String             @map("requested_by") @db.Uuid
+  vehicleType        String             @map("vehicle_type") @db.VarChar(8)
+  zoneId             String?            @map("zone_id") @db.Uuid
+  currency           String             @db.Char(3)
+  scale              Int                @db.SmallInt
+  priceBookRevision  Int                @map("price_book_revision")
+  catalogRevision    Int                @map("catalog_revision")
+  policyRevision     String             @map("policy_revision") @db.VarChar(64)
+  totalMinor         BigInt             @map("total_minor")
+  issuedAt           DateTime           @map("issued_at") @db.Timestamptz(3)
+  expiresAt          DateTime           @map("expires_at") @db.Timestamptz(3)
+  correlationId      String             @map("correlation_id") @db.Uuid
+  book               PriceBook          @relation(fields: [priceBookRevision], references: [revision], onDelete: Restrict, onUpdate: Restrict)
+  lines              PricingQuoteLine[]
+
+  @@index([beneficiarySubject, issuedAt], map: "pricing_quote_beneficiary_issued_idx")
+  @@map("pricing_quote")
+}
+
+model PricingQuoteLine {
+  quoteId        String       @map("quote_id") @db.Uuid
+  lineNo         Int          @map("line_no") @db.SmallInt
+  lineId         String       @unique @map("line_id") @db.Uuid
+  kind           String       @db.VarChar(18)
+  definitionId   String       @map("definition_id") @db.Uuid
+  quantity       Int          @db.SmallInt
+  unitPriceMinor BigInt       @map("unit_price_minor")
+  amountMinor    BigInt       @map("amount_minor")
+  quote          PricingQuote @relation(fields: [quoteId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([quoteId, lineNo])
+  @@map("pricing_quote_line")
+}
+
+/// Append-only audit of price book publication and service quote validation.
+model PricingAuditRecord {
+  id            String   @id @db.Uuid
+  occurredAt    DateTime @map("occurred_at") @db.Timestamptz(3)
+  actor         String   @db.VarChar(80)
+  action        String   @db.VarChar(64)
+  subjectRef    String?  @map("subject_ref") @db.VarChar(80)
+  purpose       String?  @db.VarChar(32)
+  outcome       String   @db.VarChar(64)
+  correlationId String   @map("correlation_id") @db.Uuid
+
+  @@index([occurredAt], map: "pricing_audit_record_occurred_idx")
+  @@map("pricing_audit_record")
 }

@@ -1,4 +1,4 @@
-import { AMOUNT_MINOR, CURRENCY } from './money';
+import { AMOUNT_MINOR, CURRENCY, contractScale } from './money';
 
 /**
  * The accepted currency policy: currency, minor-unit exponent and maximum
@@ -48,4 +48,14 @@ export function parseCurrencyPolicy(raw: unknown): CurrencyPolicy {
   )
     throw new CurrencyPolicyError('maxAmountMinor');
   return { revision, currency, minorUnitExponent, maxAmountMinor: BigInt(maxAmountMinor) };
+}
+
+/**
+ * pricing.v1 can only carry a currency its closed Money list knows, at exactly
+ * that scale. A configured policy outside the contract is not silently
+ * rescaled: price books and quotes fail closed until the contract or the
+ * policy changes.
+ */
+export function policyMatchesContract(policy: CurrencyPolicy): boolean {
+  return contractScale(policy.currency) === policy.minorUnitExponent;
 }

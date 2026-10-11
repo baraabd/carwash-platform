@@ -12,7 +12,14 @@ import {
   identityAuthorityConfigFromEnv,
 } from './infrastructure/identity/identity-session.authority';
 import { EnvPolicyProvider } from './infrastructure/policy/env-policy.provider';
-import { PendingCatalogContractReader } from './infrastructure/catalog/pending-catalog-contract.reader';
+import {
+  CatalogV1HttpReader,
+  catalogReaderConfigFromEnv,
+} from './infrastructure/catalog/catalog-v1-http.reader';
+import {
+  ServiceClientAuthority,
+  pricingServiceClientsFromEnv,
+} from './infrastructure/service/service-client.authority';
 import { RandomIds, Sha256Hasher, SystemClock } from './infrastructure/system/system.adapters';
 import { PRICING_SERVICE, PricingController } from './transport/http/pricing.controller';
 /**
@@ -54,10 +61,11 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
       useFactory: (repository: PrismaPricingRepository) =>
         new PricingService({
           repository,
-          // Unset Identity origin / policy keep the foundation image bootable;
-          // every protected command then fails closed with 503.
+          // Unset Identity/Catalog origins, service clients or policy keep the
+          // foundation image bootable; every affected command then fails closed.
           authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),
-          catalog: new PendingCatalogContractReader(),
+          services: new ServiceClientAuthority(pricingServiceClientsFromEnv(process.env)),
+          catalog: new CatalogV1HttpReader(catalogReaderConfigFromEnv(process.env)),
           policy: new EnvPolicyProvider(process.env),
           clock: new SystemClock(),
           ids: new RandomIds(),

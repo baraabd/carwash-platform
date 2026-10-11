@@ -48,10 +48,14 @@ const SERVICES = {
     dependencies: IDENTITY_STUB,
   },
   pricing: {
-    task: 'P01-B',
-    previousMigrations: 1,
+    task: 'P06-B',
+    previousMigrations: 3,
     env: 'PRICING_TEST_DATABASE_URL',
-    dependencies: IDENTITY_STUB,
+    dependencies: {
+      ...IDENTITY_STUB,
+      catalog: 'LOCAL HTTP STUB (published catalog.v1 getPublished shape)',
+      serviceCaller: 'TEST workload credential (service-kit x-service-client/x-service-token)',
+    },
   },
   billing: {
     task: 'P04-B',
@@ -384,6 +388,39 @@ const BILLING_SENTINEL = (() => {
   };
 })();
 
+/**
+ * Pricing upgrade sentinel: a P01-B2 (pre-contract) price version written under
+ * the PREVIOUS schema must survive the pricing.v1 expand migration unchanged and
+ * stay immutable; the new tables start empty (no implicit data conversion).
+ */
+const PRICING_SENTINEL = (() => {
+  const ids = { publisher: crypto.randomUUID(), correlation: crypto.randomUUID() };
+  return {
+    async write(url) {
+      await transaction(url, [
+        [
+          `INSERT INTO app.price_version (version, previous_version, effective_from, published_at, published_by,
+             correlation_id, catalog_revision, catalog_fingerprint, catalog_snapshot, policy_revision, currency,
+             minor_unit_exponent, rates_fingerprint)
+           VALUES (1, NULL, now() + interval '1 hour', now(), $1, $2, 1, $3, '{}', 'legacy-policy', 'XTS', 2, $3)`,
+          [ids.publisher, ids.correlation, 'a'.repeat(64)],
+        ],
+      ]);
+    },
+    async verify(url) {
+      const legacy = await query(url, 'SELECT currency FROM app.price_version WHERE version = 1');
+      if (legacy.rows[0]?.currency !== 'XTS') throw new Error('UPGRADE_LOST_LEGACY_PRICE_VERSION');
+      const books = await query(url, 'SELECT count(*)::int AS n FROM app.price_book');
+      if (books.rows[0]?.n !== 0) throw new Error('UPGRADE_CONVERTED_LEGACY_DATA');
+      const blocked = await query(url, 'DELETE FROM app.price_version WHERE version = 1').then(
+        () => false,
+        (error) => /PRICING_IMMUTABLE/.test(String(error?.message)),
+      );
+      if (!blocked) throw new Error('UPGRADE_LEGACY_NOT_IMMUTABLE');
+    },
+  };
+})();
+
 async function prisma(args, databaseUrl) {
   return checked('pnpm', ['--filter', `@carwash/${service}`, 'exec', 'prisma', ...args], {
     env: { ...process.env, DATABASE_URL: databaseUrl },
@@ -502,8 +539,10 @@ try {
     // pre-upgrade rows are written by the owner role; every guard still applies.
     // After the upgrade everything runs as the least-privileged runtime role.
     if (service === 'billing') await BILLING_SENTINEL.write(migrateUrl);
+    if (service === 'pricing') await PRICING_SENTINEL.write(appUrl);
     await prisma(['migrate', 'deploy'], migrateUrl);
     if (service === 'billing') await BILLING_SENTINEL.verify(appUrl);
+    if (service === 'pricing') await PRICING_SENTINEL.verify(appUrl);
     const kept = await query(appUrl, 'SELECT 1 FROM app.service_marker WHERE service = $1', [
       `p01b-${runId}`,
     ]);

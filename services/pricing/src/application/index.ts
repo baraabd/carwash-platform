@@ -6,3 +6,4 @@
 export * from './canonical-json';
 export * from './pricing-errors';
 export * from './pricing.service';
+export * from './views';
