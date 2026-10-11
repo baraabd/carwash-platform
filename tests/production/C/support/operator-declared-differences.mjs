@@ -11,6 +11,10 @@
  *   PR  production removal of a prototype-only control/notice (ADR 0004)
  *   PC  production copy edit: a trial/local qualifier that would be false
  *   D   data gap: the C1-C5 contracts do not provide the reference value
+ *   PN  pending-owner-design addition (P05-C2, owner decision P05-C-D1): a block
+ *       built only from reference components; the visual suite copies it from
+ *       the candidate into the reference (`insertHtml`) and requires every
+ *       other pixel to match. PN-01..03 profile, PN-04 collections custody.
  */
 
 const ID = { 'WG-2041': '20410000', 'WG-2042': '20420000', 'WG-2043': '20430000' };
@@ -673,6 +677,15 @@ export function applyDeclaredInPage(ops) {
         el.insertAdjacentHTML('beforeend', op.html);
         note(op, el.lastElementChild);
       }
+    } else if (op.kind === 'insertHtml') {
+      // PN (P05-C2): a pending-owner-design addition, copied from the candidate DOM
+      // and inserted at the same place, so everything around it must still match.
+      const anchor = document.querySelector(op.selector);
+      if (!anchor) throw new Error(`PN_ANCHOR_MISSING:${op.id}:${op.selector}`);
+      const parent = op.position === 'beforeend' ? anchor : anchor.parentElement;
+      const before = new Set(parent.children);
+      anchor.insertAdjacentHTML(op.position, op.html);
+      for (const el of parent.children) if (!before.has(el)) note(op, el);
     } else if (op.kind === 'removeAll') {
       for (const el of document.querySelectorAll(op.selector)) {
         note(op, el);

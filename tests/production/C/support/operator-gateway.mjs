@@ -34,6 +34,7 @@ const PATHS = {
   dispatch: '/internal/v1/dispatch',
   booking: '/internal/v1/booking',
   media: '/internal/v1/media',
+  billing: '/internal/v1/billing',
 };
 
 const SEG = '([A-Za-z0-9][A-Za-z0-9._:-]{0,127})';
@@ -75,6 +76,34 @@ export const ROUTES = Object.freeze([
     (m) => `${PATHS.booking}/bookings/${m[1]}/technician-view`,
   ],
   [['POST'], /^\/api\/operator\/media\/uploads$/, 'media', () => `${PATHS.media}/uploads`],
+  // P05-C2 (CR-P05-C1 §3)
+  [['GET'], /^\/api\/operator\/profile$/, 'workforce', () => `${PATHS.workforce}/me/profile`],
+  [['PUT'], /^\/api\/operator\/schedule$/, 'workforce', () => `${PATHS.workforce}/me/schedule`],
+  [
+    ['POST'],
+    /^\/api\/operator\/schedule\/apply$/,
+    'workforce',
+    () => `${PATHS.workforce}/me/schedule/apply`,
+  ],
+  [
+    ['POST'],
+    /^\/api\/operator\/availability-exceptions$/,
+    'workforce',
+    () => `${PATHS.workforce}/me/availability-exceptions`,
+  ],
+  [
+    ['POST'],
+    new RegExp(`^/api/operator/availability-exceptions/${SEG}/cancel$`),
+    'workforce',
+    (m) => `${PATHS.workforce}/availability-exceptions/${m[1]}/cancel`,
+  ],
+  [
+    ['PUT'],
+    /^\/api\/operator\/equipment\/([A-Z_]{1,32})\/status$/,
+    'workforce',
+    (m) => `${PATHS.workforce}/me/equipment/${m[1]}/status`,
+  ],
+  [['GET'], /^\/api\/operator\/custody$/, 'billing', () => `${PATHS.billing}/custody/holders/me`],
   [
     ['POST'],
     new RegExp(`^/api/operator/media/objects/${SEG}/(upload-url|finalize|read-url)$`),
