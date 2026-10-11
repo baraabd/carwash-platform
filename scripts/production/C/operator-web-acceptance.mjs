@@ -27,6 +27,7 @@ const STEPS = [
   ['runtime', 'pnpm', ['--filter', '@carwash/operator-web', 'run', 'test:runtime']],
   ['design-reference', 'node', ['scripts/check-design-reference.mjs']],
   ['journey', 'node', ['--test', 'tests/production/C/operator-web-journey.test.mjs']],
+  ['profile', 'node', ['--test', 'tests/production/C/operator-web-profile.test.mjs']],
   ['a11y', 'node', ['--test', 'tests/production/C/operator-web-a11y.test.mjs']],
   ...(skipVisual
     ? []

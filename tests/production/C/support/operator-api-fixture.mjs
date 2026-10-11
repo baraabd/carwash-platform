@@ -8,6 +8,7 @@
  *   media     /internal/v1/media/uploads, /objects/:id/{upload-url,finalize,read-url} (C2)
  *   booking   GET  /internal/v1/booking/bookings/:id/technician-view     (C3)
  *   dispatch  GET  /internal/v1/dispatch/me/jobs, /me/tasks/:id; offer and task routes (C4)
+ *   workforce profile routes (P05-C1) and billing GET /custody/holders/me (operator-profile-double.mjs)
  * plus a presigned object store on a SEPARATE origin.
  *
  * Shapes follow the interface file; where it is silent (the /me/jobs envelope,
@@ -20,6 +21,7 @@
  */
 import { createHash, randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
+import { createProfileDouble } from './operator-profile-double.mjs';
 
 export const FIXTURE_LABEL = 'operator-api-fixture (test double, not a service)';
 export const TECHNICIAN_TOKEN = 'fixture-technician-token';
@@ -223,6 +225,13 @@ export async function startOperatorFixture({
     tasks: new Map(),
     assignments: new Map(),
   };
+  const profileDouble = createProfileDouble({
+    clock,
+    refuse,
+    closedBody,
+    uuidFrom,
+    availability: () => state.availability,
+  });
   let storeOrigin = '';
   let allowedOrigins = [];
 
@@ -327,6 +336,7 @@ export async function startOperatorFixture({
     requests.length = 0;
     effects.length = 0;
     state.availability = { status: 'AVAILABLE', revision: 1, updatedAt: iso() };
+    profileDouble.reset();
     seedBookings();
     for (const seed of SEEDS) {
       const offer = offerFor(seed.bookingId);
@@ -443,6 +453,13 @@ export async function startOperatorFixture({
         if (!['AVAILABLE', 'ON_BREAK'].includes(body.status)) refuse(400, 'REQUEST_INVALID');
         if (body.expectedRevision !== state.availability.revision)
           refuse(409, 'CONFLICT', 'REVISION_CONFLICT');
+        // P05-C1: a suspended or inactive technician cannot announce readiness.
+        if (
+          body.status === 'AVAILABLE' &&
+          body.status !== state.availability.status &&
+          !profileDouble.canWork()
+        )
+          refuse(409, 'CONFLICT', 'OPERATOR_NOT_ACTIVE');
         state.availability = {
           status: body.status,
           revision: state.availability.revision + 1,
@@ -759,6 +776,8 @@ export async function startOperatorFixture({
       const { url, expiresAt } = presign(object.objectId, 'GET', 120_000);
       return [200, { method: 'GET', url, headers: {}, expiresAt }];
     }
+    const profileReply = profileDouble.route(method, path, technician, body);
+    if (profileReply) return profileReply;
     refuse(404, 'NOT_FOUND');
   }
 
@@ -876,6 +895,8 @@ export async function startOperatorFixture({
   /** Test controls (fixture-only; they model actions of OTHER actors such as operations). */
   const control = {
     reset,
+    /** P05-C2: operations-side profile changes (suspension, equipment, schedule revision). */
+    profile: profileDouble.control,
     /** NON-DEFAULT, CR-requested: Booking technician view for a live offer (render-parity only). */
     setExposeOfferBooking(value) {
       exposeOfferBooking = value === true;
@@ -1006,6 +1027,7 @@ export async function startOperatorFixture({
       dispatch: origin,
       booking: origin,
       media: origin,
+      billing: origin,
     },
     requests,
     effects,
