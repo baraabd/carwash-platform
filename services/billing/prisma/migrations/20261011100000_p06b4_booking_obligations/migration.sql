@@ -5,7 +5,7 @@
 --
 -- Expand-only with respect to P03-B1 code:
 --   * one new table; no existing column, constraint or row changes;
---   * the three COMMIT-time ledger check functions become SECURITY DEFINER
+--   * the four COMMIT-time ledger check functions become SECURITY DEFINER
 --     (see "Runtime write defect" below); their bodies are unchanged.
 -- Rollback before any booking link exists: revert the code, then drop the new
 -- table, its triggers and functions in reverse order. After links exist the
@@ -83,7 +83,7 @@ REVOKE ALL ON FUNCTION "app"."billing_guard_booking_link_update"() FROM PUBLIC;
 -- 5503125 revoked PUBLIC EXECUTE on the billing_assert_* helpers that the
 -- COMMIT-time constraint triggers PERFORM. Trigger functions run with the
 -- privileges of the writing role, so every runtime obligation write failed with
--- "permission denied". The three callers become SECURITY DEFINER (owned by the
+-- "permission denied". The four callers become SECURITY DEFINER (owned by the
 -- migration identity). They only raise, keep their pinned search_path
 -- (pg_catalog, pg_temp) and cannot be called directly (EXECUTE stays revoked
 -- from PUBLIC). The open P04-B1 change applies the same end state; both orders
@@ -91,3 +91,4 @@ REVOKE ALL ON FUNCTION "app"."billing_guard_booking_link_update"() FROM PUBLIC;
 ALTER FUNCTION "app"."billing_check_obligation_ledger"() SECURITY DEFINER;
 ALTER FUNCTION "app"."billing_check_custody_holder"() SECURITY DEFINER;
 ALTER FUNCTION "app"."billing_check_handover"() SECURITY DEFINER;
+ALTER FUNCTION "app"."billing_check_journal_effects"() SECURITY DEFINER;
