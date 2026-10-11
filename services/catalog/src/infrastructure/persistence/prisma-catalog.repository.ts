@@ -1,96 +1,80 @@
 import { Injectable } from '@nestjs/common';
-import type { CatalogDefinitions, RevisionHead } from '../../domain';
+import {
+  DEFINITION_KINDS,
+  DEFINITION_STATUSES,
+  VEHICLE_TYPES,
+  orderDefinitions,
+  type CatalogSnapshot,
+  type Definition,
+} from '../../domain';
 import type {
   AuditRecord,
   CatalogRepository,
   CatalogUnitOfWork,
   IdempotencyReceipt,
-  NewRevision,
-  PublishedRevision,
-  RevisionSummary,
+  NewPublication,
+  OutboxEvent,
 } from '../../ports';
 import { Prisma, type PrismaClient } from '../../generated/prisma/client';
 import { PrismaService } from './prisma.service';
 
-type Tx = Prisma.TransactionClient;
+type Tx = Prisma.TransactionClient | PrismaClient;
 
-const REVISION_INCLUDE = {
-  categories: true,
-  packages: { include: { categories: true, addons: true } },
-  addons: { include: { categories: true } },
-} satisfies Prisma.CatalogRevisionInclude;
+const PUBLICATION_INCLUDE = {
+  definitions: true,
+} satisfies Prisma.CatalogV1PublicationInclude;
 
-type RevisionRow = Prisma.CatalogRevisionGetPayload<{ include: typeof REVISION_INCLUDE }>;
+type PublicationRow = Prisma.CatalogV1PublicationGetPayload<{
+  include: typeof PUBLICATION_INCLUDE;
+}>;
+type DefinitionRow = PublicationRow['definitions'][number];
 
-function ordered<T extends { sortOrder: number; id: string }>(rows: readonly T[]): T[] {
-  return [...rows].sort(
-    (a, b) => a.sortOrder - b.sortOrder || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
-  );
+/** Database values are constrained by CHECKs; anything else is corruption. */
+function member<const T extends readonly string[]>(allowed: T, value: string): T[number] {
+  const found = allowed.find((candidate) => candidate === value);
+  if (found === undefined) throw new Error('CATALOG_ROW_CORRUPT');
+  return found;
 }
 
-function sortedIds(ids: readonly string[]): string[] {
-  return [...ids].sort();
-}
-
-/** Rebuilds the canonical snapshot exactly as the domain normalised it. */
-function toDefinitions(row: RevisionRow): CatalogDefinitions {
+function toDefinition(row: DefinitionRow): Definition {
   return {
-    categories: ordered(row.categories).map((c) => ({
-      id: c.id,
-      labelAr: c.labelAr,
-      labelEn: c.labelEn,
-      extraDurationMinutes: c.extraDurationMinutes,
-      sortOrder: c.sortOrder,
-    })),
-    packages: ordered(row.packages).map((p) => ({
-      id: p.id,
-      labelAr: p.labelAr,
-      labelEn: p.labelEn,
-      descriptionAr: p.descriptionAr,
-      durationMinutes: p.durationMinutes,
-      sortOrder: p.sortOrder,
-      featuresAr: [...p.featuresAr],
-      allowedCategoryIds: sortedIds(p.categories.map((c) => c.categoryId)),
-      includedAddonIds: sortedIds(
-        p.addons.filter((a) => a.relation === 'INCLUDED').map((a) => a.addonId),
-      ),
-      optionalAddonIds: sortedIds(
-        p.addons.filter((a) => a.relation === 'OPTIONAL').map((a) => a.addonId),
-      ),
-    })),
-    addons: ordered(row.addons).map((a) => ({
-      id: a.id,
-      labelAr: a.labelAr,
-      labelEn: a.labelEn,
-      durationMinutes: a.durationMinutes,
-      sortOrder: a.sortOrder,
-      allowedCategoryIds: sortedIds(a.categories.map((c) => c.categoryId)),
-    })),
-  };
-}
-
-function toPublished(row: RevisionRow): PublishedRevision {
-  return {
+    definitionId: row.definitionId,
     revision: row.revision,
-    effectiveFrom: row.effectiveFrom,
-    publishedAt: row.publishedAt,
-    definitionsFingerprint: row.definitionsFingerprint,
-    definitions: toDefinitions(row),
+    kind: member(DEFINITION_KINDS, row.kind),
+    code: row.code,
+    name: { ar: row.nameAr, en: row.nameEn },
+    description: { ar: row.descriptionAr, en: row.descriptionEn },
+    durationMinutes: row.durationMinutes,
+    vehicleTypes: row.vehicleTypes.map((type) => member(VEHICLE_TYPES, type)),
+    status: member(DEFINITION_STATUSES, row.status),
+    sortOrder: row.sortOrder,
   };
+}
+
+function toSnapshot(row: PublicationRow): CatalogSnapshot {
+  return {
+    catalogRevision: row.catalogRevision,
+    publishedAt: row.publishedAt,
+    items: orderDefinitions(row.definitions.map(toDefinition)),
+  };
+}
+
+async function currentSnapshot(client: Tx): Promise<CatalogSnapshot | null> {
+  const row = await client.catalogV1Publication.findFirst({
+    orderBy: { catalogRevision: 'desc' },
+    include: PUBLICATION_INCLUDE,
+  });
+  return row ? toSnapshot(row) : null;
 }
 
 class PrismaCatalogUnitOfWork implements CatalogUnitOfWork {
-  constructor(private readonly tx: Tx) {}
+  constructor(private readonly tx: Prisma.TransactionClient) {}
 
-  async lockHead(): Promise<RevisionHead | null> {
+  async lockCurrent(): Promise<CatalogSnapshot | null> {
     // Every publisher queues on this one row, so receipt lookup, planning and
-    // insertion observe a stable head. The unique keys remain the backstop.
+    // insertion observe a stable head. Keys and triggers remain the backstop.
     await this.tx.$queryRaw`SELECT id FROM app.catalog_publication_lock WHERE id = 1 FOR UPDATE`;
-    const head = await this.tx.catalogRevision.findFirst({
-      orderBy: { revision: 'desc' },
-      select: { revision: true, effectiveFrom: true },
-    });
-    return head ?? null;
+    return currentSnapshot(this.tx);
   }
 
   async findReceipt(
@@ -102,82 +86,59 @@ class PrismaCatalogUnitOfWork implements CatalogUnitOfWork {
       where: { actorSubject_operation_idempotencyKey: { actorSubject, operation, idempotencyKey } },
     });
     if (!row) return null;
+    const body = row.responseBody;
+    if (typeof body !== 'object' || body === null || Array.isArray(body))
+      throw new Error('CATALOG_RECEIPT_CORRUPT');
     return {
       actorSubject: row.actorSubject,
       operation: row.operation,
       idempotencyKey: row.idempotencyKey,
       requestFingerprint: row.requestFingerprint,
-      outcome: {
-        status: row.responseStatus,
-        body: row.responseBody as Readonly<Record<string, unknown>>,
-      },
+      outcome: { status: row.responseStatus, body },
     };
   }
 
-  async insertRevision(revision: NewRevision): Promise<void> {
-    const { definitions } = revision;
-    const key = { revision: revision.revision };
-    await this.tx.catalogRevision.create({
+  async insertPublication(publication: NewPublication): Promise<void> {
+    const key = { catalogRevision: publication.catalogRevision };
+    await this.tx.catalogV1Publication.create({
       data: {
-        revision: revision.revision,
-        previousRevision: revision.revision > 1 ? revision.revision - 1 : null,
-        effectiveFrom: revision.effectiveFrom,
-        publishedAt: revision.publishedAt,
-        publishedBy: revision.publishedBy,
-        correlationId: revision.correlationId,
-        definitionsFingerprint: revision.definitionsFingerprint,
+        ...key,
+        previousRevision: publication.catalogRevision > 1 ? publication.catalogRevision - 1 : null,
+        publishedAt: publication.publishedAt,
+        publishedBy: publication.publishedBy,
+        correlationId: publication.correlationId,
+        reasonCode: publication.reasonCode,
+        snapshotFingerprint: publication.snapshotFingerprint,
       },
     });
-    await this.tx.catalogVehicleCategory.createMany({
-      data: definitions.categories.map((c) => ({ ...key, ...c })),
-    });
-    await this.tx.catalogAddon.createMany({
-      data: definitions.addons.map((a) => ({
-        ...key,
-        id: a.id,
-        labelAr: a.labelAr,
-        labelEn: a.labelEn,
-        durationMinutes: a.durationMinutes,
-        sortOrder: a.sortOrder,
-      })),
-    });
-    await this.tx.catalogPackage.createMany({
-      data: definitions.packages.map((p) => ({
-        ...key,
-        id: p.id,
-        labelAr: p.labelAr,
-        labelEn: p.labelEn,
-        descriptionAr: p.descriptionAr,
-        durationMinutes: p.durationMinutes,
-        sortOrder: p.sortOrder,
-        featuresAr: [...p.featuresAr],
-      })),
-    });
-    await this.tx.catalogAddonCategory.createMany({
-      data: definitions.addons.flatMap((a) =>
-        a.allowedCategoryIds.map((categoryId) => ({ ...key, addonId: a.id, categoryId })),
-      ),
-    });
-    await this.tx.catalogPackageCategory.createMany({
-      data: definitions.packages.flatMap((p) =>
-        p.allowedCategoryIds.map((categoryId) => ({ ...key, packageId: p.id, categoryId })),
-      ),
-    });
-    await this.tx.catalogPackageAddon.createMany({
-      data: definitions.packages.flatMap((p) => [
-        ...p.includedAddonIds.map((addonId) => ({
-          ...key,
-          packageId: p.id,
-          addonId,
-          relation: 'INCLUDED',
+    // Identity rows are insert-only and written once, for new definitions. The
+    // composite foreign key below rejects any later kind/code drift.
+    await this.tx.catalogV1DefinitionIdentity.createMany({
+      data: publication.items
+        .filter((d) => d.revision === 1)
+        .map((d) => ({
+          definitionId: d.definitionId,
+          code: d.code,
+          kind: d.kind,
+          firstCatalogRevision: publication.catalogRevision,
         })),
-        ...p.optionalAddonIds.map((addonId) => ({
-          ...key,
-          packageId: p.id,
-          addonId,
-          relation: 'OPTIONAL',
-        })),
-      ]),
+    });
+    await this.tx.catalogV1Definition.createMany({
+      data: publication.items.map((d) => ({
+        ...key,
+        definitionId: d.definitionId,
+        revision: d.revision,
+        kind: d.kind,
+        code: d.code,
+        nameAr: d.name.ar,
+        nameEn: d.name.en,
+        descriptionAr: d.description.ar,
+        descriptionEn: d.description.en,
+        durationMinutes: d.durationMinutes,
+        vehicleTypes: [...d.vehicleTypes],
+        status: d.status,
+        sortOrder: d.sortOrder,
+      })),
     });
   }
 
@@ -198,6 +159,21 @@ class PrismaCatalogUnitOfWork implements CatalogUnitOfWork {
   async appendAudit(record: AuditRecord): Promise<void> {
     await this.tx.catalogAuditEvent.create({ data: { ...record } });
   }
+
+  async enqueue(event: OutboxEvent): Promise<void> {
+    await this.tx.outboxMessage.create({
+      data: {
+        id: event.eventId,
+        eventId: event.eventId,
+        eventType: event.eventType,
+        exchange: event.exchange,
+        routingKey: event.routingKey,
+        payload: event.payload,
+        correlationId: event.correlationId,
+        traceParent: event.traceParent,
+      },
+    });
+  }
 }
 
 @Injectable()
@@ -216,33 +192,7 @@ export class PrismaCatalogRepository implements CatalogRepository {
     });
   }
 
-  async revisionInForce(at: Date): Promise<PublishedRevision | null> {
-    const row = await this.client.catalogRevision.findFirst({
-      where: { effectiveFrom: { lte: at } },
-      orderBy: { effectiveFrom: 'desc' },
-      include: REVISION_INCLUDE,
-    });
-    return row ? toPublished(row) : null;
-  }
-
-  async revision(revision: number): Promise<PublishedRevision | null> {
-    const row = await this.client.catalogRevision.findUnique({
-      where: { revision },
-      include: REVISION_INCLUDE,
-    });
-    return row ? toPublished(row) : null;
-  }
-
-  async listRevisions(limit: number): Promise<RevisionSummary[]> {
-    return this.client.catalogRevision.findMany({
-      orderBy: { revision: 'desc' },
-      take: limit,
-      select: {
-        revision: true,
-        effectiveFrom: true,
-        publishedAt: true,
-        definitionsFingerprint: true,
-      },
-    });
+  current(): Promise<CatalogSnapshot | null> {
+    return currentSnapshot(this.client);
   }
 }

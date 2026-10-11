@@ -70,6 +70,11 @@ model CatalogPublicationLock {
   @@map("catalog_publication_lock")
 }
 
+/// LEGACY (P01-B1). The revision tables below are frozen, immutable storage of
+/// the pre-contract catalog model. Since P06-B1 no runtime path reads or writes
+/// them; catalog.v1 lives in the CatalogV1* models. Dropping them is a later,
+/// separately reviewed contract-phase migration with its own data plan.
+///
 /// One immutable published catalog revision. Revisions form a linear chain
 /// (previous_revision = revision - 1) with strictly increasing effective_from,
 /// so revision N is in force on [effective_from(N), effective_from(N+1)).
@@ -199,7 +204,67 @@ model CatalogAuditEvent {
   revision      Int?
   outcome       String   @db.VarChar(64)
   correlationId String   @map("correlation_id") @db.Uuid
+  reasonCode    String?  @map("reason_code") @db.VarChar(64)
 
   @@index([occurredAt], map: "catalog_audit_event_occurred_idx")
   @@map("catalog_audit_event")
+}
+
+/// catalog.v1 publication: one immutable catalog revision. Revisions form a
+/// linear chain; each one stores the COMPLETE definition snapshot (retired
+/// definitions included). Triggers reject every UPDATE/DELETE, any late row and
+/// (at COMMIT) an empty or incomplete snapshot.
+model CatalogV1Publication {
+  catalogRevision     Int                           @id @map("catalog_revision")
+  previousRevision    Int?                          @unique @map("previous_revision")
+  publishedAt         DateTime                      @map("published_at") @db.Timestamptz(3)
+  publishedBy         String                        @map("published_by") @db.Uuid
+  correlationId       String                        @map("correlation_id") @db.Uuid
+  reasonCode          String                        @map("reason_code") @db.VarChar(64)
+  snapshotFingerprint String                        @map("snapshot_fingerprint") @db.Char(64)
+  previous            CatalogV1Publication?         @relation("CatalogV1Chain", fields: [previousRevision], references: [catalogRevision], onDelete: Restrict, onUpdate: Restrict)
+  next                CatalogV1Publication?         @relation("CatalogV1Chain")
+  definitions         CatalogV1Definition[]
+  identities          CatalogV1DefinitionIdentity[]
+
+  @@map("catalog_v1_publication")
+}
+
+/// Insert-only binding of a definitionId to its kind and code. The code is
+/// globally unique, so it is never reused, even after retirement.
+model CatalogV1DefinitionIdentity {
+  definitionId         String                @id @map("definition_id") @db.Uuid
+  code                 String                @unique @db.VarChar(40)
+  kind                 String                @db.VarChar(8)
+  firstCatalogRevision Int                   @map("first_catalog_revision")
+  firstPublication     CatalogV1Publication  @relation(fields: [firstCatalogRevision], references: [catalogRevision], onDelete: Restrict, onUpdate: Restrict)
+  snapshots            CatalogV1Definition[]
+
+  @@unique([definitionId, code, kind], map: "catalog_v1_definition_identity_binding_key")
+  @@map("catalog_v1_definition_identity")
+}
+
+/// One definition as it stands in one catalog revision. `revision` is the
+/// definition's own content revision (unchanged content keeps it).
+model CatalogV1Definition {
+  catalogRevision Int                         @map("catalog_revision")
+  definitionId    String                      @map("definition_id") @db.Uuid
+  revision        Int
+  kind            String                      @db.VarChar(8)
+  code            String                      @db.VarChar(40)
+  nameAr          String                      @map("name_ar") @db.VarChar(80)
+  nameEn          String?                     @map("name_en") @db.VarChar(80)
+  descriptionAr   String                      @map("description_ar") @db.VarChar(500)
+  descriptionEn   String?                     @map("description_en") @db.VarChar(500)
+  durationMinutes Int                         @map("duration_minutes")
+  vehicleTypes    String[]                    @map("vehicle_types") @db.VarChar(16)
+  status          String                      @db.VarChar(16)
+  sortOrder       Int                         @map("sort_order")
+  publication     CatalogV1Publication        @relation(fields: [catalogRevision], references: [catalogRevision], onDelete: Restrict, onUpdate: Restrict)
+  identity        CatalogV1DefinitionIdentity @relation(fields: [definitionId, code, kind], references: [definitionId, code, kind], onDelete: Restrict, onUpdate: Restrict, map: "catalog_v1_definition_identity_fkey")
+
+  @@id([catalogRevision, definitionId])
+  @@unique([catalogRevision, code])
+  @@index([definitionId, catalogRevision])
+  @@map("catalog_v1_definition")
 }

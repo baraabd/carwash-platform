@@ -1,12 +1,11 @@
-import type { RevisionHead } from '../../src/domain';
+import type { CatalogSnapshot } from '../../src/domain';
 import type {
   AuditRecord,
   CatalogRepository,
   CatalogUnitOfWork,
   IdempotencyReceipt,
-  NewRevision,
-  PublishedRevision,
-  RevisionSummary,
+  NewPublication,
+  OutboxEvent,
 } from '../../src/ports';
 
 /**
@@ -15,41 +14,40 @@ import type {
  * persistence evidence; the PostgreSQL suite covers the real adapter.
  */
 export class InMemoryCatalogRepository implements CatalogRepository {
-  readonly revisions: PublishedRevision[] = [];
+  readonly publications: NewPublication[] = [];
   readonly receipts = new Map<string, IdempotencyReceipt>();
   readonly audit: AuditRecord[] = [];
+  readonly outbox: OutboxEvent[] = [];
   private queue: Promise<unknown> = Promise.resolve();
+
+  private snapshot(): CatalogSnapshot | null {
+    const last = this.publications.at(-1);
+    return last
+      ? { catalogRevision: last.catalogRevision, publishedAt: last.publishedAt, items: last.items }
+      : null;
+  }
 
   transaction<T>(work: (uow: CatalogUnitOfWork) => Promise<T>): Promise<T> {
     const run = this.queue.then(async () => {
       const staged = {
-        revisions: [] as PublishedRevision[],
+        publications: [] as NewPublication[],
         receipts: new Map<string, IdempotencyReceipt>(),
         audit: [] as AuditRecord[],
+        outbox: [] as OutboxEvent[],
       };
       const uow: CatalogUnitOfWork = {
-        lockHead: (): Promise<RevisionHead | null> => {
-          const head = this.revisions.at(-1);
-          return Promise.resolve(
-            head ? { revision: head.revision, effectiveFrom: head.effectiveFrom } : null,
-          );
-        },
+        lockCurrent: () => Promise.resolve(this.snapshot()),
         findReceipt: (actor, operation, key) =>
           Promise.resolve(this.receipts.get(`${actor}|${operation}|${key}`) ?? null),
-        insertRevision: (revision: NewRevision) => {
-          staged.revisions.push({
-            revision: revision.revision,
-            effectiveFrom: revision.effectiveFrom,
-            publishedAt: revision.publishedAt,
-            definitionsFingerprint: revision.definitionsFingerprint,
-            definitions: revision.definitions,
-          });
+        insertPublication: (publication) => {
+          staged.publications.push(publication);
           return Promise.resolve();
         },
         saveReceipt: (receipt) => {
           staged.receipts.set(
             `${receipt.actorSubject}|${receipt.operation}|${receipt.idempotencyKey}`,
-            receipt,
+            // Receipts are stored as JSON, exactly like the JSONB column.
+            JSON.parse(JSON.stringify(receipt)) as IdempotencyReceipt,
           );
           return Promise.resolve();
         },
@@ -57,38 +55,24 @@ export class InMemoryCatalogRepository implements CatalogRepository {
           staged.audit.push(record);
           return Promise.resolve();
         },
+        enqueue: (event) => {
+          staged.outbox.push(event);
+          return Promise.resolve();
+        },
       };
       const result = await work(uow);
-      this.revisions.push(...staged.revisions);
-      for (const [key, value] of staged.receipts) this.receipts.set(key, value);
+      this.publications.push(...staged.publications);
+      for (const [k, v] of staged.receipts) this.receipts.set(k, v);
       this.audit.push(...staged.audit);
+      this.outbox.push(...staged.outbox);
       return result;
     });
     this.queue = run.catch(() => undefined);
     return run;
   }
 
-  revisionInForce(at: Date): Promise<PublishedRevision | null> {
-    const candidates = this.revisions.filter((r) => r.effectiveFrom.getTime() <= at.getTime());
-    return Promise.resolve(candidates.at(-1) ?? null);
-  }
-
-  revision(revision: number): Promise<PublishedRevision | null> {
-    return Promise.resolve(this.revisions.find((r) => r.revision === revision) ?? null);
-  }
-
-  listRevisions(limit: number): Promise<RevisionSummary[]> {
-    return Promise.resolve(
-      [...this.revisions]
-        .reverse()
-        .slice(0, limit)
-        .map((r) => ({
-          revision: r.revision,
-          effectiveFrom: r.effectiveFrom,
-          publishedAt: r.publishedAt,
-          definitionsFingerprint: r.definitionsFingerprint,
-        })),
-    );
+  current(): Promise<CatalogSnapshot | null> {
+    return Promise.resolve(this.snapshot());
   }
 }
 

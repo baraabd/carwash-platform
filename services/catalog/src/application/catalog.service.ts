@@ -1,10 +1,4 @@
-import {
-  CatalogDefinitionError,
-  normalizeDefinitions,
-  planPublication,
-  type CatalogDefinitions,
-  type PublicationRejection,
-} from '../domain';
+import { planPublication, type PublicationRejection } from '../domain';
 import {
   AccessDenied,
   type AccessAuthority,
@@ -12,119 +6,98 @@ import {
   type Clock,
   type Hasher,
   type IdGenerator,
-  type PublishedRevision,
   type RecordedOutcome,
-  type RevisionSummary,
   type VerifiedPrincipal,
 } from '../ports';
 import { canonicalJson } from './canonical-json';
-import { CatalogApplicationError } from './catalog-errors';
+import {
+  CATALOG_ERROR_STATUS,
+  CATALOG_REASONS,
+  CatalogApplicationError,
+  type CatalogErrorCode,
+  type CatalogReason,
+  type FieldIssue,
+} from './catalog-errors';
+import {
+  WireViolation,
+  catalogView,
+  definitionView,
+  parseDefinitionId,
+  parsePublishRequest,
+  type CatalogView,
+  type DefinitionView,
+  type PublishRequest,
+} from './catalog-v1-wire';
+import { definitionsPublishedEvent } from './events';
 
-/** Requested from Lane E/Identity; until granted, publishing is denied to everyone. */
+/** Granted by Identity (catalog.v1 publish access); every other caller is denied. */
 export const CATALOG_PUBLISH_PERMISSION = 'catalog.publish';
-export const PUBLISH_OPERATION = 'catalog.revision.publish.v1';
-export const IDEMPOTENCY_KEY = /^[A-Za-z0-9_-]{16,128}$/;
-const UTC_MILLIS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-const MAX_REVISION = 2_147_483_647;
+export const CONTRACT_ID = 'catalog.v1';
+export const PUBLISH_OPERATION = 'catalog.v1.publish';
+const IDEMPOTENCY_KEY = /^[A-Za-z0-9_-]{16,128}$/;
 
-export interface RevisionView {
-  readonly revision: number;
-  readonly effectiveFrom: string;
-  readonly effectiveUntil: string | null;
-  readonly publishedAt: string;
-  readonly definitionsFingerprint: string;
-  readonly definitions: CatalogDefinitions;
-}
-
-export interface RevisionSummaryView {
-  readonly revision: number;
-  readonly effectiveFrom: string;
-  readonly publishedAt: string;
-  readonly definitionsFingerprint: string;
-}
-
-export interface CommandResult {
-  readonly status: number;
-  readonly body: Readonly<Record<string, unknown>>;
-  readonly replayed: boolean;
-}
+/** A committed publication (201 + CatalogV1) or a recorded rule rejection. */
+export type CommandResult =
+  | {
+      readonly status: number;
+      readonly replayed: boolean;
+      readonly published: Readonly<Record<string, unknown>>;
+    }
+  | { readonly status: number; readonly replayed: boolean; readonly rejection: RejectionBody };
 
 export interface RequestContext {
   readonly credential: string | undefined;
   readonly correlationId: string;
+  /** Validated W3C traceparent of the request, or null. */
+  readonly traceParent: string | null;
 }
 
-const REJECTION_STATUS: Readonly<Record<PublicationRejection, number>> = {
-  REVISION_CONFLICT: 409,
-  EFFECTIVE_FROM_IN_PAST: 422,
-  EFFECTIVE_FROM_NOT_AFTER_PREVIOUS: 422,
-  EFFECTIVE_FROM_TOO_FAR: 422,
-};
-
-interface PublishCommand {
-  readonly expectedRevision: number;
-  readonly effectiveFrom: Date | null;
-  readonly definitions: CatalogDefinitions;
+/** The stored body of a rejected command; replay re-renders the same error. */
+export interface RejectionBody {
+  readonly code: CatalogErrorCode;
+  readonly reason: CatalogReason | null;
+  readonly issues: readonly FieldIssue[];
 }
 
-function parseTimestamp(value: unknown): Date | null {
-  if (value === null) return null;
-  if (typeof value !== 'string' || !UTC_MILLIS.test(value))
-    throw new CatalogApplicationError('REQUEST_INVALID', { field: 'effectiveFrom' });
-  const date = new Date(value);
-  // Round-tripping rejects calendar-invalid values such as 2026-02-30.
-  if (Number.isNaN(date.getTime()) || date.toISOString() !== value)
-    throw new CatalogApplicationError('REQUEST_INVALID', { field: 'effectiveFrom' });
-  return date;
-}
+const ERROR_CODES = Object.keys(CATALOG_ERROR_STATUS) as CatalogErrorCode[];
 
-function parsePublishCommand(body: unknown): PublishCommand {
-  if (typeof body !== 'object' || body === null || Array.isArray(body))
-    throw new CatalogApplicationError('REQUEST_INVALID');
-  const input = body as Record<string, unknown>;
-  const keys = Object.keys(input).sort().join(',');
-  if (keys !== 'definitions,effectiveFrom,expectedRevision')
-    throw new CatalogApplicationError('REQUEST_INVALID');
-  const expected = input.expectedRevision;
-  if (
-    typeof expected !== 'number' ||
-    !Number.isInteger(expected) ||
-    expected < 0 ||
-    expected >= MAX_REVISION
-  )
-    throw new CatalogApplicationError('REQUEST_INVALID', { field: 'expectedRevision' });
-  const effectiveFrom = parseTimestamp(input.effectiveFrom);
-  try {
-    return {
-      expectedRevision: expected,
-      effectiveFrom,
-      definitions: normalizeDefinitions(input.definitions),
-    };
-  } catch (error: unknown) {
-    if (!(error instanceof CatalogDefinitionError)) throw error;
-    if (error.code === 'DEFINITIONS_MALFORMED')
-      throw new CatalogApplicationError('REQUEST_INVALID', { field: error.path });
-    throw new CatalogApplicationError('DEFINITIONS_INVALID', {
-      reason: error.code,
-      field: error.path,
-    });
-  }
-}
-
-function summaryView(summary: RevisionSummary): RevisionSummaryView {
+/**
+ * Reads a stored receipt body back. Receipts are written only by this service,
+ * so a body that does not parse is corruption and fails loudly.
+ */
+function readRejection(body: Readonly<Record<string, unknown>>): RejectionBody {
+  const code = ERROR_CODES.find((candidate) => candidate === body.code);
+  const reason =
+    body.reason === null ? null : CATALOG_REASONS.find((candidate) => candidate === body.reason);
+  const issues = Array.isArray(body.issues) ? body.issues : null;
+  if (!code || reason === undefined || !issues) throw new Error('CATALOG_RECEIPT_CORRUPT');
   return {
-    revision: summary.revision,
-    effectiveFrom: summary.effectiveFrom.toISOString(),
-    publishedAt: summary.publishedAt.toISOString(),
-    definitionsFingerprint: summary.definitionsFingerprint,
+    code,
+    reason,
+    issues: issues.map((issue: unknown) => {
+      if (typeof issue !== 'object' || issue === null) throw new Error('CATALOG_RECEIPT_CORRUPT');
+      const { field, code: issueCode } = issue as Record<string, unknown>;
+      if (typeof field !== 'string' || typeof issueCode !== 'string')
+        throw new Error('CATALOG_RECEIPT_CORRUPT');
+      return { field, code: issueCode };
+    }),
   };
 }
 
-function revisionView(revision: PublishedRevision, effectiveUntil: Date | null): RevisionView {
+function toResult(outcome: RecordedOutcome, replayed: boolean): CommandResult {
+  return outcome.status < 400
+    ? { status: outcome.status, replayed, published: outcome.body }
+    : { status: outcome.status, replayed, rejection: readRejection(outcome.body) };
+}
+
+function rejectionFor(reason: PublicationRejection, field: string): RejectionBody {
+  if (reason === 'REVISION_CONFLICT')
+    return { code: 'REVISION_CONFLICT', reason: null, issues: [{ field, code: reason }] };
+  const allowlisted = reason === 'DEFINITION_RETIRED' || reason === 'DUPLICATE_CODE';
   return {
-    ...summaryView(revision),
-    effectiveUntil: effectiveUntil?.toISOString() ?? null,
-    definitions: revision.definitions,
+    code: 'BUSINESS_RULE_VIOLATION',
+    reason: allowlisted ? reason : null,
+    issues: [{ field, code: reason }],
   };
 }
 
@@ -139,115 +112,120 @@ export class CatalogService {
     },
   ) {}
 
-  private async principal(
-    context: RequestContext,
-    permission?: string,
-  ): Promise<VerifiedPrincipal> {
+  private async publisher(context: RequestContext): Promise<VerifiedPrincipal> {
     let principal: VerifiedPrincipal;
     try {
       principal = await this.deps.authority.verify(context.credential, context.correlationId);
     } catch (error: unknown) {
-      if (error instanceof AccessDenied) throw new CatalogApplicationError(error.reason);
-      throw new CatalogApplicationError('AUTH_UNAVAILABLE');
+      if (error instanceof AccessDenied && error.reason === 'AUTH_REQUIRED')
+        throw new CatalogApplicationError('AUTH_REQUIRED');
+      throw new CatalogApplicationError('DEPENDENCY_UNAVAILABLE');
     }
-    if (permission && !principal.permissions.includes(permission))
+    if (!principal.permissions.includes(CATALOG_PUBLISH_PERMISSION))
       throw new CatalogApplicationError('AUTH_FORBIDDEN');
     return principal;
   }
 
-  private async withWindow(revision: PublishedRevision): Promise<RevisionView> {
-    const next = await this.deps.repository.revision(revision.revision + 1);
-    return revisionView(revision, next?.effectiveFrom ?? null);
+  /** catalog.v1 getPublished (public): the complete current snapshot. */
+  async published(): Promise<CatalogView> {
+    const snapshot = await this.deps.repository.current();
+    if (!snapshot) throw new CatalogApplicationError('NOT_FOUND');
+    return catalogView(snapshot);
   }
 
-  /** The catalog in force now. Any verified session may read definitions. */
-  async inForce(context: RequestContext): Promise<RevisionView> {
-    await this.principal(context);
-    const revision = await this.deps.repository.revisionInForce(this.deps.clock.now());
-    if (!revision) throw new CatalogApplicationError('CATALOG_NOT_PUBLISHED');
-    return this.withWindow(revision);
-  }
-
-  /** An exact immutable revision, e.g. the one a quote or booking pinned. */
-  async revision(context: RequestContext, rawRevision: string): Promise<RevisionView> {
-    await this.principal(context);
-    if (!/^[1-9][0-9]{0,9}$/.test(rawRevision) || Number(rawRevision) >= MAX_REVISION)
-      throw new CatalogApplicationError('NOT_FOUND');
-    const revision = await this.deps.repository.revision(Number(rawRevision));
-    if (!revision) throw new CatalogApplicationError('NOT_FOUND');
-    return this.withWindow(revision);
-  }
-
-  async listRevisions(context: RequestContext): Promise<{ revisions: RevisionSummaryView[] }> {
-    await this.principal(context, CATALOG_PUBLISH_PERMISSION);
-    const revisions = await this.deps.repository.listRevisions(50);
-    return { revisions: revisions.map(summaryView) };
+  /** catalog.v1 getDefinition (public): a definition of the current snapshot, retired included. */
+  async definition(rawId: string): Promise<DefinitionView> {
+    const definitionId = parseDefinitionId(rawId);
+    if (!definitionId) throw new CatalogApplicationError('NOT_FOUND');
+    const snapshot = await this.deps.repository.current();
+    const found = snapshot?.items.find((d) => d.definitionId === definitionId);
+    if (!found) throw new CatalogApplicationError('NOT_FOUND');
+    return definitionView(found);
   }
 
   /**
-   * Publishes the next revision. Receipt, revision and audit commit in one
-   * transaction, so a lost response can always be recovered by replaying the
-   * same key, and a reused key with a different payload never has an effect.
+   * catalog.v1 publish. Receipt, publication, audit and outbox event commit in
+   * one transaction, so a lost response is recovered by replaying the same key
+   * and a reused key with a different payload never has an effect.
    */
   async publish(
     context: RequestContext,
-    idempotencyKey: unknown,
+    idempotencyKey: string | undefined,
     body: unknown,
   ): Promise<CommandResult> {
-    const principal = await this.principal(context, CATALOG_PUBLISH_PERMISSION);
-    if (typeof idempotencyKey !== 'string' || !IDEMPOTENCY_KEY.test(idempotencyKey))
-      throw new CatalogApplicationError('IDEMPOTENCY_KEY_INVALID');
-    const command = parsePublishCommand(body);
-    const definitionsFingerprint = this.deps.hasher.sha256Hex(canonicalJson(command.definitions));
+    const principal = await this.publisher(context);
+    if (idempotencyKey === undefined) throw new CatalogApplicationError('IDEMPOTENCY_KEY_REQUIRED');
+    if (!IDEMPOTENCY_KEY.test(idempotencyKey))
+      throw new CatalogApplicationError('REQUEST_INVALID', {
+        issues: [{ field: 'header.idempotency-key', code: 'INVALID_IDEMPOTENCY_KEY' }],
+      });
+    let request: PublishRequest;
+    try {
+      request = parsePublishRequest(body);
+    } catch (error: unknown) {
+      if (!(error instanceof WireViolation)) throw error;
+      throw new CatalogApplicationError('VALIDATION_FAILED', {
+        issues: [{ field: error.path, code: error.code }],
+      });
+    }
     const requestFingerprint = this.deps.hasher.sha256Hex(
       canonicalJson({
+        v: 1,
+        contract: CONTRACT_ID,
         operation: PUBLISH_OPERATION,
         actor: principal.subject,
-        expectedRevision: command.expectedRevision,
-        effectiveFrom: command.effectiveFrom?.toISOString() ?? null,
-        definitionsFingerprint,
+        target: null,
+        body: request,
       }),
     );
 
     return this.deps.repository.transaction(async (uow) => {
-      const head = await uow.lockHead();
+      const current = await uow.lockCurrent();
       const receipt = await uow.findReceipt(principal.subject, PUBLISH_OPERATION, idempotencyKey);
       if (receipt) {
         if (receipt.requestFingerprint !== requestFingerprint)
           throw new CatalogApplicationError('IDEMPOTENCY_CONFLICT');
-        return { ...receipt.outcome, replayed: true };
+        return toResult(receipt.outcome, true);
       }
       const now = this.deps.clock.now();
       const plan = planPublication({
-        head,
-        expectedRevision: command.expectedRevision,
-        effectiveFrom: command.effectiveFrom,
-        now,
+        current,
+        expectedCatalogRevision: request.expectedCatalogRevision,
+        drafts: request.drafts,
       });
       let outcome: RecordedOutcome;
       if (plan.accepted) {
-        await uow.insertRevision({
-          revision: plan.revision,
-          effectiveFrom: plan.effectiveFrom,
+        const snapshot = {
+          catalogRevision: plan.catalogRevision,
+          publishedAt: now,
+          items: plan.items,
+        };
+        await uow.insertPublication({
+          catalogRevision: plan.catalogRevision,
           publishedAt: now,
           publishedBy: principal.subject,
           correlationId: context.correlationId,
-          definitionsFingerprint,
-          definitions: command.definitions,
+          reasonCode: request.reasonCode,
+          snapshotFingerprint: this.deps.hasher.sha256Hex(canonicalJson(plan.items)),
+          items: plan.items,
         });
-        const view = revisionView(
-          {
-            revision: plan.revision,
-            effectiveFrom: plan.effectiveFrom,
-            publishedAt: now,
-            definitionsFingerprint,
-            definitions: command.definitions,
-          },
-          null,
+        await uow.enqueue(
+          definitionsPublishedEvent(
+            {
+              eventId: this.deps.ids.uuid(),
+              occurredAt: now,
+              correlationId: context.correlationId,
+              traceParent: context.traceParent,
+              actorSubject: principal.subject,
+            },
+            plan.catalogRevision,
+            plan.changedDefinitionIds,
+          ),
         );
-        outcome = { status: 201, body: { ...view } };
+        outcome = { status: 201, body: { ...catalogView(snapshot) } };
       } else {
-        outcome = { status: REJECTION_STATUS[plan.reason], body: { code: plan.reason } };
+        const rejection = rejectionFor(plan.reason, plan.field);
+        outcome = { status: CATALOG_ERROR_STATUS[rejection.code], body: { ...rejection } };
       }
       await uow.saveReceipt(
         {
@@ -263,12 +241,15 @@ export class CatalogService {
         id: this.deps.ids.uuid(),
         occurredAt: now,
         actorSubject: principal.subject,
-        action: plan.accepted ? 'catalog.revision.published' : 'catalog.revision.publish-rejected',
-        revision: plan.accepted ? plan.revision : null,
+        action: plan.accepted
+          ? 'catalog.definitions.published'
+          : 'catalog.definitions.publish-rejected',
+        revision: plan.accepted ? plan.catalogRevision : null,
         outcome: plan.accepted ? 'PUBLISHED' : plan.reason,
+        reasonCode: request.reasonCode,
         correlationId: context.correlationId,
       });
-      return { ...outcome, replayed: false };
+      return toResult(outcome, false);
     });
   }
 }
