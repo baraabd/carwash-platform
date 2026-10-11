@@ -1,0 +1,96 @@
+{
+  "task": "P06-B",
+  "service": "wallet",
+  "runId": "42c6505143d3",
+  "startedAt": "2026-10-11T09:03:53.809Z",
+  "sourceSHA": "93731909562d3d5f20a9ccd6fded601396cfd547",
+  "sourceTree": "5026297bf6136cd19b37d0f0a284eedf29222459",
+  "sourceDirty": false,
+  "node": "v24.21.0",
+  "docker": "29.1.3",
+  "image": {
+    "name": "postgres:16.10-alpine",
+    "repoDigests": [
+      "postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297",
+      "public.ecr.aws/docker/library/postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297"
+    ],
+    "serverVersion": "PostgreSQL 16.10"
+  },
+  "dependencies": {
+    "postgres": "REAL (disposable container)",
+    "identity": "LOCAL HTTP STUB",
+    "broker": "NOT USED (billing.v1 binding waits on CR-B-P06-WAL-01 platform-messaging dependency)",
+    "billing": "TEST MODEL of Billing custody emitting billing.v1 envelopes checked by the shared parsers"
+  },
+  "phases": [
+    {
+      "name": "toolchain and source provenance",
+      "status": "PASS"
+    },
+    {
+      "name": "build service and integration specs from this source",
+      "status": "PASS"
+    },
+    {
+      "name": "pull pinned PostgreSQL image",
+      "status": "PASS"
+    },
+    {
+      "name": "start disposable PostgreSQL with shared provisioner",
+      "status": "PASS"
+    },
+    {
+      "name": "runtime identity can connect after provisioning",
+      "status": "PASS"
+    },
+    {
+      "name": "upgrade from previous migration history preserves existing data",
+      "status": "PASS"
+    },
+    {
+      "name": "re-provision restricts migration history from the runtime role",
+      "status": "PASS"
+    },
+    {
+      "name": "committed Prisma schema mirror has no drift from migrated database",
+      "status": "PASS"
+    },
+    {
+      "name": "integration specs as the least-privileged runtime role",
+      "status": "PASS"
+    }
+  ],
+  "tests": {
+    "files": [
+      "services\\wallet\\dist-tests\\test\\integration\\wallet.custody.postgres.spec.js"
+    ],
+    "summary": {
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "names": [
+      "✔ pg: collection, duplicate and conflicting redelivery leave exactly one movement (",
+      "✔ pg: the same event delivered concurrently by two replicas applies once (",
+      "✔ pg: a reversal before its collection is attributed when the collection arrives (",
+      "✔ pg: handover lifecycle out of order converges; regressions are STALE (",
+      "✔ pg: poison, ignored and contradictory events are recorded without effects (",
+      "✔ pg: history tables are append-only and state rows cannot regress for the runtime role (",
+      "✔ pg: model-based concurrent shuffled delivery matches Billing truth and the domain fold (",
+      "✔ pg: the HTTP read path serves the technician their own stored projection ("
+    ]
+  },
+  "accepted": true,
+  "migrations": {
+    "previous": [
+      "20261005060000_w01_foundation"
+    ],
+    "added": [
+      "20261011100000_p06b3_wallet_custody_projection"
+    ]
+  },
+  "finishedAt": "2026-10-11T09:04:38.974Z"
+}

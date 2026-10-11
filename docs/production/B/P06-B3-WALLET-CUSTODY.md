@@ -5,12 +5,12 @@ child: **PR open, review required**. The parent stays **INTEGRATION_PENDING**.
 Nothing here is production-ready, deployed or integrated. Wallet receives no
 live events until Lane E accepts CR-B-P06-WAL-01/02.
 
-- Base: main `66aa7528500a06f65a4b73305506feee7c3fc3b3`
-  (tree `3a2203e360a534dc3f98529717a7625257aaccd0`), refreshed 2026-10-11. The
-  audited `f875d31` is an older ancestor and was no longer current.
+- Base: main `3e1ab23bff450235858ea13e049f8fb373df393f` (after the P04-B/C/D
+  merges), rebased on 2026-10-11 from the initial base `66aa752`. The audited
+  `f875d31` is an older ancestor and was no longer current.
 - Branch: `prod/p06-b-close-commerce-finance-functional-matrix-and-admin-fina-b3-wallet-custody`
-- Accepted source: `56fd88b5fa34032045705b769977adcb2d20ca9d` (tree
-  `30e31ff391384bd488e6b894cb3d23fa2d94e3f0`, clean). The commit that adds this
+- Accepted source: `93731909562d3d5f20a9ccd6fded601396cfd547` (tree
+  `5026297bf6136cd19b37d0f0a284eedf29222459`, clean). The commit that adds this
   document and the evidence JSON changes only `docs/`.
 
 ## What this closes
@@ -142,7 +142,7 @@ All results were produced on the accepted source above:
 | Domain/application unit + model-based (40 seeded histories, shuffled with duplicates) | `node --test services/wallet/dist-tests/test/wallet.custody.spec.js` | PASSED 13/13 |
 | HTTP auth/object access (real Nest + real Identity adapter, local Identity double) | `node --test services/wallet/dist-tests/test/wallet.http.spec.js` | PASSED 5/5 |
 | Runtime/foundation (existing) | `node --test services/wallet/dist-tests/test/*.spec.js` | PASSED 27/27 (custody 13, HTTP 5, foundation 9) |
-| Real PostgreSQL (upgrade, re-provision, schema drift, runtime-role integration incl. 2-replica concurrency and model-based) | `node scripts/production/B/postgres-acceptance.mjs --service wallet --record` | ACCEPTED: all 9 phases PASS; integration 8/8, 0 skipped (`evidence/wallet-postgres-56fd88b5fa34.json`) |
+| Real PostgreSQL (upgrade, re-provision, schema drift, runtime-role integration incl. 2-replica concurrency and model-based) | `node scripts/production/B/postgres-acceptance.mjs --service wallet --record` | ACCEPTED: all 9 phases PASS; integration 8/8, 0 skipped (`evidence/wallet-postgres-93731909562d.json`) |
 | Typecheck | `pnpm --filter @carwash/wallet typecheck` | PASSED |
 | Migration guards | `node scripts/check-migrations.mjs --base-ref origin/main` | PASSED |
 | Boundaries/layers | `node scripts/check-boundaries.mjs`, `node scripts/check-layers.mjs`, `node scripts/dev/generate-service-shells.mjs --check` | PASSED |
@@ -160,7 +160,7 @@ Dependencies, real vs. not real:
   that the shared `billing.v1` parsers accept.
 - RabbitMQ is **NOT USED**.
 
-Two earlier runs on this branch failed and were fixed, not hidden:
+Two earlier runs on this branch, before the rebase, failed and were fixed, not hidden:
 
 - `a38e07f`: schema drift. The unique index name in the Prisma mirror was not
   mapped.
