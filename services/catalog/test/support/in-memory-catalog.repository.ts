@@ -40,6 +40,10 @@ export class InMemoryCatalogRepository implements CatalogRepository {
         findReceipt: (actor, operation, key) =>
           Promise.resolve(this.receipts.get(`${actor}|${operation}|${key}`) ?? null),
         insertPublication: (publication) => {
+          // Mirrors the insert-only identity table: an id is created exactly once.
+          const known = new Set(this.publications.flatMap((p) => p.createdDefinitionIds));
+          if (publication.createdDefinitionIds.some((id) => known.has(id)))
+            throw new Error('IDENTITY_ALREADY_EXISTS');
           staged.publications.push(publication);
           return Promise.resolve();
         },

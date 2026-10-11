@@ -83,6 +83,7 @@ test('domain: only changed definitions advance their content revision', () => {
   assert.equal(byId.get(fixtureId(2)), 2);
   assert.equal(byId.get(fixtureId(3)), 1);
   assert.deepEqual(plan.changedDefinitionIds, [fixtureId(2)]);
+  assert.deepEqual(plan.createdDefinitionIds, []);
 });
 
 test('domain: an identical publication is NO_CHANGES', () => {

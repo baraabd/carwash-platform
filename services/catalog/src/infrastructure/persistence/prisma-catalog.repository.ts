@@ -115,7 +115,7 @@ class PrismaCatalogUnitOfWork implements CatalogUnitOfWork {
     // composite foreign key below rejects any later kind/code drift.
     await this.tx.catalogV1DefinitionIdentity.createMany({
       data: publication.items
-        .filter((d) => d.revision === 1)
+        .filter((d) => publication.createdDefinitionIds.includes(d.definitionId))
         .map((d) => ({
           definitionId: d.definitionId,
           code: d.code,

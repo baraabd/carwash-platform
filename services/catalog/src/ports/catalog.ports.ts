@@ -36,6 +36,8 @@ export interface NewPublication {
   readonly reasonCode: string;
   readonly snapshotFingerprint: string;
   readonly items: readonly Definition[];
+  /** Definitions first published here; only these get an identity row. */
+  readonly createdDefinitionIds: readonly string[];
 }
 
 /** One integration event row for the transactional outbox. */

@@ -208,6 +208,7 @@ export class CatalogService {
           reasonCode: request.reasonCode,
           snapshotFingerprint: this.deps.hasher.sha256Hex(canonicalJson(plan.items)),
           items: plan.items,
+          createdDefinitionIds: plan.createdDefinitionIds,
         });
         await uow.enqueue(
           definitionsPublishedEvent(

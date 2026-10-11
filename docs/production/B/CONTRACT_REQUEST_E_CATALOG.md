@@ -94,3 +94,74 @@ changes; `businessApi` stays as derived from `service-catalog.json`):
 Until E applies it (in its own PR, or by co-authoring a merge candidate), the
 `static` job — and the release gate that aggregates it — fails on this PR by
 design. It is a registration gap, not a behaviour failure.
+
+---
+
+# P06-B1 requests (catalog.v1 provider)
+
+Catalog now serves the published `catalog.v1` routes and emits the published
+`catalog.definitions-published.v1`. The items below are what Lane E still owns.
+None of them blocks the Catalog code; each blocks integrated acceptance.
+
+## CR-B-P06-01 First publication: `expectedCatalogRevision: 0`
+
+`parsePublishCatalogRequestV1` uses `parseRevision` (>= 1), so the very first
+publication cannot be expressed by a contract-conforming client. Catalog
+accepts `0` only while no catalog exists (any other `0` is a 412
+`REVISION_CONFLICT`). Requested change, `packages/contracts/src/catalog/v1.ts`:
+
+```ts
+expectedCatalogRevision: integer(v.expectedCatalogRevision, '$.expectedCatalogRevision', 0, MAX_REVISION),
+```
+
+plus the matching `PublishCatalogRequestV1` doc comment ("0 = no catalog yet")
+and `docs/contracts/catalog.v1.openapi.json` `minimum: 0`. The same gap exists
+in `pricing.v1` `expectedPriceBookRevision`.
+
+## CR-B-P06-02 Gateway `customer.catalog` upstream
+
+`packages/contracts/src/gateway.ts` route `customer.catalog` points at
+`/internal/v1/catalog/packages`, which catalog.v1 does not define. Requested:
+`upstream: '/internal/v1/catalog/definitions'` (public, GET). The Gateway should
+forward only `PUBLISHED` items to customers if it filters at all; the owner
+returns the complete snapshot (retired included) by contract design.
+
+## CR-B-P06-03 `@carwash/contracts` dependency for Catalog
+
+Add `"@carwash/contracts": "workspace:*"` to `services/catalog/package.json`
+and the lockfile so the local restatement in
+`services/catalog/src/application/catalog-v1-wire.ts` can be replaced by the
+published parsers. Until then `tests/production/B/catalog-v1-provider.test.mjs`
+is the parity guard.
+
+## CR-B-P06-04 Broker topology and relay start for `washgo.catalog.events`
+
+Rows are written to `app.outbox_message` (exchange `washgo.catalog.events`,
+routing key `catalog.definitions-published.v1`). Declare the exchange/bindings
+and the catalog relay deployment; until then rows stay pending, which is safe
+(no consumer depends on them yet).
+
+## CR-B-P06-05 Source inventory registration and legacy helper removal
+
+`tests/parallel/E/status.test.mjs` fails until
+`architecture/implementation-status.json` `services[id=catalog].persistenceModels`
+becomes:
+
+```json
+["ServiceMarker", "FoundationProbe", "OutboxMessage", "CatalogPublicationLock",
+ "CatalogRevision", "CatalogVehicleCategory", "CatalogPackage", "CatalogAddon",
+ "CatalogPackageCategory", "CatalogAddonCategory", "CatalogPackageAddon",
+ "CatalogIdempotencyReceipt", "CatalogAuditEvent", "CatalogV1Publication",
+ "CatalogV1DefinitionIdentity", "CatalogV1Definition"]
+```
+
+Separately, `services/catalog/src/domain/quote.ts` (unconnected money helper in
+a service that never owns money) can be deleted once E removes its references:
+`architecture/service-catalog.json` legacyPrototypeLocations,
+`architecture/parallel-ownership.json`, `scripts/ownership/catalog.mts`,
+`tsconfig.domain.json` and `tests/domain.test.mjs`.
+
+## CR-B-P06-06 Real `catalog.publish` holders
+
+Identity already lists `catalog.publish`. Named staff holding it in each
+environment are an owner/E decision; without one, every publish is 403.

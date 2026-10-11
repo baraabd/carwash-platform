@@ -87,6 +87,8 @@ export interface Acceptance {
   readonly items: readonly Definition[];
   /** Definitions that are new or whose content changed, sorted. */
   readonly changedDefinitionIds: readonly string[];
+  /** Definitions first published in this revision, sorted. */
+  readonly createdDefinitionIds: readonly string[];
 }
 
 export type PublicationPlan = Acceptance | Rejection;
@@ -148,6 +150,7 @@ export function planPublication(input: {
 
   const items: Definition[] = [];
   const changed: string[] = [];
+  const created: string[] = [];
   for (const [index, draft] of input.drafts.entries()) {
     const field = `$.definitions[${index}]`;
     const prior = previous.get(draft.definitionId);
@@ -158,6 +161,7 @@ export function planPublication(input: {
       if (draft.status === 'RETIRED') return reject('DEFINITION_RETIRED', `${field}.status`);
       items.push({ ...draft, revision: 1 });
       changed.push(draft.definitionId);
+      created.push(draft.definitionId);
       continue;
     }
     if (prior.kind !== draft.kind) return reject('DEFINITION_IDENTITY_CHANGED', `${field}.kind`);
@@ -177,5 +181,6 @@ export function planPublication(input: {
     catalogRevision: head + 1,
     items: orderDefinitions(items),
     changedDefinitionIds: [...changed].sort(),
+    createdDefinitionIds: [...created].sort(),
   };
 }
