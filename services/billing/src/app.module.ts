@@ -7,6 +7,7 @@ import {
 } from './infrastructure/persistence/prisma.service';
 import {
   BillingService,
+  BookingObligationService,
   CashCustodyService,
   ProviderPaymentsService,
   RefundService,
@@ -21,10 +22,19 @@ import {
   PricingQuoteReader,
   pricingConfigFromEnv,
 } from './infrastructure/pricing/pricing-quote.reader';
+import {
+  PricingQuoteValidator,
+  pricingCredentialFromEnv,
+} from './infrastructure/pricing/pricing-quote.validator';
+import { ServiceClientCallerAuthority } from './infrastructure/security/service-callers';
 import { RandomIds, Sha256Hasher, SystemClock } from './infrastructure/system/system.adapters';
 import { UnpublishedWorkAuthority } from './infrastructure/work/unpublished-work.authority';
 import { productionProviderRegistry } from './infrastructure/providers/merchant-providers';
 import { BILLING_SERVICE, BillingController } from './transport/http/billing.controller';
+import {
+  BOOKING_OBLIGATION_SERVICE,
+  BookingObligationController,
+} from './transport/http/booking-obligation.controller';
 import { CASH_CUSTODY_SERVICE, CustodyController } from './transport/http/custody.controller';
 import {
   PROVIDER_PAYMENTS_SERVICE,
@@ -67,7 +77,12 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
       logger: createLogger({ service: SERVICE_NAME }),
     }),
   ],
-  controllers: [BillingController, CustodyController, ProviderController],
+  controllers: [
+    BillingController,
+    CustodyController,
+    ProviderController,
+    BookingObligationController,
+  ],
   providers: [
     { provide: DATABASE_URL, useFactory: () => databaseUrlFromEnv() },
     PrismaService,
@@ -126,6 +141,24 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
           repository,
           authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),
           providers,
+          clock: new SystemClock(),
+          ids: new RandomIds(),
+          hasher: new Sha256Hasher(),
+        }),
+    },
+    {
+      provide: BOOKING_OBLIGATION_SERVICE,
+      inject: [PrismaBillingRepository],
+      useFactory: (repository: PrismaBillingRepository) =>
+        new BookingObligationService({
+          repository,
+          // No configured workload (BILLING_SERVICE_CLIENTS) answers 401; no
+          // Pricing workload credential fails every create closed with 503.
+          services: ServiceClientCallerAuthority.fromEnv(process.env),
+          quotes: new PricingQuoteValidator(
+            pricingConfigFromEnv(process.env),
+            pricingCredentialFromEnv(process.env),
+          ),
           clock: new SystemClock(),
           ids: new RandomIds(),
           hasher: new Sha256Hasher(),

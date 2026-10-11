@@ -364,7 +364,8 @@
         "CustodyHandover",
         "CustodyHandoverItem",
         "ProviderCredit",
-        "PaymentRefund"
+        "PaymentRefund",
+        "BookingObligation"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"

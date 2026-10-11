@@ -39,6 +39,7 @@ import {
   PrismaCustodyStore,
   toReceipt as toCashReceipt,
 } from './prisma-custody.store';
+import { PrismaBookingLinkReader, PrismaBookingLinkStore } from './prisma-booking-link.store';
 import { PrismaProviderReader, PrismaProviderStore } from './prisma-provider.store';
 import { PrismaService } from './prisma.service';
 
@@ -184,10 +185,12 @@ async function snapshot(db: Db, obligationId: string): Promise<FinancialSnapshot
 class PrismaBillingUnitOfWork implements BillingUnitOfWork {
   readonly custody: CustodyStore;
   readonly providers: ProviderStore;
+  readonly bookings: PrismaBookingLinkStore;
 
   constructor(private readonly tx: Tx) {
     this.custody = new PrismaCustodyStore(tx);
     this.providers = new PrismaProviderStore(tx);
+    this.bookings = new PrismaBookingLinkStore(tx);
   }
 
   findReceipt(actor: PrincipalRef, operation: string, key: string) {
@@ -423,11 +426,13 @@ export class PrismaBillingRepository implements BillingRepository {
   private readonly client: PrismaClient;
   readonly custody: CustodyReader;
   readonly providers: ProviderReader;
+  readonly bookings: PrismaBookingLinkReader;
 
   constructor(prisma: PrismaService) {
     this.client = prisma.client;
     this.custody = new PrismaCustodyReader(prisma.client);
     this.providers = new PrismaProviderReader(prisma.client);
+    this.bookings = new PrismaBookingLinkReader(prisma.client);
   }
 
   transaction<T>(work: (uow: BillingUnitOfWork) => Promise<T>): Promise<T> {

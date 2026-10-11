@@ -56,6 +56,7 @@ model BillingObligation {
   cashReceipts  CashReceipt[]
   reversals     CashReceiptReversal[]
   credits       ProviderCredit[]
+  bookingLink   BookingObligation?
 
   @@index([ownerKind, ownerSubject, createdAt], map: "billing_obligation_owner_idx")
   @@map("billing_obligation")
@@ -392,4 +393,24 @@ model PaymentRefund {
   @@index([creditId])
   @@index([status, requestedAt], map: "payment_refund_status_idx")
   @@map("payment_refund")
+}
+
+// ---------------------------------------------------------------------------
+// P06-B4. Booking-saga obligations (billing.v1 createBookingObligation /
+// voidBookingObligation). The link is immutable except its single void stamp;
+// guards live in migration 20261011100000_p06b4_booking_obligations.
+// ---------------------------------------------------------------------------
+
+/// The booking an obligation was created for and the workload that created it.
+model BookingObligation {
+  bookingId            String            @id @map("booking_id") @db.Uuid
+  obligationId         String            @unique @map("obligation_id") @db.Uuid
+  clientId             String            @map("client_id") @db.VarChar(64)
+  createdAt            DateTime          @map("created_at") @db.Timestamptz(3)
+  createdCorrelationId String            @map("created_correlation_id") @db.Uuid
+  voidedAt             DateTime?         @map("voided_at") @db.Timestamptz(3)
+  voidedCorrelationId  String?           @map("voided_correlation_id") @db.Uuid
+  obligation           BillingObligation @relation(fields: [obligationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("booking_obligation")
 }

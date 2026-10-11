@@ -5,6 +5,7 @@ export * from './billing-errors';
 export * from './command-support';
 export * from './billing.service';
 export * from './cash-custody.service';
+export * from './booking-obligation.service';
 export * from './events';
 export * from './custody-events';
 export * from './custody-views';
