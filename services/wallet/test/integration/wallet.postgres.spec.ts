@@ -426,3 +426,18 @@ test('HTTP: finance reads any holder, technicians only themselves, customers not
     http.identity.mode = 'normal';
   }
 });
+
+test('trigger functions are not executable by the runtime role or PUBLIC', async () => {
+  const rows = await sql.query(
+    `SELECT p.proname,
+            has_function_privilege(current_user, p.oid, 'EXECUTE') AS runtime,
+            coalesce(array_to_string(p.proacl, ','), '') AS acl
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'app'`,
+  );
+  assert.ok(rows.rowCount && rows.rowCount >= 4);
+  for (const row of rows.rows as { proname: string; runtime: boolean; acl: string }[]) {
+    assert.equal(row.runtime, false, row.proname);
+    assert.doesNotMatch(row.acl, /(^|,)=X/, `${row.proname} must not grant EXECUTE to PUBLIC`);
+  }
+});

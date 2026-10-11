@@ -1,0 +1,96 @@
+{
+  "task": "P05-B",
+  "service": "wallet",
+  "runId": "bfc079d8e2c9",
+  "startedAt": "2026-10-11T01:04:15.722Z",
+  "sourceSHA": "0a6b8920a8ea19c177431f12a3cd72b51379b859",
+  "sourceTree": "01a4b5db38f9bedc396e867c8f8bcb0cc7ae7abe",
+  "sourceDirty": true,
+  "node": "v24.21.0",
+  "docker": "29.1.3",
+  "image": {
+    "name": "postgres:16.10-alpine",
+    "repoDigests": [
+      "postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297",
+      "public.ecr.aws/docker/library/postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297"
+    ],
+    "serverVersion": "PostgreSQL 16.10"
+  },
+  "dependencies": {
+    "postgres": "REAL (disposable container)",
+    "identity": "LOCAL HTTP STUB",
+    "broker": "NOT USED by these specs (see scripts/production/B/wallet-broker-acceptance.mjs)",
+    "billing": "NOT RUNNING (events built in the registered billing.v1 envelope-v2 shape)"
+  },
+  "phases": [
+    {
+      "name": "toolchain and source provenance",
+      "status": "PASS"
+    },
+    {
+      "name": "build service and integration specs from this source",
+      "status": "PASS"
+    },
+    {
+      "name": "pull pinned PostgreSQL image",
+      "status": "PASS"
+    },
+    {
+      "name": "start disposable PostgreSQL with shared provisioner",
+      "status": "PASS"
+    },
+    {
+      "name": "runtime identity can connect after provisioning",
+      "status": "PASS"
+    },
+    {
+      "name": "upgrade from previous migration history preserves existing data",
+      "status": "PASS"
+    },
+    {
+      "name": "re-provision restricts migration history from the runtime role",
+      "status": "PASS"
+    },
+    {
+      "name": "committed Prisma schema mirror has no drift from migrated database",
+      "status": "PASS"
+    },
+    {
+      "name": "integration specs as the least-privileged runtime role",
+      "status": "PASS"
+    }
+  ],
+  "tests": {
+    "files": [
+      "services\\wallet\\dist-tests\\test\\integration\\wallet.postgres.spec.js"
+    ],
+    "summary": {
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "names": [
+      "✔ runs as the runtime role, which cannot change the schema (",
+      "✔ lifecycle: collections, handover declared, counted with shortage, reconciled (",
+      "✔ race: one event delivered concurrently by two replicas applies exactly once (",
+      "✔ race: different events for one holder from two replicas all apply, totals equal movements (",
+      "✔ ordering: early events are deferred (",
+      "✔ poison and unattributable events are recorded as rejected and never applied (",
+      "✔ database refuses tampering by the runtime role (",
+      "✔ HTTP: finance reads any holder, technicians only themselves, customers nothing ("
+    ]
+  },
+  "accepted": true,
+  "migrations": {
+    "previous": [
+      "20261005060000_w01_foundation"
+    ],
+    "added": [
+      "20261011110000_p05b_wallet_custody_projection"
+    ]
+  },
+  "finishedAt": "2026-10-11T01:05:03.744Z"
+}

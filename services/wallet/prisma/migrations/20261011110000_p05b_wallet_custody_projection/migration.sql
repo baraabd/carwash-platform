@@ -216,3 +216,11 @@ CREATE CONSTRAINT TRIGGER "custody_account_balanced" AFTER INSERT OR UPDATE ON "
     DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION "app"."wallet_check_account"();
 CREATE CONSTRAINT TRIGGER "custody_movement_balanced" AFTER INSERT ON "app"."custody_movement"
     DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION "app"."wallet_check_account"();
+
+-- No trigger body above calls another function, so none needs EXECUTE at run
+-- time (firing a trigger never checks it). Revoking PUBLIC keeps every foreign
+-- service role, and the runtime role, unable to call them directly.
+REVOKE ALL ON FUNCTION "app"."wallet_reject_mutation"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."wallet_guard_movement"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."wallet_guard_source"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."wallet_check_account"() FROM PUBLIC;
