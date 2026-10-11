@@ -8,7 +8,7 @@ deployed, not integrated with a real Identity, Gateway or broker.
 
 | Item | Value |
 | ---- | ----- |
-| Base (refreshed `origin/main`, 2026-10-11) | `66aa7528500a06f65a4b73305506feee7c3fc3b3`, tree `3a2203e360a534dc3f98529717a7625257aaccd0` |
+| Base | started on `66aa7528500a06f65a4b73305506feee7c3fc3b3`; rebased onto `origin/main` `3e1ab23bff450235858ea13e049f8fb373df393f` (2026-10-11, after P04-B/C/D merges) |
 | Audited start in the task | `f875d31` — an ancestor of the base, no longer current |
 | Branch | `prod/p06-b-close-commerce-finance-functional-matrix-and-admin-fina-b1-catalog-v1` |
 | Head / tree | recorded in the PR description and in `evidence/catalog-postgres-*.json` (`sourceSHA`, `sourceTree`) |
@@ -99,7 +99,7 @@ reviewed data plan.
 | HTTP auth/idempotency/race/outbox | `node --test services/catalog/dist-tests/test/catalog.http.spec.js` | PASSED | in-memory repository double, local Identity HTTP stub |
 | Nest runtime/health | `node --test services/catalog/dist-tests/test/catalog.nest.spec.js` | PASSED | none |
 | Provider contract (published parsers) | `node --test tests/production/B/catalog-v1-provider.test.mjs` | PASSED (4/4) | published `@carwash/contracts` dist; in-memory repository |
-| Real PostgreSQL | `node scripts/production/B/postgres-acceptance.mjs --service catalog --record` | PASSED on `ea85f21` (8/8 phases, 6/6 specs) — `evidence/catalog-postgres-ea85f21dbbb5.json` | REAL disposable PostgreSQL 16.10; Identity LOCAL HTTP STUB; broker NOT USED |
+| Real PostgreSQL | `node scripts/production/B/postgres-acceptance.mjs --service catalog --record` | PASSED on rebased `6b26b46` (8/8 phases, 6/6 specs) — `evidence/catalog-postgres-6b26b468cc81.json`; also PASSED before the rebase on `ea85f21` | REAL disposable PostgreSQL 16.10; Identity LOCAL HTTP STUB; broker NOT USED |
 | Typecheck / lint / format | `pnpm --filter @carwash/catalog typecheck`, `eslint`, `prettier --check` | PASSED | — |
 | Migration / boundary / layer guards | `check-migrations`, `check-boundaries`, `check-layers` | PASSED | — |
 | Design lock | `node scripts/check-design-reference.mjs` | PASSED (no UI touched) | — |
