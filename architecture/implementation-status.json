@@ -314,6 +314,12 @@
         "VerificationCase",
         "WorkShift",
         "OperatorAvailability",
+        "OperatorServiceArea",
+        "OperatorServiceZone",
+        "OperatorWeeklySchedule",
+        "OperatorWeeklyWindow",
+        "AvailabilityException",
+        "OperatorEquipment",
         "OutboxMessage",
         "AuditEntry"
       ],
