@@ -15,3 +15,4 @@ export * from './provider-payments.service';
 export * from './refund.service';
 export * from './provider-events';
 export * from './provider-views';
+export * from './finance-query.service';
