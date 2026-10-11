@@ -37,6 +37,10 @@
     "./billing-v1": {
       "types": "./dist/billing-v1.d.ts",
       "default": "./dist/billing-v1.js"
+    },
+    "./product-v1": {
+      "types": "./dist/product-v1.d.ts",
+      "default": "./dist/product-v1.js"
     }
   },
   "files": [

@@ -29,6 +29,8 @@ export const IDENTITY_PERMISSIONS = [
   'catalog.publish',
   'pricing.publish',
   'billing.reconcile',
+  // Additive, P05-E1: review moderation (reviews.v1).
+  'reviews.moderate',
 ] as const;
 export type IdentityPermission = (typeof IDENTITY_PERMISSIONS)[number];
 export type AccountStatus = 'ACTIVE' | 'SUSPENDED';
