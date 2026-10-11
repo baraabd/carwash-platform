@@ -2,7 +2,7 @@
 
 Status: **IMPLEMENTED; INTEGRATION_PENDING** (parent P05-C). Routes are
 provider-implemented and requested from Lane E (`contract-requests/CR-P05-C1-workforce-profile.md`).
-Base: `main@66aa7528500a06f65a4b73305506feee7c3fc3b3`. Owner: `services/workforce`
+Base: `main@3e1ab23` (rebased from 66aa752). Owner: `services/workforce`
 (database `cw_workforce`). No dependency, shared package, lockfile, CI or gateway change.
 
 ## 1. What was added
@@ -72,3 +72,12 @@ over the in-memory ports), postgres (`profile.pg.spec`, `profile-http.pg.spec` p
 existing suites, runtime role, real PostgreSQL 16), lane (`workforce-contract.test.mjs`
 against the published parsers, outbox order).
 Substitutes: Identity is an HTTP double of `/internal/v1/identity/session` in HTTP suites.
+
+## 6. Required shared-file follow-up (Lane E / owner)
+
+`tests/parallel/E/status.test.mjs` compares `architecture/implementation-status.json`
+with each owner's Prisma models. Lane C does not edit `architecture/**`; the workforce
+entry needs these six names appended after `"OperatorAvailability"` (same kind of
+"refresh source inventory" commit as a8c0c13 / 64d59f5):
+`OperatorServiceArea`, `OperatorServiceZone`, `OperatorWeeklySchedule`,
+`OperatorWeeklyWindow`, `AvailabilityException`, `OperatorEquipment`.
