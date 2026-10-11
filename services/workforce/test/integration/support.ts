@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { WORKFORCE_ELIGIBILITY_CHANGED_V1 } from '@carwash/event-contracts';
-import { WorkforceService } from '../../src/application';
+import { OperatorProfileService, WorkforceService } from '../../src/application';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma.service';
 import { PrismaWorkforceStore } from '../../src/infrastructure/persistence/prisma-workforce.store';
 import { uuidGenerator } from '../../src/infrastructure/runtime/system';
@@ -51,13 +51,19 @@ export interface Replica {
   readonly prisma: PrismaService;
   readonly store: PrismaWorkforceStore;
   readonly service: WorkforceService;
+  readonly profiles: OperatorProfileService;
 }
 
 /** One "replica" = its own connection pool, like a separate process would have. */
 export function replica(clock: Clock): Replica {
   const prisma = new PrismaService(workforceAppUrl());
   const store = new PrismaWorkforceStore(prisma);
-  return { prisma, store, service: new WorkforceService(store, store, clock, uuidGenerator) };
+  return {
+    prisma,
+    store,
+    service: new WorkforceService(store, store, clock, uuidGenerator),
+    profiles: new OperatorProfileService(store, store, clock, uuidGenerator),
+  };
 }
 
 export const OPS: Actor = {
@@ -129,10 +135,33 @@ export async function seedOperator(
   for (const skill of options.skills ?? ['exterior-wash']) {
     await r.service.grantSkill(meta(OPS), operator.id, skill);
   }
+  await allowZones(
+    r,
+    operator.id,
+    (options.shifts ?? []).map((spec) => spec.zoneId),
+  );
   for (const shift of options.shifts ?? []) {
     await r.service.createShift(meta(technician(subject)), operator.id, shift, key());
   }
   return { operatorId: operator.id, subject };
+}
+
+/**
+ * P05-C1: a shift must lie inside the operations-owned service area, so the
+ * seed puts the shift zones there first, through the application (OPS).
+ */
+export async function allowZones(
+  r: Replica,
+  operatorId: string,
+  zoneIds: readonly string[],
+): Promise<void> {
+  const distinct = [...new Set(zoneIds)];
+  if (distinct.length === 0) return;
+  const current = await r.store.findServiceArea(operatorId);
+  await r.profiles.setServiceArea(meta(OPS), operatorId, {
+    zoneIds: [...new Set([...(current?.extraZoneIds ?? []), ...distinct])],
+    expectedRevision: current?.revision ?? 0,
+  });
 }
 
 export async function verify(

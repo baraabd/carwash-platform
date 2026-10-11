@@ -46,6 +46,7 @@ function candidate(op: OperatorState, extra: Partial<CapacityCandidate> = {}): C
   return {
     operator: op,
     skillCodes: ['exterior-wash'],
+    exceptions: [],
     zoneIds: [ZONE],
     shifts: [
       {

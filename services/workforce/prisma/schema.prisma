@@ -30,12 +30,18 @@ model Operator {
   version             Int                   @default(1)
   /// Capacity-resource eligibility revision (P03-C1); CHECK 1 <= value <= version lives in SQL.
   eligibilityRevision Int                   @default(1) @map("eligibility_revision")
+  /// A REQUIRED equipment item is UNAVAILABLE (P05-C1); eligibility input.
+  equipmentBlocked    Boolean               @default(false) @map("equipment_blocked")
   createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime              @default(now()) @map("updated_at") @db.Timestamptz(3)
   grants              WorkGrant[]
   cases               VerificationCase[]
   shifts              WorkShift[]
   availability        OperatorAvailability?
+  serviceArea         OperatorServiceArea?
+  weeklySchedule      OperatorWeeklySchedule?
+  exceptions          AvailabilityException[]
+  equipment           OperatorEquipment[]
 
   @@index([homeZoneId], map: "operator_home_zone_idx")
   @@map("operator")
@@ -109,6 +115,89 @@ model OperatorAvailability {
   operator   Operator @relation(fields: [operatorId], references: [id], onDelete: Restrict)
 
   @@map("operator_availability")
+}
+
+/// Service area (P05-C1): extra zones besides the home zone. No row = home zone only.
+model OperatorServiceArea {
+  operatorId String                @id @map("operator_id") @db.Uuid
+  revision   Int
+  updatedAt  DateTime              @map("updated_at") @db.Timestamptz(3)
+  operator   Operator              @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+  zones      OperatorServiceZone[]
+
+  @@map("operator_service_area")
+}
+
+model OperatorServiceZone {
+  operatorId String              @map("operator_id") @db.Uuid
+  zoneId     String              @map("zone_id") @db.Uuid
+  area       OperatorServiceArea @relation(fields: [operatorId], references: [operatorId], onDelete: Restrict, map: "operator_service_zone_area_fkey")
+
+  @@id([operatorId, zoneId])
+  @@index([zoneId])
+  @@map("operator_service_zone")
+}
+
+/// Weekly availability (P05-C1). Window overlap EXCLUDE and minute CHECKs live in SQL.
+model OperatorWeeklySchedule {
+  operatorId String                 @id @map("operator_id") @db.Uuid
+  timeZone   String                 @map("time_zone") @db.VarChar(64)
+  revision   Int
+  updatedAt  DateTime               @map("updated_at") @db.Timestamptz(3)
+  operator   Operator               @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+  windows    OperatorWeeklyWindow[]
+
+  @@map("operator_weekly_schedule")
+}
+
+model OperatorWeeklyWindow {
+  operatorId  String                 @map("operator_id") @db.Uuid
+  weekday     Int                    @db.SmallInt
+  startMinute Int                    @map("start_minute") @db.SmallInt
+  endMinute   Int                    @map("end_minute") @db.SmallInt
+  zoneId      String                 @map("zone_id") @db.Uuid
+  schedule    OperatorWeeklySchedule @relation(fields: [operatorId], references: [operatorId], onDelete: Restrict, map: "operator_weekly_window_schedule_fkey")
+
+  @@id([operatorId, weekday, startMinute])
+  @@map("operator_weekly_window")
+}
+
+/// Availability exception (P05-C1). ACTIVE-overlap EXCLUDE and CHECKs live in SQL.
+model AvailabilityException {
+  id                 String   @id @db.Uuid
+  operatorId         String   @map("operator_id") @db.Uuid
+  startsAt           DateTime @map("starts_at") @db.Timestamptz(3)
+  endsAt             DateTime @map("ends_at") @db.Timestamptz(3)
+  reason             String
+  status             String   @default("ACTIVE")
+  requester          String   @db.VarChar(120)
+  idempotencyKey     String   @map("idempotency_key") @db.VarChar(128)
+  requestFingerprint String   @map("request_fingerprint") @db.Char(64)
+  version            Int      @default(1)
+  createdAt          DateTime @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @map("updated_at") @db.Timestamptz(3)
+  operator           Operator @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+
+  @@unique([requester, idempotencyKey])
+  @@index([operatorId, startsAt])
+  @@map("availability_exception")
+}
+
+/// Operational equipment / service vehicle readiness (P05-C1). CHECKs live in SQL.
+model OperatorEquipment {
+  id         String   @id @db.Uuid
+  operatorId String   @map("operator_id") @db.Uuid
+  kind       String
+  required   Boolean
+  status     String
+  issue      String?
+  revision   Int
+  createdAt  DateTime @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @map("updated_at") @db.Timestamptz(3)
+  operator   Operator @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+
+  @@unique([operatorId, kind])
+  @@map("operator_equipment")
 }
 
 model OutboxMessage {
