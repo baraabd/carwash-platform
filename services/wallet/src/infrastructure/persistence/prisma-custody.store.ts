@@ -256,6 +256,10 @@ export class PrismaCustodyStore implements CustodyProjectionStore {
   transaction<T>(work: (uow: CustodyUnitOfWork) => Promise<T>): Promise<T> {
     return this.client.$transaction((tx) => work(new PrismaCustodyUnitOfWork(tx)), {
       isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+      // A burst of deliveries can exceed the pool; waiting for a connection is
+      // safe (nothing is written yet) and a timeout surfaces as a retryable
+      // failure, never as an applied event.
+      maxWait: 10_000,
       timeout: 10_000,
     });
   }
