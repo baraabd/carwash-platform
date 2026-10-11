@@ -101,11 +101,13 @@ function currencyView(summary: CurrencyFinanceSummary): Record<string, unknown> 
     providerCredits: {
       byStatus: summary.providerCredits.byStatus,
       confirmed: summary.providerCredits.confirmed.toWire(),
+      awaitingApproval: summary.providerCredits.awaitingApproval.toWire(),
     },
     refunds: {
       byStatus: summary.refunds.byStatus,
-      succeeded: summary.refunds.succeeded.toWire(),
+      refunded: summary.refunds.refunded.toWire(),
       inFlight: summary.refunds.inFlight.toWire(),
+      refundable: summary.refunds.refundable.toWire(),
     },
     ledger: summary.ledger,
   };

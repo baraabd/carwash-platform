@@ -356,9 +356,11 @@ const FIGURES = [
   'cashCustody.receiptsByStatus.HELD',
   'providerCredits.byStatus.ALLOCATED',
   'providerCredits.confirmed',
+  'providerCredits.awaitingApproval',
   'refunds.byStatus.SUCCEEDED',
   'refunds.byStatus.APPROVED',
-  'refunds.succeeded',
+  'refunds.refunded',
+  'refunds.refundable',
   'refunds.inFlight',
 ];
 
@@ -389,11 +391,12 @@ function modelDelta(models: readonly Expected[], currency: Currency): Map<string
     if (m.allocatedCredit) {
       add('providerCredits.byStatus.ALLOCATED', 1n);
       add('providerCredits.confirmed', m.amount);
+      add('refunds.refundable', m.amount - (m.refund?.amount ?? 0n));
     }
     if (m.refund) {
       add(`refunds.byStatus.${m.refund.status}`, 1n);
       add(
-        m.refund.status === 'SUCCEEDED' ? 'refunds.succeeded' : 'refunds.inFlight',
+        m.refund.status === 'SUCCEEDED' ? 'refunds.refunded' : 'refunds.inFlight',
         m.refund.amount,
       );
     }
@@ -455,7 +458,13 @@ test('model-based: random command sequences through the real services; summary d
     const now = currencyOf(afterward, currency);
     for (const [figure, value] of expected)
       assert.equal(at(now, figure) - at(was, figure), value, `${currency} ${figure}`);
-    assert.deepEqual(now.ledger, { receivable: true, cleared: true, custody: true, refunds: true });
+    assert.deepEqual(now.ledger, {
+      receivable: true,
+      cleared: true,
+      custody: true,
+      refunds: true,
+      refundCap: true,
+    });
   }
   const text = JSON.stringify(afterward);
   for (const subject of Object.values(SUBJECTS))

@@ -12,6 +12,7 @@ import {
   OBLIGATION_STATUSES,
   PAYMENT_METHODS,
   REFUND_STATUSES,
+  RESERVING_REFUND_STATUSES,
   financialStatus,
   foldFinanceSummary,
   groupFinancialStatus,
@@ -192,13 +193,27 @@ function scenario(seed: number) {
   const population = Array.from({ length: 1 + Math.floor(random() * 120) }, () =>
     randomObligation(random),
   );
+  const refunds = randomTallies(random, REFUND_STATUSES);
+  // Credits always cover the refunds reserved against them (the per-credit DB cap).
+  const credits = randomTallies(random, CREDIT_STATUSES).filter(
+    (row) => row.status !== 'ALLOCATED',
+  );
+  for (const currency of ['SYP', 'USD'])
+    credits.push({
+      currency,
+      status: 'ALLOCATED',
+      count: 1 + Math.floor(random() * 9),
+      amountMinor:
+        amountOf(refunds, currency, RESERVING_REFUND_STATUSES) +
+        BigInt(Math.floor(random() * 900_000)),
+    });
   const partial = {
     obligations: grouped(population),
     attempts: randomTallies(random, ATTEMPT_STATUSES),
     receipts: randomTallies(random, CUSTODY_STATUSES),
     handovers: randomTallies(random, HANDOVER_STATUSES),
-    credits: randomTallies(random, CREDIT_STATUSES),
-    refunds: randomTallies(random, REFUND_STATUSES),
+    credits,
+    refunds,
   };
   return { population, facts: { ...partial, ledger: agreeingLedger(partial, population) } };
 }
@@ -259,9 +274,37 @@ test('model-based: the fold equals a naive per-obligation reference (500 random 
         view.refunds.inFlight.amountMinor,
         amountOf(facts.refunds, currency, ['REQUESTED', 'APPROVED', 'SUBMITTED', 'UNKNOWN']),
       );
+      const confirmed = amountOf(facts.credits, currency, ['UNALLOCATED', 'ALLOCATED']);
+      const refunded = amountOf(facts.refunds, currency, ['SUCCEEDED']);
+      const inFlight = amountOf(facts.refunds, currency, [
+        'REQUESTED',
+        'APPROVED',
+        'SUBMITTED',
+        'UNKNOWN',
+      ]);
+      assert.equal(view.refunds.refunded.amountMinor, refunded);
+      assert.equal(view.refunds.refundable.amountMinor, confirmed - refunded - inFlight);
+      assert.equal(
+        view.providerCredits.awaitingApproval.amountMinor,
+        amountOf(facts.credits, currency, ['PENDING_APPROVAL']),
+      );
       assert.equal(view.obligations.billed.toWire().scale, 2);
     }
   }
+});
+
+test('refund cap: reserved refunds above confirmed credits are an alarm, never a negative figure', () => {
+  const { facts } = scenario(7);
+  const refunds = [
+    ...facts.refunds,
+    { currency: 'USD', status: 'REQUESTED' as const, count: 1, amountMinor: 10n ** 15n },
+  ];
+  const summary = foldFinanceSummary({ ...facts, refunds }, new Date());
+  const usd = summary.currencies.find((c) => c.currency === 'USD');
+  assert.equal(summary.ledgerConsistent, false);
+  assert.equal(usd?.ledger.refundCap, false);
+  assert.equal(usd?.refunds.refundable.amountMinor, 0n);
+  assert.ok(summary.currencies.find((c) => c.currency === 'SYP')?.ledger.refundCap);
 });
 
 test('consistency: each corrupted ledger figure is detected in its own check and currency', () => {

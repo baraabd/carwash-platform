@@ -86,18 +86,21 @@ interface CurrencyFinanceSummaryV1 {
   };
   providerCredits: {
     byStatus: Record<CreditStatus, number>;
-    confirmed: Money; // gross UNALLOCATED + ALLOCATED, before refunds
+    confirmed: Money;        // gross UNALLOCATED + ALLOCATED, before refunds
+    awaitingApproval: Money; // PENDING_APPROVAL: recorded, not yet approved; NOT money
   };
   refunds: {
     byStatus: Record<RefundStatusInternal, number>;
-    succeeded: Money;
-    inFlight: Money; // REQUESTED + APPROVED + SUBMITTED + UNKNOWN
+    refunded: Money;   // SUCCEEDED
+    inFlight: Money;   // REQUESTED + APPROVED + SUBMITTED + UNKNOWN (reserved)
+    refundable: Money; // confirmed − refunded − inFlight; 0 when refundCap is false
   };
   ledger: {          // the ledger against the projections, per currency
     receivable: boolean; // CUSTOMER_RECEIVABLE (obligation journals) = outstanding
     cleared: boolean;    // cleared accounts (obligation journals) = verified
     custody: boolean;    // CASH_IN_CUSTODY = inCustody
-    refunds: boolean;    // REFUND_PAID clearing credits = refunds.succeeded
+    refunds: boolean;    // REFUND_PAID clearing credits = refunds.refunded
+    refundCap: boolean;  // reserved refunds ≤ confirmed credits
   };
 }
 ```

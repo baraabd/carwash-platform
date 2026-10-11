@@ -17,7 +17,7 @@ import {
   type PaymentMethod,
 } from './payment';
 import { CREDIT_STATUSES, CONFIRMED_CREDIT_STATUSES, type CreditStatus } from './provider';
-import { REFUND_STATUSES, type RefundStatus } from './refund';
+import { REFUND_STATUSES, RESERVING_REFUND_STATUSES, type RefundStatus } from './refund';
 
 /**
  * Finance summary (admin read model, P06-B6). A pure fold over facts read from
@@ -90,6 +90,8 @@ export interface LedgerChecks {
   readonly custody: boolean;
   /** Money paid out by refunds = SUCCEEDED refunds. */
   readonly refunds: boolean;
+  /** Refunds holding money (reserving statuses) never exceed confirmed credits. */
+  readonly refundCap: boolean;
 }
 
 export interface CurrencyFinanceSummary {
@@ -118,12 +120,17 @@ export interface CurrencyFinanceSummary {
     readonly byStatus: Readonly<Record<CreditStatus, number>>;
     /** Gross amount of confirmed credits (UNALLOCATED + ALLOCATED), before refunds. */
     readonly confirmed: Money;
+    /** PENDING_APPROVAL: recorded by one person, not yet approved by a second. Not money yet. */
+    readonly awaitingApproval: Money;
   };
   readonly refunds: {
     readonly byStatus: Readonly<Record<RefundStatus, number>>;
-    readonly succeeded: Money;
-    /** REQUESTED, APPROVED, SUBMITTED or UNKNOWN: not yet known to have left. */
+    /** SUCCEEDED: money that left back to the payer. */
+    readonly refunded: Money;
+    /** REQUESTED, APPROVED, SUBMITTED or UNKNOWN: reserved, not yet known to have left. */
     readonly inFlight: Money;
+    /** confirmed credits - refunded - inFlight: what may still be requested (zero if the cap check fails). */
+    readonly refundable: Money;
   };
   readonly ledger: LedgerChecks;
 }
@@ -176,6 +183,8 @@ export function assessLedger(input: {
   readonly verifiedMinor: bigint;
   readonly receiptsInCustodyMinor: bigint;
   readonly succeededRefundsMinor: bigint;
+  readonly reservedRefundsMinor: bigint;
+  readonly confirmedCreditsMinor: bigint;
   readonly ledger: LedgerFacts;
 }): LedgerChecks {
   return {
@@ -183,6 +192,7 @@ export function assessLedger(input: {
     cleared: input.ledger.clearedMinor === input.verifiedMinor,
     custody: input.ledger.custodyMinor === input.receiptsInCustodyMinor,
     refunds: input.ledger.refundsPaidMinor === input.succeededRefundsMinor,
+    refundCap: input.reservedRefundsMinor <= input.confirmedCreditsMinor,
   };
 }
 
@@ -244,6 +254,12 @@ export function foldFinanceSummary(facts: FinanceFacts, asOf: Date): FinanceSumm
     const attempts = tally(facts.attempts, currency, ATTEMPT_STATUSES);
     const receiptsInCustody = sum(facts.receipts, currency, ['HELD', 'IN_HANDOVER']);
     const succeededRefunds = sum(facts.refunds, currency, ['SUCCEEDED']);
+    const inFlightRefunds = sum(facts.refunds, currency, IN_FLIGHT_REFUNDS);
+    const reservedRefunds = sum(facts.refunds, currency, RESERVING_REFUND_STATUSES);
+    const confirmedCredits = sum(facts.credits, currency, CONFIRMED_CREDIT_STATUSES);
+    // Never a negative or clamped-looking figure: a broken cap is reported by refundCap.
+    const refundable =
+      confirmedCredits >= reservedRefunds ? confirmedCredits - reservedRefunds : 0n;
     const ledger = facts.ledger.find((row) => row.currency === currency) ?? {
       currency,
       receivableMinor: 0n,
@@ -272,18 +288,22 @@ export function foldFinanceSummary(facts: FinanceFacts, asOf: Date): FinanceSumm
       },
       providerCredits: {
         byStatus: tally(facts.credits, currency, CREDIT_STATUSES),
-        confirmed: Money.of(currency, sum(facts.credits, currency, CONFIRMED_CREDIT_STATUSES)),
+        confirmed: Money.of(currency, confirmedCredits),
+        awaitingApproval: Money.of(currency, sum(facts.credits, currency, ['PENDING_APPROVAL'])),
       },
       refunds: {
         byStatus: tally(facts.refunds, currency, REFUND_STATUSES),
-        succeeded: Money.of(currency, succeededRefunds),
-        inFlight: Money.of(currency, sum(facts.refunds, currency, IN_FLIGHT_REFUNDS)),
+        refunded: Money.of(currency, succeededRefunds),
+        inFlight: Money.of(currency, inFlightRefunds),
+        refundable: Money.of(currency, refundable),
       },
       ledger: assessLedger({
         receivableExpectedMinor: outstanding,
         verifiedMinor: verified,
         receiptsInCustodyMinor: receiptsInCustody,
         succeededRefundsMinor: succeededRefunds,
+        reservedRefundsMinor: reservedRefunds,
+        confirmedCreditsMinor: confirmedCredits,
         ledger,
       }),
     };
