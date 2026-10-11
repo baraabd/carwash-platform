@@ -201,7 +201,10 @@
         "CatalogAddonCategory",
         "CatalogPackageAddon",
         "CatalogIdempotencyReceipt",
-        "CatalogAuditEvent"
+        "CatalogAuditEvent",
+        "CatalogV1Publication",
+        "CatalogV1DefinitionIdentity",
+        "CatalogV1Definition"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
