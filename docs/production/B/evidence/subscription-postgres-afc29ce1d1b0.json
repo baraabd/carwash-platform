@@ -1,10 +1,10 @@
 {
   "task": "P05-B",
   "service": "subscription",
-  "runId": "b2513d1ecaed",
-  "startedAt": "2026-10-11T00:44:44.983Z",
-  "sourceSHA": "ac271ba8c3c592c5631eb1fa8b3b91a8d5db101b",
-  "sourceTree": "d60f96866e24a3a12b10432c39fe55ae180d0a4b",
+  "runId": "20574229a196",
+  "startedAt": "2026-10-11T01:08:29.441Z",
+  "sourceSHA": "afc29ce1d1b0150e5eca37b5d122fd9f48af3c3b",
+  "sourceTree": "950617bc17e07d4e0067246271ff6c34f3fc49d1",
   "sourceDirty": false,
   "node": "v24.21.0",
   "docker": "29.1.3",
@@ -65,8 +65,8 @@
       "services\\subscription\\dist-tests\\test\\integration\\subscription.postgres.spec.js"
     ],
     "summary": {
-      "tests": 12,
-      "pass": 12,
+      "tests": 13,
+      "pass": 13,
       "fail": 0,
       "cancelled": 0,
       "skipped": 0,
@@ -84,7 +84,8 @@
       "✔ freeze blocks new reservations only; staff reversal returns a consumed unit; ledger reconciles (",
       "✔ periods: bookings outside the period are refused; renewal after expiry starts a new period, no carry-over (",
       "✔ service authorization: deny by default, explicit scopes, owner-bound reservations (",
-      "✔ database refuses tampering by the runtime role ("
+      "✔ database refuses tampering by the runtime role (",
+      "✔ trigger functions are not executable by the runtime role or PUBLIC ("
     ]
   },
   "accepted": true,
@@ -96,5 +97,5 @@
       "20261011100000_p05b_subscription_entitlements"
     ]
   },
-  "finishedAt": "2026-10-11T00:46:26.632Z"
+  "finishedAt": "2026-10-11T01:09:41.119Z"
 }

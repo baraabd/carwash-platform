@@ -12,7 +12,7 @@
 | Scope | `services/subscription/**`, `scripts/production/B/postgres-acceptance.mjs`, `docs/production/B/**` |
 | Migration | `20261011100000_p05b_subscription_entitlements` (expand-only on top of the W01 marker) |
 | Contracts | None consumed or changed in shared packages. Requests are in `CONTRACT_REQUEST_E_SUBSCRIPTION.md` (CR-B-10.1–.6). |
-| Evidence | `docs/production/B/evidence/subscription-postgres-ac271ba8c3c5.json` (code commit `ac271ba8c3c592c5631eb1fa8b3b91a8d5db101b`, tree `d60f96866e24a3a12b10432c39fe55ae180d0a4b`, clean) (real PostgreSQL 16.10, runtime role) |
+| Evidence | `docs/production/B/evidence/subscription-postgres-afc29ce1d1b0.json` (code commit `afc29ce1d1b0150e5eca37b5d122fd9f48af3c3b`, tree `950617bc17e07d4e0067246271ff6c34f3fc49d1`, clean) (real PostgreSQL 16.10, runtime role) |
 
 ## Design
 
@@ -95,7 +95,7 @@ Routes, access and codes: `CONTRACT_REQUEST_E_SUBSCRIPTION.md` (CR-B-10.2).
 | --- | --- |
 | Domain/unit: terms, revisions, lifecycle, reservation rules, movements, transitions, event self-validation | **PASSED** (8) |
 | Nest composition: routes mounted, 401 without credential, 503 without Identity origin, 401 without configured service client, malformed client config stops startup, readiness 503 | **PASSED** (11) |
-| **Real PostgreSQL 16.10**, runtime role, 2 replicas: `node scripts/production/B/postgres-acceptance.mjs --service subscription --record` | **PASSED 12/12**: see the evidence file |
+| **Real PostgreSQL 16.10**, runtime role, 2 replicas: `node scripts/production/B/postgres-acceptance.mjs --service subscription --record` | **PASSED 13/13**, all phases, no skips. Includes "trigger functions are not executable by the runtime role or PUBLIC" (CI foundation privilege rule, fixed in `afc29ce`) |
 | Upgrade from the W01 history (marker kept), re-provision, schema mirror drift | **PASSED** |
 | typecheck, build, ESLint, Prettier, design reference and reference lock, boundaries, layers, service shells, migrations, ownership, contract docs and surface | **PASSED** |
 | `tests/parallel/E/status.test.mjs` (CI `static`) | **BLOCKED** until E registers the new persistence models (CR-B-10.7): a registration gap by design |
