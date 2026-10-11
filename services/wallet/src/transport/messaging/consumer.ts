@@ -19,7 +19,7 @@ export function createServiceMessageConsumer<TPayload>(
 /**
  * Broker binding state for the billing.v1 custody events. Binding needs the
  * `@carwash/platform-messaging` dependency (lockfile owned by Lane E,
- * CONTRACT_REQUEST_E_WALLET CR-W-01), so no queue is consumed yet and the
+ * CONTRACT_REQUEST_E_WALLET CR-B-P06-WAL-01), so no queue is consumed yet and the
  * projection receives no live events. Readiness stays false meanwhile.
  */
 export const BILLING_EVENTS_BINDING = 'NOT_BOUND' as const;

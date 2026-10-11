@@ -19,7 +19,7 @@ import { CUSTODY_QUERY_SERVICE, WalletController } from './transport/http/wallet
  * Nest belongs here at the outside edge. Domain/application/ports do not import
  * it. BUSINESS_READY stays false: the custody projection and its read API
  * exist, but the billing.v1 broker binding is not started (no
- * platform-messaging dependency yet, CR-W-01) and readiness promotion, route
+ * platform-messaging dependency yet, CR-B-P06-WAL-01) and readiness promotion, route
  * registration and grants are Lane E gates (CONTRACT_REQUEST_E_WALLET.md).
  */
 export const SERVICE_NAME = 'wallet';

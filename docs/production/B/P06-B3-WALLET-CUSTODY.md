@@ -3,7 +3,7 @@
 Parent: P06-B (close the commerce/finance functional matrix). Status of this
 child: **PR open, review required**. The parent stays **INTEGRATION_PENDING**.
 Nothing here is production-ready, deployed or integrated. Wallet receives no
-live events until Lane E accepts CR-W-01/02.
+live events until Lane E accepts CR-B-P06-WAL-01/02.
 
 - Base: main `66aa7528500a06f65a4b73305506feee7c3fc3b3`
   (tree `3a2203e360a534dc3f98529717a7625257aaccd0`), refreshed 2026-10-11. The
@@ -148,8 +148,8 @@ All results were produced on the accepted source above:
 | Boundaries/layers | `node scripts/check-boundaries.mjs`, `node scripts/check-layers.mjs`, `node scripts/dev/generate-service-shells.mjs --check` | PASSED |
 | Design lock | `node scripts/check-design-reference.mjs` | PASSED (no UI touched) |
 | Lint/format | `npx eslint services/wallet scripts/production/B`, `npx prettier --check` (changed files) | PASSED |
-| Real RabbitMQ | — | **BLOCKED** by CR-W-01/02. Not claimed. |
-| Real Billing-to-Wallet on a shared broker | — | **BLOCKED** by CR-W-01/02/05 |
+| Real RabbitMQ | — | **BLOCKED** by CR-B-P06-WAL-01/02. Not claimed. |
+| Real Billing-to-Wallet on a shared broker | — | **BLOCKED** by CR-B-P06-WAL-01/02/05 |
 
 Dependencies, real vs. not real:
 
@@ -180,13 +180,13 @@ Two earlier runs on this branch failed and were fixed, not hidden:
 
 ## Blockers (exact, residual)
 
-- **B-P06-W1 (Lane E, CR-W-01/02):** the platform-messaging dependency, the
+- **B-P06-WAL-01 (Lane E, CR-B-P06-WAL-01/02):** the platform-messaging dependency, the
   broker queue/ACL/DLQ, and the real RabbitMQ redelivery evidence.
-- **B-P06-W2 (Lane E, CR-W-03/04):** `wallet.v1` registration, the Gateway
+- **B-P06-WAL-02 (Lane E, CR-B-P06-WAL-03/04):** `wallet.v1` registration, the Gateway
   alias, and the grant naming decision.
-- **B-P06-W3 (Lane E/B, CR-B-08):** Identity actually issuing
+- **B-P06-WAL-03 (Lane E/B, CR-B-08):** Identity actually issuing
   `billing.cash.collect`/`billing.read` to real staff.
-- **B-P06-W4 (Owner, B-08):** customer stored value, funding, holds and
+- **B-P06-WAL-04 (Owner, B-08):** customer stored value, funding, holds and
   withdrawal stay out of scope. The schema forbids any purpose other than
   technician custody.
 
@@ -196,4 +196,4 @@ Two earlier runs on this branch failed and were fixed, not hidden:
   Billing's authoritative reconciliation.
 - The technician app (Lane C) reads "cash with me".
 
-Both wait for CR-W-03.
+Both wait for CR-B-P06-WAL-03.

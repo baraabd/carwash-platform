@@ -72,7 +72,7 @@ const SERVICES = {
       ...IDENTITY_STUB,
       billing:
         'TEST MODEL of Billing custody emitting billing.v1 envelopes checked by the shared parsers',
-      broker: 'NOT USED (billing.v1 binding waits on CR-W-01 platform-messaging dependency)',
+      broker: 'NOT USED (billing.v1 binding waits on CR-B-P06-WAL-01 platform-messaging dependency)',
     },
   },
 };

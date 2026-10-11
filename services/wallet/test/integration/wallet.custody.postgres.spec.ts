@@ -24,7 +24,7 @@ import { startWalletHttp, type WalletHttpHarness } from '../support/wallet-http-
  * Two replicas (separate pools) share the database to prove concurrency.
  * Billing events are produced by a test model of Billing's custody state
  * machine and validated with the shared billing.v1 parsers. RabbitMQ is NOT
- * used: the broker binding waits on CR-W-01 (platform-messaging dependency).
+ * used: the broker binding waits on CR-B-P06-WAL-01 (platform-messaging dependency).
  */
 const APP_URL = process.env.WALLET_TEST_DATABASE_URL;
 if (!APP_URL) throw new Error('WALLET_TEST_DATABASE_URL_REQUIRED');
