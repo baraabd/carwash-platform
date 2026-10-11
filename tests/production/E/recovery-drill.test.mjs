@@ -17,7 +17,8 @@ test('every drill image is a fixed version resolved to a digest before use', () 
   assert.ok(tags.length >= 6);
   for (const tag of tags) assert.match(tag, /:v?\d+\.\d+(\.\d+)?(-[a-z0-9.-]+)?$/, tag);
   assert.doesNotMatch(drill, /:latest\b/);
-  assert.match(drill, /images\[key\] = await byDigest\(tag\)/);
+  assert.match(drill, /resolveImage = byDigest/);
+  assert.match(drill, /images\[key\] = await resolveImage\(tag\)/);
   assert.match(flat, /SEAWEED = 'chrislusf\/seaweedfs@sha256:[0-9a-f]{64}'/);
 });
 

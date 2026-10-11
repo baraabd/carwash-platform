@@ -26,18 +26,19 @@
  */
 import assert from 'node:assert/strict';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
-import { officialImagePullCandidates } from '../../../lib/image-references.mjs';
+import { privilegeHardeningSql } from '../../../acceptance/lib/migrations.mjs';
+import { observePostgresClient, startAcknowledgedWrites } from './postgres-writer.mjs';
+import { run as runCommand } from '../../../acceptance/lib/exec.mjs';
+import { acquireDrillImage } from './image-acquisition.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const require = createRequire(path.join(ROOT, 'services/booking/package.json'));
-const { Client } = require('pg');
 
 export const IMAGE_TAGS = Object.freeze({
   postgres: 'postgres:16.10-alpine',
@@ -65,23 +66,12 @@ const redact = (text) =>
 
 /* --------------------------------------------------------------- docker --- */
 
-function exec(cmd, args, { input, timeoutMs = 600_000, env } = {}) {
-  return new Promise((resolve) => {
-    const child = spawn(cmd, args, {
-      env: { ...process.env, ...env },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', (c) => (stdout += c));
-    child.stderr.on('data', (c) => (stderr += c));
-    const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);
-    child.on('close', (code) => {
-      clearTimeout(timer);
-      resolve({ code, stdout, stderr });
-    });
-    if (input !== undefined) child.stdin.end(input);
-    else child.stdin.end();
+function exec(cmd, args, { input, timeoutMs = 600_000, env, cwd = ROOT } = {}) {
+  return runCommand(cmd, args, {
+    cwd,
+    input,
+    timeoutMs,
+    env: { ...process.env, ...env },
   });
 }
 
@@ -94,21 +84,7 @@ async function docker(args, options) {
 }
 
 async function byDigest(tag) {
-  for (const candidate of officialImagePullCandidates(tag)) {
-    const result = await exec('docker', [
-      'buildx',
-      'imagetools',
-      'inspect',
-      candidate,
-      '--format',
-      '{{json .Manifest}}',
-    ]);
-    if (result.code !== 0) continue;
-    const ref = `${candidate.replace(/:[^:/]+$/, '')}@${JSON.parse(result.stdout).digest}`;
-    await docker(['pull', '--quiet', ref], { timeoutMs: 900_000 });
-    return ref;
-  }
-  throw new Error(`cannot resolve ${tag} to a digest`);
+  return acquireDrillImage(tag, exec);
 }
 
 async function network(id, { internal = false } = {}) {
@@ -183,15 +159,23 @@ function readdirSafe(dir) {
 }
 
 async function pgClient(port, user, password, database) {
-  const client = new Client({
-    host: '127.0.0.1',
-    port,
-    user,
-    password,
-    database,
-    connectionTimeoutMillis: 3000,
-  });
-  await client.connect();
+  const { Client } = require('pg');
+  const client = observePostgresClient(
+    new Client({
+      host: '127.0.0.1',
+      port,
+      user,
+      password,
+      database,
+      connectionTimeoutMillis: 3000,
+    }),
+  );
+  try {
+    await client.connect();
+  } catch (error) {
+    await client.end().catch(() => {});
+    throw error;
+  }
   return client;
 }
 
@@ -271,13 +255,23 @@ async function postgresDrill(report) {
         'migrate',
         'deploy',
       ],
-      { env: { DATABASE_URL: dsn }, timeoutMs: 300_000 },
+      {
+        cwd: path.join(ROOT, 'services', owner),
+        env: { DATABASE_URL: dsn },
+        timeoutMs: 300_000,
+      },
     );
     assert.equal(
       result.code,
       0,
       `migrate ${owner}: ${redact(result.stdout + result.stderr).slice(-800)}`,
     );
+    const policy = await pgClient(port, 'cw_drill_bootstrap', bootstrap, `cw_${owner}`);
+    try {
+      await policy.query(privilegeHardeningSql(owner));
+    } finally {
+      await policy.end();
+    }
   }
 
   // Static data + a write ledger in a drill database (owner schemas stay untouched).
@@ -310,54 +304,49 @@ async function postgresDrill(report) {
   }
 
   // Continuous acknowledged writes: the client-side ack log is the RPO ground truth.
-  const acks = [];
-  let writing = true;
-  const writer = (async () => {
-    let seq = 0;
-    while (writing) {
-      seq += 1;
-      try {
-        await drill.query('INSERT INTO ledger (seq) VALUES ($1)', [seq]);
-        acks.push({ seq, at: Date.now() });
-      } catch {
-        return;
-      }
-      await delay(10);
+  const writer = startAcknowledgedWrites(drill);
+  let backupStarted;
+  let backupMs;
+  let disasterAt;
+  try {
+    await delay(2000);
+    backupStarted = Date.now();
+    await docker([
+      'exec',
+      '--user',
+      'postgres',
+      '--env',
+      `PGPASSWORD=${bootstrap}`,
+      primary,
+      'pg_basebackup',
+      '-h',
+      '127.0.0.1',
+      '-U',
+      'cw_drill_bootstrap',
+      '-D',
+      '/backup/base',
+      '-Ft',
+      '-z',
+      '-X',
+      'stream',
+      '-c',
+      'fast',
+    ]);
+    backupMs = Date.now() - backupStarted;
+    await delay(5000); // keep writing after the base backup: recovery must replay archived WAL
+
+    writer.beginDisaster();
+    disasterAt = Date.now();
+    await docker(['kill', '--signal', 'KILL', primary]);
+  } finally {
+    try {
+      await writer.stop();
+    } finally {
+      await drill.end().catch(() => {});
     }
-  })();
-
-  await delay(2000);
-  const backupStarted = Date.now();
-  await docker([
-    'exec',
-    '--user',
-    'postgres',
-    '--env',
-    `PGPASSWORD=${bootstrap}`,
-    primary,
-    'pg_basebackup',
-    '-h',
-    '127.0.0.1',
-    '-U',
-    'cw_drill_bootstrap',
-    '-D',
-    '/backup/base',
-    '-Ft',
-    '-z',
-    '-X',
-    'stream',
-    '-c',
-    'fast',
-  ]);
-  const backupMs = Date.now() - backupStarted;
-  await delay(5000); // keep writing after the base backup: recovery must replay archived WAL
-
-  const disasterAt = Date.now();
-  await docker(['kill', '--signal', 'KILL', primary]);
-  writing = false;
-  await writer;
-  await drill.end().catch(() => {});
-  const lastAck = acks.at(-1);
+  }
+  const lastAck = writer.acknowledgements.at(-1);
+  assert.ok(lastAck, 'The disaster drill must contain acknowledged writes');
 
   // Isolated restore: an internal-only network that cannot reach anything else.
   const isolated = await network(name('pg-restore-net'), { internal: true });
@@ -453,10 +442,34 @@ async function postgresDrill(report) {
       `cw_${owner}_app`,
       passwords[owner].app,
     );
+    const runtimePolicy = await sql(
+      `cw_${owner}`,
+      `SELECT current_user = 'cw_${owner}_app',
+       NOT has_table_privilege(current_user, 'app._prisma_migrations',
+         'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')`,
+      `cw_${owner}_app`,
+      passwords[owner].app,
+    );
+    let configurationHistoryImmutable = true;
+    if (owner === 'configuration') {
+      const appendOnly = await sql(
+        'cw_configuration',
+        `SELECT bool_and(NOT has_table_privilege(current_user, history_table,
+           'UPDATE,DELETE,TRUNCATE'))
+         FROM unnest(ARRAY['app.config_revision', 'app.config_review', 'app.config_audit'])
+           AS history_table`,
+        'cw_configuration_app',
+        passwords[owner].app,
+      );
+      configurationHistoryImmutable = appendOnly.code === 0 && appendOnly.stdout.trim() === 't';
+    }
     ownerChecks[owner] = {
       history: Number(n) === history[owner].migrations && h === history[owner].historyHash,
       tables: Number(t.stdout.trim()) === history[owner].tables,
       runtimeDdlDenied: ddl.code !== 0 && /permission denied/i.test(ddl.stderr),
+      runtimeMigrationHistoryDenied:
+        runtimePolicy.code === 0 && runtimePolicy.stdout.trim() === 't|t',
+      configurationHistoryImmutable,
     };
   }
   // Egress from the restore network must be impossible (no route out of --internal).
@@ -470,6 +483,9 @@ async function postgresDrill(report) {
     allOwnersHistoryAndTables: Object.values(ownerChecks).every((c) => c.history && c.tables),
     allOwnersRuntimeDdlDeniedAfterRestore: Object.values(ownerChecks).every(
       (c) => c.runtimeDdlDenied,
+    ),
+    allOwnersRuntimePoliciesPreserved: Object.values(ownerChecks).every(
+      (c) => c.runtimeMigrationHistoryDenied && c.configurationHistoryImmutable,
     ),
     restoreNetworkIsolated: reachOut.code !== 0,
   };
@@ -1028,8 +1044,7 @@ async function alertDrill(report, work) {
 
 /* ----------------------------------------------------------------- main --- */
 
-async function main() {
-  const argv = process.argv.slice(2);
+export async function main({ argv = process.argv.slice(2), resolveImage = byDigest } = {}) {
   const reportFile = argv[argv.indexOf('--report') + 1];
   assert.ok(argv.includes('--report') && reportFile, '--report <file> is required');
   const work = mkdtempSync(path.join(tmpdir(), 'cw-drill-'));
@@ -1046,7 +1061,7 @@ async function main() {
     failures: {},
   };
   try {
-    for (const [key, tag] of Object.entries(IMAGE_TAGS)) images[key] = await byDigest(tag);
+    for (const [key, tag] of Object.entries(IMAGE_TAGS)) images[key] = await resolveImage(tag);
     images.seaweedfs = SEAWEED;
     for (const [component, drill] of Object.entries({
       postgres: postgresDrill,
@@ -1067,6 +1082,8 @@ async function main() {
         `${report.components[component].ok ? 'PASS' : 'FAIL'} ${component} ${JSON.stringify(report.components[component].measured ?? {})}`,
       );
     }
+  } catch (error) {
+    report.failures.preparation = redact(error.stack ?? error.message).slice(0, 4000);
   } finally {
     if (!argv.includes('--keep')) {
       for (const c of created.containers.reverse()) await exec('docker', ['rm', '-f', c]);
@@ -1082,12 +1099,16 @@ async function main() {
   mkdirSync(path.dirname(reportFile), { recursive: true });
   writeFileSync(reportFile, `${JSON.stringify(report, null, 2)}\n`);
   console.log(report.accepted ? 'RECOVERY DRILL PASSED' : 'RECOVERY DRILL FAILED');
-  process.exit(report.accepted ? 0 : 1);
+  return report;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main().catch((error) => {
-    console.error(redact(error.stack ?? error.message));
-    process.exit(1);
-  });
+  main()
+    .then((report) => {
+      process.exitCode = report.accepted ? 0 : 1;
+    })
+    .catch((error) => {
+      console.error(redact(error.stack ?? error.message));
+      process.exitCode = 1;
+    });
 }
