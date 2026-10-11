@@ -374,7 +374,16 @@
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
       "persistenceModels": [
-        "ServiceMarker"
+        "ServiceMarker",
+        "SubscriptionPlan",
+        "SubscriptionPlanRevision",
+        "CustomerSubscription",
+        "SubscriptionPeriod",
+        "EntitlementReservation",
+        "EntitlementMovement",
+        "SubscriptionIdempotencyReceipt",
+        "SubscriptionAuditEvent",
+        "OutboxMessage"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
