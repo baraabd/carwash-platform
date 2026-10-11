@@ -72,7 +72,14 @@ mirrors. Wallet never posts, corrects or settles money.
 
 ## Evidence
 
-RESULTS_TABLE
+| Family | Result |
+|---|---|
+| Domain + projector rules (in-memory double), handler classification, Nest composition (API mounted read-only, 401/503 fail-closed, no customer-wallet routes, readiness 503) | **PASSED 13/13** (`node --test services/wallet/dist-tests/test/*.spec.js`) |
+| typecheck, build:tests, ESLint, Prettier | PASSED |
+| `check-design-reference`, `reference-lock.test.mjs` (12/12), boundaries (74 rules), layers, service shells, migrations (incl. append-only vs origin/main) | PASSED |
+| **Real PostgreSQL** (`postgres-acceptance.mjs --service wallet --record`): 8 integration tests written: lifecycle, 2-replica concurrent same-event exactly-once, concurrent different events, deferral/stale ordering, poison/rejections, direct-SQL tampering, HTTP auth 401/403/404/503 | **NOT RUN (BLOCKED: host resources)**. Three attempts failed in phase 5, before any spec ran: the migrate step lost its connection (P1001, then pg connect timeouts) during the provisioner restart. The host had ~200 MB of 16 GB free. The script was hardened (init-complete wait, 30 s timeouts, transient retries), but by rule no docker run is started under 1.5 GB free. Rerun required. |
+| **Real RabbitMQ** (`wallet-broker-acceptance.mjs --record`): ack-lost redelivery + duplicate publish exactly-once, deferred requeue then in-order apply, poison recorded/acked once | **NOT RUN (BLOCKED: host resources)**, same reason. Runtime broker wiring itself BLOCKED on E (CR-B-12.3). |
+| Playwright / visual | NOT APPLICABLE: no UI; custody screens are not designed |
 
 Real vs mocked: PostgreSQL and RabbitMQ are real disposable containers; the
 runtime role `cw_wallet_app` executes every write. Identity is a local HTTP stub.
