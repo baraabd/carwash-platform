@@ -293,7 +293,8 @@ test('ordering: early events are deferred (not recorded), stale versions are rec
     settled: 0,
     shortage: 0,
     overage: 0,
-    version: 4,
+    // One version per APPLIED event: collect, reverse, collect, pending, received.
+    version: 5,
   });
 });
 
@@ -357,7 +358,8 @@ test('database refuses tampering by the runtime role (direct SQL)', async () => 
       [event.eventId],
       /WALLET_APPEND_ONLY/,
     ],
-    ['inbox truncate', `TRUNCATE wallet_inbox CASCADE`, [], /WALLET_APPEND_ONLY/],
+    // The runtime role holds no TRUNCATE grant; the trigger is the second line of defence.
+    ['inbox truncate', `TRUNCATE wallet_inbox CASCADE`, [], /permission denied|WALLET_APPEND_ONLY/],
     [
       'account delete',
       `DELETE FROM custody_account WHERE holder_subject = $1`,
