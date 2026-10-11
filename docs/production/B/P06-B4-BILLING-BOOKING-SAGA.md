@@ -15,7 +15,7 @@ P04-E1) declares two booking-saga routes with access
 | `POST /internal/v1/billing/booking-obligations` | `createBookingObligation` | `CreateBookingObligationRequestV1` `{ beneficiary, quoteId, bookingId }` |
 | `POST /internal/v1/billing/booking-obligations/:obligationId/void` | `voidBookingObligation` | `VoidObligationRequestV1` `{ expectedRevision }` |
 
-Neither main nor the open P04-B1 PR (#125) served them. The Booking saga
+Neither main nor P04-B1 (#125, merged since) served them. The Booking saga
 therefore had no published, workload-authorized way to create or compensate
 an obligation. Both routes now exist and respond with `ObligationV1`.
 
