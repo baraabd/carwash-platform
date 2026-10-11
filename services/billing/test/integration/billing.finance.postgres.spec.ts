@@ -407,12 +407,15 @@ test('model-based: random command sequences through the real services; summary d
   const random = prng(SEED);
   const before = await summary();
   assert.equal(before.ledgerConsistent, true, 'the data other specs left is ledger-consistent');
-  const plan = Array.from({ length: 33 }, (_, i) => ({
-    // Every path at least once, then random ones.
-    path: i < PATHS.length ? PATHS[i] : PATHS[Math.floor(random() * PATHS.length)],
-    currency: random() < 0.5 ? 'SYP' : 'USD',
-    amount: BigInt(100 + Math.floor(random() * 900_000)),
-  }));
+  const plan = Array.from(
+    { length: 33 },
+    (_, i): { path: Path | undefined; currency: Currency; amount: bigint } => ({
+      // Every path at least once, then random ones.
+      path: i < PATHS.length ? PATHS[i] : PATHS[Math.floor(random() * PATHS.length)],
+      currency: random() < 0.5 ? 'SYP' : 'USD',
+      amount: BigInt(100 + Math.floor(random() * 900_000)),
+    }),
+  );
   const models: Expected[] = [];
   // Every path once in order, then two obligations at a time on alternating
   // replicas (separate pools). The Identity double answers within the harness's
