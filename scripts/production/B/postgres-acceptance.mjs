@@ -57,6 +57,8 @@ const SERVICES = {
     task: 'P04-B',
     previousMigrations: 3,
     env: 'BILLING_TEST_DATABASE_URL',
+    // Run ALONE after the parallel batch: they assert exact database-wide deltas (P06-B6).
+    isolatedSpecs: ['billing.finance.postgres.spec.js'],
     dependencies: {
       ...IDENTITY_STUB,
       pricing: 'LOCAL HTTP STUB (published pricing.v1 getQuote shape)',
@@ -549,45 +551,56 @@ try {
 
   await phase('integration specs as the least-privileged runtime role', async () => {
     const dir = path.join(serviceDir, 'dist-tests/test/integration');
-    const files = (await readdir(dir))
-      .filter((file) => file.endsWith('.spec.js'))
-      .map((file) => path.join(dir, file));
-    if (files.length === 0) throw new Error('NO_INTEGRATION_SPECS');
-    const result = await run(process.execPath, ['--test', '--test-reporter=spec', ...files], {
-      cwd: ROOT,
-      timeoutMs: 600_000,
-      env: { ...process.env, [spec.env]: appUrl, LOG_LEVEL: 'error' },
-    });
-    const out = redact(result.stdout);
-    // Full redacted output next to the report, so a failure is diagnosable.
-    await writeFile(path.join(work, 'integration-output.txt'), out + redact(result.stderr));
-    const summary = Object.fromEntries(
-      [...out.matchAll(/^ℹ (tests|pass|fail|cancelled|skipped|todo) (\d+)$/gm)].map((m) => [
-        m[1],
-        Number(m[2]),
-      ]),
-    );
-    report.tests = {
-      files: files.map((file) => path.relative(ROOT, file)),
-      summary,
-      names: [...out.matchAll(/^\s*[✔✖] (.+?) \(/gm)].map((m) => m[0].trim()),
-    };
-    process.stdout.write(
-      out
-        .split('\n')
-        .filter((line) => /^\s*[✔✖ℹ]/.test(line))
-        .join('\n') + '\n',
-    );
-    if (
-      result.code !== 0 ||
-      !summary.tests ||
-      summary.fail !== 0 ||
-      summary.skipped !== 0 ||
-      summary.todo !== 0
-    )
-      throw new Error(
-        `INTEGRATION_FAILED: ${redact(result.stderr).slice(-4000)}\n${out.slice(-6000)}`,
+    const isolated = spec.isolatedSpecs ?? [];
+    const all = (await readdir(dir)).filter((file) => file.endsWith('.spec.js'));
+    if (all.length === 0) throw new Error('NO_INTEGRATION_SPECS');
+    for (const file of isolated)
+      if (!all.includes(file)) throw new Error(`ISOLATED_SPEC_MISSING: ${file}`);
+    // One parallel batch, then every isolated spec alone (no concurrent writer).
+    const batches = [
+      all.filter((file) => !isolated.includes(file)),
+      ...isolated.map((file) => [file]),
+    ].filter((batch) => batch.length > 0);
+    const summary = { tests: 0, pass: 0, fail: 0, cancelled: 0, skipped: 0, todo: 0 };
+    const names = [];
+    let output = '';
+    let failed = null;
+    for (const batch of batches) {
+      const files = batch.map((file) => path.join(dir, file));
+      const result = await run(process.execPath, ['--test', '--test-reporter=spec', ...files], {
+        cwd: ROOT,
+        timeoutMs: 600_000,
+        env: { ...process.env, [spec.env]: appUrl, LOG_LEVEL: 'error' },
+      });
+      const out = redact(result.stdout);
+      output += out + redact(result.stderr);
+      const counts = Object.fromEntries(
+        [...out.matchAll(/^ℹ (tests|pass|fail|cancelled|skipped|todo) (\d+)$/gm)].map((m) => [
+          m[1],
+          Number(m[2]),
+        ]),
       );
+      for (const name of Object.keys(summary)) summary[name] += counts[name] ?? 0;
+      names.push(...[...out.matchAll(/^\s*[✔✖] (.+?) \(/gm)].map((m) => m[0].trim()));
+      process.stdout.write(
+        out
+          .split('\n')
+          .filter((line) => /^\s*[✔✖ℹ]/.test(line))
+          .join('\n') + '\n',
+      );
+      if (result.code !== 0 || !counts.tests)
+        failed ??= `INTEGRATION_FAILED: ${redact(result.stderr).slice(-4000)}\n${out.slice(-6000)}`;
+    }
+    // Full redacted output next to the report, so a failure is diagnosable.
+    await writeFile(path.join(work, 'integration-output.txt'), output);
+    report.tests = {
+      files: all.map((file) => path.relative(ROOT, path.join(dir, file))),
+      isolated,
+      summary,
+      names,
+    };
+    if (failed || summary.fail !== 0 || summary.skipped !== 0 || summary.todo !== 0)
+      throw new Error(failed ?? 'INTEGRATION_FAILED');
   });
 
   report.accepted = true;

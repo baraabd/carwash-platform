@@ -11,4 +11,5 @@ export * from './cash';
 export * from './provider';
 export * from './refund';
 export * from './journal';
+export * from './finance-summary';
 export { assertBalancedJournal, type LedgerEntry } from './ledger';
