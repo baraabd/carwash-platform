@@ -35,28 +35,28 @@ JSON against the exact tree it runs on:
 on this tree. It also proves that each class of drift above is detected when
 introduced.
 
-## Summary at base `66aa752` (status before the P06-B children merge)
+## Summary at base `3e1ab23` (main after the P04-B merge, before the P06-B children merge)
 
 | Area | IMPLEMENTED on main | IN_REVIEW | BLOCKED |
 | ---- | ------------------- | --------- | ------- |
 | Catalog | — (main serves a pre-contract shape; legacy) | FIN-CAT-01/02 (P06-B1) | — |
 | Pricing | — (pre-contract shape; legacy) | FIN-PRC-01/02/03 (P06-B2) | FIN-PRC-05 fees/tax (B-04) |
 | Promotion | — | — | FIN-PRC-04 (B-10) |
-| Electronic payment | FIN-PAY-01..04 | FIN-SAGA-01 (P06-B4), FIN-PROV-01 (#125) | FIN-PAY-05 Paymera (B-02), FIN-PAY-06 payee/QR (B-11) |
-| Reconciliation | FIN-REC-01, FIN-CUST-03 | FIN-REC-02 (#125) | — |
+| Electronic payment | FIN-PAY-01..04 | FIN-SAGA-01 (P06-B4), FIN-PROV-01 (P06-B7) | FIN-PAY-05 Paymera (B-02), FIN-PAY-06 payee/QR (B-11) |
+| Reconciliation | FIN-REC-01, FIN-REC-02, FIN-CUST-03 | — | — |
 | Cash and custody | FIN-CASH-01/02, FIN-CUST-01/02/04 | — | FIN-CASH-03 cash refunds (B-06) |
-| Refund | — | FIN-REF-01 (#125) | FIN-CASH-03 (B-06) |
+| Refund | FIN-REF-02 (credit-based, P04-B) | FIN-REF-01 published surface (P06-B7) | FIN-CASH-03 (B-06) |
 | Ledger | FIN-LEDGER-01 | — | FIN-EVT-01 relay (B-P06-04), FIN-PRIV-01 (B-12) |
 | Admin finance | — | FIN-ADM-01/02 (P06-B6) | — |
 | Wallet | — | FIN-WAL-01 (P06-B3) | FIN-WAL-02 stored value (B-08) |
 | Subscription | — | — | FIN-SUB-01 (B-09) |
 
-The table counts 12 functions as IMPLEMENTED on main. "Implemented" does not
-mean open in production: 8 of the 12 are `FAIL_CLOSED` until their named
+The table counts 14 functions as IMPLEMENTED on main. "Implemented" does not
+mean open in production: 10 of the 14 are `FAIL_CLOSED` until their named
 blockers resolve. Only four are `OPEN`: FIN-PAY-02 to FIN-PAY-04 (method
 selection, transaction reference, void) and FIN-CUST-03 (custody
-reconciliation). Payment confirmation needs FIN-REC-02 (provider credits, PR
-#125) and the B-11 provider material. Cash collection needs the lane C work
+reconciliation). Payment confirmation needs FIN-REC-02 provider credits, which
+are served but recognise money only from B-11 provider material. Cash collection needs the lane C work
 authority (B-P03-01) and the Identity grants (B-P06-08).
 
 ## Findings from the crosswalk (concrete, not generic)
@@ -69,15 +69,16 @@ authority (B-P03-01) and the Identity grants (B-P06-08).
    instead of `catalog.v1`. P06-B1 and P06-B2 close this. Each old route is
    listed as legacy with the function that supersedes it.
 2. **Billing booking-saga routes were published but unserved.** Neither main
-   nor PR #125 served `createBookingObligation` or `voidBookingObligation`.
+   nor P04-B (#125) served `createBookingObligation` or `voidBookingObligation`.
    P06-B4 adds them.
-3. **PR #125 path divergence (B-P06-02).** The refund and provider-notification
-   routes in #125 do not match `billing.v1` or the Gateway upstreams. Two
+3. **P04-B path divergence on main (B-P06-02).** The refund and provider-notification
+   routes merged with #125 do not match `billing.v1` or the Gateway upstreams. Two
    examples: the Gateway forwards to `/provider-notifications/sham-cash` while
-   #125 serves `/providers/:provider/notifications`; the Gateway forwards to
-   `/refunds/:id/outcome` while #125 serves `/decision`, `/provider-execution`
-   and `/manual-completion`. Integrating #125 unchanged would leave every
-   Gateway refund/notification route returning 404 from the owner.
+   Billing serves `/providers/:provider/notifications`; the Gateway forwards to
+   `/refunds/:id/outcome` while Billing serves `/decision`, `/provider-execution`
+   and `/manual-completion`. On main, every Gateway refund-request, refund-list,
+   refund-outcome and provider-ingress route therefore returns 404 from the owner.
+   The checker caught it the moment #125 merged; P06-B7 serves the published paths.
 4. **Gateway admin route without an owner (`admin.billing` → `/summary`).**
    Billing did not serve it and `billing.v1` does not define it. P06-B6
    implements it and requests the contract (B-P06-07).
@@ -109,7 +110,7 @@ named lane, with a tracking reference.
 ## Evidence for this child
 
 - `node scripts/production/B/check-finance-matrix.mjs` → PASSED on the base tree
-  (33 functions).
+  (34 functions: 14 implemented, 11 in review, 9 blocked).
 - `node --test tests/production/B/finance-matrix.test.mjs` → 9/9 passed.
 - Dependencies: compiled `@carwash/contracts` from this tree. No database,
   broker or HTTP service is involved. This is static source evidence only.

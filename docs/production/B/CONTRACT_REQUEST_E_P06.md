@@ -5,7 +5,7 @@ artifacts. Nothing here is copied into a service as a private DTO. Every item is
 referenced by a blocker id in `finance-matrix.json` and is checked by
 `node scripts/production/B/check-finance-matrix.mjs`.
 
-## CR-B-P06-01 — messaging dependency for Billing and Wallet (blocker B-P06-04)
+## CR-B-P06-M01 — messaging dependency for Billing and Wallet (blocker B-P06-04)
 
 - Add `"@carwash/platform-messaging": "workspace:*"` to `services/billing/package.json`
   and `services/wallet/package.json` and regenerate `pnpm-lock.yaml`. Both the
@@ -21,7 +21,7 @@ referenced by a blocker id in `finance-matrix.json` and is checked by
   handler from P06-B3. Lane B then proves redelivery, duplicate delivery and
   restart on real RabbitMQ.
 
-## CR-B-P06-02 — Identity grants that the published contracts already require (blocker B-P06-08)
+## CR-B-P06-M02 — Identity grants that the published contracts already require (blocker B-P06-08)
 
 `IDENTITY_PERMISSIONS` lacks permissions that published owner contracts name:
 
@@ -40,16 +40,16 @@ one; do not keep both names. Suggested role assignments: `technician` gets
 decision. Until this lands, these routes stay unusable for real principals,
 because the owners deny by default.
 
-## CR-B-P06-03 — Gateway catalog upstream (blocker B-P06-05)
+## CR-B-P06-M03 — Gateway catalog upstream (blocker B-P06-05)
 
 The Gateway route `customer.catalog` (`GET /customer/packages`) forwards to
 `/internal/v1/catalog/packages`. The published `catalog.v1` serves
 `GET /definitions`, plus `GET /definitions/:definitionId`. Repoint the upstream
 to `/internal/v1/catalog/definitions`. Then add a contract test that every
 Gateway upstream path matches a route of the owner contract. The same class of
-drift exists for Billing (see CR-B-P06-05).
+drift exists for Billing (see CR-B-P06-M05).
 
-## CR-B-P06-04 — admin finance and wallet read contracts (blocker B-P06-07)
+## CR-B-P06-M04 — admin finance and wallet read contracts (blocker B-P06-07)
 
 The owner endpoints are implemented in the P06-B6 and P06-B3 child PRs. Exact
 field-level shapes are in those children's request documents
@@ -63,7 +63,7 @@ requests are:
 - `wallet.v1`: the custody projection reads. The owner's access rules mirror
   `billing.cash.collect` (own holder) and `billing.read` (any holder).
 
-## CR-B-P06-05 — provider-credit routes and route alignment for PR #125 (blockers B-P06-02, B-P06-03)
+## CR-B-P06-M05 — provider-credit routes and route alignment for PR #125 (blockers B-P06-02, B-P06-03)
 
 Lane B fixes the path divergence in its own provider. Billing serves the
 published paths `provider-notifications/:provider`, `obligations/:id/refunds`
@@ -81,7 +81,7 @@ E should also publish the credit-based refund execution steps, or explicitly
 decide that the four published refund routes are the only refund surface. In
 that case Lane B folds credit linkage into `requestRefund`.
 
-## CR-B-P06-06 — lane C booking saga consumer (blocker B-P06-06)
+## CR-B-P06-M06 — lane C booking saga consumer (blocker B-P06-06)
 
 Booking calls `POST /internal/v1/billing/booking-obligations` and
 `POST /internal/v1/billing/booking-obligations/:id/void`. The calls carry the
