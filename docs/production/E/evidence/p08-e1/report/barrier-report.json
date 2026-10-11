@@ -1,0 +1,352 @@
+{
+  "schema": "carwash.release-barrier-report/v1",
+  "evaluatedAt": "2026-10-10T22:19:41.791Z",
+  "candidate": {
+    "sha": "3e1ab23bff450235858ea13e049f8fb373df393f",
+    "tree": "53edea7ff5348c969408e9fd3ee23569b06a9f94",
+    "configDigest": "sha256:a9f310a7ca42d76a8367c754028316e96307ba116b1465437d7e1ea786f64870"
+  },
+  "artifactManifestDigest": null,
+  "verdict": "NO_GO",
+  "deployment": "NOT_PERMITTED",
+  "candidateChecks": [
+    {
+      "check": "candidate-tree",
+      "status": "PASSED"
+    },
+    {
+      "check": "ref refs/remotes/origin/main",
+      "status": "PASSED"
+    }
+  ],
+  "unknownReceipts": [],
+  "families": [
+    {
+      "family": "A.rc-acceptance",
+      "owner": "Lane A (customer, vehicle, geo, customer-web)",
+      "action": "Run the Lane A exact-RC acceptance on real PostgreSQL/Redis/Identity and the customer-web Playwright journeys; emit a receipt bound to the RC tree.",
+      "status": "MISSING",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "B.rc-acceptance",
+      "owner": "Lane B (catalog, pricing, billing, custody)",
+      "action": "Run the Lane B exact-RC acceptance on real PostgreSQL/RabbitMQ including provider reconciliation/refund paths; emit a receipt bound to the RC tree.",
+      "status": "MISSING",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "C.rc-acceptance",
+      "owner": "Lane C (scheduling, booking, dispatch, workforce, media, operator-web)",
+      "action": "Run the Lane C exact-RC acceptance including outbox/inbox redelivery on real RabbitMQ and operator-web journeys; emit a receipt bound to the RC tree.",
+      "status": "MISSING",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "D.rc-acceptance",
+      "owner": "Lane D (reporting, communications, configuration, support, admin-web)",
+      "action": "Run the Lane D exact-RC acceptance on real infrastructure and admin-web journeys; emit a receipt bound to the RC tree.",
+      "status": "MISSING",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "E.ci-mandatory",
+      "owner": "Lane E",
+      "action": "Run every mandatory CI workflow on the RC head and attach the aggregate job record.",
+      "status": "MISSING",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "E.security-scans",
+      "owner": "Lane E",
+      "action": "Run secret, dependency, image and CodeQL scans on the RC head; attach findings with zero unaccepted high/critical.",
+      "status": "MISSING",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "E.contract-compatibility",
+      "owner": "Lane E",
+      "status": "PASSED",
+      "source": "release/receipts/E.contract-compatibility.json"
+    },
+    {
+      "family": "E.design-lock",
+      "owner": "Lane E",
+      "status": "PASSED",
+      "source": "release/receipts/E.design-lock.json"
+    },
+    {
+      "family": "E.migration-rehearsal",
+      "owner": "Lane E with every data-owning lane",
+      "action": "Apply every service migration with the migration identity against a restored copy of the previous production schema; record expand/contract compatibility.",
+      "status": "MISSING",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "E.recovery-rehearsal",
+      "owner": "Lane E with operations",
+      "action": "Restore every owned database from backup, measure RPO/RTO and rehearse rollback of the RC artifacts; attach observed results.",
+      "status": "MISSING",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "E.artifacts-published",
+      "owner": "Lane E",
+      "action": "Build and publish every release image from the RC tree; record immutable sha256 digests. The deployment must reference these identical digests.",
+      "status": "MISSING",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "review.independent",
+      "owner": "Independent reviewer (not the RC author)",
+      "action": "Obtain an APPROVED review on the RC pull request whose commit_id equals the RC sha, from a reviewer who did not author it.",
+      "status": "MISSING",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "repo.required-checks-enforced",
+      "owner": "Repository administrator",
+      "action": "Enable branch protection on main with required status checks, required reviews and enforce_admins; attach the protection API record.",
+      "status": "INVALID",
+      "source": "release/receipts/repo.required-checks-enforced.json",
+      "problems": [
+        "protection record must be for main",
+        "no required status checks are enforced",
+        "enforce_admins is not enabled",
+        "at least one required approving review must be enforced"
+      ]
+    },
+    {
+      "family": "ext.production-authorization",
+      "owner": "Project owner",
+      "action": "Issue an explicit, time-bounded production authorization naming the RC sha, artifact manifest digest and live-money scope.",
+      "status": "MISSING",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "ext.infrastructure-target",
+      "owner": "Project owner / operations",
+      "action": "Provide the reviewed production target (cluster/account, DNS zone, TLS authority, database and broker endpoints) as references, not secrets.",
+      "status": "MISSING",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "ext.secrets-provisioned",
+      "owner": "Operations",
+      "action": "Provision production secrets in the secret store and attach store references only (never values).",
+      "status": "MISSING",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "ext.merchant-onboarding",
+      "owner": "Project owner / finance",
+      "action": "Complete merchant onboarding and provider verification for every enabled wallet; until then live money stays disabled.",
+      "status": "MISSING",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "ext.incident-contacts",
+      "owner": "Project owner / operations",
+      "action": "Name distinct primary and backup incident contacts with their paging channels for the initial operating window.",
+      "status": "MISSING",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "ext.operating-window-policy",
+      "owner": "Project owner / operations",
+      "action": "Approve the initial operating window duration and numeric rollback/forward-recovery thresholds.",
+      "status": "MISSING",
+      "problems": [
+        "no receipt"
+      ]
+    }
+  ],
+  "blockers": [
+    {
+      "family": "A.rc-acceptance",
+      "status": "MISSING",
+      "owner": "Lane A (customer, vehicle, geo, customer-web)",
+      "action": "Run the Lane A exact-RC acceptance on real PostgreSQL/Redis/Identity and the customer-web Playwright journeys; emit a receipt bound to the RC tree.",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "B.rc-acceptance",
+      "status": "MISSING",
+      "owner": "Lane B (catalog, pricing, billing, custody)",
+      "action": "Run the Lane B exact-RC acceptance on real PostgreSQL/RabbitMQ including provider reconciliation/refund paths; emit a receipt bound to the RC tree.",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "C.rc-acceptance",
+      "status": "MISSING",
+      "owner": "Lane C (scheduling, booking, dispatch, workforce, media, operator-web)",
+      "action": "Run the Lane C exact-RC acceptance including outbox/inbox redelivery on real RabbitMQ and operator-web journeys; emit a receipt bound to the RC tree.",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "D.rc-acceptance",
+      "status": "MISSING",
+      "owner": "Lane D (reporting, communications, configuration, support, admin-web)",
+      "action": "Run the Lane D exact-RC acceptance on real infrastructure and admin-web journeys; emit a receipt bound to the RC tree.",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "E.ci-mandatory",
+      "status": "MISSING",
+      "owner": "Lane E",
+      "action": "Run every mandatory CI workflow on the RC head and attach the aggregate job record.",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "E.security-scans",
+      "status": "MISSING",
+      "owner": "Lane E",
+      "action": "Run secret, dependency, image and CodeQL scans on the RC head; attach findings with zero unaccepted high/critical.",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "E.migration-rehearsal",
+      "status": "MISSING",
+      "owner": "Lane E with every data-owning lane",
+      "action": "Apply every service migration with the migration identity against a restored copy of the previous production schema; record expand/contract compatibility.",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "E.recovery-rehearsal",
+      "status": "MISSING",
+      "owner": "Lane E with operations",
+      "action": "Restore every owned database from backup, measure RPO/RTO and rehearse rollback of the RC artifacts; attach observed results.",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "E.artifacts-published",
+      "status": "MISSING",
+      "owner": "Lane E",
+      "action": "Build and publish every release image from the RC tree; record immutable sha256 digests. The deployment must reference these identical digests.",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "review.independent",
+      "status": "MISSING",
+      "owner": "Independent reviewer (not the RC author)",
+      "action": "Obtain an APPROVED review on the RC pull request whose commit_id equals the RC sha, from a reviewer who did not author it.",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "repo.required-checks-enforced",
+      "status": "INVALID",
+      "owner": "Repository administrator",
+      "action": "Enable branch protection on main with required status checks, required reviews and enforce_admins; attach the protection API record.",
+      "problems": [
+        "protection record must be for main",
+        "no required status checks are enforced",
+        "enforce_admins is not enabled",
+        "at least one required approving review must be enforced"
+      ]
+    },
+    {
+      "family": "ext.production-authorization",
+      "status": "MISSING",
+      "owner": "Project owner",
+      "action": "Issue an explicit, time-bounded production authorization naming the RC sha, artifact manifest digest and live-money scope.",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "ext.infrastructure-target",
+      "status": "MISSING",
+      "owner": "Project owner / operations",
+      "action": "Provide the reviewed production target (cluster/account, DNS zone, TLS authority, database and broker endpoints) as references, not secrets.",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "ext.secrets-provisioned",
+      "status": "MISSING",
+      "owner": "Operations",
+      "action": "Provision production secrets in the secret store and attach store references only (never values).",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "ext.merchant-onboarding",
+      "status": "MISSING",
+      "owner": "Project owner / finance",
+      "action": "Complete merchant onboarding and provider verification for every enabled wallet; until then live money stays disabled.",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "ext.incident-contacts",
+      "status": "MISSING",
+      "owner": "Project owner / operations",
+      "action": "Name distinct primary and backup incident contacts with their paging channels for the initial operating window.",
+      "problems": [
+        "no receipt"
+      ]
+    },
+    {
+      "family": "ext.operating-window-policy",
+      "status": "MISSING",
+      "owner": "Project owner / operations",
+      "action": "Approve the initial operating window duration and numeric rollback/forward-recovery thresholds.",
+      "problems": [
+        "no receipt"
+      ]
+    }
+  ]
+}

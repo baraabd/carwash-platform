@@ -1,0 +1,19 @@
+$ node --test tests/production/E/contract-compatibility.test.mjs
+exit 0 signal none in 2350ms
+
+--- stdout ---
+✔ every published owner contract passes the structural lint (2.5665ms)
+✔ current surface is backward compatible with the reviewed lock (0.5481ms)
+✔ the surface never grows without a reviewed lock update (0.2831ms)
+✔ the gate detects removals, changed access and dropped reasons (negative controls) (1.9623ms)
+✔ structural lint rejects unsafe route declarations (negative controls) (0.9052ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1622.6502
+
+--- stderr ---
