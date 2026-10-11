@@ -4,7 +4,8 @@
  * WALLET_TEST_DATABASE_URL as the runtime role and WALLET_TEST_AMQP_URL).
  *
  * The amqplib consumer loop below is the test's broker adapter (manual ack,
- * nack+requeue for retryable outcomes). The Wallet runtime broker binding is
+ * tail re-enqueue with an attempt cap for retryable outcomes, dead-letter for
+ * the rest). The Wallet runtime broker binding is
  * blocked on Lane E (CR-B-12.3). Billing is not running: events are built in the
  * registered billing.v1 envelope-v2 shape.
  */
@@ -51,34 +52,58 @@ const deliveries = [];
 /** Event ids whose first delivery is processed but whose ack is "lost" (channel dies). */
 const loseAckOnce = new Set();
 
+/** Retryable (deferred) deliveries are retried this many times before dead-lettering. */
+const MAX_ATTEMPTS = 50;
+const ATTEMPTS_HEADER = 'x-wallet-attempts';
+
+async function handle(channel, message) {
+  const payload = JSON.parse(message.content.toString('utf8'));
+  const result = await adapter.consume({
+    id: message.properties.messageId ?? payload.eventId,
+    type: message.fields.routingKey,
+    payload,
+    correlationId: message.properties.correlationId,
+  });
+  deliveries.push({
+    eventId: payload.eventId,
+    redelivered: message.fields.redelivered,
+    result: result.kind,
+  });
+  if (result.kind === 'handled' && loseAckOnce.delete(payload.eventId)) {
+    // Committed, but the consumer dies before acking: the broker must redeliver.
+    await channel.close().catch(() => {});
+    await startConsumer();
+    return;
+  }
+  if (result.kind === 'handled') {
+    channel.ack(message);
+    return;
+  }
+  const headers = message.properties.headers ?? {};
+  const attempts = Number(headers[ATTEMPTS_HEADER] ?? 0) + 1;
+  if (!result.retryable || attempts > MAX_ATTEMPTS) {
+    channel.nack(message, false, false); // dead-letter
+    return;
+  }
+  // A nack with requeue would put the message back at the HEAD of the queue: with
+  // prefetch 1 a deferred event would then block forever the very event it waits
+  // for. Re-enqueue at the TAIL instead (copy, then ack). A crash between the two
+  // steps only duplicates the delivery, which the idempotent inbox absorbs.
+  await delay(100);
+  channel.sendToQueue(WALLET_CUSTODY_QUEUE, message.content, {
+    ...message.properties,
+    headers: { ...headers, [ATTEMPTS_HEADER]: attempts },
+  });
+  channel.ack(message);
+}
+
 async function startConsumer() {
   const channel = await connection.createChannel();
+  // The deliberate close in the lost-ack scenario must not surface as an error.
+  channel.on('error', () => {});
   await channel.prefetch(1);
-  await channel.consume(WALLET_CUSTODY_QUEUE, async (message) => {
-    if (!message) return;
-    const payload = JSON.parse(message.content.toString('utf8'));
-    const result = await adapter.consume({
-      id: message.properties.messageId ?? payload.eventId,
-      type: message.fields.routingKey,
-      payload,
-      correlationId: message.properties.correlationId,
-    });
-    deliveries.push({
-      eventId: payload.eventId,
-      redelivered: message.fields.redelivered,
-      result: result.kind,
-    });
-    if (result.kind === 'handled' && loseAckOnce.delete(payload.eventId)) {
-      // Committed, but the consumer dies before acking: the broker must redeliver.
-      await channel.close().catch(() => {});
-      await startConsumer();
-      return;
-    }
-    if (result.kind === 'handled') channel.ack(message);
-    else if (result.retryable) {
-      await delay(100);
-      channel.nack(message, false, true);
-    } else channel.nack(message, false, false);
+  await channel.consume(WALLET_CUSTODY_QUEUE, (message) => {
+    if (message) void handle(channel, message).catch(() => {});
   });
   return channel;
 }
