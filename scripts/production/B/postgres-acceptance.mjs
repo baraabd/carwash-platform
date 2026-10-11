@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
  * Lane B real PostgreSQL acceptance for owner services (P01-B catalog/pricing,
- * P02-B billing core, P03-B billing cash custody, P04-B provider credits and refunds).
+ * P02-B billing core, P03-B billing cash custody, P04-B provider credits and refunds,
+ * P06-B wallet custody projection).
  *
- *   node scripts/production/B/postgres-acceptance.mjs --service catalog|pricing|billing [--record]
+ *   node scripts/production/B/postgres-acceptance.mjs --service catalog|pricing|billing|wallet [--record]
  *
  * 1. Starts ONE disposable, pinned PostgreSQL container bound to 127.0.0.1 and
  *    provisions it with the shared infra/postgres/provision.sh (database per
@@ -61,6 +62,17 @@ const SERVICES = {
       ...IDENTITY_STUB,
       pricing: 'LOCAL HTTP STUB (published pricing.v1 getQuote shape)',
       broker: 'NOT USED (outbox rows written; relay not started until E registers billing events)',
+    },
+  },
+  wallet: {
+    task: 'P06-B',
+    previousMigrations: 1,
+    env: 'WALLET_TEST_DATABASE_URL',
+    dependencies: {
+      ...IDENTITY_STUB,
+      billing:
+        'TEST MODEL of Billing custody emitting billing.v1 envelopes checked by the shared parsers',
+      broker: 'NOT USED (billing.v1 binding waits on CR-W-01 platform-messaging dependency)',
     },
   },
 };
