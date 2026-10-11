@@ -1,5 +1,5 @@
-import { CatalogUnavailable, type CatalogRevisionReader } from '../../ports';
-import type { CatalogSnapshot } from '../../domain';
+import { CatalogUnavailable, type CatalogRevisionReader } from '../../../ports/legacy';
+import type { CatalogSnapshot } from '../../../domain/legacy';
 
 /**
  * Production binding of the Catalog read port until Lane E publishes the

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
-import { PricingService } from '../src/application';
-import { InMemoryPricingRepository } from './support/in-memory-pricing.repository';
+import { PricingService } from '../src/application/legacy';
+import { InMemoryPricingRepository } from './support/legacy/in-memory-pricing.repository';
 import {
   CUSTOMER_SUBJECT,
   FakeCatalogReader,
@@ -10,7 +10,7 @@ import {
   FixedPolicy,
   ratesFixture,
   snapshotFixture,
-} from './support/pricing-fixtures';
+} from './support/legacy/pricing-fixtures';
 
 test('pricing application: quote locks before sampling time and reads only its transaction', async () => {
   const repository = new InMemoryPricingRepository();

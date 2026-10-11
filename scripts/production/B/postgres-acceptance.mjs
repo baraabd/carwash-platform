@@ -30,6 +30,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
+import { migrateWithUpgradeSentinels } from './upgrade-sentinels.mjs';
 import { redact, registerSecret, run } from '../../acceptance/lib/exec.mjs';
 import { pullImageWithMirrors } from '../../lib/image-references.mjs';
 
@@ -48,10 +49,19 @@ const SERVICES = {
     dependencies: IDENTITY_STUB,
   },
   pricing: {
-    task: 'P01-B',
-    previousMigrations: 1,
+    task: 'P06-B',
+    previousMigrations: 3,
     env: 'PRICING_TEST_DATABASE_URL',
-    dependencies: IDENTITY_STUB,
+    writeUpgradeSentinel: (url) => PRICING_SENTINEL.write(url),
+    verifyUpgradeSentinel: (url) => PRICING_SENTINEL.verify(url),
+    dependencies: {
+      ...IDENTITY_STUB,
+      catalog: 'LOCAL HTTP STUB (published catalog.v1 getPublished shape)',
+      serviceCaller: 'TEST workload credential (service-kit x-service-client/x-service-token)',
+      serviceCallers:
+        'REAL shared ServiceClientAuthenticator with test credentials (Booking is not running)',
+      broker: 'NOT USED (outbox rows written; relay not started until E registers pricing events)',
+    },
   },
   billing: {
     task: 'P04-B',
@@ -115,6 +125,39 @@ async function checked(command, args, options = {}) {
   return result;
 }
 
+/**
+ * Pricing upgrade sentinel: a P01-B2 (pre-contract) price version written under
+ * the PREVIOUS schema must survive the pricing.v1 expand migration unchanged and
+ * stay immutable; the new tables start empty (no implicit data conversion).
+ */
+const PRICING_SENTINEL = (() => {
+  const ids = { publisher: crypto.randomUUID(), correlation: crypto.randomUUID() };
+  return {
+    async write(url) {
+      await transaction(url, [
+        [
+          `INSERT INTO app.price_version (version, previous_version, effective_from, published_at, published_by,
+             correlation_id, catalog_revision, catalog_fingerprint, catalog_snapshot, policy_revision, currency,
+             minor_unit_exponent, rates_fingerprint)
+           VALUES (1, NULL, now() + interval '1 hour', now(), $1, $2, 1, $3, '{}', 'legacy-policy', 'XTS', 2, $3)`,
+          [ids.publisher, ids.correlation, 'a'.repeat(64)],
+        ],
+      ]);
+    },
+    async verify(url) {
+      const legacy = await query(url, 'SELECT currency FROM app.price_version WHERE version = 1');
+      if (legacy.rows[0]?.currency !== 'XTS') throw new Error('UPGRADE_LOST_LEGACY_PRICE_VERSION');
+      const books = await query(url, 'SELECT count(*)::int AS n FROM app.price_book');
+      if (books.rows[0]?.n !== 0) throw new Error('UPGRADE_CONVERTED_LEGACY_DATA');
+      const blocked = await query(url, 'DELETE FROM app.price_version WHERE version = 1').then(
+        () => false,
+        (error) => /PRICING_IMMUTABLE/.test(String(error?.message)),
+      );
+      if (!blocked) throw new Error('UPGRADE_LEGACY_NOT_IMMUTABLE');
+    },
+  };
+})();
+
 async function pullPinnedImage(image) {
   return pullImageWithMirrors(
     image,
@@ -141,7 +184,7 @@ async function phase(name, operation) {
 }
 
 async function query(url, statement, values = []) {
-  const client = new Client({ connectionString: url, connectionTimeoutMillis: 3_000 });
+  const client = new Client({ connectionString: url, connectionTimeoutMillis: 60_000 });
   try {
     await client.connect();
     return await client.query(statement, values);
@@ -152,7 +195,7 @@ async function query(url, statement, values = []) {
 
 /** Runs statements in ONE transaction on one connection (COMMIT-time triggers apply). */
 async function transaction(url, statements) {
-  const client = new Client({ connectionString: url, connectionTimeoutMillis: 3_000 });
+  const client = new Client({ connectionString: url, connectionTimeoutMillis: 60_000 });
   try {
     await client.connect();
     await client.query('BEGIN');
@@ -384,10 +427,27 @@ const BILLING_SENTINEL = (() => {
   };
 })();
 
+/**
+ * Prisma CLI as the given identity, with a generous connect timeout. A P1001
+ * (server not reachable) on a loaded host is retried up to twice after a pause;
+ * any other failure is final.
+ */
 async function prisma(args, databaseUrl) {
-  return checked('pnpm', ['--filter', `@carwash/${service}`, 'exec', 'prisma', ...args], {
-    env: { ...process.env, DATABASE_URL: databaseUrl },
-  });
+  const url = databaseUrl.includes('connect_timeout=')
+    ? databaseUrl
+    : `${databaseUrl}&connect_timeout=30`;
+  const invoke = () =>
+    checked('pnpm', ['--filter', `@carwash/${service}`, 'exec', 'prisma', ...args], {
+      env: { ...process.env, DATABASE_URL: url },
+    });
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await invoke();
+    } catch (error) {
+      if (attempt >= 3 || !String(error?.message ?? error).includes('P1001')) throw error;
+      await delay(5_000);
+    }
+  }
 }
 
 let started = false;
@@ -497,13 +557,16 @@ try {
     await query(appUrl, 'INSERT INTO app.service_marker(service, schema_rev) VALUES ($1, 1)', [
       `p01b-${runId}`,
     ]);
-    // On main before P04-B the runtime role cannot write billing rows at all (the
-    // P03 helpers lost PUBLIC EXECUTE; fixed by the P04-B migration), so the
-    // pre-upgrade rows are written by the owner role; every guard still applies.
-    // After the upgrade everything runs as the least-privileged runtime role.
-    if (service === 'billing') await BILLING_SENTINEL.write(migrateUrl);
-    await prisma(['migrate', 'deploy'], migrateUrl);
-    if (service === 'billing') await BILLING_SENTINEL.verify(appUrl);
+    await migrateWithUpgradeSentinels({
+      service,
+      previousMigrations: report.migrations.previous,
+      runtimeUrl: appUrl,
+      migrationUrl: migrateUrl,
+      billingSentinel: BILLING_SENTINEL,
+      writeUpgradeSentinel: spec.writeUpgradeSentinel,
+      verifyUpgradeSentinel: spec.verifyUpgradeSentinel,
+      deploy: () => prisma(['migrate', 'deploy'], migrateUrl),
+    });
     const kept = await query(appUrl, 'SELECT 1 FROM app.service_marker WHERE service = $1', [
       `p01b-${runId}`,
     ]);
@@ -541,7 +604,11 @@ try {
         'prisma/schema.prisma',
         '--exit-code',
       ],
-      { cwd: ROOT, timeoutMs: 180_000, env: { ...process.env, DATABASE_URL: migrateUrl } },
+      {
+        cwd: ROOT,
+        timeoutMs: 180_000,
+        env: { ...process.env, DATABASE_URL: `${migrateUrl}&connect_timeout=30` },
+      },
     );
     if (result.code !== 0)
       throw new Error(`SCHEMA_DRIFT: ${redact(result.stdout + result.stderr).slice(-4000)}`);
