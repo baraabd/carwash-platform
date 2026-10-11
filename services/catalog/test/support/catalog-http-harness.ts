@@ -1,22 +1,37 @@
-import type { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
+import { createLogger } from '@carwash/service-kit';
 import { CatalogService } from '../../src/application';
 import type { CatalogRepository, Clock } from '../../src/ports';
 import { IdentitySessionAuthority } from '../../src/infrastructure/identity/identity-session.authority';
 import { RandomIds, Sha256Hasher } from '../../src/infrastructure/system/system.adapters';
 import { CATALOG_SERVICE, CatalogController } from '../../src/transport/http/catalog.controller';
+import { installCatalogHttp } from '../../src/transport/http/install';
 import { startIdentityStub, tokenFor, type IdentityStub } from './identity-stub';
 import { ADMIN_SUBJECT, CUSTOMER_SUBJECT, OTHER_ADMIN_SUBJECT } from './catalog-fixtures';
 
+export interface HttpResult {
+  status: number;
+  body: Record<string, unknown>;
+  headers: Headers;
+}
+
 export interface CatalogHttpHarness {
-  readonly app: INestApplication;
+  readonly app: NestExpressApplication;
   readonly url: string;
   readonly identity: IdentityStub;
   request(
     method: 'GET' | 'POST',
     path: string,
-    options?: { token?: string; key?: string; body?: unknown; correlationId?: string },
-  ): Promise<{ status: number; body: Record<string, unknown>; headers: Headers }>;
+    options?: {
+      token?: string;
+      key?: string;
+      body?: unknown;
+      rawBody?: string;
+      correlationId?: string;
+      traceparent?: string;
+    },
+  ): Promise<HttpResult>;
   close(): Promise<void>;
 }
 
@@ -28,8 +43,9 @@ export const TOKENS = {
 };
 
 /**
- * Boots the REAL Nest HTTP transport, the real CatalogService and the real
- * Identity adapter over HTTP. Only the repository and the Identity server are
+ * Boots the REAL Nest HTTP transport (same edge as production: ids, body
+ * limit, error envelope), the real CatalogService and the real Identity
+ * adapter over HTTP. Only the repository and the Identity server are
  * substituted by the caller (in-memory or real PostgreSQL / local stub).
  */
 export async function startCatalogHttp(input: {
@@ -60,7 +76,11 @@ export async function startCatalogHttp(input: {
     controllers: [CatalogController],
     providers: [{ provide: CATALOG_SERVICE, useValue: service }],
   }).compile();
-  const app = moduleRef.createNestApplication({ logger: false });
+  const app = moduleRef.createNestApplication<NestExpressApplication>({
+    logger: false,
+    bodyParser: false,
+  });
+  installCatalogHttp(app, createLogger({ service: 'catalog' }));
   await app.listen(0, '127.0.0.1');
   const url = await app.getUrl();
   return {
@@ -72,11 +92,14 @@ export async function startCatalogHttp(input: {
       if (options.token) headers.authorization = `Bearer ${options.token}`;
       if (options.key) headers['idempotency-key'] = options.key;
       if (options.correlationId) headers['x-correlation-id'] = options.correlationId;
-      if (options.body !== undefined) headers['content-type'] = 'application/json';
+      if (options.traceparent) headers.traceparent = options.traceparent;
+      const payload =
+        options.rawBody ?? (options.body !== undefined ? JSON.stringify(options.body) : undefined);
+      if (payload !== undefined) headers['content-type'] = 'application/json';
       const response = await fetch(url + path, {
         method,
         headers,
-        ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
+        ...(payload !== undefined ? { body: payload } : {}),
       });
       const text = await response.text();
       return {
@@ -89,5 +112,17 @@ export async function startCatalogHttp(input: {
       await app.close();
       await identity.close();
     },
+  };
+}
+
+export function errorOf(result: HttpResult): {
+  code: string;
+  reason: string | null;
+  issues: { field: string; code: string }[];
+} {
+  return result.body.error as {
+    code: string;
+    reason: string | null;
+    issues: { field: string; code: string }[];
   };
 }

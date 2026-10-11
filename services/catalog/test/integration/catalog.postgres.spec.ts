@@ -1,49 +1,87 @@
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { Client } from 'pg';
-import { canonicalJson } from '../../src/application';
+import { CATALOG_DEFINITIONS_PUBLISHED_V1 } from '@carwash/event-contracts';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma.service';
 import { PrismaCatalogRepository } from '../../src/infrastructure/persistence/prisma-catalog.repository';
-import { Sha256Hasher } from '../../src/infrastructure/system/system.adapters';
-import { definitionsFixture } from '../support/catalog-fixtures';
+import { publishBody, type WireDefinition } from '../support/catalog-fixtures';
 import { FixedClock } from '../support/in-memory-catalog.repository';
-import { TOKENS, startCatalogHttp, type CatalogHttpHarness } from '../support/catalog-http-harness';
+import {
+  TOKENS,
+  errorOf,
+  startCatalogHttp,
+  type CatalogHttpHarness,
+} from '../support/catalog-http-harness';
 
 /*
  * REAL PostgreSQL evidence. Runs as the least-privileged runtime role
  * (cw_catalog_app) against a database migrated by cw_catalog_migrate through
  * scripts/production/B/postgres-acceptance.mjs. Identity is a local HTTP stub.
  * There is deliberately no skip: missing configuration fails the run.
+ *
+ * The catalog is one chain shared by every run against the database, so each
+ * test reads the current head and republishes the complete snapshot.
  */
 const APP_URL = process.env.CATALOG_TEST_DATABASE_URL;
 if (!APP_URL) throw new Error('CATALOG_TEST_DATABASE_URL_REQUIRED');
 const DATABASE_URL: string = APP_URL;
 const PATH = '/internal/v1/catalog';
-const HOUR = 3_600_000;
+const RUN = randomBytes(3).toString('hex');
 
 let prismaA: PrismaService;
 let prismaB: PrismaService;
-let clock: FixedClock;
 let replicaA: CatalogHttpHarness;
 let replicaB: CatalogHttpHarness;
 let sql: Client;
 let keySeq = 0;
+let codeSeq = 0;
 
 function key(): string {
   keySeq += 1;
-  return `pg-catalog-key-${String(keySeq).padStart(6, '0')}-${process.pid}`;
+  return `pg-catalog-${RUN}-${String(keySeq).padStart(6, '0')}`;
 }
 
-async function head(): Promise<number> {
-  const response = await replicaA.request('GET', `${PATH}/revisions`, { token: TOKENS.admin });
-  const revisions = response.body.revisions as { revision: number }[];
-  return revisions[0]?.revision ?? 0;
+function newDefinition(overrides: Partial<WireDefinition> = {}): WireDefinition {
+  codeSeq += 1;
+  return {
+    definitionId: randomUUID(),
+    kind: 'PACKAGE',
+    code: `pg-${RUN}-${codeSeq}`,
+    name: { ar: 'غسيل اختبار', en: null },
+    description: { ar: 'تعريف اختبار فقط', en: 'Test-only definition' },
+    durationMinutes: 30,
+    vehicleTypes: ['sedan'],
+    status: 'PUBLISHED',
+    sortOrder: 100 + codeSeq,
+    ...overrides,
+  };
+}
+
+/** The current snapshot as publishable drafts (revision stripped). */
+async function current(): Promise<{ revision: number; drafts: WireDefinition[] }> {
+  const response = await replicaA.request('GET', `${PATH}/definitions`);
+  if (response.status === 404) return { revision: 0, drafts: [] };
+  assert.equal(response.status, 200);
+  const items = response.body.items as (WireDefinition & { revision: number })[];
+  return {
+    revision: response.body.catalogRevision as number,
+    drafts: items.map((item) => ({
+      definitionId: item.definitionId,
+      kind: item.kind,
+      code: item.code,
+      name: item.name,
+      description: item.description,
+      durationMinutes: item.durationMinutes,
+      vehicleTypes: item.vehicleTypes,
+      status: item.status,
+      sortOrder: item.sortOrder,
+    })),
+  };
 }
 
 before(async () => {
-  // Every run starts at the current wall clock so a re-run against the same
-  // database keeps effective dates increasing.
-  clock = new FixedClock(new Date(Math.floor(Date.now() / 1000) * 1000));
+  const clock = new FixedClock(new Date(Math.floor(Date.now() / 1000) * 1000));
   prismaA = new PrismaService(DATABASE_URL);
   prismaB = new PrismaService(DATABASE_URL);
   // Two independent connection pools behave like two service replicas.
@@ -62,240 +100,276 @@ after(async () => {
   await sql?.end();
 });
 
-test('postgres: published definitions round-trip exactly and the fingerprint is reproducible', async () => {
-  const expected = await head();
-  clock.advance(HOUR);
-  const published = await replicaA.request('POST', `${PATH}/definitions`, {
-    token: TOKENS.admin,
-    key: key(),
-    body: { expectedRevision: expected, effectiveFrom: null, definitions: definitionsFixture() },
-  });
-  assert.equal(published.status, 201, JSON.stringify(published.body));
-  const revision = published.body.revision as number;
-  assert.equal(revision, expected + 1);
-
-  // A different replica, with its own pool, reads the stored relational rows.
-  const read = await replicaB.request('GET', `${PATH}/definitions/${revision}`, {
-    token: TOKENS.customer,
-  });
-  assert.equal(read.status, 200);
-  assert.deepEqual(read.body.definitions, published.body.definitions);
-  const recomputed = new Sha256Hasher().sha256Hex(canonicalJson(read.body.definitions));
-  assert.equal(recomputed, read.body.definitionsFingerprint);
-
-  const rows = await sql.query(
-    'SELECT published_by, correlation_id, effective_from FROM catalog_revision WHERE revision = $1',
-    [revision],
-  );
-  assert.equal(rows.rowCount, 1);
-  assert.equal(rows.rows[0].published_by, '1d8b2c4e-5f60-4a7b-8c9d-0e1f2a3b4c5d');
-  const audit = await sql.query(
-    "SELECT outcome FROM catalog_audit_event WHERE revision = $1 AND action = 'catalog.revision.published'",
-    [revision],
-  );
-  assert.equal(audit.rowCount, 1);
-});
-
-test('postgres: concurrent publishers on two replicas create exactly one revision', async () => {
-  const expected = await head();
-  clock.advance(HOUR);
-  const attempts = await Promise.all(
-    Array.from({ length: 12 }, (_, n) =>
-      (n % 2 === 0 ? replicaA : replicaB).request('POST', `${PATH}/definitions`, {
-        token: TOKENS.admin,
-        key: key(),
-        body: {
-          expectedRevision: expected,
-          effectiveFrom: null,
-          definitions: definitionsFixture(),
-        },
-      }),
-    ),
-  );
-  assert.equal(attempts.filter((r) => r.status === 201).length, 1);
-  assert.equal(attempts.filter((r) => r.status === 409).length, 11);
-  const count = await sql.query(
-    'SELECT count(*)::int AS n FROM catalog_revision WHERE revision > $1',
-    [expected],
-  );
-  assert.equal(count.rows[0].n, 1);
-  const rejected = await sql.query(
-    "SELECT count(*)::int AS n FROM catalog_idempotency_receipt WHERE response_status = 409 AND response_body->>'code' = 'REVISION_CONFLICT'",
-  );
-  assert.ok(rejected.rows[0].n >= 11, 'terminal rejections are durable receipts');
-});
-
-test('postgres: the same key raced across replicas has one effect and one recorded result', async () => {
-  const expected = await head();
-  clock.advance(HOUR);
-  const shared = key();
-  const body = {
-    expectedRevision: expected,
-    effectiveFrom: null,
-    definitions: definitionsFixture(),
-  };
-  const results = await Promise.all(
-    Array.from({ length: 6 }, (_, n) =>
-      (n % 2 === 0 ? replicaA : replicaB).request('POST', `${PATH}/definitions`, {
-        token: TOKENS.admin,
-        key: shared,
-        body,
-      }),
-    ),
-  );
-  assert.ok(results.every((r) => r.status === 201 && r.body.revision === expected + 1));
-  assert.equal(results.filter((r) => r.headers.get('idempotency-replayed') === 'false').length, 1);
-  const conflict = await replicaB.request('POST', `${PATH}/definitions`, {
-    token: TOKENS.admin,
-    key: shared,
-    body: { ...body, expectedRevision: expected + 1 },
-  });
-  assert.equal(conflict.status, 409);
-  assert.equal((conflict.body.error as { code: string }).code, 'IDEMPOTENCY_CONFLICT');
-  assert.equal(await head(), expected + 1, 'the conflicting payload had no effect');
-});
-
-test('postgres: effective windows switch exactly at the boundary', async () => {
-  const expected = await head();
-  clock.advance(HOUR);
-  const boundary = new Date(clock.now().getTime() + 30 * 60_000);
-  const scheduled = await replicaA.request('POST', `${PATH}/definitions`, {
-    token: TOKENS.admin,
-    key: key(),
-    body: {
-      expectedRevision: expected,
-      effectiveFrom: boundary.toISOString(),
-      definitions: definitionsFixture(),
-    },
-  });
-  assert.equal(scheduled.status, 201);
-  const repository = new PrismaCatalogRepository(prismaA);
-  assert.equal(
-    (await repository.revisionInForce(new Date(boundary.getTime() - 1)))?.revision,
-    expected,
-  );
-  assert.equal((await repository.revisionInForce(boundary))?.revision, expected + 1);
-  const current = await replicaA.request('GET', `${PATH}/definitions`, { token: TOKENS.customer });
-  assert.equal(current.body.revision, expected);
-  assert.equal(current.body.effectiveUntil, boundary.toISOString());
-  // Publishing "now" while a later revision is scheduled is rejected, not reordered.
-  const backwards = await replicaA.request('POST', `${PATH}/definitions`, {
-    token: TOKENS.admin,
-    key: key(),
-    body: {
-      expectedRevision: expected + 1,
-      effectiveFrom: null,
-      definitions: definitionsFixture(),
-    },
-  });
-  assert.equal(backwards.status, 422);
-  assert.equal(
-    (backwards.body.error as { code: string }).code,
-    'EFFECTIVE_FROM_NOT_AFTER_PREVIOUS',
-  );
-  clock.current = new Date(boundary.getTime());
-});
-
-async function rejectsSql(statement: string, params: unknown[], pattern: RegExp): Promise<void> {
-  await sql.query('BEGIN');
+async function sqlError(statements: string[], values: unknown[][] = []): Promise<string> {
   try {
-    await assert.rejects(sql.query(statement, params), pattern);
-  } finally {
-    await sql.query('ROLLBACK');
+    await sql.query('BEGIN');
+    for (const [index, statement] of statements.entries())
+      await sql.query(statement, values[index] ?? []);
+    await sql.query('COMMIT');
+  } catch (error: unknown) {
+    await sql.query('ROLLBACK').catch(() => undefined);
+    return error instanceof Error ? error.message : String(error);
   }
+  throw new Error('EXPECTED_DATABASE_REJECTION');
 }
 
-test('postgres: published rows are immutable even for the runtime role', async () => {
-  const revision = await head();
-  assert.ok(revision >= 1);
-  const immutable = /CATALOG_IMMUTABLE/;
-  await rejectsSql(
-    "UPDATE catalog_package SET label_ar = 'x' WHERE revision = $1",
-    [revision],
-    immutable,
+test('postgres: a publication round-trips exactly across replicas with audit and outbox', async () => {
+  const head = await current();
+  const added = newDefinition({ vehicleTypes: ['pickup', 'sedan'] });
+  const correlationId = randomUUID();
+  const published = await replicaA.request('POST', `${PATH}/publications`, {
+    token: TOKENS.admin,
+    key: key(),
+    body: publishBody(head.revision, [...head.drafts, added], 'PG_ROUND_TRIP'),
+    correlationId,
+  });
+  assert.equal(published.status, 201, JSON.stringify(published.body));
+  const revision = published.body.catalogRevision as number;
+  assert.equal(revision, head.revision + 1);
+
+  const read = await replicaB.request('GET', `${PATH}/definitions`);
+  assert.deepEqual(read.body, published.body);
+  const one = await replicaB.request('GET', `${PATH}/definitions/${added.definitionId}`);
+  assert.equal(one.status, 200);
+  assert.deepEqual((one.body as { vehicleTypes: string[] }).vehicleTypes, ['sedan', 'pickup']);
+  assert.equal((one.body as { revision: number }).revision, 1);
+
+  const audit = await sql.query(
+    `SELECT action, revision, reason_code FROM catalog_audit_event WHERE correlation_id = $1`,
+    [correlationId],
   );
-  await rejectsSql('DELETE FROM catalog_package_addon WHERE revision = $1', [revision], immutable);
-  await rejectsSql('DELETE FROM catalog_revision WHERE revision = $1', [revision], immutable);
-  await rejectsSql(
-    'UPDATE catalog_revision SET effective_from = now() WHERE revision = $1',
-    [revision],
-    immutable,
+  assert.deepEqual(audit.rows, [
+    { action: 'catalog.definitions.published', revision, reason_code: 'PG_ROUND_TRIP' },
+  ]);
+  const outbox = await sql.query(
+    `SELECT payload, exchange, routing_key FROM outbox_message WHERE correlation_id = $1`,
+    [correlationId],
   );
-  await rejectsSql('UPDATE catalog_idempotency_receipt SET response_status = 200', [], immutable);
-  await rejectsSql('DELETE FROM catalog_audit_event', [], immutable);
-  await rejectsSql('DELETE FROM catalog_publication_lock', [], immutable);
-  await rejectsSql(
-    "INSERT INTO catalog_vehicle_category (revision, id, label_ar, label_en, extra_duration_minutes, sort_order) VALUES ($1, 'late-add', 'متأخر', NULL, 0, 0)",
-    [revision],
+  assert.equal(outbox.rowCount, 1);
+  assert.equal(outbox.rows[0].exchange, 'washgo.catalog.events');
+  const event = CATALOG_DEFINITIONS_PUBLISHED_V1.parse(JSON.parse(outbox.rows[0].payload));
+  assert.equal(event.aggregate.version, revision);
+  assert.deepEqual(event.data.definitionIds, [added.definitionId]);
+});
+
+test('postgres: concurrent publishers on two replicas produce exactly one revision', async () => {
+  const head = await current();
+  const results = await Promise.all(
+    Array.from({ length: 6 }, (_, n) =>
+      (n % 2 === 0 ? replicaA : replicaB).request('POST', `${PATH}/publications`, {
+        token: TOKENS.admin,
+        key: key(),
+        body: publishBody(head.revision, [...head.drafts, newDefinition()], 'PG_RACE'),
+      }),
+    ),
+  );
+  const statuses = results.map((r) => r.status).sort();
+  assert.deepEqual(statuses, [201, 412, 412, 412, 412, 412], JSON.stringify(statuses));
+  const after = await current();
+  assert.equal(after.revision, head.revision + 1);
+});
+
+test('postgres: the same key raced on two replicas commits once and replays identically', async () => {
+  const head = await current();
+  const shared = key();
+  const body = publishBody(head.revision, [...head.drafts, newDefinition()], 'PG_REPLAY');
+  const [a, b] = await Promise.all([
+    replicaA.request('POST', `${PATH}/publications`, { token: TOKENS.admin, key: shared, body }),
+    replicaB.request('POST', `${PATH}/publications`, { token: TOKENS.admin, key: shared, body }),
+  ]);
+  assert.equal(a.status, 201);
+  assert.equal(b.status, 201);
+  assert.deepEqual(a.body, b.body);
+  assert.deepEqual(
+    [a.headers.get('idempotency-replayed'), b.headers.get('idempotency-replayed')].sort(),
+    ['false', 'true'],
+  );
+  assert.equal((await current()).revision, head.revision + 1);
+  const conflict = await replicaB.request('POST', `${PATH}/publications`, {
+    token: TOKENS.admin,
+    key: shared,
+    body: { ...body, reasonCode: 'PG_OTHER' },
+  });
+  assert.equal(conflict.status, 409);
+});
+
+test('postgres: retirement is final and codes are never reused through the API', async () => {
+  const head = await current();
+  const victim = newDefinition({ kind: 'EXTRA' });
+  const created = await replicaA.request('POST', `${PATH}/publications`, {
+    token: TOKENS.admin,
+    key: key(),
+    body: publishBody(head.revision, [...head.drafts, victim], 'PG_ADD'),
+  });
+  assert.equal(created.status, 201);
+  const retired = { ...victim, status: 'RETIRED' as const };
+  const retire = await replicaA.request('POST', `${PATH}/publications`, {
+    token: TOKENS.admin,
+    key: key(),
+    body: publishBody(head.revision + 1, [...head.drafts, retired], 'PG_RETIRE'),
+  });
+  assert.equal(retire.status, 201);
+  const revive = await replicaA.request('POST', `${PATH}/publications`, {
+    token: TOKENS.admin,
+    key: key(),
+    body: publishBody(head.revision + 2, [...head.drafts, victim], 'PG_REVIVE'),
+  });
+  assert.equal(revive.status, 422);
+  assert.equal(errorOf(revive).reason, 'DEFINITION_RETIRED');
+  const reuse = await replicaA.request('POST', `${PATH}/publications`, {
+    token: TOKENS.admin,
+    key: key(),
+    body: publishBody(
+      head.revision + 2,
+      [...head.drafts, retired, { ...victim, definitionId: randomUUID() }],
+      'PG_REUSE',
+    ),
+  });
+  assert.equal(reuse.status, 422);
+  assert.deepEqual(errorOf(reuse).issues, [{ field: '$.definitions', code: 'DUPLICATE_CODE' }]);
+  const still = await replicaB.request('GET', `${PATH}/definitions/${victim.definitionId}`);
+  assert.equal((still.body as { status: string }).status, 'RETIRED');
+});
+
+test('postgres: published rows are immutable for the runtime role', async () => {
+  const head = await current();
+  assert.ok(head.revision > 0);
+  assert.match(
+    await sqlError(
+      [`UPDATE catalog_v1_publication SET reason_code = 'X_Y_Z' WHERE catalog_revision = $1`],
+      [[head.revision]],
+    ),
+    /CATALOG_IMMUTABLE/,
+  );
+  assert.match(
+    await sqlError(
+      [`DELETE FROM catalog_v1_definition WHERE catalog_revision = $1`],
+      [[head.revision]],
+    ),
+    /CATALOG_IMMUTABLE/,
+  );
+  assert.match(
+    await sqlError([`UPDATE catalog_v1_definition_identity SET code = 'zz-renamed'`]),
+    /CATALOG_IMMUTABLE/,
+  );
+  // A published revision can never gain rows later.
+  const id = randomUUID();
+  assert.match(
+    await sqlError(
+      [
+        `INSERT INTO catalog_v1_definition_identity (definition_id, code, kind, first_catalog_revision) VALUES ($1, $2, 'PACKAGE', $3)`,
+      ],
+      [[id, `pg-${RUN}-late`, head.revision]],
+    ),
     /CATALOG_REVISION_IMMUTABLE/,
   );
-  await rejectsSql('TRUNCATE catalog_audit_event', [], /permission denied/);
-  await rejectsSql('CREATE TABLE app.rogue (id int)', [], /permission denied/);
 });
 
-test('postgres: chain, uniqueness and value constraints hold without the application', async () => {
-  const revision = await head();
-  const row = await sql.query('SELECT effective_from FROM catalog_revision WHERE revision = $1', [
-    revision,
-  ]);
-  const last = row.rows[0].effective_from as Date;
-  const insert =
-    "INSERT INTO catalog_revision (revision, previous_revision, effective_from, published_at, published_by, correlation_id, definitions_fingerprint) VALUES ($1, $2, $3, $4, gen_random_uuid(), gen_random_uuid(), repeat('a', 64))";
-  // Skipping a revision number breaks the linear chain.
-  await rejectsSql(
-    insert,
-    [revision + 2, revision, new Date(last.getTime() + HOUR), last],
-    /catalog_revision_linear_chain/,
-  );
-  // A second successor of the same revision is a uniqueness violation.
-  await rejectsSql(
-    insert,
-    [revision, revision - 1, new Date(last.getTime() + HOUR), last],
-    /duplicate key/,
-  );
-  // Effective dates must strictly increase along the chain.
-  await rejectsSql(
-    insert,
-    [revision + 1, revision, last, last],
-    /CATALOG_EFFECTIVE_FROM_NOT_INCREASING/,
-  );
-  // Retroactive publication is impossible.
-  await rejectsSql(
-    insert,
-    [revision + 1, revision, new Date(last.getTime() + HOUR), new Date(last.getTime() + 2 * HOUR)],
-    /catalog_revision_not_retroactive/,
-  );
-  // Within one new revision: relation vocabulary, duplicate pairs and bounds.
-  await sql.query('BEGIN');
-  try {
-    await sql.query(insert, [revision + 1, revision, new Date(last.getTime() + HOUR), last]);
-    await sql.query(
-      "INSERT INTO catalog_vehicle_category VALUES ($1, 'sedan', 'سيدان', NULL, 0, 0)",
-      [revision + 1],
-    );
-    await sql.query('SAVEPOINT s');
-    await assert.rejects(
-      sql.query("INSERT INTO catalog_package VALUES ($1, 'p', 'باقة', NULL, NULL, 0, 0, '{}')", [
-        revision + 1,
-      ]),
-      /catalog_package_duration|catalog_package_id_format/,
-    );
-  } finally {
-    await sql.query('ROLLBACK');
-  }
-});
+/** Starts a raw next publication row inside the open transaction. */
+function nextPublication(revision: number): [string, unknown[]] {
+  return [
+    `INSERT INTO catalog_v1_publication (catalog_revision, previous_revision, published_at, published_by,
+       correlation_id, reason_code, snapshot_fingerprint)
+     VALUES ($1, $2, now(), $3, $4, 'RAW_SQL', $5)`,
+    [revision + 1, revision, randomUUID(), randomUUID(), 'a'.repeat(64)],
+  ];
+}
 
-test('postgres: trigger functions are not executable by the runtime role or PUBLIC', async () => {
-  const rows = await sql.query(
-    `SELECT p.proname,
-            has_function_privilege(current_user, p.oid, 'EXECUTE') AS runtime,
-            coalesce(array_to_string(p.proacl, ','), '') AS acl
-       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-      WHERE n.nspname = 'app' AND starts_with(p.proname, 'catalog_')`,
+function copyPrevious(revision: number, except: string | null = null): [string, unknown[]] {
+  return [
+    `INSERT INTO catalog_v1_definition
+       SELECT $1, definition_id, revision, kind, code, name_ar, name_en, description_ar, description_en,
+              duration_minutes, vehicle_types, status, sort_order
+         FROM catalog_v1_definition
+        WHERE catalog_revision = $2 AND ($3::uuid IS NULL OR definition_id <> $3::uuid)`,
+    [revision + 1, revision, except],
+  ];
+}
+
+async function rawPublication(statements: [string, unknown[]][]): Promise<string> {
+  return sqlError(
+    statements.map(([s]) => s),
+    statements.map(([, v]) => v),
   );
-  assert.equal(rows.rowCount, 3);
-  for (const row of rows.rows) {
-    assert.equal(row.runtime, false, row.proname);
-    assert.doesNotMatch(row.acl, /(^|,)=X/, `${row.proname} must not grant EXECUTE to PUBLIC`);
-  }
+}
+
+test('postgres: the database enforces snapshot completeness, final retirement and identity', async () => {
+  const head = await current();
+  const any = head.drafts[0]!;
+  const retired = head.drafts.find((d) => d.status === 'RETIRED');
+  assert.ok(retired, 'the retirement test publishes a retired definition first');
+
+  assert.match(await rawPublication([nextPublication(head.revision)]), /CATALOG_SNAPSHOT_EMPTY/);
+  assert.match(
+    await rawPublication([
+      nextPublication(head.revision),
+      copyPrevious(head.revision, any.definitionId),
+    ]),
+    /CATALOG_SNAPSHOT_INCOMPLETE/,
+  );
+  assert.match(
+    await rawPublication([
+      nextPublication(head.revision),
+      copyPrevious(head.revision, retired.definitionId),
+      [
+        `INSERT INTO catalog_v1_definition
+           SELECT $1, definition_id, revision + 1, kind, code, name_ar, name_en, description_ar, description_en,
+                  duration_minutes, vehicle_types, 'PUBLISHED', sort_order
+             FROM catalog_v1_definition WHERE catalog_revision = $2 AND definition_id = $3`,
+        [head.revision + 1, head.revision, retired.definitionId],
+      ],
+    ]),
+    /CATALOG_DEFINITION_RETIRED/,
+  );
+  assert.match(
+    await rawPublication([
+      nextPublication(head.revision),
+      copyPrevious(head.revision, any.definitionId),
+      [
+        `INSERT INTO catalog_v1_definition
+           SELECT $1, definition_id, revision + 2, kind, code, name_ar, name_en, description_ar, description_en,
+                  duration_minutes, vehicle_types, status, sort_order
+             FROM catalog_v1_definition WHERE catalog_revision = $2 AND definition_id = $3`,
+        [head.revision + 1, head.revision, any.definitionId],
+      ],
+    ]),
+    /CATALOG_DEFINITION_REVISION_GAP/,
+  );
+  // Kind drift breaks the composite identity foreign key.
+  assert.match(
+    await rawPublication([
+      nextPublication(head.revision),
+      copyPrevious(head.revision, any.definitionId),
+      [
+        `INSERT INTO catalog_v1_definition
+           SELECT $1, definition_id, revision + 1, CASE kind WHEN 'PACKAGE' THEN 'EXTRA' ELSE 'PACKAGE' END,
+                  code, name_ar, name_en, description_ar, description_en, duration_minutes, vehicle_types,
+                  status, sort_order
+             FROM catalog_v1_definition WHERE catalog_revision = $2 AND definition_id = $3`,
+        [head.revision + 1, head.revision, any.definitionId],
+      ],
+    ]),
+    /catalog_v1_definition_identity_fkey/,
+  );
+  // A retired code is still bound to its definition: a new identity cannot take it.
+  assert.match(
+    await rawPublication([
+      nextPublication(head.revision),
+      [
+        `INSERT INTO catalog_v1_definition_identity (definition_id, code, kind, first_catalog_revision)
+         VALUES ($1, $2, 'EXTRA', $3)`,
+        [randomUUID(), retired.code, head.revision + 1],
+      ],
+    ]),
+    /catalog_v1_definition_identity_code_key/,
+  );
+  assert.match(
+    await sqlError([
+      `INSERT INTO catalog_v1_definition (catalog_revision, definition_id, revision, kind, code, name_ar,
+         description_ar, duration_minutes, vehicle_types, status, sort_order)
+       VALUES (1, gen_random_uuid(), 1, 'PACKAGE', 'zz', 'x', 'x', 30, ARRAY['truck']::varchar(16)[], 'PUBLISHED', 0)`,
+    ]),
+    /catalog_v1_definition_vehicle_types|CATALOG_REVISION_IMMUTABLE/,
+  );
+  assert.equal((await current()).revision, head.revision);
 });

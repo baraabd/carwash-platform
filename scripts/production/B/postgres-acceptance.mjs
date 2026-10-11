@@ -54,9 +54,11 @@ const SERVICES = {
     },
   },
   catalog: {
-    task: 'P01-B',
-    previousMigrations: 2,
+    task: 'P06-B',
+    previousMigrations: 3,
     env: 'CATALOG_TEST_DATABASE_URL',
+    writeUpgradeSentinel: (url) => CATALOG_SENTINEL.write(url),
+    verifyUpgradeSentinel: (url) => CATALOG_SENTINEL.verify(url),
     dependencies: IDENTITY_STUB,
   },
   pricing: {
@@ -231,6 +233,64 @@ async function transaction(url, statements) {
     await client.end().catch(() => {});
   }
 }
+
+/**
+ * Catalog upgrade sentinel: a P01-B1 (pre-contract) revision and its audit row,
+ * written under the PREVIOUS schema by the runtime role. After the P06-B1
+ * upgrade the legacy rows must be intact and still immutable, and the widened
+ * audit constraint must keep accepting the old action.
+ */
+const CATALOG_SENTINEL = (() => {
+  const ids = { publisher: crypto.randomUUID(), correlation: crypto.randomUUID() };
+  const audit = crypto.randomUUID();
+  return {
+    async write(url) {
+      await transaction(url, [
+        [
+          `INSERT INTO app.catalog_revision (revision, previous_revision, effective_from, published_at,
+             published_by, correlation_id, definitions_fingerprint)
+           VALUES (1, NULL, now(), now(), $1, $2, repeat('b', 64))`,
+          [ids.publisher, ids.correlation],
+        ],
+        [
+          `INSERT INTO app.catalog_vehicle_category (revision, id, label_ar, label_en, extra_duration_minutes, sort_order)
+           VALUES (1, 'sentinel', 'حارس', NULL, 0, 0)`,
+        ],
+        [
+          `INSERT INTO app.catalog_audit_event (id, occurred_at, actor_subject, action, revision, outcome, correlation_id)
+           VALUES ($1, now(), $2, 'catalog.revision.published', 1, 'PUBLISHED', $3)`,
+          [audit, ids.publisher, ids.correlation],
+        ],
+      ]);
+    },
+    async verify(url) {
+      const kept = await query(
+        url,
+        `SELECT r.revision, c.id, a.reason_code FROM app.catalog_revision r
+           JOIN app.catalog_vehicle_category c ON c.revision = r.revision
+           JOIN app.catalog_audit_event a ON a.revision = r.revision AND a.id = $1
+          WHERE r.revision = 1`,
+        [audit],
+      );
+      if (
+        kept.rowCount !== 1 ||
+        kept.rows[0].id !== 'sentinel' ||
+        kept.rows[0].reason_code !== null
+      )
+        throw new Error('CATALOG_LEGACY_ROWS_NOT_PRESERVED');
+      let refused = false;
+      try {
+        await query(
+          url,
+          "UPDATE app.catalog_vehicle_category SET label_ar = 'x' WHERE id = 'sentinel'",
+        );
+      } catch (error) {
+        refused = /CATALOG_IMMUTABLE/.test(String(error?.message));
+      }
+      if (!refused) throw new Error('CATALOG_LEGACY_ROWS_MUTABLE');
+    },
+  };
+})();
 
 /**
  * Billing upgrade sentinel, written under the PREVIOUS schema (all of its guard
