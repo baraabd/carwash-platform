@@ -48,10 +48,15 @@ const SERVICES = {
     dependencies: IDENTITY_STUB,
   },
   pricing: {
-    task: 'P01-B',
-    previousMigrations: 1,
+    task: 'P05-B',
+    previousMigrations: 3,
     env: 'PRICING_TEST_DATABASE_URL',
-    dependencies: IDENTITY_STUB,
+    dependencies: {
+      ...IDENTITY_STUB,
+      serviceCallers:
+        'REAL shared ServiceClientAuthenticator with test credentials (Booking is not running)',
+      broker: 'NOT USED (outbox rows written; relay not started until E registers pricing events)',
+    },
   },
   billing: {
     task: 'P04-B',
@@ -141,7 +146,7 @@ async function phase(name, operation) {
 }
 
 async function query(url, statement, values = []) {
-  const client = new Client({ connectionString: url, connectionTimeoutMillis: 3_000 });
+  const client = new Client({ connectionString: url, connectionTimeoutMillis: 60_000 });
   try {
     await client.connect();
     return await client.query(statement, values);
@@ -152,7 +157,7 @@ async function query(url, statement, values = []) {
 
 /** Runs statements in ONE transaction on one connection (COMMIT-time triggers apply). */
 async function transaction(url, statements) {
-  const client = new Client({ connectionString: url, connectionTimeoutMillis: 3_000 });
+  const client = new Client({ connectionString: url, connectionTimeoutMillis: 60_000 });
   try {
     await client.connect();
     await client.query('BEGIN');
@@ -384,10 +389,27 @@ const BILLING_SENTINEL = (() => {
   };
 })();
 
+/**
+ * Prisma CLI as the given identity, with a generous connect timeout. A P1001
+ * (server not reachable) on a loaded host is retried up to twice after a pause;
+ * any other failure is final.
+ */
 async function prisma(args, databaseUrl) {
-  return checked('pnpm', ['--filter', `@carwash/${service}`, 'exec', 'prisma', ...args], {
-    env: { ...process.env, DATABASE_URL: databaseUrl },
-  });
+  const url = databaseUrl.includes('connect_timeout=')
+    ? databaseUrl
+    : `${databaseUrl}&connect_timeout=30`;
+  const invoke = () =>
+    checked('pnpm', ['--filter', `@carwash/${service}`, 'exec', 'prisma', ...args], {
+      env: { ...process.env, DATABASE_URL: url },
+    });
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await invoke();
+    } catch (error) {
+      if (attempt >= 3 || !String(error?.message ?? error).includes('P1001')) throw error;
+      await delay(5_000);
+    }
+  }
 }
 
 let started = false;
@@ -541,7 +563,11 @@ try {
         'prisma/schema.prisma',
         '--exit-code',
       ],
-      { cwd: ROOT, timeoutMs: 180_000, env: { ...process.env, DATABASE_URL: migrateUrl } },
+      {
+        cwd: ROOT,
+        timeoutMs: 180_000,
+        env: { ...process.env, DATABASE_URL: `${migrateUrl}&connect_timeout=30` },
+      },
     );
     if (result.code !== 0)
       throw new Error(`SCHEMA_DRIFT: ${redact(result.stdout + result.stderr).slice(-4000)}`);

@@ -7,6 +7,7 @@ import {
   Inject,
   Param,
   Post,
+  Query,
   Res,
   UseFilters,
 } from '@nestjs/common';
@@ -14,17 +15,22 @@ import {
   AppError,
   AppExceptionFilter,
   CORRELATION_HEADER,
+  SERVICE_CLIENT_HEADER,
+  SERVICE_TOKEN_HEADER,
   createLogger,
   resolveCorrelationId,
 } from '@carwash/service-kit';
 import {
   PricingApplicationError,
   PricingService,
+  PromotionService,
   type CommandResult,
   type RequestContext,
+  type ServiceRequestContext,
 } from '../../application';
 
 export const PRICING_SERVICE = 'PRICING_SERVICE';
+export const PROMOTION_SERVICE = 'PROMOTION_SERVICE';
 export const PRICING_V1 = 'internal/v1/pricing';
 
 /** Fixed public messages. Internal exception text is never reflected. */
@@ -51,6 +57,20 @@ const MESSAGES: Readonly<Record<string, string>> = {
   EFFECTIVE_FROM_NOT_AFTER_PREVIOUS: 'The effective time must follow the previous version.',
   EFFECTIVE_FROM_TOO_FAR: 'The effective time is too far in the future.',
   PRICE_PRECEDES_CATALOG: 'Prices cannot take effect before their catalog revision.',
+  SERVICE_AUTH_REQUIRED: 'A service credential with the required scope is required.',
+  PROMOTION_TERMS_INVALID: 'The promotion terms are invalid.',
+  COUPON_CODE_TAKEN: 'The coupon code is already used by another promotion.',
+  COUPON_NOT_VALID: 'The coupon is not valid.',
+  PROMOTION_NOT_APPLICABLE: 'The coupon does not apply to this selection.',
+  PROMOTION_EXHAUSTED: 'The promotion has no uses left.',
+  CUSTOMER_LIMIT_REACHED: 'The promotion was already used the maximum number of times.',
+  QUOTE_HAS_NO_PROMOTION: 'The quote carries no promotion.',
+  QUOTE_ALREADY_REDEEMED: 'The quote was already redeemed.',
+  REDEMPTION_CONFLICT: 'The booking already redeemed this promotion with another quote.',
+  BOOKING_ALREADY_REDEEMED: 'The booking already holds a promotion.',
+  REDEMPTION_NOT_RESERVED: 'The redemption is no longer reserved.',
+  PROMOTION_INACTIVE: 'The promotion is no longer active.',
+  REVISION_CONFLICT: 'The promotion changed; refetch and retry with a new command.',
 };
 
 interface HttpResponse {
@@ -71,12 +91,17 @@ export class PricingController {
     base: { component: 'pricing-http' },
   });
 
-  constructor(@Inject(PRICING_SERVICE) private readonly pricing: PricingService) {}
+  constructor(
+    @Inject(PRICING_SERVICE) private readonly pricing: PricingService,
+    @Inject(PROMOTION_SERVICE) private readonly promotions: PromotionService,
+  ) {}
 
-  private context(headers: Record<string, string | undefined>): RequestContext {
+  private context(headers: Record<string, string | undefined>): ServiceRequestContext {
     return {
       credential: headers.authorization,
       correlationId: resolveCorrelationId(headers[CORRELATION_HEADER]),
+      serviceClient: headers[SERVICE_CLIENT_HEADER],
+      serviceToken: headers[SERVICE_TOKEN_HEADER],
     };
   }
 
@@ -172,5 +197,74 @@ export class PricingController {
     @Body() body: unknown,
   ) {
     return this.run(() => this.pricing.validateQuote(this.context(headers), id, body));
+  }
+
+  // ------------------------------------------------------------ promotions
+
+  @Post('promotions/:code/revisions')
+  async publishPromotion(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('code') code: string,
+    @Body() body: unknown,
+    @Res() response: HttpResponse,
+  ): Promise<void> {
+    const context = this.context(headers);
+    const result = await this.run(() =>
+      this.promotions.publishRevision(context, headers['idempotency-key'], code, body),
+    );
+    this.send('pricing_promotion_publish_outcome', context, result, response);
+  }
+
+  @Get('promotions')
+  listPromotions(@Headers() headers: Record<string, string | undefined>) {
+    return this.run(() => this.promotions.listPromotions(this.context(headers)));
+  }
+
+  @Get('promotions/:code')
+  promotion(@Headers() headers: Record<string, string | undefined>, @Param('code') code: string) {
+    return this.run(() => this.promotions.getPromotion(this.context(headers), code));
+  }
+
+  @Post('promotion-redemptions')
+  async reserveRedemption(
+    @Headers() headers: Record<string, string | undefined>,
+    @Body() body: unknown,
+    @Res() response: HttpResponse,
+  ): Promise<void> {
+    const context = this.context(headers);
+    const result = await this.run(() => this.promotions.reserve(context, body));
+    this.send('pricing_redemption_reserve_outcome', context, result, response);
+  }
+
+  @Get('promotion-redemptions')
+  redemptions(
+    @Headers() headers: Record<string, string | undefined>,
+    @Query('bookingId') bookingId: string | undefined,
+  ) {
+    return this.run(() => this.promotions.forBooking(this.context(headers), bookingId));
+  }
+
+  @Post('promotion-redemptions/:id/commit')
+  async commitRedemption(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Res() response: HttpResponse,
+  ): Promise<void> {
+    const context = this.context(headers);
+    const result = await this.run(() => this.promotions.complete(context, id, 'COMMIT', body));
+    this.send('pricing_redemption_commit_outcome', context, result, response);
+  }
+
+  @Post('promotion-redemptions/:id/release')
+  async releaseRedemption(
+    @Headers() headers: Record<string, string | undefined>,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Res() response: HttpResponse,
+  ): Promise<void> {
+    const context = this.context(headers);
+    const result = await this.run(() => this.promotions.complete(context, id, 'RELEASE', body));
+    this.send('pricing_redemption_release_outcome', context, result, response);
   }
 }

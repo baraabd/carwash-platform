@@ -1,10 +1,16 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { PricingService } from '../../src/application';
+import { serviceTokenDigest } from '@carwash/service-kit';
+import { PricingService, PromotionService } from '../../src/application';
+import { ConfiguredServiceCallers } from '../../src/infrastructure/security/service-callers';
 import type { Clock, PolicyProvider, PricingRepository } from '../../src/ports';
 import { IdentitySessionAuthority } from '../../src/infrastructure/identity/identity-session.authority';
 import { RandomIds, Sha256Hasher } from '../../src/infrastructure/system/system.adapters';
-import { PRICING_SERVICE, PricingController } from '../../src/transport/http/pricing.controller';
+import {
+  PRICING_SERVICE,
+  PROMOTION_SERVICE,
+  PricingController,
+} from '../../src/transport/http/pricing.controller';
 import { startIdentityStub, tokenFor, type IdentityStub } from './identity-stub';
 import {
   ADMIN_SUBJECT,
@@ -20,13 +26,21 @@ export const TOKENS = {
   unknown: tokenFor('unknown'),
 };
 
+/** Booking test credential for promotion redemptions; only its digest is configured. */
+export const BOOKING = { client: 'booking', token: 'booking-pricing-test-token-0123456789abcdef' };
+
 export interface PricingHttpHarness {
   readonly url: string;
   readonly identity: IdentityStub;
   request(
     method: 'GET' | 'POST',
     path: string,
-    options?: { token?: string; key?: string; body?: unknown },
+    options?: {
+      token?: string;
+      key?: string;
+      body?: unknown;
+      service?: { client: string; token: string };
+    },
   ): Promise<{ status: number; body: Record<string, unknown>; headers: Headers }>;
   close(): Promise<void>;
 }
@@ -60,7 +74,32 @@ export async function startPricingHttp(input: {
   });
   const moduleRef = await Test.createTestingModule({
     controllers: [PricingController],
-    providers: [{ provide: PRICING_SERVICE, useValue: service }],
+    providers: [
+      { provide: PRICING_SERVICE, useValue: service },
+      {
+        provide: PROMOTION_SERVICE,
+        useValue: new PromotionService({
+          repository: input.repository,
+          authority: new IdentitySessionAuthority({
+            origin: new URL(identity.origin),
+            timeoutMs: 1_000,
+          }),
+          callers: new ConfiguredServiceCallers(
+            JSON.stringify([
+              {
+                id: 'booking',
+                tokenSha256: serviceTokenDigest(BOOKING.token),
+                scopes: ['pricing.promotion.redeem'],
+              },
+            ]),
+          ),
+          policy: input.policy,
+          clock: input.clock,
+          ids: new RandomIds(),
+          hasher: new Sha256Hasher(),
+        }),
+      },
+    ],
   }).compile();
   const app: INestApplication = moduleRef.createNestApplication({ logger: false });
   await app.listen(0, '127.0.0.1');
@@ -72,6 +111,10 @@ export async function startPricingHttp(input: {
       const headers: Record<string, string> = { accept: 'application/json' };
       if (options.token) headers.authorization = `Bearer ${options.token}`;
       if (options.key) headers['idempotency-key'] = options.key;
+      if (options.service) {
+        headers['x-service-client'] = options.service.client;
+        headers['x-service-token'] = options.service.token;
+      }
       if (options.body !== undefined) headers['content-type'] = 'application/json';
       const response = await fetch(url + path, {
         method,

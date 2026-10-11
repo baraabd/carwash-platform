@@ -4,3 +4,4 @@
  * Contracts the application needs from the outside world. Framework/IO free.
  */
 export * from './pricing.ports';
+export * from './promotion.ports';

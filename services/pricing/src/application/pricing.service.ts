@@ -1,8 +1,13 @@
 import {
   Money,
   PriceRuleError,
+  PromotionRuleError,
   QuoteRuleError,
+  capCheck,
   computeQuote,
+  evaluatePromotion,
+  normalizeCouponCode,
+  promotionRevisionInForce,
   normalizeRates,
   normalizeSelection,
   planPriceVersion,
@@ -26,7 +31,9 @@ import {
   type IdempotencyReceipt,
   type PolicyProvider,
   type PricingRepository,
+  type PricingUnitOfWork,
   type PublishedPriceVersion,
+  type QuoteDiscount,
   type RecordedOutcome,
   type StoredQuote,
   type VerifiedPrincipal,
@@ -120,6 +127,16 @@ export function quoteView(quote: StoredQuote, now: Date): Record<string, unknown
       amount: money(line.amountMinor),
     })),
     subtotal: money(quote.subtotalMinor),
+    // The applied promotion is its own component: total = subtotal - discount.
+    discounts: quote.discount
+      ? [
+          {
+            promotionCode: quote.discount.promotionCode,
+            promotionRevision: quote.discount.promotionRevision,
+            amount: money(quote.discount.amountMinor),
+          },
+        ]
+      : [],
     total: money(quote.totalMinor),
     durationMinutes: quote.durationMinutes,
     inputFingerprint: quote.inputFingerprint,
@@ -156,6 +173,23 @@ function selectionOf(body: unknown): Selection {
     return normalizeSelection(body);
   } catch (error: unknown) {
     if (error instanceof QuoteRuleError) throw new PricingApplicationError('REQUEST_INVALID');
+    throw error;
+  }
+}
+
+/**
+ * The quote request is the selection plus an optional customer-entered coupon.
+ * The coupon is normalized (upper case) and never stored, only its digest.
+ */
+function splitCoupon(body: unknown): { selectionBody: unknown; couponCode: string | null } {
+  if (typeof body !== 'object' || body === null || Array.isArray(body) || !('couponCode' in body))
+    return { selectionBody: body, couponCode: null };
+  const { couponCode, ...selectionBody } = body as Record<string, unknown>;
+  try {
+    return { selectionBody, couponCode: normalizeCouponCode(couponCode) };
+  } catch (error: unknown) {
+    if (error instanceof PromotionRuleError)
+      throw new PricingApplicationError('REQUEST_INVALID', { field: 'couponCode' });
     throw error;
   }
 }
@@ -386,6 +420,62 @@ export class PricingService {
   }
 
   /**
+   * Applies a customer-entered coupon to a priced selection. An unknown, not yet
+   * started, inactive or ended coupon is one indistinguishable COUPON_NOT_VALID
+   * (no coupon enumeration); a valid coupon that does not fit the selection says
+   * why. Caps are checked here only to avoid quoting an exhausted promotion;
+   * they are ENFORCED when Booking reserves the redemption.
+   */
+  private async applyCoupon(
+    uow: PricingUnitOfWork,
+    couponDigest: string,
+    owner: string,
+    packageId: string,
+    subtotalMinor: bigint,
+    currency: string,
+    now: Date,
+  ): Promise<{ readonly discount: QuoteDiscount } | { readonly rejected: RecordedOutcome }> {
+    const notValid = { rejected: { status: 422, body: { code: 'COUPON_NOT_VALID' } } };
+    const promotion = await uow.promotionByCoupon(couponDigest);
+    if (!promotion) return notValid;
+    const current = promotionRevisionInForce(await uow.promotionRevisions(promotion.code), now);
+    const eligibility = evaluatePromotion({
+      terms: current?.terms ?? null,
+      now,
+      packageId,
+      subtotalMinor,
+      currency,
+    });
+    if (!current || !eligibility.eligible) {
+      if (
+        !eligibility.eligible &&
+        (eligibility.reason === 'PACKAGE_NOT_ELIGIBLE' || eligibility.reason === 'SUBTOTAL_TOO_LOW')
+      )
+        return {
+          rejected: {
+            status: 422,
+            body: { code: 'PROMOTION_NOT_APPLICABLE', reason: eligibility.reason },
+          },
+        };
+      return notValid;
+    }
+    const live = await uow.liveRedemptions(promotion.code, owner);
+    const capped = capCheck({
+      terms: current.terms,
+      liveTotal: live.total,
+      liveForCustomer: live.customer,
+    });
+    if (capped) return { rejected: { status: 409, body: { code: capped } } };
+    return {
+      discount: {
+        promotionCode: promotion.code,
+        promotionRevision: current.revision,
+        amountMinor: eligibility.discountMinor,
+      },
+    };
+  }
+
+  /**
    * Issues an immutable, expiring quote from IDs only. Server time, server rates
    * and the stored catalog view decide everything; a client total is never read.
    */
@@ -396,12 +486,16 @@ export class PricingService {
   ): Promise<CommandResult> {
     const principal = await this.principal(context, QUOTE_PERMISSION);
     const key = this.key(idempotencyKey);
-    const selection = selectionOf(body);
+    const { selectionBody, couponCode } = splitCoupon(body);
+    const selection = selectionOf(selectionBody);
+    const couponDigest = couponCode === null ? null : this.deps.hasher.sha256Hex(couponCode);
+    // Requests without a coupon keep their pre-promotion fingerprint (receipt compatibility).
     const requestFingerprint = this.deps.hasher.sha256Hex(
       canonicalJson({
         operation: QUOTE_OPERATION,
         actor: principal.subject,
         selection: selectionWire(selection),
+        ...(couponDigest === null ? {} : { coupon: couponDigest }),
       }),
     );
     const existing = await this.deps.repository.findReceipt(
@@ -444,32 +538,49 @@ export class PricingService {
               rates: version.rates,
               policy,
             });
-            const next = await uow.version(version.version + 1);
-            const quoteId = this.deps.ids.uuid();
-            await uow.insertQuote({
-              id: quoteId,
-              ownerSubject: principal.subject,
-              priceVersion: version.version,
-              catalogRevision: version.catalogRevision,
-              policyRevision: version.policyRevision,
-              currency: computed.currency,
-              minorUnitExponent: version.minorUnitExponent,
-              selection,
-              lines: computed.lines,
-              subtotalMinor: computed.subtotalMinor,
-              totalMinor: computed.totalMinor,
-              durationMinutes: computed.durationMinutes,
-              inputFingerprint: this.inputFingerprint(
-                principal.subject,
-                version.version,
-                version.policyRevision,
+            const applied =
+              couponDigest === null
+                ? null
+                : await this.applyCoupon(
+                    uow,
+                    couponDigest,
+                    principal.subject,
+                    selection.packageId,
+                    computed.subtotalMinor,
+                    computed.currency,
+                    now,
+                  );
+            if (applied && 'rejected' in applied) {
+              result = applied.rejected;
+            } else {
+              const next = await uow.version(version.version + 1);
+              const quoteId = this.deps.ids.uuid();
+              await uow.insertQuote({
+                id: quoteId,
+                ownerSubject: principal.subject,
+                priceVersion: version.version,
+                catalogRevision: version.catalogRevision,
+                policyRevision: version.policyRevision,
+                currency: computed.currency,
+                minorUnitExponent: version.minorUnitExponent,
                 selection,
-              ),
-              issuedAt: now,
-              expiresAt: quoteExpiry(now, ttl, next?.effectiveFrom ?? null),
-              correlationId: context.correlationId,
-            });
-            result = { status: 201, body: { quoteId } };
+                lines: computed.lines,
+                subtotalMinor: computed.subtotalMinor,
+                totalMinor: computed.totalMinor - (applied?.discount.amountMinor ?? 0n),
+                discount: applied?.discount ?? null,
+                durationMinutes: computed.durationMinutes,
+                inputFingerprint: this.inputFingerprint(
+                  principal.subject,
+                  version.version,
+                  version.policyRevision,
+                  selection,
+                ),
+                issuedAt: now,
+                expiresAt: quoteExpiry(now, ttl, next?.effectiveFrom ?? null),
+                correlationId: context.correlationId,
+              });
+              result = { status: 201, body: { quoteId } };
+            }
           } catch (error: unknown) {
             if (!(error instanceof QuoteRuleError) || error.code === 'RATE_MISSING') throw error;
             result = { status: 422, body: { code: error.code } };

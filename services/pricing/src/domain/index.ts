@@ -9,3 +9,4 @@ export * from './currency-policy';
 export * from './catalog-snapshot';
 export * from './price-version';
 export * from './quote';
+export * from './promotion';

@@ -4,19 +4,28 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Client, Pool } from 'pg';
+import { parseEnvelopeV2 } from '@carwash/event-contracts';
+import { parseRedemptionChangedData } from '../../src/application';
 import { PrismaClient } from '../../src/generated/prisma/client';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma.service';
 import { PrismaPricingRepository } from '../../src/infrastructure/persistence/prisma-pricing.repository';
 import {
   FakeCatalogReader,
   ADMIN_SUBJECT,
+  CUSTOMER_SUBJECT,
+  OTHER_CUSTOMER_SUBJECT,
   FixedClock,
   FixedPolicy,
   TEST_POLICY,
   ratesFixture,
   snapshotFixture,
 } from '../support/pricing-fixtures';
-import { TOKENS, startPricingHttp, type PricingHttpHarness } from '../support/pricing-http-harness';
+import {
+  BOOKING,
+  TOKENS,
+  startPricingHttp,
+  type PricingHttpHarness,
+} from '../support/pricing-http-harness';
 
 /*
  * REAL PostgreSQL evidence, run as the least-privileged runtime role
@@ -489,9 +498,491 @@ test('postgres: trigger functions are not executable by the runtime role or PUBL
        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = 'app' AND starts_with(p.proname, 'pricing_')`,
   );
-  assert.equal(rows.rowCount, 5);
+  // 5 from P01-B plus the 3 promotion guards of P05-B2.
+  assert.equal(rows.rowCount, 8);
   for (const row of rows.rows) {
     assert.equal(row.runtime, false, row.proname);
     assert.doesNotMatch(row.acl, /(^|,)=X/, `${row.proname} must not grant EXECUTE to PUBLIC`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// P05-B2 promotions. Same file as the price-chain tests on purpose: price
+// versions are one global chain, and spec files run in parallel processes.
+
+let promoSeq = 0;
+const promoCode = () => `promo-${process.pid}-${++promoSeq}`;
+const couponFor = (code: string) => code.replaceAll('-', '').toUpperCase().slice(-12);
+
+function promoTerms(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    discount: { kind: 'PERCENT', basisPoints: 1000, maxDiscountMinor: null },
+    currency: TEST_POLICY.currency,
+    packageIds: ['exterior'],
+    minSubtotalMinor: '0',
+    endsAt: null,
+    totalCap: 10,
+    perCustomerCap: 5,
+    active: true,
+    ...overrides,
+  };
+}
+
+async function publishPromotion(code: string, overrides: Record<string, unknown> = {}) {
+  const response = await replicaA.request('POST', `${PATH}/promotions/${code}/revisions`, {
+    token: TOKENS.admin,
+    key: key(),
+    body: {
+      expectedRevision: 0,
+      effectiveFrom: null,
+      couponCode: couponFor(code),
+      terms: promoTerms(overrides),
+    },
+  });
+  assert.equal(response.status, 201, JSON.stringify(response.body));
+  return response.body;
+}
+
+async function couponQuote(token: string, code: string, body = selection()) {
+  const response = await replicaA.request('POST', `${PATH}/quotes`, {
+    token,
+    key: key(),
+    body: { ...body, couponCode: couponFor(code).toLowerCase() },
+  });
+  return response;
+}
+
+function redeem(body: Record<string, unknown>, replica = replicaA) {
+  return replica.request('POST', `${PATH}/promotion-redemptions`, { service: BOOKING, body });
+}
+
+function errorCodeOf(body: Record<string, unknown>): string | undefined {
+  return (body.error as { code?: string } | undefined)?.code;
+}
+
+test('promotions: staff revisions, digest-only coupon, quote records the discount component', async () => {
+  await publish();
+  const code = promoCode();
+  const created = await publishPromotion(code);
+  assert.equal((created.revisions as Record<string, unknown>[]).length, 1);
+  const digest = await sql.query(
+    `SELECT count(*)::int AS n FROM promotion WHERE code = $1 AND coupon_digest = encode(sha256($2::bytea), 'hex')`,
+    [code, couponFor(code)],
+  );
+  assert.equal(digest.rows[0].n, 1, 'only the SHA-256 digest of the normalized coupon is stored');
+  const anywhere = await sql.query(
+    `SELECT count(*)::int AS n FROM pricing_idempotency_receipt WHERE response_body::text LIKE $1`,
+    [`%${couponFor(code)}%`],
+  );
+  assert.equal(anywhere.rows[0].n, 0, 'the coupon never appears in stored responses');
+
+  const taken = await replicaB.request('POST', `${PATH}/promotions/${promoCode()}/revisions`, {
+    token: TOKENS.admin,
+    key: key(),
+    body: {
+      expectedRevision: 0,
+      effectiveFrom: null,
+      couponCode: couponFor(code),
+      terms: promoTerms(),
+    },
+  });
+  assert.equal(taken.status, 409);
+  assert.equal(errorCodeOf(taken.body), 'COUPON_CODE_TAKEN');
+  const recoupon = await replicaA.request('POST', `${PATH}/promotions/${code}/revisions`, {
+    token: TOKENS.admin,
+    key: key(),
+    body: {
+      expectedRevision: 1,
+      effectiveFrom: null,
+      couponCode: 'OTHER1234',
+      terms: promoTerms(),
+    },
+  });
+  assert.equal(recoupon.status, 400, 'the coupon is fixed at creation');
+  const customerPublish = await replicaA.request(
+    'POST',
+    `${PATH}/promotions/${promoCode()}/revisions`,
+    {
+      token: TOKENS.customer,
+      key: key(),
+      body: {
+        expectedRevision: 0,
+        effectiveFrom: null,
+        couponCode: 'NOPE12345',
+        terms: promoTerms(),
+      },
+    },
+  );
+  assert.equal(customerPublish.status, 403);
+  const wrongCurrency = await replicaA.request(
+    'POST',
+    `${PATH}/promotions/${promoCode()}/revisions`,
+    {
+      token: TOKENS.admin,
+      key: key(),
+      body: {
+        expectedRevision: 0,
+        effectiveFrom: null,
+        couponCode: 'CURRENCY99',
+        terms: promoTerms({ currency: 'SYP' }),
+      },
+    },
+  );
+  assert.equal(wrongCurrency.status, 422);
+
+  const quote = await couponQuote(TOKENS.customer, code);
+  assert.equal(quote.status, 201, JSON.stringify(quote.body));
+  // 50000 exterior + 20000 suv + 15000 tyre-shine = 85000; 10% floor = 8500.
+  assert.deepEqual(quote.body.subtotal, { amountMinor: '85000', currency: TEST_POLICY.currency });
+  assert.deepEqual(quote.body.total, { amountMinor: '76500', currency: TEST_POLICY.currency });
+  assert.deepEqual(quote.body.discounts, [
+    {
+      promotionCode: code,
+      promotionRevision: 1,
+      amount: { amountMinor: '8500', currency: TEST_POLICY.currency },
+    },
+  ]);
+  const row = await sql.query(
+    'SELECT amount_minor::text AS amount FROM quote_discount WHERE quote_id = $1',
+    [quote.body.quoteId],
+  );
+  assert.equal(row.rows[0].amount, '8500');
+  const reread = await replicaB.request('GET', `${PATH}/quotes/${quote.body.quoteId as string}`, {
+    token: TOKENS.customer,
+  });
+  assert.deepEqual(reread.body.discounts, quote.body.discounts);
+
+  const unknown = await replicaA.request('POST', `${PATH}/quotes`, {
+    token: TOKENS.customer,
+    key: key(),
+    body: { ...selection(), couponCode: 'NOSUCHCODE1' },
+  });
+  assert.equal(unknown.status, 422);
+  assert.equal(errorCodeOf(unknown.body), 'COUPON_NOT_VALID');
+  const ineligible = await couponQuote(TOKENS.customer, code, {
+    ...selection(),
+    packageId: 'full-care',
+    addonIds: [],
+  });
+  assert.equal(ineligible.status, 422);
+  assert.equal(errorCodeOf(ineligible.body), 'PROMOTION_NOT_APPLICABLE');
+  const plain = await replicaA.request('POST', `${PATH}/quotes`, {
+    token: TOKENS.customer,
+    key: key(),
+    body: selection(),
+  });
+  assert.deepEqual(plain.body.discounts, [], 'no coupon, no discount, unchanged total');
+  assert.deepEqual(plain.body.total, plain.body.subtotal);
+
+  const version = await head();
+  const id = randomUUID();
+  // A discount that does not explain the total can never commit.
+  await rejectsSql(
+    [
+      [QUOTE_INSERT, [id, version, 1, TEST_POLICY.revision, 50000]],
+      [LINE_INSERT, [id, 0, 'PACKAGE', 'exterior', 50000, false]],
+      [LINE_INSERT, [id, 1, 'VEHICLE', 'sedan', 0, false]],
+      ['INSERT INTO quote_discount VALUES ($1, $2, 1, 100)', [id, code]],
+    ],
+    /QUOTE_TOTAL_INCONSISTENT/,
+  );
+  await rejectsSql(
+    [['UPDATE quote_discount SET amount_minor = 1 WHERE quote_id = $1', [quote.body.quoteId]]],
+    /PRICING_IMMUTABLE/,
+  );
+  await rejectsSql(
+    [['UPDATE promotion_revision SET total_cap = 999 WHERE promotion_code = $1', [code]]],
+    /PRICING_IMMUTABLE/,
+  );
+  await rejectsSql(
+    [
+      [
+        `INSERT INTO quote_discount VALUES ((SELECT id FROM quote WHERE id <> $1 LIMIT 1), $2, 1, 1)`,
+        [quote.body.quoteId, code],
+      ],
+    ],
+    /QUOTE_IMMUTABLE/,
+  );
+});
+
+test('redemptions: caps hold under concurrency across replicas, retries are idempotent, release compensates', async () => {
+  // Total cap 1, two customers race for the last use.
+  const last = promoCode();
+  await publishPromotion(last, { totalCap: 1, perCustomerCap: 1 });
+  const [mine, theirs] = await Promise.all([
+    couponQuote(TOKENS.customer, last),
+    couponQuote(TOKENS.otherCustomer, last),
+  ]);
+  assert.equal(mine.status, 201, JSON.stringify(mine.body));
+  assert.equal(theirs.status, 201, JSON.stringify(theirs.body));
+  const raced = await Promise.all([
+    redeem(
+      { quoteId: mine.body.quoteId, bookingId: randomUUID(), customerSubject: CUSTOMER_SUBJECT },
+      replicaA,
+    ),
+    redeem(
+      {
+        quoteId: theirs.body.quoteId,
+        bookingId: randomUUID(),
+        customerSubject: OTHER_CUSTOMER_SUBJECT,
+      },
+      replicaB,
+    ),
+  ]);
+  assert.deepEqual(raced.map((r) => r.status).sort(), [201, 409]);
+  assert.equal(errorCodeOf(raced.find((r) => r.status === 409)?.body ?? {}), 'PROMOTION_EXHAUSTED');
+  const winner = raced.find((r) => r.status === 201);
+  const exhaustedQuote = await couponQuote(TOKENS.customer, last);
+  assert.equal(
+    errorCodeOf(exhaustedQuote.body),
+    'PROMOTION_EXHAUSTED',
+    'an exhausted promotion is not quoted',
+  );
+
+  // Release compensates: the use returns and the other customer can redeem.
+  const released = await replicaA.request(
+    'POST',
+    `${PATH}/promotion-redemptions/${winner?.body.redemptionId as string}/release`,
+    {
+      service: BOOKING,
+      body: { reason: 'BOOKING_CANCELLED' },
+    },
+  );
+  assert.equal(released.status, 200);
+  assert.equal(released.body.status, 'RELEASED');
+  const loser = raced.find((r) => r.status === 409);
+  const retryQuote = loser === raced[0] ? mine : theirs;
+  const retrySubject = loser === raced[0] ? CUSTOMER_SUBJECT : OTHER_CUSTOMER_SUBJECT;
+  const second = await redeem({
+    quoteId: retryQuote.body.quoteId,
+    bookingId: randomUUID(),
+    customerSubject: retrySubject,
+  });
+  assert.equal(second.status, 201, JSON.stringify(second.body));
+
+  // Per-customer cap 1: one customer, two quotes, two bookings racing.
+  const perCustomer = promoCode();
+  await publishPromotion(perCustomer, { totalCap: 5, perCustomerCap: 1 });
+  const q1 = await couponQuote(TOKENS.customer, perCustomer);
+  const q2 = await couponQuote(TOKENS.customer, perCustomer);
+  const both = await Promise.all([
+    redeem(
+      { quoteId: q1.body.quoteId, bookingId: randomUUID(), customerSubject: CUSTOMER_SUBJECT },
+      replicaA,
+    ),
+    redeem(
+      { quoteId: q2.body.quoteId, bookingId: randomUUID(), customerSubject: CUSTOMER_SUBJECT },
+      replicaB,
+    ),
+  ]);
+  assert.deepEqual(both.map((r) => r.status).sort(), [201, 409]);
+  assert.equal(
+    errorCodeOf(both.find((r) => r.status === 409)?.body ?? {}),
+    'CUSTOMER_LIMIT_REACHED',
+  );
+
+  // Identical retries for one booking: one redemption, one use.
+  const idem = promoCode();
+  await publishPromotion(idem, { totalCap: 5, perCustomerCap: 5 });
+  const q = await couponQuote(TOKENS.customer, idem);
+  const body = {
+    quoteId: q.body.quoteId,
+    bookingId: randomUUID(),
+    customerSubject: CUSTOMER_SUBJECT,
+  };
+  const retries = await Promise.all(
+    [0, 1, 2, 3].map((i) => redeem(body, i % 2 === 0 ? replicaA : replicaB)),
+  );
+  assert.deepEqual(retries.map((r) => r.status).sort(), [200, 200, 200, 201]);
+  assert.equal(new Set(retries.map((r) => r.body.redemptionId)).size, 1);
+  const usage = await replicaA.request('GET', `${PATH}/promotions/${idem}`, {
+    token: TOKENS.admin,
+  });
+  assert.deepEqual(usage.body.usage, { reserved: 1, committed: 0, released: 0 });
+  const rid = retries[0]?.body.redemptionId as string;
+  const committed = await replicaA.request('POST', `${PATH}/promotion-redemptions/${rid}/commit`, {
+    service: BOOKING,
+  });
+  assert.equal(committed.body.status, 'COMMITTED');
+  const again = await replicaB.request('POST', `${PATH}/promotion-redemptions/${rid}/commit`, {
+    service: BOOKING,
+  });
+  assert.equal(again.headers.get('idempotency-replayed'), 'true');
+  const lateRelease = await replicaA.request(
+    'POST',
+    `${PATH}/promotion-redemptions/${rid}/release`,
+    { service: BOOKING, body: { reason: 'BOOKING_FAILED' } },
+  );
+  assert.equal(errorCodeOf(lateRelease.body), 'REDEMPTION_NOT_RESERVED');
+  const otherQuoteSameBooking = await redeem({
+    ...body,
+    quoteId: (await couponQuote(TOKENS.customer, idem)).body.quoteId,
+  });
+  assert.equal(errorCodeOf(otherQuoteSameBooking.body), 'REDEMPTION_CONFLICT');
+  const recovery = await replicaA.request(
+    'GET',
+    `${PATH}/promotion-redemptions?bookingId=${body.bookingId}`,
+    { service: BOOKING },
+  );
+  assert.equal((recovery.body.redemptions as unknown[]).length, 1);
+
+  // Authorization and ownership.
+  assert.equal(
+    (await replicaA.request('POST', `${PATH}/promotion-redemptions`, { body })).status,
+    401,
+  );
+  assert.equal(
+    (
+      await replicaA.request('POST', `${PATH}/promotion-redemptions`, {
+        body,
+        token: TOKENS.customer,
+      })
+    ).status,
+    401,
+  );
+  assert.equal(
+    (await redeem({ ...body, bookingId: randomUUID(), customerSubject: OTHER_CUSTOMER_SUBJECT }))
+      .status,
+    404,
+  );
+  const plain = await replicaA.request('POST', `${PATH}/quotes`, {
+    token: TOKENS.customer,
+    key: key(),
+    body: selection(),
+  });
+  assert.equal(
+    errorCodeOf(
+      (
+        await redeem({
+          quoteId: plain.body.quoteId,
+          bookingId: randomUUID(),
+          customerSubject: CUSTOMER_SUBJECT,
+        })
+      ).body,
+    ),
+    'QUOTE_HAS_NO_PROMOTION',
+  );
+
+  // A deactivated promotion and an expired quote are refused.
+  const fresh = await couponQuote(TOKENS.customer, idem);
+  clock.advance(1_000);
+  const off = await replicaA.request('POST', `${PATH}/promotions/${idem}/revisions`, {
+    token: TOKENS.admin,
+    key: key(),
+    body: {
+      expectedRevision: 1,
+      effectiveFrom: null,
+      couponCode: null,
+      terms: promoTerms({ totalCap: 5, perCustomerCap: 5, active: false }),
+    },
+  });
+  assert.equal(off.status, 201, JSON.stringify(off.body));
+  assert.equal(
+    errorCodeOf(
+      (
+        await redeem({
+          quoteId: fresh.body.quoteId,
+          bookingId: randomUUID(),
+          customerSubject: CUSTOMER_SUBJECT,
+        })
+      ).body,
+    ),
+    'PROMOTION_INACTIVE',
+  );
+  const expiry = promoCode();
+  await publishPromotion(expiry, { totalCap: 5, perCustomerCap: 5 });
+  const expiring = await couponQuote(TOKENS.customer, expiry);
+  assert.equal(expiring.status, 201, JSON.stringify(expiring.body));
+  clock.advance(901_000);
+  assert.equal(
+    errorCodeOf(
+      (
+        await redeem({
+          quoteId: expiring.body.quoteId,
+          bookingId: randomUUID(),
+          customerSubject: CUSTOMER_SUBJECT,
+        })
+      ).body,
+    ),
+    'QUOTE_EXPIRED',
+  );
+
+  const events = await sql.query(
+    `SELECT payload FROM outbox_message WHERE payload::jsonb -> 'aggregate' ->> 'id' = $1 ORDER BY payload::jsonb -> 'aggregate' -> 'version'`,
+    [rid],
+  );
+  const parsed = events.rows.map((r: { payload: string }) =>
+    parseEnvelopeV2(
+      JSON.parse(r.payload),
+      {
+        eventType: 'pricing.promotion-redemption-changed.v1',
+        producer: 'pricing',
+        aggregateType: 'pricing-promotion-redemption',
+      },
+      parseRedemptionChangedData,
+    ),
+  );
+  assert.deepEqual(
+    parsed.map((e) => [e.data.previousStatus, e.data.status]),
+    [
+      [null, 'RESERVED'],
+      ['RESERVED', 'COMMITTED'],
+    ],
+  );
+  const audit = await sql.query(
+    `SELECT action FROM promotion_audit_event WHERE redemption_id = $1 ORDER BY occurred_at, action`,
+    [rid],
+  );
+  assert.equal(audit.rowCount, 2);
+});
+
+test('redemptions: the database refuses forged, over-cap and illegal changes', async () => {
+  const code = promoCode();
+  await publishPromotion(code, { totalCap: 1, perCustomerCap: 1 });
+  const quote = await couponQuote(TOKENS.customer, code);
+  const other = await couponQuote(TOKENS.otherCustomer, code);
+  const insert = `INSERT INTO promotion_redemption (id, promotion_code, caps_revision, quote_id, booking_id, customer_subject, discount_minor, currency, status, version, reserved_at, reserved_by, correlation_id, live_slot)
+                  VALUES (gen_random_uuid(), $1, 1, $2, gen_random_uuid(), $3, $4, 'XTS', 'RESERVED', 1, now(), 'booking', gen_random_uuid(), 1)`;
+  await rejectsSql(
+    [[insert, [code, quote.body.quoteId, CUSTOMER_SUBJECT, 1]]],
+    /REDEMPTION_QUOTE_MISMATCH/,
+  );
+  await rejectsSql(
+    [[insert, [code, quote.body.quoteId, OTHER_CUSTOMER_SUBJECT, 8500]]],
+    /REDEMPTION_QUOTE_MISMATCH/,
+  );
+  await rejectsSql(
+    [
+      [insert, [code, quote.body.quoteId, CUSTOMER_SUBJECT, 8500]],
+      [insert, [code, other.body.quoteId, OTHER_CUSTOMER_SUBJECT, 8500]],
+    ],
+    /PROMOTION_CAP_EXCEEDED/,
+  );
+  const reserved = await redeem({
+    quoteId: quote.body.quoteId,
+    bookingId: randomUUID(),
+    customerSubject: CUSTOMER_SUBJECT,
+  });
+  const rid = reserved.body.redemptionId as string;
+  await rejectsSql(
+    [[`UPDATE promotion_redemption SET discount_minor = 1 WHERE id = $1`, [rid]]],
+    /REDEMPTION_IDENTITY_IMMUTABLE/,
+  );
+  await sql.query(
+    `UPDATE promotion_redemption SET status = 'RELEASED', version = 2, settled_at = now(), settled_by = 'booking', reason = 'SAGA_COMPENSATION', live_slot = NULL WHERE id = $1`,
+    [rid],
+  );
+  await rejectsSql(
+    [
+      [
+        `UPDATE promotion_redemption SET status = 'COMMITTED', version = 3, reason = NULL, live_slot = 1 WHERE id = $1`,
+        [rid],
+      ],
+    ],
+    /REDEMPTION_TRANSITION_INVALID/,
+  );
+  await rejectsSql(
+    [[`DELETE FROM promotion_redemption WHERE id = $1`, [rid]]],
+    /PRICING_IMMUTABLE/,
+  );
 });

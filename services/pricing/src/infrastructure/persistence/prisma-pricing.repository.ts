@@ -16,12 +16,13 @@ import {
   type PublishedPriceVersion,
   type StoredQuote,
 } from '../../ports';
-import { Prisma, type PrismaClient } from '../../generated/prisma/client';
+import { Prisma } from '../../generated/prisma/client';
+import { PrismaPromotionReader, PrismaPromotionUnitOfWork } from './prisma-promotion.store';
 import { PrismaService } from './prisma.service';
 
 type Tx = Prisma.TransactionClient;
 type VersionRow = Prisma.PriceVersionGetPayload<{ include: { rates: true } }>;
-type QuoteRow = Prisma.QuoteGetPayload<{ include: { lines: true } }>;
+type QuoteRow = Prisma.QuoteGetPayload<{ include: { lines: true; discount: true } }>;
 
 function kind(value: string): RateKind {
   const found = RATE_KINDS.find((k) => k === value);
@@ -100,6 +101,13 @@ function toQuote(row: QuoteRow): StoredQuote {
       })),
     subtotalMinor: row.subtotalMinor,
     totalMinor: row.totalMinor,
+    discount: row.discount
+      ? {
+          promotionCode: row.discount.promotionCode,
+          promotionRevision: row.discount.promotionRevision,
+          amountMinor: row.discount.amountMinor,
+        }
+      : null,
     durationMinutes: row.durationMinutes,
     inputFingerprint: row.inputFingerprint,
     issuedAt: row.issuedAt,
@@ -128,8 +136,10 @@ function toReceipt(row: {
   };
 }
 
-class PrismaPricingUnitOfWork implements PricingUnitOfWork {
-  constructor(private readonly tx: Tx) {}
+class PrismaPricingUnitOfWork extends PrismaPromotionUnitOfWork implements PricingUnitOfWork {
+  constructor(tx: Tx) {
+    super(tx);
+  }
 
   async lockHead(): Promise<VersionHead | null> {
     await this.tx.$queryRaw`SELECT id FROM app.pricing_publication_lock WHERE id = 1 FOR UPDATE`;
@@ -228,6 +238,15 @@ class PrismaPricingUnitOfWork implements PricingUnitOfWork {
         included: line.included,
       })),
     });
+    if (quote.discount)
+      await this.tx.quoteDiscount.create({
+        data: {
+          quoteId: quote.id,
+          promotionCode: quote.discount.promotionCode,
+          promotionRevision: quote.discount.promotionRevision,
+          amountMinor: quote.discount.amountMinor,
+        },
+      });
   }
 
   async saveReceipt(receipt: IdempotencyReceipt, recordedAt: Date): Promise<void> {
@@ -256,11 +275,9 @@ class PrismaPricingUnitOfWork implements PricingUnitOfWork {
 }
 
 @Injectable()
-export class PrismaPricingRepository implements PricingRepository {
-  private readonly client: PrismaClient;
-
+export class PrismaPricingRepository extends PrismaPromotionReader implements PricingRepository {
   constructor(prisma: PrismaService) {
-    this.client = prisma.client;
+    super(prisma.client);
   }
 
   transaction<T>(work: (uow: PricingUnitOfWork) => Promise<T>): Promise<T> {
@@ -313,7 +330,10 @@ export class PrismaPricingRepository implements PricingRepository {
   }
 
   async quote(id: string): Promise<StoredQuote | null> {
-    const row = await this.client.quote.findUnique({ where: { id }, include: { lines: true } });
+    const row = await this.client.quote.findUnique({
+      where: { id },
+      include: { lines: true, discount: true },
+    });
     return row ? toQuote(row) : null;
   }
 }

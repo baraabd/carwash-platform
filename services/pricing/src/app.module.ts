@@ -5,7 +5,7 @@ import {
   PrismaService,
   databaseUrlFromEnv,
 } from './infrastructure/persistence/prisma.service';
-import { PricingService } from './application';
+import { PricingService, PromotionService } from './application';
 import { PrismaPricingRepository } from './infrastructure/persistence/prisma-pricing.repository';
 import {
   IdentitySessionAuthority,
@@ -14,7 +14,12 @@ import {
 import { EnvPolicyProvider } from './infrastructure/policy/env-policy.provider';
 import { PendingCatalogContractReader } from './infrastructure/catalog/pending-catalog-contract.reader';
 import { RandomIds, Sha256Hasher, SystemClock } from './infrastructure/system/system.adapters';
-import { PRICING_SERVICE, PricingController } from './transport/http/pricing.controller';
+import { ConfiguredServiceCallers } from './infrastructure/security/service-callers';
+import {
+  PRICING_SERVICE,
+  PROMOTION_SERVICE,
+  PricingController,
+} from './transport/http/pricing.controller';
 /**
  * Composition root for the pricing service.
  *
@@ -58,6 +63,21 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
           // every protected command then fails closed with 503.
           authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),
           catalog: new PendingCatalogContractReader(),
+          policy: new EnvPolicyProvider(process.env),
+          clock: new SystemClock(),
+          ids: new RandomIds(),
+          hasher: new Sha256Hasher(),
+        }),
+    },
+    {
+      provide: PROMOTION_SERVICE,
+      inject: [PrismaPricingRepository],
+      useFactory: (repository: PrismaPricingRepository) =>
+        new PromotionService({
+          repository,
+          authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),
+          // No configured client means every redemption route is refused.
+          callers: ConfiguredServiceCallers.fromEnv(process.env),
           policy: new EnvPolicyProvider(process.env),
           clock: new SystemClock(),
           ids: new RandomIds(),

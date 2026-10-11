@@ -6,6 +6,7 @@ import type {
   Selection,
   VersionHead,
 } from '../domain';
+import type { PromotionReader, PromotionUnitOfWork, QuoteDiscount } from './promotion.ports';
 
 export interface PublishedPriceVersion {
   readonly version: number;
@@ -38,6 +39,8 @@ export interface StoredQuote {
   readonly lines: readonly QuoteLine[];
   readonly subtotalMinor: bigint;
   readonly totalMinor: bigint;
+  /** The promotion component, if a coupon was applied: total = subtotal - discount. */
+  readonly discount: QuoteDiscount | null;
   readonly durationMinutes: number;
   readonly inputFingerprint: string;
   readonly issuedAt: Date;
@@ -68,7 +71,7 @@ export interface AuditRecord {
   readonly correlationId: string;
 }
 
-export interface PricingUnitOfWork {
+export interface PricingUnitOfWork extends PromotionUnitOfWork {
   /** Serialises price publishers; returns the current chain head. */
   lockHead(): Promise<VersionHead | null>;
   /** Holds a shared publication lock until commit; other quote readers may proceed. */
@@ -95,7 +98,7 @@ export class ReceiptAlreadyExists extends Error {
   }
 }
 
-export interface PricingRepository {
+export interface PricingRepository extends PromotionReader {
   transaction<T>(work: (uow: PricingUnitOfWork) => Promise<T>): Promise<T>;
   findReceipt(
     actorSubject: string,
