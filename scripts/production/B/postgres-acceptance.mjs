@@ -30,6 +30,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
+import { migrateWithUpgradeSentinels } from './upgrade-sentinels.mjs';
 import { redact, registerSecret, run } from '../../acceptance/lib/exec.mjs';
 import { pullImageWithMirrors } from '../../lib/image-references.mjs';
 
@@ -500,11 +501,16 @@ try {
     await query(appUrl, 'INSERT INTO app.service_marker(service, schema_rev) VALUES ($1, 1)', [
       `p01b-${runId}`,
     ]);
-    // P04-B repaired the deferred ledger trigger privileges. The upgrade sentinel
-    // now exercises both the pre-upgrade and post-upgrade schemas as the runtime role.
-    if (service === 'billing') await BILLING_SENTINEL.write(appUrl);
-    await prisma(['migrate', 'deploy'], migrateUrl);
-    if (service === 'billing') await BILLING_SENTINEL.verify(appUrl);
+    await migrateWithUpgradeSentinels({
+      service,
+      previousMigrations: report.migrations.previous,
+      runtimeUrl: appUrl,
+      migrationUrl: migrateUrl,
+      billingSentinel: BILLING_SENTINEL,
+      writeUpgradeSentinel: spec.writeUpgradeSentinel,
+      verifyUpgradeSentinel: spec.verifyUpgradeSentinel,
+      deploy: () => prisma(['migrate', 'deploy'], migrateUrl),
+    });
     const kept = await query(appUrl, 'SELECT 1 FROM app.service_marker WHERE service = $1', [
       `p01b-${runId}`,
     ]);
