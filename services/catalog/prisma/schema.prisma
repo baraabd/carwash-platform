@@ -265,6 +265,6 @@ model CatalogV1Definition {
 
   @@id([catalogRevision, definitionId])
   @@unique([catalogRevision, code])
-  @@index([definitionId, catalogRevision])
+  @@index([definitionId, catalogRevision], map: "catalog_v1_definition_definition_id_idx")
   @@map("catalog_v1_definition")
 }
