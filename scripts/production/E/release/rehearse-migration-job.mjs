@@ -31,7 +31,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { ROOT } from '../../../ci/policy.mjs';
 import { command } from '../../../ci/runtime.mjs';
-import { officialImagePullCandidates } from '../../../lib/image-references.mjs';
+import { pullRehearsalImage } from './rehearsal-image.mjs';
 
 const POSTGRES_TAG = 'postgres:16.10-alpine';
 
@@ -55,20 +55,7 @@ async function dockerOk(args, options) {
 }
 
 export async function resolvePostgresByDigest() {
-  for (const candidate of officialImagePullCandidates(POSTGRES_TAG)) {
-    const result = await docker([
-      'buildx',
-      'imagetools',
-      'inspect',
-      candidate,
-      '--format',
-      '{{json .Manifest}}',
-    ]);
-    if (result.code !== 0) continue;
-    const { digest } = JSON.parse(result.stdout);
-    return `${candidate.replace(/:[^:/]+$/, '')}@${digest}`;
-  }
-  throw new Error(`Cannot resolve ${POSTGRES_TAG} to a digest`);
+  return pullRehearsalImage(POSTGRES_TAG, docker);
 }
 
 function events(stdout) {
@@ -169,6 +156,7 @@ export async function rehearse({ part, reportFile }) {
     await dockerOk(['network', 'create', '--internal', network]);
     await dockerOk([
       'run',
+      '--pull=never',
       '-d',
       '--name',
       pg,

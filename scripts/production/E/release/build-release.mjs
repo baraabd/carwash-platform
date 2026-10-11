@@ -27,6 +27,7 @@ import { fileURLToPath } from 'node:url';
 import { inventory, ROOT } from '../../../ci/policy.mjs';
 import { command } from '../../../ci/runtime.mjs';
 import { officialImagePullCandidates } from '../../../lib/image-references.mjs';
+import { pullRehearsalImage } from './rehearsal-image.mjs';
 import {
   MANIFEST_KIND,
   MANIFEST_SCHEMA_VERSION,
@@ -354,20 +355,12 @@ function assemble(options) {
 async function localRegistry(options) {
   const port = options.port ?? '5000';
   assert.match(port, /^[0-9]{2,5}$/);
-  let reference;
-  for (const candidate of officialImagePullCandidates('registry:3.0.0')) {
-    const result = await command(
-      'docker',
-      ['buildx', 'imagetools', 'inspect', candidate, '--format', '{{json .Manifest}}'],
-      { capture: true, timeoutMs: 300_000 },
-    );
-    if (result.code !== 0) continue;
-    reference = `${candidate.replace(/:[^:/]+$/, '')}@${JSON.parse(result.stdout).digest}`;
-    break;
-  }
-  assert.ok(reference, 'Cannot resolve registry:3.0.0 to a digest');
+  const reference = await pullRehearsalImage('registry:3.0.0', (argv, options) =>
+    command('docker', argv, options),
+  );
   await docker([
     'run',
+    '--pull=never',
     '-d',
     '--name',
     'cw-release-registry',
