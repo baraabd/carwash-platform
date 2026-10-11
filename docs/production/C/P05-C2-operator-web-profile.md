@@ -1,7 +1,7 @@
 # P05-C2 — operator-web: technician profile, availability, equipment, custody, offline reads
 
 Status: **IMPLEMENTED against fixture doubles; INTEGRATION_PENDING** (parent P05-C).
-Base: `main@66aa7528500a06f65a4b73305506feee7c3fc3b3`. No dependency added.
+Base: `main@3e1ab23` (3e1ab23 Merge pull request #127). No dependency added.
 Provider: Workforce P05-C1 (separate PR; routes requested in
 `contract-requests/CR-P05-C1-workforce-profile.md`, added by that PR) and the published
 Billing `getMyCustody`. Browser routes `/api/operator/{profile,schedule,schedule/apply,
@@ -66,9 +66,11 @@ everywhere else. The CSS files are untouched. Copy is PENDING OWNER COPY (`views
 
 ## 4. Support / obstacle flows
 
-The Support exception-case API is in PR #126 (unmerged). Obstacles stay on the existing
-task `HELP` / `PAYMENT_FOLLOW_UP` notes (Dispatch). Consuming Support is **BLOCKED** until
-#126 merges and Lane E publishes its contract.
+Support #126 is merged on `main@3e1ab23`, but it opens staff-desk cases only (payment,
+refund, late payment, cancellation, reschedule) and no Support contract is published.
+Obstacles stay on the existing task `HELP` / `PAYMENT_FOLLOW_UP` notes (Dispatch).
+A technician `FIELD_OBSTACLE` case is **BLOCKED** on Lanes D/E:
+`contract-requests/CR-P05-C2-field-obstacle-and-receipts.md` (also the Billing receipt-history route).
 
 ## 5. Evidence
 
