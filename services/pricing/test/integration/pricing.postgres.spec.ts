@@ -388,6 +388,17 @@ test('pg: commit-time invariants refuse partial, inconsistent or unapproved quot
     [bookInsert('SYP', 2).replace(`, ${revision}, 'SYP'`, `, NULL, 'SYP'`)],
     /price_book_linear_chain/,
   );
+  // The P01-B2 chain had the same NULL hole; the P06-B2 migration tightened it.
+  await expectSqlError(
+    [
+      `INSERT INTO price_version (version, previous_version, effective_from, published_at, published_by,
+          correlation_id, catalog_revision, catalog_fingerprint, catalog_snapshot, policy_revision, currency,
+          minor_unit_exponent, rates_fingerprint)
+        VALUES (99, NULL, now() + interval '2 hours', now(), '${randomUUID()}', '${randomUUID()}', 1,
+          '${'a'.repeat(64)}', '{}', 'legacy', 'XTS', 2, '${'a'.repeat(64)}')`,
+    ],
+    /price_version_linear_chain/,
+  );
   assert.equal(await head(), revision);
 });
 

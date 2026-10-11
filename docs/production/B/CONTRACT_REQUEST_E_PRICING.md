@@ -91,3 +91,68 @@ Exact delta requested for `services[id=pricing].persistenceModels`:
 
 Until E applies it, the `static` job and the aggregating release gate fail on this
 PR by design (registration gap, not a behaviour failure).
+
+# P06-B2 additions (Pricing now serves the published `pricing.v1`)
+
+Submitted with branch
+`prod/p06-b-close-commerce-finance-functional-matrix-and-admin-fina-b2-pricing-v1`.
+Pricing does not wait on any of these to behave correctly; each one is fail-closed
+until E answers.
+
+## CR-B6-1 Publish permission name mismatch
+
+`pricing.v1.publishPriceBook` declares `permission:pricing.prices.publish`, but
+Identity (`IDENTITY_PERMISSIONS`, super-admin only) issues `pricing.publish`.
+Pricing enforces the CONTRACT name, so no real session can publish a price book
+today (proven by `pricing.http.spec` — `legacy-admin` gets 403). Request: E aligns
+one side (rename the contract access to `permission:pricing.publish`, or add
+`pricing.prices.publish` to Identity), and records which roles hold it.
+
+## CR-B6-2 `expectedPriceBookRevision` semantics
+
+The contract parses it with `parseRevision` (>= 1), so "the revision currently in
+force" cannot express the first publication (there is none). Pricing implements
+it as "the revision this publication creates" (head + 1; 1 for the first book),
+a compare-and-set on the linear chain. Request: E documents this meaning in
+`pricing/v1.ts`, or changes the contract (minor) to allow 0.
+
+## CR-B6-3 Staff read of the price book in force
+
+The admin finance console needs to read the current book (entries, revision,
+catalog revision) to edit and republish it. `pricing.v1` has no such route.
+Request (additive, minor): `getPriceBook: { method: 'GET', path: '/price-books/current',
+access: 'permission:pricing.prices.publish' }` returning
+`{ priceBookRevision, currency, catalogRevision, policyRevision, publishedAt, entries: PriceBookEntryV1[] }`.
+Pricing will implement it on acceptance; nothing is served outside the contract now.
+
+## CR-B6-4 Workload grant for Booking -> `validateQuote`
+
+Pricing authorizes `service:pricing.quote.validate` with the shared P04-E3
+primitive (`PRICING_SERVICE_CLIENTS`, digests only). Request: E provisions the
+Booking client credential and digest in the deployment secret store.
+
+## CR-B6-5 Pre-routing error envelope
+
+`bootstrapService` installs `AppExceptionFilter` globally after the owner's
+application is created, so body-parser refusals (malformed/oversize JSON) are
+rendered in the legacy service-kit envelope (`{error:{code,message,correlationId,status}}`)
+instead of `ApiErrorEnvelope`. Route errors already use the contract envelope.
+No internal text is reflected. Request: service-kit renders `ApiErrorEnvelope`
+or lets an owner supply its filter.
+
+## CR-B6-6 Source inventory registration (blocks CI `static` on this PR)
+
+Exact delta for `architecture/implementation-status.json`
+`services[id=pricing].persistenceModels` (schema order):
+
+```json
+["ServiceMarker", "PricingPublicationLock", "PriceVersion", "PriceRate", "Quote",
+ "QuoteLine", "PricingIdempotencyReceipt", "PricingAuditEvent", "PriceBook",
+ "PriceBookEntry", "PricingQuote", "PricingQuoteLine", "PricingAuditRecord"]
+```
+
+## CR-B6-7 Events (unchanged from CR-B2-6, renamed fields)
+
+`pricing.price-published.v1` should carry `{ priceBookRevision, catalogRevision,
+policyRevision, entriesFingerprint }` (no amounts). No outbox row is written until
+E registers the event; Pricing has no `@carwash/platform-messaging` dependency.

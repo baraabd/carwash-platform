@@ -6,6 +6,16 @@
 -- separately reviewed contract migration with a data plan.
 -- Money is BIGINT minor units; there is no floating-point amount column.
 
+-- P01-B2 defect fix ----------------------------------------------------------
+-- price_version_linear_chain evaluated to NULL (so passed) for version > 1 with
+-- previous_version NULL, allowing a broken chain. Every existing row already
+-- satisfies the strict form, so this replacement only tightens the rule.
+ALTER TABLE "app"."price_version" DROP CONSTRAINT "price_version_linear_chain";
+ALTER TABLE "app"."price_version" ADD CONSTRAINT "price_version_linear_chain" CHECK (
+    ("version" = 1 AND "previous_version" IS NULL)
+    OR ("version" > 1 AND "previous_version" IS NOT NULL AND "previous_version" = "version" - 1)
+);
+
 -- Price books ---------------------------------------------------------------
 CREATE TABLE "app"."price_book" (
     "revision" INTEGER NOT NULL,
@@ -21,9 +31,10 @@ CREATE TABLE "app"."price_book" (
     "published_by" UUID NOT NULL,
     "correlation_id" UUID NOT NULL,
     CONSTRAINT "price_book_pkey" PRIMARY KEY ("revision"),
+    -- IS NOT NULL is explicit: a NULL comparison would make the CHECK pass.
     CONSTRAINT "price_book_linear_chain" CHECK (
         ("revision" = 1 AND "previous_revision" IS NULL)
-        OR ("revision" > 1 AND "previous_revision" = "revision" - 1)
+        OR ("revision" > 1 AND "previous_revision" IS NOT NULL AND "previous_revision" = "revision" - 1)
     ),
     -- The closed pricing.v1 Money currency list and its fixed scales.
     CONSTRAINT "price_book_contract_currency" CHECK (("currency", "scale") IN (('SYP', 2), ('USD', 2))),
