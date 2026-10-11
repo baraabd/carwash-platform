@@ -91,3 +91,51 @@ Exact delta requested for `services[id=pricing].persistenceModels`:
 
 Until E applies it, the `static` job and the aggregating release gate fail on this
 PR by design (registration gap, not a behaviour failure).
+
+# P05-B2 additions (promotions)
+
+Status: **SUBMITTED, not accepted**. Pricing consumes nothing unpublished; each
+item below fails closed until E publishes it.
+
+## CR-B2-9 Promotion routes in `pricing.v1` (owner routes as implemented)
+
+Prefix `/internal/v1/pricing`.
+
+| Route | Access | Notes |
+| --- | --- | --- |
+| `POST /promotions/:code/revisions` | `pricing.publish`, Idempotency-Key | `{ expectedRevision, effectiveFrom \| null, couponCode (revision 1 only, else null), terms }` |
+| `GET /promotions`, `GET /promotions/:code` | `pricing.publish` | Revisions with effective windows plus usage `{ reserved, committed, released }`. |
+| `POST /quotes` | `bookings.create:self` | Optional `couponCode`. The quote adds `discounts: [{ promotionCode, promotionRevision, amount }]` and `total = subtotal - discount`. |
+| `POST /promotion-redemptions` | service `pricing.promotion.redeem` | `{ quoteId, bookingId, customerSubject }` |
+| `GET /promotion-redemptions?bookingId=` | service `pricing.promotion.redeem` | Saga recovery. |
+| `POST /promotion-redemptions/:id/commit`, `/release` | service `pricing.promotion.redeem` | `release` takes `{ reason }`. |
+
+**Alignment with the published `pricing.v1`:** its quote already defines `DISCOUNT` lines (amount ≤ 0). Conforming Pricing's response shape to `pricing.v1` remains the open P02 gap; Pricing's own response adds `discounts` additively.
+
+**Proposed separate grant:** if the owner wants promotion management separated from price publication, request `pricing.promotions.manage`. The code currently reuses `pricing.publish`.
+
+## CR-B2-10 Service credentials, Booking saga and event
+
+- **Service credentials:** configure `PRICING_SERVICE_CLIENTS` (P04-E3 format) with client `booking` and scope `pricing.promotion.redeem`. Client ids must be producer names.
+- **Booking (Lane C)** should:
+  - reserve the redemption with the confirmed booking;
+  - commit on confirmation;
+  - release on any cancellation or failure.
+
+  Reserve is idempotent on (promotion, booking), and a quote is redeemed at most once.
+- **Register `pricing.promotion-redemption-changed.v1`**:
+  - envelope v2, producer `pricing`, aggregate `pricing-promotion-redemption`, exchange `washgo.pricing.events`;
+  - data `{ promotionCode, quoteId, bookingId, previousStatus|null, status, discount{currency, amountMinor}, reason|null }`;
+  - legal transitions: `null→RESERVED` and `RESERVED→COMMITTED|RELEASED`;
+  - it never carries the coupon code.
+
+## CR-B2-11 Source inventory registration (blocks CI `static` on the P05-B2 PR)
+
+The exact delta for `services[id=pricing].persistenceModels` in `architecture/implementation-status.json`:
+
+```json
+["ServiceMarker", "PricingPublicationLock", "PriceVersion", "PriceRate", "Quote",
+ "QuoteLine", "PricingIdempotencyReceipt", "PricingAuditEvent", "Promotion",
+ "PromotionRevision", "QuoteDiscount", "PromotionRedemption", "PromotionAuditEvent",
+ "OutboxMessage"]
+```
