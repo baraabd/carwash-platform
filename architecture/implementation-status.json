@@ -223,7 +223,13 @@
         "Quote",
         "QuoteLine",
         "PricingIdempotencyReceipt",
-        "PricingAuditEvent"
+        "PricingAuditEvent",
+        "Promotion",
+        "PromotionRevision",
+        "QuoteDiscount",
+        "PromotionRedemption",
+        "PromotionAuditEvent",
+        "OutboxMessage"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
