@@ -98,6 +98,7 @@ Routes, access and codes: `CONTRACT_REQUEST_E_SUBSCRIPTION.md` (CR-B-10.2).
 | **Real PostgreSQL 16.10**, runtime role, 2 replicas: `node scripts/production/B/postgres-acceptance.mjs --service subscription --record` | **PASSED 12/12**: see the evidence file |
 | Upgrade from the W01 history (marker kept), re-provision, schema mirror drift | **PASSED** |
 | typecheck, build, ESLint, Prettier, design reference and reference lock, boundaries, layers, service shells, migrations, ownership, contract docs and surface | **PASSED** |
+| `tests/parallel/E/status.test.mjs` (CI `static`) | **BLOCKED** until E registers the new persistence models (CR-B-10.7): a registration gap by design |
 | Real RabbitMQ | **BLOCKED**: events not registered by E (CR-B-10.3) |
 | Booking saga against the real Booking | **BLOCKED**: Lane C consumer and CR-B-10.4 |
 | Playwright / visual | **NOT APPLICABLE**: no UI. The subscription screens are not designed (DESIGN_LOCK §7) |

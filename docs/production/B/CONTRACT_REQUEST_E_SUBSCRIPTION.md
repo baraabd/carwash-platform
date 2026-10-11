@@ -98,3 +98,18 @@ A verified, automatic link needs two things:
 - an E-published `billing.v1` read for the subscription purchase.
 
 It also needs the owner's B-09 decision on the price, renewal and refund of a paid plan.
+
+## CR-B-10.7 Source inventory registration (blocks CI `static` on the P05-B1 PR)
+
+`tests/parallel/E/status.test.mjs` derives persistence models from the Prisma schema
+and compares them with the E-owned `architecture/implementation-status.json`. The
+exact delta for `services[id=subscription].persistenceModels`:
+
+```json
+["ServiceMarker", "SubscriptionPlan", "SubscriptionPlanRevision", "CustomerSubscription",
+ "SubscriptionPeriod", "EntitlementReservation", "EntitlementMovement",
+ "SubscriptionIdempotencyReceipt", "SubscriptionAuditEvent", "OutboxMessage"]
+```
+
+Until E applies it, the `static` job fails on this PR by design (registration gap,
+not a behaviour failure).
