@@ -246,8 +246,9 @@ CREATE UNIQUE INDEX "outbox_message_event_id_key" ON "app"."outbox_message"("eve
 CREATE INDEX "outbox_message_pending_idx" ON "app"."outbox_message"("published_at", "dead_at", "created_at");
 
 -- Database-enforced invariants ----------------------------------------------
--- No function below is revoked from PUBLIC: trigger functions run as the
--- invoking runtime role, so revoking EXECUTE would break every write.
+-- No trigger body below calls another function, so every function is revoked
+-- from PUBLIC at the end of this file: firing a trigger never checks EXECUTE,
+-- and no foreign role (nor the runtime role) can call them directly.
 
 CREATE FUNCTION "app"."subscription_reject_mutation"() RETURNS trigger
     LANGUAGE plpgsql SET search_path = pg_catalog, pg_temp AS $$
@@ -441,27 +442,23 @@ CREATE TRIGGER "entitlement_reservation_guard" BEFORE INSERT OR UPDATE ON "app".
 
 -- COMMIT-time reconciliation: period counters equal the sum of its movements,
 -- and every reservation's movements match its status exactly.
-CREATE FUNCTION "app"."subscription_assert_period"(sid UUID, pno INTEGER) RETURNS void
+-- The assertion is inline (no helper function): a trigger body that calls
+-- another function would need EXECUTE for the runtime role (see P04-B1).
+CREATE FUNCTION "app"."subscription_check_period"() RETURNS trigger
     LANGUAGE plpgsql SET search_path = pg_catalog, pg_temp AS $$
 DECLARE
     stored RECORD;
     summed RECORD;
 BEGIN
     SELECT "granted", "reserved", "consumed" INTO stored FROM "app"."subscription_period"
-     WHERE "subscription_id" = sid AND "period_no" = pno;
+     WHERE "subscription_id" = NEW."subscription_id" AND "period_no" = NEW."period_no";
     SELECT COALESCE(sum("granted"), 0) AS g, COALESCE(sum("reserved"), 0) AS r, COALESCE(sum("consumed"), 0) AS c
-      INTO summed FROM "app"."entitlement_movement" WHERE "subscription_id" = sid AND "period_no" = pno;
+      INTO summed FROM "app"."entitlement_movement"
+     WHERE "subscription_id" = NEW."subscription_id" AND "period_no" = NEW."period_no";
     IF stored."granted" IS DISTINCT FROM summed.g::int OR stored."reserved" IS DISTINCT FROM summed.r::int
        OR stored."consumed" IS DISTINCT FROM summed.c::int THEN
         RAISE EXCEPTION 'ENTITLEMENT_LEDGER_UNBALANCED' USING ERRCODE = 'P0001';
     END IF;
-END;
-$$;
-
-CREATE FUNCTION "app"."subscription_check_period"() RETURNS trigger
-    LANGUAGE plpgsql SET search_path = pg_catalog, pg_temp AS $$
-BEGIN
-    PERFORM "app"."subscription_assert_period"(NEW."subscription_id", NEW."period_no");
     RETURN NULL;
 END;
 $$;
@@ -511,3 +508,11 @@ CREATE CONSTRAINT TRIGGER "entitlement_reservation_matches_ledger" AFTER INSERT 
     DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION "app"."subscription_check_reservation"();
 CREATE CONSTRAINT TRIGGER "entitlement_movement_matches_reservation" AFTER INSERT ON "app"."entitlement_movement"
     DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION "app"."subscription_check_reservation"();
+
+REVOKE ALL ON FUNCTION "app"."subscription_reject_mutation"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."subscription_guard_revision_insert"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."subscription_guard_terms"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."subscription_guard_period"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."subscription_guard_reservation"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."subscription_check_period"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "app"."subscription_check_reservation"() FROM PUBLIC;
