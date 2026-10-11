@@ -5,7 +5,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import fs, {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  rmSync,
+  existsSync,
+  renameSync,
+  symlinkSync,
+} from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +27,7 @@ import {
   RECEIPT_SCHEMA,
   CANDIDATE_SCHEMA,
 } from '../../../scripts/production/E/release/barrier.mjs';
-import { gitIo, sha256Hex } from '../../../scripts/production/E/release/io.mjs';
+import { evidenceDigester, gitIo, sha256Hex } from '../../../scripts/production/E/release/io.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const policy = JSON.parse(
@@ -418,6 +428,87 @@ test('canonical manifest digest ignores key order', () => {
     canonicalJson({ b: 1, a: { d: 2, c: [3] } }),
     canonicalJson({ a: { c: [3], d: 2 }, b: 1 }),
   );
+});
+
+test('evidence digest reads the inspected file even if its pathname is replaced', (t) => {
+  const repo = fixtureRepo(t);
+  const target = path.join(repo.dir, 'evidence/run.log');
+  const originalFstat = fs.fstatSync;
+  let replaced = false;
+  t.mock.method(fs, 'fstatSync', (fd) => {
+    const result = originalFstat(fd);
+    renameSync(target, `${target}.original`);
+    writeFileSync(target, 'substituted output\n');
+    replaced = true;
+    return result;
+  });
+  syncBuiltinESMExports();
+  t.after(() => {
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+  });
+  assert.equal(evidenceDigester(repo.dir)('evidence/run.log'), repo.evidence[0].sha256);
+  assert.equal(replaced, true);
+  assert.equal(readFileSync(target, 'utf8'), 'substituted output\n');
+});
+
+test('evidence digest refuses missing, directory, traversal and outside symlink paths', (t) => {
+  const repo = fixtureRepo(t);
+  const outside = mkdtempSync(path.join(tmpdir(), 'release-outside-'));
+  t.after(() => rmSync(outside, { recursive: true, force: true }));
+  writeFileSync(path.join(outside, 'outside.log'), 'outside evidence\n');
+  const digest = evidenceDigester(repo.dir);
+  assert.equal(digest('evidence/missing.log'), null);
+  assert.equal(digest('evidence'), null);
+  assert.equal(digest('../outside.log'), null);
+  symlinkSync(outside, path.join(repo.dir, 'outside'), 'junction');
+  assert.equal(digest('outside/outside.log'), null);
+});
+
+test('receipt creation refuses a competing writer arriving at the write operation', (t) => {
+  const repo = fixtureRepo(t);
+  const receipts = path.join(repo.dir, 'release/receipts');
+  const receiptPath = path.join(receipts, 'E.design-lock.json');
+  const hook = path.join(repo.dir, 'competing-writer.mjs');
+  writeFileSync(
+    hook,
+    `import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
+const original = fs.writeFileSync;
+fs.writeFileSync = (file, ...args) => {
+  if (file === ${JSON.stringify(receiptPath)}) {
+    original(file, 'competing receipt\\n', { flag: 'wx' });
+  }
+  return original(file, ...args);
+};
+syncBuiltinESMExports();
+`,
+  );
+  const run = spawnSync(
+    process.execPath,
+    [
+      '--import',
+      hook,
+      path.join(repoRoot, 'scripts/production/E/release-receipt.mjs'),
+      'run',
+      '--root',
+      repo.dir,
+      '--family',
+      'E.design-lock',
+      '--receipts',
+      receipts,
+      '--evidence-dir',
+      path.join(repo.dir, 'release/evidence'),
+      '--',
+      process.execPath,
+      '-e',
+      '',
+    ],
+    { encoding: 'utf8' },
+  );
+  assert.equal(run.status, 1, run.stderr);
+  assert.match(run.stderr, /exists; remove it deliberately/);
+  assert.equal(readFileSync(receiptPath, 'utf8'), 'competing receipt\n');
 });
 
 test('CLI: receipt producer binds the exact tree, and barrier exits 2 on NO_GO', (t) => {

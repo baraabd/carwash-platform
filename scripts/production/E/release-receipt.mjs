@@ -10,7 +10,7 @@
 // edits a receipt after the fact: a re-run writes a new file and the barrier
 // rejects two receipts for one family until one is removed deliberately.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RECEIPT_SCHEMA, CANDIDATE_SCHEMA } from './release/barrier.mjs';
@@ -120,10 +120,8 @@ if (mode === 'candidate') {
   mkdirSync(evidenceDir, { recursive: true });
   mkdirSync(receiptsDir, { recursive: true });
   const logPath = path.join(evidenceDir, `${family}-${stamp}.log`);
-  writeFileSync(logPath, log);
+  writeFileSync(logPath, log, { flag: 'wx' });
   const receiptPath = path.join(receiptsDir, `${family}.json`);
-  if (existsSync(receiptPath))
-    fail(`${receiptPath} exists; remove it deliberately before issuing a new one`);
   const receipt = {
     schema: RECEIPT_SCHEMA,
     family,
@@ -144,7 +142,15 @@ if (mode === 'candidate') {
       },
     ],
   };
-  writeFileSync(receiptPath, JSON.stringify(receipt, null, 2) + '\n');
+  try {
+    // Creation and non-existence are one filesystem operation. Another
+    // producer or a pre-existing symlink must never be overwritten.
+    writeFileSync(receiptPath, JSON.stringify(receipt, null, 2) + '\n', { flag: 'wx' });
+  } catch (error) {
+    if (error.code === 'EEXIST')
+      fail(`${receiptPath} exists; remove it deliberately before issuing a new one`);
+    throw error;
+  }
   process.stdout.write(`${receipt.status} ${receiptPath}\n`);
   process.exit(result.status === 0 ? 0 : 2);
 } else {
