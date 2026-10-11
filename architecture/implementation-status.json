@@ -376,7 +376,11 @@
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
       "persistenceModels": [
-        "ServiceMarker"
+        "ServiceMarker",
+        "WalletInbox",
+        "CustodySource",
+        "CustodyAccount",
+        "CustodyMovement"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
