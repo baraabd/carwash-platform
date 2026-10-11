@@ -179,18 +179,42 @@ Dependencies:
 | Workload credentials | Local test values |
 | RabbitMQ | NOT USED (outbox rows are asserted; the relay is not started) |
 
-The results table below is filled from the recorded run (see the PR).
+Recorded run: `docs/production/B/evidence/billing-postgres-937f637fba4a.json`.
+It ran on source `937f637fba4a11fbacf729cfbafdc169d654b94d` (tree
+`5bfe43ab192b258f2ab961dd9c37f5628ac8837a`), clean, `accepted: true`:
+67 tests, 67 passed, 0 skipped. The previous history was the three earlier
+migrations; the added one is `20261011100000_p06b4_booking_obligations`.
+The commit that adds this document and the evidence file changes only
+`docs/`, so the evidence covers the exact service source of the PR head.
+
+Failed runs before acceptance, reported rather than hidden:
+
+1. On `5a22f62`: the upgrade phase failed with
+   `permission denied for function billing_assert_obligation_ledger`.
+   `billing_check_journal_effects` also calls the helpers. It was added to
+   the repair in `e7b1c60`.
+2. On `e7b1c60`: all 16 booking-saga integration tests passed. One existing custody test
+   failed (`lifecycle ... reconciled`) because the outbox order was ambiguous
+   on equal `created_at` under `FixedClock`. Fixed in `937f637`: events are
+   now ordered by aggregate version on ties (the same change as open P04-B1).
+3. On `937f637`: the first run failed one existing test,
+   `create race: the same key on two replicas yields one obligation and one
+   outcome`. It took 10.08 s while three other lanes were building on the
+   same machine. That test uses 1 s upstream-stub timeouts. The immediate
+   re-run on the same source passed 67/67; that run is the recorded one.
+   This is a load-sensitive timing in an existing test, not a fixed defect.
+   It is noted for the reviewer.
 
 ## Results
 
 | Family | Result |
 | ------ | ------ |
-| Billing typecheck / build | see PR |
-| Billing unit + adapter specs (`test/*.spec.ts`) | see PR |
-| Real PostgreSQL acceptance (all billing integration specs) | see PR |
-| ESLint / Prettier (billing, script) | see PR |
-| `check-migrations` (incl. `--base-ref origin/main`), boundaries, layers, service shells | see PR |
-| `check-design-reference` | see PR |
+| Billing typecheck / build | PASSED (`tsc --noEmit`, `tsc -p tsconfig.build.json`) |
+| Billing unit + adapter specs (`test/*.spec.ts`) | PASSED 51/51 (11 of them are new booking-saga specs) |
+| Real PostgreSQL acceptance (all billing integration specs) | PASSED 67/67 on `937f637` (one earlier run on the same source failed under load; see above) |
+| ESLint / Prettier (billing, script) | PASSED |
+| `check-migrations` (incl. `--base-ref origin/main`), boundaries, layers, service shells | PASSED |
+| `check-design-reference` | PASSED (no UI change) |
 | Real RabbitMQ relay | BLOCKED (see B4-04) |
 | Real Booking → Billing journey | BLOCKED (see B4-01) |
 
