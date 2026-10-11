@@ -6,6 +6,16 @@ import {
   databaseUrlFromEnv,
 } from './infrastructure/persistence/prisma.service';
 import { PricingService } from './application';
+import { PricingService as LegacyPricingService, PromotionService } from './application/legacy';
+import { PrismaPricingRepository as LegacyPricingRepository } from './infrastructure/legacy/persistence/prisma-pricing.repository';
+import { IdentitySessionAuthority as LegacyIdentityAuthority } from './infrastructure/legacy/identity/identity-session.authority';
+import { PendingCatalogContractReader } from './infrastructure/legacy/catalog/pending-catalog-contract.reader';
+import { ConfiguredServiceCallers } from './infrastructure/legacy/security/service-callers';
+import {
+  LEGACY_PRICING_SERVICE,
+  PROMOTION_SERVICE,
+  LegacyPricingController,
+} from './transport/legacy/http/pricing.controller';
 import { PrismaPricingRepository } from './infrastructure/persistence/prisma-pricing.repository';
 import {
   IdentitySessionAuthority,
@@ -50,11 +60,12 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
       logger: createLogger({ service: SERVICE_NAME }),
     }),
   ],
-  controllers: [PricingController],
+  controllers: [PricingController, LegacyPricingController],
   providers: [
     { provide: DATABASE_URL, useFactory: () => databaseUrlFromEnv() },
     PrismaService,
     PrismaPricingRepository,
+    LegacyPricingRepository,
     {
       provide: PRICING_SERVICE,
       inject: [PrismaPricingRepository],
@@ -66,6 +77,34 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
           authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),
           services: new ServiceClientAuthority(pricingServiceClientsFromEnv(process.env)),
           catalog: new CatalogV1HttpReader(catalogReaderConfigFromEnv(process.env)),
+          policy: new EnvPolicyProvider(process.env),
+          clock: new SystemClock(),
+          ids: new RandomIds(),
+          hasher: new Sha256Hasher(),
+        }),
+    },
+    {
+      provide: LEGACY_PRICING_SERVICE,
+      inject: [LegacyPricingRepository],
+      useFactory: (repository: LegacyPricingRepository) =>
+        new LegacyPricingService({
+          repository,
+          authority: new LegacyIdentityAuthority(identityAuthorityConfigFromEnv(process.env)),
+          catalog: new PendingCatalogContractReader(),
+          policy: new EnvPolicyProvider(process.env),
+          clock: new SystemClock(),
+          ids: new RandomIds(),
+          hasher: new Sha256Hasher(),
+        }),
+    },
+    {
+      provide: PROMOTION_SERVICE,
+      inject: [LegacyPricingRepository],
+      useFactory: (repository: LegacyPricingRepository) =>
+        new PromotionService({
+          repository,
+          authority: new LegacyIdentityAuthority(identityAuthorityConfigFromEnv(process.env)),
+          callers: ConfiguredServiceCallers.fromEnv(process.env),
           policy: new EnvPolicyProvider(process.env),
           clock: new SystemClock(),
           ids: new RandomIds(),

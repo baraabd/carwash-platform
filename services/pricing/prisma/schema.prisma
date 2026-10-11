@@ -94,6 +94,7 @@ model Quote {
   correlationId     String       @map("correlation_id") @db.Uuid
   version           PriceVersion @relation(fields: [priceVersion], references: [version], onDelete: Restrict, onUpdate: Restrict)
   lines             QuoteLine[]
+  discount          QuoteDiscount?
 
   @@index([ownerSubject, issuedAt], map: "quote_owner_issued_idx")
   @@map("quote")
@@ -233,4 +234,121 @@ model PricingAuditRecord {
 
   @@index([occurredAt], map: "pricing_audit_record_occurred_idx")
   @@map("pricing_audit_record")
+}
+
+// ---------------------------------------------------------------------------
+// P05-B2. Promotions with immutable revisions, the quote discount component,
+// redemption reservations with caps, promotion audit and the outbox. CHECK
+// constraints, guards and COMMIT-time caps live in the migration.
+
+model Promotion {
+  code         String              @id
+  couponDigest String              @unique(map: "promotion_coupon_digest_key") @map("coupon_digest") @db.Char(64)
+  createdAt    DateTime            @map("created_at") @db.Timestamptz(3)
+  createdBy    String              @map("created_by") @db.Uuid
+  revisions    PromotionRevision[]
+
+  @@map("promotion")
+}
+
+model PromotionRevision {
+  promotionCode    String                @map("promotion_code")
+  revision         Int
+  effectiveFrom    DateTime              @map("effective_from") @db.Timestamptz(3)
+  publishedAt      DateTime              @map("published_at") @db.Timestamptz(3)
+  publishedBy      String                @map("published_by") @db.Uuid
+  correlationId    String                @map("correlation_id") @db.Uuid
+  discountKind     String                @map("discount_kind")
+  basisPoints      Int?                  @map("basis_points")
+  maxDiscountMinor BigInt?               @map("max_discount_minor")
+  fixedAmountMinor BigInt?               @map("fixed_amount_minor")
+  currency         String                @db.Char(3)
+  packageIds       String[]              @map("package_ids")
+  minSubtotalMinor BigInt                @map("min_subtotal_minor")
+  endsAt           DateTime?             @map("ends_at") @db.Timestamptz(3)
+  totalCap         Int                   @map("total_cap")
+  perCustomerCap   Int                   @map("per_customer_cap")
+  active           Boolean
+  promotion        Promotion             @relation(fields: [promotionCode], references: [code], onDelete: Restrict, onUpdate: Restrict, map: "promotion_revision_promotion_fkey")
+  discounts        QuoteDiscount[]
+  redemptions      PromotionRedemption[]
+
+  @@id([promotionCode, revision], map: "promotion_revision_pkey")
+  @@unique([promotionCode, effectiveFrom], map: "promotion_revision_effective_key")
+  @@map("promotion_revision")
+}
+
+model QuoteDiscount {
+  quoteId           String                @id(map: "quote_discount_pkey") @map("quote_id") @db.Uuid
+  promotionCode     String                @map("promotion_code")
+  promotionRevision Int                   @map("promotion_revision")
+  amountMinor       BigInt                @map("amount_minor")
+  quote             Quote                 @relation(fields: [quoteId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "quote_discount_quote_fkey")
+  revision          PromotionRevision     @relation(fields: [promotionCode, promotionRevision], references: [promotionCode, revision], onDelete: Restrict, onUpdate: Restrict, map: "quote_discount_revision_fkey")
+  redemption        PromotionRedemption?
+
+  @@map("quote_discount")
+}
+
+model PromotionRedemption {
+  id              String            @id @db.Uuid
+  promotionCode   String            @map("promotion_code")
+  capsRevision    Int               @map("caps_revision")
+  quoteId         String            @unique(map: "promotion_redemption_quote_key") @map("quote_id") @db.Uuid
+  bookingId       String            @map("booking_id") @db.Uuid
+  customerSubject String            @map("customer_subject") @db.Uuid
+  discountMinor   BigInt            @map("discount_minor")
+  currency        String            @db.Char(3)
+  status          String
+  version         Int
+  reservedAt      DateTime          @map("reserved_at") @db.Timestamptz(3)
+  reservedBy      String            @map("reserved_by")
+  settledAt       DateTime?         @map("settled_at") @db.Timestamptz(3)
+  settledBy       String?           @map("settled_by")
+  reason          String?
+  correlationId   String            @map("correlation_id") @db.Uuid
+  liveSlot        Int?              @map("live_slot") @db.SmallInt
+  revision        PromotionRevision @relation(fields: [promotionCode, capsRevision], references: [promotionCode, revision], onDelete: Restrict, onUpdate: Restrict, map: "promotion_redemption_revision_fkey")
+  discount        QuoteDiscount     @relation(fields: [quoteId], references: [quoteId], onDelete: Restrict, onUpdate: Restrict, map: "promotion_redemption_quote_fkey")
+
+  @@unique([promotionCode, bookingId], map: "promotion_redemption_booking_key")
+  @@unique([bookingId, liveSlot], map: "promotion_redemption_live_booking_key")
+  @@index([promotionCode, customerSubject, liveSlot], map: "promotion_redemption_live_idx")
+  @@map("promotion_redemption")
+}
+
+model PromotionAuditEvent {
+  id            String   @id @db.Uuid
+  occurredAt    DateTime @map("occurred_at") @db.Timestamptz(3)
+  actorKind     String   @map("actor_kind")
+  actorId       String   @map("actor_id")
+  action        String
+  promotionCode String   @map("promotion_code")
+  redemptionId  String?  @map("redemption_id") @db.Uuid
+  outcome       String
+  correlationId String   @map("correlation_id") @db.Uuid
+
+  @@index([promotionCode, occurredAt], map: "promotion_audit_event_promotion_idx")
+  @@map("promotion_audit_event")
+}
+
+model OutboxMessage {
+  id            String    @id @db.Uuid
+  eventId       String    @unique @map("event_id") @db.Uuid
+  eventType     String    @map("event_type")
+  exchange      String
+  routingKey    String    @map("routing_key")
+  payload       String
+  correlationId String    @map("correlation_id") @db.Uuid
+  traceParent   String?   @map("trace_parent") @db.VarChar(55)
+  attempts      Int       @default(0)
+  lockedBy      String?   @map("locked_by")
+  lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(3)
+  lastError     String?   @map("last_error")
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
+  deadAt        DateTime? @map("dead_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([publishedAt, deadAt, createdAt], map: "outbox_message_pending_idx")
+  @@map("outbox_message")
 }

@@ -172,7 +172,10 @@ export interface AccessAuthority {
 }
 
 /** Service scopes Pricing grants to workload callers (pricing.v1 `service:` routes). */
-export const PRICING_SERVICE_SCOPES = ['pricing.quote.validate'] as const;
+export const PRICING_SERVICE_SCOPES = [
+  'pricing.quote.validate',
+  'pricing.promotion.redeem',
+] as const;
 export type PricingServiceScope = (typeof PRICING_SERVICE_SCOPES)[number];
 
 export interface ServiceCredential {

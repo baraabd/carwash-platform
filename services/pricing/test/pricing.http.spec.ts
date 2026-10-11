@@ -391,3 +391,20 @@ test('a newer price book applies to new quotes only; issued quotes keep their sn
   assert.equal(reread.body.priceBookRevision, 1);
   assert.equal((reread.body.total as { amountMinor: string }).amountMinor, '800000');
 });
+
+test('pricing.v1 never reinterprets legacy coupon or slug selection bodies', async () => {
+  for (const body of [
+    { ...quoteRequest(), couponCode: 'COMPAT123' },
+    {
+      catalogRevision: 1,
+      categoryId: 'suv',
+      packageId: 'exterior',
+      addonIds: [],
+      couponCode: 'COMPAT123',
+    },
+  ]) {
+    const rejected = await quote(TOKENS.customer, body);
+    assert.equal(rejected.status, 400);
+    assert.equal(errorOf(rejected.body).code, 'REQUEST_INVALID');
+  }
+});

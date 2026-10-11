@@ -155,3 +155,38 @@ test('pricing: the postgres probe is wired to this service own client', async ()
   assert.equal(probe.kind, 'postgres');
   await moduleRef.close();
 });
+
+test('pricing: canonical and legacy quote adapters coexist with promotion routes and distinct workload scopes', async () => {
+  process.env.DATABASE_URL = DSN;
+  const previous = process.env.PRICING_SERVICE_CLIENTS;
+  process.env.PRICING_SERVICE_CLIENTS = JSON.stringify([
+    { id: 'quote-reader', tokenSha256: 'a'.repeat(64), scopes: ['pricing.quote.validate'] },
+    { id: 'billing', tokenSha256: 'b'.repeat(64), scopes: ['pricing.promotion.redeem'] },
+  ]);
+  const app = await createHttpApplication();
+  await app.listen(0, '127.0.0.1');
+  try {
+    const origin = await app.getUrl();
+    const id = '6f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f';
+    for (const route of [
+      'quotes',
+      'legacy/quotes',
+      'price-books',
+      'legacy/prices',
+      'promotions/test/revisions',
+      'promotion-redemptions',
+      `quotes/${id}/validate`,
+    ]) {
+      const result = await fetch(`${origin}/internal/v1/pricing/${route}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      });
+      assert.equal(result.status, 401, route);
+    }
+  } finally {
+    await app.close();
+    if (previous === undefined) delete process.env.PRICING_SERVICE_CLIENTS;
+    else process.env.PRICING_SERVICE_CLIENTS = previous;
+  }
+});
