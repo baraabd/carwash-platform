@@ -26,3 +26,83 @@ model ServiceMarker {
 
   @@map("service_marker")
 }
+
+// ---------------------------------------------------------------------------
+// P05-B3. Technician-custody READ PROJECTION of registered Billing events
+// (owner decision B-08). Not a second ledger: each movement cites its Billing
+// event. CHECK constraints, guards and COMMIT-time assertions live in the migration.
+
+model WalletInbox {
+  eventId          String           @id @map("event_id") @db.Uuid
+  eventType        String           @map("event_type")
+  aggregateType    String?          @map("aggregate_type")
+  aggregateId      String?          @map("aggregate_id") @db.Uuid
+  aggregateVersion Int?             @map("aggregate_version")
+  outcome          String
+  reason           String?
+  correlationId    String?          @map("correlation_id") @db.Uuid
+  receivedAt       DateTime         @map("received_at") @db.Timestamptz(3)
+  movement         CustodyMovement?
+
+  @@index([receivedAt], map: "wallet_inbox_received_idx")
+  @@map("wallet_inbox")
+}
+
+model CustodySource {
+  kind          String
+  aggregateId   String            @map("aggregate_id") @db.Uuid
+  lastVersion   Int               @map("last_version")
+  holderSubject String            @map("holder_subject") @db.Uuid
+  currency      String
+  status        String
+  amountMinor   BigInt            @map("amount_minor")
+  countedMinor  BigInt?           @map("counted_minor")
+  updatedAt     DateTime          @map("updated_at") @db.Timestamptz(3)
+  movements     CustodyMovement[]
+
+  @@id([kind, aggregateId], map: "custody_source_pkey")
+  @@map("custody_source")
+}
+
+model CustodyAccount {
+  holderSubject   String            @map("holder_subject") @db.Uuid
+  currency        String
+  heldMinor       BigInt            @map("held_minor")
+  inHandoverMinor BigInt            @map("in_handover_minor")
+  depositedMinor  BigInt            @map("deposited_minor")
+  settledMinor    BigInt            @map("settled_minor")
+  shortageMinor   BigInt            @map("shortage_minor")
+  overageMinor    BigInt            @map("overage_minor")
+  version         Int
+  updatedAt       DateTime          @map("updated_at") @db.Timestamptz(3)
+  movements       CustodyMovement[]
+
+  @@id([holderSubject, currency], map: "custody_account_pkey")
+  @@map("custody_account")
+}
+
+model CustodyMovement {
+  id              String         @id @db.Uuid
+  holderSubject   String         @map("holder_subject") @db.Uuid
+  currency        String
+  kind            String
+  heldDelta       BigInt         @map("held_delta")
+  inHandoverDelta BigInt         @map("in_handover_delta")
+  depositedDelta  BigInt         @map("deposited_delta")
+  settledDelta    BigInt         @map("settled_delta")
+  shortageDelta   BigInt         @map("shortage_delta")
+  overageDelta    BigInt         @map("overage_delta")
+  eventId         String         @unique(map: "custody_movement_event_key") @map("event_id") @db.Uuid
+  eventType       String         @map("event_type")
+  sourceKind      String         @map("source_kind")
+  sourceId        String         @map("source_id") @db.Uuid
+  sourceVersion   Int            @map("source_version")
+  occurredAt      DateTime       @map("occurred_at") @db.Timestamptz(3)
+  recordedAt      DateTime       @map("recorded_at") @db.Timestamptz(3)
+  account         CustodyAccount @relation(fields: [holderSubject, currency], references: [holderSubject, currency], onDelete: Restrict, onUpdate: Restrict, map: "custody_movement_account_fkey")
+  event           WalletInbox    @relation(fields: [eventId], references: [eventId], onDelete: Restrict, onUpdate: Restrict, map: "custody_movement_event_fkey")
+  source          CustodySource  @relation(fields: [sourceKind, sourceId], references: [kind, aggregateId], onDelete: Restrict, onUpdate: Restrict, map: "custody_movement_source_fkey")
+
+  @@index([holderSubject, recordedAt], map: "custody_movement_holder_idx")
+  @@map("custody_movement")
+}

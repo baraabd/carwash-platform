@@ -156,3 +156,56 @@ test('subscription: the postgres probe is wired to this service own client', asy
   assert.equal(probe.kind, 'postgres');
   await moduleRef.close();
 });
+
+test('subscription: the owner API is mounted and fails closed without Identity or service credentials', async () => {
+  process.env.DATABASE_URL = DSN;
+  delete process.env.IDENTITY_SESSION_ORIGIN;
+  delete process.env.SUBSCRIPTION_SERVICE_CLIENTS;
+  const app = await createHttpApplication();
+  await app.listen(0, '127.0.0.1');
+  try {
+    const url = (await app.getUrl()) + '/internal/v1/subscription';
+    const anonymous = await fetch(url + '/offers');
+    assert.equal(anonymous.status, 401);
+    const bearer = { authorization: 'Bearer eyJhbGciOiJSUzI1NiJ9.e30.c2ln' };
+    const unverifiable = await fetch(url + '/plans', { headers: bearer });
+    assert.equal(
+      unverifiable.status,
+      503,
+      'no Identity origin configured: never an anonymous grant',
+    );
+    const reserve = await fetch(url + '/reservations', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-service-client': 'booking',
+        'x-service-token': 'x'.repeat(40),
+      },
+      body: '{}',
+    });
+    assert.equal(reserve.status, 401, 'no configured service client: entitlement routes refused');
+    const body = (await reserve.json()) as { error: { code: string } };
+    assert.equal(body.error.code, 'SERVICE_AUTH_REQUIRED');
+    const ready = await fetch((await app.getUrl()) + '/health/ready');
+    assert.equal(ready.status, 503, 'an implemented owner API still does not claim readiness');
+  } finally {
+    await app.close();
+  }
+});
+
+test('subscription: malformed service-client configuration stops startup instead of allowing callers', async () => {
+  process.env.DATABASE_URL = DSN;
+  for (const raw of [
+    'not json',
+    JSON.stringify([
+      { id: 'booking', tokenSha256: 'f'.repeat(64), scopes: ['subscription.admin'] },
+    ]),
+    JSON.stringify([
+      { id: 'stranger', tokenSha256: 'f'.repeat(64), scopes: ['subscription.entitlement.reserve'] },
+    ]),
+  ]) {
+    process.env.SUBSCRIPTION_SERVICE_CLIENTS = raw;
+    await assert.rejects(Test.createTestingModule({ imports: [AppModule] }).compile());
+  }
+  delete process.env.SUBSCRIPTION_SERVICE_CLIENTS;
+});

@@ -1,81 +1,73 @@
-import type { VersionHead } from '../../src/domain';
 import {
   ReceiptAlreadyExists,
   type AuditRecord,
   type IdempotencyReceipt,
+  type NewPriceBook,
+  type PriceBook,
   type PricingRepository,
   type PricingUnitOfWork,
-  type PublishedPriceVersion,
   type StoredQuote,
 } from '../../src/ports';
 
 /**
- * TEST DOUBLE for application/HTTP tests: serialised, staged transactions that
- * discard every write when the work throws. Not persistence evidence.
+ * TEST DOUBLE of the persistence port for transport/application specs. It
+ * serialises transactions and commits staged writes only when the work
+ * succeeds, mirroring rollback. Real constraints, triggers and races are
+ * proven separately against PostgreSQL (test/integration).
  */
 export class InMemoryPricingRepository implements PricingRepository {
-  readonly versions: PublishedPriceVersion[] = [];
+  readonly books: NewPriceBook[] = [];
   readonly quotes = new Map<string, StoredQuote>();
   readonly receipts = new Map<string, IdempotencyReceipt>();
   readonly audit: AuditRecord[] = [];
   private queue: Promise<unknown> = Promise.resolve();
 
-  private receiptKey(actor: string, operation: string, key: string): string {
+  private static key(actor: string, operation: string, key: string): string {
     return `${actor}|${operation}|${key}`;
   }
 
   transaction<T>(work: (uow: PricingUnitOfWork) => Promise<T>): Promise<T> {
     const run = this.queue.then(async () => {
-      const staged = {
-        versions: [] as PublishedPriceVersion[],
-        quotes: [] as StoredQuote[],
-        receipts: new Map<string, IdempotencyReceipt>(),
-        audit: [] as AuditRecord[],
-      };
+      const books: NewPriceBook[] = [];
+      const quotes: StoredQuote[] = [];
+      const receipts: IdempotencyReceipt[] = [];
+      const audit: AuditRecord[] = [];
       const uow: PricingUnitOfWork = {
-        lockPrices: () => Promise.resolve(),
-        versionInForce: (at) =>
-          Promise.resolve(
-            this.versions.filter((v) => v.effectiveFrom.getTime() <= at.getTime()).at(-1) ?? null,
-          ),
-        version: (version) =>
-          Promise.resolve(this.versions.find((v) => v.version === version) ?? null),
-        lockHead: (): Promise<VersionHead | null> => {
-          const head = this.versions.at(-1);
-          return Promise.resolve(
-            head ? { version: head.version, effectiveFrom: head.effectiveFrom } : null,
-          );
-        },
-        findReceipt: (actor, operation, key) =>
-          Promise.resolve(this.receipts.get(this.receiptKey(actor, operation, key)) ?? null),
-        insertPriceVersion: (version) => {
-          staged.versions.push(version);
+        lockPriceBookHead: () => Promise.resolve(this.books.at(-1)?.revision ?? null),
+        priceBookInForce: () => Promise.resolve<PriceBook | null>(this.books.at(-1) ?? null),
+        findReceipt: (a, o, k) => this.findReceipt(a, o, k),
+        insertPriceBook: (book) => {
+          books.push(book);
           return Promise.resolve();
         },
         insertQuote: (quote) => {
-          staged.quotes.push(quote);
+          quotes.push(quote);
           return Promise.resolve();
         },
         saveReceipt: (receipt) => {
-          const key = this.receiptKey(
+          const key = InMemoryPricingRepository.key(
             receipt.actorSubject,
             receipt.operation,
             receipt.idempotencyKey,
           );
           if (this.receipts.has(key)) return Promise.reject(new ReceiptAlreadyExists());
-          staged.receipts.set(key, receipt);
+          receipts.push(receipt);
           return Promise.resolve();
         },
         appendAudit: (record) => {
-          staged.audit.push(record);
+          audit.push(record);
           return Promise.resolve();
         },
       };
       const result = await work(uow);
-      this.versions.push(...staged.versions);
-      for (const quote of staged.quotes) this.quotes.set(quote.id, quote);
-      for (const [key, value] of staged.receipts) this.receipts.set(key, value);
-      this.audit.push(...staged.audit);
+      this.books.push(...books);
+      for (const quote of quotes) this.quotes.set(quote.id, quote);
+      for (const r of receipts)
+        this.receipts.set(
+          InMemoryPricingRepository.key(r.actorSubject, r.operation, r.idempotencyKey),
+          r,
+        );
+      this.audit.push(...audit);
       return result;
     });
     this.queue = run.catch(() => undefined);
@@ -83,38 +75,17 @@ export class InMemoryPricingRepository implements PricingRepository {
   }
 
   findReceipt(actor: string, operation: string, key: string): Promise<IdempotencyReceipt | null> {
-    return Promise.resolve(this.receipts.get(this.receiptKey(actor, operation, key)) ?? null);
-  }
-
-  versionInForce(at: Date): Promise<PublishedPriceVersion | null> {
     return Promise.resolve(
-      this.versions.filter((v) => v.effectiveFrom.getTime() <= at.getTime()).at(-1) ?? null,
-    );
-  }
-
-  version(version: number): Promise<PublishedPriceVersion | null> {
-    return Promise.resolve(this.versions.find((v) => v.version === version) ?? null);
-  }
-
-  listVersions(limit: number) {
-    return Promise.resolve(
-      [...this.versions]
-        .reverse()
-        .slice(0, limit)
-        .map((v) => ({
-          version: v.version,
-          effectiveFrom: v.effectiveFrom,
-          publishedAt: v.publishedAt,
-          catalogRevision: v.catalogRevision,
-          policyRevision: v.policyRevision,
-          currency: v.currency,
-          minorUnitExponent: v.minorUnitExponent,
-          ratesFingerprint: v.ratesFingerprint,
-        })),
+      this.receipts.get(InMemoryPricingRepository.key(actor, operation, key)) ?? null,
     );
   }
 
   quote(id: string): Promise<StoredQuote | null> {
     return Promise.resolve(this.quotes.get(id) ?? null);
+  }
+
+  appendAudit(record: AuditRecord): Promise<void> {
+    this.audit.push(record);
+    return Promise.resolve();
   }
 }

@@ -7,6 +7,8 @@
  *  - 'public'                 no authentication (e.g. published catalog)
  *  - 'principal'              the authenticated account OR guest acts on its own records
  *  - 'permission:<name>'      staff permission issued by Identity
+ *  - 'permission:<a>|<b>'     any ONE of up to four staff permissions (P05-E1). The owner
+ *                             still decides per object/kind which of them applies.
  *  - 'service:<scope>'        workload identity with that scope; never reachable from the Gateway
  *  - 'provider-signed'        an external payment provider's server notification. No principal,
  *                             cookie or bearer is ever forwarded; the OWNER verifies the provider's
@@ -41,8 +43,15 @@ export interface OwnerContract {
 }
 
 const PATH = /^(\/(?:[a-z0-9-]+|:[a-zA-Z]+))+$/;
-const ACCESS =
-  /^(public|principal|provider-signed|permission:[a-z][a-z.:-]{2,63}|service:[a-z][a-z.-]{2,63})$/;
+const PERMISSION = '[a-z][a-z.:-]{2,63}';
+const ACCESS = new RegExp(
+  `^(public|principal|provider-signed|permission:${PERMISSION}(\\|${PERMISSION}){0,3}|service:[a-z][a-z.-]{2,63})$`,
+);
+
+/** The staff permissions a `permission:` access names (any one suffices); [] otherwise. */
+export function routePermissions(access: RouteAccess): readonly string[] {
+  return access.startsWith('permission:') ? access.slice('permission:'.length).split('|') : [];
+}
 const REASON = /^[A-Z][A-Z0-9_]{2,63}$/;
 
 /** Structural lint for a contract descriptor; used by the contract test suite and CI. */
@@ -57,6 +66,8 @@ export function contractProblems(contract: OwnerContract): string[] {
     const where = `${contract.id}.${name}`;
     if (!PATH.test(route.path)) problems.push(`${where}: path`);
     if (!ACCESS.test(route.access)) problems.push(`${where}: access`);
+    const permissions = routePermissions(route.access);
+    if (new Set(permissions).size !== permissions.length) problems.push(`${where}: access`);
     const key = `${route.method} ${route.path.replace(/:[a-zA-Z]+/g, ':')}`;
     if (seen.has(key)) problems.push(`${where}: duplicate ${key}`);
     seen.add(key);

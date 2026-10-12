@@ -100,6 +100,51 @@
       "status": "published-provider-pending",
       "openApi": "docs/contracts/billing.v1.openapi.json",
       "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
+    },
+    {
+      "id": "subscription.v1",
+      "domain": "subscription",
+      "version": 1,
+      "prefix": "/internal/v1/subscription",
+      "status": "published-provider-pending",
+      "openApi": "docs/contracts/subscription.v1.openapi.json",
+      "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
+    },
+    {
+      "id": "promotion.v1",
+      "domain": "pricing",
+      "version": 1,
+      "prefix": "/internal/v1/pricing",
+      "status": "published-provider-pending",
+      "openApi": "docs/contracts/promotion.v1.openapi.json",
+      "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
+    },
+    {
+      "id": "support.v1",
+      "domain": "support",
+      "version": 1,
+      "prefix": "/internal/v1/support",
+      "status": "published-provider-pending",
+      "openApi": "docs/contracts/support.v1.openapi.json",
+      "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
+    },
+    {
+      "id": "reviews.v1",
+      "domain": "reviews",
+      "version": 1,
+      "prefix": "/internal/v1/reviews",
+      "status": "published-provider-pending",
+      "openApi": "docs/contracts/reviews.v1.openapi.json",
+      "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
+    },
+    {
+      "id": "reporting.v1",
+      "domain": "reporting",
+      "version": 1,
+      "prefix": "/internal/v1/reporting",
+      "status": "published-provider-pending",
+      "openApi": "docs/contracts/reporting.v1.openapi.json",
+      "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
     }
   ],
   "unpublishedBusinessDomains": [
@@ -107,10 +152,6 @@
     "communications",
     "dispatch",
     "media",
-    "reporting",
-    "reviews",
-    "subscription",
-    "support",
     "wallet"
   ]
 }

@@ -222,19 +222,31 @@ export async function waitForRabbitReady(context, signal, { timeoutMs = 180_000 
   );
 }
 
-export async function waitForPostgresReady(context, signal) {
+export async function waitForPostgresReady(context, signal, { timeoutMs = 180_000 } = {}) {
   return waitFor(
-    'pg_isready',
-    async () => {
+    'PostgreSQL TCP readiness',
+    async (remainingMs) => {
+      // The image's initdb server accepts Unix sockets before provisioning
+      // finishes, then shuts down. Only the final server listens on TCP.
       const result = await composeExec(
         context,
         'postgres',
-        ['pg_isready', '-U', 'cw_acceptance_bootstrap', '-d', 'postgres'],
-        { timeoutMs: 60_000, signal },
+        [
+          'pg_isready',
+          '-h',
+          '127.0.0.1',
+          '-p',
+          '5432',
+          '-U',
+          'cw_acceptance_bootstrap',
+          '-d',
+          'postgres',
+        ],
+        { timeoutMs: Math.min(10_000, remainingMs), signal },
       );
-      return result.code === 0;
+      return result.code === 0 && result.outcome === 'exited';
     },
-    { timeoutMs: 180_000, intervalMs: 1000 },
+    { timeoutMs, intervalMs: 1000, signal },
   );
 }
 

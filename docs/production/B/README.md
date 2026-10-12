@@ -1,5 +1,25 @@
 # Lane B — Commerce & Finance production work
 
+## P05-B — Subscription, Promotion and remaining Wallet capabilities
+
+Parent status: **INTEGRATION_PENDING**. Not production-ready, not deployed, not
+integrated.
+
+- **Base:** started from main `66aa7528500a06f65a4b73305506feee7c3fc3b3` and refreshed to `3e1ab23bff450235858ea13e049f8fb373df393f` on 2026-10-11 before committing. The audited `f875d31` was no longer current.
+- **Branching:** each child is based on main; none is stacked.
+
+| Child | Branch | Scope | Status |
+| ----- | ------ | ----- | ------ |
+| B1 | `prod/p05-b-implement-subscription--promotion-and-remaining-wallet-b1-subscription` | Subscription plans and revisions, customer subscriptions, entitlement periods, reserve/commit/release/reverse, ledger reconciliation, real PostgreSQL races | PR open — review required |
+| B2 | `prod/p05-b-implement-subscription--promotion-and-remaining-wallet-b2-promotions` | Pricing promotions and coupons, quote discount component, redemption caps (reserve/commit/release) | PR open — review required |
+| B3 | `prod/p05-b-implement-subscription--promotion-and-remaining-wallet-b3-wallet` | Wallet technician-custody projection from the registered Billing events (B-08: no customer wallet) | PR open — review required |
+| E-req | (Lane E / C) | CR-B-10 (subscription), CR-B2-5 (promotions) and CR-B-12 (wallet): permissions, contracts, events, Booking saga | SUBMITTED, not accepted |
+
+**Details:**
+- B1: `P05-B1-SUBSCRIPTION.md` (blockers B-P05-11..16);
+- B2: `P05-B2-PROMOTIONS.md`;
+- B3: `P05-B3-WALLET-CUSTODY.md`.
+
 ## P04-B — Payment provider adapters, reconciliation and refunds
 
 Parent status: **INTEGRATION_PENDING**. Not production-ready, not deployed, not

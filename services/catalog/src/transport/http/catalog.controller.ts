@@ -1,49 +1,15 @@
+import { Body, Controller, Get, Inject, Param, Post, Req, Res } from '@nestjs/common';
+import { createLogger } from '@carwash/service-kit';
 import {
-  Body,
-  Controller,
-  Get,
-  Headers,
-  Inject,
-  Param,
-  Post,
-  Res,
-  UseFilters,
-} from '@nestjs/common';
-import {
-  AppError,
-  AppExceptionFilter,
-  CORRELATION_HEADER,
-  createLogger,
-  resolveCorrelationId,
-} from '@carwash/service-kit';
-import {
-  CatalogApplicationError,
   CatalogService,
-  type CommandResult,
+  type CatalogView,
+  type DefinitionView,
   type RequestContext,
-  type RevisionSummaryView,
-  type RevisionView,
 } from '../../application';
+import { envelope, requestIds, traceParent, type IdentifiedRequest } from './error-envelope';
 
 export const CATALOG_SERVICE = 'CATALOG_SERVICE';
-export const CATALOG_V1 = 'internal/v1/catalog';
-
-/** Fixed public messages. Internal exception text is never reflected. */
-const MESSAGES: Readonly<Record<string, string>> = {
-  REQUEST_INVALID: 'The request is invalid.',
-  IDEMPOTENCY_KEY_INVALID: 'A valid Idempotency-Key header is required.',
-  AUTH_REQUIRED: 'Authentication is required.',
-  AUTH_FORBIDDEN: 'The operation is not allowed.',
-  AUTH_UNAVAILABLE: 'Authorization is temporarily unavailable.',
-  NOT_FOUND: 'The requested resource was not found.',
-  CATALOG_NOT_PUBLISHED: 'No catalog revision is in force.',
-  IDEMPOTENCY_CONFLICT: 'The Idempotency-Key was already used for a different request.',
-  DEFINITIONS_INVALID: 'The catalog definitions are inconsistent.',
-  REVISION_CONFLICT: 'The catalog changed; refetch and retry with a new command.',
-  EFFECTIVE_FROM_IN_PAST: 'The effective time is in the past.',
-  EFFECTIVE_FROM_NOT_AFTER_PREVIOUS: 'The effective time must follow the previous revision.',
-  EFFECTIVE_FROM_TOO_FAR: 'The effective time is too far in the future.',
-};
+export const CATALOG_V1_PREFIX = '/internal/v1/catalog';
 
 interface HttpResponse {
   status(code: number): HttpResponse;
@@ -51,21 +17,22 @@ interface HttpResponse {
   json(body: unknown): unknown;
 }
 
-function publicError(error: CatalogApplicationError): AppError {
-  return new AppError({
-    status: error.status,
-    code: error.code,
-    message: MESSAGES[error.code] ?? 'The request could not be completed.',
-    ...(error.details ? { details: error.details } : {}),
-  });
+function single(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
 }
 
 /**
- * Catalog owner API. The transport only extracts the credential, correlation
- * and idempotency key and renders results; all decisions are in the service.
+ * catalog.v1 HTTP adapter (prefix /internal/v1/catalog):
+ *
+ * - GET  /definitions                 public: the complete current snapshot.
+ * - GET  /definitions/:definitionId   public: one definition, retired included.
+ * - POST /publications                permission:catalog.publish, Idempotency-Key,
+ *                                     body expectedCatalogRevision.
+ *
+ * The transport only extracts credential, ids and key and renders results;
+ * every decision is in CatalogService. Errors use the shared envelope.
  */
-@Controller(CATALOG_V1)
-@UseFilters(new AppExceptionFilter(createLogger({ service: 'catalog' })))
+@Controller(CATALOG_V1_PREFIX)
 export class CatalogController {
   private readonly logger = createLogger({
     service: 'catalog',
@@ -74,73 +41,52 @@ export class CatalogController {
 
   constructor(@Inject(CATALOG_SERVICE) private readonly catalog: CatalogService) {}
 
-  private context(headers: Record<string, string | undefined>): RequestContext {
-    return {
-      credential: headers.authorization,
-      correlationId: resolveCorrelationId(headers[CORRELATION_HEADER]),
-    };
-  }
-
-  private async run<T>(work: () => Promise<T>): Promise<T> {
-    try {
-      return await work();
-    } catch (error: unknown) {
-      if (error instanceof CatalogApplicationError) throw publicError(error);
-      throw error;
-    }
-  }
-
   @Get('definitions')
-  inForce(@Headers() headers: Record<string, string | undefined>): Promise<RevisionView> {
-    return this.run(() => this.catalog.inForce(this.context(headers)));
+  published(@Res({ passthrough: true }) response: HttpResponse): Promise<CatalogView> {
+    response.setHeader('cache-control', 'no-store');
+    return this.catalog.published();
   }
 
-  @Get('definitions/:revision')
-  revision(
-    @Headers() headers: Record<string, string | undefined>,
-    @Param('revision') revision: string,
-  ): Promise<RevisionView> {
-    return this.run(() => this.catalog.revision(this.context(headers), revision));
+  @Get('definitions/:definitionId')
+  definition(
+    @Param('definitionId') definitionId: string,
+    @Res({ passthrough: true }) response: HttpResponse,
+  ): Promise<DefinitionView> {
+    response.setHeader('cache-control', 'no-store');
+    return this.catalog.definition(definitionId);
   }
 
-  @Get('revisions')
-  revisions(
-    @Headers() headers: Record<string, string | undefined>,
-  ): Promise<{ revisions: RevisionSummaryView[] }> {
-    return this.run(() => this.catalog.listRevisions(this.context(headers)));
-  }
-
-  @Post('definitions')
+  @Post('publications')
   async publish(
-    @Headers() headers: Record<string, string | undefined>,
+    @Req() request: IdentifiedRequest,
     @Body() body: unknown,
     @Res() response: HttpResponse,
   ): Promise<void> {
-    const context = this.context(headers);
-    const result: CommandResult = await this.run(() =>
-      this.catalog.publish(context, headers['idempotency-key'], body),
+    const ids = requestIds(request);
+    const context: RequestContext = {
+      credential: single(request.headers.authorization),
+      correlationId: ids.correlationId,
+      traceParent: traceParent(request),
+    };
+    const result = await this.catalog.publish(
+      context,
+      single(request.headers['idempotency-key']),
+      body,
     );
-    // correlationId/traceId come from the instrumented request context.
     this.logger.info('catalog_publish_outcome', {
       status: result.status,
       replayed: result.replayed,
-      revision: typeof result.body.revision === 'number' ? result.body.revision : null,
-      code: typeof result.body.code === 'string' ? result.body.code : null,
+      code: 'rejection' in result ? result.rejection.code : null,
+      correlationId: ids.correlationId,
     });
-    response.setHeader(CORRELATION_HEADER, context.correlationId);
+    response.setHeader('cache-control', 'no-store');
     response.setHeader('idempotency-replayed', String(result.replayed));
-    if (result.status >= 400) {
-      const code = typeof result.body.code === 'string' ? result.body.code : 'CONFLICT';
-      response.status(result.status).json({
-        error: {
-          code,
-          message: MESSAGES[code] ?? 'The request conflicts with current state.',
-          correlationId: context.correlationId,
-          status: result.status,
-        },
-      });
+    if ('rejection' in result) {
+      // A recorded rejection is re-rendered with THIS request's ids.
+      const rendered = envelope(result.rejection, ids);
+      response.status(rendered.status).json(rendered.body);
       return;
     }
-    response.status(result.status).json(result.body);
+    response.status(result.status).json(result.published);
   }
 }

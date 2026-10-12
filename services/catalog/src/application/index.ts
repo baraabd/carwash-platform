@@ -5,4 +5,6 @@
  */
 export * from './canonical-json';
 export * from './catalog-errors';
+export * from './catalog-v1-wire';
 export * from './catalog.service';
+export * from './events';

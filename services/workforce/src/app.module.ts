@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { HealthModule, createLogger, type DependencyProbe } from '@carwash/service-kit';
-import { WorkforceService } from './application';
+import { OperatorProfileService, WorkforceService } from './application';
 import { IdentitySessionClient } from './infrastructure/identity/identity-session.client';
 import {
   DATABASE_URL,
@@ -14,6 +14,7 @@ import {
   parseServiceClients,
 } from './infrastructure/security/service-clients';
 import { ActorResolver, RequestBudget } from './transport/http/actor-resolver';
+import { OperatorProfileController } from './transport/http/operator-profile.controller';
 import { WorkforceController } from './transport/http/workforce.controller';
 
 export const SERVICE_NAME = 'workforce';
@@ -46,7 +47,7 @@ function positiveInt(raw: string | undefined, fallback: number): number {
       logger: createLogger({ service: SERVICE_NAME }),
     }),
   ],
-  controllers: [WorkforceController],
+  controllers: [WorkforceController, OperatorProfileController],
   providers: [
     { provide: DATABASE_URL, useFactory: () => databaseUrlFromEnv() },
     PrismaService,
@@ -59,6 +60,12 @@ function positiveInt(raw: string | undefined, fallback: number): number {
       provide: WorkforceService,
       useFactory: (store: PrismaWorkforceStore) =>
         new WorkforceService(store, store, systemClock, uuidGenerator),
+      inject: [PrismaWorkforceStore],
+    },
+    {
+      provide: OperatorProfileService,
+      useFactory: (store: PrismaWorkforceStore) =>
+        new OperatorProfileService(store, store, systemClock, uuidGenerator),
       inject: [PrismaWorkforceStore],
     },
     {

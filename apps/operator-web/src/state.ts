@@ -1,11 +1,20 @@
-import type { AvailabilityView, SessionView } from './api/types';
+import type {
+  AvailabilityView,
+  CustodyView,
+  EquipmentIssue,
+  EquipmentStatus,
+  ExceptionReason,
+  ProfileView,
+  SessionView,
+} from './api/types';
 import type { Job } from './model';
 
 /**
  * In-memory UI state. Server facts (`jobs`, `availability`, `session`) are
  * replaced on every read. localStorage holds only two UI preferences: the
  * motion switch and the current task/collection filter. No token, signed URL,
- * job, image or note is ever written to browser storage.
+ * job, image or note is ever written to browser storage. The only other key is
+ * the P05-C2 offline read cache of the technician's own profile (profile-cache.ts).
  */
 
 export type View = 'home' | 'tasks' | 'collections' | 'profile' | 'task';
@@ -21,10 +30,32 @@ export interface ReadUrlEntry {
   readonly expiresAt: number;
 }
 
+/** Choices inside an open profile sheet (memory only, P05-C2). */
+export interface SheetChoice {
+  weekday: number;
+  reason: ExceptionReason;
+  status: EquipmentStatus;
+  issue: EquipmentIssue;
+}
+const INITIAL_CHOICE: SheetChoice = {
+  weekday: 6,
+  reason: 'LEAVE',
+  status: 'READY',
+  issue: 'BREAKDOWN',
+};
+
 export const S = {
   session: null as SessionView | null,
   availability: null as AvailabilityView | null,
   jobs: [] as Job[],
+  /** Workforce profile (P05-C2); from the server or, offline only, from the read cache. */
+  profile: null as ProfileView | null,
+  /** Billing custody position (P05-C2). */
+  custody: null as CustodyView | null,
+  /** Set while the shown profile comes from the offline read cache (its savedAt). */
+  profileCachedAt: null as string | null,
+  /** UI choice inside the open profile sheet (memory only). */
+  sheetChoice: { ...INITIAL_CHOICE },
   loaded: false,
   connection: 'loading' as ConnectionState,
   motion: true,

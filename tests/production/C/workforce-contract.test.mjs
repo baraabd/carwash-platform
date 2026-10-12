@@ -30,7 +30,10 @@ const { errorBody, statusOf, RateLimited } = serviceDist(
   'transport/http/http-errors.js',
 );
 const { WorkforceError, parseCapacityQuery } = serviceDist('workforce', 'domain/index.js');
-const { WorkforceService } = serviceDist('workforce', 'application/index.js');
+const { OperatorProfileService, WorkforceService } = serviceDist(
+  'workforce',
+  'application/index.js',
+);
 const { PrismaService } = serviceDist('workforce', 'infrastructure/persistence/prisma.service.js');
 const { PrismaWorkforceStore } = serviceDist(
   'workforce',
@@ -65,6 +68,7 @@ let app;
 let base;
 let prisma;
 let service;
+let profiles;
 const zone = randomUUID();
 const dayStart = Math.floor(Date.now() / DAY) * DAY + 7 * DAY;
 const from = new Date(dayStart + 8 * HOUR).toISOString();
@@ -83,6 +87,11 @@ async function seed(subject = randomUUID(), { shifts = [] } = {}) {
     validUntil: new Date(Date.now() + 365 * DAY),
   });
   await service.grantSkill(meta(OPS), operator.id, 'exterior-wash');
+  const zones = [...new Set(shifts.map((s) => s.zoneId))];
+  if (zones.length > 0) {
+    // P05-C1: shifts must lie inside the operations-owned service area.
+    await profiles.setServiceArea(meta(OPS), operator.id, { zoneIds: zones, expectedRevision: 0 });
+  }
   for (const s of shifts) await service.createShift(meta(tech(subject)), operator.id, s, key());
   operators.push(operator.id);
   return operator.id;
@@ -94,6 +103,7 @@ before(async () => {
   prisma = new PrismaService(url);
   const store = new PrismaWorkforceStore(prisma);
   service = new WorkforceService(store, store, systemClock, uuidGenerator);
+  profiles = new OperatorProfileService(store, store, systemClock, uuidGenerator);
   identity = await identityDouble({
     'technician-token-0001': {
       subject: TECH,

@@ -214,8 +214,18 @@ async function observeContainer(context, allocation, signal) {
     'SELECT system_identifier::text FROM pg_control_system();',
     { signal },
   );
-  assert.equal(cluster.code, 0, 'Cannot observe actual PostgreSQL cluster identity');
-  assert.equal(cluster.outcome, 'exited');
+  assert.equal(
+    cluster.code,
+    0,
+    redact(
+      `Cannot observe actual PostgreSQL cluster identity (${context.project}; ${cluster.outcome}): ${cluster.stderr.trim()}`,
+    ),
+  );
+  assert.equal(
+    cluster.outcome,
+    'exited',
+    `PostgreSQL identity probe did not exit: ${context.project}`,
+  );
   assert.match(cluster.stdout.trim(), /^[0-9]+$/);
   return {
     project: context.project,

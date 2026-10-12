@@ -240,8 +240,22 @@ test('full cash journey: accept, depart, arrive, photos, checklist, finish, exac
     const stored = await page.evaluate(() =>
       Object.keys(localStorage).map((k) => [k, localStorage.getItem(k)]),
     );
-    // Only UI preferences may be stored (written when a preference or filter changes).
+    // Only UI preferences and (P05-C2) the technician's own profile read cache may be
+    // stored. No job, booking, customer, photo, signed URL or note ever is.
     for (const [key, value] of stored) {
+      if (key === 'washgo-operator-profile-cache-v1') {
+        assert.deepEqual(Object.keys(JSON.parse(value)).sort(), [
+          'custody',
+          'profile',
+          'savedAt',
+          'subject',
+          'v',
+        ]);
+        for (const job of ['WG-2041', 'WG-2042', 'WG-2043']) {
+          assert.equal(value.includes(id(job)), false, 'no booking id in the profile cache');
+        }
+        continue;
+      }
       assert.equal(key, 'washgo-operator-preferences-v1');
       assert.deepEqual(Object.keys(JSON.parse(value)).sort(), [
         'collectionFilter',

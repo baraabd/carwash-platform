@@ -1,59 +1,71 @@
 /**
- * TEST-ONLY definitions. The shape mirrors the approved journey (vehicle
- * category, package, add-ons) but none of these values is an approved business
+ * TEST-ONLY catalog.v1 definitions. The shape mirrors the approved journey
+ * (wash packages and extras) but none of these values is an approved business
  * definition and they must never be seeded into a real environment.
  */
-export function definitionsFixture(): Record<string, unknown> {
-  return {
-    categories: [
-      { id: 'suv', labelAr: 'كروس أوفر', labelEn: null, extraDurationMinutes: 10, sortOrder: 1 },
-      { id: 'sedan', labelAr: 'سيدان', labelEn: 'Sedan', extraDurationMinutes: 0, sortOrder: 0 },
-    ],
-    addons: [
-      {
-        id: 'tyre-shine',
-        labelAr: 'تلميع الإطارات',
-        labelEn: null,
-        durationMinutes: 10,
-        sortOrder: 1,
-        allowedCategoryIds: ['suv', 'sedan'],
-      },
-      {
-        id: 'interior-fresh',
-        labelAr: 'تعطير المقصورة',
-        labelEn: null,
-        durationMinutes: 5,
-        sortOrder: 0,
-        allowedCategoryIds: ['sedan'],
-      },
-    ],
-    packages: [
-      {
-        id: 'full-care',
-        labelAr: 'عناية كاملة',
-        labelEn: null,
-        descriptionAr: null,
-        durationMinutes: 95,
-        sortOrder: 1,
-        featuresAr: ['تنظيف متكامل', 'عناية بالتفاصيل'],
-        allowedCategoryIds: ['sedan', 'suv'],
-        includedAddonIds: ['tyre-shine'],
-        optionalAddonIds: [],
-      },
-      {
-        id: 'exterior',
-        labelAr: 'غسيل خارجي',
-        labelEn: 'Exterior',
-        descriptionAr: 'غسيل الهيكل والزجاج',
-        durationMinutes: 35,
-        sortOrder: 0,
-        featuresAr: ['غسيل الهيكل', 'تنظيف الزجاج'],
-        allowedCategoryIds: ['sedan', 'suv'],
-        includedAddonIds: [],
-        optionalAddonIds: ['tyre-shine', 'interior-fresh'],
-      },
-    ],
-  };
+export interface WireDefinition {
+  definitionId: string;
+  kind: 'PACKAGE' | 'EXTRA';
+  code: string;
+  name: { ar: string; en: string | null };
+  description: { ar: string; en: string | null };
+  durationMinutes: number;
+  vehicleTypes: string[];
+  status: 'PUBLISHED' | 'RETIRED';
+  sortOrder: number;
+}
+
+/** A deterministic v4 UUID per (namespace, n). */
+export function fixtureId(n: number, namespace = 0): string {
+  const ns = namespace.toString(16).padStart(4, '0');
+  return `0000${ns}-0000-4000-8000-${String(n).padStart(12, '0')}`;
+}
+
+/** Codes must be unique per test run when the database is shared. */
+export function definitionsFixture(namespace = 0, prefix = 'fx'): WireDefinition[] {
+  return [
+    {
+      definitionId: fixtureId(1, namespace),
+      kind: 'PACKAGE',
+      code: `${prefix}-exterior`,
+      name: { ar: 'غسيل خارجي', en: 'Exterior' },
+      description: { ar: 'غسيل الهيكل والزجاج', en: null },
+      durationMinutes: 35,
+      vehicleTypes: ['suv', 'sedan'],
+      status: 'PUBLISHED',
+      sortOrder: 0,
+    },
+    {
+      definitionId: fixtureId(2, namespace),
+      kind: 'PACKAGE',
+      code: `${prefix}-full`,
+      name: { ar: 'غسيل كامل', en: null },
+      description: { ar: 'غسيل داخلي وخارجي', en: 'Interior and exterior' },
+      durationMinutes: 90,
+      vehicleTypes: ['sedan', 'suv', 'large', 'pickup'],
+      status: 'PUBLISHED',
+      sortOrder: 1,
+    },
+    {
+      definitionId: fixtureId(3, namespace),
+      kind: 'EXTRA',
+      code: `${prefix}-tyre-shine`,
+      name: { ar: 'تلميع الإطارات', en: null },
+      description: { ar: 'تلميع الإطارات الأربعة', en: null },
+      durationMinutes: 10,
+      vehicleTypes: ['sedan'],
+      status: 'PUBLISHED',
+      sortOrder: 2,
+    },
+  ];
+}
+
+export function publishBody(
+  expectedCatalogRevision: number,
+  definitions: WireDefinition[],
+  reasonCode = 'INITIAL_PUBLICATION',
+): Record<string, unknown> {
+  return { expectedCatalogRevision, definitions, reasonCode };
 }
 
 export const ADMIN_SUBJECT = '1d8b2c4e-5f60-4a7b-8c9d-0e1f2a3b4c5d';

@@ -1,0 +1,103 @@
+{
+  "task": "P05-B",
+  "service": "pricing",
+  "runId": "e930cc4e7587",
+  "startedAt": "2026-10-11T00:58:07.917Z",
+  "sourceSHA": "178b19d47200eff91ee975246fe8cdb5e31188bb",
+  "sourceTree": "84e5c379d471f1e57a3c61bc0c43ba6eb3db5f48",
+  "sourceDirty": false,
+  "node": "v24.21.0",
+  "docker": "29.1.3",
+  "image": {
+    "name": "postgres:16.10-alpine",
+    "repoDigests": [
+      "postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297",
+      "public.ecr.aws/docker/library/postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297"
+    ],
+    "serverVersion": "PostgreSQL 16.10"
+  },
+  "dependencies": {
+    "postgres": "REAL (disposable container)",
+    "identity": "LOCAL HTTP STUB",
+    "broker": "NOT USED (outbox rows written; relay not started until E registers pricing events)",
+    "serviceCallers": "REAL shared ServiceClientAuthenticator with test credentials (Booking is not running)"
+  },
+  "phases": [
+    {
+      "name": "toolchain and source provenance",
+      "status": "PASS"
+    },
+    {
+      "name": "build service and integration specs from this source",
+      "status": "PASS"
+    },
+    {
+      "name": "pull pinned PostgreSQL image",
+      "status": "PASS"
+    },
+    {
+      "name": "start disposable PostgreSQL with shared provisioner",
+      "status": "PASS"
+    },
+    {
+      "name": "runtime identity can connect after provisioning",
+      "status": "PASS"
+    },
+    {
+      "name": "upgrade from previous migration history preserves existing data",
+      "status": "PASS"
+    },
+    {
+      "name": "re-provision restricts migration history from the runtime role",
+      "status": "PASS"
+    },
+    {
+      "name": "committed Prisma schema mirror has no drift from migrated database",
+      "status": "PASS"
+    },
+    {
+      "name": "integration specs as the least-privileged runtime role",
+      "status": "PASS"
+    }
+  ],
+  "tests": {
+    "files": [
+      "services\\pricing\\dist-tests\\test\\integration\\pricing.postgres.spec.js"
+    ],
+    "summary": {
+      "tests": 13,
+      "pass": 13,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "names": [
+      "✔ postgres: price version and quote round-trip with exact amounts beyond 2^53 (",
+      "✔ postgres: concurrent publishers on two replicas create exactly one version (",
+      "✔ postgres: the same quote key raced across replicas yields one quote (",
+      "✔ postgres: quote waits for publication and caps expiry at the committed successor (",
+      "✔ postgres: concurrent quotes complete through a single-connection pool (",
+      "✔ postgres: expiry, validation and catalog-revision mismatch use server state (",
+      "✔ postgres: versions, rates, quotes and receipts are immutable for the runtime role (",
+      "✔ postgres: a quote whose lines do not add up can never commit (",
+      "✔ postgres: price chain constraints hold without the application (",
+      "✔ postgres: trigger functions are not executable by the runtime role or PUBLIC (",
+      "✔ promotions: staff revisions, digest-only coupon, quote records the discount component (",
+      "✔ redemptions: caps hold under concurrency across replicas, retries are idempotent, release compensates (",
+      "✔ redemptions: the database refuses forged, over-cap and illegal changes ("
+    ]
+  },
+  "accepted": true,
+  "migrations": {
+    "previous": [
+      "20261005060000_w01_foundation",
+      "20261007100000_p01b_pricing_quotes",
+      "20261007130000_p01b_quote_base_lines"
+    ],
+    "added": [
+      "20261011110000_p05b_promotions"
+    ]
+  },
+  "finishedAt": "2026-10-11T00:59:16.070Z"
+}

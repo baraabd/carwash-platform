@@ -9,8 +9,10 @@ Port method, declared differences, pending designs and evidence:
 
 - `src/styles/*.css` are the reference `<style>` block, byte for byte. Do not reformat.
 - `index.html` carries the reference SVG sprite verbatim.
-- No business data is stored on the device; localStorage holds only the motion
-  preference and the current filters.
+- No job, booking or customer data is stored on the device; localStorage holds the
+  motion preference, the current filters and (P05-C2) a 24 h read cache of the
+  technician's own profile and custody position, bound to the Identity subject and
+  cleared on 401/403. Profile additions and the cache: `docs/production/C/P05-C2-operator-web-profile.md`.
 
 Commands from the root:
 

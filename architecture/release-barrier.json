@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "receiptSchema": "carwash.release-receipt/v1",
+  "note": "Final release barrier policy (P08-E). Every family is mandatory. A missing, failed, stale, conflicting or unverifiable receipt is NO-GO. Thresholds and authorization are never defaulted here; they arrive as owner-signed receipts.",
+  "families": [
+    {
+      "id": "A.rc-acceptance",
+      "kind": "acceptance",
+      "owner": "Lane A (customer, vehicle, geo, customer-web)",
+      "action": "Run the Lane A exact-RC acceptance on real PostgreSQL/Redis/Identity and the customer-web Playwright journeys; emit a receipt bound to the RC tree."
+    },
+    {
+      "id": "B.rc-acceptance",
+      "kind": "acceptance",
+      "owner": "Lane B (catalog, pricing, billing, custody)",
+      "action": "Run the Lane B exact-RC acceptance on real PostgreSQL/RabbitMQ including provider reconciliation/refund paths; emit a receipt bound to the RC tree."
+    },
+    {
+      "id": "C.rc-acceptance",
+      "kind": "acceptance",
+      "owner": "Lane C (scheduling, booking, dispatch, workforce, media, operator-web)",
+      "action": "Run the Lane C exact-RC acceptance including outbox/inbox redelivery on real RabbitMQ and operator-web journeys; emit a receipt bound to the RC tree."
+    },
+    {
+      "id": "D.rc-acceptance",
+      "kind": "acceptance",
+      "owner": "Lane D (reporting, communications, configuration, support, admin-web)",
+      "action": "Run the Lane D exact-RC acceptance on real infrastructure and admin-web journeys; emit a receipt bound to the RC tree."
+    },
+    {
+      "id": "E.ci-mandatory",
+      "kind": "check",
+      "owner": "Lane E",
+      "action": "Run every mandatory CI workflow on the RC head and attach the aggregate job record."
+    },
+    {
+      "id": "E.security-scans",
+      "kind": "check",
+      "owner": "Lane E",
+      "action": "Run secret, dependency, image and CodeQL scans on the RC head; attach findings with zero unaccepted high/critical."
+    },
+    {
+      "id": "E.contract-compatibility",
+      "kind": "check",
+      "owner": "Lane E",
+      "action": "Run contract-surface and contract-compatibility tests against the built RC packages."
+    },
+    {
+      "id": "E.design-lock",
+      "kind": "check",
+      "owner": "Lane E",
+      "action": "Run node scripts/check-design-reference.mjs and node --test tests/design/reference-lock.test.mjs on the RC tree."
+    },
+    {
+      "id": "E.migration-rehearsal",
+      "kind": "acceptance",
+      "owner": "Lane E with every data-owning lane",
+      "action": "Apply every service migration with the migration identity against a restored copy of the previous production schema; record expand/contract compatibility."
+    },
+    {
+      "id": "E.recovery-rehearsal",
+      "kind": "acceptance",
+      "owner": "Lane E with operations",
+      "action": "Restore every owned database from backup, measure RPO/RTO and rehearse rollback of the RC artifacts; attach observed results."
+    },
+    {
+      "id": "E.artifacts-published",
+      "kind": "artifacts",
+      "owner": "Lane E",
+      "action": "Build and publish every release image from the RC tree; record immutable sha256 digests. The deployment must reference these identical digests."
+    },
+    {
+      "id": "review.independent",
+      "kind": "review",
+      "owner": "Independent reviewer (not the RC author)",
+      "action": "Obtain an APPROVED review on the RC pull request whose commit_id equals the RC sha, from a reviewer who did not author it."
+    },
+    {
+      "id": "repo.required-checks-enforced",
+      "kind": "branch-protection",
+      "owner": "Repository administrator",
+      "action": "Enable branch protection on main with required status checks, required reviews and enforce_admins; attach the protection API record."
+    },
+    {
+      "id": "ext.production-authorization",
+      "kind": "authorization",
+      "owner": "Project owner",
+      "action": "Issue an explicit, time-bounded production authorization naming the RC sha, artifact manifest digest and live-money scope."
+    },
+    {
+      "id": "ext.infrastructure-target",
+      "kind": "external",
+      "owner": "Project owner / operations",
+      "action": "Provide the reviewed production target (cluster/account, DNS zone, TLS authority, database and broker endpoints) as references, not secrets."
+    },
+    {
+      "id": "ext.secrets-provisioned",
+      "kind": "secret-references",
+      "owner": "Operations",
+      "action": "Provision production secrets in the secret store and attach store references only (never values)."
+    },
+    {
+      "id": "ext.merchant-onboarding",
+      "kind": "external",
+      "owner": "Project owner / finance",
+      "action": "Complete merchant onboarding and provider verification for every enabled wallet; until then live money stays disabled."
+    },
+    {
+      "id": "ext.incident-contacts",
+      "kind": "incident-contacts",
+      "owner": "Project owner / operations",
+      "action": "Name distinct primary and backup incident contacts with their paging channels for the initial operating window."
+    },
+    {
+      "id": "ext.operating-window-policy",
+      "kind": "window-policy",
+      "owner": "Project owner / operations",
+      "action": "Approve the initial operating window duration and numeric rollback/forward-recovery thresholds."
+    }
+  ]
+}

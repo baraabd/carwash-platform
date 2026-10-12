@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
  * Lane B real PostgreSQL acceptance for owner services (P01-B catalog/pricing,
- * P02-B billing core, P03-B billing cash custody, P04-B provider credits and refunds).
+ * P02-B billing core, P03-B billing cash custody, P04-B provider credits and refunds,
+ * P05-B subscription).
  *
- *   node scripts/production/B/postgres-acceptance.mjs --service catalog|pricing|billing [--record]
+ *   node scripts/production/B/postgres-acceptance.mjs --service catalog|pricing|billing|subscription [--record]
  *
  * 1. Starts ONE disposable, pinned PostgreSQL container bound to 127.0.0.1 and
  *    provisions it with the shared infra/postgres/provision.sh (database per
@@ -30,6 +31,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
+import { migrateWithUpgradeSentinels } from './upgrade-sentinels.mjs';
 import { redact, registerSecret, run } from '../../acceptance/lib/exec.mjs';
 import { pullImageWithMirrors } from '../../lib/image-references.mjs';
 
@@ -41,26 +43,62 @@ const IDENTITY_STUB = {
   broker: 'NOT USED',
 };
 const SERVICES = {
+  wallet: {
+    task: 'P05-B',
+    previousMigrations: 1,
+    env: 'WALLET_TEST_DATABASE_URL',
+    dependencies: {
+      ...IDENTITY_STUB,
+      billing: 'NOT RUNNING (events built in the registered billing.v1 envelope-v2 shape)',
+      broker: 'NOT USED by these specs (see scripts/production/B/wallet-broker-acceptance.mjs)',
+    },
+  },
   catalog: {
-    task: 'P01-B',
-    previousMigrations: 2,
+    task: 'P06-B',
+    previousMigrations: 3,
     env: 'CATALOG_TEST_DATABASE_URL',
+    writeUpgradeSentinel: (url) => CATALOG_SENTINEL.write(url),
+    verifyUpgradeSentinel: (url) => CATALOG_SENTINEL.verify(url),
     dependencies: IDENTITY_STUB,
   },
   pricing: {
-    task: 'P01-B',
-    previousMigrations: 1,
-    env: 'PRICING_TEST_DATABASE_URL',
-    dependencies: IDENTITY_STUB,
-  },
-  billing: {
-    task: 'P04-B',
+    task: 'P06-B',
     previousMigrations: 3,
-    env: 'BILLING_TEST_DATABASE_URL',
+    env: 'PRICING_TEST_DATABASE_URL',
+    writeUpgradeSentinel: (url) => PRICING_SENTINEL.write(url),
+    verifyUpgradeSentinel: (url) => PRICING_SENTINEL.verify(url),
     dependencies: {
       ...IDENTITY_STUB,
-      pricing: 'LOCAL HTTP STUB (published pricing.v1 getQuote shape)',
+      catalog: 'LOCAL HTTP STUB (published catalog.v1 getPublished shape)',
+      serviceCaller: 'TEST workload credential (service-kit x-service-client/x-service-token)',
+      serviceCallers:
+        'REAL shared ServiceClientAuthenticator with test credentials (Booking is not running)',
+      broker: 'NOT USED (outbox rows written; relay not started until E registers pricing events)',
+    },
+  },
+  billing: {
+    task: 'P06-B',
+    previousMigrations: 4,
+    env: 'BILLING_TEST_DATABASE_URL',
+    // Run ALONE after the parallel batch: they assert exact database-wide deltas (P06-B6).
+    isolatedSpecs: ['billing.finance.postgres.spec.js'],
+    dependencies: {
+      ...IDENTITY_STUB,
+      pricing: 'LOCAL HTTP STUB (published pricing.v1 getQuote and validateQuote shapes)',
+      workloads: 'LOCAL TEST CREDENTIALS (service-kit x-service-client / x-service-token)',
       broker: 'NOT USED (outbox rows written; relay not started until E registers billing events)',
+    },
+  },
+  subscription: {
+    task: 'P05-B',
+    previousMigrations: 1,
+    env: 'SUBSCRIPTION_TEST_DATABASE_URL',
+    dependencies: {
+      ...IDENTITY_STUB,
+      serviceCallers:
+        'REAL shared ServiceClientAuthenticator with test credentials (Booking is not running)',
+      broker:
+        'NOT USED (outbox rows written; relay not started until E registers subscription events)',
     },
   },
 };
@@ -115,6 +153,39 @@ async function checked(command, args, options = {}) {
   return result;
 }
 
+/**
+ * Pricing upgrade sentinel: a P01-B2 (pre-contract) price version written under
+ * the PREVIOUS schema must survive the pricing.v1 expand migration unchanged and
+ * stay immutable; the new tables start empty (no implicit data conversion).
+ */
+const PRICING_SENTINEL = (() => {
+  const ids = { publisher: crypto.randomUUID(), correlation: crypto.randomUUID() };
+  return {
+    async write(url) {
+      await transaction(url, [
+        [
+          `INSERT INTO app.price_version (version, previous_version, effective_from, published_at, published_by,
+             correlation_id, catalog_revision, catalog_fingerprint, catalog_snapshot, policy_revision, currency,
+             minor_unit_exponent, rates_fingerprint)
+           VALUES (1, NULL, now() + interval '1 hour', now(), $1, $2, 1, $3, '{}', 'legacy-policy', 'XTS', 2, $3)`,
+          [ids.publisher, ids.correlation, 'a'.repeat(64)],
+        ],
+      ]);
+    },
+    async verify(url) {
+      const legacy = await query(url, 'SELECT currency FROM app.price_version WHERE version = 1');
+      if (legacy.rows[0]?.currency !== 'XTS') throw new Error('UPGRADE_LOST_LEGACY_PRICE_VERSION');
+      const books = await query(url, 'SELECT count(*)::int AS n FROM app.price_book');
+      if (books.rows[0]?.n !== 0) throw new Error('UPGRADE_CONVERTED_LEGACY_DATA');
+      const blocked = await query(url, 'DELETE FROM app.price_version WHERE version = 1').then(
+        () => false,
+        (error) => /PRICING_IMMUTABLE/.test(String(error?.message)),
+      );
+      if (!blocked) throw new Error('UPGRADE_LEGACY_NOT_IMMUTABLE');
+    },
+  };
+})();
+
 async function pullPinnedImage(image) {
   return pullImageWithMirrors(
     image,
@@ -141,7 +212,7 @@ async function phase(name, operation) {
 }
 
 async function query(url, statement, values = []) {
-  const client = new Client({ connectionString: url, connectionTimeoutMillis: 3_000 });
+  const client = new Client({ connectionString: url, connectionTimeoutMillis: 60_000 });
   try {
     await client.connect();
     return await client.query(statement, values);
@@ -152,7 +223,7 @@ async function query(url, statement, values = []) {
 
 /** Runs statements in ONE transaction on one connection (COMMIT-time triggers apply). */
 async function transaction(url, statements) {
-  const client = new Client({ connectionString: url, connectionTimeoutMillis: 3_000 });
+  const client = new Client({ connectionString: url, connectionTimeoutMillis: 60_000 });
   try {
     await client.connect();
     await client.query('BEGIN');
@@ -165,6 +236,64 @@ async function transaction(url, statements) {
     await client.end().catch(() => {});
   }
 }
+
+/**
+ * Catalog upgrade sentinel: a P01-B1 (pre-contract) revision and its audit row,
+ * written under the PREVIOUS schema by the runtime role. After the P06-B1
+ * upgrade the legacy rows must be intact and still immutable, and the widened
+ * audit constraint must keep accepting the old action.
+ */
+const CATALOG_SENTINEL = (() => {
+  const ids = { publisher: crypto.randomUUID(), correlation: crypto.randomUUID() };
+  const audit = crypto.randomUUID();
+  return {
+    async write(url) {
+      await transaction(url, [
+        [
+          `INSERT INTO app.catalog_revision (revision, previous_revision, effective_from, published_at,
+             published_by, correlation_id, definitions_fingerprint)
+           VALUES (1, NULL, now(), now(), $1, $2, repeat('b', 64))`,
+          [ids.publisher, ids.correlation],
+        ],
+        [
+          `INSERT INTO app.catalog_vehicle_category (revision, id, label_ar, label_en, extra_duration_minutes, sort_order)
+           VALUES (1, 'sentinel', 'حارس', NULL, 0, 0)`,
+        ],
+        [
+          `INSERT INTO app.catalog_audit_event (id, occurred_at, actor_subject, action, revision, outcome, correlation_id)
+           VALUES ($1, now(), $2, 'catalog.revision.published', 1, 'PUBLISHED', $3)`,
+          [audit, ids.publisher, ids.correlation],
+        ],
+      ]);
+    },
+    async verify(url) {
+      const kept = await query(
+        url,
+        `SELECT r.revision, c.id, a.reason_code FROM app.catalog_revision r
+           JOIN app.catalog_vehicle_category c ON c.revision = r.revision
+           JOIN app.catalog_audit_event a ON a.revision = r.revision AND a.id = $1
+          WHERE r.revision = 1`,
+        [audit],
+      );
+      if (
+        kept.rowCount !== 1 ||
+        kept.rows[0].id !== 'sentinel' ||
+        kept.rows[0].reason_code !== null
+      )
+        throw new Error('CATALOG_LEGACY_ROWS_NOT_PRESERVED');
+      let refused = false;
+      try {
+        await query(
+          url,
+          "UPDATE app.catalog_vehicle_category SET label_ar = 'x' WHERE id = 'sentinel'",
+        );
+      } catch (error) {
+        refused = /CATALOG_IMMUTABLE/.test(String(error?.message));
+      }
+      if (!refused) throw new Error('CATALOG_LEGACY_ROWS_MUTABLE');
+    },
+  };
+})();
 
 /**
  * Billing upgrade sentinel, written under the PREVIOUS schema (all of its guard
@@ -384,10 +513,27 @@ const BILLING_SENTINEL = (() => {
   };
 })();
 
+/**
+ * Prisma CLI as the given identity, with a generous connect timeout. A P1001
+ * (server not reachable) on a loaded host is retried up to twice after a pause;
+ * any other failure is final.
+ */
 async function prisma(args, databaseUrl) {
-  return checked('pnpm', ['--filter', `@carwash/${service}`, 'exec', 'prisma', ...args], {
-    env: { ...process.env, DATABASE_URL: databaseUrl },
-  });
+  const url = databaseUrl.includes('connect_timeout=')
+    ? databaseUrl
+    : `${databaseUrl}&connect_timeout=30`;
+  const invoke = () =>
+    checked('pnpm', ['--filter', `@carwash/${service}`, 'exec', 'prisma', ...args], {
+      env: { ...process.env, DATABASE_URL: url },
+    });
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await invoke();
+    } catch (error) {
+      if (attempt >= 3 || !String(error?.message ?? error).includes('P1001')) throw error;
+      await delay(5_000);
+    }
+  }
 }
 
 let started = false;
@@ -452,12 +598,16 @@ try {
   const migrateUrl = `postgresql://${db}_migrate:${credentials.migration}@127.0.0.1:${port}/${db}?schema=app`;
 
   await phase('runtime identity can connect after provisioning', async () => {
-    const deadline = Date.now() + 90_000;
+    const deadline = Date.now() + 180_000;
     let last;
     while (Date.now() < deadline) {
       try {
-        // The init script finishes before the final server restart; require the
-        // provisioned runtime role, not just a listening socket.
+        // The init script finishes before the final server restart. On a loaded
+        // host the restart can land after a first successful connection, so wait
+        // for the entrypoint to report init complete before trusting the server.
+        const logs = await run('docker', ['logs', container], { cwd: ROOT, timeoutMs: 30_000 });
+        if (!(logs.stdout + logs.stderr).includes('PostgreSQL init process complete'))
+          throw new Error('INIT_NOT_COMPLETE');
         const result = await query(appUrl, 'SELECT current_user, version()');
         report.image.serverVersion = String(result.rows[0].version)
           .split(' ')
@@ -497,13 +647,16 @@ try {
     await query(appUrl, 'INSERT INTO app.service_marker(service, schema_rev) VALUES ($1, 1)', [
       `p01b-${runId}`,
     ]);
-    // On main before P04-B the runtime role cannot write billing rows at all (the
-    // P03 helpers lost PUBLIC EXECUTE; fixed by the P04-B migration), so the
-    // pre-upgrade rows are written by the owner role; every guard still applies.
-    // After the upgrade everything runs as the least-privileged runtime role.
-    if (service === 'billing') await BILLING_SENTINEL.write(migrateUrl);
-    await prisma(['migrate', 'deploy'], migrateUrl);
-    if (service === 'billing') await BILLING_SENTINEL.verify(appUrl);
+    await migrateWithUpgradeSentinels({
+      service,
+      previousMigrations: report.migrations.previous,
+      runtimeUrl: appUrl,
+      migrationUrl: migrateUrl,
+      billingSentinel: BILLING_SENTINEL,
+      writeUpgradeSentinel: spec.writeUpgradeSentinel,
+      verifyUpgradeSentinel: spec.verifyUpgradeSentinel,
+      deploy: () => prisma(['migrate', 'deploy'], migrateUrl),
+    });
     const kept = await query(appUrl, 'SELECT 1 FROM app.service_marker WHERE service = $1', [
       `p01b-${runId}`,
     ]);
@@ -541,7 +694,11 @@ try {
         'prisma/schema.prisma',
         '--exit-code',
       ],
-      { cwd: ROOT, timeoutMs: 180_000, env: { ...process.env, DATABASE_URL: migrateUrl } },
+      {
+        cwd: ROOT,
+        timeoutMs: 180_000,
+        env: { ...process.env, DATABASE_URL: `${migrateUrl}&connect_timeout=30` },
+      },
     );
     if (result.code !== 0)
       throw new Error(`SCHEMA_DRIFT: ${redact(result.stdout + result.stderr).slice(-4000)}`);
@@ -549,45 +706,56 @@ try {
 
   await phase('integration specs as the least-privileged runtime role', async () => {
     const dir = path.join(serviceDir, 'dist-tests/test/integration');
-    const files = (await readdir(dir))
-      .filter((file) => file.endsWith('.spec.js'))
-      .map((file) => path.join(dir, file));
-    if (files.length === 0) throw new Error('NO_INTEGRATION_SPECS');
-    const result = await run(process.execPath, ['--test', '--test-reporter=spec', ...files], {
-      cwd: ROOT,
-      timeoutMs: 600_000,
-      env: { ...process.env, [spec.env]: appUrl, LOG_LEVEL: 'error' },
-    });
-    const out = redact(result.stdout);
-    // Full redacted output next to the report, so a failure is diagnosable.
-    await writeFile(path.join(work, 'integration-output.txt'), out + redact(result.stderr));
-    const summary = Object.fromEntries(
-      [...out.matchAll(/^ℹ (tests|pass|fail|cancelled|skipped|todo) (\d+)$/gm)].map((m) => [
-        m[1],
-        Number(m[2]),
-      ]),
-    );
-    report.tests = {
-      files: files.map((file) => path.relative(ROOT, file)),
-      summary,
-      names: [...out.matchAll(/^\s*[✔✖] (.+?) \(/gm)].map((m) => m[0].trim()),
-    };
-    process.stdout.write(
-      out
-        .split('\n')
-        .filter((line) => /^\s*[✔✖ℹ]/.test(line))
-        .join('\n') + '\n',
-    );
-    if (
-      result.code !== 0 ||
-      !summary.tests ||
-      summary.fail !== 0 ||
-      summary.skipped !== 0 ||
-      summary.todo !== 0
-    )
-      throw new Error(
-        `INTEGRATION_FAILED: ${redact(result.stderr).slice(-4000)}\n${out.slice(-6000)}`,
+    const isolated = spec.isolatedSpecs ?? [];
+    const all = (await readdir(dir)).filter((file) => file.endsWith('.spec.js'));
+    if (all.length === 0) throw new Error('NO_INTEGRATION_SPECS');
+    for (const file of isolated)
+      if (!all.includes(file)) throw new Error(`ISOLATED_SPEC_MISSING: ${file}`);
+    // One parallel batch, then every isolated spec alone (no concurrent writer).
+    const batches = [
+      all.filter((file) => !isolated.includes(file)),
+      ...isolated.map((file) => [file]),
+    ].filter((batch) => batch.length > 0);
+    const summary = { tests: 0, pass: 0, fail: 0, cancelled: 0, skipped: 0, todo: 0 };
+    const names = [];
+    let output = '';
+    let failed = null;
+    for (const batch of batches) {
+      const files = batch.map((file) => path.join(dir, file));
+      const result = await run(process.execPath, ['--test', '--test-reporter=spec', ...files], {
+        cwd: ROOT,
+        timeoutMs: 600_000,
+        env: { ...process.env, [spec.env]: appUrl, LOG_LEVEL: 'error' },
+      });
+      const out = redact(result.stdout);
+      output += out + redact(result.stderr);
+      const counts = Object.fromEntries(
+        [...out.matchAll(/^ℹ (tests|pass|fail|cancelled|skipped|todo) (\d+)$/gm)].map((m) => [
+          m[1],
+          Number(m[2]),
+        ]),
       );
+      for (const name of Object.keys(summary)) summary[name] += counts[name] ?? 0;
+      names.push(...[...out.matchAll(/^\s*[✔✖] (.+?) \(/gm)].map((m) => m[0].trim()));
+      process.stdout.write(
+        out
+          .split('\n')
+          .filter((line) => /^\s*[✔✖ℹ]/.test(line))
+          .join('\n') + '\n',
+      );
+      if (result.code !== 0 || !counts.tests)
+        failed ??= `INTEGRATION_FAILED: ${redact(result.stderr).slice(-4000)}\n${out.slice(-6000)}`;
+    }
+    // Full redacted output next to the report, so a failure is diagnosable.
+    await writeFile(path.join(work, 'integration-output.txt'), output);
+    report.tests = {
+      files: all.map((file) => path.relative(ROOT, path.join(dir, file))),
+      isolated,
+      summary,
+      names,
+    };
+    if (failed || summary.fail !== 0 || summary.skipped !== 0 || summary.todo !== 0)
+      throw new Error(failed ?? 'INTEGRATION_FAILED');
   });
 
   report.accepted = true;

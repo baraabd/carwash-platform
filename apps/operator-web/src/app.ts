@@ -10,7 +10,18 @@ import {
   sendMutation,
   type MutationRequest,
 } from './api/operator-api';
-import type { BookingTechView, TaskView } from './api/types';
+import { P, readCustody, readProfile } from './api/profile-api';
+import {
+  EQUIPMENT_ISSUES,
+  EQUIPMENT_KINDS,
+  EQUIPMENT_STATUSES,
+  EXCEPTION_REASONS,
+  type BookingTechView,
+  type EquipmentKind,
+  type TaskView,
+  type WeeklyWindow,
+} from './api/types';
+import { clearCache, loadCache, saveCache } from './profile-cache';
 import { PENDING } from './copy';
 import { $, $$, I, must, setHtml } from './dom';
 import {
@@ -65,6 +76,7 @@ import {
   type SheetContent,
 } from './views/sheets';
 import { renderTask, renderTaskDock } from './views/task';
+import { equipmentSheet, exceptionsSheet, scheduleSheet, withoutWindow } from './views/profile';
 
 /**
  * Controller ported from the reference IIFE: `nav`, `render`, `refresh`,
@@ -108,7 +120,18 @@ function updateStatus(): void {
     forbidden: PENDING.forbidden,
     error: PENDING.error,
   };
-  const message = text[S.connection];
+  const cachedAt = S.profileCachedAt
+    ? new Date(S.profileCachedAt).toLocaleString('ar-SY', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null;
+  const message =
+    S.connection === 'offline' && cachedAt
+      ? `${PENDING.offlineCached} (${cachedAt}).`
+      : text[S.connection];
   el.hidden = !message;
   el.textContent = message ?? '';
 }
@@ -208,6 +231,7 @@ function showSheet(
 function closeSheet(): void {
   if (sheet.open) sheet.close();
   sheetContext = null;
+  profileSheet = null;
   stopReveal();
 }
 
@@ -234,13 +258,20 @@ function connectionFrom(result: Result<unknown>): typeof S.connection {
 
 /** Re-read every server fact the screens use. Nothing is guessed when a read fails. */
 async function reload(): Promise<boolean> {
-  const [jobs, availability] = await Promise.all([readJobs(), readAvailability()]);
+  const [jobs, availability, profile, custody] = await Promise.all([
+    readJobs(),
+    readAvailability(),
+    readProfile(),
+    readCustody(),
+  ]);
   if (jobs.kind !== 'ok') {
     S.connection = connectionFrom(jobs);
+    if (S.connection === 'auth' || S.connection === 'forbidden') forgetProfile();
     updateStatus();
     return false;
   }
   if (availability.kind === 'ok') S.availability = availability.value;
+  readProfileFacts(profile, custody);
   // /me/jobs carries task summaries; every listed task's detail is read from /me/tasks/:id.
   const previous = new Map(
     S.jobs.flatMap((j) => (j.task ? [[j.task.taskId, j.task] as const] : [])),
@@ -292,6 +323,46 @@ async function reload(): Promise<boolean> {
   return true;
 }
 
+/** Server profile/custody facts; the cache is written only from a confirmed read. */
+function readProfileFacts(
+  profile: Awaited<ReturnType<typeof readProfile>>,
+  custody: Awaited<ReturnType<typeof readCustody>>,
+): void {
+  if (profile.kind === 'ok') {
+    S.profile = profile.value;
+    S.profileCachedAt = null;
+  } else if (profile.kind === 'error' && profile.status !== 503) {
+    // A definitive refusal (404 no operator profile, 403): show nothing rather than guess.
+    S.profile = null;
+  }
+  if (custody.kind === 'ok') S.custody = custody.value;
+  else if (custody.kind === 'error' && custody.status !== 503) S.custody = null;
+  if (S.session && S.profile && S.profileCachedAt === null) {
+    saveCache({
+      subject: S.session.subject,
+      savedAt: new Date().toISOString(),
+      profile: S.profile,
+      custody: S.custody,
+    });
+  }
+}
+
+function forgetProfile(): void {
+  clearCache();
+  S.profile = null;
+  S.custody = null;
+  S.profileCachedAt = null;
+}
+
+/** Offline boot or reconnect failure: show the last confirmed own profile, marked stale. */
+function showCachedProfile(subject: string | null): void {
+  const cached = loadCache(subject, Date.now());
+  if (!cached || S.profile) return;
+  S.profile = cached.profile;
+  S.custody = cached.custody;
+  S.profileCachedAt = cached.savedAt;
+}
+
 // ----------------------------------------------------------------- mutations
 
 interface Intent {
@@ -328,14 +399,19 @@ function taskGone(result: Extract<Result<unknown>, { kind: 'error' }>): boolean 
 async function handleError(result: Extract<Result<unknown>, { kind: 'error' }>): Promise<void> {
   if (result.code === 'AUTH_REQUIRED' || result.status === 401) {
     S.connection = 'auth';
-    updateStatus();
+    forgetProfile();
+    refresh();
     return;
   }
   await reload();
   refresh();
   if (result.code === 'REVISION_CONFLICT' || result.reason === 'REVISION_CONFLICT')
     toast(PENDING.conflict);
+  else if (result.reason === 'OPERATOR_NOT_ACTIVE') toast(PENDING.notActive);
+  else if (result.reason === 'ZONE_OUTSIDE_SERVICE_AREA') toast(PENDING.outsideArea);
+  else if (result.reason === 'EXCEPTION_OVERLAPS') toast(PENDING.exceptionOverlap);
   else if (!taskGone(result)) toast(PENDING.refused);
+  reopenProfileSheet();
 }
 
 async function send(intent: Intent): Promise<'ok' | 'error' | 'unknown'> {
@@ -748,6 +824,169 @@ function reveal(): void {
 
 // ------------------------------------------------------------------ events
 
+// ------------------------------------------------------- profile (P05-C2)
+
+type ProfileSheet =
+  | { readonly kind: 'schedule' | 'exceptions' }
+  | { readonly kind: 'equipment'; readonly equipment: EquipmentKind };
+let profileSheet: ProfileSheet | null = null;
+
+function openProfileSheet(next: ProfileSheet, error = ''): void {
+  profileSheet = next;
+  showSheet(
+    next.kind === 'equipment'
+      ? equipmentSheet(next.equipment)
+      : next.kind === 'schedule'
+        ? scheduleSheet(error)
+        : exceptionsSheet(error),
+  );
+  if (next.kind === 'schedule') pressed('schedule-day', 'weekday', String(S.sheetChoice.weekday));
+  if (next.kind === 'exceptions') pressed('exception-reason', 'reason', S.sheetChoice.reason);
+}
+
+/** After a confirmed change or a refusal, show the re-read state in the same sheet. */
+function reopenProfileSheet(): void {
+  if (profileSheet && sheet.open) openProfileSheet(profileSheet);
+}
+
+function pressed(action: string, attr: string, value: string): void {
+  for (const el of $$(`[data-action=${action}]`, sheet)) {
+    el.setAttribute('aria-pressed', String(el.dataset[attr] === value));
+  }
+}
+
+/**
+ * Profile mutations never run offline: nothing is queued or shown as saved
+ * without the server. Online, they use the same intent machinery as task
+ * actions (UNKNOWN keeps the request and its key; a definitive answer resolves it).
+ */
+function profileMutation(id: string, build: () => MutationRequest, done: () => void): void {
+  if (!S.profile || S.profileCachedAt !== null || navigator.onLine === false) {
+    toast(PENDING.offlineAction);
+    return;
+  }
+  void mutate(id, build, () => {
+    done();
+    refresh();
+    reopenProfileSheet();
+  });
+}
+
+const minuteOf = (value: string): number | null => {
+  const m = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!m) return null;
+  const minute = Number(m[1]) * 60 + Number(m[2]);
+  return minute >= 0 && minute <= 1440 ? minute : null;
+};
+
+function addWindow(): void {
+  const p = S.profile;
+  if (!p) return;
+  const from = minuteOf($<HTMLInputElement>('#schedule-from', sheet)?.value ?? '');
+  const toRaw = $<HTMLInputElement>('#schedule-to', sheet)?.value ?? '';
+  const to = toRaw === '00:00' ? 1440 : minuteOf(toRaw);
+  const weekday = S.sheetChoice.weekday;
+  const clash = p.schedule.windows.some(
+    (w) =>
+      w.weekday === weekday &&
+      from !== null &&
+      to !== null &&
+      from < w.endMinute &&
+      w.startMinute < to,
+  );
+  if (from === null || to === null || to - from < 15 || clash) {
+    openProfileSheet({ kind: 'schedule' }, PENDING.scheduleInvalid);
+    return;
+  }
+  const windows: WeeklyWindow[] = [
+    ...p.schedule.windows,
+    { weekday, startMinute: from, endMinute: to, zoneId: p.serviceArea.homeZoneId },
+  ];
+  const revision = p.schedule.revision;
+  profileMutation(
+    `schedule:${revision}:add:${weekday}:${from}:${to}`,
+    () => P.schedule(p.schedule.timeZone, windows, revision),
+    () => toast('أُضيفت الفترة إلى أوقات توفّرك.'),
+  );
+}
+
+function removeWindow(weekday: number, start: number): void {
+  const p = S.profile;
+  if (!p) return;
+  const revision = p.schedule.revision;
+  profileMutation(
+    `schedule:${revision}:remove:${weekday}:${start}`,
+    () =>
+      P.schedule(p.schedule.timeZone, withoutWindow(p.schedule.windows, weekday, start), revision),
+    () => toast('حُذفت الفترة.'),
+  );
+}
+
+/** Tomorrow as a local calendar date (the server checks it against its time zone). */
+function tomorrowLocal(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function applySchedule(): void {
+  const p = S.profile;
+  if (!p || p.schedule.revision === 0) return;
+  const startDate = tomorrowLocal();
+  const revision = p.schedule.revision;
+  profileMutation(
+    `schedule-apply:${startDate}:${revision}`,
+    () => P.apply(startDate, revision),
+    () => toast('فُعّل الأسبوع القادم. راجع الورديات القادمة.'),
+  );
+}
+
+function saveException(): void {
+  const fromValue = $<HTMLInputElement>('#exception-from', sheet)?.value ?? '';
+  const toValue = $<HTMLInputElement>('#exception-to', sheet)?.value ?? '';
+  const parse = (v: string): Date | null => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+    return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+  };
+  const from = parse(fromValue);
+  const to = parse(toValue);
+  const reason = S.sheetChoice.reason;
+  if (!from || !to || to < from) {
+    openProfileSheet({ kind: 'exceptions' }, PENDING.exceptionInvalid);
+    return;
+  }
+  const now = new Date();
+  // A period starting today starts now; it ends at the local midnight after the last day.
+  const startsAt = from <= now ? now : from;
+  const endsAt = new Date(to.getFullYear(), to.getMonth(), to.getDate() + 1);
+  if (endsAt.getTime() - startsAt.getTime() > 31 * 86_400_000) {
+    openProfileSheet({ kind: 'exceptions' }, PENDING.exceptionInvalid);
+    return;
+  }
+  const body = { from: fromValue, to: toValue, reason };
+  const startIso =
+    from <= now
+      ? new Date(Math.floor(now.getTime() / 1000) * 1000).toISOString()
+      : startsAt.toISOString();
+  profileMutation(
+    `exception:${JSON.stringify(body)}`,
+    () => P.exception(startIso, endsAt.toISOString(), reason),
+    () => toast('حُفظ الاستثناء. لن تُسند إليك مهام جديدة خلاله.'),
+  );
+}
+
+function saveEquipment(kind: EquipmentKind): void {
+  const item = S.profile?.equipment.find((e) => e.kind === kind);
+  const { status, issue } = S.sheetChoice;
+  if (!item) return;
+  const wanted = status === 'READY' ? null : issue;
+  profileMutation(
+    `equipment:${kind}:${item.revision}:${status}:${wanted ?? ''}`,
+    () => P.equipment(kind, status, wanted, item.revision),
+    () => toast('حُفظت حالة المعدّة.'),
+  );
+}
+
 function onClick(e: MouseEvent): void {
   const target = e.target as Element | null;
   const b = target?.closest<HTMLElement>('[data-action]');
@@ -824,6 +1063,67 @@ function onClick(e: MouseEvent): void {
         refresh();
       }
       break;
+    case 'profile-schedule':
+      S.sheetChoice.weekday = 6;
+      openProfileSheet({ kind: 'schedule' });
+      break;
+    case 'profile-exceptions':
+      S.sheetChoice.reason = 'LEAVE';
+      openProfileSheet({ kind: 'exceptions' });
+      break;
+    case 'profile-equipment': {
+      const kind = EQUIPMENT_KINDS.find((k) => k === b.dataset.kind);
+      const item = S.profile?.equipment.find((x) => x.kind === kind);
+      if (!kind || !item) break;
+      S.sheetChoice.status = item.status;
+      S.sheetChoice.issue = item.issue ?? 'BREAKDOWN';
+      openProfileSheet({ kind: 'equipment', equipment: kind });
+      break;
+    }
+    case 'schedule-day':
+      S.sheetChoice.weekday = Number(b.dataset.weekday);
+      pressed('schedule-day', 'weekday', String(S.sheetChoice.weekday));
+      break;
+    case 'schedule-add':
+      addWindow();
+      break;
+    case 'schedule-remove':
+      removeWindow(Number(b.dataset.weekday), Number(b.dataset.start));
+      break;
+    case 'schedule-apply':
+      applySchedule();
+      break;
+    case 'exception-reason':
+      S.sheetChoice.reason = EXCEPTION_REASONS.find((r) => r === b.dataset.reason) ?? 'LEAVE';
+      pressed('exception-reason', 'reason', S.sheetChoice.reason);
+      break;
+    case 'exception-save':
+      saveException();
+      break;
+    case 'exception-cancel': {
+      const id = b.dataset.id;
+      if (!id) break;
+      profileMutation(
+        `exception-cancel:${id}`,
+        () => P.cancelException(id),
+        () => toast('أُلغي الاستثناء.'),
+      );
+      break;
+    }
+    case 'equipment-status':
+      S.sheetChoice.status = EQUIPMENT_STATUSES.find((x) => x === b.dataset.status) ?? 'READY';
+      pressed('equipment-status', 'status', S.sheetChoice.status);
+      must<HTMLElement>('#equipment-issues').hidden = S.sheetChoice.status === 'READY';
+      break;
+    case 'equipment-issue':
+      S.sheetChoice.issue = EQUIPMENT_ISSUES.find((x) => x === b.dataset.issue) ?? 'OTHER';
+      pressed('equipment-issue', 'issue', S.sheetChoice.issue);
+      break;
+    case 'equipment-save': {
+      const kind = EQUIPMENT_KINDS.find((k) => k === b.dataset.kind);
+      if (kind) saveEquipment(kind);
+      break;
+    }
     case 'notifications':
       showSheet(notificationsSheet());
       break;
@@ -1018,7 +1318,9 @@ async function boot(): Promise<void> {
   const session = await readSession();
   if (session.kind !== 'ok') {
     S.connection = connectionFrom(session);
-    updateStatus();
+    if (S.connection === 'offline') showCachedProfile(null);
+    else if (S.connection === 'auth' || S.connection === 'forbidden') forgetProfile();
+    refresh();
     return;
   }
   if (!session.value.permissions.includes('work.read:assigned')) {
@@ -1027,7 +1329,14 @@ async function boot(): Promise<void> {
     return;
   }
   S.session = session.value;
-  await reload();
+  // A cache written for another subject is discarded here; an offline-shown one is replaced.
+  if (S.profileCachedAt !== null) {
+    S.profile = null;
+    S.custody = null;
+    S.profileCachedAt = null;
+  }
+  loadCache(S.session.subject, Date.now());
+  if (!(await reload())) showCachedProfile(S.session.subject);
   refresh();
 }
 
@@ -1088,7 +1397,11 @@ export function start(): void {
     else if (S.session) void resolvePending().then(() => reload().then(() => refresh()));
   });
   window.addEventListener('online', () => {
-    if (!S.session) return;
+    if (!S.session) {
+      // Started offline: nothing was confirmed yet, so start over from the session read.
+      void boot();
+      return;
+    }
     resolveAttempt = 0;
     void (pending.size ? resolvePending() : reload().then(() => refresh()));
   });
