@@ -1,3 +1,4 @@
+import { boundedText } from '../http/bounded-text';
 import { AccessDenied, type AccessAuthority, type VerifiedPrincipal } from '../../ports';
 
 /**
@@ -41,38 +42,25 @@ export function identityAuthorityConfigFromEnv(env: NodeJS.ProcessEnv): Identity
 function parsePrincipal(value: unknown): VerifiedPrincipal | null {
   if (typeof value !== 'object' || value === null) return null;
   const body = value as Record<string, unknown>;
-  const { subject, sessionId, authVersion, permissions } = body;
+  const { subject, sessionId, authVersion, principalKind, permissions } = body;
   if (typeof subject !== 'string' || !UUID.test(subject)) return null;
   if (typeof sessionId !== 'string' || !UUID.test(sessionId)) return null;
   if (typeof authVersion !== 'number' || !Number.isSafeInteger(authVersion) || authVersion < 1)
     return null;
+  // The principal kind decides quote ownership; a session without it is refused.
+  if (principalKind !== 'account' && principalKind !== 'guest') return null;
   if (!Array.isArray(permissions) || permissions.length > 64) return null;
   const granted: string[] = [];
   for (const permission of permissions) {
     if (typeof permission !== 'string' || !PERMISSION.test(permission)) return null;
     granted.push(permission);
   }
-  return { subject: subject.toLowerCase(), sessionId, permissions: granted };
-}
-
-async function boundedText(response: Response): Promise<string | null> {
-  const declared = Number(response.headers.get('content-length') ?? '0');
-  if (declared > MAX_RESPONSE_BYTES) return null;
-  const reader = response.body?.getReader();
-  if (!reader) return '';
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > MAX_RESPONSE_BYTES) {
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(value);
-  }
-  return Buffer.concat(chunks).toString('utf8');
+  return {
+    subject: subject.toLowerCase(),
+    kind: principalKind,
+    sessionId: sessionId.toLowerCase(),
+    permissions: granted,
+  };
 }
 
 export class IdentitySessionAuthority implements AccessAuthority {
@@ -115,7 +103,7 @@ export class IdentitySessionAuthority implements AccessAuthority {
     }
     let principal: VerifiedPrincipal | null;
     try {
-      const text = await boundedText(response);
+      const text = await boundedText(response, MAX_RESPONSE_BYTES);
       principal = text === null ? null : parsePrincipal(JSON.parse(text));
     } catch {
       principal = null;

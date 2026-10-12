@@ -1,0 +1,422 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "WashGo support.v1",
+    "version": "1.0.0",
+    "description": "Published wire contract owned by the support service. Status published-provider-pending: this document does not assert the provider endpoint is implemented. Request/response shapes are defined by the closed parsers in @carwash/contracts."
+  },
+  "x-owner": "support",
+  "x-error-reasons": [
+    "CASE_ALREADY_OPEN",
+    "CASE_CHANGED",
+    "SUBJECT_NOT_ELIGIBLE",
+    "SUBJECT_KIND_MISMATCH",
+    "CASE_NOT_DECIDABLE",
+    "CASE_NOT_AWAITING_APPROVAL",
+    "SAME_PERSON_APPROVAL",
+    "ACTION_NOT_ALLOWED_FOR_KIND",
+    "REASON_NOT_ALLOWED_FOR_KIND",
+    "REASON_NOTE_REQUIRED",
+    "EVIDENCE_REQUIRED",
+    "AMOUNT_REQUIRED",
+    "WINDOW_REQUIRED",
+    "NOTHING_TO_EXECUTE"
+  ],
+  "paths": {
+    "/internal/v1/support/cases": {
+      "get": {
+        "operationId": "support.listCases",
+        "x-access": "permission:support.cases.read|billing.read|operations.dispatch",
+        "x-idempotent": false,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts supportV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "support.openCase",
+        "x-access": "permission:billing.reconcile|billing.refund|operations.dispatch",
+        "x-idempotent": true,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts supportV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/support/cases/{caseId}": {
+      "get": {
+        "operationId": "support.getCase",
+        "x-access": "permission:support.cases.read|billing.read|operations.dispatch",
+        "x-idempotent": false,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts supportV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "caseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/support/cases/{caseId}/current": {
+      "get": {
+        "operationId": "support.getCaseSubjectCurrent",
+        "x-access": "permission:support.cases.read|billing.read|operations.dispatch",
+        "x-idempotent": false,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts supportV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "caseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/support/cases/{caseId}/decisions": {
+      "post": {
+        "operationId": "support.decideCase",
+        "x-access": "permission:billing.reconcile|billing.refund|operations.dispatch",
+        "x-idempotent": true,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts supportV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "caseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/support/cases/{caseId}/decisions/{decisionNo}/approval": {
+      "post": {
+        "operationId": "support.approveDecision",
+        "x-access": "permission:billing.refund",
+        "x-idempotent": true,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts supportV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "caseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "decisionNo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/support/cases/{caseId}/decisions/{decisionNo}/execution": {
+      "post": {
+        "operationId": "support.resendDecision",
+        "x-access": "permission:billing.reconcile|billing.refund|operations.dispatch",
+        "x-idempotent": true,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts supportV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "caseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "decisionNo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiErrorEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "reason",
+              "message",
+              "requestId",
+              "correlationId",
+              "retryable",
+              "retryAfterMs",
+              "issues"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "REQUEST_INVALID",
+                  "VALIDATION_FAILED",
+                  "AUTH_REQUIRED",
+                  "AUTH_FORBIDDEN",
+                  "AUTH_CSRF",
+                  "NOT_FOUND",
+                  "CONFLICT",
+                  "REVISION_CONFLICT",
+                  "REVISION_REQUIRED",
+                  "IDEMPOTENCY_KEY_REQUIRED",
+                  "IDEMPOTENCY_CONFLICT",
+                  "IDEMPOTENCY_IN_PROGRESS",
+                  "BUSINESS_RULE_VIOLATION",
+                  "RATE_LIMITED",
+                  "DEPENDENCY_UNAVAILABLE",
+                  "UPSTREAM_UNAVAILABLE",
+                  "UPSTREAM_TIMEOUT",
+                  "UPSTREAM_INVALID",
+                  "OUTCOME_UNKNOWN",
+                  "SERVICE_NOT_READY",
+                  "INTERNAL_ERROR"
+                ]
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "requestId": {
+                "type": "string"
+              },
+              "correlationId": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "retryAfterMs": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "field",
+                    "code"
+                  ],
+                  "properties": {
+                    "field": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

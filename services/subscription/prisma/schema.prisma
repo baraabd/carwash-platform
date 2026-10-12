@@ -26,3 +26,183 @@ model ServiceMarker {
 
   @@map("service_marker")
 }
+
+// ---------------------------------------------------------------------------
+// P05-B1. Plans with immutable revisions, customer subscriptions with snapshotted
+// terms, entitlement periods, reservations and the append-only movement ledger.
+// CHECK constraints, guards and COMMIT-time assertions live in the migration.
+
+model SubscriptionPlan {
+  code      String                     @id
+  createdAt DateTime                   @map("created_at") @db.Timestamptz(3)
+  createdBy String                     @map("created_by") @db.Uuid
+  revisions SubscriptionPlanRevision[]
+
+  @@map("subscription_plan")
+}
+
+model SubscriptionPlanRevision {
+  planCode          String                 @map("plan_code")
+  revision          Int
+  effectiveFrom     DateTime               @map("effective_from") @db.Timestamptz(3)
+  publishedAt       DateTime               @map("published_at") @db.Timestamptz(3)
+  publishedBy       String                 @map("published_by") @db.Uuid
+  correlationId     String                 @map("correlation_id") @db.Uuid
+  displayName       String                 @map("display_name")
+  priceCurrency     String                 @map("price_currency")
+  priceMinor        BigInt                 @map("price_minor")
+  washUnits         Int                    @map("wash_units")
+  periodDays        Int                    @map("period_days")
+  coveredPackageIds String[]               @map("covered_package_ids")
+  available         Boolean
+  plan              SubscriptionPlan       @relation(fields: [planCode], references: [code], onDelete: Restrict, onUpdate: Restrict, map: "subscription_plan_revision_plan_fkey")
+  subscriptions     CustomerSubscription[]
+
+  @@id([planCode, revision], map: "subscription_plan_revision_pkey")
+  @@unique([planCode, effectiveFrom], map: "subscription_plan_revision_effective_key")
+  @@map("subscription_plan_revision")
+}
+
+model CustomerSubscription {
+  id                String                   @id @db.Uuid
+  customerSubject   String                   @map("customer_subject") @db.Uuid
+  planCode          String                   @map("plan_code")
+  planRevision      Int                      @map("plan_revision")
+  status            String
+  version           Int
+  displayName       String                   @map("display_name")
+  priceCurrency     String                   @map("price_currency")
+  priceMinor        BigInt                   @map("price_minor")
+  washUnits         Int                      @map("wash_units")
+  periodDays        Int                      @map("period_days")
+  coveredPackageIds String[]                 @map("covered_package_ids")
+  available         Boolean
+  currentPeriodNo   Int?                     @map("current_period_no")
+  requestedAt       DateTime                 @map("requested_at") @db.Timestamptz(3)
+  updatedAt         DateTime                 @map("updated_at") @db.Timestamptz(3)
+  freezeReason      String?                  @map("freeze_reason")
+  cancelReason      String?                  @map("cancel_reason")
+  openSlot          Int?                     @map("open_slot") @db.SmallInt
+  revision          SubscriptionPlanRevision @relation(fields: [planCode, planRevision], references: [planCode, revision], onDelete: Restrict, onUpdate: Restrict, map: "customer_subscription_revision_fkey")
+  periods           SubscriptionPeriod[]
+
+  @@unique([customerSubject, planCode, openSlot], map: "customer_subscription_open_key")
+  @@index([customerSubject, requestedAt], map: "customer_subscription_customer_idx")
+  @@map("customer_subscription")
+}
+
+model SubscriptionPeriod {
+  subscriptionId   String                   @map("subscription_id") @db.Uuid
+  periodNo         Int                      @map("period_no")
+  planRevision     Int                      @map("plan_revision")
+  startsAt         DateTime                 @map("starts_at") @db.Timestamptz(3)
+  endsAt           DateTime                 @map("ends_at") @db.Timestamptz(3)
+  granted          Int
+  reserved         Int
+  consumed         Int
+  paymentReference String                   @unique(map: "subscription_period_payment_key") @map("payment_reference") @db.Uuid
+  grantedBy        String                   @map("granted_by") @db.Uuid
+  grantedAt        DateTime                 @map("granted_at") @db.Timestamptz(3)
+  subscription     CustomerSubscription     @relation(fields: [subscriptionId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "subscription_period_subscription_fkey")
+  reservations     EntitlementReservation[]
+  movements        EntitlementMovement[]
+
+  @@id([subscriptionId, periodNo], map: "subscription_period_pkey")
+  @@map("subscription_period")
+}
+
+model EntitlementReservation {
+  id             String                @id @db.Uuid
+  subscriptionId String                @map("subscription_id") @db.Uuid
+  periodNo       Int                   @map("period_no")
+  bookingId      String                @map("booking_id") @db.Uuid
+  packageId      String                @map("package_id")
+  scheduledFor   DateTime              @map("scheduled_for") @db.Timestamptz(3)
+  status         String
+  version        Int
+  reservedAt     DateTime              @map("reserved_at") @db.Timestamptz(3)
+  reservedBy     String                @map("reserved_by")
+  settledAt      DateTime?             @map("settled_at") @db.Timestamptz(3)
+  settledBy      String?               @map("settled_by")
+  reason         String?
+  correlationId  String                @map("correlation_id") @db.Uuid
+  liveSlot       Int?                  @map("live_slot") @db.SmallInt
+  period         SubscriptionPeriod    @relation(fields: [subscriptionId, periodNo], references: [subscriptionId, periodNo], onDelete: Restrict, onUpdate: Restrict, map: "entitlement_reservation_period_fkey")
+  movements      EntitlementMovement[]
+
+  @@unique([subscriptionId, bookingId], map: "entitlement_reservation_booking_key")
+  @@unique([bookingId, liveSlot], map: "entitlement_reservation_live_booking_key")
+  @@map("entitlement_reservation")
+}
+
+model EntitlementMovement {
+  id             String                  @id @db.Uuid
+  subscriptionId String                  @map("subscription_id") @db.Uuid
+  periodNo       Int                     @map("period_no")
+  reservationId  String?                 @map("reservation_id") @db.Uuid
+  kind           String
+  granted        Int
+  reserved       Int
+  consumed       Int
+  occurredAt     DateTime                @map("occurred_at") @db.Timestamptz(3)
+  actorKind      String                  @map("actor_kind")
+  actorId        String                  @map("actor_id")
+  correlationId  String                  @map("correlation_id") @db.Uuid
+  seq            BigInt                  @unique(map: "entitlement_movement_seq_key") @default(autoincrement())
+  period         SubscriptionPeriod      @relation(fields: [subscriptionId, periodNo], references: [subscriptionId, periodNo], onDelete: Restrict, onUpdate: Restrict, map: "entitlement_movement_period_fkey")
+  reservation    EntitlementReservation? @relation(fields: [reservationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "entitlement_movement_reservation_fkey")
+
+  @@unique([reservationId, kind], map: "entitlement_movement_reservation_kind_key")
+  @@index([subscriptionId, periodNo, occurredAt], map: "entitlement_movement_period_idx")
+  @@map("entitlement_movement")
+}
+
+model SubscriptionIdempotencyReceipt {
+  actorSubject       String   @map("actor_subject") @db.Uuid
+  operation          String
+  idempotencyKey     String   @map("idempotency_key")
+  requestFingerprint String   @map("request_fingerprint") @db.Char(64)
+  outcomeStatus      Int      @map("outcome_status")
+  outcomeBody        Json     @map("outcome_body")
+  recordedAt         DateTime @map("recorded_at") @db.Timestamptz(3)
+
+  @@id([actorSubject, operation, idempotencyKey], map: "subscription_idempotency_receipt_pkey")
+  @@map("subscription_idempotency_receipt")
+}
+
+model SubscriptionAuditEvent {
+  id             String   @id @db.Uuid
+  occurredAt     DateTime @map("occurred_at") @db.Timestamptz(3)
+  actorKind      String   @map("actor_kind")
+  actorId        String   @map("actor_id")
+  action         String
+  planCode       String?  @map("plan_code")
+  subscriptionId String?  @map("subscription_id") @db.Uuid
+  reservationId  String?  @map("reservation_id") @db.Uuid
+  outcome        String
+  correlationId  String   @map("correlation_id") @db.Uuid
+
+  @@index([subscriptionId, occurredAt], map: "subscription_audit_event_subscription_idx")
+  @@map("subscription_audit_event")
+}
+
+model OutboxMessage {
+  id            String    @id @db.Uuid
+  eventId       String    @unique @map("event_id") @db.Uuid
+  eventType     String    @map("event_type")
+  exchange      String
+  routingKey    String    @map("routing_key")
+  payload       String
+  correlationId String    @map("correlation_id") @db.Uuid
+  traceParent   String?   @map("trace_parent") @db.VarChar(55)
+  attempts      Int       @default(0)
+  lockedBy      String?   @map("locked_by")
+  lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(3)
+  lastError     String?   @map("last_error")
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
+  deadAt        DateTime? @map("dead_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([publishedAt, deadAt, createdAt], map: "outbox_message_pending_idx")
+  @@map("outbox_message")
+}

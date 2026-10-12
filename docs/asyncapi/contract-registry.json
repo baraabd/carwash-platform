@@ -145,6 +145,62 @@
       "envelopeVersion": 2,
       "status": "published-producer-pending",
       "asyncApi": "docs/asyncapi/billing-events-v1.yaml"
+    },
+    {
+      "id": "subscription.purchase-status-changed.v1",
+      "producer": "subscription",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/product-events-v1.yaml"
+    },
+    {
+      "id": "subscription.subscription-changed.v1",
+      "producer": "subscription",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/product-events-v1.yaml"
+    },
+    {
+      "id": "subscription.entitlement-reservation-changed.v1",
+      "producer": "subscription",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/product-events-v1.yaml"
+    },
+    {
+      "id": "pricing.promotion-reservation-changed.v1",
+      "producer": "pricing",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/product-events-v1.yaml"
+    },
+    {
+      "id": "support.case-opened.v1",
+      "producer": "support",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/product-events-v1.yaml"
+    },
+    {
+      "id": "support.case-status-changed.v1",
+      "producer": "support",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/product-events-v1.yaml"
+    },
+    {
+      "id": "reviews.review-status-changed.v1",
+      "producer": "reviews",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/product-events-v1.yaml"
     }
   ]
 }

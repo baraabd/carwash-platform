@@ -28,7 +28,10 @@ acceptance has run on this source. Not production-ready.
 - `outbox_message`, `audit_entry`: written in the same transaction as the change.
 
 Eligibility (`ELIGIBLE`) = active employment, not suspended, verification
-VERIFIED and valid at the instant, at least one skill.
+VERIFIED and valid at the instant, at least one skill, and no REQUIRED equipment
+item UNAVAILABLE (P05-C1). Published capacity shifts exclude ACTIVE availability
+exceptions. P05-C1 model (service area, weekly schedule, exceptions, equipment):
+`docs/production/C/P05-C1-workforce-profile.md`.
 
 ## API (`/internal/v1/workforce`)
 
@@ -47,6 +50,11 @@ VERIFIED and valid at the instant, at least one skill.
 | GET | `/operators/:id/readiness` | `operations.dispatch` or scope `workforce.eligibility.read` | internal |
 | POST | `/operators/:id/shifts`, `/shifts/:id/cancel` | the operator, `Idempotency-Key` on create | internal |
 | GET | `/eligible?zoneId&at[&skillCode]` | scope `workforce.eligibility.read` | internal |
+| GET | `/me/profile`, `/operators/:id/profile` | self / `operations.dispatch` | requested (CR-P05-C1) |
+| PUT / POST | `/me/schedule`, `/me/schedule/apply` | self, `work.execute:assigned` | requested (CR-P05-C1) |
+| POST | `/me/availability-exceptions`, `/operators/:id/availability-exceptions`, `/availability-exceptions/:id/cancel` | self / `operations.dispatch`, `Idempotency-Key` on create | requested (CR-P05-C1) |
+| PUT | `/operators/:id/service-area` | `operations.dispatch` | requested (CR-P05-C1) |
+| POST / PUT | `/operators/:id/equipment[/:kind[/status]]`, `/me/equipment/:kind/status` | `operations.dispatch` / self | requested (CR-P05-C1) |
 
 Errors use the shared envelope `{error:{code, reason, message, requestId,
 correlationId, retryable, retryAfterMs, issues}}`; the domain code travels in

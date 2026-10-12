@@ -11,47 +11,24 @@ import {
   UseFilters,
 } from '@nestjs/common';
 import {
-  AppError,
-  AppExceptionFilter,
   CORRELATION_HEADER,
+  SERVICE_CLIENT_HEADER,
+  SERVICE_TOKEN_HEADER,
   createLogger,
-  resolveCorrelationId,
 } from '@carwash/service-kit';
 import {
-  PricingApplicationError,
   PricingService,
   type CommandResult,
+  type FieldIssue,
   type RequestContext,
 } from '../../application';
+import { PricingErrorFilter, envelopeIds, errorEnvelope } from './error-envelope';
 
 export const PRICING_SERVICE = 'PRICING_SERVICE';
-export const PRICING_V1 = 'internal/v1/pricing';
+/** pricing.v1 prefix (`/internal/v1/pricing`). */
+export const PRICING_V1_PREFIX = 'internal/v1/pricing';
 
-/** Fixed public messages. Internal exception text is never reflected. */
-const MESSAGES: Readonly<Record<string, string>> = {
-  REQUEST_INVALID: 'The request is invalid.',
-  IDEMPOTENCY_KEY_INVALID: 'A valid Idempotency-Key header is required.',
-  AUTH_REQUIRED: 'Authentication is required.',
-  AUTH_FORBIDDEN: 'The operation is not allowed.',
-  AUTH_UNAVAILABLE: 'Authorization is temporarily unavailable.',
-  NOT_FOUND: 'The requested resource was not found.',
-  PRICES_NOT_PUBLISHED: 'No price version is in force.',
-  IDEMPOTENCY_CONFLICT: 'The Idempotency-Key was already used for a different request.',
-  RATES_INVALID: 'The rates do not match the catalog revision or policy.',
-  CATALOG_REVISION_UNKNOWN: 'The catalog revision does not exist.',
-  CATALOG_REVISION_MISMATCH: 'The catalog changed; refetch it and request a new quote.',
-  SELECTION_INVALID: 'The selected services are not compatible.',
-  AMOUNT_LIMIT_EXCEEDED: 'The amount exceeds the accepted limit.',
-  QUOTE_EXPIRED: 'The quote has expired; request a new quote.',
-  QUOTE_SELECTION_MISMATCH: 'The quote was issued for a different selection.',
-  POLICY_UNAVAILABLE: 'Pricing policy is not available.',
-  UPSTREAM_UNAVAILABLE: 'A required upstream service is unavailable.',
-  VERSION_CONFLICT: 'Prices changed; refetch and retry with a new command.',
-  EFFECTIVE_FROM_IN_PAST: 'The effective time is in the past.',
-  EFFECTIVE_FROM_NOT_AFTER_PREVIOUS: 'The effective time must follow the previous version.',
-  EFFECTIVE_FROM_TOO_FAR: 'The effective time is too far in the future.',
-  PRICE_PRECEDES_CATALOG: 'Prices cannot take effect before their catalog revision.',
-};
+type HeaderBag = Record<string, string | undefined>;
 
 interface HttpResponse {
   status(code: number): HttpResponse;
@@ -59,12 +36,21 @@ interface HttpResponse {
   json(body: unknown): unknown;
 }
 
+function issuesOf(value: unknown): FieldIssue[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry: unknown) => {
+    if (typeof entry !== 'object' || entry === null) return [];
+    const { field, code } = entry as Record<string, unknown>;
+    return typeof field === 'string' && typeof code === 'string' ? [{ field, code }] : [];
+  });
+}
+
 /**
- * Pricing owner API. Extracts credential/correlation/key, renders results and
- * maps application failures to fixed public errors. No business logic here.
+ * pricing.v1 owner API. Extracts credentials, correlation and idempotency key,
+ * renders results and the contract error envelope. No business logic here.
  */
-@Controller(PRICING_V1)
-@UseFilters(new AppExceptionFilter(createLogger({ service: 'pricing' })))
+@Controller(PRICING_V1_PREFIX)
+@UseFilters(PricingErrorFilter)
 export class PricingController {
   private readonly logger = createLogger({
     service: 'pricing',
@@ -73,104 +59,79 @@ export class PricingController {
 
   constructor(@Inject(PRICING_SERVICE) private readonly pricing: PricingService) {}
 
-  private context(headers: Record<string, string | undefined>): RequestContext {
+  private context(headers: HeaderBag): RequestContext {
     return {
       credential: headers.authorization,
-      correlationId: resolveCorrelationId(headers[CORRELATION_HEADER]),
+      correlationId: envelopeIds(headers).correlationId,
     };
   }
 
-  private async run<T>(work: () => Promise<T>): Promise<T> {
-    try {
-      return await work();
-    } catch (error: unknown) {
-      if (error instanceof PricingApplicationError)
-        throw new AppError({
-          status: error.status,
-          code: error.code,
-          message: MESSAGES[error.code] ?? 'The request could not be completed.',
-          ...(error.details ? { details: error.details } : {}),
-        });
-      throw error;
-    }
-  }
-
-  private send(
-    event: string,
-    context: RequestContext,
-    result: CommandResult,
-    response: HttpResponse,
-  ): void {
+  private send(event: string, headers: HeaderBag, result: CommandResult, res: HttpResponse) {
+    const ids = envelopeIds(headers);
+    const code = typeof result.body.code === 'string' ? result.body.code : null;
     this.logger.info(event, {
       status: result.status,
       replayed: result.replayed,
-      code: typeof result.body.code === 'string' ? result.body.code : null,
+      code,
+      correlationId: ids.correlationId,
     });
-    response.setHeader(CORRELATION_HEADER, context.correlationId);
-    response.setHeader('idempotency-replayed', String(result.replayed));
+    res.setHeader(CORRELATION_HEADER, ids.correlationId);
+    res.setHeader('idempotency-replayed', String(result.replayed));
     if (result.status >= 400) {
-      const code = typeof result.body.code === 'string' ? result.body.code : 'CONFLICT';
-      response.status(result.status).json({
-        error: {
-          code,
-          message: MESSAGES[code] ?? 'The request conflicts with current state.',
-          correlationId: context.correlationId,
-          status: result.status,
-        },
-      });
+      const reason = typeof result.body.reason === 'string' ? result.body.reason : null;
+      res
+        .status(result.status)
+        .json(errorEnvelope(code ?? 'INTERNAL_ERROR', ids, reason, issuesOf(result.body.issues)));
       return;
     }
-    response.status(result.status).json(result.body);
-  }
-
-  @Get('prices')
-  inForce(@Headers() headers: Record<string, string | undefined>) {
-    return this.run(() => this.pricing.versionInForce(this.context(headers)));
-  }
-
-  @Get('price-versions')
-  versions(@Headers() headers: Record<string, string | undefined>) {
-    return this.run(() => this.pricing.listVersions(this.context(headers)));
-  }
-
-  @Post('prices')
-  async publish(
-    @Headers() headers: Record<string, string | undefined>,
-    @Body() body: unknown,
-    @Res() response: HttpResponse,
-  ): Promise<void> {
-    const context = this.context(headers);
-    const result = await this.run(() =>
-      this.pricing.publish(context, headers['idempotency-key'], body),
-    );
-    this.send('pricing_publish_outcome', context, result, response);
+    res.status(result.status).json(result.body);
   }
 
   @Post('quotes')
-  async issue(
-    @Headers() headers: Record<string, string | undefined>,
+  async createQuote(
+    @Headers() headers: HeaderBag,
     @Body() body: unknown,
-    @Res() response: HttpResponse,
+    @Res() res: HttpResponse,
   ): Promise<void> {
-    const context = this.context(headers);
-    const result = await this.run(() =>
-      this.pricing.issueQuote(context, headers['idempotency-key'], body),
+    const result = await this.pricing.createQuote(
+      this.context(headers),
+      headers['idempotency-key'],
+      body,
     );
-    this.send('pricing_quote_outcome', context, result, response);
+    this.send('pricing_quote_outcome', headers, result, res);
   }
 
-  @Get('quotes/:id')
-  quote(@Headers() headers: Record<string, string | undefined>, @Param('id') id: string) {
-    return this.run(() => this.pricing.getQuote(this.context(headers), id));
+  @Get('quotes/:quoteId')
+  getQuote(@Headers() headers: HeaderBag, @Param('quoteId') quoteId: string) {
+    return this.pricing.getQuote(this.context(headers), quoteId);
   }
 
-  @Post('quotes/:id/validate')
+  @Post('quotes/:quoteId/validate')
   @HttpCode(200)
-  validate(
-    @Headers() headers: Record<string, string | undefined>,
-    @Param('id') id: string,
+  validateQuote(
+    @Headers() headers: HeaderBag,
+    @Param('quoteId') quoteId: string,
     @Body() body: unknown,
   ) {
-    return this.run(() => this.pricing.validateQuote(this.context(headers), id, body));
+    return this.pricing.validateQuote(
+      { clientId: headers[SERVICE_CLIENT_HEADER], token: headers[SERVICE_TOKEN_HEADER] },
+      envelopeIds(headers).correlationId,
+      quoteId,
+      body,
+    );
+  }
+
+  @Post('price-books')
+  async publishPriceBook(
+    @Headers() headers: HeaderBag,
+    @Body() body: unknown,
+    @Res() res: HttpResponse,
+  ): Promise<void> {
+    const result = await this.pricing.publishPriceBook(
+      this.context(headers),
+      headers['idempotency-key'],
+      body,
+    );
+    this.send('pricing_price_book_outcome', headers, result, res);
   }
 }

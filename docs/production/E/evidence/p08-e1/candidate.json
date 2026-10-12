@@ -1,0 +1,9 @@
+{
+  "schema": "carwash.release-candidate/v1",
+  "sha": "3e1ab23bff450235858ea13e049f8fb373df393f",
+  "tree": "53edea7ff5348c969408e9fd3ee23569b06a9f94",
+  "refs": {
+    "refs/remotes/origin/main": "3e1ab23bff450235858ea13e049f8fb373df393f"
+  },
+  "configDigest": "sha256:a9f310a7ca42d76a8367c754028316e96307ba116b1465437d7e1ea786f64870"
+}

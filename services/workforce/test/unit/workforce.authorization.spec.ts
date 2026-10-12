@@ -21,6 +21,11 @@ function authorizationHarness() {
     eligibleOperators: unexpectedRead,
     findAvailability: unexpectedRead,
     listCapacityCandidates: unexpectedRead,
+    findServiceArea: unexpectedRead,
+    findSchedule: unexpectedRead,
+    listExceptions: unexpectedRead,
+    listEquipment: unexpectedRead,
+    latestVerificationCase: unexpectedRead,
   };
   const uow: WorkforceUnitOfWork = {
     run() {

@@ -5,10 +5,12 @@ import type { AddressInfo } from 'node:net';
  * TEST DOUBLE of Identity's `GET /internal/v1/identity/session`, served over a
  * real local HTTP listener so the production adapter (timeouts, status mapping,
  * body bounds) is exercised end to end. It is not Identity: it proves the
- * consumer side only. Real Identity-to-Catalog acceptance stays pending on E.
+ * consumer side only. Real Identity-to-Pricing acceptance stays pending on E.
  */
 export interface StubSession {
   readonly subject: string;
+  /** Defaults to account. */
+  readonly kind?: 'account' | 'guest';
   readonly permissions: readonly string[];
 }
 
@@ -69,6 +71,7 @@ export async function startIdentityStub(
         subject: session.subject,
         sessionId: '0b1c2d3e-4f50-4617-8829-3a4b5c6d7e8f',
         authVersion: 1,
+        principalKind: session.kind ?? 'account',
         roles: [],
         permissions: session.permissions,
       }),

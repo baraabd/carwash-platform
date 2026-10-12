@@ -195,6 +195,17 @@ outputs.set(
   ]),
 );
 outputs.set(
+  'docs/asyncapi/product-events-v1.yaml',
+  asyncApi(events.PRODUCT_EVENTS_V1, 'WashGo advanced product events V1 (envelope v2)', [
+    'Subscription, promotion (Pricing), support case and review events',
+    '(exchange <producer>.events, routing key = event type). Status',
+    'published-producer-pending: no accepted producer',
+    'emits these yet. Data is closed and carries opaque IDs, statuses, closed',
+    'codes and counts only; never a comment, note, code or contact detail.',
+    'Shapes are defined by the parsers in @carwash/event-contracts product-v1.',
+  ]),
+);
+outputs.set(
   'docs/asyncapi/contract-registry.json',
   JSON.stringify(
     {

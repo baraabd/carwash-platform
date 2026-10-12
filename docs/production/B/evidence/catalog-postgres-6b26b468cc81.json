@@ -1,0 +1,95 @@
+{
+  "task": "P06-B",
+  "service": "catalog",
+  "runId": "0ead357cf7a3",
+  "startedAt": "2026-10-11T00:41:29.017Z",
+  "sourceSHA": "6b26b468cc8177b21d5fa9945a6c774342f9a1b4",
+  "sourceTree": "e637310adee6dd4885979bbce59b2a3264f3605b",
+  "sourceDirty": false,
+  "node": "v24.21.0",
+  "docker": "29.1.3",
+  "image": {
+    "name": "postgres:16.10-alpine",
+    "repoDigests": [
+      "postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297",
+      "public.ecr.aws/docker/library/postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297"
+    ],
+    "serverVersion": "PostgreSQL 16.10"
+  },
+  "dependencies": {
+    "postgres": "REAL (disposable container)",
+    "identity": "LOCAL HTTP STUB",
+    "broker": "NOT USED"
+  },
+  "phases": [
+    {
+      "name": "toolchain and source provenance",
+      "status": "PASS"
+    },
+    {
+      "name": "build service and integration specs from this source",
+      "status": "PASS"
+    },
+    {
+      "name": "pull pinned PostgreSQL image",
+      "status": "PASS"
+    },
+    {
+      "name": "start disposable PostgreSQL with shared provisioner",
+      "status": "PASS"
+    },
+    {
+      "name": "runtime identity can connect after provisioning",
+      "status": "PASS"
+    },
+    {
+      "name": "upgrade from previous migration history preserves existing data",
+      "status": "PASS"
+    },
+    {
+      "name": "re-provision restricts migration history from the runtime role",
+      "status": "PASS"
+    },
+    {
+      "name": "committed Prisma schema mirror has no drift from migrated database",
+      "status": "PASS"
+    },
+    {
+      "name": "integration specs as the least-privileged runtime role",
+      "status": "PASS"
+    }
+  ],
+  "tests": {
+    "files": [
+      "services\\catalog\\dist-tests\\test\\integration\\catalog.postgres.spec.js"
+    ],
+    "summary": {
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "names": [
+      "✔ postgres: a publication round-trips exactly across replicas with audit and outbox (",
+      "✔ postgres: concurrent publishers on two replicas produce exactly one revision (",
+      "✔ postgres: the same key raced on two replicas commits once and replays identically (",
+      "✔ postgres: retirement is final and codes are never reused through the API (",
+      "✔ postgres: published rows are immutable for the runtime role (",
+      "✔ postgres: the database enforces snapshot completeness, final retirement and identity ("
+    ]
+  },
+  "accepted": true,
+  "migrations": {
+    "previous": [
+      "20260920000000_sprint_02_foundation",
+      "20260927143000_f008_outbox_trace_context",
+      "20261007090000_p01b_catalog_definitions"
+    ],
+    "added": [
+      "20261011090000_p06b1_catalog_v1_definitions"
+    ]
+  },
+  "finishedAt": "2026-10-11T00:43:39.282Z"
+}

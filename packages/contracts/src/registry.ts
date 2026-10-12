@@ -7,7 +7,12 @@ import { GATEWAY_V1 } from './gateway';
 import { GEO_V1 } from './geo/v1';
 import { IDENTITY_V1 } from './identity';
 import { PRICING_V1 } from './pricing/v1';
+import { PROMOTION_V1 } from './promotion/v1';
+import { REPORTING_V1 } from './reporting/v1';
+import { REVIEWS_V1 } from './reviews/v1';
 import { SCHEDULING_V1 } from './scheduling/v1';
+import { SUBSCRIPTION_V1 } from './subscription/v1';
+import { SUPPORT_V1 } from './support/v1';
 import { VEHICLE_V1 } from './vehicle/v1';
 import { WORKFORCE_V1 } from './workforce/v1';
 
@@ -31,7 +36,18 @@ export const OWNER_CONTRACTS = [
   WORKFORCE_V1,
   CONFIGURATION_V1,
   BILLING_V1,
+  // P05-E1
+  SUBSCRIPTION_V1,
+  PROMOTION_V1,
+  SUPPORT_V1,
+  REVIEWS_V1,
+  REPORTING_V1,
 ] as const satisfies readonly OwnerContract[];
+
+/** Every contract one owner serves (an owner may serve more than one major/family). */
+export function contractsOf(owner: string): readonly OwnerContract[] {
+  return OWNER_CONTRACTS.filter((contract) => contract.owner === owner);
+}
 
 type OwnerContractId = (typeof OWNER_CONTRACTS)[number]['id'];
 

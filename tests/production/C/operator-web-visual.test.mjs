@@ -268,10 +268,16 @@ const SCENARIOS = [
       click('[data-action="task-filter"][data-value="follow"]'),
     ],
   },
-  { name: 'collections-all', ...ledger, steps: [click('.nav-item[data-action="collections"]')] },
+  {
+    name: 'collections-all',
+    ...ledger,
+    steps: [click('.nav-item[data-action="collections"]')],
+    adopt: [{ pns: ['PN-04'], selector: '#main > .stats-grid', position: 'afterend' }],
+  },
   {
     name: 'collections-cash',
     ...ledger,
+    adopt: [{ pns: ['PN-04'], selector: '#main > .stats-grid', position: 'afterend' }],
     steps: [
       click('.nav-item[data-action="collections"]'),
       click('[data-action="collection-filter"][data-value="cash"]'),
@@ -280,6 +286,7 @@ const SCENARIOS = [
   {
     name: 'collections-follow',
     ...ledger,
+    adopt: [{ pns: ['PN-04'], selector: '#main > .stats-grid', position: 'afterend' }],
     steps: [
       click('.nav-item[data-action="collections"]'),
       click('[data-action="collection-filter"][data-value="follow"]'),
@@ -288,9 +295,15 @@ const SCENARIOS = [
   {
     name: 'collections-empty',
     ...allAccepted,
+    adopt: [{ pns: ['PN-04'], selector: '#main > .stats-grid', position: 'afterend' }],
     steps: [click('.nav-item[data-action="collections"]')],
   },
-  { name: 'profile', ...allAccepted, steps: [click('.nav-item[data-action="profile"]')] },
+  {
+    name: 'profile',
+    ...allAccepted,
+    steps: [click('.nav-item[data-action="profile"]')],
+    adopt: [{ pns: ['PN-01', 'PN-02', 'PN-03'], selector: '#main', position: 'beforeend' }],
+  },
   {
     name: 'task-assigned-c3',
     setup: () => {},
@@ -746,9 +759,32 @@ test(
             );
           const fullPage = !scenario.mask;
           const raw = await capture(refPage, fullPage);
+          // PN additions (P05-C2): copied from the candidate DOM into the reference.
+          const adopted = [];
+          for (const a of scenario.adopt ?? []) {
+            const html = await candPage.evaluate(
+              (pns) =>
+                [...document.querySelectorAll('#main [data-pn]')]
+                  .filter(
+                    (el) => pns.includes(el.dataset.pn) && !el.parentElement.closest('[data-pn]'),
+                  )
+                  .map((el) => el.outerHTML)
+                  .join(''),
+              a.pns,
+            );
+            if (!html) throw new Error(`PN_NOT_RENDERED:${scenario.name}:${a.pns.join(',')}`);
+            adopted.push({
+              id: a.pns.join('+'),
+              kind: 'insertHtml',
+              selector: a.selector,
+              position: a.position,
+              html,
+            });
+          }
           const final = await refPage.evaluate(applyDeclaredInPage, [
             ...DECLARED,
             ...(scenario.extra ?? []),
+            ...adopted,
           ]);
           const seen = new Set();
           const regions = [...preRegions, ...final].filter((r) => {

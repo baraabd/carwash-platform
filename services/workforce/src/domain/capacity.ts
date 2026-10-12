@@ -1,4 +1,5 @@
 import { invalid } from './errors';
+import { subtractIntervals, type Interval } from './intervals';
 import type { OperatorState } from './operator';
 import { operationalReadiness } from './readiness';
 
@@ -118,6 +119,8 @@ export interface CapacityCandidate {
   readonly zoneIds: readonly string[];
   /** ACTIVE shifts overlapping the window (the store may return MAX + 1). */
   readonly shifts: readonly CapacityShift[];
+  /** ACTIVE availability exceptions overlapping the window (P05-C1). */
+  readonly exceptions: readonly Interval[];
 }
 
 export interface CapacityResource {
@@ -135,7 +138,8 @@ export interface CapacityResource {
  * - eligibility: operational readiness at the query's `from`;
  * - zoneIds: sorted distinct zones (always including the queried zone); when
  *   more than 20 exist, the queried zone plus the first 19 others are kept;
- * - shifts: the shift intervals sorted by start, the first 100 kept. ACTIVE
+ * - shifts: the shift intervals minus the ACTIVE availability exceptions
+ *   (P05-C1), sorted by start, the first 100 kept. ACTIVE
  *   shifts of one operator never overlap (database exclusion constraint), so a
  *   violation here is an internal fault and fails loudly.
  */
@@ -145,7 +149,7 @@ export function toCapacityResource(
 ): CapacityResource {
   const others = [...new Set(candidate.zoneIds)].filter((zone) => zone !== query.zoneId).sort();
   const zoneIds = [query.zoneId, ...others.slice(0, MAX_RESOURCE_ZONES - 1)].sort();
-  const shifts = [...candidate.shifts]
+  const shifts = subtractIntervals(candidate.shifts, candidate.exceptions)
     .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())
     .slice(0, MAX_RESOURCE_SHIFTS)
     .map((shift) => ({ startsAt: shift.startsAt, endsAt: shift.endsAt }));

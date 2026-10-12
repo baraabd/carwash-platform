@@ -244,3 +244,141 @@ export interface ApiErrorBody {
   readonly reason: string | null;
   readonly retryable: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// P05-C2: requested Workforce profile (CR-P05-C1) and Billing custody routes.
+// ---------------------------------------------------------------------------
+
+export const READINESS_REASONS = [
+  'EMPLOYMENT_INACTIVE',
+  'SUSPENDED',
+  'VERIFICATION_REQUIRED',
+  'VERIFICATION_EXPIRED',
+  'NO_SKILLS',
+  'EQUIPMENT_UNAVAILABLE',
+] as const;
+export type ReadinessReason = (typeof READINESS_REASONS)[number];
+
+export const EXCEPTION_REASONS = ['LEAVE', 'SICKNESS', 'EQUIPMENT', 'PERSONAL', 'OTHER'] as const;
+export type ExceptionReason = (typeof EXCEPTION_REASONS)[number];
+
+export const EQUIPMENT_KINDS = [
+  'SERVICE_VEHICLE',
+  'PRESSURE_WASHER',
+  'WATER_SUPPLY',
+  'POWER_SUPPLY',
+  'VACUUM',
+  'CLEANING_KIT',
+] as const;
+export type EquipmentKind = (typeof EQUIPMENT_KINDS)[number];
+export const EQUIPMENT_STATUSES = ['READY', 'DEGRADED', 'UNAVAILABLE'] as const;
+export type EquipmentStatus = (typeof EQUIPMENT_STATUSES)[number];
+export const EQUIPMENT_ISSUES = [
+  'BREAKDOWN',
+  'MAINTENANCE',
+  'MISSING',
+  'SUPPLIES_EMPTY',
+  'OTHER',
+] as const;
+export type EquipmentIssue = (typeof EQUIPMENT_ISSUES)[number];
+
+export interface WeeklyWindow {
+  readonly weekday: number;
+  readonly startMinute: number;
+  readonly endMinute: number;
+  readonly zoneId: string;
+}
+
+export interface WeeklySchedule {
+  readonly timeZone: string;
+  readonly windows: readonly WeeklyWindow[];
+  readonly revision: number;
+  readonly updatedAt: string | null;
+}
+
+export interface AvailabilityException {
+  readonly exceptionId: string;
+  readonly startsAt: string;
+  readonly endsAt: string;
+  readonly reason: ExceptionReason;
+  readonly status: 'ACTIVE' | 'CANCELLED';
+  readonly version: number;
+}
+
+export interface EquipmentView {
+  readonly kind: EquipmentKind;
+  readonly required: boolean;
+  readonly status: EquipmentStatus;
+  readonly issue: EquipmentIssue | null;
+  readonly revision: number;
+  readonly updatedAt: string;
+}
+
+export interface ShiftSlot {
+  readonly shiftId: string;
+  readonly zoneId: string;
+  readonly startsAt: string;
+  readonly endsAt: string;
+}
+
+/** Workforce `GET /me/profile` (requested, CR-P05-C1 §1). */
+export interface ProfileView {
+  readonly operatorId: string;
+  readonly displayName: string;
+  readonly employmentStatus: 'ACTIVE' | 'INACTIVE';
+  readonly suspended: boolean;
+  readonly verification: {
+    readonly status: 'UNVERIFIED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
+    readonly verifiedUntil: string | null;
+    readonly latestCase: {
+      readonly caseId: string;
+      readonly status: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
+      readonly submittedAt: string;
+      readonly decidedAt: string | null;
+      readonly decisionReason: string | null;
+    } | null;
+  };
+  readonly skillCodes: readonly string[];
+  readonly readiness: { readonly ready: boolean; readonly reasons: readonly ReadinessReason[] };
+  readonly availability: AvailabilityView;
+  readonly serviceArea: {
+    readonly homeZoneId: string;
+    readonly zoneIds: readonly string[];
+    readonly revision: number;
+    readonly updatedAt: string | null;
+  };
+  readonly schedule: WeeklySchedule;
+  readonly upcomingShifts: readonly ShiftSlot[];
+  readonly exceptions: readonly AvailabilityException[];
+  readonly equipment: readonly EquipmentView[];
+  readonly version: number;
+  readonly asOf: string;
+}
+
+export interface ScheduleApplication {
+  readonly created: readonly ShiftSlot[];
+  readonly existing: readonly ShiftSlot[];
+  readonly skipped: ReadonlyArray<{
+    readonly weekday: number;
+    readonly startMinute: number;
+    readonly zoneId: string;
+    readonly startsAt: string;
+    readonly endsAt: string;
+    readonly reason: 'PAST' | 'EXCEPTION' | 'OVERLAPS' | 'ZONE_OUTSIDE_SERVICE_AREA';
+  }>;
+}
+
+/** Billing `GET /custody/holders/me` (published billing.v1 getMyCustody). */
+export interface CustodyBalance {
+  readonly currency: 'SYP' | 'USD';
+  readonly ledgerCustody: Money;
+  readonly held: Money;
+  readonly heldCount: number;
+  readonly inHandover: Money;
+  readonly inHandoverCount: number;
+  readonly shortageOutstanding: Money;
+}
+export interface CustodyView {
+  readonly holder: string;
+  readonly balances: readonly CustodyBalance[];
+}

@@ -554,6 +554,10 @@ export class BillingService {
     });
     return this.commands.execute(command, async (uow, now) => {
       const before = await this.locked(uow, id, expectedRevision, this.isOwner(principal));
+      // A booking's obligation follows the booking: only the saga that created
+      // it voids it (voidBookingObligation); the customer cancels the booking.
+      if (await uow.bookings.forObligation(id))
+        throw new BillingApplicationError('VOID_NOT_ALLOWED');
       const attemptsSoFar = await uow.countAttempts(id);
       decide(() => planVoid({ obligation: before.obligation, attemptsSoFar }));
       const intent = before.activeIntent;
