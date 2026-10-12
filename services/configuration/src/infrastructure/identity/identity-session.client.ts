@@ -126,3 +126,14 @@ export class IdentitySessionClient implements SessionAuthority {
     };
   }
 }
+
+/**
+ * Used when IDENTITY_ORIGIN is not configured (for example the image probe):
+ * the service still boots, and every protected request fails closed with 503
+ * AUTH_UNAVAILABLE instead of the process refusing to start.
+ */
+export class UnconfiguredSessionAuthority implements SessionAuthority {
+  verify(): Promise<VerifiedSession> {
+    return Promise.reject(new AccessFault('AUTH_UNAVAILABLE'));
+  }
+}

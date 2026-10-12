@@ -546,7 +546,13 @@
         "ConfigRevision",
         "ConfigReview",
         "ConfigPointer",
-        "ConfigAudit"
+        "ConfigAudit",
+        "ConfigScope",
+        "ConfigDraft",
+        "ConfigVersion",
+        "ConfigHistory",
+        "ConfigIdempotency",
+        "OutboxMessage"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"

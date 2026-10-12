@@ -99,3 +99,128 @@ model ConfigAudit {
   @@index([revisionId])
   @@map("config_audit")
 }
+
+/// P05-D5 configuration.v1 scope: one per (market, namespace). `id` is the
+/// event aggregate id; publishedVersion moves forward by exactly one (trigger).
+model ConfigScope {
+  id               String   @id @db.Uuid
+  marketId         String   @map("market_id") @db.VarChar(11)
+  namespace        String   @db.VarChar(32)
+  publishedVersion Int      @default(0) @map("published_version")
+  createdAt        DateTime @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime @map("updated_at") @db.Timestamptz(3)
+
+  drafts   ConfigDraft[]
+  versions ConfigVersion[]
+  history  ConfigHistory[]
+
+  @@unique([marketId, namespace])
+  @@map("config_scope")
+}
+
+/// A proposed content for a scope. At most one DRAFT/APPROVED draft per scope
+/// (partial unique index in the migration). Four eyes is a CHECK constraint.
+model ConfigDraft {
+  id               String    @id @db.Uuid
+  scopeId          String    @map("scope_id") @db.Uuid
+  revision         Int
+  status           String    @db.VarChar(10)
+  baseVersion      Int?      @map("base_version")
+  content          Json
+  contentHash      String    @map("content_hash") @db.Char(64)
+  authorSubject    String    @map("author_subject") @db.Uuid
+  createdAt        DateTime  @map("created_at") @db.Timestamptz(3)
+  approvedBy       String?   @map("approved_by") @db.Uuid
+  approvedAt       DateTime? @map("approved_at") @db.Timestamptz(3)
+  publishedBy      String?   @map("published_by") @db.Uuid
+  publishedAt      DateTime? @map("published_at") @db.Timestamptz(3)
+  publishedVersion Int?      @map("published_version")
+  withdrawnBy      String?   @map("withdrawn_by") @db.Uuid
+  withdrawnAt      DateTime? @map("withdrawn_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @map("updated_at") @db.Timestamptz(3)
+
+  scope   ConfigScope    @relation(fields: [scopeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  version ConfigVersion?
+
+  @@index([scopeId, createdAt])
+  @@map("config_draft")
+}
+
+/// An immutable published version (append-only by trigger).
+model ConfigVersion {
+  id          String   @id @db.Uuid
+  scopeId     String   @map("scope_id") @db.Uuid
+  version     Int
+  draftId     String   @unique @map("draft_id") @db.Uuid
+  content     Json
+  contentHash String   @map("content_hash") @db.Char(64)
+  effectiveAt DateTime @map("effective_at") @db.Timestamptz(3)
+  publishedBy String   @map("published_by") @db.Uuid
+  publishedAt DateTime @map("published_at") @db.Timestamptz(3)
+
+  scope ConfigScope @relation(fields: [scopeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  draft ConfigDraft @relation(fields: [draftId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([scopeId, version])
+  @@map("config_version")
+}
+
+/// Append-only history of every draft/approve/publish/withdraw command.
+model ConfigHistory {
+  id            String   @id @db.Uuid
+  scopeId       String   @map("scope_id") @db.Uuid
+  draftId       String   @map("draft_id") @db.Uuid
+  action        String   @db.VarChar(16)
+  draftRevision Int      @map("draft_revision")
+  version       Int?
+  contentHash   String   @map("content_hash") @db.Char(64)
+  actorSubject  String   @map("actor_subject") @db.Uuid
+  reason        String?  @db.VarChar(500)
+  correlationId String   @map("correlation_id") @db.VarChar(64)
+  occurredAt    DateTime @map("occurred_at") @db.Timestamptz(3)
+  /// Insertion order, the stable paging cursor of the history.
+  seq           BigInt   @unique @default(autoincrement())
+
+  scope ConfigScope @relation(fields: [scopeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([scopeId, seq])
+  @@map("config_history")
+}
+
+/// Replayable outcome of an idempotent configuration.v1 command, written in
+/// the command's own transaction. Append-only by trigger.
+model ConfigIdempotency {
+  actorSubject   String   @map("actor_subject") @db.Uuid
+  idempotencyKey String   @map("idempotency_key") @db.VarChar(128)
+  operation      String   @db.VarChar(32)
+  fingerprint    String   @db.Char(64)
+  statusCode     Int      @map("status_code")
+  response       Json
+  createdAt      DateTime @map("created_at") @db.Timestamptz(3)
+
+  @@id([actorSubject, idempotencyKey])
+  @@map("config_idempotency")
+}
+
+/// Transactional outbox, leased by the shared OutboxRelay (same shape and
+/// lease semantics as the catalog/booking stores).
+model OutboxMessage {
+  id            String    @id @db.Uuid
+  eventId       String    @unique @map("event_id") @db.Uuid
+  eventType     String    @map("event_type")
+  exchange      String
+  routingKey    String    @map("routing_key")
+  payload       String
+  correlationId String    @map("correlation_id") @db.Uuid
+  traceParent   String?   @map("trace_parent") @db.VarChar(55)
+  attempts      Int       @default(0)
+  lockedBy      String?   @map("locked_by")
+  lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(3)
+  lastError     String?   @map("last_error")
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
+  deadAt        DateTime? @map("dead_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([publishedAt, deadAt, createdAt])
+  @@map("outbox_message")
+}
