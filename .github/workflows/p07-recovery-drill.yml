@@ -1,0 +1,51 @@
+# P07-E3a data-plane recovery drill on a disposable runner.
+#
+# Real PostgreSQL (all owner migrations, PITR into an isolated network), RabbitMQ,
+# Redis, S3-compatible object storage and Prometheus/Alertmanager. Failures are
+# injected with SIGKILL or data loss; RPO/RTO are measured, never assumed.
+# Weekly schedule catches recovery regressions between releases.
+name: P07 recovery drill
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/production/E/recovery/**'
+      - 'infra/postgres/provision.sh'
+      - 'services/*/prisma/migrations/**'
+      - '.github/workflows/p07-recovery-drill.yml'
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: p07-recovery-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  drill:
+    name: Data-plane recovery drill
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Pinned toolchain and frozen installation
+        run: |
+          corepack enable
+          corepack prepare --activate
+          pnpm install --frozen-lockfile
+          aws --version
+      - name: Recovery drill (real servers, injected failures, measured RPO/RTO)
+        run: node scripts/production/E/recovery/drill.mjs --report "$RUNNER_TEMP/recovery/recovery-drill.json"
+      - name: Retain the drill report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p07-recovery-drill-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/recovery/
+          if-no-files-found: error
+          retention-days: 90

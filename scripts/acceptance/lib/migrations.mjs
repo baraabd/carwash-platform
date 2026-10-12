@@ -94,9 +94,10 @@ export async function migrationDrift(context, service, options = {}) {
  * cannot change the schema" and "the app cannot change the schema or lie about
  * having changed it".
  */
-export async function hardenPrivileges(context, service, options = {}) {
+export function privilegeHardeningSql(service) {
+  if (!/^[a-z][a-z0-9_]*$/.test(service)) throw new Error('INVALID_SERVICE_OWNER');
   const app = `cw_${service}_app`;
-  const sql = `
+  return `
 DO $$
 BEGIN
   -- Fail loudly rather than silently leaving the grant in place.
@@ -128,7 +129,10 @@ REVOKE CREATE ON SCHEMA public FROM "${app}";
 REVOKE ALL ON DATABASE cw_${service} FROM "${app}";
 GRANT CONNECT ON DATABASE cw_${service} TO "${app}";
 `;
-  return psqlBootstrap(context, `cw_${service}`, sql, options);
+}
+
+export async function hardenPrivileges(context, service, options = {}) {
+  return psqlBootstrap(context, `cw_${service}`, privilegeHardeningSql(service), options);
 }
 
 /** Written by the migration job so a test can prove the job actually ran. */
