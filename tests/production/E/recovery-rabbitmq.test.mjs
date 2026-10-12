@@ -3,14 +3,103 @@ import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import test from 'node:test';
 import {
+  assertSameQuorumTopology,
   closeRecoveredQueue,
   consumeRecoveredQueue,
+  inspectQuorumTopology,
   openRecoveredQueue,
 } from '../../../scripts/production/E/recovery/rabbitmq-recovery.mjs';
 
 const payloads = ['confirmed payload one', 'confirmed payload two'];
 const digest = (value) => createHash('sha256').update(value).digest('hex');
 const expected = new Set(payloads.map(digest));
+const topology = {
+  node: 'rabbit@drill-mq',
+  raName: 'drill_drill.q',
+  raUid: 'quorum-member-original',
+  dataDir: '/var/lib/rabbitmq/mnesia/rabbit@drill-mq/quorum',
+  walDir: '/var/lib/rabbitmq/mnesia/rabbit@drill-mq/quorum',
+  registryFile: '/var/lib/rabbitmq/mnesia/rabbit@drill-mq/quorum/names.dets',
+  registrySynced: false,
+};
+
+test('topology setup syncs only the Ra name registry and returns verifiable storage identity', async () => {
+  const evidence = { ...topology, registrySynced: true };
+  const result = await inspectQuorumTopology(
+    async (args, options) => {
+      assert.deepEqual(args.slice(0, 7), [
+        'exec',
+        'broker',
+        'rabbitmqctl',
+        '-q',
+        '--formatter',
+        'json',
+        'eval',
+      ]);
+      assert.match(args[7], /dets:sync\(Registry\)/);
+      assert.match(args[7], /ra_directory:uid_of\(quorum_queues, RaName\)/);
+      assert.doesNotMatch(args[7], /ra_log|file:sync|timer:sleep/);
+      assert.equal(options.timeoutMs, 15000);
+      return JSON.stringify({ result: 'ok', value: evidence });
+    },
+    'broker',
+    { persist: true },
+  );
+  assert.deepEqual(result, evidence);
+});
+
+test('post-crash topology inspection is read-only and does not sync any storage', async () => {
+  const result = await inspectQuorumTopology(async (args) => {
+    assert.doesNotMatch(args.at(-1), /dets:sync|file:sync|timer:sleep/);
+    return JSON.stringify({ result: 'ok', value: topology });
+  }, 'broker');
+  assert.deepEqual(result, topology);
+  assert.doesNotThrow(() =>
+    assertSameQuorumTopology({ ...topology, registrySynced: true }, result),
+  );
+});
+
+test('a replaced Ra member cannot be reported as recovery of the original queue', () => {
+  assert.throws(
+    () => assertSameQuorumTopology(topology, { ...topology, raUid: 'new-empty-member' }),
+    /raUid changed across the crash/,
+  );
+});
+
+test('a changed storage path cannot be reported as same-volume recovery', () => {
+  assert.throws(
+    () => assertSameQuorumTopology(topology, { ...topology, walDir: `${topology.walDir}/other` }),
+    /walDir changed across the crash/,
+  );
+});
+
+test('topology setup fails closed when the registry or WAL is outside the data volume', async () => {
+  for (const key of ['dataDir', 'walDir', 'registryFile']) {
+    await assert.rejects(
+      inspectQuorumTopology(
+        async () =>
+          JSON.stringify({
+            result: 'ok',
+            value: { ...topology, [key]: '/tmp/unpersisted' },
+          }),
+        'broker',
+      ),
+      /outside the persisted data volume/,
+    );
+  }
+});
+
+test('missing or failed topology evidence cannot substitute for a successful persistence barrier', async () => {
+  for (const output of [
+    { result: 'error', value: topology },
+    { result: 'ok' },
+    { result: 'ok', value: { ...topology, registrySynced: false } },
+  ]) {
+    await assert.rejects(
+      inspectQuorumTopology(async () => JSON.stringify(output), 'broker', { persist: true }),
+    );
+  }
+});
 
 function broker(values = payloads, { count = values.length, consumers = 0, probeError } = {}) {
   const messages = values.map((value) => ({

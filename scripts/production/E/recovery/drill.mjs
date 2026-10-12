@@ -37,8 +37,10 @@ import { observePostgresClient, startAcknowledgedWrites } from './postgres-write
 import { run as runCommand } from '../../../acceptance/lib/exec.mjs';
 import { acquireDrillImage } from './image-acquisition.mjs';
 import {
+  assertSameQuorumTopology,
   closeRecoveredQueue,
   consumeRecoveredQueue,
+  inspectQuorumTopology,
   openRecoveredQueue,
 } from './rabbitmq-recovery.mjs';
 
@@ -516,138 +518,189 @@ async function postgresDrill(report) {
 /* ------------------------------------------------------------- rabbitmq --- */
 
 async function rabbitDrill(report) {
-  const password = secret();
-  const net = await network(name('mq-net'));
-  const data = await volume(name('mq-data'));
-  const start = (id, vol) =>
-    container(id, [
-      '--network',
-      net,
-      '--hostname',
-      'drill-mq',
-      '--publish',
-      '127.0.0.1::15672',
-      '--publish',
-      '127.0.0.1::5672',
-      '--env',
-      'RABBITMQ_DEFAULT_USER=cw_drill',
-      '--env',
-      `RABBITMQ_DEFAULT_PASS=${password}`,
-      ...(vol ? ['-v', `${vol}:/var/lib/rabbitmq`] : []),
-      images.rabbitmq,
-    ]);
-  const api = (mport) => async (method, route, body) => {
-    const res = await fetch(`http://127.0.0.1:${mport}/api${route}`, {
-      method,
-      headers: {
-        authorization: `Basic ${Buffer.from(`cw_drill:${password}`).toString('base64')}`,
-        'content-type': 'application/json',
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    const text = await res.text();
-    assert.ok(
-      res.ok,
-      `RabbitMQ ${method} ${route}: HTTP ${res.status}: ${redact(text).slice(0, 500)}`,
-    );
-    return { status: res.status, body: text ? JSON.parse(text) : null };
+  const brokerIds = [];
+  const diagnostics = {
+    phase: 'topology setup',
+    upstreamLimitation: 'https://github.com/rabbitmq/rabbitmq-server/discussions/17710',
   };
-  const ready = async (mport) =>
-    until('rabbitmq api', async () => (await api(mport)('GET', '/overview')).status === 200, {
-      timeoutMs: 180_000,
-      everyMs: 1000,
-    });
-
-  const first = await start(name('mq-1'), data);
-  let call = api(await hostPort(first, 15672));
-  await ready(await hostPort(first, 15672));
-  await call('PUT', '/vhosts/drill');
-  await call('PUT', '/permissions/drill/cw_drill', { configure: '.*', write: '.*', read: '.*' });
-  await call('PUT', '/exchanges/drill/drill.events', { type: 'topic', durable: true });
-  await call('PUT', '/queues/drill/drill.q', {
-    durable: true,
-    arguments: { 'x-queue-type': 'quorum' },
-  });
-  await call('POST', '/bindings/drill/e/drill.events/q/drill.q', { routing_key: 'drill.#' });
-  const total = 200;
-  const digests = new Set();
-  for (let i = 0; i < total; i++) {
-    const payload = JSON.stringify({ i, nonce: randomUUID() });
-    digests.add(createHash('sha256').update(payload).digest('hex'));
-    const r = await call('POST', '/exchanges/drill/drill.events/publish', {
-      routing_key: `drill.${i}`,
-      payload,
-      payload_encoding: 'string',
-      properties: { delivery_mode: 2 },
-    });
-    assert.equal(r.body?.routed, true, 'message not routed');
-  }
-  const definitions = (await call('GET', '/definitions')).body;
-
-  const crashAt = Date.now();
-  await docker(['kill', '--signal', 'KILL', first]);
-  await docker(['rm', '-f', first]);
-  const second = await start(name('mq-2'), data);
-  await ready(await hostPort(second, 15672));
-  const { connect } = require(path.join(ROOT, 'packages/platform-messaging/node_modules/amqplib'));
-  const amqpPort = await hostPort(second, 5672);
-  const reader = await until(
-    'quorum queue recovered (AMQP)',
-    () =>
-      openRecoveredQueue(
-        () =>
-          connect(
-            {
-              hostname: '127.0.0.1',
-              port: amqpPort,
-              username: 'cw_drill',
-              password,
-              vhost: 'drill',
-            },
-            { timeout: 5000 },
-          ),
-        'drill.q',
-        total,
-      ),
-    { timeoutMs: 120_000, everyMs: 1000 },
-  );
-  const crashRtoMs = Date.now() - crashAt;
-  let recovered;
+  report.diagnostics ??= {};
+  report.diagnostics.rabbitmq = diagnostics;
   try {
-    recovered = await consumeRecoveredQueue(reader.channel, 'drill.q', digests);
-  } finally {
-    await closeRecoveredQueue(reader);
+    const password = secret();
+    const net = await network(name('mq-net'));
+    const data = await volume(name('mq-data'));
+    const start = async (id, vol) => {
+      await container(id, [
+        '--network',
+        net,
+        '--hostname',
+        'drill-mq',
+        '--publish',
+        '127.0.0.1::15672',
+        '--publish',
+        '127.0.0.1::5672',
+        '--env',
+        'RABBITMQ_DEFAULT_USER=cw_drill',
+        '--env',
+        `RABBITMQ_DEFAULT_PASS=${password}`,
+        ...(vol ? ['-v', `${vol}:/var/lib/rabbitmq`] : []),
+        images.rabbitmq,
+      ]);
+      brokerIds.push(id);
+      return id;
+    };
+    const api = (mport) => async (method, route, body) => {
+      const res = await fetch(`http://127.0.0.1:${mport}/api${route}`, {
+        method,
+        headers: {
+          authorization: `Basic ${Buffer.from(`cw_drill:${password}`).toString('base64')}`,
+          'content-type': 'application/json',
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      const text = await res.text();
+      assert.ok(
+        res.ok,
+        `RabbitMQ ${method} ${route}: HTTP ${res.status}: ${redact(text).slice(0, 500)}`,
+      );
+      return { status: res.status, body: text ? JSON.parse(text) : null };
+    };
+    const ready = async (mport) =>
+      until('rabbitmq api', async () => (await api(mport)('GET', '/overview')).status === 200, {
+        timeoutMs: 180_000,
+        everyMs: 1000,
+      });
+
+    const first = await start(name('mq-1'), data);
+    let call = api(await hostPort(first, 15672));
+    await ready(await hostPort(first, 15672));
+    await call('PUT', '/vhosts/drill');
+    await call('PUT', '/permissions/drill/cw_drill', { configure: '.*', write: '.*', read: '.*' });
+    await call('PUT', '/exchanges/drill/drill.events', { type: 'topic', durable: true });
+    await call('PUT', '/queues/drill/drill.q', {
+      durable: true,
+      arguments: { 'x-queue-type': 'quorum' },
+    });
+    await call('POST', '/bindings/drill/e/drill.events/q/drill.q', { routing_key: 'drill.#' });
+    // This drill crashes a data plane with an already durable topology. Ra's
+    // delayed new-queue registry sync is a separate upstream lifecycle limitation.
+    // Establish that fixture before publishing, without flushing message storage.
+    diagnostics.before = await inspectQuorumTopology(docker, first, { persist: true });
+    const definitions = (await call('GET', '/definitions')).body;
+    const { connect } = require(
+      path.join(ROOT, 'packages/platform-messaging/node_modules/amqplib'),
+    );
+    const connectTo = (port) =>
+      connect(
+        { hostname: '127.0.0.1', port, username: 'cw_drill', password, vhost: 'drill' },
+        { timeout: 5000 },
+      );
+    const firstAmqpPort = await hostPort(first, 5672);
+    diagnostics.phase = 'confirmed publishing';
+    const total = 200;
+    const digests = new Set();
+    for (let i = 0; i < total; i++) {
+      const payload = JSON.stringify({ i, nonce: randomUUID() });
+      digests.add(createHash('sha256').update(payload).digest('hex'));
+      const r = await call('POST', '/exchanges/drill/drill.events/publish', {
+        routing_key: `drill.${i}`,
+        payload,
+        payload_encoding: 'string',
+        properties: { delivery_mode: 2 },
+      });
+      assert.equal(r.body?.routed, true, 'message not routed');
+    }
+    const beforeCrash = await openRecoveredQueue(() => connectTo(firstAmqpPort), 'drill.q', total);
+    diagnostics.initialQueueDepth = beforeCrash.depth;
+    await closeRecoveredQueue(beforeCrash);
+
+    diagnostics.phase = 'crash recovery';
+    const crashAt = Date.now();
+    await docker(['kill', '--signal', 'KILL', first]);
+    // Keep the stopped container for bounded failure logs; the replacement still
+    // uses a new container and the same named data volume.
+    const second = await start(name('mq-2'), data);
+    await ready(await hostPort(second, 15672));
+    diagnostics.after = await inspectQuorumTopology(docker, second);
+    assertSameQuorumTopology(diagnostics.before, diagnostics.after);
+    const amqpPort = await hostPort(second, 5672);
+    const reader = await until(
+      'quorum queue recovered (AMQP)',
+      () => openRecoveredQueue(() => connectTo(amqpPort), 'drill.q', total),
+      { timeoutMs: 120_000, everyMs: 1000 },
+    );
+    const crashRtoMs = Date.now() - crashAt;
+    let recovered;
+    try {
+      recovered = await consumeRecoveredQueue(reader.channel, 'drill.q', digests);
+    } finally {
+      await closeRecoveredQueue(reader);
+    }
+
+    // Total loss: an empty broker gets the exported definitions back.
+    diagnostics.phase = 'definitions restore';
+    await docker(['rm', '-f', second]);
+    const lossAt = Date.now();
+    const third = await start(name('mq-3'));
+    await ready(await hostPort(third, 15672));
+    call = api(await hostPort(third, 15672));
+    const imported = await call('POST', '/definitions', definitions);
+    const queue = await call('GET', '/queues/drill/drill.q');
+    const binding = await call('GET', '/bindings/drill/e/drill.events/q/drill.q');
+    const definitionsRtoMs = Date.now() - lossAt;
+
+    const checks = {
+      topologyRegistryDurableBeforePublishing: diagnostics.before.registrySynced === true,
+      originalQueueDepthVerified: diagnostics.initialQueueDepth === total,
+      sameQuorumIdentityAfterCrash: true,
+      allConfirmedMessagesSurvivedCrash:
+        reader.depth === total &&
+        recovered.size === total &&
+        [...digests].every((d) => recovered.has(d)),
+      definitionsImported: imported.status === 204 || imported.status === 201,
+      quorumQueueRestored:
+        queue.status === 200 && queue.body.arguments?.['x-queue-type'] === 'quorum',
+      bindingRestored: binding.status === 200 && binding.body.length === 1,
+    };
+    report.components.rabbitmq = {
+      measured: {
+        crashRtoMs,
+        crashRpoMessages: total - recovered.size,
+        definitionsRtoMs,
+        confirmedMessages: total,
+        recoveredMessages: recovered.size,
+      },
+      fixture:
+        'Quorum name-to-UID registry synced before publishing; no message-storage sync or sleep after publishing. Newly declared queue crash safety is not claimed.',
+      method:
+        'quorum queue + confirmed persistent messages, SIGKILL + restart on the same volume; AMQP passive count and exact payload reconciliation; definitions export/import into an empty broker',
+      note: 'After total broker loss, unconsumed messages are re-published from owner transactional outboxes; the broker is not a system of record.',
+      checks,
+      ok: Object.values(checks).every(Boolean),
+    };
+    diagnostics.phase = 'complete';
+  } catch (error) {
+    diagnostics.brokers = await Promise.all(
+      brokerIds.map(async (id) => {
+        const commands = {
+          logs: ['logs', '--tail', '160', id],
+          mounts: ['inspect', '--format', '{{json .Mounts}}', id],
+          quorum: ['exec', id, 'rabbitmq-queues', '--vhost', 'drill', 'quorum_status', 'drill.q'],
+        };
+        const records = await Promise.all(
+          Object.entries(commands).map(async ([key, args]) => {
+            const result = await exec('docker', args, { timeoutMs: 10_000 });
+            return [
+              key,
+              { code: result.code, output: redact(result.stdout + result.stderr).slice(-12000) },
+            ];
+          }),
+        );
+        return { id, ...Object.fromEntries(records) };
+      }),
+    );
+    throw error;
   }
-
-  // Total loss: an empty broker gets the exported definitions back.
-  await docker(['rm', '-f', second]);
-  const lossAt = Date.now();
-  const third = await start(name('mq-3'));
-  await ready(await hostPort(third, 15672));
-  call = api(await hostPort(third, 15672));
-  const imported = await call('POST', '/definitions', definitions);
-  const queue = await call('GET', '/queues/drill/drill.q');
-  const binding = await call('GET', '/bindings/drill/e/drill.events/q/drill.q');
-  const definitionsRtoMs = Date.now() - lossAt;
-
-  const checks = {
-    allConfirmedMessagesSurvivedCrash:
-      reader.depth === total &&
-      recovered.size === total &&
-      [...digests].every((d) => recovered.has(d)),
-    definitionsImported: imported.status === 204 || imported.status === 201,
-    quorumQueueRestored:
-      queue.status === 200 && queue.body.arguments?.['x-queue-type'] === 'quorum',
-    bindingRestored: binding.status === 200 && binding.body.length === 1,
-  };
-  report.components.rabbitmq = {
-    measured: { crashRtoMs, crashRpoMessages: total - recovered.size, definitionsRtoMs },
-    method:
-      'quorum queue + confirmed persistent messages, SIGKILL + restart on the same volume; AMQP passive count and exact payload reconciliation; definitions export/import into an empty broker',
-    note: 'After total broker loss, unconsumed messages are re-published from owner transactional outboxes; the broker is not a system of record.',
-    checks,
-    ok: Object.values(checks).every(Boolean),
-  };
 }
 
 /* ---------------------------------------------------------------- redis --- */
