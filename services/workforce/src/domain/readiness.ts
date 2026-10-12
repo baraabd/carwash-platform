@@ -5,7 +5,8 @@ export type NotReadyReason =
   | 'SUSPENDED'
   | 'VERIFICATION_REQUIRED'
   | 'VERIFICATION_EXPIRED'
-  | 'NO_SKILLS';
+  | 'NO_SKILLS'
+  | 'EQUIPMENT_UNAVAILABLE';
 
 export interface Readiness {
   readonly ready: boolean;
@@ -26,5 +27,6 @@ export function operationalReadiness(
     reasons.push('VERIFICATION_EXPIRED');
   }
   if (skillCodes.length === 0) reasons.push('NO_SKILLS');
+  if (operator.equipmentBlocked) reasons.push('EQUIPMENT_UNAVAILABLE');
   return { ready: reasons.length === 0, reasons };
 }

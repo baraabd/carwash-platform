@@ -6,13 +6,30 @@ import {
   databaseUrlFromEnv,
 } from './infrastructure/persistence/prisma.service';
 import { PricingService } from './application';
+import { PricingService as LegacyPricingService, PromotionService } from './application/legacy';
+import { PrismaPricingRepository as LegacyPricingRepository } from './infrastructure/legacy/persistence/prisma-pricing.repository';
+import { IdentitySessionAuthority as LegacyIdentityAuthority } from './infrastructure/legacy/identity/identity-session.authority';
+import { PendingCatalogContractReader } from './infrastructure/legacy/catalog/pending-catalog-contract.reader';
+import { ConfiguredServiceCallers } from './infrastructure/legacy/security/service-callers';
+import {
+  LEGACY_PRICING_SERVICE,
+  PROMOTION_SERVICE,
+  LegacyPricingController,
+} from './transport/legacy/http/pricing.controller';
 import { PrismaPricingRepository } from './infrastructure/persistence/prisma-pricing.repository';
 import {
   IdentitySessionAuthority,
   identityAuthorityConfigFromEnv,
 } from './infrastructure/identity/identity-session.authority';
 import { EnvPolicyProvider } from './infrastructure/policy/env-policy.provider';
-import { PendingCatalogContractReader } from './infrastructure/catalog/pending-catalog-contract.reader';
+import {
+  CatalogV1HttpReader,
+  catalogReaderConfigFromEnv,
+} from './infrastructure/catalog/catalog-v1-http.reader';
+import {
+  ServiceClientAuthority,
+  pricingServiceClientsFromEnv,
+} from './infrastructure/service/service-client.authority';
 import { RandomIds, Sha256Hasher, SystemClock } from './infrastructure/system/system.adapters';
 import { PRICING_SERVICE, PricingController } from './transport/http/pricing.controller';
 /**
@@ -43,21 +60,51 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
       logger: createLogger({ service: SERVICE_NAME }),
     }),
   ],
-  controllers: [PricingController],
+  controllers: [PricingController, LegacyPricingController],
   providers: [
     { provide: DATABASE_URL, useFactory: () => databaseUrlFromEnv() },
     PrismaService,
     PrismaPricingRepository,
+    LegacyPricingRepository,
     {
       provide: PRICING_SERVICE,
       inject: [PrismaPricingRepository],
       useFactory: (repository: PrismaPricingRepository) =>
         new PricingService({
           repository,
-          // Unset Identity origin / policy keep the foundation image bootable;
-          // every protected command then fails closed with 503.
+          // Unset Identity/Catalog origins, service clients or policy keep the
+          // foundation image bootable; every affected command then fails closed.
           authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),
+          services: new ServiceClientAuthority(pricingServiceClientsFromEnv(process.env)),
+          catalog: new CatalogV1HttpReader(catalogReaderConfigFromEnv(process.env)),
+          policy: new EnvPolicyProvider(process.env),
+          clock: new SystemClock(),
+          ids: new RandomIds(),
+          hasher: new Sha256Hasher(),
+        }),
+    },
+    {
+      provide: LEGACY_PRICING_SERVICE,
+      inject: [LegacyPricingRepository],
+      useFactory: (repository: LegacyPricingRepository) =>
+        new LegacyPricingService({
+          repository,
+          authority: new LegacyIdentityAuthority(identityAuthorityConfigFromEnv(process.env)),
           catalog: new PendingCatalogContractReader(),
+          policy: new EnvPolicyProvider(process.env),
+          clock: new SystemClock(),
+          ids: new RandomIds(),
+          hasher: new Sha256Hasher(),
+        }),
+    },
+    {
+      provide: PROMOTION_SERVICE,
+      inject: [LegacyPricingRepository],
+      useFactory: (repository: LegacyPricingRepository) =>
+        new PromotionService({
+          repository,
+          authority: new LegacyIdentityAuthority(identityAuthorityConfigFromEnv(process.env)),
+          callers: ConfiguredServiceCallers.fromEnv(process.env),
           policy: new EnvPolicyProvider(process.env),
           clock: new SystemClock(),
           ids: new RandomIds(),

@@ -1,169 +1,212 @@
-import type { CatalogSnapshot } from './catalog-snapshot';
-import type { CurrencyPolicy } from './currency-policy';
-import { Money } from './money';
-import type { Rate, RateKind } from './price-version';
+import {
+  definitionOf,
+  isVehicleType,
+  type CatalogView,
+  type DefinitionKind,
+  type VehicleType,
+} from './catalog-view';
+import { normalizeUuid, resolveUnitPrice, type PriceBookEntry } from './price-book';
 
 /**
- * Quote calculation. Inputs are IDs only — the client never sends an owner,
- * unit price, discount, fee, tax or total. The result is a reproducible,
- * line-by-line breakdown in exact minor units.
+ * pricing.v1 quote calculation. Inputs are IDs and quantities only: the client
+ * never sends a unit price, discount, fee, tax or total. The result is an
+ * exact, line-by-line breakdown in minor units.
  *
- * Not computed in v1 (each needs an owner decision, see POLICY_DECISIONS.md):
- * promotions/discounts (B-10), zone/travel fees and tax (B-04). The quote
- * therefore carries no adjustment lines and total = subtotal; it is a price
- * snapshot, not an invoice, capacity hold, booking or payment.
+ * Emitted line kinds are PACKAGE and EXTRA. VEHICLE_SURCHARGE is not a separate
+ * line: a price book prices each (definition, vehicle type) directly. DISCOUNT
+ * (promotions, B-10), FEE (zone/travel, B-04) and TAX (B-04) need owner
+ * decisions that are still OPEN, so no such line is ever produced and none is
+ * accepted by the database. A quote is a price snapshot, not an invoice,
+ * capacity hold, booking or payment.
  */
-export interface Selection {
-  readonly catalogRevision: number;
-  readonly categoryId: string;
-  readonly packageId: string;
-  /** Unique, sorted. */
-  readonly addonIds: readonly string[];
+export const PRINCIPAL_KINDS = ['account', 'guest'] as const;
+export type PrincipalKind = (typeof PRINCIPAL_KINDS)[number];
+
+export interface PrincipalRef {
+  readonly kind: PrincipalKind;
+  readonly subjectId: string;
 }
 
-export interface QuoteLine {
-  readonly kind: RateKind;
+export interface QuoteSelection {
   readonly definitionId: string;
+  readonly quantity: number;
+}
+
+export interface QuoteRequest {
+  readonly beneficiary: PrincipalRef;
+  readonly vehicleType: VehicleType;
+  readonly zoneId: string | null;
+  /** Canonical order: by definitionId (a selection is a set of unique definitions). */
+  readonly selections: readonly QuoteSelection[];
+}
+
+export interface PricedLine {
+  readonly kind: DefinitionKind;
+  readonly definitionId: string;
+  readonly quantity: number;
+  readonly unitPriceMinor: bigint;
   readonly amountMinor: bigint;
-  /** INCLUDED add-ons are listed for transparency with a zero charge. */
-  readonly included: boolean;
 }
 
-export interface QuoteComputation {
-  readonly currency: string;
-  readonly lines: readonly QuoteLine[];
-  readonly subtotalMinor: bigint;
-  readonly totalMinor: bigint;
-  readonly durationMinutes: number;
-}
-
-export type QuoteRuleCode =
-  'SELECTION_MALFORMED' | 'SELECTION_INVALID' | 'AMOUNT_LIMIT_EXCEEDED' | 'RATE_MISSING';
+export type QuoteRuleReason = 'SELECTION_INVALID' | 'PRICE_NOT_AVAILABLE' | 'AMOUNT_LIMIT_EXCEEDED';
 
 export class QuoteRuleError extends Error {
-  constructor(readonly code: QuoteRuleCode) {
-    super(code);
+  constructor(readonly reason: QuoteRuleReason) {
+    super(reason);
     this.name = 'QuoteRuleError';
   }
 }
 
-const DEFINITION_ID = /^[a-z][a-z0-9-]{1,47}$/;
-const MAX_ADDONS = 20;
-
-export function normalizeSelection(raw: unknown): Selection {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw))
-    throw new QuoteRuleError('SELECTION_MALFORMED');
-  const input = raw as Record<string, unknown>;
-  if (Object.keys(input).sort().join(',') !== 'addonIds,catalogRevision,categoryId,packageId')
-    throw new QuoteRuleError('SELECTION_MALFORMED');
-  const { catalogRevision, categoryId, packageId, addonIds } = input;
-  if (
-    typeof catalogRevision !== 'number' ||
-    !Number.isInteger(catalogRevision) ||
-    catalogRevision < 1 ||
-    catalogRevision > 2_147_483_646
-  )
-    throw new QuoteRuleError('SELECTION_MALFORMED');
-  if (typeof categoryId !== 'string' || !DEFINITION_ID.test(categoryId))
-    throw new QuoteRuleError('SELECTION_MALFORMED');
-  if (typeof packageId !== 'string' || !DEFINITION_ID.test(packageId))
-    throw new QuoteRuleError('SELECTION_MALFORMED');
-  if (!Array.isArray(addonIds) || addonIds.length > MAX_ADDONS)
-    throw new QuoteRuleError('SELECTION_MALFORMED');
-  const ids: string[] = [];
-  for (const id of addonIds) {
-    if (typeof id !== 'string' || !DEFINITION_ID.test(id))
-      throw new QuoteRuleError('SELECTION_MALFORMED');
-    // Duplicates are rejected, not silently collapsed.
-    if (ids.includes(id)) throw new QuoteRuleError('SELECTION_MALFORMED');
-    ids.push(id);
+export class QuoteRequestInvalid extends Error {
+  constructor(readonly field: string) {
+    super('REQUEST_INVALID');
+    this.name = 'QuoteRequestInvalid';
   }
-  return { catalogRevision, categoryId, packageId, addonIds: ids.sort() };
 }
 
-function rateOf(rates: readonly Rate[], kind: RateKind, id: string): bigint {
-  const rate = rates.find((r) => r.kind === kind && r.definitionId === id);
-  // Rates were validated as complete at publication; a gap here is corruption.
-  if (!rate) throw new QuoteRuleError('RATE_MISSING');
-  return rate.amountMinor;
+export const MAX_SELECTIONS = 20;
+export const MAX_QUANTITY = 10;
+
+function closedObject(value: unknown, keys: string, field: string): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value))
+    throw new QuoteRequestInvalid(field);
+  const input = value as Record<string, unknown>;
+  if (Object.keys(input).sort().join(',') !== keys) throw new QuoteRequestInvalid(field);
+  return input;
 }
 
-export function computeQuote(input: {
-  readonly selection: Selection;
-  readonly snapshot: CatalogSnapshot;
-  readonly rates: readonly Rate[];
-  readonly policy: CurrencyPolicy;
-}): QuoteComputation {
-  const { selection, snapshot, rates, policy } = input;
-  const pkg = snapshot.packages.find((p) => p.id === selection.packageId);
-  const category = snapshot.categories.find((c) => c.id === selection.categoryId);
-  if (!pkg || !category || !pkg.allowedCategoryIds.includes(category.id))
-    throw new QuoteRuleError('SELECTION_INVALID');
+export function parsePrincipalRef(value: unknown, field: string): PrincipalRef {
+  const v = closedObject(value, 'kind,subjectId', field);
+  const kind = PRINCIPAL_KINDS.find((k) => k === v.kind);
+  const subjectId = normalizeUuid(v.subjectId);
+  if (!kind) throw new QuoteRequestInvalid(`${field}.kind`);
+  if (subjectId === null) throw new QuoteRequestInvalid(`${field}.subjectId`);
+  return { kind, subjectId };
+}
 
-  const lines: QuoteLine[] = [
-    {
-      kind: 'PACKAGE',
-      definitionId: pkg.id,
-      amountMinor: rateOf(rates, 'PACKAGE', pkg.id),
-      included: false,
-    },
-    {
-      kind: 'VEHICLE',
-      definitionId: category.id,
-      amountMinor: rateOf(rates, 'VEHICLE', category.id),
-      included: false,
-    },
-  ];
-  // The package duration already covers its included add-ons.
-  let duration = pkg.durationMinutes + category.extraDurationMinutes;
-  for (const addonId of selection.addonIds) {
-    const addon = snapshot.addons.find((a) => a.id === addonId);
-    if (!addon || !addon.allowedCategoryIds.includes(category.id))
-      throw new QuoteRuleError('SELECTION_INVALID');
-    if (pkg.includedAddonIds.includes(addonId)) {
-      lines.push({ kind: 'ADDON', definitionId: addonId, amountMinor: 0n, included: true });
-    } else if (pkg.optionalAddonIds.includes(addonId)) {
-      lines.push({
-        kind: 'ADDON',
-        definitionId: addonId,
-        amountMinor: rateOf(rates, 'ADDON', addonId),
-        included: false,
-      });
-      duration += addon.durationMinutes;
-    } else {
-      throw new QuoteRuleError('SELECTION_INVALID');
-    }
+/** Strict parse of QuoteRequestV1. */
+export function parseQuoteRequest(raw: unknown): QuoteRequest {
+  const v = closedObject(raw, 'beneficiary,selections,vehicleType,zoneId', '$');
+  const beneficiary = parsePrincipalRef(v.beneficiary, '$.beneficiary');
+  if (!isVehicleType(v.vehicleType)) throw new QuoteRequestInvalid('$.vehicleType');
+  let zoneId: string | null = null;
+  if (v.zoneId !== null) {
+    zoneId = normalizeUuid(v.zoneId);
+    if (zoneId === null) throw new QuoteRequestInvalid('$.zoneId');
   }
-
-  let subtotal = Money.zero(policy.currency);
-  for (const line of lines) subtotal = subtotal.plus(Money.of(line.amountMinor, policy.currency));
-  if (subtotal.exceeds(policy.maxAmountMinor)) throw new QuoteRuleError('AMOUNT_LIMIT_EXCEEDED');
+  if (!Array.isArray(v.selections) || v.selections.length === 0)
+    throw new QuoteRequestInvalid('$.selections');
+  if (v.selections.length > MAX_SELECTIONS) throw new QuoteRequestInvalid('$.selections');
+  const selections = v.selections.map((entry: unknown, index): QuoteSelection => {
+    const path = `$.selections[${index}]`;
+    const s = closedObject(entry, 'definitionId,quantity', path);
+    const definitionId = normalizeUuid(s.definitionId);
+    if (definitionId === null) throw new QuoteRequestInvalid(`${path}.definitionId`);
+    const { quantity } = s;
+    if (
+      typeof quantity !== 'number' ||
+      !Number.isInteger(quantity) ||
+      quantity < 1 ||
+      quantity > MAX_QUANTITY
+    )
+      throw new QuoteRequestInvalid(`${path}.quantity`);
+    return { definitionId, quantity };
+  });
+  if (new Set(selections.map((s) => s.definitionId)).size !== selections.length)
+    throw new QuoteRequestInvalid('$.selections');
   return {
-    currency: policy.currency,
-    lines,
-    subtotalMinor: subtotal.amountMinor,
-    totalMinor: subtotal.amountMinor,
-    durationMinutes: duration,
+    beneficiary,
+    vehicleType: v.vehicleType,
+    zoneId,
+    selections: selections.sort((a, b) =>
+      a.definitionId < b.definitionId ? -1 : a.definitionId > b.definitionId ? 1 : 0,
+    ),
   };
 }
 
-export type QuoteStatus = 'USABLE' | 'EXPIRED';
+/**
+ * Prices a selection against ONE price book and the Catalog view stored with
+ * it. Exactly one PACKAGE (quantity 1); every selected definition must be
+ * PUBLISHED and eligible for the vehicle type. Lines: the package first, then
+ * extras in canonical order. amount = unitPrice x quantity, exactly.
+ */
+export function priceSelection(input: {
+  readonly request: QuoteRequest;
+  readonly catalog: CatalogView;
+  readonly entries: readonly PriceBookEntry[];
+  readonly maxAmountMinor: bigint;
+}): { readonly lines: readonly PricedLine[]; readonly totalMinor: bigint } {
+  const { request, catalog, entries } = input;
+  const lines: PricedLine[] = [];
+  for (const selection of request.selections) {
+    const definition = definitionOf(catalog, selection.definitionId);
+    if (
+      !definition ||
+      definition.status !== 'PUBLISHED' ||
+      !definition.vehicleTypes.includes(request.vehicleType)
+    )
+      throw new QuoteRuleError('SELECTION_INVALID');
+    if (definition.kind === 'PACKAGE' && selection.quantity !== 1)
+      throw new QuoteRuleError('SELECTION_INVALID');
+    const unitPriceMinor = resolveUnitPrice(entries, definition.definitionId, request.vehicleType);
+    if (unitPriceMinor === null) throw new QuoteRuleError('PRICE_NOT_AVAILABLE');
+    lines.push({
+      kind: definition.kind,
+      definitionId: definition.definitionId,
+      quantity: selection.quantity,
+      unitPriceMinor,
+      amountMinor: unitPriceMinor * BigInt(selection.quantity),
+    });
+  }
+  const packages = lines.filter((line) => line.kind === 'PACKAGE');
+  if (packages.length !== 1) throw new QuoteRuleError('SELECTION_INVALID');
+  const ordered = [...packages, ...lines.filter((line) => line.kind !== 'PACKAGE')];
+  const totalMinor = ordered.reduce((sum, line) => sum + line.amountMinor, 0n);
+  if (totalMinor > input.maxAmountMinor) throw new QuoteRuleError('AMOUNT_LIMIT_EXCEEDED');
+  return { lines: ordered, totalMinor };
+}
+
+export type QuoteStatus = 'USABLE' | 'EXPIRED' | 'REVOKED';
 
 /**
- * Expiry = issue time + configured TTL (B-05), but never beyond the moment the
- * next scheduled price version takes effect: a quote never outlives the prices
- * it was computed from. Replays never extend validity.
+ * Expiry = issue time + configured TTL (B-05). Publishing a newer price book
+ * does not shorten or revoke an issued quote: the quote is honoured at its own
+ * snapshot until it expires. No revocation command exists in pricing.v1 and
+ * revocation conditions are an OPEN owner decision (B-05), so REVOKED is part
+ * of the vocabulary but is never produced by this implementation.
  */
-export function quoteExpiry(
-  issuedAt: Date,
-  ttlSeconds: number,
-  nextVersionFrom: Date | null,
-): Date {
-  const byTtl = issuedAt.getTime() + ttlSeconds * 1000;
-  const cap = nextVersionFrom?.getTime() ?? Number.POSITIVE_INFINITY;
-  return new Date(Math.min(byTtl, cap));
+export function quoteExpiry(issuedAt: Date, ttlSeconds: number): Date {
+  return new Date(issuedAt.getTime() + ttlSeconds * 1000);
 }
 
 export function quoteStatus(expiresAt: Date, now: Date): QuoteStatus {
   return now.getTime() < expiresAt.getTime() ? 'USABLE' : 'EXPIRED';
+}
+
+export type QuoteValidationReason =
+  'QUOTE_EXPIRED' | 'QUOTE_REVOKED' | 'REVISION_MISMATCH' | 'BENEFICIARY_MISMATCH';
+
+/**
+ * pricing.v1 validateQuote decision. Beneficiary is checked first so a caller
+ * that names the wrong beneficiary learns nothing else about the quote.
+ */
+export function validationReason(input: {
+  readonly quote: {
+    readonly revision: number;
+    readonly beneficiary: PrincipalRef;
+    readonly expiresAt: Date;
+  };
+  readonly expectedRevision: number;
+  readonly beneficiary: PrincipalRef;
+  readonly now: Date;
+}): QuoteValidationReason | null {
+  const { quote, beneficiary } = input;
+  if (
+    quote.beneficiary.kind !== beneficiary.kind ||
+    quote.beneficiary.subjectId !== beneficiary.subjectId
+  )
+    return 'BENEFICIARY_MISMATCH';
+  if (quote.revision !== input.expectedRevision) return 'REVISION_MISMATCH';
+  if (quoteStatus(quote.expiresAt, input.now) === 'EXPIRED') return 'QUOTE_EXPIRED';
+  return null;
 }

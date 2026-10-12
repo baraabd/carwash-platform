@@ -1,7 +1,2 @@
-/**
- * wallet ports layer.
- *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
- */
-export {};
+/** wallet ports layer: persistence, identity, clock and ids. */
+export * from './wallet.ports';

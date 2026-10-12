@@ -36,6 +36,11 @@ import { privilegeHardeningSql } from '../../../acceptance/lib/migrations.mjs';
 import { observePostgresClient, startAcknowledgedWrites } from './postgres-writer.mjs';
 import { run as runCommand } from '../../../acceptance/lib/exec.mjs';
 import { acquireDrillImage } from './image-acquisition.mjs';
+import {
+  closeRecoveredQueue,
+  consumeRecoveredQueue,
+  openRecoveredQueue,
+} from './rabbitmq-recovery.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const require = createRequire(path.join(ROOT, 'services/booking/package.json'));
@@ -522,6 +527,8 @@ async function rabbitDrill(report) {
       'drill-mq',
       '--publish',
       '127.0.0.1::15672',
+      '--publish',
+      '127.0.0.1::5672',
       '--env',
       'RABBITMQ_DEFAULT_USER=cw_drill',
       '--env',
@@ -539,6 +546,10 @@ async function rabbitDrill(report) {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const text = await res.text();
+    assert.ok(
+      res.ok,
+      `RabbitMQ ${method} ${route}: HTTP ${res.status}: ${redact(text).slice(0, 500)}`,
+    );
     return { status: res.status, body: text ? JSON.parse(text) : null };
   };
   const ready = async (mport) =>
@@ -578,24 +589,35 @@ async function rabbitDrill(report) {
   await docker(['rm', '-f', first]);
   const second = await start(name('mq-2'), data);
   await ready(await hostPort(second, 15672));
-  call = api(await hostPort(second, 15672));
-  const depth = await until(
-    'queue recovered',
-    async () => {
-      const q = await call('GET', '/queues/drill/drill.q');
-      return q.status === 200 && q.body.messages === total ? q.body.messages : false;
-    },
+  const { connect } = require(path.join(ROOT, 'packages/platform-messaging/node_modules/amqplib'));
+  const amqpPort = await hostPort(second, 5672);
+  const reader = await until(
+    'quorum queue recovered (AMQP)',
+    () =>
+      openRecoveredQueue(
+        () =>
+          connect(
+            {
+              hostname: '127.0.0.1',
+              port: amqpPort,
+              username: 'cw_drill',
+              password,
+              vhost: 'drill',
+            },
+            { timeout: 5000 },
+          ),
+        'drill.q',
+        total,
+      ),
     { timeoutMs: 120_000, everyMs: 1000 },
   );
   const crashRtoMs = Date.now() - crashAt;
-  const got = await call('POST', '/queues/drill/drill.q/get', {
-    count: total,
-    ackmode: 'ack_requeue_false',
-    encoding: 'auto',
-  });
-  const recovered = new Set(
-    got.body.map((m) => createHash('sha256').update(m.payload).digest('hex')),
-  );
+  let recovered;
+  try {
+    recovered = await consumeRecoveredQueue(reader.channel, 'drill.q', digests);
+  } finally {
+    await closeRecoveredQueue(reader);
+  }
 
   // Total loss: an empty broker gets the exported definitions back.
   await docker(['rm', '-f', second]);
@@ -610,7 +632,9 @@ async function rabbitDrill(report) {
 
   const checks = {
     allConfirmedMessagesSurvivedCrash:
-      depth === total && recovered.size === total && [...digests].every((d) => recovered.has(d)),
+      reader.depth === total &&
+      recovered.size === total &&
+      [...digests].every((d) => recovered.has(d)),
     definitionsImported: imported.status === 204 || imported.status === 201,
     quorumQueueRestored:
       queue.status === 200 && queue.body.arguments?.['x-queue-type'] === 'quorum',
@@ -619,7 +643,7 @@ async function rabbitDrill(report) {
   report.components.rabbitmq = {
     measured: { crashRtoMs, crashRpoMessages: total - recovered.size, definitionsRtoMs },
     method:
-      'quorum queue + persistent messages, SIGKILL + restart on the same volume; definitions export/import into an empty broker',
+      'quorum queue + confirmed persistent messages, SIGKILL + restart on the same volume; AMQP passive count and exact payload reconciliation; definitions export/import into an empty broker',
     note: 'After total broker loss, unconsumed messages are re-published from owner transactional outboxes; the broker is not a system of record.',
     checks,
     ok: Object.values(checks).every(Boolean),
@@ -1081,6 +1105,11 @@ export async function main({ argv = process.argv.slice(2), resolveImage = byDige
       console.log(
         `${report.components[component].ok ? 'PASS' : 'FAIL'} ${component} ${JSON.stringify(report.components[component].measured ?? {})}`,
       );
+      if (!report.components[component].ok) {
+        console.error(
+          `${component}: ${report.failures[component] ?? JSON.stringify(report.components[component].checks)}`,
+        );
+      }
     }
   } catch (error) {
     report.failures.preparation = redact(error.stack ?? error.message).slice(0, 4000);

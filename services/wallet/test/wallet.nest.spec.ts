@@ -155,3 +155,30 @@ test('wallet: the postgres probe is wired to this service own client', async () 
   assert.equal(probe.kind, 'postgres');
   await moduleRef.close();
 });
+
+test('wallet: the custody API is mounted read-only and fails closed without Identity', async () => {
+  process.env.DATABASE_URL = DSN;
+  delete process.env.IDENTITY_SESSION_ORIGIN;
+  const app = await createHttpApplication();
+  await app.listen(0, '127.0.0.1');
+  try {
+    const url = (await app.getUrl()) + '/internal/v1/wallet';
+    assert.equal((await fetch(url + '/custody/me')).status, 401);
+    const bearer = { authorization: 'Bearer eyJhbGciOiJSUzI1NiJ9.e30.c2ln' };
+    assert.equal(
+      (await fetch(url + '/custody/me', { headers: bearer })).status,
+      503,
+      'no Identity origin: never an anonymous grant',
+    );
+    // B-08: no customer stored value, top-up, transfer or withdrawal exists.
+    for (const path of ['/accounts', '/top-ups', '/transfers', '/withdrawals', '/custody/me'])
+      assert.equal(
+        (await fetch(url + path, { method: 'POST', headers: bearer })).status,
+        404,
+        path,
+      );
+    assert.equal((await fetch((await app.getUrl()) + '/health/ready')).status, 503);
+  } finally {
+    await app.close();
+  }
+});

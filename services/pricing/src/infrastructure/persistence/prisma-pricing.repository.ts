@@ -1,107 +1,145 @@
 import { Injectable } from '@nestjs/common';
 import {
-  RATE_KINDS,
-  type CatalogSnapshot,
-  type Rate,
-  type RateKind,
-  type VersionHead,
+  DEFINITION_KINDS,
+  DEFINITION_STATUSES,
+  PRINCIPAL_KINDS,
+  VEHICLE_TYPES,
+  type CatalogView,
+  type PriceBookEntry,
+  type VehicleType,
 } from '../../domain';
 import {
   ReceiptAlreadyExists,
   type AuditRecord,
   type IdempotencyReceipt,
-  type NewPriceVersion,
+  type NewPriceBook,
+  type PriceBook,
   type PricingRepository,
   type PricingUnitOfWork,
-  type PublishedPriceVersion,
   type StoredQuote,
 } from '../../ports';
 import { Prisma, type PrismaClient } from '../../generated/prisma/client';
 import { PrismaService } from './prisma.service';
 
 type Tx = Prisma.TransactionClient;
-type VersionRow = Prisma.PriceVersionGetPayload<{ include: { rates: true } }>;
-type QuoteRow = Prisma.QuoteGetPayload<{ include: { lines: true } }>;
+type BookRow = Prisma.PriceBookGetPayload<{ include: { entries: true } }>;
+type QuoteRow = Prisma.PricingQuoteGetPayload<{ include: { lines: true } }>;
 
-function kind(value: string): RateKind {
-  const found = RATE_KINDS.find((k) => k === value);
-  if (!found) throw new Error('STORED_RATE_KIND_INVALID');
+/** Stored values were written by this adapter under database CHECKs; a mismatch is corruption. */
+function oneOf<T extends string>(values: readonly T[], value: string, what: string): T {
+  const found = values.find((v) => v === value);
+  if (!found) throw new Error(`STORED_${what}_INVALID`);
   return found;
 }
 
-function snapshotToJson(snapshot: CatalogSnapshot): Prisma.InputJsonObject {
+function vehicleScope(type: VehicleType | null): string {
+  return type ?? '*';
+}
+
+function catalogToJson(view: CatalogView): Prisma.InputJsonObject {
   return {
-    revision: snapshot.revision,
-    effectiveFrom: snapshot.effectiveFrom.toISOString(),
-    definitionsFingerprint: snapshot.definitionsFingerprint,
-    categories: snapshot.categories.map((c) => ({ ...c })),
-    packages: snapshot.packages.map((p) => ({
-      ...p,
-      allowedCategoryIds: [...p.allowedCategoryIds],
-      includedAddonIds: [...p.includedAddonIds],
-      optionalAddonIds: [...p.optionalAddonIds],
+    catalogRevision: view.catalogRevision,
+    publishedAt: view.publishedAt.toISOString(),
+    definitions: view.definitions.map((d) => ({
+      definitionId: d.definitionId,
+      kind: d.kind,
+      durationMinutes: d.durationMinutes,
+      vehicleTypes: [...d.vehicleTypes],
+      status: d.status,
     })),
-    addons: snapshot.addons.map((a) => ({ ...a, allowedCategoryIds: [...a.allowedCategoryIds] })),
   };
 }
 
-/** The stored JSON was written by snapshotToJson in the same transaction as its version. */
-function snapshotFromJson(value: Prisma.JsonValue): CatalogSnapshot {
-  const raw = value as unknown as Omit<CatalogSnapshot, 'effectiveFrom'> & {
-    effectiveFrom: string;
-  };
-  return { ...raw, effectiveFrom: new Date(raw.effectiveFrom) };
-}
-
-function toVersion(row: VersionRow): PublishedPriceVersion {
-  const rates: Rate[] = row.rates
-    .map((r) => ({ kind: kind(r.kind), definitionId: r.definitionId, amountMinor: r.amountMinor }))
-    .sort(
-      (a, b) =>
-        RATE_KINDS.indexOf(a.kind) - RATE_KINDS.indexOf(b.kind) ||
-        (a.definitionId < b.definitionId ? -1 : a.definitionId > b.definitionId ? 1 : 0),
-    );
+function catalogFromJson(value: Prisma.JsonValue): CatalogView {
+  if (typeof value !== 'object' || value === null || Array.isArray(value))
+    throw new Error('STORED_CATALOG_VIEW_INVALID');
+  const raw = value as Record<string, unknown>;
+  const definitions = raw.definitions;
+  if (
+    typeof raw.catalogRevision !== 'number' ||
+    typeof raw.publishedAt !== 'string' ||
+    !Array.isArray(definitions)
+  )
+    throw new Error('STORED_CATALOG_VIEW_INVALID');
   return {
-    version: row.version,
-    effectiveFrom: row.effectiveFrom,
-    publishedAt: row.publishedAt,
-    catalogRevision: row.catalogRevision,
-    policyRevision: row.policyRevision,
+    catalogRevision: raw.catalogRevision,
+    publishedAt: new Date(raw.publishedAt),
+    definitions: definitions.map((entry: unknown) => {
+      const d = entry as Record<string, unknown>;
+      if (
+        typeof d.definitionId !== 'string' ||
+        typeof d.kind !== 'string' ||
+        typeof d.status !== 'string' ||
+        typeof d.durationMinutes !== 'number' ||
+        !Array.isArray(d.vehicleTypes)
+      )
+        throw new Error('STORED_CATALOG_VIEW_INVALID');
+      return {
+        definitionId: d.definitionId,
+        kind: oneOf(DEFINITION_KINDS, d.kind, 'DEFINITION_KIND'),
+        status: oneOf(DEFINITION_STATUSES, d.status, 'DEFINITION_STATUS'),
+        durationMinutes: d.durationMinutes,
+        vehicleTypes: d.vehicleTypes.map((t: unknown) =>
+          oneOf(VEHICLE_TYPES, String(t), 'VEHICLE_TYPE'),
+        ),
+      };
+    }),
+  };
+}
+
+function toEntry(row: BookRow['entries'][number]): PriceBookEntry {
+  return {
+    definitionId: row.definitionId,
+    vehicleType:
+      row.vehicleScope === '*' ? null : oneOf(VEHICLE_TYPES, row.vehicleScope, 'VEHICLE_SCOPE'),
+    unitPriceMinor: row.unitPriceMinor,
+  };
+}
+
+function toBook(row: BookRow): PriceBook {
+  const key = (e: PriceBookEntry) => `${e.definitionId}|${e.vehicleType ?? ''}`;
+  return {
+    revision: row.revision,
     currency: row.currency,
-    minorUnitExponent: row.minorUnitExponent,
-    ratesFingerprint: row.ratesFingerprint,
-    rates,
-    catalog: snapshotFromJson(row.catalogSnapshot),
+    scale: row.scale,
+    policyRevision: row.policyRevision,
+    catalog: catalogFromJson(row.catalogView),
+    catalogFingerprint: row.catalogFingerprint,
+    entries: row.entries
+      .map(toEntry)
+      .sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0)),
+    entriesFingerprint: row.entriesFingerprint,
+    publishedAt: row.publishedAt,
   };
 }
 
 function toQuote(row: QuoteRow): StoredQuote {
   return {
     id: row.id,
-    ownerSubject: row.ownerSubject,
-    priceVersion: row.priceVersion,
+    revision: row.revision,
+    beneficiary: {
+      kind: oneOf(PRINCIPAL_KINDS, row.beneficiaryKind, 'BENEFICIARY_KIND'),
+      subjectId: row.beneficiarySubject,
+    },
+    requestedBy: row.requestedBy,
+    vehicleType: oneOf(VEHICLE_TYPES, row.vehicleType, 'VEHICLE_TYPE'),
+    zoneId: row.zoneId,
+    currency: row.currency,
+    scale: row.scale,
+    priceBookRevision: row.priceBookRevision,
     catalogRevision: row.catalogRevision,
     policyRevision: row.policyRevision,
-    currency: row.currency,
-    minorUnitExponent: row.minorUnitExponent,
-    selection: {
-      catalogRevision: row.catalogRevision,
-      categoryId: row.categoryId,
-      packageId: row.packageId,
-      addonIds: [...row.addonIds],
-    },
     lines: [...row.lines]
       .sort((a, b) => a.lineNo - b.lineNo)
       .map((l) => ({
-        kind: kind(l.kind),
+        lineId: l.lineId,
+        kind: oneOf(DEFINITION_KINDS, l.kind, 'LINE_KIND'),
         definitionId: l.definitionId,
+        quantity: l.quantity,
+        unitPriceMinor: l.unitPriceMinor,
         amountMinor: l.amountMinor,
-        included: l.included,
       })),
-    subtotalMinor: row.subtotalMinor,
     totalMinor: row.totalMinor,
-    durationMinutes: row.durationMinutes,
-    inputFingerprint: row.inputFingerprint,
     issuedAt: row.issuedAt,
     expiresAt: row.expiresAt,
     correlationId: row.correlationId,
@@ -128,104 +166,99 @@ function toReceipt(row: {
   };
 }
 
+function receiptWhere(actorSubject: string, operation: string, idempotencyKey: string) {
+  return { actorSubject_operation_idempotencyKey: { actorSubject, operation, idempotencyKey } };
+}
+
+async function insertAudit(client: Tx | PrismaClient, record: AuditRecord): Promise<void> {
+  await client.pricingAuditRecord.create({ data: { ...record } });
+}
+
 class PrismaPricingUnitOfWork implements PricingUnitOfWork {
   constructor(private readonly tx: Tx) {}
 
-  async lockHead(): Promise<VersionHead | null> {
+  async lockPriceBookHead(): Promise<number | null> {
     await this.tx.$queryRaw`SELECT id FROM app.pricing_publication_lock WHERE id = 1 FOR UPDATE`;
-    const head = await this.tx.priceVersion.findFirst({
-      orderBy: { version: 'desc' },
-      select: { version: true, effectiveFrom: true },
+    const head = await this.tx.priceBook.findFirst({
+      orderBy: { revision: 'desc' },
+      select: { revision: true },
     });
-    return head ?? null;
+    return head?.revision ?? null;
   }
 
-  async lockPrices(): Promise<void> {
-    await this.tx.$queryRaw`SELECT id FROM app.pricing_publication_lock WHERE id = 1 FOR SHARE`;
-  }
-
-  async versionInForce(at: Date): Promise<PublishedPriceVersion | null> {
-    const row = await this.tx.priceVersion.findFirst({
-      where: { effectiveFrom: { lte: at } },
-      orderBy: { effectiveFrom: 'desc' },
-      include: { rates: true },
+  async priceBookInForce(): Promise<PriceBook | null> {
+    const row = await this.tx.priceBook.findFirst({
+      orderBy: { revision: 'desc' },
+      include: { entries: true },
     });
-    return row ? toVersion(row) : null;
-  }
-
-  async version(version: number): Promise<PublishedPriceVersion | null> {
-    const row = await this.tx.priceVersion.findUnique({
-      where: { version },
-      include: { rates: true },
-    });
-    return row ? toVersion(row) : null;
+    return row ? toBook(row) : null;
   }
 
   async findReceipt(actorSubject: string, operation: string, idempotencyKey: string) {
     const row = await this.tx.pricingIdempotencyReceipt.findUnique({
-      where: { actorSubject_operation_idempotencyKey: { actorSubject, operation, idempotencyKey } },
+      where: receiptWhere(actorSubject, operation, idempotencyKey),
     });
     return row ? toReceipt(row) : null;
   }
 
-  async insertPriceVersion(version: NewPriceVersion): Promise<void> {
-    await this.tx.priceVersion.create({
+  async insertPriceBook(book: NewPriceBook): Promise<void> {
+    await this.tx.priceBook.create({
       data: {
-        version: version.version,
-        previousVersion: version.version > 1 ? version.version - 1 : null,
-        effectiveFrom: version.effectiveFrom,
-        publishedAt: version.publishedAt,
-        publishedBy: version.publishedBy,
-        correlationId: version.correlationId,
-        catalogRevision: version.catalogRevision,
-        catalogFingerprint: version.catalog.definitionsFingerprint,
-        catalogSnapshot: snapshotToJson(version.catalog),
-        policyRevision: version.policyRevision,
-        currency: version.currency,
-        minorUnitExponent: version.minorUnitExponent,
-        ratesFingerprint: version.ratesFingerprint,
+        revision: book.revision,
+        previousRevision: book.revision > 1 ? book.revision - 1 : null,
+        currency: book.currency,
+        scale: book.scale,
+        policyRevision: book.policyRevision,
+        catalogRevision: book.catalog.catalogRevision,
+        catalogFingerprint: book.catalogFingerprint,
+        catalogView: catalogToJson(book.catalog),
+        entriesFingerprint: book.entriesFingerprint,
+        publishedAt: book.publishedAt,
+        publishedBy: book.publishedBy,
+        correlationId: book.correlationId,
       },
     });
-    await this.tx.priceRate.createMany({
-      data: version.rates.map((rate) => ({
-        version: version.version,
-        kind: rate.kind,
-        definitionId: rate.definitionId,
-        amountMinor: rate.amountMinor,
+    await this.tx.priceBookEntry.createMany({
+      data: book.entries.map((entry) => ({
+        revision: book.revision,
+        definitionId: entry.definitionId,
+        vehicleScope: vehicleScope(entry.vehicleType),
+        unitPriceMinor: entry.unitPriceMinor,
       })),
     });
   }
 
   async insertQuote(quote: StoredQuote): Promise<void> {
-    await this.tx.quote.create({
+    await this.tx.pricingQuote.create({
       data: {
         id: quote.id,
-        ownerSubject: quote.ownerSubject,
-        priceVersion: quote.priceVersion,
+        revision: quote.revision,
+        beneficiaryKind: quote.beneficiary.kind,
+        beneficiarySubject: quote.beneficiary.subjectId,
+        requestedBy: quote.requestedBy,
+        vehicleType: quote.vehicleType,
+        zoneId: quote.zoneId,
+        currency: quote.currency,
+        scale: quote.scale,
+        priceBookRevision: quote.priceBookRevision,
         catalogRevision: quote.catalogRevision,
         policyRevision: quote.policyRevision,
-        currency: quote.currency,
-        minorUnitExponent: quote.minorUnitExponent,
-        categoryId: quote.selection.categoryId,
-        packageId: quote.selection.packageId,
-        addonIds: [...quote.selection.addonIds],
-        subtotalMinor: quote.subtotalMinor,
         totalMinor: quote.totalMinor,
-        durationMinutes: quote.durationMinutes,
-        inputFingerprint: quote.inputFingerprint,
         issuedAt: quote.issuedAt,
         expiresAt: quote.expiresAt,
         correlationId: quote.correlationId,
       },
     });
-    await this.tx.quoteLine.createMany({
+    await this.tx.pricingQuoteLine.createMany({
       data: quote.lines.map((line, lineNo) => ({
         quoteId: quote.id,
         lineNo,
+        lineId: line.lineId,
         kind: line.kind,
         definitionId: line.definitionId,
+        quantity: line.quantity,
+        unitPriceMinor: line.unitPriceMinor,
         amountMinor: line.amountMinor,
-        included: line.included,
       })),
     });
   }
@@ -250,8 +283,8 @@ class PrismaPricingUnitOfWork implements PricingUnitOfWork {
     }
   }
 
-  async appendAudit(record: AuditRecord): Promise<void> {
-    await this.tx.pricingAuditEvent.create({ data: { ...record } });
+  appendAudit(record: AuditRecord): Promise<void> {
+    return insertAudit(this.tx, record);
   }
 }
 
@@ -273,47 +306,20 @@ export class PrismaPricingRepository implements PricingRepository {
 
   async findReceipt(actorSubject: string, operation: string, idempotencyKey: string) {
     const row = await this.client.pricingIdempotencyReceipt.findUnique({
-      where: { actorSubject_operation_idempotencyKey: { actorSubject, operation, idempotencyKey } },
+      where: receiptWhere(actorSubject, operation, idempotencyKey),
     });
     return row ? toReceipt(row) : null;
   }
 
-  async versionInForce(at: Date): Promise<PublishedPriceVersion | null> {
-    const row = await this.client.priceVersion.findFirst({
-      where: { effectiveFrom: { lte: at } },
-      orderBy: { effectiveFrom: 'desc' },
-      include: { rates: true },
-    });
-    return row ? toVersion(row) : null;
-  }
-
-  async version(version: number): Promise<PublishedPriceVersion | null> {
-    const row = await this.client.priceVersion.findUnique({
-      where: { version },
-      include: { rates: true },
-    });
-    return row ? toVersion(row) : null;
-  }
-
-  async listVersions(limit: number) {
-    return this.client.priceVersion.findMany({
-      orderBy: { version: 'desc' },
-      take: limit,
-      select: {
-        version: true,
-        effectiveFrom: true,
-        publishedAt: true,
-        catalogRevision: true,
-        policyRevision: true,
-        currency: true,
-        minorUnitExponent: true,
-        ratesFingerprint: true,
-      },
-    });
-  }
-
   async quote(id: string): Promise<StoredQuote | null> {
-    const row = await this.client.quote.findUnique({ where: { id }, include: { lines: true } });
+    const row = await this.client.pricingQuote.findUnique({
+      where: { id },
+      include: { lines: true },
+    });
     return row ? toQuote(row) : null;
+  }
+
+  appendAudit(record: AuditRecord): Promise<void> {
+    return insertAudit(this.client, record);
   }
 }

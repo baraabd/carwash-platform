@@ -1,7 +1,8 @@
-/**
- * subscription application layer.
- *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
- */
-export {};
+/** subscription application layer: commands and queries over the ports. */
+export * from './command-support';
+export * from './entitlement.service';
+export * from './events';
+export * from './request-support';
+export * from './subscription-errors';
+export * from './subscription.service';
+export * from './views';

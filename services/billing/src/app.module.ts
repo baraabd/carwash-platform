@@ -7,12 +7,15 @@ import {
 } from './infrastructure/persistence/prisma.service';
 import {
   BillingService,
+  BookingObligationService,
   CashCustodyService,
+  FinanceQueryService,
   ProviderPaymentsService,
   RefundService,
 } from './application';
 import type { PaymentProviderRegistry } from './ports';
 import { PrismaBillingRepository } from './infrastructure/persistence/prisma-billing.repository';
+import { PrismaFinanceReadModel } from './infrastructure/persistence/prisma-finance.read-model';
 import {
   IdentitySessionAuthority,
   identityAuthorityConfigFromEnv,
@@ -21,11 +24,21 @@ import {
   PricingQuoteReader,
   pricingConfigFromEnv,
 } from './infrastructure/pricing/pricing-quote.reader';
+import {
+  PricingQuoteValidator,
+  pricingCredentialFromEnv,
+} from './infrastructure/pricing/pricing-quote.validator';
+import { ServiceClientCallerAuthority } from './infrastructure/security/service-callers';
 import { RandomIds, Sha256Hasher, SystemClock } from './infrastructure/system/system.adapters';
 import { UnpublishedWorkAuthority } from './infrastructure/work/unpublished-work.authority';
 import { productionProviderRegistry } from './infrastructure/providers/merchant-providers';
 import { BILLING_SERVICE, BillingController } from './transport/http/billing.controller';
+import {
+  BOOKING_OBLIGATION_SERVICE,
+  BookingObligationController,
+} from './transport/http/booking-obligation.controller';
 import { CASH_CUSTODY_SERVICE, CustodyController } from './transport/http/custody.controller';
+import { FINANCE_QUERY_SERVICE, FinanceController } from './transport/http/finance.controller';
 import {
   PROVIDER_PAYMENTS_SERVICE,
   ProviderController,
@@ -67,11 +80,18 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
       logger: createLogger({ service: SERVICE_NAME }),
     }),
   ],
-  controllers: [BillingController, CustodyController, ProviderController],
+  controllers: [
+    BillingController,
+    CustodyController,
+    ProviderController,
+    FinanceController,
+    BookingObligationController,
+  ],
   providers: [
     { provide: DATABASE_URL, useFactory: () => databaseUrlFromEnv() },
     PrismaService,
     PrismaBillingRepository,
+    PrismaFinanceReadModel,
     // Fails startup on invalid merchant-account config or on automation
     // settings for an adapter that does not exist (never silently ignored).
     { provide: PAYMENT_PROVIDERS, useFactory: () => productionProviderRegistry(process.env) },
@@ -126,6 +146,35 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
           repository,
           authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),
           providers,
+          clock: new SystemClock(),
+          ids: new RandomIds(),
+          hasher: new Sha256Hasher(),
+        }),
+    },
+    {
+      // Admin finance reads (P06-B6): read-only snapshot queries, billing.read only.
+      provide: FINANCE_QUERY_SERVICE,
+      inject: [PrismaFinanceReadModel],
+      useFactory: (readModel: PrismaFinanceReadModel) =>
+        new FinanceQueryService({
+          readModel,
+          authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),
+          clock: new SystemClock(),
+        }),
+    },
+    {
+      provide: BOOKING_OBLIGATION_SERVICE,
+      inject: [PrismaBillingRepository],
+      useFactory: (repository: PrismaBillingRepository) =>
+        new BookingObligationService({
+          repository,
+          // No configured workload (BILLING_SERVICE_CLIENTS) answers 401; no
+          // Pricing workload credential fails every create closed with 503.
+          services: ServiceClientCallerAuthority.fromEnv(process.env),
+          quotes: new PricingQuoteValidator(
+            pricingConfigFromEnv(process.env),
+            pricingCredentialFromEnv(process.env),
+          ),
           clock: new SystemClock(),
           ids: new RandomIds(),
           hasher: new Sha256Hasher(),

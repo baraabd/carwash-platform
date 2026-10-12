@@ -1,5 +1,10 @@
+import { overlaps } from '../../src/domain';
 import type {
+  AvailabilityExceptionState,
   AvailabilityState,
+  EquipmentState,
+  ServiceAreaState,
+  WeeklyScheduleState,
   CapacityCandidate,
   OperatorState,
   ShiftState,
@@ -7,6 +12,7 @@ import type {
 } from '../../src/domain';
 import type {
   AuditAppend,
+  InsertExceptionResult,
   InsertResult,
   InsertShiftResult,
   OutboxAppend,
@@ -36,6 +42,8 @@ export class MemoryStore implements WorkforceUnitOfWork, WorkforceReadModel {
   readonly outbox: OutboxAppend[] = [];
   readonly audit: AuditAppend[] = [];
   readonly cases = new Map<string, VerificationCaseState>();
+  readonly profile = new ProfileTables();
+  readonly shifts = new Map<string, ShiftState>();
   transactions = 0;
   candidates: CapacityCandidate[] = [];
   lastCandidateQuery: Parameters<WorkforceReadModel['listCapacityCandidates']>[0] | null = null;
@@ -47,14 +55,27 @@ export class MemoryStore implements WorkforceUnitOfWork, WorkforceReadModel {
     const skills = new Map([...this.skills].map(([k, v]) => [k, new Set(v)]));
     const availability = new Map(this.availability);
     const cases = new Map(this.cases);
+    const profile = this.profile.copy();
+    const shifts = new Map(this.shifts);
     const outbox: OutboxAppend[] = [];
     const audit: AuditAppend[] = [];
-    const tx = new MemoryTransaction(operators, skills, availability, cases, outbox, audit);
+    const tx = new MemoryTransaction(
+      operators,
+      skills,
+      availability,
+      cases,
+      outbox,
+      audit,
+      profile,
+      shifts,
+    );
     const result = await work(tx);
     this.replace(this.operators, operators);
     this.replace(this.skills, skills);
     this.replace(this.availability, availability);
     this.replace(this.cases, cases);
+    this.profile.adopt(profile);
+    this.replace(this.shifts, shifts);
     this.outbox.push(...outbox);
     this.audit.push(...audit);
     return result;
@@ -85,10 +106,32 @@ export class MemoryStore implements WorkforceUnitOfWork, WorkforceReadModel {
       return this.cases.get(id) ?? null;
     });
   }
-  listShifts(): Promise<ShiftState[]> {
-    return settle(() => {
-      return [];
-    });
+  listShifts(operatorId: string, from: Date, to: Date): Promise<ShiftState[]> {
+    return settle(() =>
+      [...this.shifts.values()]
+        .filter((s) => s.operatorId === operatorId && overlaps(s, { startsAt: from, endsAt: to }))
+        .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime()),
+    );
+  }
+  findServiceArea(operatorId: string): Promise<ServiceAreaState | null> {
+    return settle(() => this.profile.areas.get(operatorId) ?? null);
+  }
+  findSchedule(operatorId: string): Promise<WeeklyScheduleState | null> {
+    return settle(() => this.profile.schedules.get(operatorId) ?? null);
+  }
+  listExceptions(operatorId: string, from: Date, to: Date): Promise<AvailabilityExceptionState[]> {
+    return settle(() => this.profile.exceptionsOf(operatorId, from, to, false));
+  }
+  listEquipment(operatorId: string): Promise<EquipmentState[]> {
+    return settle(() => this.profile.equipmentOf(operatorId));
+  }
+  latestVerificationCase(operatorId: string): Promise<VerificationCaseState | null> {
+    return settle(
+      () =>
+        [...this.cases.values()]
+          .filter((c) => c.operatorId === operatorId)
+          .sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime())[0] ?? null,
+    );
   }
   findAvailability(operatorId: string): Promise<AvailabilityState | null> {
     return settle(() => {
@@ -123,6 +166,8 @@ class MemoryTransaction implements WorkforceTransaction {
     private readonly cases: Map<string, VerificationCaseState>,
     private readonly outbox: OutboxAppend[],
     private readonly audit: AuditAppend[],
+    private readonly profile: ProfileTables,
+    private readonly shifts: Map<string, ShiftState>,
   ) {}
 
   lockOperator(id: string): Promise<OperatorState | null> {
@@ -212,23 +257,145 @@ class MemoryTransaction implements WorkforceTransaction {
       this.cases.set(state.id, state);
     });
   }
-  lockShift(): Promise<ShiftState | null> {
-    return settle(() => {
-      return null;
-    });
+  lockShift(id: string): Promise<ShiftState | null> {
+    return settle(() => this.shifts.get(id) ?? null);
   }
-  findShiftByIdempotency(): Promise<ShiftState | null> {
-    return settle(() => {
-      return null;
-    });
+  findShiftByIdempotency(requester: string, key: string): Promise<ShiftState | null> {
+    return settle(
+      () =>
+        [...this.shifts.values()].find(
+          (s) => s.requester === requester && s.idempotencyKey === key,
+        ) ?? null,
+    );
   }
-  insertShift(): Promise<InsertShiftResult> {
+  findShiftsByIdempotencyKeys(requester: string, keys: readonly string[]): Promise<ShiftState[]> {
+    return settle(() =>
+      [...this.shifts.values()].filter(
+        (s) => s.requester === requester && keys.includes(s.idempotencyKey),
+      ),
+    );
+  }
+  insertShift(state: ShiftState): Promise<InsertShiftResult> {
     return settle(() => {
+      const all = [...this.shifts.values()];
+      if (
+        all.some(
+          (s) => s.requester === state.requester && s.idempotencyKey === state.idempotencyKey,
+        )
+      ) {
+        return 'DUPLICATE_IDEMPOTENCY_KEY';
+      }
+      if (
+        all.some(
+          (s) => s.operatorId === state.operatorId && s.status === 'ACTIVE' && overlaps(s, state),
+        )
+      ) {
+        return 'OVERLAPS';
+      }
+      this.shifts.set(state.id, state);
       return 'CREATED';
     });
   }
-  updateShift(): Promise<void> {
-    return Promise.resolve();
+  updateShift(state: ShiftState): Promise<void> {
+    return settle(() => {
+      this.shifts.set(state.id, state);
+    });
+  }
+  lockServiceArea(operatorId: string): Promise<ServiceAreaState | null> {
+    return settle(() => this.profile.areas.get(operatorId) ?? null);
+  }
+  readServiceArea(operatorId: string): Promise<ServiceAreaState | null> {
+    return this.lockServiceArea(operatorId);
+  }
+  saveServiceArea(state: ServiceAreaState, expectedRevision: number): Promise<boolean> {
+    return settle(() => {
+      if ((this.profile.areas.get(state.operatorId)?.revision ?? 0) !== expectedRevision)
+        return false;
+      this.profile.areas.set(state.operatorId, state);
+      return true;
+    });
+  }
+  lockSchedule(operatorId: string): Promise<WeeklyScheduleState | null> {
+    return settle(() => this.profile.schedules.get(operatorId) ?? null);
+  }
+  saveSchedule(state: WeeklyScheduleState, expectedRevision: number): Promise<boolean> {
+    return settle(() => {
+      if ((this.profile.schedules.get(state.operatorId)?.revision ?? 0) !== expectedRevision) {
+        return false;
+      }
+      this.profile.schedules.set(state.operatorId, state);
+      return true;
+    });
+  }
+  findExceptionByIdempotency(
+    requester: string,
+    key: string,
+  ): Promise<AvailabilityExceptionState | null> {
+    return settle(
+      () =>
+        [...this.profile.exceptions.values()].find(
+          (e) => e.requester === requester && e.idempotencyKey === key,
+        ) ?? null,
+    );
+  }
+  insertException(state: AvailabilityExceptionState): Promise<InsertExceptionResult> {
+    return settle(() => {
+      const all = [...this.profile.exceptions.values()];
+      if (
+        all.some(
+          (e) => e.requester === state.requester && e.idempotencyKey === state.idempotencyKey,
+        )
+      ) {
+        return 'DUPLICATE_IDEMPOTENCY_KEY';
+      }
+      if (
+        all.some(
+          (e) => e.operatorId === state.operatorId && e.status === 'ACTIVE' && overlaps(e, state),
+        )
+      ) {
+        return 'OVERLAPS';
+      }
+      this.profile.exceptions.set(state.id, state);
+      return 'CREATED';
+    });
+  }
+  lockException(id: string): Promise<AvailabilityExceptionState | null> {
+    return settle(() => this.profile.exceptions.get(id) ?? null);
+  }
+  updateException(state: AvailabilityExceptionState, expectedVersion: number): Promise<void> {
+    return settle(() => {
+      if (this.profile.exceptions.get(state.id)?.version !== expectedVersion) {
+        throw new Error('VERSION_MISMATCH');
+      }
+      this.profile.exceptions.set(state.id, state);
+    });
+  }
+  listActiveExceptions(
+    operatorId: string,
+    from: Date,
+    to: Date,
+  ): Promise<AvailabilityExceptionState[]> {
+    return settle(() => this.profile.exceptionsOf(operatorId, from, to, true));
+  }
+  lockEquipment(operatorId: string): Promise<EquipmentState[]> {
+    return settle(() => this.profile.equipmentOf(operatorId));
+  }
+  insertEquipment(state: EquipmentState): Promise<InsertResult> {
+    return settle(() => {
+      if (this.profile.equipmentOf(state.operatorId).some((e) => e.kind === state.kind)) {
+        return 'DUPLICATE';
+      }
+      this.profile.equipment.set(state.id, state);
+      return 'CREATED';
+    });
+  }
+  updateEquipment(state: EquipmentState, expectedRevision: number): Promise<void> {
+    return settle(() => {
+      if (this.profile.equipment.get(state.id)?.revision !== expectedRevision) {
+        throw new Error('VERSION_MISMATCH');
+      }
+      this.profile.equipment.set(state.id, state);
+    });
   }
   lockAvailability(operatorId: string): Promise<AvailabilityState | null> {
     return settle(() => {
@@ -259,5 +426,52 @@ class MemoryTransaction implements WorkforceTransaction {
     return settle(() => {
       this.audit.push(entry);
     });
+  }
+}
+
+/** P05-C1 aggregates, copied per transaction like the other maps. */
+export class ProfileTables {
+  readonly areas = new Map<string, ServiceAreaState>();
+  readonly schedules = new Map<string, WeeklyScheduleState>();
+  readonly exceptions = new Map<string, AvailabilityExceptionState>();
+  readonly equipment = new Map<string, EquipmentState>();
+
+  copy(): ProfileTables {
+    const next = new ProfileTables();
+    for (const [k, v] of this.areas) next.areas.set(k, v);
+    for (const [k, v] of this.schedules) next.schedules.set(k, v);
+    for (const [k, v] of this.exceptions) next.exceptions.set(k, v);
+    for (const [k, v] of this.equipment) next.equipment.set(k, v);
+    return next;
+  }
+
+  adopt(source: ProfileTables): void {
+    for (const key of ['areas', 'schedules', 'exceptions', 'equipment'] as const) {
+      const target: Map<string, unknown> = this[key];
+      target.clear();
+      for (const [k, v] of source[key]) target.set(k, v);
+    }
+  }
+
+  exceptionsOf(
+    operatorId: string,
+    from: Date,
+    to: Date,
+    activeOnly: boolean,
+  ): AvailabilityExceptionState[] {
+    return [...this.exceptions.values()]
+      .filter(
+        (e) =>
+          e.operatorId === operatorId &&
+          (!activeOnly || e.status === 'ACTIVE') &&
+          overlaps(e, { startsAt: from, endsAt: to }),
+      )
+      .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+  }
+
+  equipmentOf(operatorId: string): EquipmentState[] {
+    return [...this.equipment.values()]
+      .filter((e) => e.operatorId === operatorId)
+      .sort((a, b) => (a.kind < b.kind ? -1 : 1));
   }
 }

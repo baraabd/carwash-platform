@@ -201,7 +201,10 @@
         "CatalogAddonCategory",
         "CatalogPackageAddon",
         "CatalogIdempotencyReceipt",
-        "CatalogAuditEvent"
+        "CatalogAuditEvent",
+        "CatalogV1Publication",
+        "CatalogV1DefinitionIdentity",
+        "CatalogV1Definition"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
@@ -223,7 +226,18 @@
         "Quote",
         "QuoteLine",
         "PricingIdempotencyReceipt",
-        "PricingAuditEvent"
+        "PricingAuditEvent",
+        "PriceBook",
+        "PriceBookEntry",
+        "PricingQuote",
+        "PricingQuoteLine",
+        "PricingAuditRecord",
+        "Promotion",
+        "PromotionRevision",
+        "QuoteDiscount",
+        "PromotionRedemption",
+        "PromotionAuditEvent",
+        "OutboxMessage"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
@@ -314,6 +328,12 @@
         "VerificationCase",
         "WorkShift",
         "OperatorAvailability",
+        "OperatorServiceArea",
+        "OperatorServiceZone",
+        "OperatorWeeklySchedule",
+        "OperatorWeeklyWindow",
+        "AvailabilityException",
+        "OperatorEquipment",
         "OutboxMessage",
         "AuditEntry"
       ],
@@ -344,7 +364,8 @@
         "CustodyHandover",
         "CustodyHandoverItem",
         "ProviderCredit",
-        "PaymentRefund"
+        "PaymentRefund",
+        "BookingObligation"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
@@ -359,7 +380,11 @@
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
       "persistenceModels": [
-        "ServiceMarker"
+        "ServiceMarker",
+        "WalletInbox",
+        "CustodySource",
+        "CustodyAccount",
+        "CustodyMovement"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
@@ -374,7 +399,16 @@
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
       "persistenceModels": [
-        "ServiceMarker"
+        "ServiceMarker",
+        "SubscriptionPlan",
+        "SubscriptionPlanRevision",
+        "CustomerSubscription",
+        "SubscriptionPeriod",
+        "EntitlementReservation",
+        "EntitlementMovement",
+        "SubscriptionIdempotencyReceipt",
+        "SubscriptionAuditEvent",
+        "OutboxMessage"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"

@@ -47,10 +47,12 @@ export function currentSurface() {
     errorCodes: [...contracts.API_ERROR_CODES],
     currencies: contracts.CURRENCIES,
     events: Object.fromEntries(
-      [...events.BUSINESS_EVENTS_V1, ...events.BILLING_EVENTS_V1].map((e) => [
-        e.eventType,
-        { producer: e.producer, aggregateType: e.aggregateType, envelopeVersion: 2 },
-      ]),
+      [...events.BUSINESS_EVENTS_V1, ...events.BILLING_EVENTS_V1, ...events.PRODUCT_EVENTS_V1].map(
+        (e) => [
+          e.eventType,
+          { producer: e.producer, aggregateType: e.aggregateType, envelopeVersion: 2 },
+        ],
+      ),
     ),
   };
 }

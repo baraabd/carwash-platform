@@ -1,0 +1,66 @@
+{
+  "task": "P05-B",
+  "child": "B3",
+  "suite": "wallet-broker",
+  "runId": "618dd671f557",
+  "startedAt": "2026-10-11T01:15:53.826Z",
+  "sourceSHA": "c3704e327f322b5f91a6424814deafdf71e1b996",
+  "sourceTree": "c0b2f6b3bb90fbe85756a323a3543045cfd757f5",
+  "sourceDirty": false,
+  "images": {
+    "postgres": "postgres:16.10-alpine",
+    "rabbitmq": "rabbitmq:4.2-management-alpine"
+  },
+  "dependencies": {
+    "postgres": "REAL (disposable container)",
+    "broker": "REAL RabbitMQ (disposable container); the test consumer loop is the broker adapter",
+    "billing": "NOT RUNNING (events built in the registered billing.v1 envelope-v2 shape)"
+  },
+  "phases": [
+    {
+      "name": "toolchain and source provenance",
+      "status": "PASS"
+    },
+    {
+      "name": "build wallet and specs from this source",
+      "status": "PASS"
+    },
+    {
+      "name": "pull pinned images",
+      "status": "PASS"
+    },
+    {
+      "name": "start disposable PostgreSQL and RabbitMQ",
+      "status": "PASS"
+    },
+    {
+      "name": "runtime identity and broker reachable",
+      "status": "PASS"
+    },
+    {
+      "name": "apply wallet migrations with the migration identity",
+      "status": "PASS"
+    },
+    {
+      "name": "real broker delivery into the Wallet projection (runtime role)",
+      "status": "PASS"
+    }
+  ],
+  "tests": {
+    "summary": {
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "names": [
+      "✔ real broker: a collection is applied once even when its ack is lost and it is published twice (",
+      "✔ real broker: an early handover is requeued until its collection arrives, then applied in order (",
+      "✔ real broker: a poison message is recorded as rejected and acked, never redelivered forever ("
+    ]
+  },
+  "accepted": true,
+  "finishedAt": "2026-10-11T01:16:33.009Z"
+}

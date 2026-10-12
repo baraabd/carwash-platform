@@ -2,7 +2,7 @@ import {
   GATEWAY_COMPOSITIONS,
   GATEWAY_ROUTES,
   GATEWAY_V1,
-  OWNER_CONTRACTS,
+  contractsOf,
   type GatewayErrorCode,
   type GatewayOwner,
   type GatewayRoute,
@@ -61,11 +61,14 @@ export function idempotencyKey(value: string | undefined): string {
     throw new GatewayFault(400, 'REQUEST_INVALID');
   return value;
 }
-/** Published reasons of the owner's merged contract; an unpublished owner forwards none. */
+/**
+ * Published reasons of the owner's merged contracts (an owner may serve more than
+ * one, e.g. pricing.v1 + promotion.v1); an unpublished owner forwards none.
+ */
 function publishedReason(owner: GatewayOwner | undefined, code: unknown): string | undefined {
   if (typeof code !== 'string' || owner === undefined) return undefined;
-  const contract = OWNER_CONTRACTS.find((candidate) => candidate.owner === owner);
-  return (contract?.reasons as readonly string[] | undefined)?.includes(code) ? code : undefined;
+  const reasons = contractsOf(owner).flatMap((contract): readonly string[] => contract.reasons);
+  return reasons.includes(code) ? code : undefined;
 }
 export function upstreamFault(status: number, body: unknown, owner?: GatewayOwner): GatewayFault {
   const error =

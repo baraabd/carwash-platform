@@ -1,0 +1,101 @@
+{
+  "task": "P05-B",
+  "service": "subscription",
+  "runId": "20574229a196",
+  "startedAt": "2026-10-11T01:08:29.441Z",
+  "sourceSHA": "afc29ce1d1b0150e5eca37b5d122fd9f48af3c3b",
+  "sourceTree": "950617bc17e07d4e0067246271ff6c34f3fc49d1",
+  "sourceDirty": false,
+  "node": "v24.21.0",
+  "docker": "29.1.3",
+  "image": {
+    "name": "postgres:16.10-alpine",
+    "repoDigests": [
+      "postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297",
+      "public.ecr.aws/docker/library/postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297"
+    ],
+    "serverVersion": "PostgreSQL 16.10"
+  },
+  "dependencies": {
+    "postgres": "REAL (disposable container)",
+    "identity": "LOCAL HTTP STUB",
+    "broker": "NOT USED (outbox rows written; relay not started until E registers subscription events)",
+    "serviceCallers": "REAL shared ServiceClientAuthenticator with test credentials (Booking is not running)"
+  },
+  "phases": [
+    {
+      "name": "toolchain and source provenance",
+      "status": "PASS"
+    },
+    {
+      "name": "build service and integration specs from this source",
+      "status": "PASS"
+    },
+    {
+      "name": "pull pinned PostgreSQL image",
+      "status": "PASS"
+    },
+    {
+      "name": "start disposable PostgreSQL with shared provisioner",
+      "status": "PASS"
+    },
+    {
+      "name": "runtime identity can connect after provisioning",
+      "status": "PASS"
+    },
+    {
+      "name": "upgrade from previous migration history preserves existing data",
+      "status": "PASS"
+    },
+    {
+      "name": "re-provision restricts migration history from the runtime role",
+      "status": "PASS"
+    },
+    {
+      "name": "committed Prisma schema mirror has no drift from migrated database",
+      "status": "PASS"
+    },
+    {
+      "name": "integration specs as the least-privileged runtime role",
+      "status": "PASS"
+    }
+  ],
+  "tests": {
+    "files": [
+      "services\\subscription\\dist-tests\\test\\integration\\subscription.postgres.spec.js"
+    ],
+    "summary": {
+      "tests": 13,
+      "pass": 13,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "names": [
+      "✔ runs as the runtime role, which cannot change the schema (",
+      "✔ plan revisions: linear chain, schedule windows, idempotent publish, staff-only, immutable (",
+      "✔ request and activation: snapshot terms, one open subscription, payment funds one period, separation of duties (",
+      "✔ race: concurrent bookings across replicas never consume the last unit twice (",
+      "✔ race: retried reserves for one booking return one reservation and take one unit (",
+      "✔ settlement: commit/release are idempotent, release compensates, conflicting settlements race safely (",
+      "✔ cancellation compensation: existing reservations stay settleable, new ones are refused (",
+      "✔ customer may withdraw only their own unactivated request (",
+      "✔ freeze blocks new reservations only; staff reversal returns a consumed unit; ledger reconciles (",
+      "✔ periods: bookings outside the period are refused; renewal after expiry starts a new period, no carry-over (",
+      "✔ service authorization: deny by default, explicit scopes, owner-bound reservations (",
+      "✔ database refuses tampering by the runtime role (",
+      "✔ trigger functions are not executable by the runtime role or PUBLIC ("
+    ]
+  },
+  "accepted": true,
+  "migrations": {
+    "previous": [
+      "20261005060000_w01_foundation"
+    ],
+    "added": [
+      "20261011100000_p05b_subscription_entitlements"
+    ]
+  },
+  "finishedAt": "2026-10-11T01:09:41.119Z"
+}

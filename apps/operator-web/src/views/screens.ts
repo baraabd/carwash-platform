@@ -17,6 +17,7 @@ import { moneyHtml, sumMoney } from '../money';
 import type { Money } from '../api/types';
 import { S, job, ready } from '../state';
 import { brand, heading, jobCard, money, paymentLabel, paymentPill } from './common';
+import { renderCustody, renderProfileSections } from './profile';
 
 /** Reference `renderHeader`. PC-04/05/06, D8 (no technician name in any C5 read). */
 export function renderHeader(): string {
@@ -127,7 +128,7 @@ export function renderCollections(): string {
           ? outstanding(j)
           : true,
     );
-  return `${heading('التحصيل، دون التباس.', 'الأرقام تعكس المهام، وليست حسابًا ماليًا فعليًا.', 'wallet')}<section class="ledger-hero"><div class="row between"><strong>الكاش المسجّل</strong>${I('banknote')}</div><span class="amount">${moneyHtml(cash)}</span><p>قيمة طلبات محصّلة · ليست أرباح الفني</p></section><div class="stats-grid"><div class="metric"><small>محافظ · مهام مكتملة ومعتمدة</small><strong>${moneyHtml(sumTotals(wallets, template))}</strong></div><div class="metric"><small>مهام مكتملة والدفع للمتابعة</small><strong>${follow.length}<span class="small"> مهام</span></strong></div></div><div class="segmented" role="group" aria-label="تصفية التحصيل">${(
+  return `${heading('التحصيل، دون التباس.', 'الأرقام تعكس المهام، وليست حسابًا ماليًا فعليًا.', 'wallet')}<section class="ledger-hero"><div class="row between"><strong>الكاش المسجّل</strong>${I('banknote')}</div><span class="amount">${moneyHtml(cash)}</span><p>قيمة طلبات محصّلة · ليست أرباح الفني</p></section><div class="stats-grid"><div class="metric"><small>محافظ · مهام مكتملة ومعتمدة</small><strong>${moneyHtml(sumTotals(wallets, template))}</strong></div><div class="metric"><small>مهام مكتملة والدفع للمتابعة</small><strong>${follow.length}<span class="small"> مهام</span></strong></div></div>${renderCustody()}<div class="segmented" role="group" aria-label="تصفية التحصيل">${(
     [
       ['all', 'كل المكتمل'],
       ['cash', 'كاش محصّل'],
@@ -153,7 +154,8 @@ export function renderCollections(): string {
 /**
  * Reference `renderProfile`. Only the motion preference survives in
  * production. D8 (no name), PR-06..PR-11 and PR-05 (design footer) removed.
+ * P05-C2 appends the PN-01..PN-03 sections (views/profile.ts).
  */
 export function renderProfile(reducedByDevice: boolean): string {
-  return `<section class="profile-head"><div class="avatar">${I('user')}</div><h1>حسابي</h1></section><section class="card"><div class="setting-row"><span class="tile-icon">${I('spark')}</span><div class="grow"><strong>المؤثرات الحركية</strong><small>${reducedByDevice ? 'إعداد تقليل الحركة في الجهاز له الأولوية' : 'استجابة عند الاختيار وانتقالات هادئة'}</small></div><button class="switch" role="switch" aria-checked="${S.motion}" data-action="motion" aria-label="المؤثرات الحركية"><span class="switch-track"></span></button></div></section>`;
+  return `<section class="profile-head"><div class="avatar">${I('user')}</div><h1>حسابي</h1></section><section class="card"><div class="setting-row"><span class="tile-icon">${I('spark')}</span><div class="grow"><strong>المؤثرات الحركية</strong><small>${reducedByDevice ? 'إعداد تقليل الحركة في الجهاز له الأولوية' : 'استجابة عند الاختيار وانتقالات هادئة'}</small></div><button class="switch" role="switch" aria-checked="${S.motion}" data-action="motion" aria-label="المؤثرات الحركية"><span class="switch-track"></span></button></div></section>${renderProfileSections()}`;
 }

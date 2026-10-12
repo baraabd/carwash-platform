@@ -1,20 +1,16 @@
-import { createHash } from 'node:crypto';
-import { EVENT_PRODUCERS, type EventActor } from '@carwash/event-contracts';
 import {
-  ELIGIBILITY_CHANGED_V1,
-  SHIFT_UPDATED_V1,
-  WORKFORCE_EVENTS_EXCHANGE,
   WorkforceError,
   approveVerification,
+  assertInServiceArea,
+  canTakeNewWork,
   cancelShift,
   changeAvailability,
   changeProfile,
   createOperator,
   createShift,
   createVerificationCase,
-  eligibilityAt,
-  eligibilityChangedEvent,
   initialAvailability,
+  initialServiceArea,
   operationalReadiness,
   parseAvailabilityCommand,
   parseCapacityQuery,
@@ -23,7 +19,6 @@ import {
   setEmployment,
   setSuspension,
   setVerificationProjection,
-  shiftEvent,
   toCapacityResource,
   withdrawVerification,
   type AvailabilityState,
@@ -36,50 +31,26 @@ import {
   type VerificationCaseState,
 } from '../domain';
 import type {
-  Actor,
   Clock,
   IdGenerator,
   RequestMeta,
   WorkforceReadModel,
-  WorkforceTransaction,
   WorkforceUnitOfWork,
 } from '../ports';
 import { requirePermission, requireScope, requireSelf } from './authorization';
+import {
+  appendEligibility,
+  appendShift,
+  assertIdempotencyKey,
+  requestFingerprint,
+  requester,
+} from './support';
 import { cursorScope, decodeCursor, encodeCursor } from './capacity-cursor';
 
 export interface CapacityResourcePage {
   readonly items: readonly CapacityResource[];
   readonly nextCursor: string | null;
   readonly asOf: Date;
-}
-
-/**
- * PII-free envelope actor. Users are their Identity subject; a service is named
- * only when it is a declared event producer. Every eligibility input is changed
- * by a user today, so the service branch exists for completeness only.
- */
-function eventActor(actor: Actor): EventActor {
-  if (actor.kind === 'USER') return { kind: 'account', id: actor.subject };
-  if (actor.kind === 'SYSTEM') return { kind: 'system', id: null };
-  const producer = EVENT_PRODUCERS.find((name) => name === actor.clientId);
-  if (producer === undefined) throw new Error('EVENT_ACTOR_UNSUPPORTED');
-  return { kind: 'service', id: producer };
-}
-
-function requestFingerprint(value: unknown): string {
-  return createHash('sha256').update(JSON.stringify(value), 'utf8').digest('hex');
-}
-
-function requester(actor: Actor): string {
-  if (actor.kind === 'USER') return `user:${actor.subject}`;
-  if (actor.kind === 'SERVICE') return `service:${actor.clientId}`;
-  return `system:${actor.component}`;
-}
-
-function assertIdempotencyKey(key: string): void {
-  if (!/^[A-Za-z0-9._:-]{8,128}$/.test(key)) {
-    throw new WorkforceError('INVALID_INPUT', 'Invalid Idempotency-Key.');
-  }
 }
 
 function skillCode(value: string): string {
@@ -133,6 +104,10 @@ export class WorkforceService {
     input: { displayName?: string; homeZoneId?: string },
   ): Promise<OperatorState> {
     const user = requirePermission(meta.actor, 'work.read:assigned');
+    if (input.homeZoneId !== undefined) {
+      // P05-C1: the home zone anchors the operations-owned service area.
+      throw new WorkforceError('FORBIDDEN', 'The home zone is managed by operations.');
+    }
     const now = this.clock.now();
     return this.uow.run(async (tx) => {
       const current = await tx.lockOperatorBySubject(user.subject);
@@ -198,7 +173,7 @@ export class WorkforceService {
       }
       const projected = setVerificationProjection(current, 'PENDING', null, now);
       await tx.updateOperator(projected, current.version);
-      await this.appendEligibility(tx, meta, current, projected);
+      await appendEligibility(tx, this.ids, meta, current, projected);
       await tx.appendAudit({
         action: 'VERIFICATION_SUBMITTED',
         actor: meta.actor,
@@ -234,7 +209,7 @@ export class WorkforceService {
           ? setVerificationProjection(operator, 'VERIFIED', next.validUntil, now)
           : setVerificationProjection(operator, 'REJECTED', null, now);
       await tx.updateOperator(projected, operator.version);
-      await this.appendEligibility(tx, meta, operator, projected);
+      await appendEligibility(tx, this.ids, meta, operator, projected);
       await tx.appendAudit({
         action: next.status === 'APPROVED' ? 'VERIFICATION_APPROVED' : 'VERIFICATION_REJECTED',
         actor: meta.actor,
@@ -259,7 +234,7 @@ export class WorkforceService {
       await tx.updateVerificationCase(next, verification.version);
       const projected = setVerificationProjection(operator, 'UNVERIFIED', null, now);
       await tx.updateOperator(projected, operator.version);
-      await this.appendEligibility(tx, meta, operator, projected);
+      await appendEligibility(tx, this.ids, meta, operator, projected);
       return next;
     });
   }
@@ -284,7 +259,7 @@ export class WorkforceService {
       const next = recordSkillChange(operator, now);
       await tx.updateOperator(next, operator.version);
       const skills = [...currentSkills, code].sort();
-      await this.appendEligibility(tx, meta, operator, next, skills);
+      await appendEligibility(tx, this.ids, meta, operator, next, skills);
       await tx.appendAudit({
         action: 'SKILL_GRANTED',
         actor: meta.actor,
@@ -314,7 +289,7 @@ export class WorkforceService {
       const next = recordSkillChange(operator, now);
       await tx.updateOperator(next, operator.version);
       const skills = await tx.listSkills(operator.id);
-      await this.appendEligibility(tx, meta, operator, next, skills);
+      await appendEligibility(tx, this.ids, meta, operator, next, skills);
       await tx.appendAudit({
         action: 'SKILL_REVOKED',
         actor: meta.actor,
@@ -344,7 +319,7 @@ export class WorkforceService {
         next = setSuspension(next, input.suspensionReason, now);
       if (next.version !== current.version) {
         await tx.updateOperator(next, current.version);
-        await this.appendEligibility(tx, meta, current, next);
+        await appendEligibility(tx, this.ids, meta, current, next);
       }
       return next;
     });
@@ -393,6 +368,12 @@ export class WorkforceService {
         }
         return replay;
       }
+      // P05-C1: new working time only from an active operator, inside the area.
+      if (!canTakeNewWork(operator)) {
+        throw new WorkforceError('OPERATOR_NOT_ACTIVE', 'Operator cannot declare new work.');
+      }
+      const area = (await tx.readServiceArea(operator.id)) ?? initialServiceArea(operator.id);
+      assertInServiceArea(operator, area, input.zoneId);
       const shift = createShift({
         id: this.ids.next(),
         operatorId: operator.id,
@@ -410,7 +391,7 @@ export class WorkforceService {
         if (again?.requestFingerprint === fingerprint) return again;
         throw new WorkforceError('IDEMPOTENCY_KEY_REUSED', 'Idempotency key reused.');
       }
-      await this.appendShift(tx, meta, shift);
+      await appendShift(tx, this.ids, this.clock, meta, shift);
       return shift;
     });
   }
@@ -426,7 +407,7 @@ export class WorkforceService {
       requireSelf(meta.actor, operator.identitySubject);
       const next = cancelShift(current, now);
       await tx.updateShift(next, current.version);
-      await this.appendShift(tx, meta, next);
+      await appendShift(tx, this.ids, this.clock, meta, next);
       return next;
     });
   }
@@ -484,6 +465,10 @@ export class WorkforceService {
       if (!operator) throw new WorkforceError('OPERATOR_NOT_FOUND', 'Operator profile not found.');
       const current = (await tx.lockAvailability(operator.id)) ?? initialAvailability(operator.id);
       const { next, changed } = changeAvailability(current, command, now);
+      if (changed && next.status === 'AVAILABLE' && !canTakeNewWork(operator)) {
+        // P05-C1: an inactive or suspended technician cannot announce readiness.
+        throw new WorkforceError('OPERATOR_NOT_ACTIVE', 'Operator cannot declare new work.');
+      }
       if (!changed) return current;
       const stored =
         current.revision === 0
@@ -519,59 +504,5 @@ export class WorkforceService {
         readiness: operationalReadiness(candidate.operator, candidate.skillCodes, input.at),
       }))
       .filter((candidate) => candidate.readiness.ready);
-  }
-
-  /**
-   * Published workforce.eligibility-changed.v1, written to the outbox in the
-   * caller's transaction, exactly when the eligibility revision moved. The
-   * data is the eligibility at the instant of the change.
-   */
-  private async appendEligibility(
-    tx: WorkforceTransaction,
-    meta: RequestMeta,
-    before: OperatorState,
-    after: OperatorState,
-    knownSkills?: readonly string[],
-  ): Promise<void> {
-    if (after.eligibilityRevision === before.eligibilityRevision) return;
-    const skills = knownSkills ?? (await tx.listSkills(after.id));
-    const event = eligibilityChangedEvent({
-      eventId: this.ids.next(),
-      correlationId: meta.correlationId,
-      actor: eventActor(meta.actor),
-      operator: after,
-      eligibility: eligibilityAt(after, skills, after.updatedAt),
-    });
-    await tx.appendEvent({
-      event,
-      exchange: WORKFORCE_EVENTS_EXCHANGE,
-      routingKey: ELIGIBILITY_CHANGED_V1,
-    });
-  }
-
-  private async appendShift(
-    tx: WorkforceTransaction,
-    meta: RequestMeta,
-    shift: ShiftState,
-  ): Promise<void> {
-    const event = shiftEvent({
-      eventId: this.ids.next(),
-      occurredAt: this.clock.now().toISOString(),
-      correlationId: meta.correlationId,
-      aggregateVersion: shift.version,
-      data: {
-        shiftId: shift.id,
-        operatorId: shift.operatorId,
-        zoneId: shift.zoneId,
-        startsAt: shift.startsAt.toISOString(),
-        endsAt: shift.endsAt.toISOString(),
-        status: shift.status,
-      },
-    });
-    await tx.appendEvent({
-      event,
-      exchange: WORKFORCE_EVENTS_EXCHANGE,
-      routingKey: SHIFT_UPDATED_V1,
-    });
   }
 }

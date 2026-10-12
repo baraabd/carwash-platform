@@ -1,0 +1,59 @@
+{
+  "name": "main-release-governance",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["~DEFAULT_BRANCH"],
+      "exclude": []
+    }
+  },
+  "bypass_actors": [],
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": true,
+        "allowed_merge_methods": ["merge"]
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [
+          { "context": "F001 final-source acceptance", "integration_id": 15368 },
+          { "context": "identity-security", "integration_id": 15368 },
+          { "context": "gateway", "integration_id": 15368 },
+          { "context": "F008 redaction trace metrics and runtime acceptance", "integration_id": 15368 },
+          { "context": "Foundation release gate", "integration_id": 15368 },
+          { "context": "F010 parity harness gate", "integration_id": 15368 },
+          { "context": "Frozen design reference", "integration_id": 15368 },
+          { "context": "Static gates, builds and offline tests", "integration_id": 15368 },
+          { "context": "Real PostgreSQL and RabbitMQ acceptance", "integration_id": 15368 },
+          { "context": "Dependency and secret scanning", "integration_id": 15368 },
+          { "context": "Declared scope of these gates", "integration_id": 15368 }
+        ]
+      }
+    },
+    {
+      "type": "code_scanning",
+      "parameters": {
+        "code_scanning_tools": [
+          {
+            "tool": "CodeQL",
+            "security_alerts_threshold": "high_or_higher",
+            "alerts_threshold": "errors"
+          }
+        ]
+      }
+    }
+  ]
+}

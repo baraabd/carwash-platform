@@ -2,7 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { traceHeaders } from '@carwash/service-kit';
 import {
   isAvailabilityStatus,
+  type AvailabilityExceptionState,
   type AvailabilityState,
+  type EquipmentState,
+  type ServiceAreaState,
+  type WeeklyScheduleState,
   type CapacityCandidate,
   type CapacityShift,
 } from '../../domain';
@@ -20,6 +24,7 @@ import type {
 import type {
   Actor,
   AuditAppend,
+  InsertExceptionResult,
   InsertResult,
   InsertShiftResult,
   OutboxAppend,
@@ -29,6 +34,8 @@ import type {
 } from '../../ports';
 import type { Prisma } from '../../generated/prisma/client';
 import type { PrismaService } from './prisma.service';
+import * as profile from './profile-sql';
+import { sqlStateOf } from './profile-sql';
 
 type Tx = Prisma.TransactionClient;
 
@@ -43,6 +50,7 @@ interface OperatorRow {
   verified_until: Date | null;
   version: number;
   eligibility_revision: number;
+  equipment_blocked: boolean;
   created_at: Date;
   updated_at: Date;
 }
@@ -57,6 +65,8 @@ interface CapacityRow extends OperatorRow {
   zone_ids: string[];
   /** `zoneId|startsAt|endsAt`, canonical UTC text, in start order. */
   shifts: string[];
+  /** ACTIVE exceptions `startsAt|endsAt`, canonical UTC text (P05-C1). */
+  exceptions: string[];
 }
 interface CaseRow {
   id: string;
@@ -91,7 +101,7 @@ interface ShiftRow {
 
 const OPERATOR_COLUMNS = `id::text, identity_subject::text, display_name, home_zone_id::text,
  employment_status, suspension_reason, verification_status, verified_until, version,
- eligibility_revision, created_at, updated_at`;
+ eligibility_revision, equipment_blocked, created_at, updated_at`;
 const AVAILABILITY_COLUMNS = `operator_id::text, status, version, updated_at`;
 /** Canonical UTC text with milliseconds, identical to Date#toISOString(). */
 const ISO = `'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'`;
@@ -108,15 +118,7 @@ export class ConcurrencyViolation extends Error {
   }
 }
 
-export function sqlState(error: unknown): string | undefined {
-  const cause = (
-    error as {
-      meta?: { driverAdapterError?: { cause?: { code?: unknown; originalCode?: unknown } } };
-    }
-  ).meta?.driverAdapterError?.cause;
-  const code = cause?.code ?? cause?.originalCode;
-  return typeof code === 'string' ? code : undefined;
-}
+export const sqlState = sqlStateOf;
 export function isTransientConflict(error: unknown): boolean {
   const state = sqlState(error);
   return state === '40P01' || state === '40001';
@@ -134,6 +136,7 @@ function toOperator(row: OperatorRow): OperatorState {
     verifiedUntil: row.verified_until,
     version: row.version,
     eligibilityRevision: row.eligibility_revision,
+    equipmentBlocked: row.equipment_blocked,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -164,11 +167,19 @@ function toCandidate(row: CapacityRow): CapacityCandidate {
     }
     return shift;
   });
+  const exceptions = row.exceptions.map((encoded) => {
+    const [startsAt, endsAt, extra] = encoded.split('|');
+    if (startsAt === undefined || endsAt === undefined || extra !== undefined) {
+      throw new Error('CAPACITY_ROW_INCONSISTENT');
+    }
+    return { startsAt: new Date(startsAt), endsAt: new Date(endsAt) };
+  });
   return {
     operator: toOperator(row),
     skillCodes: row.skill_codes,
     zoneIds: row.zone_ids,
     shifts,
+    exceptions,
   };
 }
 function toCase(row: CaseRow): VerificationCaseState {
@@ -242,8 +253,9 @@ class PrismaWorkforceTransaction implements WorkforceTransaction {
     const rows = await this.tx.$queryRawUnsafe<{ id: string }[]>(
       `INSERT INTO app.operator
         (id, identity_subject, display_name, home_zone_id, employment_status, suspension_reason,
-         verification_status, verified_until, version, eligibility_revision, created_at, updated_at)
-       VALUES ($1::uuid,$2::uuid,$3,$4::uuid,$5,$6,$7,$8,$9,$12,$10,$11)
+         verification_status, verified_until, version, eligibility_revision, created_at, updated_at,
+         equipment_blocked)
+       VALUES ($1::uuid,$2::uuid,$3,$4::uuid,$5,$6,$7,$8,$9,$12,$10,$11,$13)
        ON CONFLICT (identity_subject) DO NOTHING RETURNING id::text`,
       operator.id,
       operator.identitySubject,
@@ -257,6 +269,7 @@ class PrismaWorkforceTransaction implements WorkforceTransaction {
       operator.createdAt,
       operator.updatedAt,
       operator.eligibilityRevision,
+      operator.equipmentBlocked,
     );
     return rows.length === 1 ? 'CREATED' : 'DUPLICATE';
   }
@@ -265,7 +278,7 @@ class PrismaWorkforceTransaction implements WorkforceTransaction {
     const rows = await this.tx.$queryRawUnsafe<{ id: string }[]>(
       `UPDATE app.operator SET display_name=$3, home_zone_id=$4::uuid, employment_status=$5,
        suspension_reason=$6, verification_status=$7, verified_until=$8, version=$9, updated_at=$10,
-       eligibility_revision=$11
+       eligibility_revision=$11, equipment_blocked=$12
        WHERE id=$1::uuid AND version=$2 RETURNING id::text`,
       operator.id,
       expectedVersion,
@@ -278,6 +291,7 @@ class PrismaWorkforceTransaction implements WorkforceTransaction {
       operator.version,
       operator.updatedAt,
       operator.eligibilityRevision,
+      operator.equipmentBlocked,
     );
     if (rows.length !== 1) throw new ConcurrencyViolation('OPERATOR');
   }
@@ -416,6 +430,20 @@ class PrismaWorkforceTransaction implements WorkforceTransaction {
     return row ? toShift(row) : null;
   }
 
+  async findShiftsByIdempotencyKeys(
+    requester: string,
+    keys: readonly string[],
+  ): Promise<ShiftState[]> {
+    if (keys.length === 0) return [];
+    const rows = await this.tx.$queryRawUnsafe<ShiftRow[]>(
+      `SELECT ${SHIFT_COLUMNS} FROM app.work_shift
+       WHERE requester=$1 AND idempotency_key = ANY($2::text[])`,
+      requester,
+      [...keys],
+    );
+    return rows.map(toShift);
+  }
+
   async insertShift(state: ShiftState): Promise<InsertShiftResult> {
     await this.tx.$executeRawUnsafe(
       `SELECT pg_advisory_xact_lock(hashtextextended('workforce.shift:' || $1::text,0))`,
@@ -501,6 +529,69 @@ class PrismaWorkforceTransaction implements WorkforceTransaction {
       state.updatedAt,
     );
     return rows.length === 1;
+  }
+
+  lockServiceArea(operatorId: string): Promise<ServiceAreaState | null> {
+    return profile.readServiceArea(this.tx, operatorId, true);
+  }
+
+  readServiceArea(operatorId: string): Promise<ServiceAreaState | null> {
+    return profile.readServiceArea(this.tx, operatorId, false);
+  }
+
+  saveServiceArea(state: ServiceAreaState, expectedRevision: number): Promise<boolean> {
+    return profile.saveServiceArea(this.tx, state, expectedRevision);
+  }
+
+  lockSchedule(operatorId: string): Promise<WeeklyScheduleState | null> {
+    return profile.readSchedule(this.tx, operatorId, true);
+  }
+
+  saveSchedule(state: WeeklyScheduleState, expectedRevision: number): Promise<boolean> {
+    return profile.saveSchedule(this.tx, state, expectedRevision);
+  }
+
+  findExceptionByIdempotency(
+    requester: string,
+    key: string,
+  ): Promise<AvailabilityExceptionState | null> {
+    return profile.findExceptionByIdempotency(this.tx, requester, key);
+  }
+
+  insertException(state: AvailabilityExceptionState): Promise<InsertExceptionResult> {
+    return profile.insertException(this.tx, state);
+  }
+
+  lockException(id: string): Promise<AvailabilityExceptionState | null> {
+    return profile.lockException(this.tx, id);
+  }
+
+  async updateException(state: AvailabilityExceptionState, expectedVersion: number): Promise<void> {
+    if (!(await profile.updateException(this.tx, state, expectedVersion))) {
+      throw new ConcurrencyViolation('EXCEPTION');
+    }
+  }
+
+  listActiveExceptions(
+    operatorId: string,
+    from: Date,
+    to: Date,
+  ): Promise<AvailabilityExceptionState[]> {
+    return profile.listExceptions(this.tx, { operatorId, from, to, activeOnly: true });
+  }
+
+  lockEquipment(operatorId: string): Promise<EquipmentState[]> {
+    return profile.listEquipment(this.tx, operatorId, true);
+  }
+
+  insertEquipment(state: EquipmentState): Promise<InsertResult> {
+    return profile.insertEquipment(this.tx, state);
+  }
+
+  async updateEquipment(state: EquipmentState, expectedRevision: number): Promise<void> {
+    if (!(await profile.updateEquipment(this.tx, state, expectedRevision))) {
+      throw new ConcurrencyViolation('EQUIPMENT');
+    }
   }
 
   async appendEvent(entry: OutboxAppend): Promise<void> {
@@ -617,6 +708,31 @@ export class PrismaWorkforceStore implements WorkforceUnitOfWork, WorkforceReadM
     return row ? toAvailability(row) : null;
   }
 
+  findServiceArea(operatorId: string): Promise<ServiceAreaState | null> {
+    return profile.readServiceArea(this.prisma.client, operatorId, false);
+  }
+
+  findSchedule(operatorId: string): Promise<WeeklyScheduleState | null> {
+    return profile.readSchedule(this.prisma.client, operatorId, false);
+  }
+
+  listExceptions(operatorId: string, from: Date, to: Date): Promise<AvailabilityExceptionState[]> {
+    return profile.listExceptions(this.prisma.client, { operatorId, from, to, activeOnly: false });
+  }
+
+  listEquipment(operatorId: string): Promise<EquipmentState[]> {
+    return profile.listEquipment(this.prisma.client, operatorId, false);
+  }
+
+  async latestVerificationCase(operatorId: string): Promise<VerificationCaseState | null> {
+    const [row] = await this.prisma.client.$queryRawUnsafe<CaseRow[]>(
+      `SELECT ${CASE_COLUMNS} FROM app.verification_case
+       WHERE operator_id=$1::uuid ORDER BY submitted_at DESC, id DESC LIMIT 1`,
+      operatorId,
+    );
+    return row ? toCase(row) : null;
+  }
+
   /**
    * One statement, hence one snapshot: the page of operators (keyset on id),
    * their skills, the distinct zones of ALL their ACTIVE shifts overlapping
@@ -643,7 +759,7 @@ export class PrismaWorkforceStore implements WorkforceUnitOfWork, WorkforceReadM
        )
        SELECT o.id::text, o.identity_subject::text, o.display_name, o.home_zone_id::text,
               o.employment_status, o.suspension_reason, o.verification_status, o.verified_until,
-              o.version, o.eligibility_revision, o.created_at, o.updated_at,
+              o.version, o.eligibility_revision, o.equipment_blocked, o.created_at, o.updated_at,
               ARRAY(SELECT g.skill_code FROM app.work_grant g
                      WHERE g.operator_id = o.id ORDER BY g.skill_code) AS skill_codes,
               ARRAY(SELECT DISTINCT z.zone_id::text FROM app.work_shift z
@@ -656,7 +772,13 @@ export class PrismaWorkforceStore implements WorkforceUnitOfWork, WorkforceReadM
                       FROM app.work_shift x
                      WHERE x.operator_id = o.id AND x.status = 'ACTIVE'
                        AND x.starts_at < $3 AND x.ends_at > $2
-                     ORDER BY x.starts_at LIMIT 101) AS shifts
+                     ORDER BY x.starts_at LIMIT 101) AS shifts,
+              ARRAY(SELECT to_char(e.starts_at AT TIME ZONE 'UTC', ${ISO})
+                           || '|' || to_char(e.ends_at AT TIME ZONE 'UTC', ${ISO})
+                      FROM app.availability_exception e
+                     WHERE e.operator_id = o.id AND e.status = 'ACTIVE'
+                       AND e.starts_at < $3 AND e.ends_at > $2
+                     ORDER BY e.starts_at) AS exceptions
          FROM page p JOIN app.operator o ON o.id = p.id
         ORDER BY o.id`,
       input.zoneId,
@@ -678,13 +800,16 @@ export class PrismaWorkforceStore implements WorkforceUnitOfWork, WorkforceReadM
     >(
       `SELECT o.id::text,o.identity_subject::text,o.display_name,o.home_zone_id::text,
         o.employment_status,o.suspension_reason,o.verification_status,o.verified_until,
-        o.version,o.eligibility_revision,o.created_at,o.updated_at,
+        o.version,o.eligibility_revision,o.equipment_blocked,o.created_at,o.updated_at,
         COALESCE(array_agg(g.skill_code ORDER BY g.skill_code)
           FILTER (WHERE g.skill_code IS NOT NULL), ARRAY[]::text[]) AS skill_codes
        FROM app.operator o
        JOIN app.work_shift s ON s.operator_id=o.id
         AND s.status='ACTIVE' AND s.zone_id=$1::uuid AND s.starts_at <= $2 AND s.ends_at > $2
        LEFT JOIN app.work_grant g ON g.operator_id=o.id
+       WHERE NOT EXISTS (SELECT 1 FROM app.availability_exception e
+                          WHERE e.operator_id=o.id AND e.status='ACTIVE'
+                            AND e.starts_at <= $2 AND e.ends_at > $2)
        GROUP BY o.id
        HAVING ($3::text IS NULL OR bool_or(g.skill_code=$3))
        ORDER BY o.id LIMIT 500`,

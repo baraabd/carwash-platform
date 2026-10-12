@@ -210,6 +210,11 @@ jobs:
       # service; dependenciesReady=false either way), absence of .env in the
       # image, and a clean SIGTERM shutdown. One matrix job per owner runtime.
       - name: Build and verify the service image
+        env:
+          # End a stuck build inside the harness, which kills the process tree
+          # and prints diagnostics, before the 45-minute job can cancel it.
+          # The remaining budget covers base pulls, boot probes and cleanup.
+          CW_IMAGE_TIMEOUT_MS: '1200000'
         run: node scripts/check-images.mjs ${{ matrix.service }}
 
   supply-chain:

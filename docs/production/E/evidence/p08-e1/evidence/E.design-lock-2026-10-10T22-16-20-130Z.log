@@ -1,0 +1,13 @@
+$ node scripts/check-design-reference.mjs
+exit 0 signal none in 1475ms
+
+--- stdout ---
+{
+  "ok": true,
+  "verifiedArtifacts": 10,
+  "baseCompared": false,
+  "errors": []
+}
+Scope: exact reference preservation. Not production readiness or React visual parity.
+
+--- stderr ---

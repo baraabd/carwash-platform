@@ -1,20 +1,4 @@
-import type { CatalogDefinitions, RevisionHead } from '../domain';
-
-/** An immutable, published catalog revision exactly as it was stored. */
-export interface PublishedRevision {
-  readonly revision: number;
-  readonly effectiveFrom: Date;
-  readonly publishedAt: Date;
-  readonly definitionsFingerprint: string;
-  readonly definitions: CatalogDefinitions;
-}
-
-export interface RevisionSummary {
-  readonly revision: number;
-  readonly effectiveFrom: Date;
-  readonly publishedAt: Date;
-  readonly definitionsFingerprint: string;
-}
+import type { CatalogSnapshot, Definition } from '../domain';
 
 /** The recorded terminal outcome of an idempotent command. */
 export interface RecordedOutcome {
@@ -30,50 +14,65 @@ export interface IdempotencyReceipt {
   readonly outcome: RecordedOutcome;
 }
 
+export type AuditAction = 'catalog.definitions.published' | 'catalog.definitions.publish-rejected';
+
 export interface AuditRecord {
   readonly id: string;
   readonly occurredAt: Date;
   readonly actorSubject: string;
-  readonly action: 'catalog.revision.published' | 'catalog.revision.publish-rejected';
+  readonly action: AuditAction;
+  /** The catalog revision created, or null for a rejection. */
   readonly revision: number | null;
   readonly outcome: string;
+  readonly reasonCode: string;
   readonly correlationId: string;
 }
 
-export interface NewRevision {
-  readonly revision: number;
-  readonly effectiveFrom: Date;
+export interface NewPublication {
+  readonly catalogRevision: number;
   readonly publishedAt: Date;
   readonly publishedBy: string;
   readonly correlationId: string;
-  readonly definitionsFingerprint: string;
-  readonly definitions: CatalogDefinitions;
+  readonly reasonCode: string;
+  readonly snapshotFingerprint: string;
+  readonly items: readonly Definition[];
+  /** Definitions first published here; only these get an identity row. */
+  readonly createdDefinitionIds: readonly string[];
+}
+
+/** One integration event row for the transactional outbox. */
+export interface OutboxEvent {
+  readonly eventId: string;
+  readonly eventType: string;
+  readonly exchange: string;
+  readonly routingKey: string;
+  readonly payload: string;
+  readonly correlationId: string;
+  readonly traceParent: string | null;
 }
 
 /** Work performed inside ONE local ACID transaction. */
 export interface CatalogUnitOfWork {
   /**
-   * Serialises publishers and returns the current chain head. Holding this lock
-   * makes "check receipt, plan, insert, record receipt" atomic per catalog.
+   * Serialises publishers and returns the current snapshot. Holding this lock
+   * makes "check receipt, plan, insert, record receipt" atomic for the catalog.
    */
-  lockHead(): Promise<RevisionHead | null>;
+  lockCurrent(): Promise<CatalogSnapshot | null>;
   findReceipt(
     actorSubject: string,
     operation: string,
     key: string,
   ): Promise<IdempotencyReceipt | null>;
-  insertRevision(revision: NewRevision): Promise<void>;
+  insertPublication(publication: NewPublication): Promise<void>;
   saveReceipt(receipt: IdempotencyReceipt, recordedAt: Date): Promise<void>;
   appendAudit(record: AuditRecord): Promise<void>;
+  enqueue(event: OutboxEvent): Promise<void>;
 }
 
 export interface CatalogRepository {
   transaction<T>(work: (uow: CatalogUnitOfWork) => Promise<T>): Promise<T>;
-  /** The revision in force at `at`, i.e. the latest effectiveFrom <= at. */
-  revisionInForce(at: Date): Promise<PublishedRevision | null>;
-  revision(revision: number): Promise<PublishedRevision | null>;
-  /** Newest first, bounded. */
-  listRevisions(limit: number): Promise<RevisionSummary[]>;
+  /** The newest published snapshot, or null before the first publication. */
+  current(): Promise<CatalogSnapshot | null>;
 }
 
 export interface Clock {
