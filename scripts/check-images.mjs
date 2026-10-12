@@ -54,14 +54,18 @@ const DEFAULT_SERVICES = JSON.parse(
   .services.map((service) => service.id)
   .filter((id) => !NEEDS_FULL_PROFILE.has(id));
 
-/**
- * Generous by default because the slow step is `pnpm install` inside the build,
- * and its duration is dominated by download throughput to the registry from
- * inside the container - which on a desktop Docker VM can be an order of
- * magnitude slower than on the host. A timeout here reports a build failure that
- * is really a network condition, so it is configurable rather than tight.
- */
-const DOCKER_TIMEOUT_MS = Number(process.env.CW_IMAGE_TIMEOUT_MS ?? 60 * 60 * 1000);
+// Control commands must not inherit the build's much longer download budget.
+const DOCKER_TIMEOUT_MS = 120_000;
+
+/** Leave time for diagnostics, boot probes and cleanup before the CI job expires. */
+export function imageBuildTimeout(value = process.env.CW_IMAGE_TIMEOUT_MS ?? 20 * 60 * 1000) {
+  const timeoutMs = Number(value);
+  assert.ok(
+    Number.isSafeInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 2 ** 31 - 1,
+    'CW_IMAGE_TIMEOUT_MS must be a positive integer within the Node timer range',
+  );
+  return timeoutMs;
+}
 
 const runId = randomUUID().slice(0, 8);
 
@@ -97,7 +101,10 @@ function imageRepository(reference) {
     .replace(/^library\//, '');
 }
 
-export async function buildImage(service, tag, dockerCommand = docker) {
+export async function buildImage(service, tag, dockerCommand = docker, options = {}) {
+  const timeoutMs = imageBuildTimeout(options.timeoutMs);
+  const log = options.log ?? console.log;
+  log(`[BUILD] ${service}: acquiring ${NODE_IMAGE}`);
   // Acquire the pinned version before building: a preferred mirror can serve
   // metadata but rate-limit the following layer requests. Only image acquisition
   // falls back; application build failures are never retried or suppressed.
@@ -119,19 +126,42 @@ export async function buildImage(service, tag, dockerCommand = docker) {
       imageRepository(reference) === imageRepository(pulled.pullReference),
   );
   assert.ok(baseImage, 'Acquired Node base has no matching digest');
-  const result = await dockerCommand([
-    'build',
-    '--file',
-    'Dockerfile',
-    '--build-arg',
-    `SERVICE=${service}`,
-    '--build-arg',
-    `NODE_IMAGE=${baseImage}`,
-    '--tag',
-    tag,
-    '.',
-  ]);
-  return { ...result, baseImage };
+  const started = Date.now();
+  log(`[BUILD] ${service}: building ${baseImage} (timeout=${timeoutMs}ms)`);
+  // Only elapsed time is emitted while output is incomplete. The execution
+  // harness captures bounded stdout/stderr and redacts them after completion,
+  // including secrets split across chunks; do not bypass it with raw streaming.
+  const progress = setInterval(() => {
+    log(
+      `[BUILD] ${service}: still building after ${Date.now() - started}ms (limit=${timeoutMs}ms)`,
+    );
+  }, options.progressIntervalMs ?? 30_000);
+  progress.unref?.();
+  try {
+    const result = await dockerCommand(
+      [
+        'build',
+        '--progress=plain',
+        '--file',
+        'Dockerfile',
+        '--build-arg',
+        `SERVICE=${service}`,
+        '--build-arg',
+        `NODE_IMAGE=${baseImage}`,
+        '--tag',
+        tag,
+        '.',
+      ],
+      { timeoutMs },
+    );
+    const ok = result.code === 0 && result.outcome === 'exited';
+    log(
+      `[BUILD] ${service}: outcome=${result.outcome} code=${result.code} duration=${result.durationMs ?? Date.now() - started}ms`,
+    );
+    return { ...result, baseImage, ok };
+  } finally {
+    clearInterval(progress);
+  }
 }
 
 /** Poll an endpoint from INSIDE the container, so no port has to be published. */
@@ -168,9 +198,14 @@ async function verifyService(service) {
   const results = [];
 
   const built = await buildImage(service, tag);
-  if (built.code !== 0) {
+  if (!built.ok) {
     results.push(
-      fail(service, 'image builds', built.stderr.slice(-2000) || built.stdout.slice(-2000)),
+      fail(
+        service,
+        'image builds',
+        `outcome=${built.outcome} code=${built.code} duration=${built.durationMs}ms\n` +
+          `stderr:\n${built.stderr.slice(-8000)}\nstdout:\n${built.stdout.slice(-8000)}`,
+      ),
     );
     return results;
   }

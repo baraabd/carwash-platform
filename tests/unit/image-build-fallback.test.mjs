@@ -48,6 +48,7 @@ imageTest(
     ]);
     assert.deepEqual(calls[3], [
       'build',
+      '--progress=plain',
       '--file',
       'Dockerfile',
       '--build-arg',
