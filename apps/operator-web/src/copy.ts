@@ -1,7 +1,7 @@
 /**
  * PENDING OWNER DESIGN (TI-D03). The approved reference has no loading,
- * offline, unknown-outcome, conflict, error, unauthenticated or lost-task
- * state. These minimal texts are shown only through existing reference
+ * offline, unknown-outcome, conflict, error, unauthenticated, lost-task or
+ * eligibility-attention state. These minimal texts are shown only through existing reference
  * components (the `#storage-warning` status bar, `#toast`) and must be
  * replaced by owner-approved copy. Every string here is listed in
  * docs/production/C/P03-C5-operator-web.md ("Production states pending owner design").
@@ -28,4 +28,6 @@ export const PENDING = {
   exceptionOverlap: 'يوجد استثناء آخر في هذه الفترة.',
   scheduleInvalid: 'اختر وقت نهاية بعد البداية بربع ساعة على الأقل، دون تداخل مع فترة أخرى.',
   exceptionInvalid: 'اختر يوم نهاية لا يسبق يوم البداية، ولا تتجاوز المدة 31 يومًا.',
+  /** P06-C: Dispatch flagged this field task because Workforce withdrew the technician's eligibility. */
+  attention: 'تحتاج هذه المهمة مراجعة الإدارة لأن أهليتك للمهام تغيّرت. لم تُلغَ المهمة.',
 } as const;

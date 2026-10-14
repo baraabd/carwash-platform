@@ -128,10 +128,16 @@ function updateStatus(): void {
         minute: '2-digit',
       })
     : null;
-  const message =
+  const connectionMessage =
     S.connection === 'offline' && cachedAt
       ? `${PENDING.offlineCached} (${cachedAt}).`
       : text[S.connection];
+  // A connection state outranks the task flag: it says the flag itself may be stale.
+  const flagged =
+    S.connection === 'ok' &&
+    S.view === 'task' &&
+    job()?.task?.attentionReason === 'RESOURCE_INELIGIBLE';
+  const message = flagged ? PENDING.attention : connectionMessage;
   el.hidden = !message;
   el.textContent = message ?? '';
 }
@@ -256,14 +262,19 @@ function connectionFrom(result: Result<unknown>): typeof S.connection {
   return 'ok';
 }
 
+/** Sequence of started reads; only the newest one may replace the screen state. */
+let readSeq = 0;
+
 /** Re-read every server fact the screens use. Nothing is guessed when a read fails. */
 async function reload(): Promise<boolean> {
+  const seq = (readSeq += 1);
   const [jobs, availability, profile, custody] = await Promise.all([
     readJobs(),
     readAvailability(),
     readProfile(),
     readCustody(),
   ]);
+  if (seq !== readSeq) return false;
   if (jobs.kind !== 'ok') {
     S.connection = connectionFrom(jobs);
     if (S.connection === 'auth' || S.connection === 'forbidden') forgetProfile();
@@ -311,6 +322,7 @@ async function reload(): Promise<boolean> {
       [...t.evidence.BEFORE, ...t.evidence.AFTER].flatMap((e) => (e ? [e.mediaObjectId] : [])),
     ),
   );
+  if (seq !== readSeq) return false;
   const hadSelected = S.view === 'task' && S.jobs.some((j) => j.id === S.selectedId);
   S.jobs = buildJobs(jobs.value.offers, tasks, bookings);
   S.loaded = true;
@@ -386,12 +398,18 @@ function scheduleResolve(): void {
   resolveTimer = setTimeout(() => void resolvePending(), delay);
 }
 
-/** The task is no longer this technician's (reassigned, withdrawn, ended): branch on code + reason. */
+/**
+ * The task is no longer this technician's (reassigned, withdrawn, ended): branch on code + reason.
+ * An offer withdrawn or expired before acceptance is Dispatch `409 OFFER_NOT_LIVE` / `OFFER_EXPIRED`
+ * (assignment race, P06-C).
+ */
 function taskGone(result: Extract<Result<unknown>, { kind: 'error' }>): boolean {
   return (
     result.reason === 'TASK_NOT_FOUND' ||
     result.reason === 'TASK_CLOSED' ||
     result.reason === 'OFFER_NOT_FOUND' ||
+    result.reason === 'OFFER_NOT_LIVE' ||
+    result.reason === 'OFFER_EXPIRED' ||
     (result.code === 'NOT_FOUND' && result.reason === null)
   );
 }
@@ -464,7 +482,7 @@ async function mutate(
 }
 
 async function resolvePending(): Promise<void> {
-  if (inFlight || !pending.size) return;
+  if (inFlight || (!pending.size && !stalled.size)) return;
   inFlight = true;
   let unresolved = false;
   try {
@@ -483,6 +501,7 @@ async function resolvePending(): Promise<void> {
   } finally {
     inFlight = false;
   }
+  if (await resumeUploads()) unresolved = true;
   if (!unresolved) resolveAttempt = 0;
   await reload();
   refresh();
@@ -746,39 +765,84 @@ async function loadLocalPhoto(
       stored: false,
     };
     uploads.set(uploadId, intent);
-    const outcome = await runUpload(intent);
-    if (outcome.kind === 'unknown') {
-      S.connection = 'unknown';
-      toast(PENDING.unknownToast);
-      return;
-    }
-    if (outcome.kind === 'rejected') {
-      uploads.delete(uploadId);
-      toast(PENDING.uploadRejected);
-      return;
-    }
-    if (outcome.kind === 'failed') {
-      uploads.delete(uploadId);
-      toast(PENDING.refused);
-      return;
-    }
-    const current = S.jobs.find((x) => x.id === jid);
-    const task = current?.task;
-    if (rev !== S.photoRevision || !current || current.stage !== phase || !task) return;
-    S.photoBusy = false;
-    const result = await mutate(
-      `${task.taskId}:attach:${phase}:${index}:${outcome.objectId}`,
-      () => M.attach(task, PHASE_WIRE[phase], index, outcome.objectId),
-      () => {
-        refresh();
-        toast('تم تجهيز الصورة وحفظها.');
-      },
-    );
-    if (result === 'ok') uploads.delete(uploadId);
+    await uploadAndAttach({ uploadId, phase, index, jid, rev }, false);
   } finally {
     S.photoBusy = false;
     if (S.view === 'task' && S.selectedId === jid) refresh();
   }
+}
+
+/** One photo's upload + attach, identified by its `uploads` entry. */
+interface PhotoUpload {
+  readonly uploadId: string;
+  readonly phase: PhotoPhase;
+  readonly index: number;
+  readonly jid: string;
+  readonly rev: number;
+}
+
+/**
+ * Uploads whose outcome is UNKNOWN. Like an UNKNOWN mutation they are resumed by
+ * `resolvePending` (backoff, `online`, `visibilitychange`) with the same reservation
+ * and Idempotency-Keys, as the UNKNOWN status promises; nothing is shown as saved before.
+ */
+const stalled = new Map<string, PhotoUpload>();
+
+async function uploadAndAttach(p: PhotoUpload, resumed: boolean): Promise<'unknown' | 'settled'> {
+  const intent = uploads.get(p.uploadId);
+  if (!intent) return 'settled';
+  const outcome = await runUpload(intent);
+  if (outcome.kind === 'unknown') {
+    stalled.set(p.uploadId, p);
+    S.connection = 'unknown';
+    if (!resumed) {
+      toast(PENDING.unknownToast);
+      scheduleResolve();
+    }
+    return 'unknown';
+  }
+  stalled.delete(p.uploadId);
+  if (outcome.kind === 'rejected') {
+    uploads.delete(p.uploadId);
+    toast(PENDING.uploadRejected);
+    return 'settled';
+  }
+  if (outcome.kind === 'failed') {
+    uploads.delete(p.uploadId);
+    toast(PENDING.refused);
+    return 'settled';
+  }
+  const current = S.jobs.find((x) => x.id === p.jid);
+  const task = current?.task;
+  if (p.rev !== S.photoRevision || !current || current.stage !== p.phase || !task) {
+    return 'settled';
+  }
+  S.photoBusy = false;
+  const result = await mutate(
+    `${task.taskId}:attach:${p.phase}:${p.index}:${outcome.objectId}`,
+    () => M.attach(task, PHASE_WIRE[p.phase], p.index, outcome.objectId),
+    () => {
+      refresh();
+      toast('تم تجهيز الصورة وحفظها.');
+    },
+  );
+  if (result === 'ok') uploads.delete(p.uploadId);
+  return 'settled';
+}
+
+/** Resume stalled uploads one at a time; true while any outcome is still UNKNOWN. */
+async function resumeUploads(): Promise<boolean> {
+  if (S.photoBusy) return stalled.size > 0;
+  let unresolved = false;
+  for (const p of [...stalled.values()]) {
+    S.photoBusy = true;
+    try {
+      if ((await uploadAndAttach(p, true)) === 'unknown') unresolved = true;
+    } finally {
+      S.photoBusy = false;
+    }
+  }
+  return unresolved;
 }
 
 // ------------------------------------------------------------------ reveal
@@ -1314,6 +1378,46 @@ function onChange(e: Event): void {
   }
 }
 
+/**
+ * PRODUCTION BEHAVIOUR (P06-C, PB-01): while the page is visible the server
+ * facts are re-read every 30 s, so a new offer, a reassignment, a withdrawal
+ * or an eligibility flag made by operations reaches the technician without an
+ * action of theirs. The re-read waits while a sheet is open, a mutation or a
+ * photo is in flight, an UNKNOWN intent is pending or a text field is being
+ * edited, so it never moves the screen under the user's hand. Hidden pages do
+ * not poll; `visibilitychange` re-reads on return.
+ */
+const BACKGROUND_READ_MS = 30_000;
+let backgroundTimer: ReturnType<typeof setTimeout> | undefined;
+
+function scheduleBackgroundRead(): void {
+  clearTimeout(backgroundTimer);
+  backgroundTimer = setTimeout(() => void backgroundRead(), BACKGROUND_READ_MS);
+}
+
+/** Inputs whose focus does not mean the user is typing (a chosen photo leaves focus on its input). */
+const NOT_TYPING = new Set(['file', 'checkbox', 'radio', 'button', 'submit']);
+
+function userIsBusy(): boolean {
+  const active = document.activeElement;
+  return (
+    inFlight ||
+    lock ||
+    S.photoBusy ||
+    pending.size > 0 ||
+    stalled.size > 0 ||
+    sheet.open ||
+    active instanceof HTMLTextAreaElement ||
+    (active instanceof HTMLInputElement && !NOT_TYPING.has(active.type))
+  );
+}
+
+async function backgroundRead(): Promise<void> {
+  if (!S.session || document.hidden) return;
+  if (!userIsBusy() && (await reload())) refresh();
+  scheduleBackgroundRead();
+}
+
 async function boot(): Promise<void> {
   const session = await readSession();
   if (session.kind !== 'ok') {
@@ -1338,6 +1442,7 @@ async function boot(): Promise<void> {
   loadCache(S.session.subject, Date.now());
   if (!(await reload())) showCachedProfile(S.session.subject);
   refresh();
+  scheduleBackgroundRead();
 }
 
 export function start(): void {
@@ -1394,7 +1499,10 @@ export function start(): void {
   document.addEventListener('change', onChange);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) stopReveal();
-    else if (S.session) void resolvePending().then(() => reload().then(() => refresh()));
+    else if (S.session) {
+      scheduleBackgroundRead();
+      void resolvePending().then(() => reload().then(() => refresh()));
+    }
   });
   window.addEventListener('online', () => {
     if (!S.session) {
@@ -1403,7 +1511,7 @@ export function start(): void {
       return;
     }
     resolveAttempt = 0;
-    void (pending.size ? resolvePending() : reload().then(() => refresh()));
+    void (pending.size || stalled.size ? resolvePending() : reload().then(() => refresh()));
   });
   window.addEventListener('offline', () => {
     if (S.connection === 'ok') S.connection = 'offline';

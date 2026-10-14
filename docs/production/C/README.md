@@ -35,12 +35,20 @@ step (pivot), so Dispatch may open a job from a COMMITTED
 - `tests/production/C/`: process-level suites (SIGKILL restarts, database
   restart, broker publication, object storage, published-contract parity).
 
+## P06-C technician scope closure
+
+- `P06-C1-operator-web-closure.md`: crosswalk, production behaviours PB-01..04, restored CSS identity.
+- `P06-C-technician-crosswalk.json`: 5 views, 6 phases, 21 sheets, 46 actions (checked by `operator-web-crosswalk.test.mjs`).
+- `tests/production/C/p06c-real-services.test.mjs`: real Workforce/Dispatch/Booking/Media + PostgreSQL + RabbitMQ + S3 + the app in Chromium.
+- `P06-CLOSE-07-technician-execution-media.md`: reuse map, PB-05/06, evidence matrix, blockers B-07-01..03 (B-07-01 is an open security finding).
+
 ## Contract requests to Lane E
 
 - `contract-requests/CR-C1-scheduling-v1.md`
 - `contract-requests/CR-P02-C1-scheduling-v1-provider.md`
 - `contract-requests/CR-P02-C2-booking-v1.md`
 - `contract-requests/CR-P02-C3-dispatch-v1.md`
+- `contract-requests/CR-P06-C-technician-cash-receipt.md` (to Lane B and E)
 
 ## Known constraints (not hidden)
 

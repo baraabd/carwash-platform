@@ -356,7 +356,7 @@ export async function startOperatorFixture({
     return {
       endedAt: ended ? task.updatedAt : null,
       endReason: ended ? reasons[task.stage] : null,
-      attentionReason: null,
+      attentionReason: task.attentionReason ?? null,
     };
   };
   const publicTask = (task) => {
@@ -1007,6 +1007,31 @@ export async function startOperatorFixture({
       task.revision += 1;
       task.updatedAt = iso();
       state.assignments.get(task.bookingId).technician = 'someone-else';
+    },
+    /**
+     * P06-C: Workforce withdrew the technician's eligibility and Dispatch
+     * consumed it (C4 semantics): field tasks are flagged, never cancelled.
+     */
+    flagIneligible(taskId) {
+      const task = state.tasks.get(taskId);
+      task.attentionReason = 'RESOURCE_INELIGIBLE';
+      task.revision += 1;
+      task.updatedAt = iso();
+    },
+    /** P06-C: operations withdrew a live offer (reassignment race before acceptance). */
+    withdrawOffer(offerId) {
+      const offer = state.offers.get(offerId);
+      offer.status = 'WITHDRAWN';
+      offer.job.status = 'UNASSIGNED';
+      offer.revision += 1;
+    },
+    /** P06-C: operations offered a new job to this technician. */
+    offerAgain(seedKey) {
+      const bookingId = control.bookingIdOf(seedKey);
+      const offer = offerFor(bookingId);
+      state.offers.set(offer.offerId, offer);
+      state.assignments.get(bookingId).status = 'OFFERED';
+      return offer;
     },
     storedBytes(objectId) {
       return stored.get(objectId) ?? null;
