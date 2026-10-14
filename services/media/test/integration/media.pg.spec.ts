@@ -302,6 +302,77 @@ test('claims: idempotent per (object, claimRef), concurrent duplicates collapse,
   );
 });
 
+// ------------------------------------------------------------ owner fence
+
+test('owner fence (CR-P08-C1): one fence per claim under concurrency, owner reads 404, service reads unchanged', async () => {
+  clock.set(new Date());
+  const tech = technician();
+  const { id } = await available(a, tech);
+  const claimRef = randomUUID();
+  await a.service.claim(meta(DISPATCH), id, { claimRef, holder: 'dispatch.task-evidence' });
+  assert.equal((await a.service.issueReadUrl(meta(tech), id)).method, 'GET');
+
+  const body = { access: 'REVOKED', reason: 'TASK_ENDED' };
+  const idem = key();
+  const results = await Promise.all(
+    Array.from({ length: 6 }, (_, i) =>
+      (i % 2 ? a : b).service.revokeOwnerAccess(
+        meta(DISPATCH),
+        id,
+        claimRef,
+        body,
+        i < 3 ? idem : key(),
+      ),
+    ),
+  );
+  assert.ok(results.every((r) => r.value.ownerFenced));
+  assert.equal(
+    await count(
+      `SELECT count(*)::int AS n FROM app.object_owner_fence WHERE object_id = $1::uuid`,
+      id,
+    ),
+    1,
+  );
+  assert.equal(
+    await count(
+      `SELECT count(*)::int AS n FROM app.audit_entry WHERE action = 'media.owner-access.revoked' AND target_id = $1::uuid`,
+      id,
+    ),
+    1,
+  );
+  assert.equal(await errorCode(a.service.issueReadUrl(meta(tech), id)), 'OBJECT_NOT_FOUND');
+  assert.equal(await errorCode(a.service.getObject(meta(tech), id)), 'OBJECT_NOT_FOUND');
+  assert.equal((await a.service.issueReadUrl(meta(DISPATCH), id)).method, 'GET');
+
+  // Same key, different request: conflict. Unknown claim or object: not found.
+  assert.equal(
+    await errorCode(a.service.revokeOwnerAccess(meta(DISPATCH), id, randomUUID(), body, idem)),
+    'IDEMPOTENCY_CONFLICT',
+  );
+  assert.equal(
+    await errorCode(a.service.revokeOwnerAccess(meta(DISPATCH), id, randomUUID(), body, key())),
+    'OBJECT_NOT_FOUND',
+  );
+  assert.equal(
+    await errorCode(
+      a.service.revokeOwnerAccess(meta(DISPATCH), randomUUID(), claimRef, body, key()),
+    ),
+    'OBJECT_NOT_FOUND',
+  );
+  // A fence is final, even for the runtime role.
+  assert.equal(
+    await state(`DELETE FROM app.object_owner_fence WHERE object_id = $1::uuid`, id),
+    '23514',
+  );
+  assert.equal(
+    await state(
+      `UPDATE app.object_owner_fence SET reason = 'TASK_ENDED' WHERE object_id = $1::uuid`,
+      id,
+    ),
+    '23514',
+  );
+});
+
 // ------------------------------------------------------------ worker passes
 
 test('purge with SKIP LOCKED across two pools: every unclaimed object purged once, claimed kept', async () => {

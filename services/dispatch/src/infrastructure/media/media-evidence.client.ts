@@ -1,11 +1,17 @@
 import { DispatchError } from '../../domain';
-import type { EvidenceObject, EvidenceObjects } from '../../ports';
+import type {
+  EvidenceFenceTarget,
+  EvidenceObject,
+  EvidenceObjects,
+  FenceOutcome,
+} from '../../ports';
 import type { ServiceHttp } from '../http/service-http';
 
 /**
  * Consumer of the REQUESTED media.v1 (interface spec C2, CR-P03-C2): object
- * read with `media.object.read` and idempotent claims with
- * `media.object.claim`. Producer-pending: nothing here treats the shape as
+ * read with `media.object.read`, idempotent claims with
+ * `media.object.claim` and owner-access fences with `media.object.fence`
+ * (CR-P08-C1). Producer-pending: nothing here treats the shape as
  * published; parity with the Media provider is proven only in the P03-C
  * merge candidate. Any failure is EVIDENCE_UNAVAILABLE (503).
  */
@@ -43,7 +49,7 @@ export function parseEvidenceObject(body: unknown): EvidenceObject {
   };
 }
 
-export class MediaEvidenceClient implements EvidenceObjects {
+export class MediaEvidenceClient implements EvidenceObjects, EvidenceFenceTarget {
   constructor(private readonly http: ServiceHttp) {}
 
   async inspect(objectId: string, correlationId: string): Promise<EvidenceObject | null> {
@@ -70,5 +76,25 @@ export class MediaEvidenceClient implements EvidenceObjects {
       throw new DispatchError('EVIDENCE_INVALID', 'The photo is not usable evidence.');
     }
     throw unavailable();
+  }
+
+  async revokeOwnerAccess(
+    objectId: string,
+    claimRef: string,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<FenceOutcome> {
+    const outcome = await this.http.request(
+      'POST',
+      `${PREFIX}/${objectId}/claims/${claimRef}/owner-access`,
+      correlationId,
+      { access: 'REVOKED', reason: 'TASK_ENDED' },
+      { idempotent: true, idempotencyKey },
+    );
+    if (outcome.kind === 'ok') return { kind: 'FENCED' };
+    return {
+      kind: 'FAILED',
+      code: outcome.kind === 'status' ? `MEDIA_HTTP_${outcome.status}` : 'MEDIA_UNAVAILABLE',
+    };
   }
 }

@@ -63,8 +63,10 @@ Bytes live in a private S3 bucket under key `objects/<objectId>`; no PII in keys
 | GET | `/objects/:id` | owner, or service scope `media.object.read` | `ObjectView` |
 | POST | `/objects/:id/read-url` | owner, or service scope `media.object.read` | presigned GET, TTL 60–300 s, only when AVAILABLE |
 | POST | `/objects/:id/claims` | service scope `media.object.claim` | body `{claimRef:uuid, holder:'dispatch.task-evidence'}`; idempotent per (object, claimRef); only AVAILABLE; a claimed object is never purged |
+| POST | `/objects/:id/claims/:claimRef/owner-access` | service scope `media.object.fence` (Dispatch only), `Idempotency-Key` | P06-CLOSE-07 / CR-P08-C1. Body `{access:'REVOKED', reason:'TASK_ENDED'}` → 200 `ObjectView & {ownerAccess}`; 404 for an unknown object or claim. Afterwards every owner request for the object answers 404. Append-only, never re-granted. |
 
 `ObjectView = { objectId, revision, status, purpose, contentType, byteLength, sha256, ownerSubjectId, rejectReason|null, claimed:boolean, createdAt, finalizedAt|null, expiresAt|null }`.
+Service callers also get `ownerAccess:'GRANTED'|'REVOKED'`. The user view is unchanged, because operator-web parses it as a closed shape.
 `upload = { method:'PUT', url, headers:{'content-type', 'x-amz-checksum-sha256'?...}, expiresAt }` (exact signed headers listed).
 Errors: `OBJECT_NOT_FOUND` (also for another owner's object), `OBJECT_NOT_AVAILABLE`, `UPLOAD_MISSING`,
 `UPLOAD_MISMATCH`, `UNSUPPORTED_MEDIA`, `IDEMPOTENCY_CONFLICT`, `REVISION_CONFLICT`, `STORAGE_UNAVAILABLE` (503, never success).

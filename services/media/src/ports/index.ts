@@ -14,7 +14,11 @@ export interface IdGenerator {
 }
 
 /** Service-to-service scopes this service grants. Deny by default. */
-export const MEDIA_SCOPES = ['media.object.read', 'media.object.claim'] as const;
+export const MEDIA_SCOPES = [
+  'media.object.read',
+  'media.object.claim',
+  'media.object.fence',
+] as const;
 export type MediaScope = (typeof MEDIA_SCOPES)[number];
 
 /**
@@ -63,10 +67,19 @@ export interface ObjectClaim {
   readonly createdAt: Date;
 }
 
-/** An object and whether any holder has claimed it. */
+/** A claim holder revoked the uploader's user access to the object. Never lifted. */
+export interface OwnerFence {
+  readonly objectId: string;
+  readonly claimRef: string;
+  readonly reason: 'TASK_ENDED';
+  readonly createdAt: Date;
+}
+
+/** An object, whether any holder has claimed it, and whether its owner was fenced off. */
 export interface ObjectRecord {
   readonly object: MediaObjectState;
   readonly claimed: boolean;
+  readonly ownerFenced: boolean;
 }
 
 /**
@@ -98,6 +111,8 @@ export interface MediaTransaction {
   hasClaims(objectId: string): Promise<boolean>;
   findClaim(objectId: string, claimRef: string): Promise<ObjectClaim | null>;
   insertClaim(claim: ObjectClaim): Promise<void>;
+  findFence(objectId: string, claimRef: string): Promise<OwnerFence | null>;
+  insertFence(fence: OwnerFence): Promise<void>;
 
   appendAudit(entry: AuditAppend): Promise<void>;
 }

@@ -66,12 +66,16 @@ export class ServiceHttp {
     path: string,
     correlationId: string,
     body?: unknown,
-    options: { readonly idempotent?: boolean } = {},
+    options: {
+      readonly idempotent?: boolean;
+      /** Sent on every attempt, so a retry is the same request (same key). */
+      readonly idempotencyKey?: string;
+    } = {},
   ): Promise<HttpOutcome> {
     // A POST is retried here only when the caller declares it idempotent.
     const attempts = method === 'GET' || options.idempotent === true ? 2 : 1;
     for (let attempt = 1; ; attempt += 1) {
-      const outcome = await this.once(method, path, correlationId, body);
+      const outcome = await this.once(method, path, correlationId, body, options.idempotencyKey);
       const retryable =
         outcome.kind === 'unavailable' || (outcome.kind === 'status' && outcome.status >= 500);
       if (!retryable || attempt >= attempts) return outcome;
@@ -84,6 +88,7 @@ export class ServiceHttp {
     path: string,
     correlationId: string,
     body: unknown,
+    idempotencyKey: string | undefined,
   ): Promise<HttpOutcome> {
     let response: Response;
     try {
@@ -95,6 +100,7 @@ export class ServiceHttp {
           'x-service-client': this.options.credential.clientId,
           'x-service-token': this.options.credential.token,
           ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+          ...(idempotencyKey === undefined ? {} : { 'idempotency-key': idempotencyKey }),
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         redirect: 'error',

@@ -50,6 +50,7 @@
  */
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -122,6 +123,7 @@ let workforcePrisma;
 let connection;
 let consumer;
 let holdParts;
+let fenceEnv;
 
 before(async () => {
   context = await readContext();
@@ -191,11 +193,17 @@ before(async () => {
         {
           id: 'dispatch',
           tokenSha256: digest(CREDS.dispatchToMedia),
-          scopes: ['media.object.read', 'media.object.claim'],
+          scopes: ['media.object.read', 'media.object.claim', 'media.object.fence'],
         },
       ]),
     }),
   );
+  fenceEnv = {
+    DATABASE_URL: context.databases.dispatch.appUrl,
+    DISPATCH_MEDIA_URL: local('media'),
+    DISPATCH_MEDIA_CLIENT_ID: 'dispatch',
+    DISPATCH_MEDIA_CLIENT_TOKEN: CREDS.dispatchToMedia,
+  };
   procs.push(
     startProcess(main('dispatch'), {
       ...common,
@@ -321,6 +329,49 @@ async function call(service, method, route, token, { body, key, headers = {} } =
 }
 
 const key = () => `p06c-${randomUUID()}`;
+
+/** One pass of the compiled evidence-fence worker (its own process); returns its pass line. */
+function fencePass() {
+  const worker = path.join(
+    ROOT,
+    'services',
+    'dispatch',
+    'dist',
+    'workers',
+    'evidence-fence.main.js',
+  );
+  return new Promise((resolve, reject) => {
+    execFile(
+      process.execPath,
+      [worker, '--once'],
+      { env: { ...process.env, ...fenceEnv }, timeout: 60_000 },
+      (error, stdout, stderr) => {
+        if (error)
+          return reject(new Error(`fence worker failed: ${stderr.slice(-1500)}`, { cause: error }));
+        const line = `${stdout}\n${stderr}`
+          .split('\n')
+          .map((raw) => {
+            try {
+              return JSON.parse(raw);
+            } catch {
+              return null;
+            }
+          })
+          .find((entry) => entry?.msg === 'fence_pass');
+        if (!line)
+          return reject(
+            new Error(`no fence_pass line: ${stdout.slice(-800)} ${stderr.slice(-800)}`),
+          );
+        resolve(line);
+      },
+    );
+  });
+}
+
+const asDispatch = {
+  'x-service-client': 'dispatch',
+  'x-service-token': CREDS.dispatchToMedia,
+};
 
 async function until(probe, timeoutMs = 20_000) {
   const deadline = Date.now() + timeoutMs;
@@ -798,36 +849,103 @@ test('reassignment mid-job: the first task ends REASSIGNED and is fenced; the se
   assert.equal(b.task.stage, 'CLOSED');
 });
 
-test(
-  'evidence access after reassignment: the superseded technician can no longer read the job photos',
-  {
-    todo: 'OPEN SECURITY FINDING OPS-F01 / CR-P08-C1: Media authorizes a user read by uploader only, so a reassigned technician keeps read access; needs a media.v1 fence (Lane E) before this can pass',
-  },
-  async (t) => {
-    const job = await bookingWithJob();
-    const first = await technician(job, 'fence-a');
-    const second = await technician(job, 'fence-b');
-    const accepted = await accept(first, await offerTo(job, first));
-    assert.equal(accepted.status, 200, accepted.text);
-    const a = driver(first, accepted.body.taskId);
-    await a.read();
-    await a.go('POST', '/depart');
-    await a.go('POST', '/arrive');
-    const photo = await uploadPhoto(first.token);
-    await a.go('PUT', '/evidence/BEFORE/0', { mediaObjectId: photo.objectId });
-    assert.equal((await reassign(job, second)).status, 200);
+test('evidence access after reassignment: the superseded technician can no longer read the job photos (B-07-01)', async (t) => {
+  const job = await bookingWithJob();
+  const first = await technician(job, 'fence-a');
+  const second = await technician(job, 'fence-b');
+  const accepted = await accept(first, await offerTo(job, first));
+  assert.equal(accepted.status, 200, accepted.text);
+  const a = driver(first, accepted.body.taskId);
+  await a.read();
+  await a.go('POST', '/depart');
+  await a.go('POST', '/arrive');
+  const photo = await uploadPhoto(first.token);
+  await a.go('PUT', '/evidence/BEFORE/0', { mediaObjectId: photo.objectId });
+  assert.equal((await reassign(job, second)).status, 200);
 
-    const readBy = (tech) =>
-      call('media', 'POST', `/objects/${photo.objectId}/read-url`, tech.token, {
-        key: key(),
-        body: {},
-      });
-    // Recorded, not asserted: whether the new holder may read earlier evidence is TI-D08 (owner).
-    t.diagnostic(`second technician read-url: ${(await readBy(second)).status}`);
-    const stale = await readBy(first);
-    assert.equal(stale.status, 404, `superseded technician still reads evidence: ${stale.status}`);
-  },
-);
+  const readBy = (tech) =>
+    call('media', 'POST', `/objects/${photo.objectId}/read-url`, tech.token, {
+      key: key(),
+      body: {},
+    });
+  // The fence is queued in the transaction that withdrew the task and delivered by
+  // the worker; until that pass the old grant is still in force (declared window).
+  const queued = await dispatchPrisma.client.$queryRawUnsafe(
+    `SELECT fenced_at FROM app.evidence_fence f JOIN app.task_evidence e ON e.id = f.evidence_id
+        WHERE e.media_object_id = $1::uuid`,
+    photo.objectId,
+  );
+  assert.equal(queued.length, 1, 'one fence request per evidence link');
+  assert.equal(queued[0].fenced_at, null);
+
+  const delivered = await fencePass();
+  assert.ok(delivered.fenced >= 1, JSON.stringify(delivered));
+  // Recorded, not asserted: whether the new holder may read earlier evidence is TI-D08 (owner).
+  t.diagnostic(`second technician read-url: ${(await readBy(second)).status}`);
+  const stale = await readBy(first);
+  assert.equal(stale.status, 404, `superseded technician still reads evidence: ${stale.status}`);
+  assert.equal(
+    (await call('media', 'GET', `/objects/${photo.objectId}`, first.token)).status,
+    404,
+    'the object view is fenced too (no probing)',
+  );
+
+  // Service reads are unchanged and expose the fence as a read-only fact.
+  const view = await call('media', 'GET', `/objects/${photo.objectId}`, null, {
+    headers: asDispatch,
+  });
+  assert.equal(view.status, 200, view.text);
+  assert.equal(view.body.ownerAccess, 'REVOKED');
+
+  // Delivery is final and replay-safe: a second pass finds nothing, and the same
+  // request again (same key) or a new key is the same fact, not a second fence.
+  const [row] = await dispatchPrisma.client.$queryRawUnsafe(
+    `SELECT f.evidence_id::text AS id, f.fenced_at FROM app.evidence_fence f
+         JOIN app.task_evidence e ON e.id = f.evidence_id WHERE e.media_object_id = $1::uuid`,
+    photo.objectId,
+  );
+  assert.ok(row.fenced_at, 'fence confirmed by Media');
+  const route = `/objects/${photo.objectId}/claims/${row.id}/owner-access`;
+  const fenceBody = { access: 'REVOKED', reason: 'TASK_ENDED' };
+  for (const idem of [`evidence-fence-${row.id}`, key()]) {
+    const again = await call('media', 'POST', route, null, {
+      key: idem,
+      body: fenceBody,
+      headers: asDispatch,
+    });
+    assert.equal(again.status, 200, again.text);
+    assert.equal(again.body.ownerAccess, 'REVOKED');
+  }
+  assert.equal(
+    (await call('media', 'POST', route, null, { body: fenceBody, headers: asDispatch })).status,
+    428,
+    'Idempotency-Key required',
+  );
+  assert.equal(
+    (
+      await call(
+        'media',
+        'POST',
+        `/objects/${photo.objectId}/claims/${randomUUID()}/owner-access`,
+        null,
+        {
+          key: key(),
+          body: fenceBody,
+          headers: asDispatch,
+        },
+      )
+    ).status,
+    404,
+    'unknown claim',
+  );
+  assert.equal(
+    (await call('media', 'POST', route, first.token, { key: key(), body: fenceBody })).status,
+    403,
+    'a technician cannot fence or unfence',
+  );
+  const replay = await fencePass();
+  assert.equal(replay.leased, 0, JSON.stringify(replay));
+});
 
 test('obstacles and collections: notes, a technician release, cash not collected then an exact late collection', async () => {
   // Release before departure: the job returns to operations, no work or money recorded.

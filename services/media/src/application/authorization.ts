@@ -9,6 +9,7 @@ import type { Actor, MediaScope } from '../ports';
  * Service scopes (interim digest credentials, see infrastructure/security):
  *   media.object.read     - read an object view or a short-lived download URL
  *   media.object.claim    - record that a holder (Dispatch task evidence) keeps it
+ *   media.object.fence    - the holder revokes the uploader's user access to it
  */
 export const WORK_READ = 'work.read:assigned';
 export const WORK_EXECUTE = 'work.execute:assigned';

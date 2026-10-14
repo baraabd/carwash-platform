@@ -184,6 +184,12 @@ export interface DispatchTransaction {
   /** Throws DispatchError EVIDENCE_IN_USE if the Media object is linked anywhere already. */
   insertEvidence(link: EvidenceLink): Promise<void>;
   markEvidenceRemoved(id: string, at: Date): Promise<void>;
+  /**
+   * Queues a Media owner-access fence for every evidence link of a task that
+   * ended without closing (CR-P08-C1), in the transaction that ended it.
+   * Idempotent per link. Returns how many requests were newly queued.
+   */
+  requestEvidenceFences(taskId: string, at: Date): Promise<number>;
   insertNote(note: TaskNote): Promise<void>;
   /** Appends the next history entry of a task whose assignment is locked. */
   appendTaskHistory(taskId: string, action: string, at: Date): Promise<void>;
@@ -263,4 +269,40 @@ export interface EvidenceObject {
 export interface EvidenceObjects {
   inspect(objectId: string, correlationId: string): Promise<EvidenceObject | null>;
   claim(objectId: string, claimRef: string, correlationId: string): Promise<void>;
+}
+
+/**
+ * Media's owner-access fence (media.v1 `media.object.fence`). Resolves only
+ * on Media's 2xx; any other answer is a failure code to retry, never success.
+ */
+export type FenceOutcome =
+  { readonly kind: 'FENCED' } | { readonly kind: 'FAILED'; readonly code: string };
+
+export interface EvidenceFenceTarget {
+  revokeOwnerAccess(
+    objectId: string,
+    claimRef: string,
+    idempotencyKey: string,
+    correlationId: string,
+  ): Promise<FenceOutcome>;
+}
+
+/** One leased fence request: the link id is Dispatch's claimRef at Media. */
+export interface LeasedFence {
+  readonly evidenceId: string;
+  readonly mediaObjectId: string;
+  readonly attempts: number;
+}
+
+/**
+ * Delivery queue of fence requests. Leases are exclusive (SKIP LOCKED) and
+ * guarded by worker id, so a stalled worker cannot finalise a row another
+ * worker now owns.
+ */
+export interface EvidenceFenceQueue {
+  leaseDue(workerId: string, leaseMs: number, limit: number): Promise<LeasedFence[]>;
+  markFenced(evidenceId: string, workerId: string): Promise<boolean>;
+  markRetry(evidenceId: string, workerId: string, code: string, delayMs: number): Promise<boolean>;
+  /** Unconfirmed requests with at least `attempts` failed deliveries. */
+  countStuck(attempts: number): Promise<number>;
 }

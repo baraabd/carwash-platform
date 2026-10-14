@@ -144,7 +144,7 @@ export function technician(subject: string = randomUUID()): Extract<Actor, { kin
 export const DISPATCH: Actor = {
   kind: 'SERVICE',
   clientId: 'dispatch',
-  scopes: ['media.object.read', 'media.object.claim'],
+  scopes: ['media.object.read', 'media.object.claim', 'media.object.fence'],
 };
 
 export function meta(actor: Actor): RequestMeta {

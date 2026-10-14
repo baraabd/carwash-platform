@@ -50,6 +50,12 @@ Lock order everywhere: idempotency record -> hold observation -> assignment -> o
 - `node dist/main.js`: HTTP API.
 - `node dist/workers/offer-expiry.main.js [--once] [--batch N] [--interval-ms N]`:
   expiry worker and idempotency-retention purge (any number of replicas).
+- `node dist/workers/evidence-fence.main.js [--once] [--batch N] [--interval-ms N]`:
+  delivers the Media owner-access fences (CR-P08-C1). They are queued in `evidence_fence` by the
+  transaction that ends a task without closing it (withdrawn, cancelled or released). The worker
+  needs `DISPATCH_MEDIA_*` with scope `media.object.fence`. Only Media's 2xx completes a request.
+  Any other answer is retried with capped backoff; there is no dead letter. The `stuck` count in
+  the pass line reports requests with 5 or more failed deliveries.
 - Hold-changed consumer: `transport/messaging/hold-changed.consumer.ts` provides
   the parser, inbox store and effect for the shared `InboxConsumer`; the process
   itself waits for CR-P02-C3 §2.

@@ -18,9 +18,14 @@ service may read or write these tables or the bucket.
 | POST | `/uploads` | user `work.execute:assigned`, `Idempotency-Key` |
 | POST | `/objects/:id/upload-url` | owner, while RESERVED |
 | POST | `/objects/:id/finalize` | owner, `Idempotency-Key` |
-| GET | `/objects/:id` | owner, or service `media.object.read` |
-| POST | `/objects/:id/read-url` | owner, or service `media.object.read`; AVAILABLE only |
+| GET | `/objects/:id` | owner unless fenced, or service `media.object.read` |
+| POST | `/objects/:id/read-url` | owner unless fenced, or service `media.object.read`; AVAILABLE only |
 | POST | `/objects/:id/claims` | service `media.object.claim` |
+| POST | `/objects/:id/claims/:claimRef/owner-access` | service `media.object.fence`, `Idempotency-Key`; body `{access:"REVOKED",reason:"TASK_ENDED"}` (CR-P08-C1) |
+
+Once a claim holder fences the owner, every owner request for the object answers 404, like an id
+they never owned. The fence is append-only and never lifted. Service reads are unchanged, and the
+object view shows `ownerAccess: GRANTED | REVOKED`.
 
 States: `RESERVED → AVAILABLE | REJECTED | EXPIRED`, `AVAILABLE → PURGED`.
 
