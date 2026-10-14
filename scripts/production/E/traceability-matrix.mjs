@@ -22,6 +22,8 @@
  *     file; ACCEPTED_HISTORICAL rows cite dated, commit-bound evidence.
  *  6. The required owner decisions are all recorded, and the merge plan is tied
  *     to the matrix base SHA.
+ *  7. Every row is mapped to a CLOSE sprint that names its original work ids,
+ *     known blockers and merge steps, with a recomputed live-blocker count.
  *
  * It proves traceability only. It is not browser, database or release evidence.
  */
@@ -382,6 +384,33 @@ export function checkTraceabilityMatrix(root, matrix) {
     for (const id of step.blockers ?? [])
       if (!blockers.has(id)) fail(`mergePlan ${step.id}: ${id}`);
   }
+  const close = matrix.closeSprints;
+  if (close?.base !== matrix.base?.sha) fail('closeSprints.base must equal base.sha');
+  const mapped = new Set();
+  for (const sprint of close?.sprints ?? []) {
+    const where = `closeSprint ${sprint.id}`;
+    if (!isOwner(sprint.lane)) fail(`${where}: lane ${sprint.lane}`);
+    if (!(sprint.originalWorkIds?.length > 0)) fail(`${where}: no original work ids`);
+    if (!existsSync(path.join(root, sprint.source ?? '')))
+      fail(`${where}: source ${sprint.source}`);
+    for (const id of sprint.rows ?? []) {
+      if (!ids.has(id)) fail(`${where}: unknown row ${id}`);
+      mapped.add(id);
+    }
+    for (const id of sprint.keyBlockers ?? [])
+      if (!blockers.has(id)) fail(`${where}: unknown blocker ${id}`);
+    for (const id of sprint.mergeSteps ?? [])
+      if (!order.has(id)) fail(`${where}: unknown merge step ${id}`);
+    const rowBlockers = new Set(
+      (matrix.requirements ?? [])
+        .filter((r) => sprint.rows?.includes(r.id))
+        .flatMap((r) => r.blockers ?? []),
+    );
+    const live = [...rowBlockers].filter((id) => LIVE.has(blockers.get(id)?.state)).length;
+    if (sprint.liveBlockers !== live)
+      fail(`${where}: liveBlockers ${sprint.liveBlockers} != ${live}`);
+  }
+  for (const id of ids) if (!mapped.has(id)) fail(`row ${id} is not mapped to a CLOSE sprint`);
   for (const e of matrix.historicalEvidence ?? [])
     if (e.appliesToBase !== false) fail(`historical evidence ${e.path}: must not apply to base`);
   return problems;

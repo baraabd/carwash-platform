@@ -143,3 +143,19 @@ test('every required owner decision topic is recorded', () => {
   matrix.decisions = matrix.decisions.filter((d) => d.topic !== 'cashCustody');
   expectProblem(matrix, /decision cashCustody missing/);
 });
+
+test('every row is mapped to a CLOSE sprint bound to the base', () => {
+  const matrix = load();
+  const sprint = matrix.closeSprints.sprints.find((s) => s.rows.includes('CUS-001'));
+  sprint.rows = sprint.rows.filter((id) => id !== 'CUS-001');
+  expectProblem(matrix, /row CUS-001 is not mapped to a CLOSE sprint/);
+  const rebased = load();
+  rebased.closeSprints.base = '0'.repeat(40);
+  expectProblem(rebased, /closeSprints\.base must equal base\.sha/);
+  const stale = load();
+  stale.closeSprints.sprints[0].liveBlockers += 1;
+  expectProblem(stale, /liveBlockers \d+ != \d+/);
+  const unknown = load();
+  unknown.closeSprints.sprints[0].keyBlockers.push('NOPE-01');
+  expectProblem(unknown, /unknown blocker NOPE-01/);
+});

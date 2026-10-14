@@ -478,6 +478,21 @@ Unmerged branches with unique patches (heads observed at the base):
 
 Uncommitted lane worktrees (no commits, not pushed): `carwash-p04a`, `carwash-p06a1`, `carwash-p05e2`, `cw-p02e2`, `cw-p02e3`, `carwash-p06b7`, `carwash-p08b1`, `carwash-p08b2`, `carwash-p06c`, `carwash-p07c-base`, `carwash-p07c2`, `carwash-p08c1`, `cw-p07d1-configuration`, `cw-p07d2-comms-reporting`. They are listed so that no merge plan assumes their content exists.
 
+## CLOSE sprint map (base `a84b5ee`)
+
+Each CLOSE sprint continues its original work IDs; merged or accepted work is recorded and not rebuilt. Every requirement row is mapped by at least one sprint. Only file 01 (P06-CLOSE-01) was supplied; later CLOSE files are mapped by lane (P06-A..E) until their numbered files are supplied.
+
+| Sprint | Lane | Continues original work | Rows | Live blockers | Key blockers | Merge steps | State on base |
+|---|---|---|---|---|---|---|---|
+| P06-CLOSE-01 Baseline, scope/design traceability matrix and owner decisions | Lane E | W07-E FULL_SCOPE_MATRIX, P06-B5 finance matrix (#133), P08-E1 release barrier (#131), P09 traceability reconcile (5ef85ed, local), F010 reference pins | 26 | 33 | TRC-X-01, TRC-X-02, TRC-X-03 | — | This change. Carries the unpushed P09 reconcile commit 5ef85ed unchanged and adds this sprint map; no code. |
+| P06-A Close all production customer scope and remove demo simulation | Lane A | C001-C014 customer port, P01-A1..A3, P02-A1..A3, P03-A2, P04-A1..A2, P05-A1..A2, P07-A1..A3 | 45 | 42 | TRC-CUS-02, TRC-CUS-03, TRC-CUS-04, TRC-CUS-14 | M3, M6 | Nothing merged. A1 production boundary is uncommitted in carwash-p06a1 (22 files on stale base 3e1ab23); needs rebase plus reference/candidate/diff screenshots (DESIGN_LOCK section 8). |
+| P06-B Close commerce/finance functional matrix and admin finance | Lane B | P01-B1, P01-B2, P02-B1, P03-B1, P04-B1, P05-B1..B3, P07-B1, P08-B1..B2 | 15 | 34 | TRC-TEC-03, TRC-CUS-11 | M2 | B1 #135, B2 #142, B4 #136, B5 #133, B6 #144 merged (recorded complete, not rebuilt). B3 8bb3034 competes with merged #134; B7 refund conformance uncommitted in carwash-p06b7. |
+| P06-C Close full technician prototype scope with real services | Lane C | P02-C1..C3, P03-C1..C6, P04-C1..C3, P05-C1..C2, P07-C1..C2, P08-C1 | 46 | 45 | TRC-TEC-01, TRC-TEC-02, TRC-TEC-05, TRC-TEC-06, TI-D05 | M4, M6 | Nothing merged. C1 operator-web is uncommitted in carwash-p06c (11 files incl. technician crosswalk and closure doc, base 66aa752). |
+| P06-D Admin capabilities on owner services | Lane D | P01-D1..D3, P02-D1..D2, P03-D1..D3, P04-D1..D2, P05-D1..D6, P07-D1..D2, P08-D1 | 41 | 58 | TRC-ADM-02, TRC-ADM-03, TRC-ADM-04, TRC-ADM-09 | M4, M5, M6 | No P06-D writes (owner decision 2026-10-11: wait for P05 merges). P05-D1..D4, D6 and P04-D2 remain unmerged. |
+| P06-E Full-scope contract and three-app barrier | Lane E | F001-F010, P01-E1..E3, P02-E1..E3, P03-E2, P04-E1..E4, P05-E1..E2, P07-E1..E4, P08-E1..E2 | 16 | 32 | TRC-X-01, TRC-X-02, TRC-X-03, TRC-TEC-01, TRC-ADM-06 | M1, M5, M7 | E1 scope registry/three-app barrier be01edb (2026-10-11) unmerged; P08-E barrier last NO_GO on 3e1ab23, every family NOT_RUN on a84b5ee. |
+
+Row ids per sprint are in `traceability-matrix.json` under `closeSprints.sprints[].rows`; rows can belong to more than one sprint (for example Lane B finance rows on technician or admin screens).
+
 ## Release barrier
 
 Last evaluation: **NO_GO** on `3e1ab23` (2026-10-10; recorded in 59eae8e 2026-10-11). On the base every family is NOT_RUN. External inputs still missing: production authorization, infrastructure target, secrets, merchant onboarding, incident contacts, operating-window policy and branch protection.
@@ -486,4 +501,5 @@ Last evaluation: **NO_GO** on `3e1ab23` (2026-10-10; recorded in 59eae8e 2026-10
 
 - `node scripts/check-design-reference.mjs` and `node --test tests/design/reference-lock.test.mjs` passed before and after this change (no reference, manifest or baseline modified).
 - `node scripts/production/E/traceability-matrix.mjs` PASSED on this tree; `tests/production/E/traceability-matrix.test.mjs` covers each drift class.
+- The checker also fails when a row is not mapped to a CLOSE sprint, or when a sprint names an unknown row, blocker or merge step, or a stale live-blocker count.
 - Scope: static source/document traceability. No database, broker, browser, provider or production evidence was produced or claimed.
