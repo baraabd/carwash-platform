@@ -109,7 +109,20 @@ Results are bound to a commit in §5.
   - contrast debt beyond TI-D13.
 - No production readiness is claimed. `/health/ready` stays 503.
 
-## 5. Candidate-bound results
+## 5. Results (2026-10-14, Windows 11, Chromium from the repo's Playwright, stack run e07e3d67)
 
-See the commit message of the evidence commit that follows this one. The evidence files
-(`.acceptance/production-C/**`, gitignored) name the exact HEAD, tree and dirty flag.
+These runs used the working tree that became `d178ff4`. The app and service code was identical;
+the tests then got formatting, the todo test and docs. The rerun on the clean commit is **NOT DONE**
+(see the last rows).
+
+| Suite | Result |
+| --- | --- |
+| `p06c-real-services` (real Workforce/Dispatch/Booking/Media, PG, RabbitMQ, S3) | 12/12 pass in two consecutive runs; the B-07-01 todo is reported (superseded read = 200) |
+| `media-s3` (real SeaweedFS) | 10/10 |
+| `media-restart` (SIGKILL) | 4/4 |
+| operator-web typecheck / build / runtime | pass / pass / 3/3 |
+| `operator-web-journey` / `-profile` / `-a11y` (fixture doubles) | 10/10 / 7/7 / 3 + 1 todo (contrast) |
+| `operator-web-crosswalk` / `-field-changes` | 5/5 / 3/3 |
+| `check-design-reference`, `check-boundaries`, eslint, prettier | pass |
+| `operator-web-visual` (6 widths) | **NOT RUN to completion.** Stopped by the host for low memory; no result is claimed |
+| Rerun on clean `d178ff4` | **NOT DONE** (same host memory limit) |
