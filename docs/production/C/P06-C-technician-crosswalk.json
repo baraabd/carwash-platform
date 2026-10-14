@@ -1,0 +1,135 @@
+{
+  "$comment": "P06-C machine-checked crosswalk of the immutable technician reference to production operator-web and real server state. Checked by tests/production/C/operator-web-crosswalk.test.mjs. 'client' paths are the requested operator gateway routes (CR-P03-C5, Lane E pending); 'owner' is the service that owns the fact.",
+  "reference": "design/reference/approved/washgo-technician-interactive.html",
+  "views": [
+    {
+      "view": "home",
+      "reads": ["GET /api/operator/jobs", "GET /api/operator/tasks/:taskId", "GET /api/operator/availability", "GET /api/operator/bookings/:bookingId"],
+      "owners": ["dispatch", "workforce", "booking"]
+    },
+    {
+      "view": "tasks",
+      "reads": ["GET /api/operator/jobs", "GET /api/operator/tasks/:taskId", "GET /api/operator/bookings/:bookingId"],
+      "owners": ["dispatch", "booking"]
+    },
+    {
+      "view": "collections",
+      "reads": ["GET /api/operator/jobs", "GET /api/operator/tasks/:taskId", "GET /api/operator/bookings/:bookingId"],
+      "owners": ["dispatch", "booking"],
+      "note": "Dispatch collection declarations and Booking totals only; a declaration is not a Billing receipt (B-P06-C-01)."
+    },
+    {
+      "view": "profile",
+      "reads": ["GET /api/operator/session", "GET /api/operator/availability"],
+      "owners": ["identity", "workforce"]
+    },
+    {
+      "view": "task",
+      "reads": ["GET /api/operator/tasks/:taskId", "GET /api/operator/bookings/:bookingId", "POST /api/operator/media/objects/:objectId/read-url"],
+      "owners": ["dispatch", "booking", "media"]
+    }
+  ],
+  "phases": [
+    { "phase": "المهمة", "serverStages": ["OFFERED", "ACCEPTED"], "enter": "POST /api/operator/offers/:offerId/accept" },
+    { "phase": "الطريق", "serverStages": ["EN_ROUTE"], "enter": "POST /api/operator/tasks/:taskId/depart" },
+    { "phase": "قبل الغسيل", "serverStages": ["ARRIVED"], "enter": "POST /api/operator/tasks/:taskId/arrive" },
+    { "phase": "العناية", "serverStages": ["IN_SERVICE"], "enter": "POST /api/operator/tasks/:taskId/start" },
+    { "phase": "بعد الغسيل", "serverStages": ["DOCUMENTING"], "enter": "POST /api/operator/tasks/:taskId/document" },
+    { "phase": "التسليم", "serverStages": ["FINISHED", "CLOSED"], "enter": "POST /api/operator/tasks/:taskId/finish" }
+  ],
+  "sheets": [
+    { "sheet": "guide", "title": "جرّب يوم الفني", "disposition": "removed", "decision": "PR-01/PR-04/PR-08 (ADR 0004 trial walkthrough)" },
+    { "sheet": "breakdown", "title": "تفاصيل قيمة الطلب", "disposition": "production-mapped", "server": ["GET /api/operator/bookings/:bookingId"] },
+    { "sheet": "history", "title": "سجل المهمة", "disposition": "production-mapped", "server": ["GET /api/operator/tasks/:taskId"] },
+    { "sheet": "result", "title": "النتيجة قبل وبعد", "disposition": "production-mapped", "server": ["POST /api/operator/media/objects/:objectId/read-url"] },
+    {
+      "sheet": "photo-options",
+      "title": "الغسيل · الصورة",
+      "disposition": "production-mapped",
+      "server": [
+        "POST /api/operator/media/uploads",
+        "POST /api/operator/media/objects/:objectId/upload-url",
+        "POST /api/operator/media/objects/:objectId/finalize",
+        "PUT /api/operator/tasks/:taskId/evidence/BEFORE/0",
+        "DELETE /api/operator/tasks/:taskId/evidence/AFTER/1"
+      ]
+    },
+    { "sheet": "cash", "title": "تأكيد استلام الكاش", "disposition": "production-mapped", "server": ["POST /api/operator/tasks/:taskId/close", "POST /api/operator/tasks/:taskId/cash-collection"] },
+    { "sheet": "issue:defer", "title": "إعادة المهمة للإدارة", "disposition": "production-mapped", "server": ["POST /api/operator/offers/:offerId/decline", "POST /api/operator/tasks/:taskId/release"], "decision": "DEV-01" },
+    { "sheet": "issue:cash", "title": "تعذّر تحصيل الكاش", "disposition": "production-mapped", "server": ["POST /api/operator/tasks/:taskId/close"], "decision": "DEV-02" },
+    { "sheet": "issue:payment", "title": "متابعة تحويل المحفظة", "disposition": "production-mapped", "server": ["POST /api/operator/tasks/:taskId/notes"] },
+    { "sheet": "issue:help", "title": "طلب مساعدة", "disposition": "production-mapped", "server": ["POST /api/operator/tasks/:taskId/notes"] },
+    { "sheet": "handoff", "title": "تأكيد التسليم", "disposition": "production-mapped", "server": ["POST /api/operator/tasks/:taskId/close"] },
+    { "sheet": "arrival", "title": "وصلت إلى السيارة؟", "disposition": "production-mapped", "server": ["POST /api/operator/tasks/:taskId/arrive"] },
+    { "sheet": "finish", "title": "إنهاء الغسيل؟", "disposition": "production-mapped", "server": ["POST /api/operator/tasks/:taskId/finish"] },
+    { "sheet": "notifications", "title": "إشعارات العرض", "productionTitle": "إشعارات", "disposition": "production-mapped", "server": ["GET /api/operator/jobs"], "decision": "PC-35 title, PR-16 demo note, DEV-03 dot" },
+    { "sheet": "task-menu", "title": "خيارات المهمة", "disposition": "ported", "server": [] },
+    { "sheet": "contact", "title": "التواصل مع العميل", "disposition": "production-mapped", "server": ["GET /api/operator/bookings/:bookingId"], "decision": "PR-17 simulated call removed" },
+    { "sheet": "message-preview", "title": "معاينة رسالة الوصول", "disposition": "ported", "server": [], "decision": "preview only, never sent" },
+    { "sheet": "before-view", "title": "الحالة قبل الغسيل", "disposition": "production-mapped", "server": ["POST /api/operator/media/objects/:objectId/read-url"] },
+    { "sheet": "privacy", "title": "الخصوصية وحدود النموذج", "disposition": "removed", "decision": "PR-09" },
+    { "sheet": "feedback", "title": "ملاحظات اعتماد التصميم", "disposition": "removed", "decision": "PR-10" },
+    { "sheet": "reset", "title": "إعادة بدء التجربة؟", "disposition": "removed", "decision": "PR-11 trial reset" }
+  ],
+  "actions": {
+    "home": { "disposition": "ported", "server": [] },
+    "tasks": { "disposition": "ported", "server": [] },
+    "collections": { "disposition": "ported", "server": [] },
+    "profile": { "disposition": "ported", "server": [] },
+    "open-job": { "disposition": "ported", "server": [] },
+    "close-sheet": { "disposition": "ported", "server": [] },
+    "guide": { "disposition": "removed", "decision": "PR-01/PR-04/PR-08" },
+    "notifications": { "disposition": "production-mapped", "server": ["GET /api/operator/jobs"] },
+    "task-menu": { "disposition": "ported", "server": [] },
+    "ready": { "disposition": "production-mapped", "server": ["PUT /api/operator/availability"] },
+    "motion": { "disposition": "ported", "server": [] },
+    "task-filter": { "disposition": "ported", "server": [] },
+    "filter-active": { "disposition": "ported", "server": [] },
+    "collection-filter": { "disposition": "ported", "server": [] },
+    "primary": {
+      "disposition": "production-mapped",
+      "server": [
+        "POST /api/operator/offers/:offerId/accept",
+        "POST /api/operator/tasks/:taskId/depart",
+        "POST /api/operator/tasks/:taskId/start",
+        "POST /api/operator/tasks/:taskId/document"
+      ]
+    },
+    "arrived-confirm": { "disposition": "production-mapped", "server": ["POST /api/operator/tasks/:taskId/arrive"] },
+    "finish-wash-confirm": { "disposition": "production-mapped", "server": ["POST /api/operator/tasks/:taskId/finish"] },
+    "close-job-confirm": { "disposition": "production-mapped", "server": ["POST /api/operator/tasks/:taskId/close"] },
+    "contact": { "disposition": "production-mapped", "server": ["GET /api/operator/bookings/:bookingId"] },
+    "demo-contact": { "disposition": "removed", "decision": "PR-17" },
+    "message-preview": { "disposition": "ported", "server": [] },
+    "breakdown": { "disposition": "production-mapped", "server": ["GET /api/operator/bookings/:bookingId"] },
+    "history": { "disposition": "production-mapped", "server": ["GET /api/operator/tasks/:taskId"] },
+    "zoom-in": { "disposition": "ported", "server": [] },
+    "zoom-out": { "disposition": "ported", "server": [] },
+    "photo-options": { "disposition": "ported", "server": [] },
+    "demo-photo-one": { "disposition": "removed", "decision": "PR-14" },
+    "demo-photos": { "disposition": "removed", "decision": "PR-14" },
+    "delete-photo": { "disposition": "production-mapped", "server": ["DELETE /api/operator/tasks/:taskId/evidence/BEFORE/0"] },
+    "check": { "disposition": "production-mapped", "server": ["PUT /api/operator/tasks/:taskId/checklist/exterior"] },
+    "before-view": { "disposition": "production-mapped", "server": ["POST /api/operator/media/objects/:objectId/read-url"] },
+    "result-preview": { "disposition": "production-mapped", "server": ["POST /api/operator/media/objects/:objectId/read-url"] },
+    "reveal": { "disposition": "ported", "server": [] },
+    "cash-dialog": { "disposition": "ported", "server": [] },
+    "cash-confirm": { "disposition": "production-mapped", "server": ["POST /api/operator/tasks/:taskId/close", "POST /api/operator/tasks/:taskId/cash-collection"] },
+    "defer": { "disposition": "production-mapped", "server": ["POST /api/operator/offers/:offerId/decline", "POST /api/operator/tasks/:taskId/release"] },
+    "cash-issue": { "disposition": "production-mapped", "server": ["POST /api/operator/tasks/:taskId/close"] },
+    "payment-followup": { "disposition": "production-mapped", "server": ["POST /api/operator/tasks/:taskId/notes"] },
+    "help": { "disposition": "production-mapped", "server": ["POST /api/operator/tasks/:taskId/notes"] },
+    "save-issue": { "disposition": "production-mapped", "server": ["POST /api/operator/tasks/:taskId/notes", "POST /api/operator/tasks/:taskId/release", "POST /api/operator/tasks/:taskId/close"] },
+    "privacy": { "disposition": "removed", "decision": "PR-09" },
+    "feedback": { "disposition": "removed", "decision": "PR-10" },
+    "feedback-save": { "disposition": "removed", "decision": "PR-10" },
+    "feedback-download": { "disposition": "removed", "decision": "PR-10" },
+    "reset": { "disposition": "removed", "decision": "PR-11" },
+    "reset-confirm": { "disposition": "removed", "decision": "PR-11" }
+  },
+  "nonClick": {
+    "condition-note": "PUT /api/operator/tasks/:taskId/condition-note",
+    "upload": "POST /api/operator/media/uploads",
+    "background-read": "GET /api/operator/jobs"
+  }
+}

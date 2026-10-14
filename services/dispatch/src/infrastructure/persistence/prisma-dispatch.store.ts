@@ -695,6 +695,16 @@ class PrismaDispatchTransaction implements DispatchTransaction {
     if (rows.length !== 1) throw new ConcurrencyViolation('EVIDENCE');
   }
 
+  async requestEvidenceFences(taskId: string, at: Date): Promise<number> {
+    return this.tx.$executeRawUnsafe(
+      `INSERT INTO app.evidence_fence (evidence_id, task_id, requested_at, next_attempt_at)
+       SELECT e.id, e.task_id, $2, $2 FROM app.task_evidence e WHERE e.task_id = $1::uuid
+       ON CONFLICT (evidence_id) DO NOTHING`,
+      taskId,
+      at,
+    );
+  }
+
   async insertNote(note: TaskNote): Promise<void> {
     await this.tx.$executeRawUnsafe(
       `INSERT INTO app.task_note (id, task_id, kind, text, created_at)

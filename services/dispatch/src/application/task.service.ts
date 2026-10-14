@@ -434,6 +434,7 @@ export class TaskService {
           throw new Error('RELEASE_WITHOUT_ACCEPTED_OFFER');
         await c.tx.updateOffer(withdraw(offer, 'RELEASED_BY_TECHNICIAN', c.now), offer.version);
         await c.tx.updateTask(next, c.task.version);
+        await c.tx.requestEvidenceFences(next.id, c.now);
         const unassigned = markUnassigned(c.assignment, c.now);
         await c.tx.updateAssignment(unassigned, c.assignment.version);
         await this.effects.assignmentChanged(c.tx, unassigned, meta);

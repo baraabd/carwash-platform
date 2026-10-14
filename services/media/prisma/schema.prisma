@@ -61,9 +61,22 @@ model ObjectClaim {
   holder    String      @db.VarChar(64)
   createdAt DateTime    @map("created_at") @db.Timestamptz(3)
   object    MediaObject @relation(fields: [objectId], references: [id], onDelete: Restrict)
+  fence     ObjectOwnerFence?
 
   @@id([objectId, claimRef])
   @@map("object_claim")
+}
+
+/// The claim holder revoked the uploader's user access; append-only (trigger in SQL).
+model ObjectOwnerFence {
+  objectId  String      @map("object_id") @db.Uuid
+  claimRef  String      @map("claim_ref") @db.Uuid
+  reason    String      @db.VarChar(32)
+  createdAt DateTime    @map("created_at") @db.Timestamptz(3)
+  claim     ObjectClaim @relation(fields: [objectId, claimRef], references: [objectId, claimRef], onDelete: Restrict, onUpdate: Restrict, map: "object_owner_fence_claim_fkey")
+
+  @@id([objectId, claimRef])
+  @@map("object_owner_fence")
 }
 
 /// Completed idempotent commands, kept for the documented retention window.

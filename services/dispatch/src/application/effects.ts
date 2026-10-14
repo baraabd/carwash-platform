@@ -114,6 +114,8 @@ export class Effects {
    * Ends the live task of a locked assignment because the job was taken away
    * (reassign/unassign/eligibility) or cancelled. A CLOSED task is never
    * touched. Returns the task as stored afterwards (or null if none was live).
+   * The ended technician's access to the task's photos is fenced at Media by
+   * a request queued in this same transaction (CR-P08-C1).
    */
   async endLiveTask(
     tx: DispatchTransaction,
@@ -129,6 +131,7 @@ export class Effects {
       reason === 'JOB_CANCELLED' ? cancelTask(task, now) : withdrawTask(task, reason, now);
     if (ended === task) return task;
     await tx.updateTask(ended, task.version);
+    await tx.requestEvidenceFences(ended.id, now);
     await this.taskProgressed(
       tx,
       ended,

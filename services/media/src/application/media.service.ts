@@ -34,6 +34,7 @@ import type {
   ObjectClaim,
   ObjectRecord,
   ObjectStore,
+  OwnerFence,
   PresignedRequest,
   RequestMeta,
 } from '../ports';
@@ -76,6 +77,14 @@ export interface ClaimInput {
   readonly claimRef: unknown;
   readonly holder: unknown;
 }
+
+export interface OwnerAccessInput {
+  readonly access: unknown;
+  readonly reason: unknown;
+}
+
+/** Reasons a holder may give for revoking the owner's access (media.v1). */
+export const FENCE_REASONS = ['TASK_ENDED'] as const;
 
 /** The only holder media.v1 knows. */
 export const CLAIM_HOLDERS = ['dispatch.task-evidence'] as const;
@@ -314,6 +323,57 @@ export class MediaService {
     return { value: { record, claim: outcome.claim }, replayed: !outcome.created };
   }
 
+  /**
+   * The claim holder revokes the uploader's USER access (CR-P08-C1): from now
+   * on the owner's reads answer 404, exactly like an id they never owned.
+   * Service reads are unchanged. Idempotent per key and per (object, claim);
+   * no route ever re-grants access.
+   */
+  async revokeOwnerAccess(
+    meta: RequestMeta,
+    id: string,
+    ref: string,
+    input: OwnerAccessInput,
+    key: string | undefined,
+  ): Promise<CommandResult<ObjectRecord>> {
+    if (!hasScope(meta.actor, 'media.object.fence')) throw forbidden();
+    const objectId = uuid(id, 'objectId');
+    const claimRef = uuid(ref, 'claimRef');
+    if (input.access !== 'REVOKED') throw invalid('access must be REVOKED.');
+    const reason = FENCE_REASONS.find((candidate) => candidate === input.reason);
+    if (!reason) throw invalid('reason is not supported.');
+    const idemKey = idempotencyKey(key);
+    const scope = `${actorKey(meta.actor)}|owner-access`;
+    const print = fingerprint({ objectId, claimRef, reason });
+    const now = this.clock.now();
+    const outcome = await this.uow.run(async (tx) => {
+      const claim = await tx.claimIdempotency(scope, idemKey, print);
+      if (claim.kind === 'CONFLICT') throw conflict();
+      if (claim.kind === 'REPLAY') return { replayed: true };
+      const locked = await tx.lockObject(objectId);
+      if (!locked) throw notFound();
+      if (!(await tx.findClaim(objectId, claimRef))) throw notFound();
+      // A second key for an already fenced claim is the same fact: no new row.
+      const replayed = (await tx.findFence(objectId, claimRef)) !== null;
+      if (!replayed) {
+        const fence: OwnerFence = { objectId, claimRef, reason, createdAt: now };
+        await tx.insertFence(fence);
+        await tx.appendAudit({
+          action: 'media.owner-access.revoked',
+          actor: meta.actor,
+          targetId: objectId,
+          correlationId: meta.correlationId,
+          details: { claimRef, reason },
+        });
+      }
+      await tx.completeIdempotency(scope, idemKey, objectId);
+      return { replayed };
+    });
+    const record = await this.read.findObject(objectId);
+    if (!record) throw notFound();
+    return { value: record, replayed: outcome.replayed };
+  }
+
   // ----------------------------------------------------------------- system
 
   /**
@@ -457,10 +517,15 @@ export class MediaService {
     });
   }
 
-  /** Another owner's object is reported as not found, so ids cannot be probed. */
+  /**
+   * Another owner's object is reported as not found, so ids cannot be probed.
+   * So is the caller's own object once a holder fenced them off (CR-P08-C1).
+   */
   private async ownRecord(user: UserActor, objectId: string): Promise<ObjectRecord> {
     const record = await this.read.findObject(objectId);
-    if (!record || record.object.ownerSubject !== user.subject) throw notFound();
+    if (!record || record.object.ownerSubject !== user.subject || record.ownerFenced) {
+      throw notFound();
+    }
     return record;
   }
 

@@ -29,6 +29,8 @@ const STEPS = [
   ['journey', 'node', ['--test', 'tests/production/C/operator-web-journey.test.mjs']],
   ['profile', 'node', ['--test', 'tests/production/C/operator-web-profile.test.mjs']],
   ['a11y', 'node', ['--test', 'tests/production/C/operator-web-a11y.test.mjs']],
+  ['crosswalk', 'node', ['--test', 'tests/production/C/operator-web-crosswalk.test.mjs']],
+  ['field-changes', 'node', ['--test', 'tests/production/C/operator-web-field-changes.test.mjs']],
   ...(skipVisual
     ? []
     : [['visual', 'node', ['--test', 'tests/production/C/operator-web-visual.test.mjs']]]),

@@ -305,6 +305,7 @@
         "ResourceObservation",
         "Task",
         "TaskEvidence",
+        "EvidenceFence",
         "TaskNote",
         "TaskEvent",
         "BookingChange"
@@ -426,6 +427,7 @@
         "ServiceMarker",
         "MediaObject",
         "ObjectClaim",
+        "ObjectOwnerFence",
         "IdempotencyRecord",
         "AuditEntry"
       ],

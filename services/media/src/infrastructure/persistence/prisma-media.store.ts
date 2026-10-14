@@ -18,6 +18,7 @@ import type {
   MediaUnitOfWork,
   ObjectClaim,
   ObjectRecord,
+  OwnerFence,
 } from '../../ports';
 import type { Prisma } from '../../generated/prisma/client';
 import type { PrismaService } from './prisma.service';
@@ -61,6 +62,13 @@ interface ClaimRow {
   object_id: string;
   claim_ref: string;
   holder: string;
+  created_at: Date;
+}
+
+interface FenceRow {
+  object_id: string;
+  claim_ref: string;
+  reason: string;
   created_at: Date;
 }
 
@@ -140,6 +148,15 @@ function toClaim(row: ClaimRow): ObjectClaim {
     objectId: row.object_id,
     claimRef: row.claim_ref,
     holder: row.holder,
+    createdAt: row.created_at,
+  };
+}
+
+function toFence(row: FenceRow): OwnerFence {
+  return {
+    objectId: row.object_id,
+    claimRef: row.claim_ref,
+    reason: row.reason as OwnerFence['reason'],
     createdAt: row.created_at,
   };
 }
@@ -283,6 +300,27 @@ class PrismaMediaTransaction implements MediaTransaction {
     );
   }
 
+  async findFence(objectId: string, claimRef: string): Promise<OwnerFence | null> {
+    const [row] = await this.tx.$queryRawUnsafe<FenceRow[]>(
+      `SELECT object_id::text, claim_ref::text, reason, created_at FROM app.object_owner_fence
+        WHERE object_id = $1::uuid AND claim_ref = $2::uuid`,
+      objectId,
+      claimRef,
+    );
+    return row ? toFence(row) : null;
+  }
+
+  async insertFence(fence: OwnerFence): Promise<void> {
+    await this.tx.$executeRawUnsafe(
+      `INSERT INTO app.object_owner_fence (object_id, claim_ref, reason, created_at)
+       VALUES ($1::uuid, $2::uuid, $3, $4)`,
+      fence.objectId,
+      fence.claimRef,
+      fence.reason,
+      fence.createdAt,
+    );
+  }
+
   async appendAudit(entry: AuditAppend): Promise<void> {
     await this.tx.$executeRawUnsafe(
       `INSERT INTO app.audit_entry (id, actor_kind, actor_id, action, target_type, target_id, correlation_id, details)
@@ -338,13 +376,18 @@ export class PrismaMediaStore implements MediaUnitOfWork, MediaReadModel, Idempo
   }
 
   async findObject(id: string): Promise<ObjectRecord | null> {
-    const [row] = await this.prisma.client.$queryRawUnsafe<(ObjectRow & { claimed: boolean })[]>(
+    const [row] = await this.prisma.client.$queryRawUnsafe<
+      (ObjectRow & { claimed: boolean; owner_fenced: boolean })[]
+    >(
       `SELECT ${OBJECT_COLUMNS},
-              EXISTS (SELECT 1 FROM app.object_claim c WHERE c.object_id = o.id) AS claimed
+              EXISTS (SELECT 1 FROM app.object_claim c WHERE c.object_id = o.id) AS claimed,
+              EXISTS (SELECT 1 FROM app.object_owner_fence f WHERE f.object_id = o.id) AS owner_fenced
          FROM app.media_object o WHERE id = $1::uuid`,
       id,
     );
-    return row ? { object: toObject(row), claimed: row.claimed } : null;
+    return row
+      ? { object: toObject(row), claimed: row.claimed, ownerFenced: row.owner_fenced }
+      : null;
   }
 
   async findClaim(objectId: string, claimRef: string): Promise<ObjectClaim | null> {

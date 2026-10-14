@@ -202,6 +202,7 @@ model Task {
   assignment            Assignment     @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
   offer                 DispatchOffer  @relation(fields: [offerId], references: [id], onDelete: Restrict)
   evidence              TaskEvidence[]
+  evidenceFences        EvidenceFence[]
   notes                 TaskNote[]
   events                TaskEvent[]
 
@@ -221,9 +222,29 @@ model TaskEvidence {
   attachedAt    DateTime  @map("attached_at") @db.Timestamptz(3)
   removedAt     DateTime? @map("removed_at") @db.Timestamptz(3)
   task          Task      @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  fence         EvidenceFence?
 
   @@index([taskId])
   @@map("task_evidence")
+}
+
+/// Media owner-access fence requested when a task ends without closing
+/// (CR-P08-C1). Delivered by the evidence-fence worker; never dropped.
+model EvidenceFence {
+  evidenceId    String       @id @map("evidence_id") @db.Uuid
+  taskId        String       @map("task_id") @db.Uuid
+  requestedAt   DateTime     @map("requested_at") @db.Timestamptz(3)
+  attempts      Int          @default(0)
+  nextAttemptAt DateTime     @map("next_attempt_at") @db.Timestamptz(3)
+  lockedBy      String?      @map("locked_by")
+  lockedUntil   DateTime?    @map("locked_until") @db.Timestamptz(3)
+  lastError     String?      @map("last_error") @db.VarChar(64)
+  fencedAt      DateTime?    @map("fenced_at") @db.Timestamptz(3)
+  evidence      TaskEvidence @relation(fields: [evidenceId], references: [id], onDelete: Restrict)
+  task          Task         @relation(fields: [taskId], references: [id], onDelete: Restrict)
+
+  @@index([fencedAt, nextAttemptAt], map: "evidence_fence_due_idx")
+  @@map("evidence_fence")
 }
 
 /// Technician notes (help, cash issue, payment follow-up). Append-only.

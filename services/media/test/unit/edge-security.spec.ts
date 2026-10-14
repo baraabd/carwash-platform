@@ -154,6 +154,38 @@ test('claims require the service scope media.object.claim; users never claim', a
   }
 });
 
+test('owner fences require media.object.fence; users and other scopes never fence', async () => {
+  const body = { access: 'REVOKED', reason: 'TASK_ENDED' };
+  for (const meta of [
+    user('work.execute:assigned', 'work.read:assigned'),
+    svc('media.object.read', 'media.object.claim'),
+    system,
+  ]) {
+    assert.equal(
+      await codeOf(service.revokeOwnerAccess(meta, ID, ID, body, 'k'.repeat(20))),
+      'FORBIDDEN',
+    );
+  }
+  const fencer = svc('media.object.fence');
+  assert.equal(
+    await codeOf(service.revokeOwnerAccess(fencer, ID, ID, body, undefined)),
+    'IDEMPOTENCY_KEY_REQUIRED',
+  );
+  for (const bad of [
+    { ...body, access: 'GRANTED' },
+    { ...body, reason: 'ANYTHING' },
+  ]) {
+    assert.equal(
+      await codeOf(service.revokeOwnerAccess(fencer, ID, ID, bad, 'k'.repeat(20))),
+      'INVALID_INPUT',
+    );
+  }
+  assert.equal(
+    await codeOf(service.revokeOwnerAccess(fencer, ID, 'x', body, 'k'.repeat(20))),
+    'INVALID_INPUT',
+  );
+});
+
 test('input is validated before persistence: ids, keys, bodies, holders', async () => {
   const tech = user('work.execute:assigned', 'work.read:assigned');
   assert.equal(

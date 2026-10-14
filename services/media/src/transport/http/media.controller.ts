@@ -69,6 +69,16 @@ export function objectView(record: ObjectRecord) {
   };
 }
 
+/**
+ * The view a SERVICE caller gets: the object view plus the read-only
+ * `ownerAccess` fact (CR-P08-C1). Users never get it: an owner who can read
+ * the object is always GRANTED, and their view stays the closed shape the
+ * technician app parses.
+ */
+export function serviceObjectView(record: ObjectRecord) {
+  return { ...objectView(record), ownerAccess: record.ownerFenced ? 'REVOKED' : 'GRANTED' };
+}
+
 export function presignedView(request: PresignedRequest) {
   return {
     method: request.method,
@@ -87,7 +97,7 @@ function ticketView(ticket: UploadTicket) {
 
 function claimView(record: ObjectRecord, claim: ObjectClaim) {
   return {
-    ...objectView(record),
+    ...serviceObjectView(record),
     claim: {
       claimRef: claim.claimRef,
       holder: claim.holder,
@@ -150,7 +160,8 @@ export class MediaController {
   @Get('objects/:id')
   async get(@Req() req: HeaderBag, @Param('id') id: string) {
     const meta = await this.actors.resolve(req);
-    return objectView(await this.media.getObject(meta, id));
+    const record = await this.media.getObject(meta, id);
+    return meta.actor.kind === 'SERVICE' ? serviceObjectView(record) : objectView(record);
   }
 
   @Post('objects/:id/read-url')
@@ -176,5 +187,25 @@ export class MediaController {
     });
     res.status(result.replayed ? 200 : 201);
     return claimView(result.value.record, result.value.claim);
+  }
+
+  @Post('objects/:id/claims/:claimRef/owner-access')
+  @HttpCode(200)
+  async revokeOwnerAccess(
+    @Req() req: HeaderBag,
+    @Param('id') id: string,
+    @Param('claimRef') claimRef: string,
+    @Body() body: unknown,
+  ) {
+    const meta = await this.actors.resolve(req);
+    const input = objectBody(body, ['access', 'reason'], ['access', 'reason']);
+    const result = await this.media.revokeOwnerAccess(
+      meta,
+      id,
+      claimRef,
+      { access: input.access, reason: input.reason },
+      idempotencyKey(req),
+    );
+    return serviceObjectView(result.value);
   }
 }
