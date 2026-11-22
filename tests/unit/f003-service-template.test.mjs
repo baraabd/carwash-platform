@@ -61,20 +61,20 @@ test('F003 renderer snapshot and structure are deterministic', () => {
       'Dockerfile',
     ],
   );
-  // F009 deliberately changes only the generated Docker runtime: reviewed
-  // distroless digest, exact Node copy, numeric UID and shell-free healthcheck.
+  // The template includes the reviewed Docker runtime and the UTC database
+  // transport invariant, so newly generated owners cannot reintroduce clock drift.
   // These service-template hashes are not approved HTML or visual snapshots.
   assert.equal(
     snapshot('identity'),
-    'f7bb7bf38b6839238babd8e85ef874ef70c8d3eac3e3cc420c9d1abea5cd7c7a',
+    '9e548c721cb133eb59d3be5f9ba434a9ce3400efdb3170d82978a6fd2f2ff79f',
   );
   assert.equal(
     snapshot('catalog'),
-    '84c87ed30fb68b9bd29ba90954a51e0a1ae45e5bc7950e1b0685f24dde7134cc',
+    '36074e31e0e0db4cdac4f23e9e5087ee08a16ddcbb4e797950c2d39b5409fbad',
   );
   assert.equal(
     snapshot('communications'),
-    '155c074ea3a14564c206afb2abaca3ed034bb8e6f30b81ac525264a8fe6ae8b6',
+    'ae5f6895c1ef6761a0dd2efeed99deefa7a0a48c81e2dedb72d6b3b800ce1c48',
   );
 });
 
@@ -85,7 +85,7 @@ test('F008 generated adapters bind only their owner-local pool and dispose it', 
     assert.ok(adapter.includes("serviceTelemetry('" + owner + "')"));
     assert.ok(adapter.includes('metrics.observePool(() => pool)'));
     assert.ok(adapter.includes('disposeExternalPool: true'));
-    assert.ok(adapter.includes('new Pool({ connectionString: url })'));
+    assert.ok(adapter.includes('new Pool(databasePoolConfig(url))'));
   }
 });
 

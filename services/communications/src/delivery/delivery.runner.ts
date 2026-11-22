@@ -1,6 +1,11 @@
 import { randomInt } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { createLogger, databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
+import {
+  createLogger,
+  databasePoolConfig,
+  databaseSchemaFromUrl,
+  serviceTelemetry,
+} from '@carwash/service-kit';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { PrismaClient } from '../generated/prisma/client';
@@ -57,7 +62,7 @@ async function main(): Promise<void> {
   const workerId = `delivery-${process.pid}-${randomInt(1_000_000)}`;
 
   const databaseUrl = requireEnv('DATABASE_URL');
-  const pool = new Pool({ connectionString: databaseUrl });
+  const pool = new Pool(databasePoolConfig(databaseUrl));
   telemetry.metrics.observePool(() => pool);
   const client = new PrismaClient({
     adapter: new PrismaPg(pool, {

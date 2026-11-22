@@ -40,6 +40,9 @@ try {
 const { services, suites, scope, keep } = plan;
 
 const project = `cw-p01a-${randomBytes(6).toString('hex')}`;
+const runLabels = {
+  'carwash.business-acceptance.run': process.env.CW_BUSINESS_ACCEPTANCE_RUN ?? project,
+};
 const work = path.join(ROOT, '.acceptance', project);
 const composeFile = path.join(work, 'compose.json');
 const evidenceDir = path.join(ROOT, 'docs', 'production', 'A', 'evidence');
@@ -188,6 +191,7 @@ try {
       {
         services: {
           postgres: {
+            labels: runLabels,
             image: PG_IMAGE,
             environment: pgEnvironment,
             ports: ['127.0.0.1::5432'],
@@ -196,6 +200,7 @@ try {
             ],
           },
           redis: {
+            labels: runLabels,
             image: REDIS_IMAGE,
             command: [
               'redis-server',
@@ -210,6 +215,7 @@ try {
             volumes: [`${path.join(work, 'users.acl')}:/run/cw/users.acl:ro`],
           },
         },
+        networks: { default: { labels: runLabels } },
       },
       null,
       2,
@@ -294,7 +300,16 @@ try {
     {
       cwd: ROOT,
       timeoutMs: 900_000,
-      env: { ...process.env, P01A_CONTEXT_FILE: contextFile },
+      env: {
+        ...process.env,
+        P01A_CONTEXT_FILE: contextFile,
+        ...Object.fromEntries(
+          services.map((service) => [
+            `${service.toUpperCase()}_TEST_DATABASE_URL`,
+            urls[service].app,
+          ]),
+        ),
+      },
     },
   );
   const output = redact(result.stdout + result.stderr);

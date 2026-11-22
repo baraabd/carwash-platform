@@ -27,6 +27,13 @@ import {
   type Stub,
 } from '../support/upstream-stubs';
 import { WorkDouble } from '../support/work-double';
+import {
+  WORKLOADS,
+  startBookingSagaHttp,
+  startValidateStub,
+  type BookingSagaHttp,
+  type ValidateStub,
+} from '../support/booking-saga-harness';
 
 /*
  * REAL PostgreSQL evidence for P03-B1 cash collection, custody, handover,
@@ -34,8 +41,8 @@ import { WorkDouble } from '../support/work-double';
  * (cw_billing_app) through scripts/production/B/postgres-acceptance.mjs.
  * Two replicas (separate pools) share the database to prove concurrency.
  * Identity and Pricing are local HTTP test doubles; the lane C work owner is an
- * in-process double behind the WorkAuthority port (no published contract yet,
- * B-P03-01); a third replica uses the production fail-closed adapter.
+ * in-process double behind the WorkAuthority port; a third replica uses the
+ * unconfigured production adapter to prove that missing authority fails closed.
  * RabbitMQ is not used: the relay is not started until E registers the events.
  */
 const APP_URL = process.env.BILLING_TEST_DATABASE_URL;
@@ -52,6 +59,8 @@ let work: WorkDouble;
 let replicaA: BillingHttpHarness;
 let replicaB: BillingHttpHarness;
 let production: BillingHttpHarness;
+let bookings: BookingSagaHttp;
+let validate: ValidateStub;
 let sql: Client;
 let seq = 0;
 const key = () => `pg-custody-key-${String(++seq).padStart(6, '0')}-${process.pid}`;
@@ -64,6 +73,14 @@ before(async () => {
   work = new WorkDouble();
   prismaA = new PrismaService(DATABASE_URL);
   prismaB = new PrismaService(DATABASE_URL);
+  validate = await startValidateStub();
+  bookings = await startBookingSagaHttp({
+    repository: new PrismaBillingRepository(prismaA),
+    clock,
+    identity,
+    pricing,
+    validate,
+  });
   const common = { clock, identity, pricing };
   replicaA = await startBillingHttp({
     ...common,
@@ -87,6 +104,8 @@ after(async () => {
   await replicaA?.close();
   await replicaB?.close();
   await production?.close();
+  await bookings?.close();
+  await validate?.close();
   await prismaA?.onModuleDestroy();
   await prismaB?.onModuleDestroy();
   await identity?.close();
@@ -123,13 +142,23 @@ async function cashJob(
   technician: string | null = SUBJECTS.technician,
 ): Promise<CashJob> {
   const quoteId = randomUUID();
-  pricing.quotes.set(quoteId, {
-    ownerToken: 'customer',
+  const bookingId = randomUUID();
+  validate.quotes.set(quoteId, {
+    beneficiary: { kind: 'account', subjectId: SUBJECTS.customer },
+    revision: 1,
     status: 'USABLE',
     currency: 'SYP',
     totalMinor: total,
   });
-  const created = await post('/obligations', { quoteId }, {}, TOKENS.customer);
+  const created = await bookings.request('POST', `${PATH}/booking-obligations`, {
+    workload: WORKLOADS.booking,
+    key: key(),
+    body: {
+      beneficiary: { kind: 'account', subjectId: SUBJECTS.customer },
+      quoteId,
+      bookingId,
+    },
+  });
   assert.equal(created.status, 201, JSON.stringify(created.body));
   const obligationId = String(created.body.obligationId);
   const intent = await post(
@@ -140,7 +169,7 @@ async function cashJob(
   );
   assert.equal(intent.status, 201, JSON.stringify(intent.body));
   assert.equal(intent.body.financialStatus, 'AWAITING_CASH');
-  const booking = work.book({ quoteId, technicianSubject: technician });
+  const booking = work.book({ bookingId, technicianSubject: technician });
   return { obligationId, quoteId, bookingId: booking.bookingId, revision: 2, amount: total };
 }
 
@@ -425,6 +454,151 @@ test('lifecycle: completed service -> collected -> held -> handed over -> receiv
 
 // ------------------------------------------------- authority for collection
 
+test('collection target: only the assigned staff collector resolves the exact amount and revision', async () => {
+  const job = await cashJob('177700');
+  const path = `/bookings/${job.bookingId}/cash-collection-target`;
+  const target = await get(path, TOKENS.technician);
+  assert.equal(target.status, 200, JSON.stringify(target.body));
+  assert.deepEqual(target.body, {
+    bookingId: job.bookingId,
+    obligationId: job.obligationId,
+    revision: 2,
+    amountDue: syp('177700'),
+    receipt: null,
+  });
+  assert.equal((await get(path, TOKENS.otherTechnician)).status, 404);
+  assert.equal((await get(path, TOKENS.customer)).status, 403);
+  assert.equal((await get(path, TOKENS.finance)).status, 403);
+  assert.equal((await get(path, TOKENS.guestCollector)).status, 403);
+  assert.equal((await get(path, TOKENS.unknown)).status, 401);
+  assert.equal(
+    (await get(`/bookings/${randomUUID()}/cash-collection-target`, TOKENS.technician)).status,
+    404,
+  );
+  assert.equal(await count('cash_receipt', 'obligation_id = $1', [job.obligationId]), 0);
+});
+
+test('collection target: FINISHED is not CLOSED and stale targets cannot bypass a changed payment intent', async () => {
+  const job = await cashJob();
+  const path = `/bookings/${job.bookingId}/cash-collection-target`;
+  work.set(job.bookingId, { taskStage: 'FINISHED' });
+  const beforeClose = await get(path, TOKENS.technician);
+  assert.equal(beforeClose.status, 409);
+  assert.equal(errorCode(beforeClose), 'WORK_NOT_COMPLETED');
+  assert.equal(errorCode(await collect(job)), 'WORK_NOT_COMPLETED');
+  work.set(job.bookingId, { taskStage: 'CLOSED' });
+  const target = await get(path, TOKENS.technician);
+  assert.equal(target.status, 200);
+  assert.equal(target.body.revision, 2);
+  const changed = await post(
+    `/obligations/${job.obligationId}/payment-intents`,
+    {
+      expectedRevision: 2,
+      method: 'SHAM_CASH',
+    },
+    {},
+    TOKENS.customer,
+  );
+  assert.equal(changed.status, 201);
+  assert.equal(errorCode(await collect(job)), 'REVISION_CONFLICT');
+  assert.equal(errorCode(await get(path, TOKENS.technician)), 'INTENT_NOT_CASH');
+  assert.equal(await count('cash_receipt', 'obligation_id = $1', [job.obligationId]), 0);
+});
+
+test('collection binding: a legacy customer obligation cannot be adopted by a claimed work booking', async () => {
+  const quoteId = randomUUID();
+  pricing.quotes.set(quoteId, {
+    ownerToken: 'customer',
+    status: 'USABLE',
+    currency: 'SYP',
+    totalMinor: '150000',
+  });
+  const created = await post('/obligations', { quoteId }, {}, TOKENS.customer);
+  assert.equal(created.status, 201);
+  const obligationId = String(created.body.obligationId);
+  assert.equal(
+    (
+      await post(
+        `/obligations/${obligationId}/payment-intents`,
+        {
+          expectedRevision: 1,
+          method: 'CASH_ON_COMPLETION',
+        },
+        {},
+        TOKENS.customer,
+      )
+    ).status,
+    201,
+  );
+  const booking = work.book({ bookingId: randomUUID(), technicianSubject: SUBJECTS.technician });
+  const job = {
+    obligationId,
+    quoteId,
+    bookingId: booking.bookingId,
+    revision: 2,
+    amount: '150000',
+  };
+  assert.equal(
+    (await get(`/bookings/${job.bookingId}/cash-collection-target`, TOKENS.technician)).status,
+    404,
+  );
+  assert.equal((await collect(job)).status, 404);
+  assert.equal(await count('cash_receipt', 'obligation_id = $1', [obligationId]), 0);
+});
+
+test('collection target: a lost receipt restores only to its collector even while Dispatch is unavailable', async () => {
+  const job = await cashJob();
+  const k = key();
+  const first = await collect(job, { key: k });
+  assert.equal(first.status, 201, JSON.stringify(first.body));
+  work.unavailable = true;
+  try {
+    const path = `/bookings/${job.bookingId}/cash-collection-target`;
+    const callsBefore = work.calls.length;
+    const recovered = await get(path, TOKENS.technician, replicaB);
+    assert.equal(recovered.status, 200, JSON.stringify(recovered.body));
+    assert.deepEqual(recovered.body.receipt, first.body.receipt);
+    assert.deepEqual(recovered.body.amountDue, syp('0'));
+    assert.equal(recovered.body.revision, 3);
+    const replay = await collect(job, { key: k, replica: replicaB });
+    assert.equal(replay.status, 201);
+    assert.equal(replay.headers.get('idempotency-replayed'), 'true');
+    assert.deepEqual(replay.body, first.body);
+    assert.equal((await get(path, TOKENS.otherTechnician)).status, 404);
+    assert.equal((await get(path, TOKENS.customer)).status, 403);
+    assert.equal((await get(path, TOKENS.unknown)).status, 401);
+    assert.equal(
+      work.calls.length,
+      callsBefore,
+      'committed financial fact does not require another work call',
+    );
+    identity.mode = 'error-500';
+    try {
+      assert.equal(
+        (await get(path, TOKENS.technician)).status,
+        503,
+        'current authorization still required',
+      );
+      assert.equal(
+        (await collect(job, { key: k })).status,
+        503,
+        'replay never bypasses current authorization',
+      );
+    } finally {
+      identity.mode = 'normal';
+    }
+  } finally {
+    work.unavailable = false;
+  }
+  assert.equal(await count('cash_receipt', 'obligation_id = $1', [job.obligationId]), 1);
+  assert.equal(
+    await count('ledger_journal', "obligation_id = $1 AND kind = 'CASH_COLLECTED'", [
+      job.obligationId,
+    ]),
+    1,
+  );
+});
+
 test('collection: the work owner decides assignment and completion, never the body', async () => {
   const notDone = await cashJob();
   work.set(notDone.bookingId, { workState: 'IN_PROGRESS' });
@@ -453,7 +627,7 @@ test('collection: the work owner decides assignment and completion, never the bo
   assert.equal(call?.credential, `Bearer ${TOKENS.technician}`);
 });
 
-test('collection: work owner outage is 503 with no receipt; production fails closed until lane C', async () => {
+test('collection: work owner outage or missing origin is 503 with no receipt', async () => {
   const job = await cashJob();
   work.unavailable = true;
   try {
@@ -610,6 +784,15 @@ test('reversal: a linked correction reopens the obligation; history is kept; cas
   assert.equal(obligation.financialStatus, 'AWAITING_CASH');
   assert.deepEqual(obligation.outstanding, syp(job.amount));
   assert.equal(obligation.revision, 4);
+  const target = await get(`/bookings/${job.bookingId}/cash-collection-target`, TOKENS.technician);
+  assert.equal(target.status, 200);
+  assert.equal(
+    target.body.receipt,
+    null,
+    'a reversed receipt is not a restored successful collection',
+  );
+  assert.equal(target.body.revision, 4);
+  assert.deepEqual(target.body.amountDue, syp(job.amount));
   assert.equal(await receivable(job.obligationId), job.amount);
   assert.equal(await count('cash_receipt_reversal', 'receipt_id = $1', [receipt.receiptId]), 1);
   assert.equal(

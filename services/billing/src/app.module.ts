@@ -30,7 +30,10 @@ import {
 } from './infrastructure/pricing/pricing-quote.validator';
 import { ServiceClientCallerAuthority } from './infrastructure/security/service-callers';
 import { RandomIds, Sha256Hasher, SystemClock } from './infrastructure/system/system.adapters';
-import { UnpublishedWorkAuthority } from './infrastructure/work/unpublished-work.authority';
+import {
+  DispatchWorkAuthority,
+  dispatchWorkConfigFromEnv,
+} from './infrastructure/work/dispatch-work.authority';
 import { productionProviderRegistry } from './infrastructure/providers/merchant-providers';
 import { BILLING_SERVICE, BillingController } from './transport/http/billing.controller';
 import {
@@ -119,7 +122,7 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
           authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),
           // No published work-completion contract exists yet (lane C): every
           // cash collection fails closed with 503 until it does.
-          work: new UnpublishedWorkAuthority(),
+          work: new DispatchWorkAuthority(dispatchWorkConfigFromEnv(process.env)),
           clock: new SystemClock(),
           ids: new RandomIds(),
           hasher: new Sha256Hasher(),

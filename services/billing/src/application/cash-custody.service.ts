@@ -141,6 +141,23 @@ export class CashCustodyService {
 
   // ---------------------------------------------------------------- helpers
 
+  private async workFor(context: RequestContext, bookingId: string): Promise<WorkEvidence> {
+    let work: WorkEvidence | null;
+    try {
+      work = await this.deps.work.evidenceFor(
+        bookingId,
+        context.credential ?? '',
+        context.correlationId,
+      );
+    } catch (error: unknown) {
+      if (error instanceof WorkAuthorityUnavailable)
+        throw new BillingApplicationError('UPSTREAM_UNAVAILABLE');
+      throw error;
+    }
+    if (!work || work.bookingId !== bookingId) throw new BillingApplicationError('NOT_FOUND');
+    return work;
+  }
+
   private async journal(
     uow: BillingUnitOfWork,
     plan: JournalPlan,
@@ -296,11 +313,11 @@ export class CashCustodyService {
     body: unknown,
   ): Promise<CommandResult> {
     const principal = accountOnly(await this.commands.permitted(context, COLLECT_PERMISSION));
-    const id = target(obligationId);
+    const id = target(obligationId).toLowerCase();
     const key = this.commands.key(idempotencyKey);
     const input = objectWithKeys(body, ['expectedRevision', 'bookingId', 'amount']);
     const expectedRevision = revision(input.expectedRevision);
-    const bookingId = uuid(input.bookingId, 'bookingId');
+    const bookingId = uuid(input.bookingId, 'bookingId').toLowerCase();
     const declared = moneyInput(input.amount, 'amount');
     const command = this.commands.command(principal, CUSTODY_OPERATIONS.collect, key, {
       obligationId: id,
@@ -311,28 +328,16 @@ export class CashCustodyService {
     const existing = await this.commands.committed(command);
     if (existing) return existing;
 
-    let work: WorkEvidence | null;
-    try {
-      // The credential was verified above, so it is a string here.
-      work = await this.deps.work.evidenceFor(
-        bookingId,
-        context.credential ?? '',
-        context.correlationId,
-      );
-    } catch (error: unknown) {
-      if (error instanceof WorkAuthorityUnavailable)
-        throw new BillingApplicationError('UPSTREAM_UNAVAILABLE');
-      throw error;
-    }
-    if (!work || work.bookingId !== bookingId) throw new BillingApplicationError('NOT_FOUND');
-    const evidence = work;
+    const evidence = await this.workFor(context, bookingId);
 
     try {
       return await this.commands.execute(command, async (uow, now) => {
         const obligation = await uow.lockObligation(id);
+        const booking = await uow.bookings.forBooking(bookingId);
         // An obligation that is not this booking's is indistinguishable from a
-        // missing one, and the revision is checked only after that binding.
-        if (!obligation || obligation.quoteId !== evidence.quoteId)
+        // missing one. Only Booking's authenticated saga can create this local,
+        // immutable binding; Dispatch does not own quotes or obligations.
+        if (!obligation || !booking || booking.obligationId !== id || booking.voidedAt !== null)
           throw new BillingApplicationError('NOT_FOUND');
         if (evidence.technicianSubject !== principal.subject)
           throw new BillingApplicationError('COLLECTOR_NOT_ASSIGNED');
@@ -343,6 +348,7 @@ export class CashCustodyService {
         const plan = decide(() =>
           planCashCollection({
             obligation,
+            bookingId: booking.bookingId,
             intent: before.activeIntent,
             owner: obligation.owner.subjectId,
             collector: principal.subject,
@@ -782,6 +788,48 @@ export class CashCustodyService {
   }
 
   // ------------------------------------------------------------------ queries
+
+  /**
+   * Minimal technician read: resolve the Billing-owned booking binding, exact
+   * outstanding amount and revision without granting customer/finance reads.
+   * A committed receipt remains retrievable by its collector after a lost
+   * response or a Dispatch outage; current Identity authorization still runs.
+   */
+  async cashCollectionTarget(context: RequestContext, bookingId: string) {
+    const principal = accountOnly(await this.commands.permitted(context, COLLECT_PERMISSION));
+    const id = target(bookingId).toLowerCase();
+    const booking = await this.deps.repository.bookings.forBooking(id);
+    if (!booking || booking.voidedAt !== null) throw new BillingApplicationError('NOT_FOUND');
+    const snapshot = await this.deps.repository.snapshot(booking.obligationId);
+    if (!snapshot) throw new BillingApplicationError('NOT_FOUND');
+    const receipt = snapshot.cashReceipt;
+    if (receipt) {
+      if (receipt.bookingId !== id || receipt.collector !== principal.subject)
+        throw new BillingApplicationError('NOT_FOUND');
+    } else {
+      const work = await this.workFor(context, id);
+      if (work.technicianSubject !== principal.subject)
+        throw new BillingApplicationError('NOT_FOUND');
+      decide(() =>
+        planCashCollection({
+          obligation: snapshot.obligation,
+          bookingId: booking.bookingId,
+          intent: snapshot.activeIntent,
+          owner: snapshot.obligation.owner.subjectId,
+          collector: principal.subject,
+          work,
+          declared: outstanding(snapshot.obligation),
+        }),
+      );
+    }
+    return {
+      bookingId: id,
+      obligationId: snapshot.obligation.id,
+      revision: snapshot.obligation.revision,
+      amountDue: outstanding(snapshot.obligation).toWire(),
+      receipt: receipt ? receiptView(receipt, null) : null,
+    };
+  }
 
   /** The collector sees their own receipts; Finance sees all. */
   async getReceipt(context: RequestContext, receiptId: string) {

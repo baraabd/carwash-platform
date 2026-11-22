@@ -109,6 +109,7 @@ const ledger = {
         lateDeclaredAt: null,
       },
     });
+    c.seedCashReceipt('WG-2041');
     c.seedTask('WG-2042', {
       stage: 'CLOSED',
       evidence: { BEFORE: [img.before.id, null], AFTER: [img.after.id, null] },

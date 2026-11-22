@@ -16,7 +16,7 @@ import { productionProviderRegistry } from '../../src/infrastructure/providers/m
 import { IdentitySessionAuthority } from '../../src/infrastructure/identity/identity-session.authority';
 import { PricingQuoteReader } from '../../src/infrastructure/pricing/pricing-quote.reader';
 import { RandomIds, Sha256Hasher } from '../../src/infrastructure/system/system.adapters';
-import { UnpublishedWorkAuthority } from '../../src/infrastructure/work/unpublished-work.authority';
+import { DispatchWorkAuthority } from '../../src/infrastructure/work/dispatch-work.authority';
 import { BILLING_SERVICE, BillingController } from '../../src/transport/http/billing.controller';
 import {
   CASH_CUSTODY_SERVICE,
@@ -194,7 +194,7 @@ export async function startBillingHttp(input: {
   clock: Clock;
   identity: Stub;
   pricing: PricingStub;
-  /** Work-owner double; defaults to the fail-closed production adapter. */
+  /** Work-owner adapter/double; defaults to the unconfigured production adapter. */
   work?: WorkAuthority;
   /** Provider registry; defaults to the production (documentation-pending) adapters. */
   providers?: PaymentProviderRegistry;
@@ -206,7 +206,7 @@ export async function startBillingHttp(input: {
   const custody = new CashCustodyService({
     repository: input.repository,
     authority,
-    work: input.work ?? new UnpublishedWorkAuthority(),
+    work: input.work ?? new DispatchWorkAuthority({ origin: null, timeoutMs: 1_000 }),
     clock: input.clock,
     ids: new RandomIds(),
     hasher: new Sha256Hasher(),

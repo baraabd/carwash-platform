@@ -27,8 +27,6 @@ import {
   custodyHandoverChangedEvent,
   parseCustodyHandoverChangedData,
 } from '../src/application';
-import { UnpublishedWorkAuthority } from '../src/infrastructure/work/unpublished-work.authority';
-import { WorkAuthorityUnavailable } from '../src/ports';
 
 /* Pure cash/custody domain invariants: no Nest, HTTP, Prisma or database. */
 
@@ -37,7 +35,7 @@ const usd = (minor: bigint) => Money.of('USD', minor);
 const OWNER = randomUUID();
 const TECH = randomUUID();
 const OTHER = randomUUID();
-const QUOTE = randomUUID();
+const BOOKING = randomUUID();
 const cash = { method: 'CASH_ON_COMPLETION' as const, status: 'AWAITING_CASH_COLLECTION' as const };
 const rule = (code: string) => (error: unknown) =>
   error instanceof CashRuleError && error.code === code;
@@ -49,18 +47,19 @@ function obligation(
     amount: syp(150_000n),
     verified: syp(overrides.verified ?? 0n),
     status: overrides.status ?? ('OPEN' as const),
-    quoteId: QUOTE,
   };
 }
 
 function work(overrides: Partial<WorkEvidence> = {}): WorkEvidence {
   return {
-    bookingId: randomUUID(),
-    quoteId: QUOTE,
+    bookingId: BOOKING,
     assignmentId: randomUUID(),
     assignmentRevision: 3,
     technicianSubject: TECH,
     workState: 'COMPLETED',
+    taskId: randomUUID(),
+    taskStage: 'CLOSED',
+    taskRevision: 8,
     ...overrides,
   };
 }
@@ -68,6 +67,7 @@ function work(overrides: Partial<WorkEvidence> = {}): WorkEvidence {
 function collect(overrides: Partial<Parameters<typeof planCashCollection>[0]> = {}) {
   return planCashCollection({
     obligation: obligation(),
+    bookingId: BOOKING,
     intent: cash,
     owner: OWNER,
     collector: TECH,
@@ -109,7 +109,15 @@ test('collection: only the assigned technician, after completion, for exactly th
     () => collect({ work: work({ technicianSubject: null }) }),
     rule('COLLECTOR_NOT_ASSIGNED'),
   );
-  assert.throws(() => collect({ work: work({ quoteId: randomUUID() }) }), rule('BOOKING_MISMATCH'));
+  assert.throws(
+    () => collect({ work: work({ bookingId: randomUUID() }) }),
+    rule('BOOKING_MISMATCH'),
+  );
+  assert.throws(
+    () => collect({ work: work({ taskStage: 'FINISHED' }) }),
+    rule('WORK_NOT_COMPLETED'),
+    'FINISHED can still be reassigned; a new financial receipt requires CLOSED',
+  );
   assert.throws(() => collect({ declared: syp(149_999n) }), rule('AMOUNT_NOT_EQUAL_OUTSTANDING'));
   assert.throws(() => collect({ declared: syp(150_001n) }), rule('AMOUNT_NOT_EQUAL_OUTSTANDING'));
   assert.throws(() => collect({ declared: usd(150_000n) }), rule('CURRENCY_MISMATCH'));
@@ -434,8 +442,4 @@ test('custody events are valid envelope v2 and carry no reference or customer da
     },
   );
   assert.equal(collected.eventType, 'billing.cash-collected.v1');
-});
-
-test('production work authority fails closed until lane C publishes work completion', async () => {
-  await assert.rejects(new UnpublishedWorkAuthority().evidenceFor(), WorkAuthorityUnavailable);
 });

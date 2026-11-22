@@ -68,8 +68,7 @@
     "f010:fonts": "node scripts/f010/font-provenance.mjs",
     "verify:f010": "pnpm check:design-reference && pnpm check:f010-references && pnpm test:f010:unit && pnpm test:f010:browser",
     "typecheck:apps": "pnpm --filter \"./apps/*-web\" --sequential run typecheck",
-    "build:apps": "pnpm --filter \"./apps/*-web\" --sequential run build",
-    "test:production:e": "node --test --test-reporter=spec \"tests/production/E/*.test.mjs\""
+    "build:apps": "pnpm --filter \"./apps/*-web\" --sequential run build"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

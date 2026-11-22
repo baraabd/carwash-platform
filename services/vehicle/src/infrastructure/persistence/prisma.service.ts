@@ -6,7 +6,7 @@ import {
   type OnModuleInit,
 } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
+import { databasePoolConfig, databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
 import { Pool } from 'pg';
 import { PrismaClient } from '../../generated/prisma/client';
 import { IdempotencyRetention } from './idempotency-retention';
@@ -28,7 +28,7 @@ export class PrismaService implements OnModuleDestroy, OnModuleInit {
 
   constructor(@Inject(DATABASE_URL) url: string) {
     if (!url) throw new Error('DATABASE_URL_REQUIRED');
-    const pool = new Pool({ connectionString: url });
+    const pool = new Pool(databasePoolConfig(url));
     const telemetry = serviceTelemetry('vehicle');
     telemetry.metrics.observePool(() => pool);
     const adapter = new PrismaPg(pool, {

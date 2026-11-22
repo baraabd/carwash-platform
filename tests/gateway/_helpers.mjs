@@ -69,5 +69,10 @@ export async function start(config) {
 export async function request(base, path, options = {}) {
   const response = await fetch(base + path, options);
   const raw = await response.text();
-  return { status: response.status, headers: response.headers, body: raw ? JSON.parse(raw) : null };
+  const body = raw ? JSON.parse(raw) : null;
+  // Every real Gateway error must be consumable by the shared strict browser client.
+  // Readiness has its own typed health document (503 means dependencies are not ready).
+  if (response.status >= 400 && !path.startsWith('/health/'))
+    own('@carwash/contracts').parseApiErrorEnvelope(body);
+  return { status: response.status, headers: response.headers, body };
 }

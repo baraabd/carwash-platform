@@ -230,7 +230,7 @@ test('C012 architecture: Payment is mounted; Review (C013) follows it', () => {
   assert.ok(shell.includes("'/book/6'"));
   // C014 superseded "confirmation stays unavailable": Review's action is the explicit
   // demo confirmation (tests/unit/c014-booking-confirmation.test.mjs).
-  assert.match(read('features/booking/review/ReviewStep.tsx'), /onNext={confirm}/);
+  assert.match(read('features/booking/review/ReviewStep.tsx'), /onNext: confirm/);
 });
 
 test('C012 safety: no payment execution, QR generation, storage, network or order creation', () => {

@@ -114,6 +114,8 @@ async function startRedis(context) {
     '--rm',
     '--name',
     name,
+    '--label',
+    `carwash.business-acceptance.run=${process.env.CW_BUSINESS_ACCEPTANCE_RUN ?? context.runId}`,
     '-p',
     '127.0.0.1::6379',
     '-v',
@@ -204,6 +206,14 @@ function runSuites(suites, env, browser) {
 }
 
 async function main() {
+  // Browser suites write fresh screenshots under docs/production/D/evidence.
+  // Capture source cleanliness before generated evidence exists.
+  const git = (...args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
+  const source = {
+    sourceSha: git('rev-parse', 'HEAD'),
+    sourceTree: git('rev-parse', 'HEAD^{tree}'),
+    sourceDirty: git('status', '--porcelain', '--untracked-files=normal') !== '',
+  };
   const file = await contextFile();
   // The context records the worktree that CREATED the stack. Migrations must
   // come from the tree under test, or a reused stack would be migrated from a
@@ -234,13 +244,9 @@ async function main() {
     await redis.stop();
   }
   const tests = testResults(result.output, result.code, result.signal);
-  const git = (...args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
-
   const evidence = {
     gate: browser ? 'lane-d-browser' : 'lane-d-real-infra',
-    sourceSha: git('rev-parse', 'HEAD'),
-    sourceTree: git('rev-parse', 'HEAD^{tree}'),
-    sourceDirty: git('status', '--porcelain', '--untracked-files=normal') !== '',
+    ...source,
     runId: context.runId,
     images: { ...context.images, redis: REDIS_IMAGE },
     suites,

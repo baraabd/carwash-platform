@@ -41,6 +41,19 @@ export const REVERSAL_REASONS = [
 export type ReversalReason = (typeof REVERSAL_REASONS)[number];
 export const WORK_STATES = ['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const;
 export type WorkState = (typeof WORK_STATES)[number];
+export const WORK_TASK_STAGES = [
+  'ACCEPTED',
+  'EN_ROUTE',
+  'ARRIVED',
+  'IN_SERVICE',
+  'DOCUMENTING',
+  'FINISHED',
+  'CLOSED',
+  'RELEASED',
+  'WITHDRAWN',
+  'CANCELLED',
+] as const;
+export type WorkTaskStage = (typeof WORK_TASK_STAGES)[number];
 /** Bounds one handover so a single lock set and journal stay small. */
 export const MAX_RECEIPTS_PER_HANDOVER = 200;
 
@@ -73,16 +86,17 @@ export class CashRuleError extends Error {
   }
 }
 
-/** What the work owner (Dispatch/Booking, lane C) confirms about one booking. */
+/** What Dispatch confirms; Billing owns the booking-to-obligation binding. */
 export interface WorkEvidence {
   readonly bookingId: string;
-  /** The quote the booking pinned; binds the booking to exactly one obligation. */
-  readonly quoteId: string;
   readonly assignmentId: string;
   readonly assignmentRevision: number;
   /** The technician currently assigned, or null when nobody is. */
   readonly technicianSubject: string | null;
   readonly workState: WorkState;
+  readonly taskId: string | null;
+  readonly taskStage: WorkTaskStage | null;
+  readonly taskRevision: number | null;
 }
 
 export interface ReceiptState {
@@ -106,12 +120,14 @@ export interface CollectionPlan {
 /**
  * A technician records the cash the customer handed over. Allowed only for the
  * technician the work owner says is assigned, after the work owner says the
- * service is COMPLETED, for the booking whose quote is this obligation's quote,
+ * service is COMPLETED and its task CLOSED, for the booking mapped to this
+ * obligation by Billing's immutable BookingObligation record,
  * against an active cash intent, and for exactly the outstanding amount
  * (no partial or over-collection is silently accepted).
  */
 export function planCashCollection(input: {
-  readonly obligation: ObligationState & { readonly quoteId: string };
+  readonly obligation: ObligationState;
+  readonly bookingId: string;
   readonly intent: IntentState | null;
   readonly owner: string;
   readonly collector: string;
@@ -120,13 +136,22 @@ export function planCashCollection(input: {
 }): CollectionPlan {
   // Binding and assignment first, so a technician who is not the assignee
   // learns nothing about the obligation's financial state.
-  if (input.work.quoteId !== input.obligation.quoteId) throw new CashRuleError('BOOKING_MISMATCH');
+  if (input.work.bookingId !== input.bookingId) throw new CashRuleError('BOOKING_MISMATCH');
   if (input.work.technicianSubject !== input.collector)
     throw new CashRuleError('COLLECTOR_NOT_ASSIGNED');
   if (input.collector === input.owner) throw new CashRuleError('SELF_COLLECTION_FORBIDDEN');
   if (input.obligation.status === 'SETTLED') throw new CashRuleError('OBLIGATION_SETTLED');
   if (input.obligation.status === 'VOIDED') throw new CashRuleError('OBLIGATION_VOIDED');
-  if (input.work.workState !== 'COMPLETED') throw new CashRuleError('WORK_NOT_COMPLETED');
+  // FINISHED tasks can still be withdrawn/reassigned in Dispatch. CLOSED is
+  // immutable with respect to those operations, so a read before the local
+  // Billing transaction cannot authorise a collector who is then replaced.
+  if (
+    input.work.workState !== 'COMPLETED' ||
+    input.work.taskStage !== 'CLOSED' ||
+    input.work.taskId === null ||
+    input.work.taskRevision === null
+  )
+    throw new CashRuleError('WORK_NOT_COMPLETED');
   if (!input.intent) throw new CashRuleError('NO_ACTIVE_INTENT');
   if (
     input.intent.method !== 'CASH_ON_COMPLETION' ||

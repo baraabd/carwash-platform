@@ -2,9 +2,12 @@ import { statSync } from 'node:fs';
 import path from 'node:path';
 
 const SUITES = Object.freeze({
-  customer: 'tests/production/A/customer.integration.test.mjs',
-  vehicle: 'tests/production/A/vehicle.integration.test.mjs',
-  geo: 'tests/production/A/geo.integration.test.mjs',
+  customer: [
+    'tests/production/A/customer.integration.test.mjs',
+    'tests/production/A/customer-contract.http-pg.test.mjs',
+  ],
+  vehicle: ['tests/production/A/vehicle.integration.test.mjs'],
+  geo: ['tests/production/A/geo.integration.test.mjs'],
 });
 
 /** Validate every selected suite before credentials, artifacts or infrastructure exist. */
@@ -24,7 +27,7 @@ export function acceptancePlan(args, root) {
   ) {
     throw new Error('INVALID_SERVICE_SELECTION');
   }
-  const suites = services.map((service) => SUITES[service]);
+  const suites = services.flatMap((service) => SUITES[service]);
   for (const suite of suites) {
     let present = false;
     try {
@@ -42,6 +45,9 @@ export function acceptancePlan(args, root) {
     (identityUsed
       ? 'Real Identity Nest application and Redis; only the OTP delivery port is captured in-process. '
       : 'Identity database is migrated and Redis is provisioned; Identity authentication and Redis behavior are not exercised by the geo suite. ') +
+    (services.includes('customer')
+      ? 'The additional Customer published-contract suite uses an explicit Identity HTTP double. '
+      : '') +
     'No broker relay, no gateway, no browser, no production deployment.';
   return { services, suites, scope, keep: args.includes('--keep') };
 }

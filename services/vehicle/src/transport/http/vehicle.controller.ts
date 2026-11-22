@@ -69,6 +69,8 @@ function requestContext(request: HttpRequest): RequestContext {
     traceParent: traceHeaders()['traceparent'] ?? null,
     credentials: {
       correlationId,
+      ...optional('serviceClient', header(request, 'x-service-client')),
+      ...optional('serviceToken', header(request, 'x-service-token')),
       ...optional('authorization', header(request, 'authorization')),
       ...optional('cookie', header(request, 'cookie')),
       ...optional('origin', header(request, 'origin')),
@@ -179,8 +181,8 @@ export class VehicleController {
 
   /**
    * resolveVehicleSnapshot: POST /vehicle-snapshots/resolve
-   * (service:vehicle.snapshot.resolve). Deny-by-default until workload
-   * identity (P01-E5) provides a verifier; see NoWorkloadIdentity.
+   * (service:vehicle.snapshot.resolve). Explicit scoped service credentials,
+   * ownership, revision, active status and purpose are enforced by the owner.
    */
   @Post('vehicle-snapshots/resolve')
   @HttpCode(200)

@@ -23,7 +23,13 @@ import type {
   UserCredential,
   VehicleSnapshots,
 } from '../ports';
-import { CREATE_PERMISSION, assertCanRead, requirePrincipal } from './authorization';
+import {
+  CREATE_PERMISSION,
+  READ_PERMISSION,
+  assertCanRead,
+  requirePrincipal,
+} from './authorization';
+import { bookingCursor, bookingListQuery } from './booking-list';
 import { fingerprint } from './canonical-json';
 import { idempotencyKey, parseCreateBooking, type CreateBookingCommand } from './commands';
 import type { BookingProcessManager, DriveResult } from './process-manager';
@@ -172,6 +178,21 @@ export class BookingService {
     if (!record) throw new BookingError('BOOKING_NOT_FOUND', 'Booking not found.');
     assertCanRead(meta.actor, record.booking);
     return { booking: record.booking, saga: record.saga };
+  }
+
+  async listMine(meta: RequestMeta, query: Readonly<Record<string, unknown>>) {
+    const owner = requirePrincipal(meta.actor, READ_PERMISSION);
+    const { limit, after } = bookingListQuery(query);
+    const records = await this.deps.store.listOwned(owner, after, limit + 1);
+    const items = records.slice(0, limit);
+    const last = items.at(-1)?.booking;
+    return {
+      items,
+      nextCursor:
+        records.length > limit && last
+          ? bookingCursor({ createdAt: last.createdAt, id: last.id })
+          : null,
+    };
   }
 
   private async driveInline(bookingId: string): Promise<DriveResult> {

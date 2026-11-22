@@ -19,6 +19,7 @@ import {
   sqlState,
   technician,
   verify,
+  workforceAppUrl,
   type Replica,
 } from './support';
 
@@ -89,6 +90,51 @@ async function one(r: Replica, zoneId: string, from: Date, to: Date, operatorId:
   assert.ok(found, `resource ${operatorId} listed`);
   return found;
 }
+
+test('database sessions preserve exact UTC instants despite a non-UTC DSN timezone', async () => {
+  const url = new URL(workforceAppUrl());
+  url.searchParams.set('options', '-c timezone=Asia/Damascus -c statement_timeout=5000');
+  const isolated = replica(clock, url.toString());
+  try {
+    const [settings] = await isolated.prisma.client.$queryRawUnsafe<
+      Array<{ timezone: string; statement_timeout: string }>
+    >(`SELECT current_setting('TimeZone') AS timezone,
+              current_setting('statement_timeout') AS statement_timeout`);
+    assert.equal(
+      settings?.timezone,
+      'UTC',
+      'the adapter connection enforces its UTC transport contract',
+    );
+    assert.equal(settings?.statement_timeout, '5s', 'unrelated DSN startup settings survive');
+    const zone = randomUUID();
+    const d = day(8);
+    const startsAt = new Date(d.at(8).getTime() + 123);
+    const endsAt = new Date(startsAt.getTime() + 2 * HOUR);
+    const seeded = await seedOperator(isolated, clock, {
+      shifts: [{ zoneId: zone, startsAt, endsAt }],
+    });
+    const [stored] = await isolated.prisma.client.$queryRawUnsafe<Array<{ epoch: number }>>(
+      `SELECT extract(epoch FROM starts_at)::double precision AS epoch
+         FROM app.work_shift WHERE operator_id=$1::uuid AND status='ACTIVE'`,
+      seeded.operatorId,
+    );
+    assert.equal(
+      stored?.epoch,
+      startsAt.getTime() / 1000,
+      'the stored instant is not shifted on write',
+    );
+    const shifts = await isolated.store.listShifts(seeded.operatorId, d.from, d.to);
+    assert.equal(shifts[0]?.startsAt.toISOString(), startsAt.toISOString());
+    const capacity = await one(isolated, zone, d.from, d.to, seeded.operatorId);
+    assert.deepEqual(
+      capacity.shifts.map((s) => [s.startsAt.toISOString(), s.endsAt.toISOString()]),
+      [[startsAt.toISOString(), endsAt.toISOString()]],
+      'capacity projection agrees with stored and owner-read instants',
+    );
+  } finally {
+    await isolated.prisma.client.$disconnect();
+  }
+});
 
 test('paging: keyset pages are complete, ordered, duplicate-free and stable under inserts', async () => {
   const zone = randomUUID();

@@ -175,7 +175,7 @@ test('customer: business routes fail closed when Identity is not configured', as
     assert.equal(response.status, 503);
     assert.equal(response.headers.get('cache-control'), 'no-store');
     const body = (await response.json()) as { error: { code: string } };
-    assert.equal(body.error.code, 'IDENTITY_UNAVAILABLE');
+    assert.equal(body.error.code, 'DEPENDENCY_UNAVAILABLE');
   } finally {
     await app.close();
   }
@@ -197,7 +197,7 @@ test('customer: an unreachable Identity is IDENTITY_UNAVAILABLE, never a session
     });
     assert.equal(response.status, 503);
     const body = (await response.json()) as { error: { code: string } };
-    assert.equal(body.error.code, 'IDENTITY_UNAVAILABLE');
+    assert.equal(body.error.code, 'DEPENDENCY_UNAVAILABLE');
   } finally {
     await app.close();
     delete process.env.CUSTOMER_IDENTITY_ORIGIN;

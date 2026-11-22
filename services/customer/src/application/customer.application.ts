@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { customerV1 } from '@carwash/contracts';
 import {
   applyAddressChanges,
   applyProfileChanges,
@@ -10,6 +11,7 @@ import {
   type Address,
   type AddressLocation,
   type CustomerProfile,
+  type ProfileChanges,
 } from '../domain';
 import type {
   AuthorizedSession,
@@ -19,9 +21,19 @@ import type {
   IdGenerator,
   IdentityAuthorizer,
   SessionCredentials,
+  WorkloadAuthenticator,
 } from '../ports';
 import { ApplicationError } from './errors';
 import { addressUpdatedEvent, profileUpdatedEvent, type EventContext } from './events';
+import {
+  addressSnapshotView,
+  canonicalProfileChanges,
+  canonicalProfileView,
+} from './customer-v1-wire';
+
+const { parseResolveAddressSnapshotRequestV1 } = customerV1;
+type AddressSnapshotV1 = customerV1.AddressSnapshotV1;
+type CustomerProfileV1 = customerV1.CustomerProfileV1;
 
 export const READ_PERMISSION = 'profile.read:self';
 export const WRITE_PERMISSION = 'profile.write:self';
@@ -136,6 +148,7 @@ export class CustomerApplication {
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
     private readonly policy: CustomerPolicy,
+    private readonly workloads?: WorkloadAuthenticator,
   ) {
     if (!Number.isSafeInteger(policy.maxActiveAddresses) || policy.maxActiveAddresses < 1) {
       throw new Error('INVALID_CUSTOMER_POLICY');
@@ -200,41 +213,73 @@ export class CustomerApplication {
 
   /** Idempotent by nature: the principal's existing profile is returned unchanged. */
   async bootstrapProfile(context: RequestContext): Promise<Outcome<ProfileView>> {
+    return this.bootstrap(context, profileView);
+  }
+
+  async bootstrapProfileV1(
+    context: RequestContext,
+    key: string | null,
+    body: unknown,
+  ): Promise<Outcome<CustomerProfileV1>> {
+    if (key === null) throw new ApplicationError('IDEMPOTENCY_KEY_REQUIRED');
+    // Validation precedes the transaction: no empty profile can be left behind
+    // when the supplied contact violates the published contract.
+    const initialContact = canonicalProfileChanges(body);
+    return this.bootstrap(context, canonicalProfileView, key, initialContact);
+  }
+
+  private async bootstrap<T>(
+    context: RequestContext,
+    view: (profile: CustomerProfile) => T,
+    key: string | null = null,
+    initialContact?: ProfileChanges,
+  ): Promise<Outcome<T>> {
     const session = await this.session(context, WRITE_PERMISSION);
-    const existing = await this.store.findProfile(session.principal);
-    if (existing) return { status: 200, body: profileView(existing), replayed: true };
     return this.store.transaction(async (tx) => {
       const now = this.clock.now();
-      const created = await tx.insertProfile({
-        id: this.ids.uuid(),
-        principal: session.principal,
+      return this.withIdempotency(
+        tx,
+        session,
+        key,
+        initialContact ? 'profile.bootstrap.v1' : 'profile.bootstrap',
+        initialContact ?? null,
         now,
-      });
-      if (!created) {
-        // A concurrent bootstrap for the same principal committed first.
-        const winner = await tx.findProfileForUpdate(session.principal);
-        if (!winner) throw new Error('PROFILE_BOOTSTRAP_RACE_UNRESOLVED');
-        return { status: 200, body: profileView(winner), replayed: true };
-      }
-      await tx.appendOutbox(
-        profileUpdatedEvent(
-          this.eventContext(context, now),
-          created.id,
-          created.revision,
-          'created',
-        ),
+        async () => {
+          const existing = await tx.findProfileForUpdate(session.principal);
+          if (existing) return { status: 200, body: view(existing), replayed: true };
+          const created = await tx.insertProfile({
+            id: this.ids.uuid(),
+            principal: session.principal,
+            now,
+            ...(initialContact ? { initialContact } : {}),
+          });
+          if (!created) {
+            // A concurrent bootstrap for the same principal committed first.
+            const winner = await tx.findProfileForUpdate(session.principal);
+            if (!winner) throw new Error('PROFILE_BOOTSTRAP_RACE_UNRESOLVED');
+            return { status: 200, body: view(winner), replayed: true };
+          }
+          await tx.appendOutbox(
+            profileUpdatedEvent(
+              this.eventContext(context, now),
+              created.id,
+              created.revision,
+              'created',
+            ),
+          );
+          await tx.appendAudit({
+            id: this.ids.uuid(),
+            actorSubject: session.principal.subject,
+            actorSessionId: session.sessionId,
+            action: 'customer.profile.created',
+            targetType: 'customer',
+            targetId: created.id,
+            correlationId: context.correlationId,
+            at: now,
+          });
+          return { status: 201, body: view(created), replayed: false };
+        },
       );
-      await tx.appendAudit({
-        id: this.ids.uuid(),
-        actorSubject: session.principal.subject,
-        actorSessionId: session.sessionId,
-        action: 'customer.profile.created',
-        targetType: 'customer',
-        targetId: created.id,
-        correlationId: context.correlationId,
-        at: now,
-      });
-      return { status: 201, body: profileView(created), replayed: false };
     });
   }
 
@@ -245,12 +290,60 @@ export class CustomerApplication {
     return profileView(profile);
   }
 
+  async getProfileV1(context: RequestContext): Promise<CustomerProfileV1> {
+    const session = await this.session(context, READ_PERMISSION);
+    const profile = await this.store.findProfile(session.principal);
+    if (!profile) throw new ApplicationError('PROFILE_NOT_FOUND');
+    return canonicalProfileView(profile);
+  }
+
   async updateProfile(
     context: RequestContext,
     expectedRevision: number | null,
     idempotencyKey: string | null,
     rawBody: unknown,
   ): Promise<Outcome<ProfileView>> {
+    return this.updateProfileWith(
+      context,
+      expectedRevision,
+      idempotencyKey,
+      rawBody,
+      'profile.update',
+      applyProfileChanges,
+      profileView,
+    );
+  }
+
+  async updateProfileV1(
+    context: RequestContext,
+    expectedRevision: number | null,
+    idempotencyKey: string | null,
+    rawBody: unknown,
+  ): Promise<Outcome<CustomerProfileV1>> {
+    if (idempotencyKey === null) throw new ApplicationError('IDEMPOTENCY_KEY_REQUIRED');
+    return this.updateProfileWith(
+      context,
+      expectedRevision,
+      idempotencyKey,
+      rawBody,
+      'profile.update.v1',
+      (_current, input) => canonicalProfileChanges(input),
+      canonicalProfileView,
+    );
+  }
+
+  private async updateProfileWith<T>(
+    context: RequestContext,
+    expectedRevision: number | null,
+    idempotencyKey: string | null,
+    rawBody: unknown,
+    operation: string,
+    changesFor: (
+      current: CustomerProfile,
+      raw: Readonly<Record<string, unknown>>,
+    ) => ProfileChanges,
+    view: (profile: CustomerProfile) => T,
+  ): Promise<Outcome<T>> {
     const session = await this.session(context, WRITE_PERMISSION);
     const body = asRecord(rawBody);
     const revision = requireRevision(expectedRevision);
@@ -260,16 +353,16 @@ export class CustomerApplication {
         tx,
         session,
         idempotencyKey,
-        'profile.update',
+        operation,
         [revision, body],
         now,
         async () => {
           const current = await this.requireProfile(tx, session);
           if (current.revision !== revision)
             throw new ApplicationError('REVISION_CONFLICT', current.revision);
-          const changes = applyProfileChanges(current, body);
+          const changes = changesFor(current, body);
           if (profileUnchanged(current, changes)) {
-            return { status: 200, body: profileView(current), replayed: false };
+            return { status: 200, body: view(current), replayed: false };
           }
           const updated = await tx.updateProfile(current.id, changes, revision, now);
           if (!updated) throw new ApplicationError('REVISION_CONFLICT', current.revision);
@@ -293,9 +386,49 @@ export class CustomerApplication {
               at: now,
             });
           }
-          return { status: 200, body: profileView(updated), replayed: false };
+          return { status: 200, body: view(updated), replayed: false };
         },
       );
+    });
+  }
+
+  /** A workload must prove its scope before it can resolve another principal's address. */
+  async resolveAddressSnapshot(
+    context: RequestContext,
+    rawBody: unknown,
+  ): Promise<AddressSnapshotV1> {
+    if (!this.workloads) throw new ApplicationError('AUTH_FORBIDDEN');
+    const actor = await this.workloads.authenticate(context.credentials);
+    if (!actor.scopes.includes('customer.address-snapshot.resolve')) {
+      throw new ApplicationError('AUTH_FORBIDDEN');
+    }
+    const request = parseResolveAddressSnapshotRequestV1(rawBody);
+    return this.store.transaction(async (tx) => {
+      const profile = await tx.findProfileForUpdate({
+        kind: request.owner.kind,
+        subject: request.owner.subjectId,
+      });
+      if (!profile) throw new ApplicationError('ADDRESS_NOT_FOUND');
+      const address = await tx.findAddress(profile.id, request.addressId);
+      if (!address || address.status !== 'ACTIVE') throw new ApplicationError('ADDRESS_NOT_FOUND');
+      if (request.expectedRevision !== null && address.revision !== request.expectedRevision) {
+        throw new ApplicationError('REVISION_CONFLICT', address.revision);
+      }
+      const now = this.clock.now();
+      const snapshot = addressSnapshotView(address, now);
+      await tx.appendAudit({
+        id: this.ids.uuid(),
+        actorSubject: null,
+        actorSessionId: null,
+        actorService: actor.service,
+        actorPurpose: request.purpose,
+        action: 'customer.address.snapshot-resolved',
+        targetType: 'address',
+        targetId: address.id,
+        correlationId: context.correlationId,
+        at: now,
+      });
+      return snapshot;
     });
   }
 

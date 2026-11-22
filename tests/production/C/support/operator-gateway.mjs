@@ -75,6 +75,18 @@ export const ROUTES = Object.freeze([
     'booking',
     (m) => `${PATHS.booking}/bookings/${m[1]}/technician-view`,
   ],
+  [
+    ['GET'],
+    new RegExp(`^/api/operator/bookings/${SEG}/cash-collection-target$`),
+    'billing',
+    (m) => `${PATHS.billing}/bookings/${m[1]}/cash-collection-target`,
+  ],
+  [
+    ['POST'],
+    new RegExp(`^/api/operator/obligations/${SEG}/cash-collections$`),
+    'billing',
+    (m) => `${PATHS.billing}/obligations/${m[1]}/cash-collections`,
+  ],
   [['POST'], /^\/api\/operator\/media\/uploads$/, 'media', () => `${PATHS.media}/uploads`],
   // P05-C2 (CR-P05-C1 §3)
   [['GET'], /^\/api\/operator\/profile$/, 'workforce', () => `${PATHS.workforce}/me/profile`],

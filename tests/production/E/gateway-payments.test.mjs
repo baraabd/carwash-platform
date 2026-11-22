@@ -218,14 +218,14 @@ test('owner reasons: only the merged contract reasons reach the client; 412 stay
   // Forwarded only once billing.v1 (P04-E1) is merged; never invented before that.
   assert.equal(
     conflict.body.error.reason,
-    published.includes('PAYMENT_IN_REVIEW') ? 'PAYMENT_IN_REVIEW' : undefined,
+    published.includes('PAYMENT_IN_REVIEW') ? 'PAYMENT_IN_REVIEW' : null,
   );
   reply = { status: 409, code: 'SQLSTATE_23505_DUPLICATE' };
-  assert.equal((await choose()).body.error.reason, undefined, 'unpublished codes never leak');
+  assert.equal((await choose()).body.error.reason, null, 'unpublished codes never leak');
   reply = { status: 412, code: 'REVISION_CONFLICT' };
   const stale = await choose();
   assert.equal(stale.status, 412);
-  assert.equal(stale.body.error.code, 'CONFLICT');
+  assert.equal(stale.body.error.code, 'REVISION_CONFLICT');
   reply = { hang: true };
   const timedOut = await choose();
   assert.equal(timedOut.status, 504);
@@ -254,6 +254,15 @@ test('reason forwarding uses the owner registry for an already-merged owner (cus
   });
   assert.equal(result.status, 409);
   assert.equal(result.body.error.reason, code);
+  customer.state.handler = (call, res) =>
+    json(res, 409, {
+      error: { code: 'CONFLICT', reason: code, message: 'redacted by gateway' },
+    });
+  const canonical = await request(app.base, '/api/v1/customer/profile', {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  assert.equal(canonical.status, 409);
+  assert.equal(canonical.body.error.reason, code);
 });
 
 // ---------------------------------------------------------------- provider ingress

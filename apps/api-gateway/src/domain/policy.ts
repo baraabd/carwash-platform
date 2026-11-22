@@ -2,6 +2,8 @@ import {
   GATEWAY_COMPOSITIONS,
   GATEWAY_ROUTES,
   GATEWAY_V1,
+  API_ERROR_CODES,
+  API_ERROR_STATUS,
   contractsOf,
   type GatewayErrorCode,
   type GatewayOwner,
@@ -22,19 +24,38 @@ export interface Match {
   readonly route: GatewayRoute;
   readonly upstream: string;
 }
+/** Re-encode only a route's published GET query. No query can select an origin or path. */
+function allowedQuery(route: GatewayRoute, search: string | undefined): string {
+  if (search === undefined) return '';
+  if (!route.query || route.method !== 'GET') throw new GatewayFault(404, 'NOT_FOUND');
+  if (search.length > 2048) throw new GatewayFault(400, 'REQUEST_INVALID');
+  const out = new URLSearchParams();
+  for (const [name, value] of new URLSearchParams(search)) {
+    const rule = route.query.find((entry) => entry.name === name);
+    if (!rule || out.has(name) || !rule.pattern.test(value))
+      throw new GatewayFault(400, 'REQUEST_INVALID');
+    out.set(name, value);
+  }
+  return out.size ? `?${out.toString()}` : '';
+}
 /** Match exact allowlisted path segments. Never derive an origin from request data. */
-export function routeMatch(method: string, raw: string): Match | readonly Match[] {
+export function routeMatch(method: string, full: string): Match | readonly Match[] {
+  const [raw = '', search, extra] = full.split('?');
+  const prefix = [GATEWAY_V1, '/api/operator'].find((candidate) => raw.startsWith(`${candidate}/`));
   if (
-    !raw.startsWith(`${GATEWAY_V1}/`) ||
-    raw.includes('?') ||
+    !prefix ||
+    extra !== undefined ||
     /[%\\#]/.test(raw) ||
-    [...raw].some((char) => char.charCodeAt(0) <= 32)
+    [...full].some((char) => char.charCodeAt(0) <= 32) ||
+    /[\\#]/.test(full)
   )
     throw new GatewayFault(404, 'NOT_FOUND');
-  const path = raw.slice(GATEWAY_V1.length);
+  const path = raw.slice(prefix.length);
   const parts = path.split('/');
   if (parts.some((x) => x === '.' || x === '..')) throw new GatewayFault(404, 'NOT_FOUND');
-  const composition = GATEWAY_COMPOSITIONS.find((c) => c.path === path);
+  const composition =
+    prefix === GATEWAY_V1 ? GATEWAY_COMPOSITIONS.find((c) => c.path === path) : undefined;
+  if (composition && search !== undefined) throw new GatewayFault(404, 'NOT_FOUND');
   if (composition && method === 'GET')
     return composition.routes.map((id) => {
       const route = GATEWAY_ROUTES.find((r) => r.id === id);
@@ -42,17 +63,30 @@ export function routeMatch(method: string, raw: string): Match | readonly Match[
       return { route, upstream: route.upstream };
     });
   for (const route of GATEWAY_ROUTES) {
-    if (route.method !== method) continue;
+    if (route.method !== method || (route.prefix ?? GATEWAY_V1) !== prefix) continue;
     const expected = route.path.split('/');
     if (expected.length !== parts.length) continue;
-    let id = '';
+    const values: Record<string, string> = {};
     if (
-      !expected.every((part, i) =>
-        part === ':id' ? UUID.test((id = parts[i] ?? '')) : part === parts[i],
-      )
+      !expected.every((part, i) => {
+        if (!part.startsWith(':')) return part === parts[i];
+        const name = part.slice(1);
+        const value = parts[i] ?? '';
+        const choices = route.pathEnums?.[name];
+        if (choices ? !choices.includes(value) : !UUID.test(value)) return false;
+        values[name] = value;
+        return true;
+      })
     )
       continue;
-    return { route, upstream: route.upstream.replace(':id', id) };
+    return {
+      route,
+      upstream:
+        route.upstream.replace(
+          /:([A-Za-z][A-Za-z0-9]*)/g,
+          (_parameter, name: string) => values[name] ?? '',
+        ) + allowedQuery(route, search),
+    };
   }
   throw new GatewayFault(404, 'NOT_FOUND');
 }
@@ -85,15 +119,28 @@ export function upstreamFault(status: number, body: unknown, owner?: GatewayOwne
     404: 'NOT_FOUND',
     409: 'CONFLICT',
     // CR-D-P03-08: a stale expectedRevision stays a conflict, never a 502.
-    412: 'CONFLICT',
+    412: 'REVISION_CONFLICT',
+    413: 'REQUEST_INVALID',
+    428: 'REVISION_REQUIRED',
     422: 'VALIDATION_FAILED',
     429: 'RATE_LIMITED',
   };
   // Business-rule rejections keep the owner's published reason (CR-B-01); nothing else does.
-  const reason = [409, 412, 422].includes(status) ? publishedReason(owner, code) : undefined;
+  const explicitReason =
+    typeof error === 'object' && error !== null
+      ? (error as Record<string, unknown>).reason
+      : undefined;
+  const reason = [409, 412, 422].includes(status)
+    ? (publishedReason(owner, explicitReason) ?? publishedReason(owner, code))
+    : undefined;
+  // A published common code with its documented HTTP status keeps its semantics,
+  // especially IDEMPOTENCY_IN_PROGRESS: a retry must retain the same request key.
+  const sharedCode = API_ERROR_CODES.find(
+    (candidate) => candidate === code && API_ERROR_STATUS[candidate] === status,
+  );
   return new GatewayFault(
-    status in known ? status : 502,
-    known[status] ?? 'UPSTREAM_UNAVAILABLE',
+    sharedCode || status in known ? status : 502,
+    sharedCode ?? known[status] ?? 'UPSTREAM_UNAVAILABLE',
     reason,
   );
 }

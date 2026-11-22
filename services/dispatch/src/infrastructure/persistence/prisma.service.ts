@@ -1,6 +1,6 @@
 import { Inject, Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
+import { databasePoolConfig, databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
 import { Pool } from 'pg';
 import { PrismaClient } from '../../generated/prisma/client';
 
@@ -24,7 +24,7 @@ export class PrismaService implements OnModuleDestroy {
   constructor(@Inject(DATABASE_URL) url: string) {
     if (!url) throw new Error('DATABASE_URL_REQUIRED');
     const pool = new Pool({
-      connectionString: url,
+      ...databasePoolConfig(url),
       // A replica killed mid-transaction leaves its backend "idle in transaction"
       // holding row locks until PostgreSQL notices the dead socket, which behind
       // a TCP proxy can take minutes. The server ends such a session (and

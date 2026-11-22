@@ -224,6 +224,8 @@ export async function startOperatorFixture({
     offers: new Map(),
     tasks: new Map(),
     assignments: new Map(),
+    cash: new Map(),
+    billingUnavailable: false,
   };
   const profileDouble = createProfileDouble({
     clock,
@@ -265,6 +267,12 @@ export async function startOperatorFixture({
         assignmentId: uuidFrom(`${seed.bookingId}:assignment`),
         status: 'OFFERED',
         technician: TECHNICIAN_SUBJECT,
+      });
+      state.cash.set(seed.bookingId, {
+        bookingId: seed.bookingId,
+        obligationId: uuidFrom(`${seed.bookingId}:obligation`),
+        revision: 2,
+        receipt: null,
       });
     }
   }
@@ -330,6 +338,8 @@ export async function startOperatorFixture({
     state.offers.clear();
     state.tasks.clear();
     state.assignments.clear();
+    state.cash.clear();
+    state.billingUnavailable = false;
     objects.clear();
     stored.clear();
     idempotency.clear();
@@ -423,6 +433,55 @@ export async function startOperatorFixture({
     };
   }
 
+  function cashTarget(bookingId, subject) {
+    const cash = state.cash.get(bookingId);
+    const booking = state.bookings.get(bookingId);
+    const task = [...state.tasks.values()].find((t) => t.bookingId === bookingId);
+    if (!cash || !booking || !task || task.owner !== subject) refuse(404, 'NOT_FOUND');
+    if (task.stage !== 'CLOSED') refuse(409, 'WORK_NOT_COMPLETED');
+    if (booking.paymentMethod !== 'CASH_ON_COMPLETION') refuse(409, 'INTENT_NOT_CASH');
+    return {
+      ...structuredClone(cash),
+      amountDue: cash.receipt ? money(0) : structuredClone(booking.total),
+    };
+  }
+
+  /** Separate financial fixture state; Dispatch declarations never call this. */
+  function recordCash(bookingId) {
+    const cash = state.cash.get(bookingId);
+    const booking = state.bookings.get(bookingId);
+    const task = [...state.tasks.values()].find((t) => t.bookingId === bookingId);
+    if (!cash || !booking || !task) throw new Error('CASH_FIXTURE_MISSING');
+    cash.revision += 1;
+    cash.receipt = {
+      receiptId: randomUUID(),
+      revision: 1,
+      obligationId: cash.obligationId,
+      bookingId,
+      assignmentId: task.assignmentId,
+      assignmentRevision: 2,
+      collector: task.owner,
+      amount: structuredClone(booking.total),
+      custodyStatus: 'HELD',
+      handoverId: null,
+      collectedAt: iso(),
+      updatedAt: iso(),
+      reversal: null,
+    };
+    return {
+      receipt: structuredClone(cash.receipt),
+      obligation: {
+        obligationId: cash.obligationId,
+        revision: cash.revision,
+        financialStatus: 'CASH_COLLECTED',
+        amount: structuredClone(booking.total),
+        verified: structuredClone(booking.total),
+        outstanding: money(0),
+        method: 'CASH_ON_COMPLETION',
+      },
+    };
+  }
+
   /** Dispatch + booking + workforce + identity + media routes. */
   async function route(method, path, subject, body) {
     let m;
@@ -438,12 +497,35 @@ export async function startOperatorFixture({
           roles: subject === TECHNICIAN_SUBJECT ? ['technician'] : ['customer'],
           permissions:
             subject === TECHNICIAN_SUBJECT
-              ? ['work.read:assigned', 'work.execute:assigned']
+              ? ['work.read:assigned', 'work.execute:assigned', 'billing.cash.collect']
               : ['profile.read:self', 'bookings.read:self'],
         },
       ];
     }
     const technician = subject === TECHNICIAN_SUBJECT;
+    if (path.startsWith('/internal/v1/billing/') && state.billingUnavailable)
+      refuse(503, 'UPSTREAM_UNAVAILABLE');
+    if (
+      method === 'GET' &&
+      (m = /^\/internal\/v1\/billing\/bookings\/([^/]+)\/cash-collection-target$/.exec(path))
+    ) {
+      if (!technician) refuse(403, 'AUTH_FORBIDDEN');
+      return [200, cashTarget(m[1], subject)];
+    }
+    if (
+      method === 'POST' &&
+      (m = /^\/internal\/v1\/billing\/obligations\/([^/]+)\/cash-collections$/.exec(path))
+    ) {
+      if (!technician) refuse(403, 'AUTH_FORBIDDEN');
+      closedBody(body, ['expectedRevision', 'bookingId', 'amount']);
+      const target = cashTarget(body.bookingId, subject);
+      if (target.obligationId !== m[1]) refuse(404, 'NOT_FOUND');
+      if (target.revision !== body.expectedRevision) refuse(412, 'REVISION_CONFLICT');
+      if (target.receipt) refuse(409, 'COLLECTION_ALREADY_RECORDED');
+      if (!isMoney(body.amount) || JSON.stringify(body.amount) !== JSON.stringify(target.amountDue))
+        refuse(422, 'AMOUNT_NOT_EQUAL_OUTSTANDING');
+      return [201, recordCash(body.bookingId), true];
+    }
     // workforce C1
     if (path === '/internal/v1/workforce/me/availability') {
       if (!technician) refuse(404, 'NOT_FOUND', 'OPERATOR_NOT_FOUND');
@@ -811,7 +893,7 @@ export async function startOperatorFixture({
     if (typeof body === 'symbol') return reply(400, envelope('REQUEST_INVALID'));
     const mutation = method !== 'GET';
     const idemScoped = mutation && !/\/(upload-url|read-url)$/.test(url.pathname);
-    if (idemScoped && (typeof key !== 'string' || !/^[A-Za-z0-9-]{8,128}$/.test(key))) {
+    if (idemScoped && (typeof key !== 'string' || !/^[A-Za-z0-9_-]{8,128}$/.test(key))) {
       return reply(428, envelope('IDEMPOTENCY_KEY_REQUIRED'));
     }
     const fingerprint = `${method} ${url.pathname} ${JSON.stringify(body ?? null)}`;
@@ -927,6 +1009,22 @@ export async function startOperatorFixture({
       state.availability = { status, revision: state.availability.revision + 1, updatedAt: iso() };
     },
     /** Store AVAILABLE evidence bytes directly (fixture seeding for visual states). */
+    setBillingUnavailable(value) {
+      state.billingUnavailable = value;
+    },
+    cashReceiptOf(seedKey) {
+      return structuredClone(state.cash.get(control.bookingIdOf(seedKey))?.receipt ?? null);
+    },
+    /** Explicit financial fixture seed, separate from a Dispatch task declaration. */
+    seedCashReceipt(seedKey) {
+      return recordCash(control.bookingIdOf(seedKey)).receipt;
+    },
+    reverseCashReceipt(seedKey) {
+      const cash = state.cash.get(control.bookingIdOf(seedKey));
+      if (!cash?.receipt) throw new Error('CASH_FIXTURE_MISSING');
+      cash.receipt = null;
+      cash.revision += 1;
+    },
     putObject(bytes, contentType = 'image/jpeg') {
       const objectId = uuidFrom(`object:${sha256(bytes)}:${objects.size}`);
       objects.set(objectId, {

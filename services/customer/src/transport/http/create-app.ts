@@ -1,8 +1,9 @@
 import type { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { AppExceptionFilter, createLogger } from '@carwash/service-kit';
+import { createLogger } from '@carwash/service-kit';
 import { AppModule } from '../../app.module';
+import { CustomerTransportExceptionFilter } from './customer-contract.filter';
 
 /** Customer JSON bodies are small; anything larger is refused before parsing. */
 const BODY_LIMIT = '16kb';
@@ -15,6 +16,6 @@ export async function createHttpApplication(): Promise<INestApplication> {
     bodyParser: false,
   });
   app.useBodyParser('json', { limit: BODY_LIMIT });
-  app.useGlobalFilters(new AppExceptionFilter(createLogger({ service: 'customer' })));
+  app.useGlobalFilters(new CustomerTransportExceptionFilter(createLogger({ service: 'customer' })));
   return app;
 }

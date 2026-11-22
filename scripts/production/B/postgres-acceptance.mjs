@@ -571,6 +571,8 @@ try {
       '-d',
       '--name',
       container,
+      '--label',
+      `carwash.business-acceptance.run=${process.env.CW_BUSINESS_ACCEPTANCE_RUN ?? runId}`,
       '-e',
       'POSTGRES_USER=cw_p01b_bootstrap',
       '-e',

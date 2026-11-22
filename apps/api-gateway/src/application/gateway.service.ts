@@ -49,12 +49,16 @@ export class GatewayService {
       throw new GatewayFault(403, 'AUTH_CSRF');
     if (unsafe && input.headers['sec-fetch-site'] === 'cross-site')
       throw new GatewayFault(403, 'AUTH_CSRF');
-    const requiresAuth = list.some(({ route }) => !!route.permission);
+    const requiresAuth = list.some(({ route }) => !!route.permission || !!route.anyPermission);
     const identity = requiresAuth
       ? await this.auth.authenticate(input.headers, unsafe, input.context)
       : undefined;
     for (const { route } of list)
-      if (route.permission && !identity?.session.permissions.includes(route.permission))
+      if (
+        (route.permission && !identity?.session.permissions.includes(route.permission)) ||
+        (route.anyPermission &&
+          !route.anyPermission.some((p) => identity?.session.permissions.includes(p)))
+      )
         throw new GatewayFault(403, 'AUTH_FORBIDDEN');
     const results = await Promise.all(list.map((match) => this.forward(match, input, identity)));
     if (Array.isArray(matched)) {
@@ -78,6 +82,11 @@ export class GatewayService {
         : this.verifiedHeaders(identity, input);
     if (route.idempotency === 'required')
       headers['idempotency-key'] = idempotencyKey(input.headers['idempotency-key']);
+    if (route.revisioned && input.headers['if-match'] !== undefined) {
+      const revision = input.headers['if-match'];
+      if (!/^"[1-9][0-9]{0,8}"$/.test(revision)) throw new GatewayFault(400, 'REQUEST_INVALID');
+      headers['if-match'] = revision;
+    }
     const reply = await this.http.request(route.owner, upstream, route.method, headers, input.body);
     if (reply.status >= 300) throw upstreamFault(reply.status, reply.body, route.owner);
     return {

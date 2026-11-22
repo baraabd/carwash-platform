@@ -1273,7 +1273,7 @@ const openJob = (page, bookingId) =>
   page.locator(`[data-action="open-job"][data-id="${bookingId}"]`).first().click();
 const cleanProblems = (problems) => problems.filter((p) => !/status of 40[49]/.test(p));
 
-test('the technician app completes a real job through the requested gateway routes', async () => {
+test('the technician app completes real work while unavailable Billing keeps collection unconfirmed', async () => {
   const job = await bookingWithJob();
   const tech = await technician(job, 'ui');
   await offerTo(job, tech);
@@ -1342,6 +1342,10 @@ test('the technician app completes a real job through the requested gateway rout
     await page.check('#cash-check');
     await page.locator('#cash-confirm').click();
     await heading(page, 'لمعة تستحق المشاهدة.');
+    await page.waitForFunction(() =>
+      document.querySelector('#storage-warning')?.textContent.includes('لم يتأكد حفظ'),
+    );
+    assert.notEqual(await page.locator('#toast').textContent(), 'سُجّل التحصيل مرة واحدة.');
 
     const jobs = await call('dispatch', 'GET', '/me/jobs', tech.token);
     const taskId = jobs.body.tasks.find((t) => t.bookingId === job.bookingId).taskId;
@@ -1357,15 +1361,21 @@ test('the technician app completes a real job through the requested gateway rout
     );
     assert.deepEqual([evidence.body.status, evidence.body.claimed], ['AVAILABLE', true]);
 
-    // The collections view renders from the same server declaration (the reference shows the
-    // bottom navigation outside the task view only).
+    // Dispatch completed real work; the declared Billing503 upstream cannot
+    // supply a financial receipt. The UI must keep the amount outstanding.
+    if (await page.locator('#sheet[open]').count()) await page.keyboard.press('Escape');
     await page.locator('header [data-action="home"]').click();
     await atHome(page);
     await page.locator('nav [data-action="collections"]').click();
     await page.waitForFunction(() => document.documentElement.dataset.view === 'collections');
-    // A declaration is recorded cash, never a receipt: Billing (absent here) issues receipts.
     const shown = await page.locator('#main').textContent();
-    assert.ok(shown.includes('الكاش المسجّل'), 'the reference label of the declaration');
+    assert.ok(shown.includes('الكاش المسجّل'), 'the reference label is retained');
+    assert.equal(
+      await page.locator('.ledger-hero .amount').textContent(),
+      '0ل.س',
+      'no confirmed cash from a Dispatch declaration',
+    );
+    assert.ok(shown.includes('للمتابعة'), 'the completed task remains outstanding');
     assert.ok(!shown.includes('إيصال'), 'no receipt is claimed from a Dispatch declaration');
     assert.deepEqual(cleanProblems(problems), [], 'no page errors or CSP violations');
   } finally {

@@ -92,7 +92,11 @@ export function AccountRoute() {
         <div className="grow">
           <div className="eyebrow">التفاصيل الصغيرة تصنع الفرق</div>
           <h1 tabIndex={-1}>حسابي.</h1>
-          <p>ملف محلي بسيط، دون كلمة مرور.</p>
+          <p>
+            {state.runtimeMode === 'parity'
+              ? 'ملف محلي بسيط، دون كلمة مرور.'
+              : 'بيانات حسابك من الخدمة.'}
+          </p>
         </div>
       </div>
       <div className="profile-hero">
@@ -100,7 +104,13 @@ export function AccountRoute() {
         <div className="grow">
           <h2>{view.displayName}</h2>
           <p>
-            {view.phone ? <span className="ltr">{view.phone}</span> : 'بيانات تجريبية على جهازك'}
+            {view.phone ? (
+              <span className="ltr">{view.phone}</span>
+            ) : state.runtimeMode === 'parity' ? (
+              'بيانات تجريبية على جهازك'
+            ) : (
+              'لا يوجد رقم تواصل معروض'
+            )}
           </p>
         </div>
         <button className="icon-btn" type="button" aria-label="تعديل بياناتي" {...deferred}>
@@ -112,8 +122,18 @@ export function AccountRoute() {
       <div className="info-note">
         <Icon name="info" />
         <span>
-          النموذج محاكاة محلية. الأسعار والمواعيد والخريطة والرسوم لا تمثل خدمة حقيقية. عند ربط
-          خادم، يلزم استكمال الأمان والتحقق والدفع والتشغيل.
+          {state.runtimeMode === 'parity' ? (
+            <>
+              النموذج محاكاة محلية. الأسعار والمواعيد والخريطة والرسوم لا تمثل خدمة حقيقية. عند ربط
+              خادم، يلزم استكمال الأمان والتحقق والدفع والتشغيل.
+            </>
+          ) : state.productionData?.profileStatus === 'available' ? (
+            'بيانات الحساب للعرض. يتطلب تعديل البيانات ربط خدمة التحديث.'
+          ) : state.productionData?.profileStatus === 'anonymous' ? (
+            'يلزم تسجيل الدخول لعرض بيانات الحساب.'
+          ) : (
+            'تعذّر تحميل بيانات الحساب. حاول إعادة تحميل الصفحة.'
+          )}
         </span>
       </div>
       <p className="version">

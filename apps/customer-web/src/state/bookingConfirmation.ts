@@ -57,6 +57,9 @@ export const ORDER_ID_PREFIX = 'WG-SESSION-';
 export const ORDER_CREATED_NOTICE = 'تم إنشاء الطلب لهذه الجلسة. لا حجز فعلي ولا دفع.';
 /** C014's notice when preparing the order failed: nothing was created or saved. */
 export const ORDER_FAILED_NOTICE = 'تعذّر إنشاء الطلب. لم يتغيّر شيء في حجزك.';
+/** A production session cannot turn a local simulation into a booking receipt. */
+export const CONFIRMATION_UNAVAILABLE_TEXT =
+  'تأكيد الحجز غير متاح قبل ربط خدمة الحجز. لم يتم إنشاء طلب أو إجراء دفع.';
 
 /**
  * Catalog facts the transition needs, injected by the caller so the state layer
@@ -164,6 +167,15 @@ export function confirmBooking(
   state: CustomerSessionState,
   command: ConfirmationCommand,
 ): ConfirmationResult {
+  // Check before reading the catalog, replay receipts or changing any business
+  // data. A disabled button alone is not a sufficient simulation boundary.
+  if (state.runtimeMode !== 'parity') {
+    return {
+      state: withMessage(state, CONFIRMATION_UNAVAILABLE_TEXT),
+      intent: null,
+      outcome: { kind: 'failed', reason: 'PARITY_MODE_REQUIRED' },
+    };
+  }
   const unchanged = (outcome: ConfirmationOutcome): ConfirmationResult => ({
     state,
     intent: null,

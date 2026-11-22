@@ -71,6 +71,20 @@ export interface CashReceiptV1 {
   readonly reversal: CashReversalV1 | null;
 }
 
+/**
+ * Technician-safe booking lookup. A null receipt authorises preparing a
+ * collection request with `revision` as expectedRevision; the write checks
+ * authority and revision again. A receipt is Billing's committed fact and can
+ * be restored by its collector without depending on Dispatch availability.
+ */
+export interface CashCollectionTargetV1 {
+  readonly bookingId: string;
+  readonly obligationId: string;
+  readonly revision: number;
+  readonly amountDue: Money;
+  readonly receipt: CashReceiptV1 | null;
+}
+
 export interface HandoverV1 {
   readonly handoverId: string;
   readonly revision: number;
@@ -219,6 +233,33 @@ export function parseCashReceiptV1(value: unknown, path = '$'): CashReceiptV1 {
     collectedAt: parseUtc(v.collectedAt, `${path}.collectedAt`),
     updatedAt: parseUtc(v.updatedAt, `${path}.updatedAt`),
     reversal,
+  };
+}
+
+export function parseCashCollectionTargetV1(value: unknown, path = '$'): CashCollectionTargetV1 {
+  const v = closed(value, path, ['bookingId', 'obligationId', 'revision', 'amountDue', 'receipt']);
+  const bookingId = uuid(v.bookingId, `${path}.bookingId`);
+  const obligationId = uuid(v.obligationId, `${path}.obligationId`);
+  const amountDue = parseNonNegativeMoney(v.amountDue, `${path}.amountDue`);
+  const receipt = nullable(v.receipt, (r) => parseCashReceiptV1(r, `${path}.receipt`));
+  if (receipt) {
+    if (receipt.bookingId !== bookingId || receipt.obligationId !== obligationId)
+      throw new ContractViolation('FOREIGN_RECEIPT', `${path}.receipt`);
+    if (
+      receipt.custodyStatus === 'REVERSED' ||
+      amountDue.amountMinor !== '0' ||
+      receipt.amount.currency !== amountDue.currency
+    )
+      throw new ContractViolation('INCONSISTENT_RECEIPT', `${path}.receipt`);
+  } else if (amountDue.amountMinor === '0') {
+    throw new ContractViolation('AMOUNT_REQUIRED', `${path}.amountDue`);
+  }
+  return {
+    bookingId,
+    obligationId,
+    revision: parseRevision(v.revision, `${path}.revision`),
+    amountDue,
+    receipt,
   };
 }
 

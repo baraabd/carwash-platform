@@ -27,7 +27,11 @@ const customer = await startService('customer', db, {
   CUSTOMER_IDENTITY_TIMEOUT_MS: '3000',
   CUSTOMER_MAX_ACTIVE_ADDRESSES: '3',
 });
-const call = client(customer.base, '/internal/v1/customer');
+const canonicalCall = client(customer.base, '/internal/v1/customer');
+// Preserve the historical partial-contact checks against the explicit legacy
+// view. Canonical GET/PUT/PATCH and shared-parser conformance have their own suite.
+const call = (path, options) =>
+  canonicalCall(path === '/me' && options?.method !== 'POST' ? '/legacy/me' : path, options);
 
 test.after(async () => {
   await customer.app.close();

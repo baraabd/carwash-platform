@@ -4,9 +4,7 @@ import { WorkAuthorityUnavailable, type WorkAuthority } from '../../src/ports';
 
 /**
  * TEST DOUBLE of the lane C work owner (Dispatch/Booking) behind Billing's
- * WorkAuthority port. There is no published work-completion contract to run a
- * real adapter against (blocker B-P03-01); production wiring uses the
- * fail-closed UnpublishedWorkAuthority. This double proves only Billing's side:
+ * WorkAuthority port. This double proves only Billing's side:
  * that collection obeys whatever assignment/completion the owner reports.
  */
 export class WorkDouble implements WorkAuthority {
@@ -15,17 +13,19 @@ export class WorkDouble implements WorkAuthority {
   unavailable = false;
 
   book(input: {
-    quoteId: string;
+    bookingId: string;
     technicianSubject: string | null;
     workState?: WorkState;
   }): WorkEvidence {
     const evidence: WorkEvidence = {
-      bookingId: randomUUID(),
-      quoteId: input.quoteId,
+      bookingId: input.bookingId,
       assignmentId: randomUUID(),
       assignmentRevision: 2,
       technicianSubject: input.technicianSubject,
       workState: input.workState ?? 'COMPLETED',
+      taskId: randomUUID(),
+      taskStage: 'CLOSED',
+      taskRevision: 8,
     };
     this.bookings.set(evidence.bookingId, evidence);
     return evidence;

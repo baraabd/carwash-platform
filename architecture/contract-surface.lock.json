@@ -81,7 +81,9 @@
       "reasons": [
         "ADDRESS_ARCHIVED",
         "ADDRESS_LIMIT_REACHED",
-        "PROFILE_NOT_FOUND"
+        "PROFILE_NOT_FOUND",
+        "PROFILE_CONTACT_MIGRATION_REQUIRED",
+        "ADDRESS_MIGRATION_REQUIRED"
       ]
     },
     "vehicle.v1": {
@@ -474,6 +476,15 @@
           "path": "/booking-obligations/:obligationId/void",
           "access": "service:billing.obligation.write",
           "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getCashCollectionTarget": {
+          "method": "GET",
+          "path": "/bookings/:bookingId/cash-collection-target",
+          "access": "permission:billing.cash.collect",
+          "idempotent": false,
           "revisioned": false,
           "safe": false,
           "paged": false

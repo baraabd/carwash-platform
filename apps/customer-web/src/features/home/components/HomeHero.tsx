@@ -6,11 +6,18 @@ import { spawnTapWave } from '../../../shared/tapWave';
 interface HomeHeroProps {
   readonly greetingName: string | null;
   readonly carArt: 'sedan' | 'suv' | 'pickup';
-  readonly startingPrice: number;
+  readonly startingPrice: number | null;
   readonly onStart: () => void;
+  readonly unavailableReasonId?: string;
 }
 
-export function HomeHero({ greetingName, carArt, startingPrice, onStart }: HomeHeroProps) {
+export function HomeHero({
+  greetingName,
+  carArt,
+  startingPrice,
+  onStart,
+  unavailableReasonId,
+}: HomeHeroProps) {
   return (
     <section className="hero signature-hero" aria-label="غسيل متنقل">
       <div className="row between">
@@ -40,10 +47,17 @@ export function HomeHero({ greetingName, carArt, startingPrice, onStart }: HomeH
         <div className="hero-price">
           غسلتك تبدأ من
           <strong>
-            <Price amount={startingPrice} />
+            {startingPrice === null ? 'السعر غير متاح' : <Price amount={startingPrice} />}
           </strong>
         </div>
-        <button className="hero-cta" type="button" onPointerDown={spawnTapWave} onClick={onStart}>
+        <button
+          className="hero-cta"
+          type="button"
+          onPointerDown={spawnTapWave}
+          onClick={onStart}
+          disabled={unavailableReasonId !== undefined}
+          aria-describedby={unavailableReasonId}
+        >
           احجز غسلتك{' '}
           <span className="arrow-circle">
             <Icon name="arrow" />

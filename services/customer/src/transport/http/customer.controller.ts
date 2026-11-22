@@ -7,9 +7,11 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   Res,
+  UseFilters,
 } from '@nestjs/common';
 import { AppError, resolveCorrelationId, traceHeaders } from '@carwash/service-kit';
 import {
@@ -20,6 +22,7 @@ import {
   type RequestContext,
 } from '../../application';
 import { CustomerDomainError } from '../../domain';
+import { CustomerContractExceptionFilter } from './customer-contract.filter';
 
 export const CUSTOMER_V1 = '/internal/v1/customer';
 export const CUSTOMER_APPLICATION = 'CUSTOMER_APPLICATION';
@@ -39,6 +42,8 @@ const APPLICATION_STATUS: Readonly<Record<ApplicationErrorCode, number>> = {
   AUTH_FORBIDDEN: 403,
   IDENTITY_UNAVAILABLE: 503,
   PROFILE_NOT_FOUND: 404,
+  PROFILE_CONTACT_MIGRATION_REQUIRED: 409,
+  ADDRESS_MIGRATION_REQUIRED: 409,
   ADDRESS_NOT_FOUND: 404,
   REVISION_REQUIRED: 428,
   REVISION_CONFLICT: 412,
@@ -100,6 +105,8 @@ function requestContext(request: HttpRequest): RequestContext {
       ...optional('origin', header(request, 'origin')),
       ...optional('secFetchSite', header(request, 'sec-fetch-site')),
       ...optional('csrfToken', header(request, 'x-csrf-token')),
+      ...optional('serviceClient', header(request, 'x-service-client')),
+      ...optional('serviceToken', header(request, 'x-service-token')),
     },
   };
 }
@@ -143,15 +150,19 @@ export class CustomerController {
     return this.mutation(response, () => this.app.bootstrapProfile(requestContext(request)));
   }
 
-  @Get('me')
-  async profile(@Req() request: HttpRequest, @Res({ passthrough: true }) response: HttpResponse) {
+  /** Compatibility view for clients migrating the former flat profile representation. */
+  @Get('legacy/me')
+  async legacyProfile(
+    @Req() request: HttpRequest,
+    @Res({ passthrough: true }) response: HttpResponse,
+  ) {
     const view = await this.run(response, () => this.app.getProfile(requestContext(request)));
     response.setHeader('etag', `"${view.revision}"`);
     return view;
   }
 
-  @Patch('me')
-  updateProfile(
+  @Patch('legacy/me')
+  updateLegacyProfile(
     @Req() request: HttpRequest,
     @Body() body: unknown,
     @Res({ passthrough: true }) response: HttpResponse,
@@ -164,6 +175,68 @@ export class CustomerController {
         body,
       ),
     );
+  }
+
+  private async canonicalMutation<T extends { readonly revision: number }>(
+    response: HttpResponse,
+    work: () => Promise<Outcome<T>>,
+  ): Promise<T> {
+    response.setHeader('cache-control', 'no-store');
+    const outcome = await work();
+    response.status(outcome.status);
+    response.setHeader('etag', `"${outcome.body.revision}"`);
+    if (outcome.replayed) response.setHeader('idempotent-replayed', 'true');
+    return outcome.body;
+  }
+
+  @Put('me')
+  @UseFilters(CustomerContractExceptionFilter)
+  bootstrapV1(
+    @Req() request: HttpRequest,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: HttpResponse,
+  ) {
+    return this.canonicalMutation(response, () =>
+      this.app.bootstrapProfileV1(requestContext(request), idempotencyKey(request), body),
+    );
+  }
+
+  @Get('me')
+  @UseFilters(CustomerContractExceptionFilter)
+  async profile(@Req() request: HttpRequest, @Res({ passthrough: true }) response: HttpResponse) {
+    response.setHeader('cache-control', 'no-store');
+    const view = await this.app.getProfileV1(requestContext(request));
+    response.setHeader('etag', `"${view.revision}"`);
+    return view;
+  }
+
+  @Patch('me')
+  @UseFilters(CustomerContractExceptionFilter)
+  updateProfile(
+    @Req() request: HttpRequest,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: HttpResponse,
+  ) {
+    return this.canonicalMutation(response, () =>
+      this.app.updateProfileV1(
+        requestContext(request),
+        expectedRevision(request),
+        idempotencyKey(request),
+        body,
+      ),
+    );
+  }
+
+  @Post('address-snapshots/resolve')
+  @HttpCode(200)
+  @UseFilters(CustomerContractExceptionFilter)
+  resolveAddressSnapshot(
+    @Req() request: HttpRequest,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: HttpResponse,
+  ) {
+    response.setHeader('cache-control', 'no-store');
+    return this.app.resolveAddressSnapshot(requestContext(request), body);
   }
 
   @Get('me/addresses')

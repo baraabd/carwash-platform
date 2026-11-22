@@ -15,6 +15,7 @@ import { ROOT, readJson, inventory, auditSummary, sarifFindings, assertTap } fro
 import { command, checked, git, tool, toolLock, stage } from './runtime.mjs';
 import { secretScans } from './secret-scans.mjs';
 import { validateActiveAllocation } from '../parallel/E/allocate-environment.mjs';
+import { discoverServiceSpecs } from '../lib/test-discovery.mjs';
 const mode = process.argv[2];
 assert.ok(['targeted', 'static', 'integration', 'security', 'codeql'].includes(mode));
 const pnpm = (...args) => checked('pnpm', args);
@@ -54,7 +55,15 @@ try {
       const base = process.env.BASE_SHA;
       assert.match(base ?? '', /^[a-f0-9]{40}$/);
       await step('workflow-syntax', () => checked(tool('actionlint'), []));
-      await step('ci-adversarial-tests', () => tapSuite('ci', ['tests/ci/gates.test.mjs']));
+      // Scanner adversarial tests belong to the security job, which installs
+      // gitleaks. Keep this offline family independent of that external tool.
+      await step('ci-adversarial-tests', () =>
+        tapSuite('ci', [
+          'tests/ci/gates.test.mjs',
+          'tests/ci/test-discovery.test.mjs',
+          'tests/ci/business-acceptance.test.mjs',
+        ]),
+      );
       await step('f001-full-foundation', () =>
         node(
           'scripts/f001/acceptance.mjs',
@@ -96,11 +105,7 @@ try {
       await step('nest-test-build', () => pnpm('build:tests'));
       const nestFiles = inventory()
         .targets.filter((t) => t.database)
-        .flatMap((t) => {
-          const files = globSync(`${t.path}/dist-tests/test/*.spec.js`);
-          assert.ok(files.length > 0, `Missing Nest specs: ${t.id}`);
-          return files;
-        });
+        .flatMap((t) => discoverServiceSpecs(path.join(ROOT, t.path)));
       await step('nest-tests', () => tapSuite('nest', nestFiles));
       await step('append-only-migrations', () =>
         node('scripts/check-migrations.mjs', '--base-ref', base),

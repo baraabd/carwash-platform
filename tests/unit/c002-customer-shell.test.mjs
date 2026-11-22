@@ -47,6 +47,8 @@ test('C002 shell keeps approved outer structural landmarks', () => {
 
 test('C002 uses the pinned stable React/Vite stack', () => {
   assert.deepEqual(pkg.dependencies, {
+    '@carwash/api-clients': 'workspace:*',
+    '@carwash/contracts': 'workspace:*',
     react: '19.3.0',
     'react-dom': '19.3.0',
     'react-router-dom': '7.18.4',

@@ -36,6 +36,15 @@ test('suite preflight rejects invalid selections and absent suites before infras
     assert.match(mixed.scope, /Real Identity Nest application and Redis/);
     assert.match(mixed.scope, /OTP delivery port is captured/);
     assert.equal(mixed.keep, true);
+    await writeFile(path.join(root, 'tests/production/A/customer.integration.test.mjs'), '');
+    assert.throws(
+      () => acceptancePlan(['--services', 'customer'], root),
+      /MISSING_ACCEPTANCE_SUITE.*customer-contract/,
+    );
+    await writeFile(path.join(root, 'tests/production/A/customer-contract.http-pg.test.mjs'), '');
+    const customer = acceptancePlan(['--services', 'customer'], root);
+    assert.equal(customer.suites.length, 2);
+    assert.match(customer.scope, /explicit Identity HTTP double/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

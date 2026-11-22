@@ -3,6 +3,7 @@ import { traceHeaders } from '@carwash/service-kit';
 import {
   BOOKING_EVENTS_EXCHANGE,
   type Booking,
+  type PrincipalRef,
   type BookingEvent,
   type RejectionReason,
   type SagaOutcome,
@@ -13,6 +14,7 @@ import type {
   Actor,
   AuditFact,
   BookingRecord,
+  BookingCursor,
   BookingStore,
   InsertBookingResult,
   RequestClaim,
@@ -348,6 +350,32 @@ export class PrismaBookingStore implements BookingStore {
     );
     if (!row) return null;
     return { booking: toBooking(row), saga: toSaga(row), correlationId: row.correlation_id };
+  }
+
+  async listOwned(
+    owner: PrincipalRef,
+    after: BookingCursor | null,
+    limit: number,
+  ): Promise<BookingRecord[]> {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 101)
+      throw new Error('INVALID_LIST_LIMIT');
+    const rows = await this.prisma.client.$queryRawUnsafe<(BookingRow & SagaRow)[]>(
+      `SELECT ${BOOKING_COLUMNS}, ${SAGA_COLUMNS}
+       FROM app.booking b JOIN app.booking_saga s ON s.booking_id = b.id
+       WHERE b.principal_kind = $1 AND b.principal_subject = $2::uuid
+         AND ($3::timestamptz IS NULL OR (b.created_at, b.id) < ($3::timestamptz, $4::uuid))
+       ORDER BY b.created_at DESC, b.id DESC LIMIT $5`,
+      owner.kind,
+      owner.subjectId,
+      after?.createdAt ?? null,
+      after?.id ?? null,
+      limit,
+    );
+    return rows.map((row) => ({
+      booking: toBooking(row),
+      saga: toSaga(row),
+      correlationId: row.correlation_id,
+    }));
   }
 
   async recordAudit(fact: AuditFact): Promise<void> {

@@ -28,7 +28,7 @@ export class GatewayController {
   @Get('api/v1/contracts') contracts() {
     return gatewayOpenApi();
   }
-  @All('api/v1/{*route}') async route(
+  @All(['api/v1/{*route}', 'api/operator/{*route}']) async route(
     @Req() request: GatewayRequest,
     @Res() response: GatewayResponse,
   ) {

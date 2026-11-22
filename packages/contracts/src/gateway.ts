@@ -1,4 +1,7 @@
 import type { IdentityPermission } from './identity';
+import type { ApiErrorCode, FieldIssue } from './common/errors';
+import { OPERATOR_GATEWAY_ROUTES } from './gateway-operator';
+import { ADMIN_GATEWAY_ROUTES } from './gateway-admin';
 /** F007 is a routing contract, never an implementation of a business operation. */
 export const GATEWAY_V1 = '/api/v1' as const;
 export type GatewayOwner =
@@ -9,10 +12,15 @@ export type GatewayOwner =
   | 'workforce'
   | 'billing'
   | 'support'
-  | 'reporting';
+  | 'reporting'
+  | 'dispatch'
+  | 'communications'
+  | 'media';
 export interface GatewayRoute {
   readonly id: string;
-  readonly method: 'GET' | 'POST' | 'PATCH';
+  readonly method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+  /** Explicit deployed browser namespace. Omission retains /api/v1. */
+  readonly prefix?: '/api/operator';
   readonly path: string;
   readonly owner: GatewayOwner;
   readonly upstream: string;
@@ -25,6 +33,15 @@ export interface GatewayRoute {
    */
   readonly public?: true;
   readonly idempotency?: 'required';
+  /** Read-only POST (e.g. short-lived media URL); still authenticated and CSRF checked. */
+  readonly safe?: true;
+  /** Only this route may forward a validated If-Match revision to its owner. */
+  readonly revisioned?: true;
+  /** Named parameters are UUIDs unless a closed enum is declared here. */
+  readonly pathEnums?: Readonly<Record<string, readonly string[]>>;
+  /** GET-only query allowlist; unknown and duplicate keys are rejected. */
+  readonly query?: readonly GatewayQueryParam[];
+  readonly anyPermission?: readonly IdentityPermission[];
   /**
    * P04-E2: an external payment provider's server notification. No identity,
    * cookie, bearer or browser header is ever forwarded; the exact raw request
@@ -33,6 +50,10 @@ export interface GatewayRoute {
    * with permission/public/authTransport/idempotency.
    */
   readonly providerIngress?: true;
+}
+export interface GatewayQueryParam {
+  readonly name: string;
+  readonly pattern: RegExp;
 }
 /** Provider headers the Gateway forwards on a providerIngress route; nothing else. */
 export const PROVIDER_INGRESS_HEADERS = [
@@ -106,6 +127,16 @@ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
     upstream: '/internal/v1/customer/me',
     permission: 'profile.write:self',
     idempotency: 'required',
+    revisioned: true,
+  },
+  {
+    id: 'customer.profile.bootstrap',
+    method: 'PUT',
+    path: '/customer/profile',
+    owner: 'customer',
+    upstream: '/internal/v1/customer/me',
+    permission: 'profile.write:self',
+    idempotency: 'required',
   },
   {
     // Guests browse the published catalog before any identity exists.
@@ -113,7 +144,7 @@ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
     method: 'GET',
     path: '/customer/packages',
     owner: 'catalog',
-    upstream: '/internal/v1/catalog/packages',
+    upstream: '/internal/v1/catalog/definitions',
     public: true,
   },
   {
@@ -123,13 +154,42 @@ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
     owner: 'booking',
     upstream: '/internal/v1/booking/mine',
     permission: 'bookings.read:self',
+    query: [
+      { name: 'limit', pattern: /^(?:[1-9][0-9]?|100)$/ },
+      { name: 'cursor', pattern: /^[A-Za-z0-9_-]{8,200}$/ },
+    ],
   },
+  {
+    id: 'customer.bookings.get',
+    method: 'GET',
+    path: '/customer/bookings/:id',
+    owner: 'booking',
+    upstream: '/internal/v1/booking/bookings/:id',
+    permission: 'bookings.read:self',
+  },
+  {
+    id: 'customer.bookings.changes',
+    method: 'GET',
+    path: '/customer/bookings/:id/changes',
+    owner: 'booking',
+    upstream: '/internal/v1/booking/bookings/:id/changes',
+    permission: 'bookings.read:self',
+  },
+  ...(['cancellation', 'reschedule'] as const).map((action): GatewayRoute => ({
+    id: `customer.bookings.${action}`,
+    method: 'POST',
+    path: `/customer/bookings/:id/${action}`,
+    owner: 'booking',
+    upstream: `/internal/v1/booking/bookings/:id/${action}`,
+    permission: 'bookings.create:self',
+    idempotency: 'required',
+  })),
   {
     id: 'customer.bookings.create',
     method: 'POST',
     path: '/customer/bookings',
     owner: 'booking',
-    upstream: '/internal/v1/booking',
+    upstream: '/internal/v1/booking/bookings',
     permission: 'bookings.create:self',
     idempotency: 'required',
   },
@@ -330,6 +390,8 @@ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
     permission: 'identity.roles.assign',
     authTransport: true,
   },
+  ...OPERATOR_GATEWAY_ROUTES,
+  ...ADMIN_GATEWAY_ROUTES,
 ];
 export const GATEWAY_COMPOSITIONS = [
   {
@@ -344,30 +406,22 @@ export const GATEWAY_COMPOSITIONS = [
   },
   { id: 'admin.overview', path: '/admin/overview', routes: ['admin.billing', 'admin.support'] },
 ] as const;
-export type GatewayErrorCode =
-  | 'REQUEST_INVALID'
-  | 'AUTH_REQUIRED'
-  | 'AUTH_FORBIDDEN'
-  | 'AUTH_CSRF'
-  | 'NOT_FOUND'
-  | 'CONFLICT'
-  | 'VALIDATION_FAILED'
-  | 'RATE_LIMITED'
-  | 'UPSTREAM_UNAVAILABLE'
-  | 'UPSTREAM_TIMEOUT'
-  | 'UPSTREAM_INVALID'
-  | 'INTERNAL_ERROR';
+export type GatewayErrorCode = ApiErrorCode;
 export interface GatewayErrorEnvelope {
   readonly error: {
     readonly code: GatewayErrorCode;
     /**
      * P04-E2: the owner's published business reason (e.g. PAYMENT_IN_REVIEW) for
      * CONFLICT / VALIDATION_FAILED, forwarded only when it is in that owner's
-     * merged contract `reasons`. Absent otherwise. Never internal detail.
+     * merged contract `reasons`. Null otherwise. Never internal detail.
      */
-    readonly reason?: string;
+    readonly reason: string | null;
     readonly message: string;
     readonly requestId: string;
     readonly correlationId: string;
+    /** Retry the same intent/key after transient transport failure; never assume rollback. */
+    readonly retryable: boolean;
+    readonly retryAfterMs: number | null;
+    readonly issues: readonly FieldIssue[];
   };
 }

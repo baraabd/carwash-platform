@@ -1,4 +1,5 @@
 import { newKey, type Result } from './api/client';
+import { readCashTarget, type CashReceipt } from './api/cash-api';
 import {
   M,
   acceptOffer,
@@ -317,6 +318,21 @@ async function reload(): Promise<boolean> {
     }),
   );
   for (const id of [...bookings.keys()]) if (!ids.has(id)) bookings.delete(id);
+  const receipts = new Map<string, CashReceipt>();
+  await Promise.all(
+    tasks
+      .filter(
+        (t) =>
+          t.stage === 'CLOSED' && bookings.get(t.bookingId)?.paymentMethod === 'CASH_ON_COMPLETION',
+      )
+      .map(async (t) => {
+        const target = await readCashTarget(t.bookingId);
+        if (target.kind === 'ok' && target.value.receipt)
+          receipts.set(t.bookingId, target.value.receipt);
+        // An unavailable or absent financial receipt never falls back to the
+        // Dispatch declaration or an old confirmed read.
+      }),
+  );
   await ensureReadUrls(
     tasks.flatMap((t) =>
       [...t.evidence.BEFORE, ...t.evidence.AFTER].flatMap((e) => (e ? [e.mediaObjectId] : [])),
@@ -324,7 +340,7 @@ async function reload(): Promise<boolean> {
   );
   if (seq !== readSeq) return false;
   const hadSelected = S.view === 'task' && S.jobs.some((j) => j.id === S.selectedId);
-  S.jobs = buildJobs(jobs.value.offers, tasks, bookings);
+  S.jobs = buildJobs(jobs.value.offers, tasks, bookings, receipts);
   S.loaded = true;
   S.connection = pending.size ? 'unknown' : 'ok';
   if (hadSelected && !S.jobs.some((j) => j.id === S.selectedId)) {

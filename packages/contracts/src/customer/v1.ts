@@ -60,7 +60,13 @@ export const CUSTOMER_V1 = {
       safe: true,
     },
   },
-  reasons: ['ADDRESS_ARCHIVED', 'ADDRESS_LIMIT_REACHED', 'PROFILE_NOT_FOUND'],
+  reasons: [
+    'ADDRESS_ARCHIVED',
+    'ADDRESS_LIMIT_REACHED',
+    'PROFILE_NOT_FOUND',
+    'PROFILE_CONTACT_MIGRATION_REQUIRED',
+    'ADDRESS_MIGRATION_REQUIRED',
+  ],
 } as const satisfies OwnerContract;
 
 export const LOCALES = ['ar', 'en'] as const;

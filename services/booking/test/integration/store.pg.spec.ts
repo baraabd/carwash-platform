@@ -23,8 +23,7 @@ after(() => h.prisma.client.$disconnect());
 
 const NOW = new Date();
 
-function draft(): Booking {
-  const beneficiary = principal();
+function draft(beneficiary = principal()): Booking {
   return createBooking({
     id: randomUUID(),
     beneficiary,
@@ -37,6 +36,40 @@ function draft(): Booking {
     now: NOW,
   });
 }
+
+test('listOwned fences account and guest ownership and pages equal timestamps without duplicates', async () => {
+  const owner = principal();
+  const own = await Promise.all([
+    persisted(draft(owner)),
+    persisted(draft(owner)),
+    persisted(draft(owner)),
+  ]);
+  await persisted(draft({ ...owner, kind: owner.kind === 'account' ? 'guest' : 'account' }));
+  await persisted(draft(principal()));
+  const first = await h.store.listOwned(owner, null, 2);
+  assert.equal(first.length, 2);
+  const last = first.at(-1)!.booking;
+  const rest = await h.store.listOwned(owner, { createdAt: last.createdAt, id: last.id }, 2);
+  assert.equal(rest.length, 1);
+  const seen = [...first, ...rest].map((row) => row.booking.id);
+  assert.deepEqual(
+    seen,
+    own
+      .map((booking) => booking.id)
+      .sort()
+      .reverse(),
+  );
+  assert.equal(new Set(seen).size, 3);
+  assert.ok(
+    [...first, ...rest].every(
+      (row) =>
+        row.booking.beneficiary.kind === owner.kind &&
+        row.booking.beneficiary.subjectId === owner.subjectId,
+    ),
+  );
+  await assert.rejects(h.store.listOwned(owner, null, 0), /INVALID_LIST_LIMIT/);
+  await assert.rejects(h.store.listOwned(owner, null, 102), /INVALID_LIST_LIMIT/);
+});
 
 function requestKey(b: Booking): RequestKey {
   return {

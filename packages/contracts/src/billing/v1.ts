@@ -95,6 +95,11 @@ export const BILLING_V1 = {
       idempotent: true,
     },
     // Cash collection, custody and settlement (CR-B-08, conforms to P03-B1).
+    getCashCollectionTarget: {
+      method: 'GET',
+      path: '/bookings/:bookingId/cash-collection-target',
+      access: 'permission:billing.cash.collect',
+    },
     recordCashCollection: {
       method: 'POST',
       path: '/obligations/:obligationId/cash-collections',

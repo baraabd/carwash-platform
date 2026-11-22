@@ -61,14 +61,15 @@ function parseSession(body: unknown): AuthorizedSession {
     !Number.isSafeInteger(view.authVersion) ||
     view.authVersion < 1 ||
     !Array.isArray(permissions) ||
-    !permissions.every((permission): permission is string => typeof permission === 'string')
+    !permissions.every((permission): permission is string => typeof permission === 'string') ||
+    (view.principalKind !== 'account' && view.principalKind !== 'guest') ||
+    !Array.isArray(view.roles) ||
+    (view.principalKind === 'guest' && view.roles.length !== 0)
   ) {
     throw new ApplicationError('IDENTITY_UNAVAILABLE');
   }
   return {
-    // Identity V1 issues account sessions only. Guest sessions are a pending
-    // Identity contract; until one exists no request can carry a guest principal.
-    principal: { kind: 'account', subject: view.subject.toLowerCase() },
+    principal: { kind: view.principalKind, subject: view.subject.toLowerCase() },
     sessionId: view.sessionId.toLowerCase(),
     permissions,
   };

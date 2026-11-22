@@ -10,7 +10,7 @@
 import './vehicle.contract.test.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import {
   ORIGIN,
   account,
@@ -31,9 +31,17 @@ const { vehicleV1, parseApiErrorEnvelope, parsePage } = contracts;
 
 const db = context.services.vehicle.app;
 const identity = await startIdentity();
+const snapshotToken = randomBytes(32).toString('hex');
 const vehicle = await startService('vehicle', db, {
   VEHICLE_IDENTITY_ORIGIN: identity.base,
   VEHICLE_IDENTITY_TIMEOUT_MS: '3000',
+  VEHICLE_SERVICE_CLIENTS: JSON.stringify([
+    {
+      id: 'booking',
+      tokenSha256: createHash('sha256').update(snapshotToken).digest('hex'),
+      scopes: ['vehicle.snapshot.resolve'],
+    },
+  ]),
 });
 const raw = client(vehicle.base, '/internal/v1/vehicle');
 
@@ -499,7 +507,7 @@ test('pages: keyset paging covers every active vehicle once; bad queries are ref
   assert.deepEqual(foreign.body.items, [], "a cursor never reveals another owner's vehicles");
 });
 
-test('snapshot resolve stays closed: no workload identity exists, user sessions are refused', async () => {
+test('snapshot resolve refuses anonymous requests and user sessions without workload identity', async () => {
   const user = await account(identity);
   const id = (await create(user)).body.vehicleId;
   const body = {
@@ -522,6 +530,46 @@ test('snapshot resolve stays closed: no workload identity exists, user sessions 
     [id],
   );
   assert.equal(reads.rows[0].n, 0);
+});
+
+test('snapshot resolve uses the runtime workload adapter and fences owner, revision and archived vehicles', async () => {
+  const user = await account(identity);
+  const created = await create(user);
+  const id = created.body.vehicleId;
+  const headers = { 'x-service-client': 'booking', 'x-service-token': snapshotToken };
+  const body = {
+    owner: { kind: 'account', subjectId: user.subject },
+    vehicleId: id,
+    expectedRevision: 1,
+    purpose: 'booking-create',
+  };
+  const resolve = (value = body, credential = headers) =>
+    call(
+      '/vehicle-snapshots/resolve',
+      { method: 'POST', headers: credential, body: value },
+      vehicleV1.parseVehicleSnapshotV1,
+    );
+  const snapshot = await resolve();
+  assert.equal(snapshot.status, 200);
+  assert.equal(snapshot.body.vehicleId, id);
+  assert.equal(snapshot.body.vehicleRevision, 1);
+  assert.equal(snapshot.body.source, 'saved');
+  assert.equal(
+    (await resolve({ ...body, owner: { ...body.owner, subjectId: randomUUID() } })).status,
+    404,
+  );
+  assert.equal((await resolve({ ...body, owner: { ...body.owner, kind: 'guest' } })).status, 404);
+  assert.equal((await resolve({ ...body, expectedRevision: 2 })).status, 412);
+  assert.equal((await resolve(body, { ...headers, 'x-service-client': 'attacker' })).status, 403);
+  assert.equal((await resolve(body, { ...headers, ...bearer(user) })).status, 403);
+  assert.equal((await archive(user, id, 1)).status, 200);
+  assert.equal((await resolve({ ...body, expectedRevision: 2 })).status, 409);
+  const audit = await sql(
+    db,
+    "SELECT actor_service, purpose FROM app.audit_entry WHERE vehicle_id = $1 AND actor_kind = 'service'",
+    [id],
+  );
+  assert.deepEqual(audit.rows, [{ actor_service: 'booking', purpose: 'booking-create' }]);
 });
 
 test('database: vehicle.v1 plate, region, audit-actor and archive invariants are enforced', async () => {

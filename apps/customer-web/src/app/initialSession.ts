@@ -22,9 +22,9 @@ import { isReviewScenarioId, reviewScenarioState } from '../fixtures/customerRev
 import type { CustomerSessionState } from '../state/customerSession.ts';
 
 /**
- * Picks the deterministic session the page starts from. Until the customer
- * services exist, fixtures are the only data source; `?scenario=<id>` in the hash
- * selects one and anything unrecognised falls back to the empty default.
+ * Picks a deterministic session for the explicit parity build only. The main
+ * entry point excludes this module from production; a `?scenario=<id>` hash is
+ * never a production data source or permission to simulate a booking.
  */
 export function initialSessionState(locationHash: string): CustomerSessionState {
   const queryStart = locationHash.indexOf('?');

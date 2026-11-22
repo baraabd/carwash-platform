@@ -8,6 +8,7 @@ import type {
   TaskView,
 } from './api/types';
 import { minor, sumMoney, zeroLike } from './money';
+import { sameAmount, type CashReceipt } from './api/cash-api';
 
 /**
  * View model built ONLY from server reads. The reference kept the same
@@ -52,6 +53,7 @@ export interface Job {
   readonly offer: OfferView | null;
   readonly task: TaskView | null;
   readonly booking: BookingTechView | null;
+  readonly cashReceipt: CashReceipt | null;
   readonly stage: RefStage;
   readonly deferred: boolean;
   readonly startsAt: string;
@@ -80,6 +82,7 @@ export function buildJobs(
   offers: readonly OfferView[],
   tasks: readonly TaskView[],
   bookings: ReadonlyMap<string, BookingTechView>,
+  receipts: ReadonlyMap<string, CashReceipt> = new Map(),
 ): Job[] {
   const jobs = new Map<string, Job>();
   for (const offer of offers) {
@@ -91,6 +94,7 @@ export function buildJobs(
       offer,
       task: null,
       booking: bookings.get(id) ?? null,
+      cashReceipt: null,
       stage: 'assigned',
       deferred: false,
       startsAt: offer.job.startsAt,
@@ -107,6 +111,7 @@ export function buildJobs(
       offer: null,
       task,
       booking: bookings.get(id) ?? null,
+      cashReceipt: receipts.get(id) ?? null,
       stage,
       deferred: task.stage === 'RELEASED',
       startsAt: task.startsAt,
@@ -194,10 +199,19 @@ export function method(j: Job): Method | null {
   }
 }
 
-/** Cash declared by the technician (on close or later). A declaration, not a Billing receipt. */
+/** Only a current Billing receipt confirms money; Dispatch records work declarations. */
 export const collected = (j: Job): boolean => {
-  const c = j.task?.collection;
-  return method(j) === 'cash' && !!c && (c.outcome === 'CASH_COLLECTED' || c.lateAmount !== null);
+  const receipt = j.cashReceipt;
+  const amount = total(j);
+  return (
+    method(j) === 'cash' &&
+    j.task?.stage === 'CLOSED' &&
+    !!receipt &&
+    receipt.bookingId === j.id &&
+    receipt.custodyStatus !== 'REVERSED' &&
+    !!amount &&
+    sameAmount(receipt.amount, amount)
+  );
 };
 
 /**

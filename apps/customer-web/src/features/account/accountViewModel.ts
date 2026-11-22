@@ -52,16 +52,19 @@ export function buildAccountViewModel(state: CustomerSessionState): AccountViewM
       row('addresses', 'pin', 'عناويني', `${state.addresses.length} عناوين محفوظة`, 'addresses'),
       row('garage-tab', 'car', 'سياراتي', `${state.vehicles.length} سيارات محفوظة`, 'garage'),
     ],
-    secondaryRows: [
-      row('pay-settings', 'qr-pay', 'رموز الدفع للتجربة', 'إضافة QR التاجر لكل محفظة محليًا'),
-      row('pay-demo', 'wallet', 'استكشف الدفع', 'جولة تجريبية جاهزة دون مال حقيقي'),
-      // The approved default; the motion setting itself is not implemented yet.
-      row('motion', 'spark', 'المؤثرات الحركية', 'حركات هادئة حسب تفضيل جهازك'),
-      row('help', 'help', 'دليل التجربة', 'الحجز، صور قبل وبعد، وإعادة الحجز'),
-      row('privacy', 'shield', 'الخصوصية والحفظ', 'بيانات محلية دون مشاركة أو خادم'),
-      row('export', 'download', 'تنزيل بيانات التجربة', 'ملف JSON دون صور'),
-      row('reset-prompt', 'trash', 'إعادة ضبط التجربة', 'حذف الحجوزات والسيارات والصور'),
-    ],
+    secondaryRows:
+      state.runtimeMode === 'parity'
+        ? [
+            row('pay-settings', 'qr-pay', 'رموز الدفع للتجربة', 'إضافة QR التاجر لكل محفظة محليًا'),
+            row('pay-demo', 'wallet', 'استكشف الدفع', 'جولة تجريبية جاهزة دون مال حقيقي'),
+            // The approved default; the motion setting itself is not implemented yet.
+            row('motion', 'spark', 'المؤثرات الحركية', 'حركات هادئة حسب تفضيل جهازك'),
+            row('help', 'help', 'دليل التجربة', 'الحجز، صور قبل وبعد، وإعادة الحجز'),
+            row('privacy', 'shield', 'الخصوصية والحفظ', 'بيانات محلية دون مشاركة أو خادم'),
+            row('export', 'download', 'تنزيل بيانات التجربة', 'ملف JSON دون صور'),
+            row('reset-prompt', 'trash', 'إعادة ضبط التجربة', 'حذف الحجوزات والسيارات والصور'),
+          ]
+        : [row('help', 'help', 'المساعدة', 'معلومات الخدمة والدعم')],
   };
 }
 

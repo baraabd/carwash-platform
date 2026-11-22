@@ -1,4 +1,4 @@
-import type { Booking, BookingEvent, PrincipalKind, SagaState } from '../domain';
+import type { Booking, BookingEvent, PrincipalKind, PrincipalRef, SagaState } from '../domain';
 import type { Actor } from './runtime.ports';
 
 /** Idempotency scope of a create command: principal + contract operation + key. */
@@ -54,6 +54,10 @@ export interface BookingRecord {
   /** Correlation id of the request that created the booking; reused by every saga step. */
   readonly correlationId: string;
 }
+export interface BookingCursor {
+  readonly createdAt: Date;
+  readonly id: string;
+}
 
 /**
  * Booking persistence. Each method is ONE local ACID transaction in the
@@ -81,6 +85,12 @@ export interface BookingStore {
     audit: AuditFact,
   ): Promise<InsertBookingResult>;
   find(bookingId: string): Promise<BookingRecord | null>;
+  /** Newest first, strictly after the cursor, with principal kind AND subject fenced in SQL. */
+  listOwned(
+    owner: PrincipalRef,
+    after: BookingCursor | null,
+    limit: number,
+  ): Promise<BookingRecord[]>;
   /** Append one audit row on its own (reads that must leave a trace). */
   recordAudit(fact: AuditFact): Promise<void>;
 

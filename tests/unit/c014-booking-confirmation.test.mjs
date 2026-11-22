@@ -531,7 +531,7 @@ test('C014 only the explicit Review action confirms; no step, route or mount doe
   // Called from the click handler only: never in render, an effect or a state updater.
   assert.match(
     step,
-    /const confirm = \(\) => \{\n\s+const now = currentInstant\(\);\n\s+const result = run\(/,
+    /const confirm = \(\) => \{\n\s+if \(state\.runtimeMode !== 'parity'\) return;\n\s+const now = currentInstant\(\);\n\s+const result = run\(/,
   );
   assert.ok(!/useEffect\([^)]*confirm/.test(step));
   const provider = read('state/CustomerSessionProvider.tsx');

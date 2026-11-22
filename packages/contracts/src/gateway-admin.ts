@@ -1,0 +1,171 @@
+import type { GatewayRoute } from './gateway';
+
+// Merged owner routes originally reviewed in CR-D-P02-01 / CR-D-P03-08.
+// Values are bounded here; owner services enforce their business semantics.
+const INSTANT_QUERY = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
+const UUID_QUERY = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const LIMIT_QUERY = /^[1-9][0-9]{0,2}$/;
+const CURSOR_QUERY = /^[A-Za-z0-9_-]{8,200}$/;
+export const ADMIN_GATEWAY_ROUTES: readonly GatewayRoute[] = [
+  {
+    id: 'admin.operations.bookings',
+    method: 'GET',
+    path: '/admin/operations/bookings',
+    owner: 'reporting',
+    upstream: '/internal/v1/reporting/operations/bookings',
+    permission: 'operations.dispatch',
+    query: [
+      { name: 'from', pattern: INSTANT_QUERY },
+      { name: 'to', pattern: INSTANT_QUERY },
+      { name: 'zoneId', pattern: UUID_QUERY },
+      {
+        name: 'status',
+        pattern: /^(SCHEDULED|CONFIRMED_UNSCHEDULED|SLOT_COMMITTED_UNCONFIRMED|SLOT_RELEASED)$/,
+      },
+      { name: 'limit', pattern: LIMIT_QUERY },
+      { name: 'cursor', pattern: CURSOR_QUERY },
+    ],
+  },
+  {
+    id: 'admin.operations.booking',
+    method: 'GET',
+    path: '/admin/operations/bookings/:id',
+    owner: 'reporting',
+    upstream: '/internal/v1/reporting/operations/bookings/:id',
+    permission: 'operations.dispatch',
+  },
+  {
+    id: 'admin.operations.resources',
+    method: 'GET',
+    path: '/admin/operations/resources',
+    owner: 'reporting',
+    upstream: '/internal/v1/reporting/operations/resources',
+    anyPermission: ['operations.dispatch', 'verification.review'],
+    query: [
+      { name: 'eligibility', pattern: /^(ELIGIBLE|INELIGIBLE)$/ },
+      { name: 'limit', pattern: LIMIT_QUERY },
+      { name: 'cursor', pattern: CURSOR_QUERY },
+    ],
+  },
+  {
+    id: 'admin.operations.freshness',
+    method: 'GET',
+    path: '/admin/operations/freshness',
+    owner: 'reporting',
+    upstream: '/internal/v1/reporting/operations/freshness',
+    anyPermission: ['operations.dispatch', 'verification.review', 'billing.read'],
+  },
+  {
+    id: 'admin.operations.kpis',
+    method: 'GET',
+    path: '/admin/operations/kpis',
+    owner: 'reporting',
+    upstream: '/internal/v1/reporting/operations/kpis/operations',
+    permission: 'operations.dispatch',
+    query: [
+      { name: 'from', pattern: INSTANT_QUERY },
+      { name: 'to', pattern: INSTANT_QUERY },
+      { name: 'zoneId', pattern: UUID_QUERY },
+    ],
+  },
+  {
+    id: 'admin.finance.cash',
+    method: 'GET',
+    path: '/admin/finance/cash',
+    owner: 'reporting',
+    upstream: '/internal/v1/reporting/operations/kpis/cash',
+    permission: 'billing.read',
+  },
+  {
+    id: 'admin.booking.get',
+    method: 'GET',
+    path: '/admin/bookings/:id',
+    owner: 'booking',
+    upstream: '/internal/v1/booking/bookings/:id',
+    permission: 'operations.dispatch',
+  },
+  {
+    id: 'admin.assignments.list',
+    method: 'GET',
+    path: '/admin/assignments',
+    owner: 'dispatch',
+    upstream: '/internal/v1/dispatch/assignments',
+    permission: 'operations.dispatch',
+    query: [
+      { name: 'zoneId', pattern: UUID_QUERY },
+      { name: 'from', pattern: INSTANT_QUERY },
+      { name: 'to', pattern: INSTANT_QUERY },
+      { name: 'status', pattern: /^(UNASSIGNED|OFFERED|ASSIGNED|CANCELLED)$/ },
+    ],
+  },
+  {
+    id: 'admin.assignments.get',
+    method: 'GET',
+    path: '/admin/assignments/:id',
+    owner: 'dispatch',
+    upstream: '/internal/v1/dispatch/assignments/:id',
+    permission: 'operations.dispatch',
+  },
+  {
+    id: 'admin.assignments.byBooking',
+    method: 'GET',
+    path: '/admin/bookings/:id/assignment',
+    owner: 'dispatch',
+    upstream: '/internal/v1/dispatch/bookings/:id/assignment',
+    permission: 'operations.dispatch',
+  },
+  {
+    id: 'admin.assignments.offer',
+    method: 'POST',
+    path: '/admin/assignments/:id/offers',
+    owner: 'dispatch',
+    upstream: '/internal/v1/dispatch/assignments/:id/offers',
+    permission: 'operations.dispatch',
+    idempotency: 'required',
+  },
+  {
+    id: 'admin.assignments.reassign',
+    method: 'POST',
+    path: '/admin/assignments/:id/reassign',
+    owner: 'dispatch',
+    upstream: '/internal/v1/dispatch/assignments/:id/reassign',
+    permission: 'operations.dispatch',
+    idempotency: 'required',
+  },
+  {
+    id: 'admin.assignments.unassign',
+    method: 'POST',
+    path: '/admin/assignments/:id/unassign',
+    owner: 'dispatch',
+    upstream: '/internal/v1/dispatch/assignments/:id/unassign',
+    permission: 'operations.dispatch',
+    idempotency: 'required',
+  },
+  {
+    id: 'admin.notifications.list',
+    method: 'GET',
+    path: '/admin/notifications',
+    owner: 'communications',
+    upstream: '/internal/v1/communications/notifications',
+    permission: 'operations.dispatch',
+    query: [
+      { name: 'subjectType', pattern: /^[a-z][a-z0-9-]{1,30}[a-z0-9]$/ },
+      { name: 'subjectRef', pattern: UUID_QUERY },
+      {
+        name: 'state',
+        pattern:
+          /^(QUEUED|SENDING|RETRY_WAIT|UNKNOWN|PROVIDER_ACCEPTED|DELIVERED|FAILED|EXPIRED|CANCELLED)$/,
+      },
+      { name: 'limit', pattern: LIMIT_QUERY },
+      { name: 'cursor', pattern: CURSOR_QUERY },
+    ],
+  },
+  {
+    id: 'admin.notifications.get',
+    method: 'GET',
+    path: '/admin/notifications/:id',
+    owner: 'communications',
+    upstream: '/internal/v1/communications/notifications/:id',
+    permission: 'operations.dispatch',
+  },
+];

@@ -44,13 +44,18 @@ async function signedSession(
 }
 test('F007 route manifest has unique method/path and explicit owners, all composition is GET', () => {
   assert.equal(
-    new Set(GATEWAY_ROUTES.map((r) => r.method + ' ' + r.path)).size,
+    new Set(GATEWAY_ROUTES.map((r) => r.method + ' ' + (r.prefix ?? '/api/v1') + r.path)).size,
     GATEWAY_ROUTES.length,
   );
   for (const r of GATEWAY_ROUTES) {
     assert.ok(r.owner);
-    if (r.method !== 'GET' && !r.authTransport && !r.providerIngress)
+    if (r.method !== 'GET' && !r.authTransport && !r.providerIngress && !r.safe)
       assert.equal(r.idempotency, 'required');
+    if (r.safe) {
+      assert.equal(r.method, 'POST');
+      assert.ok(r.permission);
+      assert.ok(r.id.startsWith('operator.media.'));
+    }
   }
   for (const c of GATEWAY_COMPOSITIONS)
     for (const id of c.routes) assert.equal(GATEWAY_ROUTES.find((r) => r.id === id)?.method, 'GET');
@@ -77,6 +82,257 @@ test('F007 invalid idempotency keys cannot reach an upstream', () => {
     assert.throws(() => gateway.idempotencyKey(key));
   assert.equal(gateway.idempotencyKey('command_1234567890'), 'command_1234567890');
 });
+test('P03-P06 browser routes use exact owner paths and closed parameter enums', () => {
+  const id = randomUUID();
+  const match = (method, path) => gateway.routeMatch(method, path).upstream;
+  assert.equal(match('GET', '/api/v1/customer/packages'), '/internal/v1/catalog/definitions');
+  assert.equal(match('POST', '/api/v1/customer/bookings'), '/internal/v1/booking/bookings');
+  assert.equal(match('GET', `/api/operator/tasks/${id}`), `/internal/v1/dispatch/me/tasks/${id}`);
+  assert.equal(
+    match('PUT', `/api/operator/tasks/${id}/evidence/BEFORE/0`),
+    `/internal/v1/dispatch/tasks/${id}/evidence/BEFORE/0`,
+  );
+  assert.equal(
+    match('DELETE', `/api/operator/tasks/${id}/evidence/AFTER/1`),
+    `/internal/v1/dispatch/tasks/${id}/evidence/AFTER/1`,
+  );
+  assert.equal(
+    match('PUT', `/api/operator/tasks/${id}/checklist/wheels`),
+    `/internal/v1/dispatch/tasks/${id}/checklist/wheels`,
+  );
+  assert.equal(
+    match('PUT', '/api/operator/equipment/VACUUM/status'),
+    '/internal/v1/workforce/me/equipment/VACUUM/status',
+  );
+  for (const bad of [
+    `/api/operator/tasks/${id}/evidence/BEFORE/2`,
+    `/api/operator/tasks/${id}/evidence/before/0`,
+    `/api/operator/tasks/${id}/checklist/freeform`,
+    '/api/operator/equipment/any/status',
+    `/api/operator/tasks/${id}/evidence/%42EFORE/0`,
+    `/api/operator/tasks/${id}/evidence/BEFORE/../1`,
+  ])
+    assert.throws(() => match('PUT', bad));
+  assert.throws(() => match('GET', `/api/v1/tasks/${id}`));
+  assert.throws(() => match('GET', '/api/operator/admin/billing'));
+  assert.throws(() => match('POST', '/api/operator/media/claims'));
+});
+test('P02-P06 admin query rules reject duplicates, unknown keys and encoded injection', () => {
+  const route = '/api/v1/admin/operations/bookings';
+  const value = gateway.routeMatch('GET', `${route}?from=2026-11-22T00%3A00%3A00Z&limit=20`);
+  assert.equal(
+    value.upstream,
+    '/internal/v1/reporting/operations/bookings?from=2026-11-22T00%3A00%3A00Z&limit=20',
+  );
+  for (const q of [
+    'limit=1&limit=2',
+    'limit=0',
+    'limit=1000',
+    'limit=2&target=x',
+    'cursor=../../identity',
+    'cursor=%0aanything',
+    'from=https%3A%2F%2Fevil.invalid',
+    'limit=1?limit=2',
+    'cursor=' + 'x'.repeat(2050),
+  ]) {
+    assert.throws(() => gateway.routeMatch('GET', `${route}?${q}`));
+  }
+});
+test('P03-P06 real Gateway HTTP forwards every technician and admin route without credential spoofing', async (t) => {
+  const { IDENTITY_PERMISSIONS } = own('@carwash/contracts');
+  const { identity, token } = await signedSession(t, [...IDENTITY_PERMISSIONS], {
+    principalKind: 'account',
+    roles: ['super-admin'],
+  });
+  const routes = GATEWAY_ROUTES.filter(
+    (r) =>
+      r.prefix === '/api/operator' ||
+      r.id.startsWith('admin.operations.') ||
+      r.id.startsWith('admin.assignments.') ||
+      r.id.startsWith('admin.notifications.') ||
+      r.id === 'admin.finance.cash' ||
+      r.id === 'admin.booking.get',
+  );
+  const owners = new Map();
+  for (const name of new Set(routes.map((r) => r.owner).filter((name) => name !== 'identity'))) {
+    const owner = await stub(name);
+    owners.set(name, owner);
+    t.after(() => owner.close());
+  }
+  const app = await start(
+    config(
+      identity.base,
+      Object.fromEntries([...owners].map(([name, owner]) => [name, owner.base])),
+    ),
+  );
+  t.after(() => app.close());
+  const id = randomUUID();
+  for (const route of routes) {
+    const expand = (path) =>
+      path.replace(/:([A-Za-z][A-Za-z0-9]*)/g, (_, name) => route.pathEnums?.[name]?.[0] ?? id);
+    const key = randomUUID();
+    const response = await request(app.base, (route.prefix ?? '/api/v1') + expand(route.path), {
+      method: route.method,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+        origin: ORIGIN,
+        'idempotency-key': key,
+        'x-auth-subject': 'forged',
+        'x-service-name': 'billing',
+      },
+      ...(route.method !== 'GET' ? { body: JSON.stringify({ expectedRevision: 1 }) } : {}),
+    });
+    assert.equal(response.status, 200, route.id);
+    if (route.owner === 'identity') continue;
+    const forwarded = owners.get(route.owner).calls.at(-1);
+    assert.equal(forwarded.path, expand(route.upstream), route.id);
+    assert.equal(forwarded.method, route.method, route.id);
+    assert.equal(forwarded.headers.authorization, `Bearer ${token}`);
+    assert.notEqual(forwarded.headers['x-auth-subject'], 'forged');
+    assert.equal(forwarded.headers['x-service-name'], undefined);
+    assert.equal(forwarded.headers.cookie, undefined);
+    if (route.idempotency) assert.equal(forwarded.headers['idempotency-key'], key);
+  }
+});
+test('P03 cash capability cannot reach treasury, and a customer cannot use technician routes', async (t) => {
+  const { identity, token } = await signedSession(
+    t,
+    ['work.read:assigned', 'work.execute:assigned', 'billing.cash.collect'],
+    { principalKind: 'account', roles: ['technician'] },
+  );
+  const billing = await stub('billing');
+  t.after(() => billing.close());
+  const app = await start(config(identity.base, { billing: billing.base }));
+  t.after(() => app.close());
+  assert.equal(
+    (
+      await request(app.base, '/api/operator/custody', {
+        headers: { authorization: `Bearer ${token}` },
+      })
+    ).status,
+    200,
+  );
+  assert.equal(billing.calls.at(-1).path, '/internal/v1/billing/custody/holders/me');
+  assert.equal(
+    (
+      await request(app.base, '/api/v1/admin/billing', {
+        headers: { authorization: `Bearer ${token}` },
+      })
+    ).status,
+    403,
+  );
+  const customer = await signedSession(t);
+  const customerApp = await start(config(customer.identity.base, { billing: billing.base }));
+  t.after(() => customerApp.close());
+  assert.equal(
+    (
+      await request(customerApp.base, '/api/operator/custody', {
+        headers: { authorization: `Bearer ${customer.token}` },
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await request(customerApp.base, '/api/operator/session', {
+        headers: { authorization: `Bearer ${customer.token}` },
+      })
+    ).status,
+    403,
+  );
+  assert.equal(billing.calls.length, 1);
+});
+test('P02 an in-flight booking retains shared idempotency recovery semantics without leaking an unpublished reason', async (t) => {
+  const { identity, token } = await signedSession(t);
+  let ownerCode = 'IDEMPOTENCY_IN_PROGRESS';
+  const booking = await stub('booking', (_call, response) => {
+    response.statusCode = 409;
+    response.end(JSON.stringify({ error: { code: ownerCode, reason: 'INTERNAL_PRIVATE' } }));
+  });
+  t.after(() => booking.close());
+  const app = await start(config(identity.base, { booking: booking.base }));
+  t.after(() => app.close());
+  const key = randomUUID();
+  const result = await request(app.base, '/api/v1/customer/bookings', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+      'idempotency-key': key,
+    },
+    body: '{}',
+  });
+  assert.equal(result.status, 409);
+  assert.equal(result.body.error.code, 'IDEMPOTENCY_IN_PROGRESS');
+  assert.equal(result.body.error.retryable, true);
+  assert.equal(result.body.error.reason, null);
+  assert.equal(booking.calls[0].headers['idempotency-key'], key);
+  ownerCode = 'INTERNAL_ERROR';
+  const inconsistent = await request(app.base, '/api/v1/customer/bookings', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+      'idempotency-key': randomUUID(),
+    },
+    body: '{}',
+  });
+  assert.equal(inconsistent.status, 409);
+  assert.equal(inconsistent.body.error.code, 'CONFLICT');
+  assert.equal(inconsistent.body.error.retryable, false);
+  assert.equal(inconsistent.body.error.reason, null);
+});
+test('P03 finance freshness matches the owner grant without opening operations resources', async (t) => {
+  const { identity, token } = await signedSession(t, ['billing.read'], {
+    principalKind: 'account',
+    roles: ['finance'],
+  });
+  const reporting = await stub('reporting');
+  t.after(() => reporting.close());
+  const app = await start(config(identity.base, { reporting: reporting.base }));
+  t.after(() => app.close());
+  const headers = { authorization: `Bearer ${token}` };
+  assert.equal(
+    (await request(app.base, '/api/v1/admin/operations/freshness', { headers })).status,
+    200,
+  );
+  assert.equal(
+    (await request(app.base, '/api/v1/admin/operations/resources', { headers })).status,
+    403,
+  );
+  assert.equal(reporting.calls.length, 1);
+});
+test('P01 profile revision forwarding is validated and owner scoped', async (t) => {
+  const { identity, token } = await signedSession(t);
+  const owner = await stub('customer');
+  t.after(() => owner.close());
+  const app = await start(config(identity.base, { customer: owner.base }));
+  t.after(() => app.close());
+  const headers = {
+    authorization: `Bearer ${token}`,
+    'content-type': 'application/json',
+    'idempotency-key': randomUUID(),
+    'if-match': '"2"',
+  };
+  assert.equal(
+    (await request(app.base, '/api/v1/customer/profile', { method: 'PATCH', headers, body: '{}' }))
+      .status,
+    200,
+  );
+  assert.equal(owner.calls.at(-1).headers['if-match'], '"2"');
+  assert.equal(
+    (
+      await request(app.base, '/api/v1/customer/profile', {
+        method: 'PATCH',
+        headers: { ...headers, 'if-match': '*' },
+        body: '{}',
+      })
+    ).status,
+    400,
+  );
+  assert.equal(owner.calls.length, 1);
+});
 test('F007 refuses startup with missing owner or unsafe remote origin', async () => {
   await assert.rejects(gateway.createGatewayApplication(config('http://identity.internal')));
   await assert.rejects(
@@ -100,6 +356,25 @@ test('F007 real Nest 12 boots, returns honest health, and rejects unauthenticate
   assert.equal(result.body.error.code, 'AUTH_REQUIRED');
   assert.equal(result.headers.get('cache-control'), 'no-store');
   assert.equal((await request(app.base, '/bad/path')).body.error.code, 'NOT_FOUND');
+});
+test('P01 shared strict browser client preserves the real Gateway anonymous authentication error', async (t) => {
+  const clientRequire = createRequire(path.join(ROOT, 'packages/api-clients/package.json'));
+  const { HttpClient } = clientRequire('./dist/index.js');
+  const app = await start(config('http://127.0.0.1:9'));
+  t.after(() => app.close());
+  const client = new HttpClient({ baseUrl: app.base + '/api/v1', fetch });
+  const response = await client.request({
+    method: 'GET',
+    path: '/customer/profile',
+    parse: (value) => value,
+  });
+  assert.equal(response.ok, false);
+  assert.equal(response.status, 401);
+  assert.equal(response.error.code, 'AUTH_REQUIRED');
+  assert.equal(response.error.retryable, false);
+  assert.equal(response.error.reason, null);
+  assert.equal(response.error.retryAfterMs, null);
+  assert.deepEqual(response.error.issues, []);
 });
 test('F007 public verifier rejects tampered tokens before calling live Identity session', async (t) => {
   const { identity, token } = await signedSession(t);
@@ -182,6 +457,7 @@ test('F007 sanitized validation errors never echo SQL, password, stack or intern
   });
   assert.equal(result.status, 422);
   assert.equal(result.body.error.code, 'VALIDATION_FAILED');
+  assert.equal(result.body.error.retryable, false);
   assert.doesNotMatch(JSON.stringify(result.body), /SECRET|SQL|SELECT|stack/);
 });
 test('F007 no blind retry, redirect following or unbounded response body, including after headers', async (t) => {
@@ -392,9 +668,13 @@ test('F007 discovery documents one closed error envelope and correlation headers
   assert.deepEqual(schema.required, ['error']);
   assert.deepEqual(schema.properties.error.required, [
     'code',
+    'reason',
     'message',
     'requestId',
     'correlationId',
+    'retryable',
+    'retryAfterMs',
+    'issues',
   ]);
   for (const pathItem of Object.values(api.paths)) {
     for (const operation of Object.values(pathItem)) {
@@ -404,8 +684,10 @@ test('F007 discovery documents one closed error envelope and correlation headers
         '403',
         '404',
         '409',
+        '412',
         '413',
         '422',
+        '428',
         '429',
         '500',
         '502',
@@ -513,6 +795,7 @@ test('F007 a failed BFF component returns a safe failure rather than invented pa
   assert.equal(result.status, 502);
   assert.deepEqual(Object.keys(result.body), ['error']);
   assert.equal(result.body.error.code, 'UPSTREAM_UNAVAILABLE');
+  assert.equal(result.body.error.retryable, true);
   assert.doesNotMatch(JSON.stringify(result.body), /SQL|password|private|testStub/);
 });
 

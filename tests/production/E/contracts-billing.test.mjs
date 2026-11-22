@@ -50,6 +50,8 @@ test('billing.v1 descriptor passes the shared contract lint and is registered', 
   assert.equal(r.requestRefund.access, 'permission:billing.refund');
   assert.equal(r.recordRefundOutcome.access, 'permission:billing.reconcile');
   assert.equal(r.createBookingObligation.access, 'service:billing.obligation.write');
+  assert.equal(r.getCashCollectionTarget.access, 'permission:billing.cash.collect');
+  assert.equal(r.getCashCollectionTarget.path, '/bookings/:bookingId/cash-collection-target');
   assert.equal(r.receiveProviderNotification.access, 'provider-signed');
   for (const [name, route] of Object.entries(r)) {
     if (route.method === 'GET' || route.access === 'provider-signed') continue;
@@ -71,6 +73,73 @@ test('provider-signed access is a plain POST de-duplicated by the owner', () => 
 });
 
 // ---------------------------------------------------------------- consumer rules
+
+test('cash target contract binds restored receipts and refuses invented collection success or extra owner data', () => {
+  const pending = {
+    bookingId: id(),
+    obligationId: id(),
+    revision: 2,
+    amountDue: SYP(150000),
+    receipt: null,
+  };
+  assert.deepEqual(b.parseCashCollectionTargetV1(pending), pending);
+  assert.throws(
+    () => b.parseCashCollectionTargetV1({ ...pending, amountDue: SYP(0) }),
+    /AMOUNT_REQUIRED/,
+  );
+  assert.throws(
+    () => b.parseCashCollectionTargetV1({ ...pending, owner: id() }),
+    /UNEXPECTED_FIELD/,
+  );
+  assert.throws(() => b.parseCashCollectionTargetV1({ ...pending, revision: 0 }));
+  const receipt = {
+    receiptId: id(),
+    revision: 1,
+    obligationId: pending.obligationId,
+    bookingId: pending.bookingId,
+    assignmentId: id(),
+    assignmentRevision: 3,
+    collector: id(),
+    amount: SYP(150000),
+    custodyStatus: 'HELD',
+    handoverId: null,
+    collectedAt: T1,
+    updatedAt: T1,
+    reversal: null,
+  };
+  const collected = { ...pending, revision: 3, amountDue: SYP(0), receipt };
+  assert.deepEqual(b.parseCashCollectionTargetV1(collected), collected);
+  assert.throws(
+    () => b.parseCashCollectionTargetV1({ ...collected, amountDue: SYP(1) }),
+    /INCONSISTENT_RECEIPT/,
+  );
+  for (const change of [{ bookingId: id() }, { obligationId: id() }]) {
+    assert.throws(
+      () => b.parseCashCollectionTargetV1({ ...collected, receipt: { ...receipt, ...change } }),
+      /FOREIGN_RECEIPT/,
+    );
+  }
+  assert.throws(
+    () =>
+      b.parseCashCollectionTargetV1({
+        ...collected,
+        receipt: { ...receipt, amount: { currency: 'USD', amountMinor: '150000', scale: 2 } },
+      }),
+    /INCONSISTENT_RECEIPT/,
+  );
+  assert.throws(
+    () =>
+      b.parseCashCollectionTargetV1({
+        ...collected,
+        receipt: {
+          ...receipt,
+          custodyStatus: 'REVERSED',
+          reversal: { reversalId: id(), reason: 'WRONG_BOOKING', reversedBy: id(), reversedAt: T1 },
+        },
+      }),
+    /INCONSISTENT_RECEIPT/,
+  );
+});
 
 function obligation(overrides = {}) {
   return {

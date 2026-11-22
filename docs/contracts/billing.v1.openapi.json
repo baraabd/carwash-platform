@@ -416,6 +416,41 @@
         }
       }
     },
+    "/internal/v1/billing/bookings/{bookingId}/cash-collection-target": {
+      "get": {
+        "operationId": "billing.getCashCollectionTarget",
+        "x-access": "permission:billing.cash.collect",
+        "x-idempotent": false,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts billingV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/internal/v1/billing/obligations/{obligationId}/cash-collections": {
       "post": {
         "operationId": "billing.recordCashCollection",

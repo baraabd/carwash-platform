@@ -14,6 +14,8 @@ export interface IdGenerator {
  * Identity for verification and never stored, logged or put in an event.
  */
 export interface SessionCredentials {
+  readonly serviceClient?: string;
+  readonly serviceToken?: string;
   readonly authorization?: string;
   readonly cookie?: string;
   readonly origin?: string;
@@ -43,9 +45,8 @@ export interface ServiceActor {
 }
 
 /**
- * Verifies the calling workload of a `service:` route. Workload identity is
- * P01-E5 (Lane E) and is not on main, so the only adapter refuses every call:
- * the snapshot route is deny-by-default until a real verifier is wired.
+ * Verifies the calling workload of a `service:` route. The owner grants an
+ * explicit snapshot scope; browser credentials never become service credentials.
  */
 export interface WorkloadAuthenticator {
   authenticate(credentials: SessionCredentials): Promise<ServiceActor>;

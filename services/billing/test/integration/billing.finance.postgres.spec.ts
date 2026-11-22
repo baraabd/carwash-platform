@@ -22,6 +22,13 @@ import {
   type Stub,
 } from '../support/upstream-stubs';
 import { WorkDouble } from '../support/work-double';
+import {
+  WORKLOADS,
+  startBookingSagaHttp,
+  startValidateStub,
+  type BookingSagaHttp,
+  type ValidateStub,
+} from '../support/booking-saga-harness';
 
 /*
  * REAL PostgreSQL evidence for the admin finance reads (P06-B6), run as the
@@ -53,6 +60,8 @@ let replicaA: BillingHttpHarness;
 let replicaB: BillingHttpHarness;
 let financeA: FinanceHttpHarness;
 let financeB: FinanceHttpHarness;
+let bookings: BookingSagaHttp;
+let validate: ValidateStub;
 let seq = 0;
 const key = () => `pg-finance-key-${String(++seq).padStart(6, '0')}-${process.pid}`;
 
@@ -63,6 +72,14 @@ before(async () => {
   work = new WorkDouble();
   prismaA = new PrismaService(DATABASE_URL);
   prismaB = new PrismaService(DATABASE_URL);
+  validate = await startValidateStub();
+  bookings = await startBookingSagaHttp({
+    repository: new PrismaBillingRepository(prismaA),
+    clock,
+    identity,
+    pricing,
+    validate,
+  });
   const replica = (prisma: PrismaService) =>
     startBillingHttp({
       repository: new PrismaBillingRepository(prisma),
@@ -88,6 +105,8 @@ before(async () => {
 
 after(async () => {
   for (const harness of [replicaA, replicaB, financeA, financeB]) await harness?.close();
+  await bookings?.close();
+  await validate?.close();
   await prismaA?.onModuleDestroy();
   await prismaB?.onModuleDestroy();
   await identity?.close();
@@ -160,14 +179,32 @@ async function drive(
   amount: bigint,
 ): Promise<Expected> {
   const quoteId = randomUUID();
+  const bookingId = randomUUID();
   pricing.quotes.set(quoteId, {
     ownerToken: 'customer',
     status: 'USABLE',
     currency,
     totalMinor: amount.toString(),
   });
+  validate.quotes.set(quoteId, {
+    beneficiary: { kind: 'account', subjectId: SUBJECTS.customer },
+    revision: 1,
+    status: 'USABLE',
+    currency,
+    totalMinor: amount.toString(),
+  });
   const created = ok(
-    await post(replica, '/obligations', TOKENS.customer, { quoteId }),
+    path === 'CASH_COLLECTED'
+      ? await bookings.request('POST', `${PATH}/booking-obligations`, {
+          workload: WORKLOADS.booking,
+          key: key(),
+          body: {
+            beneficiary: { kind: 'account', subjectId: SUBJECTS.customer },
+            quoteId,
+            bookingId,
+          },
+        })
+      : await post(replica, '/obligations', TOKENS.customer, { quoteId }),
     201,
     'create',
   );
@@ -205,7 +242,7 @@ async function drive(
       'cash intent',
     );
     if (path === 'AWAITING_CASH') return { ...base, financialStatus: 'AWAITING_CASH' };
-    const booking = work.book({ quoteId, technicianSubject: SUBJECTS.technician });
+    const booking = work.book({ bookingId, technicianSubject: SUBJECTS.technician });
     ok(
       await post(replica, `/obligations/${obligationId}/cash-collections`, TOKENS.technician, {
         expectedRevision: 2,

@@ -1,5 +1,6 @@
 import { blankBookingDraft } from '../state/bookingDraft.ts';
 import type { CustomerOrderSnapshot, CustomerSessionState } from '../state/customerSession.ts';
+import { emptySession as emptyProductionSession } from '../state/emptySession.ts';
 
 /**
  * Deterministic session scenarios for the Home screen. They refine the C002
@@ -39,23 +40,8 @@ const completedOrder: CustomerOrderSnapshot = { ...sampleOrder, id: 'WG-DEMO-DON
 
 export function emptySession(): CustomerSessionState {
   return {
-    profile: { name: '', phone: '' },
-    orders: [],
-    vehicles: [],
-    vehicleSequence: 0,
-    addresses: [],
-    addressSequence: 0,
-    draft: blankBookingDraft(),
-    draftStep: 0,
-    bookingMode: 'standard',
-    showAllTimes: false,
-    reviewEditing: false,
-    notice: null,
-    announcement: null,
-    orderSequence: 0,
-    draftGeneration: 0,
-    confirmationReceipts: [],
-    pendingHandoff: null,
+    ...emptyProductionSession(),
+    runtimeMode: 'parity',
   };
 }
 

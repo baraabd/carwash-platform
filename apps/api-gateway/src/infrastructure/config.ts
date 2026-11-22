@@ -10,6 +10,9 @@ const OWNERS: readonly GatewayOwner[] = [
   'billing',
   'support',
   'reporting',
+  'dispatch',
+  'communications',
+  'media',
 ];
 export function validateGatewayConfig(config: GatewayConfig): GatewayConfig {
   if (

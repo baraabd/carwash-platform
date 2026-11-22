@@ -25,7 +25,7 @@
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -175,6 +175,7 @@ async function up() {
   const workDir = path.join(STATE_DIR, runId);
   await mkdir(workDir, { recursive: true });
   const label = `carwash.production-c.run=${runId}`;
+  const acceptanceLabel = `carwash.business-acceptance.run=${process.env.CW_BUSINESS_ACCEPTANCE_RUN ?? runId}`;
   const containers = {
     postgres: `cwprodc-${runId}-pg`,
     rabbitmq: `cwprodc-${runId}-mq`,
@@ -190,6 +191,13 @@ async function up() {
   };
 
   const reserved = { postgres: await freePort(), rabbitmq: await freePort(), s3: await freePort() };
+  // Persist cleanup ownership before the first container is created. A failed
+  // image/start/readiness operation must still leave a scoped teardown target.
+  const contextFile = path.join(workDir, 'context.json');
+  await writeFile(contextFile, JSON.stringify({ runId, label, workDir, containers }), {
+    mode: 0o600,
+  });
+  await writeFile(POINTER, JSON.stringify({ contextFile }), { mode: 0o600 });
   const serviceEnv = LANE_SERVICES.flatMap((service) => {
     const prefix = service.toUpperCase();
     return [
@@ -211,6 +219,8 @@ async function up() {
     containers.postgres,
     '--label',
     label,
+    '--label',
+    acceptanceLabel,
     '-e',
     'POSTGRES_USER=platform_bootstrap',
     '-e',
@@ -232,6 +242,8 @@ async function up() {
     containers.rabbitmq,
     '--label',
     label,
+    '--label',
+    acceptanceLabel,
     '-e',
     'RABBITMQ_DEFAULT_USER=cw_prod_c',
     '-e',
@@ -259,6 +271,8 @@ async function up() {
     containers.s3,
     '--label',
     label,
+    '--label',
+    acceptanceLabel,
     '-v',
     `${s3ConfigFile}:/etc/seaweedfs/s3.json:ro`,
     '-p',
@@ -312,7 +326,6 @@ async function up() {
       ]),
     ),
   };
-  const contextFile = path.join(workDir, 'context.json');
   await writeFile(contextFile, JSON.stringify(context, null, 2), { mode: 0o600 });
   await writeFile(POINTER, JSON.stringify({ contextFile }), { mode: 0o600 });
 
@@ -413,12 +426,21 @@ async function restartPostgres(context) {
 }
 
 async function down() {
-  const context = await readContext();
+  let context;
+  try {
+    context = await readContext();
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    console.log('No owned lane C stack to remove');
+    return;
+  }
   const { stdout } = await run('docker', ['ps', '-aq', '--filter', `label=${context.label}`], {
     quiet: true,
   });
   const ids = stdout.split(/\s+/).filter(Boolean);
   if (ids.length > 0) await run('docker', ['rm', '-f', '-v', ...ids], { quiet: true });
+  await rm(POINTER, { force: true });
+  await rm(context.workDir, { recursive: true, force: true });
   console.log(`removed ${ids.length} container(s) for run ${context.runId}`);
 }
 

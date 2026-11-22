@@ -7,7 +7,6 @@ import {
   vehicleFixtures,
   type PackageIconId,
 } from '../../fixtures/customerCatalogFixture.ts';
-import type { CarePackageId } from '../../state/bookingDraft.ts';
 import {
   isOrderCompleted,
   isOrderInProgress,
@@ -15,19 +14,19 @@ import {
 } from '../../state/customerSession.ts';
 
 export interface HomePackageCard {
-  readonly id: CarePackageId;
+  readonly id: string;
   readonly name: string;
   readonly summary: string;
-  readonly price: number;
+  readonly price: number | null;
   readonly icon: PackageIconId;
   readonly featured: boolean;
 }
 
 export interface HomePackageDetail {
-  readonly id: CarePackageId;
+  readonly id: string;
   readonly name: string;
   /** Price for the smallest size; the size surcharge is added in the journey. */
-  readonly price: number;
+  readonly price: number | null;
   readonly featuresLine: string;
   readonly durationLine: string;
 }
@@ -36,7 +35,7 @@ export interface HomeViewModel {
   /** Customer's first name for the greeting, or null for the anonymous tagline. */
   readonly greetingName: string | null;
   readonly heroCarArt: 'sedan' | 'suv' | 'pickup';
-  readonly startingPrice: number;
+  readonly startingPrice: number | null;
   /** In-progress order to follow, if any. */
   readonly activeOrder: { readonly id: string; readonly statusLabel: string } | null;
   /** Most recent completed order offered for a repeat, if any. */
@@ -54,6 +53,35 @@ export interface HomeViewModel {
 
 /** Derives everything Home shows from the session. Pure: same state, same screen. */
 export function buildHomeViewModel(state: CustomerSessionState): HomeViewModel {
+  if (state.runtimeMode !== 'parity') {
+    const published = (state.productionData?.catalog?.items ?? [])
+      .filter((item) => item.kind === 'PACKAGE' && item.status === 'PUBLISHED')
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.definitionId.localeCompare(b.definitionId));
+    return {
+      greetingName: state.profile.name || null,
+      heroCarArt: 'sedan',
+      // Catalog owns definitions; only a Pricing quote can supply money.
+      startingPrice: null,
+      activeOrder: null,
+      repeatableOrder: null,
+      savedDraft: null,
+      packages: published.map((item, index) => ({
+        id: item.definitionId,
+        name: item.name.ar,
+        summary: `${item.description.ar} · ${item.durationMinutes} دقيقة`,
+        price: null,
+        icon: 'drop',
+        featured: index > 0,
+      })),
+      packageDetails: published.map((item) => ({
+        id: item.definitionId,
+        name: item.name.ar,
+        price: null,
+        featuresLine: item.description.ar,
+        durationLine: `${item.durationMinutes} دقيقة تقديرية`,
+      })),
+    };
+  }
   const active = state.orders.find(isOrderInProgress);
   const completed = state.orders.find(isOrderCompleted);
   const { draft } = state;
