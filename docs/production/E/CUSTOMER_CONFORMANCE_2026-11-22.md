@@ -30,9 +30,9 @@ value cannot select a sample customer. The explicit command for design
 comparison is `pnpm --filter @carwash/customer-web build --mode parity`; C002–C014
 workflows now select that mode.
 
-Production reads Catalog and an existing authenticated Customer profile through
-the same-origin Gateway. The public catalog request omits credentials, while the
-profile request uses the browser's existing same-origin session. Both responses
+Production reads Catalog and the authenticated Customer profile through
+the same-origin Gateway. The public catalog request omits credentials, while
+private requests use the browser's same-origin session. Owner responses
 must satisfy the shared owner parser. Invalid, unavailable or closed-profile
 responses do not populate synthetic records. Published package names, identifiers
 and durations come from Catalog; retired definitions and extras are not
@@ -43,6 +43,61 @@ The session confirmation command independently refuses production execution
 before quoting, receipt replay, saved-record changes or navigation. Its parity
 behavior remains available to the existing design harness. Production Account
 also removes the prototype's payment simulation, local export and reset entries.
+
+### Real guest, profile and garage slice
+
+The production Account/profile sheet now supports explicit guest entry and
+recovery. Mounting or reloading the application never creates a guest. A session
+read may refresh an existing expired access cookie once; failed authentication
+does not fall back to a new identity. The actual Identity recovery receipt is
+displayed for acknowledgement and retained only in transient memory. No access
+token, recovery code or personal record is written to browser storage, logs or
+URLs. Typing a phone neither verifies ownership nor creates an account.
+
+Profile creation and edits use Gateway `PUT/PATCH /api/v1/customer/profile`, the
+published canonical parser, a fresh random idempotency key per intent and the
+captured revision for edits. A bootstrap race shows the actual existing profile
+and a conflict instead of claiming that the requested input was saved. A stale
+form retains its typed values and cannot silently overwrite the refreshed
+revision; closing and reopening is required to review the current record.
+
+The production garage uses Vehicle's owned collection through these aliases:
+
+| Browser route | Owner route and command |
+| --- | --- |
+| `GET /api/v1/customer/vehicles` | `GET /internal/v1/vehicle/mine`, bounded limit/cursor and strict paged results. |
+| `POST /api/v1/customer/vehicles` | `POST /internal/v1/vehicle/mine`, canonical vehicle input and idempotency key. |
+| `PATCH /api/v1/customer/vehicles/:vehicleId` | `PATCH /internal/v1/vehicle/mine/:vehicleId`, idempotency key and If-Match. |
+| `POST /api/v1/customer/vehicles/:vehicleId/archive` | Matching owner archive command, idempotency key and If-Match. |
+
+The existing garage/editor sheets retain their parity behavior. Production uses
+owner-issued UUIDs/revisions, preserves noneditable make/model/plate-region data,
+allows a null plate and uses the owner's input limits. Equal plates do not merge
+different records. Archiving changes the saved collection, not past bookings.
+Illustrative prices are absent from the production vehicle editor, and its
+booking action remains unavailable until checkout is connected.
+
+Unknown writes retain their exact body/key/revision in memory for explicit
+same-request replay. New mutations are blocked while that result is unresolved.
+Malformed 2xx receipts, foreign profile principals and mismatched vehicle IDs do
+not produce optimistic success. Transient authentication failure hides private
+UI while retaining a pending key; replay requires session revalidation. Logout
+and identity changes clear private drafts and views, and late responses from a
+previous session cannot repopulate them. An unconfirmed logout blocks new guest
+creation until a fresh session read.
+
+This pending-command memory survives route navigation, not a full document
+reload. After a reload the client reads owner records and never automatically
+reissues a create. It is not a durable offline command queue. The recovery code
+must be kept by the user; a lost guest-operation receipt cannot be reconstructed
+by the browser or replaced with a fabricated code.
+
+The added guest entry/receipt is a production-only extension of existing sheet,
+field and button components under the authorized integration scope. The approved
+HTML, CSS assets and parity screenshots were not rewritten. Production address
+editing remains deferred because its owner CRUD representation still needs
+canonical conformance; the interface does not report temporary address state as
+a successful service write.
 
 ## Customer owner compatibility
 
@@ -94,15 +149,19 @@ Successful resolves append only service/purpose/identifier audit facts.
 | Check | Result and scope |
 | --- | --- |
 | Original C001–C014 unit suites before modification | 304 passed. |
-| Customer unit, runtime-bundle and real-HTTP client tests after modification | 313 passed; zero failed/skipped/todo. |
+| Customer unit, runtime-bundle and real-HTTP client tests after the read-only correction | 313 passed; zero failed/skipped/todo. |
+| Customer unit, runtime-bundle and real-HTTP client tests after guest/profile/garage integration | 332 passed; zero failed/skipped/todo, including 19 production adapter cases for dropped replies, exact replay, conflicts, recovery and identity races. |
+| Real Gateway/Identity/Customer/Vehicle HTTP integration | 6 passed against real PostgreSQL and Redis; includes persistence, owner isolation, CSRF, idempotency, revision conflicts, guest recovery and revocation. |
 | Customer service/domain tests | 18 passed; zero failed/skipped/todo. |
 | `customer-contract.http-pg.test.mjs` | 10 passed against real Customer HTTP, Prisma and PostgreSQL, with an explicitly identified Identity HTTP test double; includes canonical malformed-JSON/size boundaries and legacy compatibility. |
 | Full Lane A diagnostic before the final transport-only test addition | 74 passed against real Identity, Redis and PostgreSQL, including the preceding 9-case canonical Customer suite. |
 | Additive migration and runtime-role provisioning | Passed in the same disposable PostgreSQL invocation as the provider tests. |
-| Type checking | Customer web and service passed. |
+| Type checking and production bundle | Customer web and service passed; the current production web build passes on Vite 8.3.3. |
+| Supplemental type-aware frontend review | 10 changed TypeScript/TSX files pass the repository's recommended typed rule set; regular lint also passes the added tests and Gateway changes. |
 | Immutable design preservation | All 10 locked artifacts preserved. |
 | Feature import boundaries and whitespace errors | Passed. |
 | Local visual browser comparison | Not executed: the pinned Chromium download was denied by the environment with HTTP 403. CI must supply exact-candidate browser evidence. |
+| Real production browser journey | Added to mandatory `a-customer-browser` acceptance. Uses the production bundle/static runtime and real Identity, Customer, Vehicle and Gateway; no fixture routes. CI execution remains required. |
 
 The focused 10-case run used the final Customer source; the full Lane A run
 preceded the final transport-only repair and is not a claim that the complete
@@ -127,9 +186,10 @@ node scripts/c002/check-feature-boundaries.mjs
 
 ## Remaining release requirements
 
-This change connects read-only Catalog/profile data and repairs the owner
-contracts described above. It does not provide the customer sign-in/guest entry,
-persisted garage/address editor adapters, serviceable location selection, live
+This change connects live Catalog browsing, guest entry/recovery, canonical
+profile writes and persisted garage CRUD, and repairs the owner contracts
+described above. It does not provide account registration/login screens,
+canonical persisted address editing, serviceable location selection, live
 availability, Pricing quote, Booking creation, real payment checkout or order
 tracking UI. The existing front-end booking decisions still belong to the
 approved prototype/parity implementation; they are not evidence of a complete

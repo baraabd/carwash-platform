@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { mkdir, mkdtemp, readdir, rm, symlink, utimes, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { retainBrowserDiagnostics } from '../../scripts/production/acceptance-diagnostics.mjs';
 import {
   BUSINESS_SUITES,
   assertBusinessEvidence,
@@ -21,6 +25,60 @@ const complete = () =>
     evidence: [{ name: 'nonempty-test-family', file: 'child.json' }],
     cleanup: 'PASSED',
   }));
+
+test('browser diagnostics retain only fresh declared synthetic visual files and summaries', async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'cw-browser-diagnostics-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const visual = path.join(root, '.acceptance/production-C/operator-web/visual');
+  const output = path.join(root, 'output');
+  await mkdir(visual, { recursive: true });
+  const png = Buffer.from('89504e470d0a1a0a', 'hex');
+  await writeFile(path.join(visual, 'task-assigned-390-candidate.png'), png);
+  await writeFile(path.join(visual, 'visual-summary.json'), JSON.stringify({ changed: 3 }));
+  await writeFile(path.join(visual, 'context.json'), 'Private generated infrastructure context');
+  await writeFile(path.join(visual, 'cookies.json'), 'Private generated browser state');
+  await writeFile(path.join(visual, 'recording.har'), 'Private HTTP transcript');
+  await writeFile(path.join(visual, 'recovery-codes.png'), png);
+  await writeFile(path.join(visual, 'old-390-candidate.png'), png);
+  await utimes(path.join(visual, 'old-390-candidate.png'), new Date(0), new Date(0));
+  await symlink(path.join(visual, 'context.json'), path.join(visual, 'linked-390-candidate.png'));
+  const retained = await retainBrowserDiagnostics(
+    root,
+    'c-operator-fixtures',
+    output,
+    '2020-01-01T00:00:00Z',
+  );
+  assert.deepEqual(retained.map((entry) => path.basename(entry.file)).sort(), [
+    'task-assigned-390-candidate.png',
+    'visual-summary.json',
+  ]);
+  assert.ok(retained.every((entry) => /^[a-f0-9]{64}$/.test(entry.sha256)));
+  assert.deepEqual((await readdir(path.join(output, 'diagnostics/operator-visual'))).sort(), [
+    'task-assigned-390-candidate.png',
+    'visual-summary.json',
+  ]);
+  assert.deepEqual(
+    await retainBrowserDiagnostics(root, 'a-customer-browser', output, '2020-01-01T00:00:00Z'),
+    [],
+  );
+});
+
+test('mislabelled screenshot bytes cannot be uploaded as visual evidence', async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'cw-browser-diagnostics-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const visual = path.join(root, 'docs/production/D/evidence/p02-d2');
+  await mkdir(visual, { recursive: true });
+  await writeFile(path.join(visual, 'bookings-390-candidate.png'), 'This is not a PNG');
+  await assert.rejects(
+    retainBrowserDiagnostics(
+      root,
+      'd-admin-browser',
+      path.join(root, 'output'),
+      '2020-01-01T00:00:00Z',
+    ),
+    /Invalid PNG/,
+  );
+});
 
 test('the aggregate accepts exactly all current-source business families', () => {
   assertBusinessEvidence(complete(), invocation);

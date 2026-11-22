@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router-dom';
 import { customerRouter } from './app/router';
 import { CustomerSessionProvider } from './state/CustomerSessionProvider';
+import { CustomerProductionProvider } from './data/CustomerProductionProvider';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('CUSTOMER_ROOT_NOT_FOUND');
@@ -25,7 +26,9 @@ const initialState =
 createRoot(root).render(
   <StrictMode>
     <CustomerSessionProvider initialState={initialState}>
-      <RouterProvider router={customerRouter} />
+      <CustomerProductionProvider>
+        <RouterProvider router={customerRouter} />
+      </CustomerProductionProvider>
     </CustomerSessionProvider>
   </StrictMode>,
 );

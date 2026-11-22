@@ -2,6 +2,8 @@ import {
   PROVIDER_INGRESS_CONTENT_TYPES,
   PROVIDER_INGRESS_HEADERS,
   PROVIDER_INGRESS_MAX_BYTES,
+  formatIfMatch,
+  parseIfMatch,
   type GatewayRoute,
 } from '@carwash/contracts';
 import {
@@ -83,9 +85,11 @@ export class GatewayService {
     if (route.idempotency === 'required')
       headers['idempotency-key'] = idempotencyKey(input.headers['idempotency-key']);
     if (route.revisioned && input.headers['if-match'] !== undefined) {
-      const revision = input.headers['if-match'];
-      if (!/^"[1-9][0-9]{0,8}"$/.test(revision)) throw new GatewayFault(400, 'REQUEST_INVALID');
-      headers['if-match'] = revision;
+      try {
+        headers['if-match'] = formatIfMatch(parseIfMatch(input.headers['if-match']));
+      } catch {
+        throw new GatewayFault(400, 'REQUEST_INVALID');
+      }
     }
     const reply = await this.http.request(route.owner, upstream, route.method, headers, input.body);
     if (reply.status >= 300) throw upstreamFault(reply.status, reply.body, route.owner);

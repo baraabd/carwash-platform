@@ -7,6 +7,7 @@ export const GATEWAY_V1 = '/api/v1' as const;
 export type GatewayOwner =
   | 'identity'
   | 'customer'
+  | 'vehicle'
   | 'catalog'
   | 'booking'
   | 'workforce'
@@ -146,6 +147,47 @@ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
     owner: 'catalog',
     upstream: '/internal/v1/catalog/definitions',
     public: true,
+  },
+  {
+    id: 'customer.vehicles.read',
+    method: 'GET',
+    path: '/customer/vehicles',
+    owner: 'vehicle',
+    upstream: '/internal/v1/vehicle/mine',
+    permission: 'profile.read:self',
+    query: [
+      { name: 'limit', pattern: /^(?:[1-9][0-9]?|100)$/ },
+      { name: 'cursor', pattern: /^[A-Za-z0-9_-]{1,512}$/ },
+    ],
+  },
+  {
+    id: 'customer.vehicles.create',
+    method: 'POST',
+    path: '/customer/vehicles',
+    owner: 'vehicle',
+    upstream: '/internal/v1/vehicle/mine',
+    permission: 'profile.write:self',
+    idempotency: 'required',
+  },
+  {
+    id: 'customer.vehicles.update',
+    method: 'PATCH',
+    path: '/customer/vehicles/:vehicleId',
+    owner: 'vehicle',
+    upstream: '/internal/v1/vehicle/mine/:vehicleId',
+    permission: 'profile.write:self',
+    idempotency: 'required',
+    revisioned: true,
+  },
+  {
+    id: 'customer.vehicles.archive',
+    method: 'POST',
+    path: '/customer/vehicles/:vehicleId/archive',
+    owner: 'vehicle',
+    upstream: '/internal/v1/vehicle/mine/:vehicleId/archive',
+    permission: 'profile.write:self',
+    idempotency: 'required',
+    revisioned: true,
   },
   {
     id: 'customer.bookings.read',

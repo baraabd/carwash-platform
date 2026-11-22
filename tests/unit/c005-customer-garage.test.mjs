@@ -67,7 +67,9 @@ const garageFiles = sourceFiles(path.join(APP_SRC, 'features/garage'));
 const widgetFiles = sourceFiles(path.join(APP_SRC, 'widgets'));
 const c005Source = readAll([
   ...garageFiles,
-  ...widgetFiles,
+  // C005 owns the vehicle editor. Later production access widgets also display
+  // server-issued expiry dates; those are covered by the production HTTP suite.
+  ...sourceFiles(path.join(APP_SRC, 'widgets/vehicle-editor')),
   path.join(APP_SRC, 'state/savedVehicles.ts'),
   path.join(APP_SRC, 'fixtures/customerGarageScenarios.ts'),
   path.join(APP_SRC, 'features/booking/vehicle/components/VehicleDetails.tsx'),
@@ -508,7 +510,7 @@ test('C005 garage and editor carry the approved Arabic copy verbatim', () => {
   }
 });
 
-test('C005 stays in memory: no storage, network, clock, randomness', () => {
+test('C005 presentation and parity state keep storage, transport and clocks in their owning layers', () => {
   assert.doesNotMatch(
     c005Source,
     /localStorage|sessionStorage|indexedDB|document\.cookie|fetch\(|XMLHttpRequest|axios|WebSocket|sendBeacon|Math\.random|Date\.now|new Date\(|crypto\./,

@@ -37,7 +37,7 @@ try {
   console.error(error.message);
   process.exit(2);
 }
-const { services, suites, scope, keep } = plan;
+const { services, suites, scope, gatewayOwners, customerBrowser, keep } = plan;
 
 const project = `cw-p01a-${randomBytes(6).toString('hex')}`;
 const runLabels = {
@@ -160,6 +160,17 @@ try {
       .split('\n')
       .filter(Boolean).length;
   });
+
+  if (gatewayOwners) {
+    await phase('build the production Gateway for real owner journeys', () =>
+      checked('pnpm', ['--filter', '@carwash/api-gateway', 'run', 'build']),
+    );
+  }
+  if (customerBrowser) {
+    await phase('build the production customer bundle for the real browser journey', () =>
+      checked('pnpm', ['--filter', '@carwash/customer-web', 'run', 'build']),
+    );
+  }
 
   await phase('pin infrastructure images', async () => {
     for (const image of [PG_IMAGE, REDIS_IMAGE]) {

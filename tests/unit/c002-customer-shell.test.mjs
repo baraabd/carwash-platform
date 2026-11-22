@@ -53,7 +53,7 @@ test('C002 uses the pinned stable React/Vite stack', () => {
     'react-dom': '19.3.0',
     'react-router-dom': '7.18.4',
   });
-  assert.equal(pkg.devDependencies.vite, '8.3.1');
+  assert.equal(pkg.devDependencies.vite, '8.3.3');
   assert.equal(pkg.devDependencies['@vitejs/plugin-react'], '6.1.1');
 });
 

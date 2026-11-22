@@ -1,26 +1,11 @@
 #!/usr/bin/env node
 /**
- * Lane B P05-B3 real RabbitMQ + real PostgreSQL acceptance for the Wallet
- * technician-custody projection.
- *
- *   node scripts/production/B/wallet-broker-acceptance.mjs [--record]
- *
- * 1. Builds the Wallet service and its specs from this source.
- * 2. Starts ONE disposable pinned PostgreSQL (shared provisioner: separate
- *    migration/runtime identities) and ONE disposable pinned RabbitMQ, both bound
- *    to 127.0.0.1 with random per-run credentials that are never printed.
- * 3. Applies the Wallet migrations with the MIGRATION identity.
- * 4. Runs tests/production/B/wallet-broker.test.mjs: real envelope-v2 Billing
- *    events are published to the real `washgo.billing.events` topic exchange,
- *    consumed from a bound queue with manual ack, and delivered into the compiled
- *    Wallet handler writing as the RUNTIME identity.
- *
- * Honest scope: the test's amqplib consumer loop IS the broker adapter for this
- * run. Wallet's runtime broker wiring stays blocked on Lane E (CR-B-12.3: the
- * service has no broker dependency and its lockfile entry is E-owned). Billing is
- * not running; events are built in its registered shape. Containers are removed
- * in every outcome. Local disposable evidence, NOT production evidence.
+ * P06 Billing cash outbox -> production relay -> RabbitMQ -> production Wallet
+ * custody consumer. Both owner databases use separate runtime/migration roles.
+ * Identity/Pricing/Dispatch remain explicit upstream doubles. This disposable
+ * acceptance is not a live payment-provider or production readiness approval.
  */
+import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -29,27 +14,35 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { redact, registerSecret, run } from '../../acceptance/lib/exec.mjs';
 import { pullImageWithMirrors } from '../../lib/image-references.mjs';
+import { testResults } from '../../lib/test-results.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const IMAGES = { postgres: 'postgres:16.10-alpine', rabbitmq: 'rabbitmq:4.2-management-alpine' };
 const record = process.argv.includes('--record');
 const runId = randomBytes(6).toString('hex');
 const names = { pg: `cw-p05b-wallet-pg-${runId}`, mq: `cw-p05b-wallet-mq-${runId}` };
+const work = path.join(ROOT, '.acceptance', `cw-p05b-wallet-broker-${runId}`);
+const secret = () => randomBytes(32).toString('base64url');
 const credentials = {
-  bootstrap: randomBytes(32).toString('base64url'),
-  app: randomBytes(32).toString('base64url'),
-  migration: randomBytes(32).toString('base64url'),
-  broker: randomBytes(32).toString('base64url'),
+  postgresBootstrap: secret(),
+  brokerBootstrap: secret(),
+  billingApp: secret(),
+  billingMigration: secret(),
+  billingBroker: secret(),
+  walletApp: secret(),
+  walletMigration: secret(),
+  walletBroker: secret(),
 };
 Object.values(credentials).forEach(registerSecret);
+const services = ['billing', 'wallet'];
+const vhost = `cw-finance-${runId}`;
 const { Client } = createRequire(path.join(ROOT, 'services/wallet/package.json'))('pg');
 const amqplib = createRequire(path.join(ROOT, 'packages/platform-messaging/package.json'))(
   'amqplib',
 );
-
 const report = {
-  task: 'P05-B',
-  child: 'B3',
+  task: 'P06-B',
+  child: 'B-messaging',
   suite: 'wallet-broker',
   runId,
   startedAt: new Date().toISOString(),
@@ -58,15 +51,18 @@ const report = {
   sourceDirty: null,
   images: IMAGES,
   dependencies: {
-    postgres: 'REAL (disposable container)',
-    broker: 'REAL RabbitMQ (disposable container); the test consumer loop is the broker adapter',
-    billing: 'NOT RUNNING (events built in the registered billing.v1 envelope-v2 shape)',
+    postgres: 'REAL pinned PostgreSQL; two owner databases, separate migration/runtime roles',
+    broker:
+      'REAL pinned RabbitMQ; distinct least-privilege Billing/Wallet identities, quorum custody queue and DLQ',
+    billing: 'REAL Billing HTTP/application + committed outbox + production cash relay process',
+    wallet: 'REAL production consumer process + own transactional custody projection',
+    upstreams:
+      'Identity and Pricing HTTP doubles; Dispatch WorkAuthority port double; synthetic fault envelopes clearly identified',
   },
   phases: [],
   tests: null,
   accepted: false,
 };
-
 async function checked(command, args, options = {}) {
   const result = await run(command, args, { cwd: ROOT, timeoutMs: 600_000, ...options });
   if (result.code !== 0 || result.signal || result.outcome !== 'exited')
@@ -75,7 +71,6 @@ async function checked(command, args, options = {}) {
     );
   return result;
 }
-
 async function phase(name, operation) {
   try {
     const value = await operation();
@@ -92,14 +87,12 @@ async function phase(name, operation) {
     throw error;
   }
 }
-
 async function hostPort(container, port) {
-  const out = (await checked('docker', ['port', container, String(port)])).stdout
+  const value = (await checked('docker', ['port', container, String(port)])).stdout
     .trim()
     .split('\n')[0];
-  return Number(out.split(':').at(-1));
+  return Number(value.split(':').at(-1));
 }
-
 async function until(label, probe) {
   const deadline = Date.now() + 120_000;
   let last;
@@ -111,12 +104,12 @@ async function until(label, probe) {
       await delay(1_000);
     }
   }
-  throw new Error(`${label} not ready: ${last?.message}`);
+  throw new Error(`${label} not ready: ${redact(last?.message)}`);
 }
-
 const started = [];
 let exitCode = 1;
 try {
+  await mkdir(work, { recursive: true });
   await phase('toolchain and source provenance', async () => {
     report.sourceSHA = (await checked('git', ['rev-parse', 'HEAD'])).stdout.trim();
     report.sourceTree = (await checked('git', ['rev-parse', 'HEAD^{tree}'])).stdout.trim();
@@ -124,9 +117,12 @@ try {
       (await checked('git', ['status', '--porcelain', '--untracked-files=no'])).stdout.trim()
         .length > 0;
   });
-  await phase('build wallet and specs from this source', async () => {
-    await checked('pnpm', ['--filter', '@carwash/wallet', 'run', 'generate']);
-    await checked('pnpm', ['--filter', '@carwash/wallet', 'run', 'build:tests']);
+  await phase('build both production workers and owner HTTP test harnesses', async () => {
+    await checked('pnpm', ['--filter', '@carwash/platform-messaging', 'run', 'build']);
+    for (const service of services) {
+      for (const command of ['generate', 'build', 'build:tests'])
+        await checked('pnpm', ['--filter', `@carwash/${service}`, 'run', command]);
+    }
   });
   await phase('pull pinned images', async () => {
     const docker = (args, options = {}) =>
@@ -134,7 +130,7 @@ try {
     for (const image of Object.values(IMAGES))
       await pullImageWithMirrors(image, docker, { quiet: false });
   });
-  await phase('start disposable PostgreSQL and RabbitMQ', async () => {
+  await phase('start isolated PostgreSQL and RabbitMQ', async () => {
     started.push(names.pg);
     await checked('docker', [
       'run',
@@ -144,15 +140,19 @@ try {
       '--label',
       `carwash.business-acceptance.run=${process.env.CW_BUSINESS_ACCEPTANCE_RUN ?? runId}`,
       '-e',
-      'POSTGRES_USER=cw_p05b_bootstrap',
+      'POSTGRES_USER=cw_finance_bootstrap',
       '-e',
-      `POSTGRES_PASSWORD=${credentials.bootstrap}`,
+      `POSTGRES_PASSWORD=${credentials.postgresBootstrap}`,
       '-e',
-      'CW_SERVICES=wallet',
+      'CW_SERVICES=billing wallet',
       '-e',
-      `WALLET_DB_PASSWORD=${credentials.app}`,
+      `BILLING_DB_PASSWORD=${credentials.billingApp}`,
       '-e',
-      `WALLET_MIGRATION_PASSWORD=${credentials.migration}`,
+      `BILLING_MIGRATION_PASSWORD=${credentials.billingMigration}`,
+      '-e',
+      `WALLET_DB_PASSWORD=${credentials.walletApp}`,
+      '-e',
+      `WALLET_MIGRATION_PASSWORD=${credentials.walletMigration}`,
       '-v',
       `${path.join(ROOT, 'infra/postgres/provision.sh')}:/docker-entrypoint-initdb.d/01-provision.sh:ro`,
       '-p',
@@ -168,9 +168,11 @@ try {
       '--label',
       `carwash.business-acceptance.run=${process.env.CW_BUSINESS_ACCEPTANCE_RUN ?? runId}`,
       '-e',
-      'RABBITMQ_DEFAULT_USER=cw_p05b_wallet',
+      'RABBITMQ_DEFAULT_USER=cw_finance_bootstrap',
       '-e',
-      `RABBITMQ_DEFAULT_PASS=${credentials.broker}`,
+      `RABBITMQ_DEFAULT_PASS=${credentials.brokerBootstrap}`,
+      '-v',
+      `${path.join(ROOT, 'infra/rabbitmq/billing-wallet-bootstrap.sh')}:/finance-bootstrap.sh:ro`,
       '-p',
       '127.0.0.1::5672',
       IMAGES.rabbitmq,
@@ -178,72 +180,130 @@ try {
   });
   const pgPort = await hostPort(names.pg, 5432);
   const mqPort = await hostPort(names.mq, 5672);
-  const appUrl = `postgresql://cw_wallet_app:${credentials.app}@127.0.0.1:${pgPort}/cw_wallet?schema=app`;
-  const migrateUrl = `postgresql://cw_wallet_migrate:${credentials.migration}@127.0.0.1:${pgPort}/cw_wallet?schema=app`;
-  const brokerUrl = `amqp://cw_p05b_wallet:${encodeURIComponent(credentials.broker)}@127.0.0.1:${mqPort}/`;
-
-  await phase('runtime identity and broker reachable', async () => {
-    await until('postgres', async () => {
-      const client = new Client({ connectionString: appUrl, connectionTimeoutMillis: 3_000 });
-      await client.connect();
-      await client.end();
-    });
-    await until('rabbitmq', async () => {
-      const connection = await amqplib.connect(brokerUrl);
-      await connection.close();
-    });
-  });
-  await phase('apply wallet migrations with the migration identity', async () => {
-    // The provisioner restarts PostgreSQL once after init; retry the transient window.
-    await until('migrate', () =>
-      checked('pnpm', ['--filter', '@carwash/wallet', 'exec', 'prisma', 'migrate', 'deploy'], {
-        env: { ...process.env, DATABASE_URL: migrateUrl },
-      }),
-    );
-  });
-  await phase('real broker delivery into the Wallet projection (runtime role)', async () => {
-    const result = await run(
-      process.execPath,
-      ['--test', '--test-reporter=spec', 'tests/production/B/wallet-broker.test.mjs'],
-      {
-        cwd: ROOT,
-        timeoutMs: 600_000,
-        env: {
-          ...process.env,
-          WALLET_TEST_DATABASE_URL: appUrl,
-          WALLET_TEST_AMQP_URL: brokerUrl,
-          LOG_LEVEL: 'error',
-        },
-      },
-    );
-    const out = redact(result.stdout);
-    const summary = Object.fromEntries(
-      [...out.matchAll(/^ℹ (tests|pass|fail|cancelled|skipped|todo) (\d+)$/gm)].map((m) => [
-        m[1],
-        Number(m[2]),
-      ]),
-    );
-    report.tests = {
-      summary,
-      names: [...out.matchAll(/^\s*[✔✖] (.+?) \(/gm)].map((m) => m[0].trim()),
-    };
-    process.stdout.write(
-      out
-        .split('\n')
-        .filter((line) => /^\s*[✔✖ℹ]/.test(line))
-        .join('\n') + '\n',
-    );
-    if (
-      result.code !== 0 ||
-      !summary.tests ||
-      summary.fail !== 0 ||
-      summary.skipped !== 0 ||
-      summary.todo !== 0
-    )
-      throw new Error(
-        `BROKER_SUITE_FAILED: ${redact(result.stderr).slice(-3000)}\n${out.slice(-4000)}`,
+  const appUrl = (service) =>
+    `postgresql://cw_${service}_app:${credentials[`${service}App`]}@127.0.0.1:${pgPort}/cw_${service}?schema=app`;
+  const migrateUrl = (service) =>
+    `postgresql://cw_${service}_migrate:${credentials[`${service}Migration`]}@127.0.0.1:${pgPort}/cw_${service}?schema=app`;
+  const brokerUrl = (service) =>
+    `amqp://cw_${service}_app:${credentials[`${service}Broker`]}@127.0.0.1:${mqPort}/${encodeURIComponent(vhost)}`;
+  for (const service of services)
+    [appUrl(service), migrateUrl(service), brokerUrl(service)].forEach(registerSecret);
+  await phase(
+    'provision least-privilege broker identities and remove disposable bootstrap login',
+    async () => {
+      await until('rabbitmq', () =>
+        checked('docker', ['exec', names.mq, 'rabbitmq-diagnostics', '-q', 'ping'], {
+          timeoutMs: 15_000,
+        }),
       );
+      await checked('docker', [
+        'exec',
+        '-e',
+        `CW_FINANCE_VHOST=${vhost}`,
+        '-e',
+        `BILLING_BROKER_PASSWORD=${credentials.billingBroker}`,
+        '-e',
+        `WALLET_BROKER_PASSWORD=${credentials.walletBroker}`,
+        names.mq,
+        'sh',
+        '/finance-bootstrap.sh',
+      ]);
+      await checked('docker', [
+        'exec',
+        names.mq,
+        'rabbitmqctl',
+        'delete_user',
+        'cw_finance_bootstrap',
+      ]);
+      const users = (await checked('docker', ['exec', names.mq, 'rabbitmqctl', '-q', 'list_users']))
+        .stdout;
+      assert.match(users, /^cw_billing_app\s+\[\]\s*$/m);
+      assert.match(users, /^cw_wallet_app\s+\[\]\s*$/m);
+      assert.doesNotMatch(users, /administrator|cw_finance_bootstrap/);
+      await writeFile(path.join(work, 'broker-identities.log'), users);
+    },
+  );
+  await phase('owner runtime identities reach only their own services', async () => {
+    for (const service of services) {
+      await until(`${service} postgres`, async () => {
+        const client = new Client({
+          connectionString: appUrl(service),
+          connectionTimeoutMillis: 3_000,
+        });
+        try {
+          await client.connect();
+        } finally {
+          await client.end();
+        }
+      });
+      const connection = await amqplib.connect(brokerUrl(service));
+      await connection.close();
+    }
   });
+  await phase('migrate both owners then harden runtime grants', async () => {
+    for (const service of services)
+      await until(`${service} migrate`, () =>
+        checked('pnpm', ['--filter', `@carwash/${service}`, 'run', 'migrate:deploy'], {
+          env: { ...process.env, DATABASE_URL: migrateUrl(service) },
+        }),
+      );
+    await checked('docker', [
+      'exec',
+      names.pg,
+      'sh',
+      '/docker-entrypoint-initdb.d/01-provision.sh',
+    ]);
+    for (const service of services) {
+      const client = new Client({ connectionString: appUrl(service) });
+      await client.connect();
+      try {
+        await assert.rejects(
+          () => client.query('SELECT * FROM app._prisma_migrations'),
+          /permission denied/,
+        );
+      } finally {
+        await client.end();
+      }
+    }
+  });
+  await phase(
+    'real owner workers: delivery, crashes, duplicate, order, poison, bounded retry and broker ACL',
+    async () => {
+      const result = await run(
+        process.execPath,
+        ['--test', '--test-reporter=spec', 'tests/production/B/wallet-broker.test.mjs'],
+        {
+          cwd: ROOT,
+          timeoutMs: 600_000,
+          env: {
+            ...process.env,
+            BILLING_TEST_DATABASE_URL: appUrl('billing'),
+            WALLET_TEST_DATABASE_URL: appUrl('wallet'),
+            BILLING_TEST_AMQP_URL: brokerUrl('billing'),
+            WALLET_TEST_AMQP_URL: brokerUrl('wallet'),
+            CW_WALLET_BROKER_LOG_DIR: path.join(work, 'workers'),
+            LOG_LEVEL: 'error',
+          },
+        },
+      );
+      const output = redact(result.stdout);
+      const errors = redact(result.stderr);
+      await writeFile(path.join(work, 'tests.log'), `${output}\n${errors}`);
+      const summary = testResults(output, result.code, result.signal);
+      report.tests = {
+        summary,
+        names: [...output.matchAll(/^\s*[✔✖] (.+?) \(/gm)].map((match) => match[1]),
+      };
+      process.stdout.write(
+        output
+          .split('\n')
+          .filter((line) => /^\s*[✔✖ℹ]/.test(line))
+          .join('\n') + '\n',
+      );
+      if (!summary.accepted || result.outcome !== 'exited')
+        throw new Error(`BROKER_SUITE_FAILED: ${errors.slice(-3000)}\n${output.slice(-6000)}`);
+    },
+  );
   report.accepted = true;
   exitCode = 0;
 } catch (error) {
@@ -255,7 +315,6 @@ try {
     );
   report.finishedAt = new Date().toISOString();
   const json = JSON.stringify(report, null, 2) + '\n';
-  const work = path.join(ROOT, '.acceptance', `cw-p05b-wallet-broker-${runId}`);
   await mkdir(work, { recursive: true });
   await writeFile(path.join(work, 'report.json'), json);
   if (record) {

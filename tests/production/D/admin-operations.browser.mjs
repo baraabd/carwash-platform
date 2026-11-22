@@ -31,6 +31,7 @@ import { chromium } from '@playwright/test';
 import { ROOT, appDsn, context } from '../../integration/_support.mjs';
 import { STAFF_PASSWORD, account, bearer, staff, startIdentity } from './_identity.mjs';
 import { comparePngBuffers } from '../../../scripts/f010/pixel-compare.mjs';
+import { captureContrastProposal } from '../support/contrast-review.mjs';
 
 const require = createRequire(path.join(ROOT, 'package.json'));
 const EVIDENCE = path.join(ROOT, 'docs', 'production', 'D', 'evidence', 'p02-d2');
@@ -463,6 +464,16 @@ test('J2: booking discovery — rows, status filter, detail, search, paging, fre
     await page.locator('#toast.show').getByText('أدخل رقم الحجز الكامل.').waitFor();
 
     report.accessibility.bookings = await axe(page);
+    // Separate owner-review preview only; the original violations still block A11Y below.
+    await page.locator('#toast.show').waitFor({ state: 'hidden' });
+    report.contrastProposal = await captureContrastProposal({
+      page,
+      output: EVIDENCE,
+      base: 'bookings-contrast-1440',
+      surface: 'admin',
+      axe,
+      fullPage: false,
+    });
 
     // Reporting outage: an explicit unavailable state, then recovery.
     await stack.stopService('reporting');

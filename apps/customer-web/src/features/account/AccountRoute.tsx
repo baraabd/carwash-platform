@@ -11,6 +11,8 @@ import {
 } from '../../state/savedAddresses';
 import { AddressBookSheet, type AddressBookView } from './components/AddressBookSheet';
 import { buildAccountViewModel, buildAddressBookItems, type AccountRow } from './accountViewModel';
+import { CustomerProfileSheet } from '../../widgets/customer-access/CustomerProfileSheet';
+import { ProductionNotice } from '../../widgets/customer-access/ProductionNotice';
 import './account.css';
 
 const DOCUMENT_TITLE = 'WashGo Signature — وقتك لك، واللمعة علينا';
@@ -20,8 +22,9 @@ const deferred = { 'aria-disabled': true, 'data-deferred': 'account' } as const;
 
 /**
  * The approved account screen. C009 owns its presentation and the saved-addresses
- * entry; «سياراتي» uses the existing garage navigation. Every other control is
- * rendered as approved and marked deferred — it does nothing yet.
+ * entry in parity. Production adds the canonical profile sheet and guest entry;
+ * «سياراتي» uses the existing garage navigation. Other unfinished controls remain
+ * visibly deferred.
  */
 export function AccountRoute() {
   const { state, run } = useCustomerSession();
@@ -30,6 +33,7 @@ export function AccountRoute() {
   const items = useMemo(() => buildAddressBookItems(state), [state]);
   const [book, setBook] = useState<AddressBookView | null>(null);
   const [editorSessions, setEditorSessions] = useState(0);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
     const previousTitle = document.title;
@@ -63,8 +67,9 @@ export function AccountRoute() {
   };
 
   const activate = (row: AccountRow) => {
+    if (row.action === 'profile') setProfileOpen(true);
     if (row.action === 'addresses') setBook({ kind: 'list' });
-    if (row.action === 'garage') navigate('/garage');
+    if (row.action === 'garage') void navigate('/garage');
   };
 
   const renderRow = (row: AccountRow) => (
@@ -73,7 +78,7 @@ export function AccountRoute() {
       className={row.danger ? 'settings-row danger' : 'settings-row'}
       type="button"
       data-account-row={row.id}
-      aria-haspopup={row.action === 'addresses' ? 'dialog' : undefined}
+      aria-haspopup={row.action === 'addresses' || row.action === 'profile' ? 'dialog' : undefined}
       {...(row.action === 'deferred' ? deferred : {})}
       onClick={() => activate(row)}
     >
@@ -95,7 +100,7 @@ export function AccountRoute() {
           <p>
             {state.runtimeMode === 'parity'
               ? 'ملف محلي بسيط، دون كلمة مرور.'
-              : 'بيانات حسابك من الخدمة.'}
+              : 'بياناتك المحفوظة في الخدمة.'}
           </p>
         </div>
       </div>
@@ -113,7 +118,14 @@ export function AccountRoute() {
             )}
           </p>
         </div>
-        <button className="icon-btn" type="button" aria-label="تعديل بياناتي" {...deferred}>
+        <button
+          className="icon-btn"
+          type="button"
+          aria-label="تعديل بياناتي"
+          {...(state.runtimeMode === 'parity'
+            ? deferred
+            : { 'aria-haspopup': 'dialog' as const, onClick: () => setProfileOpen(true) })}
+        >
           <Icon name="edit" small />
         </button>
       </div>
@@ -128,14 +140,15 @@ export function AccountRoute() {
               خادم، يلزم استكمال الأمان والتحقق والدفع والتشغيل.
             </>
           ) : state.productionData?.profileStatus === 'available' ? (
-            'بيانات الحساب للعرض. يتطلب تعديل البيانات ربط خدمة التحديث.'
+            'حفظ بيانات التواصل والسيارات مرتبط بجلسة المستخدم في الخدمة. تحديثها لا يغيّر بيانات الحجوزات السابقة.'
           ) : state.productionData?.profileStatus === 'anonymous' ? (
-            'يلزم تسجيل الدخول لعرض بيانات الحساب.'
+            'افتح بياناتي للمتابعة كضيف أو استعادة جلسة الضيف برمزك.'
           ) : (
             'تعذّر تحميل بيانات الحساب. حاول إعادة تحميل الصفحة.'
           )}
         </span>
       </div>
+      <ProductionNotice />
       <p className="version">
         WashGo Signature · Payments Edition 06
         <br />
@@ -154,6 +167,7 @@ export function AccountRoute() {
         onAnnounce={(message) => run((current) => ({ state: announce(current, message) }))}
         onClose={() => setBook(null)}
       />
+      <CustomerProfileSheet open={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>
   );
 }

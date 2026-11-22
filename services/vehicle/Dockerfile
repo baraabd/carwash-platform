@@ -2,8 +2,8 @@
 # Build from the repository root:
 #   docker build -f services/vehicle/Dockerfile -t washgo/vehicle:dev .
 ARG NODE_IMAGE=node:24.21.0-bookworm-slim
-ARG RUNTIME_IMAGE=gcr.io/distroless/base-nossl-debian13@sha256:8c563c1fb5e120606f0d85733049775faed6192e2bd2223ef283a5393eec22b9
-ARG NATIVE_RUNTIME_IMAGE=gcr.io/distroless/cc-debian13@sha256:54df941ed0d06a1bd95ef5e0ce391fd8d9f94b64782dc9a60062727849ee3f97
+ARG RUNTIME_IMAGE=gcr.io/distroless/base-nossl-debian13@sha256:89815d620ac01d8de13cdaf04d19ed874447ca2296d4985b14b818f6e5e47854
+ARG NATIVE_RUNTIME_IMAGE=gcr.io/distroless/cc-debian13@sha256:cb87acc574abe719b6e5c547384defa2f7b1f24af9605d3f618cf852495d8be2
 
 FROM ${NODE_IMAGE} AS builder
 ARG SERVICE=vehicle
@@ -37,6 +37,9 @@ COPY --from=native_libraries /var/lib/dpkg/status.d/libstdc++6 /var/lib/dpkg/sta
 COPY --from=native_libraries /var/lib/dpkg/status.d/libgcc-s1 /var/lib/dpkg/status.d/libgcc-s1
 COPY --from=native_libraries /usr/share/doc/libstdc++6 /usr/share/doc/libstdc++6
 COPY --from=native_libraries /usr/share/doc/libgcc-s1 /usr/share/doc/libgcc-s1
+# Remove unused legacy iconv code; retain original package metadata and licences.
+USER 0
+RUN ["/usr/local/bin/node","-e","const fs=require('node:fs');for(const name of [\"UHC.so\",\"ISO-2022-CN-EXT.so\",\"IBM1390.so\",\"IBM1399.so\"]){const file='/usr/lib/x86_64-linux-gnu/gconv/'+name;if(!fs.lstatSync(file).isFile())throw Error('UNEXPECTED_CONVERTER_FILE');fs.unlinkSync(file);}"]
 COPY --from=builder --chown=1000:1000 /deploy /app
 USER 1000:1000
 ENTRYPOINT []

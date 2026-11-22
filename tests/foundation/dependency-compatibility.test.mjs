@@ -20,8 +20,8 @@ const runtimePaths = [...legacyServices.map((service) => `services/${service}`),
 
 test('Multer security overrides remain exactly pinned to the reviewed patched release', () => {
   const manifest = JSON.parse(readFileSync(new URL('package.json', root), 'utf8'));
-  assert.equal(manifest.pnpm.overrides.multer, '2.4.0');
-  assert.equal(manifest.pnpm.overrides['@nestjs/platform-express>multer'], '2.4.0');
+  assert.equal(manifest.pnpm.overrides.multer, '2.5.0');
+  assert.equal(manifest.pnpm.overrides['@nestjs/platform-express>multer'], '2.5.0');
 });
 
 test('all Nest runtimes resolve patched Multer and load compatible adapters', () => {
@@ -29,7 +29,7 @@ test('all Nest runtimes resolve patched Multer and load compatible adapters', ()
     const ownerRequire = createRequire(new URL(`${owner}/package.json`, root));
     const adapterPath = ownerRequire.resolve('@nestjs/platform-express');
     const adapterRequire = createRequire(adapterPath);
-    assert.equal(adapterRequire('multer/package.json').version, '2.4.0', owner);
+    assert.equal(adapterRequire('multer/package.json').version, '2.5.0', owner);
     const { ExpressAdapter, FileInterceptor } = ownerRequire('@nestjs/platform-express');
     const adapter = new ExpressAdapter();
     assert.equal(typeof adapter.getInstance(), 'function', owner);

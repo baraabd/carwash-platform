@@ -80,13 +80,15 @@ const SERVICES = {
     task: 'P06-B',
     previousMigrations: 4,
     env: 'BILLING_TEST_DATABASE_URL',
-    // Run ALONE after the parallel batch: they assert exact database-wide deltas (P06-B6).
-    isolatedSpecs: ['billing.finance.postgres.spec.js'],
+    // Finance asserts database-wide deltas; relay storage changes transport state
+    // that the cash command suite deliberately expects to remain unpublished.
+    isolatedSpecs: ['billing.finance.postgres.spec.js', 'billing.relay.postgres.spec.js'],
     dependencies: {
       ...IDENTITY_STUB,
       pricing: 'LOCAL HTTP STUB (published pricing.v1 getQuote and validateQuote shapes)',
       workloads: 'LOCAL TEST CREDENTIALS (service-kit x-service-client / x-service-token)',
-      broker: 'NOT USED (outbox rows written; relay not started until E registers billing events)',
+      broker:
+        'NOT USED by these specs (cash relay storage is tested; see wallet-broker acceptance for real runtime delivery)',
     },
   },
   subscription: {

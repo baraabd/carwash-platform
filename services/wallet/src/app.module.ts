@@ -17,8 +17,9 @@ import { CUSTODY_QUERIES, WalletController } from './transport/http/wallet.contr
  * Composition root for the wallet service.
  *
  * Nest belongs here at the outside edge. Domain/application/ports do not import
- * it. BUSINESS_READY stays false: the custody projection and read API exist, but
- * the broker binding, grants and readiness promotion are E-owned gates.
+ * it. The custody projection, read API and separate custody-consumer worker
+ * exist. BUSINESS_READY stays false until current deployment and operational
+ * acceptance support an explicit promotion; the API alone starts no worker.
  */
 export const SERVICE_NAME = 'wallet';
 export const BUSINESS_READY = false;
@@ -58,7 +59,7 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
         }),
     },
     {
-      // Wired for the broker adapter Lane E will bind (CR-B-12.3); no consumer runs yet.
+      // HTTP composition exposes the projector; the standalone worker owns AMQP.
       provide: CUSTODY_PROJECTOR,
       inject: [PrismaWalletRepository],
       useFactory: (repository: PrismaWalletRepository) =>

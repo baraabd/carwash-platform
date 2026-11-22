@@ -4,6 +4,7 @@ export type { GatewayConfig } from '../ports/config';
 const OWNERS: readonly GatewayOwner[] = [
   'identity',
   'customer',
+  'vehicle',
   'catalog',
   'booking',
   'workforce',

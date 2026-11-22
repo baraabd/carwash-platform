@@ -8,11 +8,12 @@ export type AccountIcon =
  *
  * - `addresses` opens the saved-addresses sheet (C009).
  * - `garage` goes to the garage screen (C005).
- * - `deferred` is shown exactly as approved but is not implemented yet: profile,
+ * - `profile` opens the canonical production profile and guest access sheet.
+ * - `deferred` is shown exactly as approved but is not implemented yet:
  *   payment codes, payment tour, motion, help, privacy, export and reset belong
  *   to the sprints that own them.
  */
-export type AccountRowAction = 'addresses' | 'garage' | 'deferred';
+export type AccountRowAction = 'profile' | 'addresses' | 'garage' | 'deferred';
 
 export interface AccountRow {
   readonly id: string;
@@ -48,8 +49,22 @@ export function buildAccountViewModel(state: CustomerSessionState): AccountViewM
     displayName: state.profile.name || 'أهلاً بك في WashGo',
     phone: state.profile.phone,
     primaryRows: [
-      row('profile', 'user', 'بياناتي', 'الاسم ورقم التواصل'),
-      row('addresses', 'pin', 'عناويني', `${state.addresses.length} عناوين محفوظة`, 'addresses'),
+      row(
+        'profile',
+        'user',
+        'بياناتي',
+        'الاسم ورقم التواصل',
+        state.runtimeMode === 'parity' ? 'deferred' : 'profile',
+      ),
+      row(
+        'addresses',
+        'pin',
+        'عناويني',
+        state.runtimeMode === 'parity'
+          ? `${state.addresses.length} عناوين محفوظة`
+          : 'ربط خدمة العناوين قيد الاستكمال',
+        state.runtimeMode === 'parity' ? 'addresses' : 'deferred',
+      ),
       row('garage-tab', 'car', 'سياراتي', `${state.vehicles.length} سيارات محفوظة`, 'garage'),
     ],
     secondaryRows:

@@ -83,10 +83,15 @@
   },
   "pnpm": {
     "overrides": {
-      "multer": "2.4.0",
+      "multer": "2.5.0",
       "mysql2": ">=3.23.1",
       "deepmerge-ts": ">=8.0.0",
-      "@nestjs/platform-express>multer": "2.4.0"
+      "@nestjs/platform-express>multer": "2.5.0",
+      "body-parser": "2.4.0",
+      "effect": "3.22.1",
+      "fast-uri": "3.1.9",
+      "qs": "6.16.1",
+      "minimatch": "11.0.1"
     }
   }
 }

@@ -438,7 +438,14 @@ after(() => {
 
 const at = (iso) => new Date(iso);
 
-function snapshot({ status = 'OPEN', verified = 0n, intent = null, attempts = [], cash = null }) {
+function snapshot({
+  status = 'OPEN',
+  verified = 0n,
+  intent = null,
+  attempts = [],
+  cash = null,
+  refunded = null,
+}) {
   const { Money } = provider.domain;
   const obligationId = id();
   return {
@@ -462,6 +469,7 @@ function snapshot({ status = 'OPEN', verified = 0n, intent = null, attempts = []
       createdAt: at(T0),
       updatedAt: at(T1),
     },
+    refunded: refunded === null ? null : Money.of('SYP', refunded),
     attempts: attempts.map((s, i) => ({
       id: id(),
       intentId: id(),
@@ -531,6 +539,30 @@ test('provider conformance: every financial state the merged provider renders pa
     assert.equal(b.parseFinancialStatusViewV1(lean).financialStatus, expected, expected);
     // The full provider reference never appears on the wire.
     assert.doesNotMatch(JSON.stringify(view), /TX9\d{3}ABCD/);
+  }
+});
+
+test('provider conformance: completed refunds preserve PAID in public v1 and retain internal refund extent', () => {
+  for (const [refunded, internal] of [
+    [50000n, 'PARTIALLY_REFUNDED'],
+    [150000n, 'REFUNDED'],
+  ]) {
+    const state = snapshot({
+      status: 'SETTLED',
+      verified: 150000n,
+      intent: { method: 'SHAM_CASH', status: 'SUCCEEDED' },
+      attempts: ['MATCHED'],
+      refunded,
+    });
+    assert.equal(provider.views.snapshotFinancialStatus(state), internal);
+    const full = b.parseObligationV1(provider.views.obligationView(state));
+    const lean = b.parseFinancialStatusViewV1(provider.views.financialStatusView(state));
+    assert.equal(full.financialStatus, 'PAID');
+    assert.equal(lean.financialStatus, 'PAID');
+    assert.equal(full.status, 'SETTLED');
+    assert.deepEqual(full.verified, SYP(150000));
+    assert.deepEqual(lean.outstanding, SYP(0));
+    assert.equal(lean.revision, full.revision);
   }
 });
 

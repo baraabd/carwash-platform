@@ -66,15 +66,15 @@ test('F003 renderer snapshot and structure are deterministic', () => {
   // These service-template hashes are not approved HTML or visual snapshots.
   assert.equal(
     snapshot('identity'),
-    '9e548c721cb133eb59d3be5f9ba434a9ce3400efdb3170d82978a6fd2f2ff79f',
+    '6240819d7e58622e46fabe4321b8ee88cd09ef512c6ea0af0908c6df51e09ff0',
   );
   assert.equal(
     snapshot('catalog'),
-    '36074e31e0e0db4cdac4f23e9e5087ee08a16ddcbb4e797950c2d39b5409fbad',
+    '0ad6388b1118c7daef8cdd01b2e1bd3ae9984138bf7963983e821fca82264bd8',
   );
   assert.equal(
     snapshot('communications'),
-    'ae5f6895c1ef6761a0dd2efeed99deefa7a0a48c81e2dedb72d6b3b800ce1c48',
+    '12adb96ee94f5bf0e2e2ed9b500ab908f48fb8c83f0204af3ba91d23c4460ac5',
   );
 });
 

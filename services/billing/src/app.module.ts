@@ -52,11 +52,11 @@ import {
  *
  * Nest belongs here at the outside edge. Domain/application/ports do not import
  * it. BUSINESS_READY stays false: the owner API exists, but readiness promotion
- * is an E-owned gate that also needs the published billing.v1 contract, the
- * reconciliation grant, broker topology and merchant setup. Cash collection
- * additionally waits for lane C's work-completion contract and the CR-B-08
- * grants (it fails closed until then). The outbox relay is
- * deliberately not started (billing event contracts are not registered yet).
+ * still needs complete contract conformance, environment deployment and merchant
+ * acceptance. Cash uses Dispatch's current assigned CLOSED work and Identity's
+ * collection grant. Its registered custody events have a standalone cash-relay
+ * worker, kept separate from API replicas; obligation and legacy provider/refund
+ * outbox rows remain pending until their subscribers/contracts are wired.
  * Payment providers run with the capabilities possible without an official
  * merchant API (statement evidence + manual refunds); provider notifications
  * and verified queries stay unavailable until LIVE_PROVIDER_ACCEPTANCE.

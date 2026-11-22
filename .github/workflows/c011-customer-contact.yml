@@ -182,6 +182,7 @@ jobs:
           corepack enable
           corepack prepare --activate
           pnpm install --frozen-lockfile
+          pnpm build:packages
           pnpm --filter @carwash/customer-web build --mode parity
       - name: Repeat batch
         shell: bash

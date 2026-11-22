@@ -15,6 +15,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { startReferenceServer } from '../../../scripts/f010/reference-server.mjs';
+import { captureContrastProposal } from '../support/contrast-review.mjs';
 import {
   AXE_SOURCE,
   RENDERING,
@@ -106,6 +107,7 @@ async function axe(page) {
       const d = n.any?.[0]?.data ?? {};
       return [d.fgColor, d.bgColor, d.fontSize, d.fontWeight].join('|');
     }),
+    contrastRatios: v.nodes.map((n) => n.any?.[0]?.data?.contrastRatio ?? null),
   }));
 }
 
@@ -275,7 +277,8 @@ test('axe on every view at 390 and 1440: the port introduces no serious/critical
           const violations = await axe(page);
           const refPage = await openReferenceView(refContext, go);
           const referenceViolations = await axe(refPage);
-          report.push({ width, view: name, violations, referenceViolations });
+          const viewReport = { width, view: name, violations, referenceViolations };
+          report.push(viewReport);
           for (const v of violations) {
             if (!['serious', 'critical'].includes(v.impact) || registered(v)) continue;
             // A node is inherited when the same element in the same reference view renders
@@ -300,6 +303,28 @@ test('axe on every view at 390 and 1440: the port introduces no serious/critical
             const entry = { width, view: name, id: v.id, impact: v.impact, nodes };
             (nodes.every((n) => n.inherited) ? inherited : blocking).push(entry);
           }
+          if (
+            violations.some(
+              (v) => v.id === 'color-contrast' && ['serious', 'critical'].includes(v.impact),
+            )
+          ) {
+            const base = `${name}-${width}`;
+            writeFileSync(
+              `${OUT}/${base}-reference-raw.png`,
+              await refPage.screenshot({
+                fullPage: true,
+                animations: 'disabled',
+                caret: 'hide',
+              }),
+            );
+            viewReport.contrastProposal = await captureContrastProposal({
+              page,
+              output: OUT,
+              base,
+              surface: 'operator',
+              axe,
+            });
+          }
           await refPage.close();
           assert.deepEqual(
             problems.filter((x) => !/status of 404/.test(x)),
@@ -318,6 +343,8 @@ test('axe on every view at 390 and 1440: the port introduces no serious/critical
     OUT + '/axe-summary.json',
     JSON.stringify(
       {
+        browserVersion: browser.version(),
+        proposalStatus: 'PENDING_OWNER_VISUAL_DECISION; original assertions unchanged',
         registeredDebt: REGISTERED,
         portIntroduced: blocking,
         inheritedUnregistered: inherited,

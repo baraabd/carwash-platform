@@ -45,6 +45,28 @@ test('suite preflight rejects invalid selections and absent suites before infras
     const customer = acceptancePlan(['--services', 'customer'], root);
     assert.equal(customer.suites.length, 2);
     assert.match(customer.scope, /explicit Identity HTTP double/);
+    assert.equal(customer.gatewayOwners, false);
+    assert.throws(
+      () => acceptancePlan(['--services', 'customer,vehicle'], root),
+      /MISSING_ACCEPTANCE_SUITE.*gateway-owner/,
+    );
+    await writeFile(path.join(root, 'tests/production/A/gateway-owner.integration.test.mjs'), '');
+    const gateway = acceptancePlan(['--services', 'customer,vehicle,geo'], root);
+    assert.equal(gateway.gatewayOwners, true);
+    assert.equal(gateway.suites.length, 5);
+    assert.match(gateway.scope, /production Gateway-to-Identity\/Customer\/Vehicle/);
+    assert.throws(
+      () => acceptancePlan(['--services', 'customer', '--customer-browser'], root),
+      /CUSTOMER_BROWSER_REQUIRES_REAL_OWNERS/,
+    );
+    assert.throws(
+      () => acceptancePlan(['--services', 'customer,vehicle', '--customer-browser'], root),
+      /MISSING_ACCEPTANCE_SUITE.*customer-production/,
+    );
+    await writeFile(path.join(root, 'tests/production/A/customer-production.browser.test.mjs'), '');
+    const browser = acceptancePlan(['--services', 'customer,vehicle', '--customer-browser'], root);
+    assert.equal(browser.customerBrowser, true);
+    assert.match(browser.scope, /Real Chromium/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

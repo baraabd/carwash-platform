@@ -18,7 +18,14 @@ export const BUSINESS_SUITES = Object.freeze({
     services: ['identity', 'customer', 'vehicle', 'geo'],
     browser: false,
     scope:
-      'Real owner HTTP APIs, Identity, PostgreSQL and Redis; captured OTP delivery. Additional Customer contract suite uses an explicit Identity HTTP double. No Gateway/browser or external provider.',
+      'Real owner HTTP APIs, production Gateway, Identity, PostgreSQL and Redis; captured OTP delivery. Additional Customer contract suite uses an explicit Identity HTTP double. No browser or external provider.',
+  },
+  'a-customer-browser': {
+    lane: 'A',
+    services: ['identity', 'customer', 'vehicle'],
+    browser: true,
+    scope:
+      'Real Chromium using the production customer bundle/static runtime, Gateway, Identity, Customer and Vehicle on PostgreSQL/Redis. Guest recovery, profile and garage persistence; no Catalog/Pricing/checkout or external provider approval.',
   },
   ...Object.fromEntries(
     ['catalog', 'pricing', 'billing', 'subscription', 'wallet'].map((service) => [
@@ -34,10 +41,10 @@ export const BUSINESS_SUITES = Object.freeze({
   ),
   'b-wallet-broker': {
     lane: 'B',
-    services: ['wallet'],
+    services: ['billing', 'wallet'],
     browser: false,
     scope:
-      'Real PostgreSQL/RabbitMQ delivery to the Wallet handler; test consumer adapter and constructed Billing events. Billing runtime is not exercised.',
+      'Real PostgreSQL/RabbitMQ delivery from Billing custody outbox through the production relay and Wallet consumer, with scoped broker identities, restart/redelivery and permission denial checks. No live payment provider.',
   },
   ...Object.fromEntries(
     cOwners.map((service) => [
@@ -67,7 +74,9 @@ export const BUSINESS_SUITES = Object.freeze({
   },
   'd-services': {
     lane: 'D',
-    services: dOwners,
+    // Support's real owner HTTP suite starts Booking and Billing as well.
+    // Their generated clients and test harnesses must exist on a clean runner.
+    services: [...dOwners, 'booking', 'billing'],
     browser: false,
     scope:
       'Real PostgreSQL, RabbitMQ, Redis and owner HTTP integration for communications, reporting, configuration and support; individual suites declare their producers/doubles.',

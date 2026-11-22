@@ -32,6 +32,8 @@ jobs:
         include:
           - suite: a-owners
             browser: false
+          - suite: a-customer-browser
+            browser: true
           - suite: b-catalog
             browser: false
           - suite: b-pricing

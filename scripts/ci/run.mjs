@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { ROOT, readJson, inventory, auditSummary, sarifFindings, assertTap } from './policy.mjs';
 import { command, checked, git, tool, toolLock, stage } from './runtime.mjs';
-import { secretScans } from './secret-scans.mjs';
+import { assertCompleteSecretScan, prepareSecretSource, secretScans } from './secret-scans.mjs';
 import { validateActiveAllocation } from '../parallel/E/allocate-environment.mjs';
 import { discoverServiceSpecs } from '../lib/test-discovery.mjs';
 const mode = process.argv[2];
@@ -264,24 +264,34 @@ try {
       const archive = path.join(temporary, 'source.tar');
       await checked('git', ['archive', '--format=tar', '--output', archive, sourceSha]);
       await checked('tar', ['-xf', archive, '-C', source]);
-      for (const [name, args] of secretScans(sourceSha, source)) {
+      const scanSource = path.join(temporary, 'source-scan');
+      const sourceManifest = prepareSecretSource(source, scanSource);
+      writeFileSync(
+        path.join(process.env.CI_EVIDENCE_DIR, 'secret-source-manifest.json'),
+        JSON.stringify({ sourceSha, ...sourceManifest }, null, 2) + '\n',
+      );
+      for (const [name, args] of secretScans(sourceSha, scanSource)) {
         const output = path.join(temporary, `${name}.json`);
         await step(`gitleaks-${name}`, async () => {
-          const result = await command(tool('gitleaks'), [
-            ...args,
-            '--redact=100',
-            '--max-archive-depth=2',
-            '--max-decode-depth=2',
-            '--report-format=json',
-            `--report-path=${output}`,
-          ]);
+          const result = await command(
+            tool('gitleaks'),
+            [
+              ...args,
+              '--redact=100',
+              '--max-archive-depth=2',
+              '--max-decode-depth=2',
+              '--report-format=json',
+              `--report-path=${output}`,
+            ],
+            { capture: true },
+          );
           const report = readJson(output);
-          assert.ok(Array.isArray(report));
-          counts[name] = report.length;
           // Findings never leave the temporary directory, even if a scanner's
           // future JSON format adds non-redacted fields. Failures remain blocking.
-          assert.equal(result.code, 0, 'Gitleaks findings or scanner failure');
-          assert.equal(report.length, 0, 'Gitleaks findings');
+          counts[name] = assertCompleteSecretScan(result, report);
+          console.log(
+            `Gitleaks ${name}: ${counts[name].scannedBytes} bytes, zero findings or read errors`,
+          );
         });
       }
       let audit;

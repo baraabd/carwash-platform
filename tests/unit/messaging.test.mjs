@@ -129,6 +129,22 @@ test('publisher: a confirmed publish resolves and is persistent + mandatory', as
   assert.equal(sent.options.messageId, uuid(1));
 });
 
+test('publisher: durable owner retry counters survive the confirmed publication', async () => {
+  const channel = new FakeConfirmChannel();
+  await new ConfirmingPublisher(channel).publish({
+    exchange: 'wallet.billing-custody.retry',
+    routingKey: 'billing.cash-collected.v1',
+    body: '{}',
+    messageId: uuid(1),
+    eventType: 'billing.cash-collected.v1',
+    correlationId: uuid(2),
+    headers: { 'x-wallet-custody-attempt': 3 },
+  });
+  assert.equal(channel.published[0].options.headers['x-wallet-custody-attempt'], 3);
+  assert.equal(channel.published[0].options.persistent, true);
+  assert.equal(channel.published[0].options.mandatory, true);
+});
+
 test('publisher: a broker nack is surfaced as a failure, never as success', async () => {
   const channel = new FakeConfirmChannel();
   channel.behaviour = 'nack';
@@ -283,6 +299,23 @@ test('relay: a failed publish is never marked published', async () => {
   assert.equal(pass.failed, 1);
   assert.deepEqual(store.published, []);
   assert.equal(store.failed[0].error, 'NACK');
+});
+
+test('relay: owner validation failure is fenced as failed before any publication', async () => {
+  const store = new FakeOutboxStore([record(1)]);
+  const channel = new FakeConfirmChannel();
+  const relay = new OutboxRelay({
+    workerId: 'w1',
+    store,
+    publisher: new ConfirmingPublisher(channel),
+    validate: () => {
+      throw new Error('INVALID_OWNER_ENVELOPE');
+    },
+  });
+  assert.deepEqual(await relay.runOnce(), { leased: 1, published: 0, failed: 1, leaseLost: 0 });
+  assert.equal(channel.published.length, 0);
+  assert.equal(store.failed.length, 1);
+  assert.deepEqual(store.published, []);
 });
 
 test('relay: an unroutable publication leaves the row pending', async () => {

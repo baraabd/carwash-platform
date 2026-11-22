@@ -22,8 +22,8 @@ export function createServiceMessageConsumer<TPayload>(
 }
 
 /**
- * Proposed queue for the Billing custody events (CR-B-12.3). The runtime broker
- * binding is Lane E's: Wallet has no broker dependency until E adds it.
+ * Subscriber-owned queue for the three registered Billing custody events.
+ * custody-topology and custody-consumer.runner provide the standalone runtime.
  */
 export const WALLET_CUSTODY_QUEUE = 'wallet.billing-custody.v1';
 export const WALLET_CUSTODY_BINDINGS = CONSUMED_EVENT_TYPES;

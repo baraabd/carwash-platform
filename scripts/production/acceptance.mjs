@@ -25,6 +25,7 @@ import { redact, run } from '../acceptance/lib/exec.mjs';
 import { discoverServiceSpecs } from '../lib/test-discovery.mjs';
 import { testResults } from '../lib/test-results.mjs';
 import { BUSINESS_SUITES, assertBusinessEvidence, businessSuite } from './acceptance-plan.mjs';
+import { retainBrowserDiagnostics } from './acceptance-diagnostics.mjs';
 
 const node = process.execPath;
 const directory = (suite) => path.join(ROOT, '.acceptance', 'business', suite);
@@ -242,7 +243,7 @@ async function acceptance(suite) {
 
     // Written before starting any resources; --cleanup remains usable after cancellation.
     await writeJson(path.join(work, 'owned.json'), owned);
-    if (suite === 'a-owners') {
+    if (plan.lane === 'A') {
       await tests('provider-contract', [
         'tests/production/A/acceptance-plan.test.mjs',
         'tests/production/A/vehicle.contract.test.mjs',
@@ -253,7 +254,9 @@ async function acceptance(suite) {
       await command('real-owners', node, [
         'scripts/production/A/acceptance-a.mjs',
         '--services',
-        'customer,vehicle,geo',
+        ...(suite === 'a-customer-browser'
+          ? ['customer,vehicle', '--customer-browser']
+          : ['customer,vehicle,geo']),
       ]);
       await childEvidence('owners', freshReport(before, pattern), (value) => {
         assert.equal(value.result, 'PASSED');
@@ -385,6 +388,13 @@ async function acceptance(suite) {
     clearTimeout(deadline);
     process.removeListener('SIGINT', cancel);
     process.removeListener('SIGTERM', cancel);
+    try {
+      report.diagnostics = await retainBrowserDiagnostics(ROOT, suite, out, report.startedAt);
+    } catch (error) {
+      failed = true;
+      report.diagnosticsError = redact(error.message);
+      console.error(report.diagnosticsError);
+    }
     try {
       if (infrastructureUsed) await cleanupSuite(suite);
       else {

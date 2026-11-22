@@ -325,13 +325,34 @@ test('P01 profile revision forwarding is validated and owner scoped', async (t) 
     (
       await request(app.base, '/api/v1/customer/profile', {
         method: 'PATCH',
+        headers: { ...headers, 'if-match': '"2147483647"' },
+        body: '{}',
+      })
+    ).status,
+    200,
+  );
+  assert.equal(owner.calls.at(-1).headers['if-match'], '"2147483647"');
+  assert.equal(
+    (
+      await request(app.base, '/api/v1/customer/profile', {
+        method: 'PATCH',
+        headers: { ...headers, 'if-match': '"2147483648"' },
+        body: '{}',
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request(app.base, '/api/v1/customer/profile', {
+        method: 'PATCH',
         headers: { ...headers, 'if-match': '*' },
         body: '{}',
       })
     ).status,
     400,
   );
-  assert.equal(owner.calls.length, 1);
+  assert.equal(owner.calls.length, 2);
 });
 test('F007 refuses startup with missing owner or unsafe remote origin', async () => {
   await assert.rejects(gateway.createGatewayApplication(config('http://identity.internal')));

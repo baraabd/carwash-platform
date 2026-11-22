@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { secretScans } from '../../scripts/ci/secret-scans.mjs';
+import {
+  assertCompleteSecretScan,
+  prepareSecretSource,
+  secretScanBasename,
+  secretScans,
+} from '../../scripts/ci/secret-scans.mjs';
 import { tool } from '../../scripts/ci/runtime.mjs';
 
 function fixture(work) {
@@ -130,3 +135,130 @@ test('credentials introduced only in a merge commit remain blocking after remova
     blocked(scan('history'));
     clean(scan('source'));
   }));
+
+function sourceFixture(t) {
+  const parent = mkdtempSync(path.join(tmpdir(), 'cw-source-scan-'));
+  t.after(() => rmSync(parent, { recursive: true, force: true }));
+  const source = path.join(parent, 'source');
+  mkdirSync(source);
+  const scan = () => {
+    const scanned = path.join(parent, 'scanned');
+    const manifest = prepareSecretSource(source, scanned);
+    const output = path.join(parent, 'report.json');
+    const result = spawnSync(
+      tool('gitleaks'),
+      [
+        'dir',
+        scanned,
+        '--redact=100',
+        '--max-archive-depth=2',
+        '--max-decode-depth=2',
+        '--report-format=json',
+        `--report-path=${output}`,
+      ],
+      { encoding: 'utf8', timeout: 30000 },
+    );
+    const report = JSON.parse(readFileSync(output, 'utf8'));
+    return {
+      result: { code: result.status, stdout: result.stdout, stderr: result.stderr },
+      report,
+      manifest,
+      scanned,
+    };
+  };
+  return { parent, source, scan };
+}
+
+test('scan names preserve real archive suffixes and encode misleading archive substrings without collisions', () => {
+  assert.equal(secretScanBasename('admin.browser.mjs'), 'admin%2Ebrowser%2Emjs');
+  assert.equal(secretScanBasename('admin.browser.tar.gz'), 'admin%2Ebrowser.tar.gz');
+  assert.equal(secretScanBasename('fixture.tar.gz'), 'fixture.tar.gz');
+  assert.equal(secretScanBasename('fixture.br'), 'fixture.br');
+  assert.equal(secretScanBasename('pnpm-lock.yaml'), 'pnpm-lock.yaml');
+  assert.notEqual(
+    secretScanBasename('admin%2Ebrowser%2Emjs'),
+    secretScanBasename('admin.browser.mjs'),
+  );
+});
+
+test('clean browser source is scanned byte-for-byte with no archive read errors', (t) => {
+  const { source, scan } = sourceFixture(t);
+  const bytes = Buffer.from(
+    '/** Browser acceptance — العربية */\n' + 'const value = 1;\n'.repeat(2500),
+  );
+  writeFileSync(path.join(source, 'admin.browser.mjs'), bytes);
+  const outcome = scan();
+  assert.deepEqual(readFileSync(path.join(outcome.scanned, 'admin%2Ebrowser%2Emjs')), bytes);
+  assert.deepEqual(readFileSync(path.join(source, 'admin.browser.mjs')), bytes);
+  assert.equal(outcome.manifest.totalBytes, bytes.length);
+  assert.equal(outcome.manifest.files.length, 1);
+  assert.equal(outcome.manifest.renamed, 1);
+  assertCompleteSecretScan(outcome.result, outcome.report);
+});
+
+test('a credential near the end of misleadingly named browser source remains blocking', (t) => {
+  const { source, scan } = sourceFixture(t);
+  const token = ['ghp', randomBytes(18).toString('hex')].join('_');
+  writeFileSync(
+    path.join(source, 'admin.browser.mjs'),
+    '// benign fixture\n'.repeat(8000) + `token = ${token}\n`,
+  );
+  const outcome = scan();
+  assert.equal(outcome.result.code, 1);
+  assert.ok(outcome.report.length > 0);
+  assert.throws(() => assertCompleteSecretScan(outcome.result, outcome.report));
+});
+
+test('real compressed archive traversal still detects embedded credentials after safe naming', (t) => {
+  const { parent, source, scan } = sourceFixture(t);
+  const nested = path.join(parent, 'nested');
+  mkdirSync(nested);
+  const token = ['ghp', randomBytes(18).toString('hex')].join('_');
+  writeFileSync(path.join(nested, 'fixture.txt'), `token = ${token}\n`);
+  const tar = spawnSync(
+    'tar',
+    ['-czf', path.join(source, 'fixtures.browser.tar.gz'), '-C', nested, 'fixture.txt'],
+    { encoding: 'utf8', timeout: 10000 },
+  );
+  assert.equal(tar.status, 0);
+  const outcome = scan();
+  assert.equal(outcome.manifest.files[0].scannedPath, 'fixtures%2Ebrowser.tar.gz');
+  assert.equal(outcome.result.code, 1);
+  assert.ok(outcome.report.length > 0, 'The credential inside the genuine tar.gz must be detected');
+  assert.throws(() => assertCompleteSecretScan(outcome.result, outcome.report));
+});
+
+test('corrupt real archive errors cannot be accepted as a clean source scan', (t) => {
+  const { source, scan } = sourceFixture(t);
+  writeFileSync(path.join(source, 'broken.tar.gz'), 'This is not a gzip archive.\n');
+  const outcome = scan();
+  assert.throws(() => assertCompleteSecretScan(outcome.result, outcome.report));
+});
+
+test('zero-exit read errors, skipped input and missing counts are fail-closed', () => {
+  const valid = {
+    code: 0,
+    stdout: '',
+    stderr: 'INF scanned ~123 bytes (123 B)\nINF no leaks found\n',
+  };
+  assert.deepEqual(assertCompleteSecretScan(valid, []), { findings: 0, scannedBytes: 123 });
+  for (const diagnostic of [
+    'ERR could not read until safe boundary: unexpected EOF',
+    'WRN skipping archive: exceeds max archive depth',
+    'ERR permission denied',
+  ])
+    assert.throws(() =>
+      assertCompleteSecretScan({ ...valid, stderr: valid.stderr + diagnostic }, []),
+    );
+  assert.throws(() => assertCompleteSecretScan({ ...valid, stderr: 'INF no leaks found' }, []));
+  assert.throws(() => assertCompleteSecretScan({ ...valid, stderr: 'INF scanned ~0 bytes' }, []));
+  assert.throws(() => assertCompleteSecretScan({ ...valid, code: null }, []));
+});
+
+test('source mirror refuses symlinks and an empty source snapshot', (t) => {
+  const { parent, source } = sourceFixture(t);
+  assert.throws(() => prepareSecretSource(source, path.join(parent, 'empty')), /Empty immutable/);
+  writeFileSync(path.join(parent, 'outside.txt'), 'Out of scope\n');
+  symlinkSync(path.join(parent, 'outside.txt'), path.join(source, 'link.txt'));
+  assert.throws(() => prepareSecretSource(source, path.join(parent, 'linked')), /symlinks/);
+});

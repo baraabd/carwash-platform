@@ -52,7 +52,7 @@ route, financial operation or front-end journey is implemented and accepted.
 ## Customer C001–C014: implemented within their original bounded scope
 
 The original C001–C014 unit suites passed 304 tests before the current repairs.
-The modified customer slice passed 313 unit, bundle-boundary and HTTP-client
+The modified customer slice passed 332 unit, bundle-boundary and HTTP-client
 tests. Those results support the tested behavior; browser parity still needs
 the exact candidate's canonical CI evidence. None of the original C documents
 claims a complete production checkout.
@@ -60,24 +60,26 @@ claims a complete production checkout.
 | Sprint | Implemented deliverable | Additional production work |
 | --- | --- | --- |
 | C001 | Inventory of approved HTML behavior and machine-readable parity manifest. | Trace actual owner-service flows and acceptance evidence for every production action. |
-| C002 | React shell, routing, navigation and feature/state boundaries. | Authenticated entry/recovery, real loading/error/permission states and persisted journey integration. |
+| C002 | React shell, routing, navigation and feature/state boundaries. | Current candidate adds real guest entry/recovery and guarded loading/error/session states. Account registration/login UI and complete persisted booking journeys remain. |
 | C003 | Home, resume/repeat entry and deterministic scenarios. | Live orders, repeat eligibility and durable drafts. Current candidate adds validated live Catalog/profile reads. |
 | C004 | Vehicle selection in the booking draft. | Read owned Vehicle records and resolve their actual versioned snapshots. |
-| C005 | Garage, saved vehicles and shared vehicle editor in session state. | Durable owner API CRUD, optimistic conflicts and refresh recovery. |
+| C005 | Garage, saved vehicles and shared vehicle editor in session state. | Current candidate adds owner-backed create/read/update/archive, conflicts, exact retry and reload persistence. Exact-candidate real-browser acceptance and the vehicle-to-booking journey remain. |
 | C006 | Package selection, package details and illustrative cost breakdown. | Published catalog selection plus a real expiring Pricing quote. Live Catalog browsing alone supplies no price. |
 | C007 | Extras/add-on selection and illustrative calculations. | Real eligibility, identifiers, rates and quote validation. |
 | C008 | Location/address selection and illustrative map. | Owned location data, serviceability and approved operational coverage. |
 | C009 | Address book and shared editor in session state. | Canonical address CRUD adapter, persistence and revision conflicts. Current candidate adds the owner snapshot endpoint used by Booking. |
 | C010 | Demonstration time selection and earliest illustrative appointment. | Real availability, capacity holds, expiry and confirmation. Choosing a prototype time reserves nothing. |
-| C011 | Contact details and technician note in the draft. | Actual authenticated profile writes and policy-compliant verification where required. |
+| C011 | Contact details and technician note in the draft. | Current candidate adds canonical authenticated profile writes without claiming phone verification. Connecting those facts to the durable booking journey and required operational verification remains. |
 | C012 | Selection of cash/Sham Cash/Syriatel Cash as a draft method. | Billing intents, real provider verification and correct payment outcomes. No money operation occurs in the original sprint. |
 | C013 | Review, summary and edit-and-return of an unsent draft. | Real quote/snapshot/hold checks immediately before the Booking command. |
 | C014 | Idempotent confirmation of an in-memory demonstration order and route handoff. | Durable Booking creation, retry recovery and actual order/payment state. Current production mode refuses the demonstration command. |
 
 The current candidate makes fixture scenarios selectable only in explicit
-`parity` builds. It adds validated Catalog/profile reads and corrects Customer
-profile/snapshot contracts. It deliberately does not misrepresent the remaining
-session editors or disabled checkout as a completed production integration.
+`parity` builds. It adds validated Catalog reads, real guest entry/recovery,
+canonical profile writes and owned garage CRUD, and corrects Customer
+profile/snapshot contracts. Six real Gateway/Identity/Customer/Vehicle integration
+cases pass locally; a mandatory production-browser family is added for CI.
+The remaining address and booking paths are not a completed production integration.
 
 ## P01–P06: substantial implementation, broader closure still required
 
@@ -114,7 +116,7 @@ completion records. A later real document and merge establish P06-CLOSE-07.
 | Existing ID | Present disposition | Concrete next closure work |
 | --- | --- | --- |
 | P06-CLOSE-01 | Baseline/traceability deliverable merged in PR #145. | Reconcile statuses against current source/evidence without replacing original requirement IDs or erasing unresolved gaps. |
-| P06-A | Customer production integration remains partial. | Auth entry, owned profile/garage/address writes, Geo, Catalog/Pricing, availability/holds, Booking create/change, payment and order tracking; real service and browser evidence. Current changes close the fixture boundary, live browse and canonical profile/snapshot slices. |
+| P06-A | Customer production integration remains partial. | Account entry, canonical address writes, Geo, Catalog/Pricing, availability/holds, Booking create/change, payment and order tracking; real service and browser evidence. Current changes close the fixture boundary, live browse, guest/recovery, canonical profile/snapshot and garage CRUD slices, subject to exact-candidate CI. |
 | P06-B | B1 Catalog (#135), B2 Pricing (#142), B4 Billing saga (#136), B5 matrix (#133) and B6 admin finance (#144) are merged bounded work. | Reconcile remaining refund and event/outbox behavior, cash/custody integration and subscription/promotion consumption; verify the finance matrix on the final source. Do not rebuild a duplicate wallet implementation already merged as P05-B3 (#134). |
 | P06-C | Technician/provider implementation exists; full acceptance remains distinct. | Real operator Gateway and Identity acceptance, cash receipt flow, reassignment/media policy, recovery and current visual/accessibility evidence. |
 | P06-CLOSE-07 | Technician execution/media work merged in PR #146. | Reconcile its old `NOT ACCEPTED` document with code and new evidence. The superseded-technician media fence is already implemented on baseline main; the old open B-07-01/todo wording is stale. Other scope and evidence requirements remain. |

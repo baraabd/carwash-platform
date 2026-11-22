@@ -8,9 +8,18 @@ interface GarageListProps {
   readonly onBook: (vehicleId: string) => void;
   readonly onEdit: (vehicleId: string) => void;
   readonly onDelete: (vehicleId: string) => void;
+  readonly bookingAvailable?: boolean;
+  readonly editingDisabled?: boolean;
 }
 
-export function GarageList({ cards, onBook, onEdit, onDelete }: GarageListProps) {
+export function GarageList({
+  cards,
+  onBook,
+  onEdit,
+  onDelete,
+  bookingAvailable = true,
+  editingDisabled = false,
+}: GarageListProps) {
   return (
     <>
       {cards.map((card) => (
@@ -33,6 +42,7 @@ export function GarageList({ cards, onBook, onEdit, onDelete }: GarageListProps)
             <button
               className="btn secondary"
               type="button"
+              disabled={!bookingAvailable}
               onPointerDown={spawnTapWave}
               onClick={() => onBook(card.id)}
             >
@@ -43,6 +53,7 @@ export function GarageList({ cards, onBook, onEdit, onDelete }: GarageListProps)
               type="button"
               aria-label={`تعديل ${card.name}`}
               aria-haspopup="dialog"
+              disabled={editingDisabled}
               onPointerDown={spawnTapWave}
               onClick={() => onEdit(card.id)}
             >
@@ -53,6 +64,7 @@ export function GarageList({ cards, onBook, onEdit, onDelete }: GarageListProps)
               type="button"
               aria-label={`حذف ${card.name}`}
               aria-haspopup="dialog"
+              disabled={editingDisabled}
               onPointerDown={spawnTapWave}
               onClick={() => onDelete(card.id)}
             >

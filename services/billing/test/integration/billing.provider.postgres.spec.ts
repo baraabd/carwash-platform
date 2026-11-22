@@ -3,12 +3,17 @@ import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { parseEnvelopeV2 } from '@carwash/event-contracts';
+import { billingV1 } from '@carwash/contracts';
 import { Money } from '../../src/domain';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma.service';
 import { PrismaBillingRepository } from '../../src/infrastructure/persistence/prisma-billing.repository';
 import { StaticProviderRegistry } from '../../src/infrastructure/providers/merchant-providers';
 import { SecretValue } from '../../src/infrastructure/providers/secret-value';
-import { PROVIDER_AUDIT_SUBJECTS, parseProviderCreditChangedData } from '../../src/application';
+import {
+  PROVIDER_AUDIT_SUBJECTS,
+  parseProviderCreditChangedData,
+  snapshotFinancialStatus,
+} from '../../src/application';
 import {
   FixedClock,
   SESSIONS,
@@ -191,6 +196,36 @@ async function obligation(id: string): Promise<Record<string, unknown>> {
   });
   assert.equal(reply.status, 200, JSON.stringify(reply.body));
   return reply.body;
+}
+
+/** Published HTTP views and internal refund/ledger facts must both stay correct. */
+async function assertRefundedObligation(
+  id: string,
+  refundedMinor: bigint,
+  internalStatus: 'PARTIALLY_REFUNDED' | 'REFUNDED',
+): Promise<void> {
+  for (const token of [TOKENS.customer, TOKENS.finance]) {
+    const full = await replicaA.request('GET', `${PATH}/obligations/${id}`, { token });
+    const lean = await replicaB.request('GET', `${PATH}/obligations/${id}/financial-status`, {
+      token,
+    });
+    assert.equal(full.status, 200);
+    assert.equal(lean.status, 200);
+    const obligation = billingV1.parseObligationV1(full.body);
+    const status = billingV1.parseFinancialStatusViewV1(lean.body);
+    assert.equal(obligation.financialStatus, 'PAID');
+    assert.equal(status.financialStatus, 'PAID');
+    assert.equal(obligation.status, 'SETTLED');
+    assert.deepEqual(status.verified, obligation.amount, 'refund does not reopen the receivable');
+    assert.equal(status.outstanding.amountMinor, '0');
+    assert.equal(status.revision, obligation.revision);
+  }
+  const prisma = prismas[0];
+  assert.ok(prisma);
+  const snapshot = await new PrismaBillingRepository(prisma).snapshot(id);
+  assert.ok(snapshot);
+  assert.equal(snapshot.refunded?.amountMinor, refundedMinor);
+  assert.equal(snapshotFinancialStatus(snapshot), internalStatus);
 }
 
 async function creditRow(id: unknown) {
@@ -846,7 +881,7 @@ async function paidByStatement(replica: BillingHttpHarness = replicaA) {
   return { ...c, creditId: String(credit.creditId) };
 }
 
-test('refund (manual channel): request, approval, evidence, cumulative cap and REFUNDED status', async () => {
+test('refund (manual channel): published HTTP views remain PAID while partial/full refund facts and caps stay exact', async () => {
   const paid = await paidByStatement();
   const first = await approvedRefund(replicaA, paid.creditId, '50000');
   const view = await replicaA.request('GET', `${PATH}/refunds/${first}`, { token: TOKENS.finance });
@@ -870,13 +905,13 @@ test('refund (manual channel): request, approval, evidence, cumulative cap and R
   assert.equal(done.status, 200, JSON.stringify(done.body));
   assert.equal(done.body.status, 'SUCCEEDED');
   assert.match(String(done.body.providerRefundReference), /^…/);
-  assert.equal((await obligation(paid.obligationId)).financialStatus, 'PARTIALLY_REFUNDED');
+  await assertRefundedObligation(paid.obligationId, 50_000n, 'PARTIALLY_REFUNDED');
   assert.equal(await creditNet(paid.creditId, 'REFUNDS_CONTROL'), '50000');
   assert.equal(await creditNet(paid.creditId, 'CLEARING_SHAM_CASH'), '100000');
 
   const rest = await approvedRefund(replicaA, paid.creditId, '100000', 'SERVICE_NOT_DELIVERED');
   assert.equal((await completeManual(replicaA, rest, 2, { outcome: 'SUCCEEDED' })).status, 200);
-  assert.equal((await obligation(paid.obligationId)).financialStatus, 'REFUNDED');
+  await assertRefundedObligation(paid.obligationId, 150_000n, 'REFUNDED');
   assert.equal(await creditNet(paid.creditId, 'CLEARING_SHAM_CASH'), '0');
   const none = await requestRefund(replicaA, paid.creditId, {
     revision: 2,
@@ -1071,7 +1106,7 @@ test('refund (provider API, fake): a lost answer is UNKNOWN, never success, and 
   assert.deepEqual(fakeSham.submissions.filter((id) => id === refundId).length, 1);
   assert.equal(fakeSham.paidOut.get(refundId)?.amountMinor, 150_000n);
   assert.equal(await creditNet(creditId, 'REFUNDS_CONTROL'), '150000');
-  assert.equal((await obligation(c.obligationId)).financialStatus, 'REFUNDED');
+  await assertRefundedObligation(c.obligationId, 150_000n, 'REFUNDED');
   assert.equal(errorCode(await execute(replicaD, refundId, 4)), 'REFUND_NOT_PENDING_AT_PROVIDER');
 });
 

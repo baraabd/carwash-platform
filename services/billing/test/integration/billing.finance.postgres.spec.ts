@@ -1,6 +1,7 @@
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { billingV1 } from '@carwash/contracts';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma.service';
 import { PrismaBillingRepository } from '../../src/infrastructure/persistence/prisma-billing.repository';
 import { PrismaFinanceReadModel } from '../../src/infrastructure/persistence/prisma-finance.read-model';
@@ -475,7 +476,8 @@ test('model-based: random command sequences through the real services; summary d
       )),
     );
   }
-  // The model is right about every obligation (checked against the owner view).
+  // Public billing.v1 keeps settlement PAID; the internal model retains the
+  // refund extent, asserted separately in every finance-summary delta below.
   for (const m of models) {
     const view = ok(
       await replicaA.request('GET', `${PATH}/obligations/${m.obligationId}`, {
@@ -484,7 +486,10 @@ test('model-based: random command sequences through the real services; summary d
       200,
       'obligation',
     );
-    assert.equal(view.financialStatus, m.financialStatus, m.obligationId);
+    const publicStatus = ['PARTIALLY_REFUNDED', 'REFUNDED'].includes(m.financialStatus)
+      ? 'PAID'
+      : m.financialStatus;
+    assert.equal(billingV1.parseObligationV1(view).financialStatus, publicStatus, m.obligationId);
     assert.equal(view.status, m.status);
   }
   const afterward = await summary(financeB);

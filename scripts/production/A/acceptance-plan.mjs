@@ -15,10 +15,13 @@ export function acceptancePlan(args, root) {
   if (
     args[0] !== '--services' ||
     !args[1] ||
-    args.length > 3 ||
-    (args.length === 3 && args[2] !== '--keep')
+    args.length > 4 ||
+    args.slice(2).some((arg) => arg !== '--keep' && arg !== '--customer-browser') ||
+    new Set(args.slice(2)).size !== args.slice(2).length
   ) {
-    throw new Error('usage: acceptance-a.mjs --services customer[,vehicle,geo] [--keep]');
+    throw new Error(
+      'usage: acceptance-a.mjs --services customer[,vehicle,geo] [--customer-browser] [--keep]',
+    );
   }
   const services = args[1].split(',');
   if (
@@ -28,6 +31,11 @@ export function acceptancePlan(args, root) {
     throw new Error('INVALID_SERVICE_SELECTION');
   }
   const suites = services.flatMap((service) => SUITES[service]);
+  const gatewayOwners = services.includes('customer') && services.includes('vehicle');
+  if (gatewayOwners) suites.push('tests/production/A/gateway-owner.integration.test.mjs');
+  const customerBrowser = args.includes('--customer-browser');
+  if (customerBrowser && !gatewayOwners) throw new Error('CUSTOMER_BROWSER_REQUIRES_REAL_OWNERS');
+  if (customerBrowser) suites.push('tests/production/A/customer-production.browser.test.mjs');
   for (const suite of suites) {
     let present = false;
     try {
@@ -48,8 +56,14 @@ export function acceptancePlan(args, root) {
     (services.includes('customer')
       ? 'The additional Customer published-contract suite uses an explicit Identity HTTP double. '
       : '') +
-    'No broker relay, no gateway, no browser, no production deployment.';
-  return { services, suites, scope, keep: args.includes('--keep') };
+    (gatewayOwners
+      ? 'Additional production Gateway-to-Identity/Customer/Vehicle HTTP journeys use real owners and sessions. '
+      : 'No Gateway. ') +
+    (customerBrowser
+      ? 'Real Chromium guest, profile and garage journey against those owners and the production bundle. '
+      : 'No browser. ') +
+    'No broker relay, no production deployment.';
+  return { services, suites, scope, gatewayOwners, customerBrowser, keep: args.includes('--keep') };
 }
 
 export function suiteAccepted(result, counts) {

@@ -32,6 +32,8 @@ export interface PublishInput {
   readonly correlationId: string;
   readonly traceParent?: string | null;
   readonly createdAtMs?: number;
+  /** Durable owner retry metadata; tracing headers remain managed by this publisher. */
+  readonly headers?: Readonly<Record<string, string | number>>;
 }
 
 export class ConfirmingPublisher {
@@ -110,7 +112,7 @@ export class ConfirmingPublisher {
           correlationId: input.correlationId,
           type: input.eventType,
           timestamp: Math.floor((input.createdAtMs ?? Date.now()) / 1000),
-          headers: traceHeaders(),
+          headers: { ...input.headers, ...traceHeaders() },
         },
         (error: unknown) => {
           if (error) {

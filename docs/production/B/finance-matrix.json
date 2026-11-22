@@ -409,13 +409,19 @@
       "owner": "billing",
       "status": "IMPLEMENTED",
       "contractRoutes": [
+        "getCashCollectionTarget",
         "recordCashCollection",
         "getCashReceipt"
+      ],
+      "gatewayRoutes": [
+        "operator.cash.target",
+        "operator.cash.receipt",
+        "operator.cash.collect"
       ],
       "files": [
         "services/billing/src/application/cash-custody.service.ts",
         "services/billing/src/domain/cash.ts",
-        "services/billing/src/infrastructure/work/unpublished-work.authority.ts"
+        "services/billing/src/infrastructure/work/dispatch-work.authority.ts"
       ],
       "tables": [
         "cash_receipt",
@@ -424,12 +430,12 @@
       ],
       "tests": [
         "services/billing/test/billing.cash.domain.spec.ts",
+        "services/billing/test/billing.work-authority.spec.ts",
         "services/billing/test/integration/billing.custody.postgres.spec.ts"
       ],
       "productionGate": "FAIL_CLOSED",
       "blockers": [
-        "B-P03-01",
-        "B-P06-08"
+        "B-P03-01"
       ]
     },
     {
@@ -491,7 +497,7 @@
       ],
       "productionGate": "FAIL_CLOSED",
       "blockers": [
-        "B-P06-08"
+        "B-07"
       ]
     },
     {
@@ -553,6 +559,9 @@
         "getMyCustody",
         "getHolderCustody"
       ],
+      "gatewayRoutes": [
+        "operator.custody"
+      ],
       "files": [
         "services/billing/src/application/custody-views.ts"
       ],
@@ -564,7 +573,7 @@
       ],
       "productionGate": "FAIL_CLOSED",
       "blockers": [
-        "B-P06-08"
+        "B-07"
       ]
     },
     {
@@ -925,8 +934,8 @@
       "id": "B-P03-01",
       "external": false,
       "lane": "C",
-      "tracking": "docs/production/B/P03-B1-CASH-CUSTODY.md",
-      "summary": "No published work-execution contract states that a booking is COMPLETED for the calling technician; cash collection fails closed with 503."
+      "tracking": "docs/production/B/P06-B-FINANCE-MATRIX.md",
+      "summary": "The Dispatch work endpoint and Billing adapter are implemented. Production cash acceptance still requires configured Dispatch connectivity and exact-candidate Gateway/Identity/Dispatch/Billing evidence; missing, denied or invalid work facts fail closed."
     },
     {
       "id": "B-P06-01",
@@ -982,7 +991,7 @@
       "external": false,
       "lane": "E",
       "tracking": "docs/production/B/CONTRACT_REQUEST_E_P06.md",
-      "summary": "Identity does not grant contract permissions pricing.prices.publish, billing.cash.collect, billing.cash.correct and billing.treasury.receive."
+      "summary": "Identity grants billing.cash.collect to technicians. Contract permissions pricing.prices.publish, billing.cash.correct and billing.treasury.receive remain ungrantable; cash correction and treasury receipt are not enabled by the collection grant."
     }
   ]
 }
