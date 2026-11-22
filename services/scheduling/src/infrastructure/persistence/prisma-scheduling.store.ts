@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { traceHeaders } from '@carwash/service-kit';
+import { schedulingV1 } from '@carwash/contracts';
 import { SchedulingError } from '../../domain';
 import type {
   CapacityWindowState,
@@ -169,6 +170,60 @@ function activeTraceparent(): string | null {
   return typeof value === 'string' && TRACEPARENT.test(value) ? value : null;
 }
 
+/**
+ * The required quoteRef was added after early v1 success receipts existed.
+ * Upcast only that missing immutable fact from its own hold row, preserving
+ * the stored status, state, revisions and timestamps even after later changes.
+ * Missing/malformed evidence fails closed; no response is reconstructed from
+ * the current mutable hold state, and the stored receipt bytes are not changed.
+ */
+async function receiptBody(client: Pick<Tx, '$queryRawUnsafe'>, value: unknown): Promise<unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('STORED_IDEMPOTENCY_RESPONSE_INVALID');
+  }
+  const body = value as Record<string, unknown>;
+  if (Object.hasOwn(body, 'released') && Object.hasOwn(body, 'committed')) {
+    if (Object.keys(body).sort().join(',') !== 'bookingId,committed,released') {
+      throw new Error('STORED_IDEMPOTENCY_RESPONSE_INVALID');
+    }
+    const released = schedulingV1.parseHoldV1(await receiptBody(client, body.released));
+    const committed = schedulingV1.parseHoldV1(await receiptBody(client, body.committed));
+    if (
+      released.state !== 'RELEASED' ||
+      committed.state !== 'COMMITTED' ||
+      committed.bookingId !== body.bookingId
+    ) {
+      throw new Error('STORED_IDEMPOTENCY_RESPONSE_INVALID');
+    }
+    return { ...body, released, committed };
+  }
+  if (Object.hasOwn(body, 'quoteRef')) return schedulingV1.parseHoldV1(body);
+  if (typeof body.holdId !== 'string' || !/^[0-9a-f-]{36}$/i.test(body.holdId)) {
+    throw new Error('STORED_IDEMPOTENCY_RESPONSE_INVALID');
+  }
+  const [row] = await client.$queryRawUnsafe<HoldRow[]>(
+    `SELECT ${HOLD_COLUMNS} FROM app.capacity_hold WHERE id = $1::uuid AND ${V1_ROW}`,
+    body.holdId,
+  );
+  const beneficiary = body.beneficiary as Record<string, unknown> | undefined;
+  if (
+    !row ||
+    !beneficiary ||
+    beneficiary.kind !== row.beneficiary_kind ||
+    beneficiary.subjectId !== row.beneficiary_subject ||
+    body.zoneId !== row.zone_id ||
+    body.startsAt !== row.slot_starts_at.toISOString() ||
+    body.endsAt !== row.slot_ends_at.toISOString() ||
+    body.createdAt !== row.created_at.toISOString()
+  ) {
+    throw new Error('STORED_IDEMPOTENCY_RESPONSE_INVALID');
+  }
+  return schedulingV1.parseHoldV1({
+    ...body,
+    quoteRef: { quoteId: row.quote_id, revision: row.quote_revision },
+  });
+}
+
 class PrismaSchedulingTransaction implements SchedulingTransaction {
   constructor(private readonly tx: Tx) {}
 
@@ -212,7 +267,13 @@ class PrismaSchedulingTransaction implements SchedulingTransaction {
     if (!row) return { kind: 'IN_PROGRESS' };
     if (row.fingerprint !== fingerprint) return { kind: 'CONFLICT' };
     if (row.response_status === null) return { kind: 'IN_PROGRESS' };
-    return { kind: 'REPLAY', response: { status: row.response_status, body: row.response_body } };
+    return {
+      kind: 'REPLAY',
+      response: {
+        status: row.response_status,
+        body: await receiptBody(this.tx, row.response_body),
+      },
+    };
   }
 
   async completeIdempotency(scope: string, key: string, response: StoredResponse): Promise<void> {
@@ -502,6 +563,28 @@ export class PrismaSchedulingStore implements SchedulingUnitOfWork, SchedulingRe
       maxWait: this.options.maxWaitMs ?? 5_000,
       timeout: this.options.transactionTimeoutMs ?? 10_000,
     });
+  }
+
+  async findIdempotency(
+    scope: string,
+    key: string,
+    fingerprint: string,
+  ): Promise<IdempotencyClaim | null> {
+    const [row] = await this.prisma.client.$queryRawUnsafe<IdempotencyRow[]>(
+      `SELECT fingerprint, response_status, response_body FROM app.idempotency_record WHERE scope = $1 AND key = $2`,
+      scope,
+      key,
+    );
+    if (!row) return null;
+    if (row.fingerprint !== fingerprint) return { kind: 'CONFLICT' };
+    if (row.response_status === null) return { kind: 'IN_PROGRESS' };
+    return {
+      kind: 'REPLAY',
+      response: {
+        status: row.response_status,
+        body: await receiptBody(this.prisma.client, row.response_body),
+      },
+    };
   }
 
   async findWindow(id: string): Promise<CapacityWindowState | null> {

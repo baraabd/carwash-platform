@@ -6,6 +6,7 @@ const dOwners = [
   'communications',
   'reporting',
   'support',
+  'reviews',
   'configuration',
   'identity',
   'workforce',
@@ -26,6 +27,13 @@ export const BUSINESS_SUITES = Object.freeze({
     browser: true,
     scope:
       'Real Chromium using the production customer bundle/static runtime, Gateway, Identity, Customer and Vehicle on PostgreSQL/Redis. Guest recovery, profile and garage persistence; no Catalog/Pricing/checkout or external provider approval.',
+  },
+  'a-booking-billing': {
+    lane: 'A',
+    services: ['identity', 'booking', 'billing'],
+    browser: false,
+    scope:
+      'Real Identity, Gateway, Booking-to-Billing HTTP and PostgreSQL/Redis: exact obligation binding, compensation fences, response-loss recovery and owner-isolated reads. Pricing and other upstream ports are explicit doubles; no checkout/browser or live provider approval.',
   },
   ...Object.fromEntries(
     ['catalog', 'pricing', 'billing', 'subscription', 'wallet'].map((service) => [
@@ -58,6 +66,13 @@ export const BUSINESS_SUITES = Object.freeze({
       },
     ]),
   ),
+  'c-quote-hold': {
+    lane: 'C',
+    services: [...cOwners, 'catalog', 'pricing'],
+    browser: false,
+    scope:
+      'Real Catalog, Pricing and Scheduling production HTTP processes and separate PostgreSQL databases; pinned Catalog duration, quote ownership/revision and hold binding. Identity is an explicit HTTP double. No browser, Billing or checkout approval.',
+  },
   'c-p06': {
     lane: 'C',
     services: cOwners,
@@ -79,7 +94,7 @@ export const BUSINESS_SUITES = Object.freeze({
     services: [...dOwners, 'booking', 'billing', 'dispatch'],
     browser: false,
     scope:
-      'Real PostgreSQL, RabbitMQ, Redis and owner HTTP integration for communications, reporting, configuration and support, plus Gateway/Workforce/Dispatch commands. Individual suites declare their producers/doubles.',
+      'Real PostgreSQL, RabbitMQ, Redis and owner HTTP integration for communications, reporting, configuration, support and Reviews, plus Gateway/Workforce/Dispatch commands. Reviews uses real Identity/Booking reads over seeded owner fixtures. Individual suites declare their producers/doubles.',
   },
   'd-admin-browser': {
     lane: 'D',

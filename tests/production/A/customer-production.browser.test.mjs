@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { startCustomerStack } from './_customer-stack.mjs';
 import { ROOT } from './_support.mjs';
+import { captureCustomerAccessReview } from '../support/customer-access-review.mjs';
 
 const own = createRequire(path.join(ROOT, 'apps/customer-web/package.json'));
 const { parseCustomerProfileV1, parseAddressV1 } = own('@carwash/contracts/customer-v1');
@@ -387,3 +388,21 @@ test(
     );
   },
 );
+
+test('customer access design previews contain synthetic data only and forward no API requests', async (t) => {
+  const stack = await startCustomerStack();
+  let browser;
+  t.after(async () => {
+    await browser?.close();
+    await stack.stop();
+  });
+  browser = await chromium.launch({ headless: true });
+  const report = await captureCustomerAccessReview({
+    browser,
+    origin: stack.origin,
+    output: path.join(ROOT, '.acceptance/production-A/customer-access-design'),
+  });
+  assert.equal(report.acceptedDesign, false);
+  assert.equal(report.ownerJourneyEvidence, false);
+  assert.equal(report.forwardedApiRequests, 0);
+});

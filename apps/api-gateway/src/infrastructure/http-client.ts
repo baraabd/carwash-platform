@@ -68,14 +68,20 @@ export class BoundedHttpClient implements HttpPort {
           // not the published owner revision and must never become If-Match.
         }
       }
+      // Existing owner APIs use both spellings. Preserve their compatibility
+      // while exposing one safe browser header; conflicting/combined values
+      // never become an asserted replay and never trigger a Gateway retry.
+      const ownerHeaders = response.headers;
+      const replayFlags = ['idempotent-replayed', 'idempotency-replayed']
+        .map((name) => ownerHeaders.get(name))
+        .filter((value) => value !== null);
+      const replayed = replayFlags.length > 0 && replayFlags.every((value) => value === 'true');
       return {
         status: response.status,
         body: parsed,
         cookies: owner === 'identity' ? response.headers.getSetCookie() : [],
         ...(etag === undefined ? {} : { etag }),
-        ...(response.headers.get('idempotent-replayed') === 'true'
-          ? { idempotentReplayed: true }
-          : {}),
+        ...(replayed ? { idempotentReplayed: true } : {}),
       };
     } catch (error) {
       if (error instanceof GatewayFault) throw error;

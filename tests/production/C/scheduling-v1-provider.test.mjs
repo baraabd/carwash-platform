@@ -6,9 +6,10 @@
  * parsers Lane E published in @carwash/contracts (scheduling/v1, common/errors),
  * and every outbox event with @carwash/event-contracts business-v1. Requests are
  * built with, and checked by, the published request parsers, so consumer and
- * provider agree on the exact wire shape. Identity is the lane HTTP double.
+ * provider agree on the exact wire shape. Identity and Pricing are declared HTTP doubles.
  */
 import test, { after, before } from 'node:test';
+import { declaredPricingHttp } from './support/declared-pricing.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
@@ -43,12 +44,14 @@ const { SCHEDULING_HOLD_CHANGED_V1 } = contracts.events;
 
 let context;
 let identity;
+let pricing;
 let proc;
 let port;
 let db;
 
 before(async () => {
   context = await readContext();
+  pricing = await declaredPricingHttp();
   identity = await identityDouble({
     [OPS_TOKEN]: {
       subject: randomUUID(),
@@ -72,6 +75,7 @@ before(async () => {
     HOST: '127.0.0.1',
     DATABASE_URL: context.databases.scheduling.appUrl,
     IDENTITY_URL: identity.url,
+    PRICING_ORIGIN: pricing.url,
     SCHEDULING_SERVICE_CLIENTS: JSON.stringify([
       { id: 'booking', tokenSha256: digest(SERVICE_TOKEN), scopes: ['scheduling.hold.commit'] },
     ]),
@@ -87,6 +91,7 @@ after(async () => {
   await proc?.kill();
   await db?.end();
   await identity?.close();
+  await pricing?.close();
 });
 
 const url = (route) => `http://127.0.0.1:${port}${SCHEDULING_V1.prefix}${route}`;
@@ -137,13 +142,16 @@ async function window(capacity = 2) {
 
 /** Request bodies are produced, then validated by the published parser. */
 function holdRequest(who, kind, w) {
-  return parseHoldRequestV1({
-    beneficiary: { kind, subjectId: who.subject },
-    zoneId: w.zoneId,
-    startsAt: w.startsAt.toISOString(),
-    durationMinutes: 45,
-    quoteRef: { quoteId: randomUUID(), revision: 1 },
-  });
+  return pricing.register(
+    parseHoldRequestV1({
+      beneficiary: { kind, subjectId: who.subject },
+      zoneId: w.zoneId,
+      startsAt: w.startsAt.toISOString(),
+      durationMinutes: 45,
+      quoteRef: { quoteId: randomUUID(), revision: 1 },
+    }),
+    who.token,
+  );
 }
 
 test('the published route table is exactly the surface exercised below', () => {

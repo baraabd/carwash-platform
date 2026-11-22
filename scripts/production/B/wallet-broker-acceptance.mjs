@@ -207,7 +207,18 @@ try {
         assertBrokerContainerNotExited(container);
         return checked(
           'docker',
-          ['exec', container.id, 'rabbitmq-diagnostics', '-q', 'check_running'],
+          [
+            'exec',
+            '--user',
+            'rabbitmq',
+            container.id,
+            'sh',
+            '-ec',
+            // A root CLI can create a root-owned cookie before the server has
+            // initialized its own. Wait for the server-created file, then run
+            // every Erlang CLI with the same OS identity as the server.
+            'test -s /var/lib/rabbitmq/.erlang.cookie && exec rabbitmq-diagnostics -q check_running',
+          ],
           {
             timeoutMs: 15_000,
           },
@@ -215,6 +226,8 @@ try {
       });
       await checked('docker', [
         'exec',
+        '--user',
+        'rabbitmq',
         '-e',
         `CW_FINANCE_VHOST=${vhost}`,
         '-e',
@@ -227,19 +240,51 @@ try {
       ]);
       await checked('docker', [
         'exec',
+        '--user',
+        'rabbitmq',
         names.mq,
         'rabbitmqctl',
         'delete_user',
         'cw_finance_bootstrap',
       ]);
-      const users = (await checked('docker', ['exec', names.mq, 'rabbitmqctl', '-q', 'list_users']))
-        .stdout;
+      const users = (
+        await checked('docker', [
+          'exec',
+          '--user',
+          'rabbitmq',
+          names.mq,
+          'rabbitmqctl',
+          '-q',
+          'list_users',
+        ])
+      ).stdout;
       assert.match(users, /^cw_billing_app\s+\[\]\s*$/m);
       assert.match(users, /^cw_wallet_app\s+\[\]\s*$/m);
       assert.doesNotMatch(users, /administrator|cw_finance_bootstrap/);
       await writeFile(path.join(work, 'broker-identities.log'), users);
     },
   );
+  await phase('Erlang cookie belongs to the broker user and stays private', async () => {
+    const metadata = (
+      await checked('docker', [
+        'exec',
+        '--user',
+        'rabbitmq',
+        names.mq,
+        'stat',
+        '-c',
+        '%U %a',
+        '/var/lib/rabbitmq/.erlang.cookie',
+      ])
+    ).stdout.trim();
+    const [owner, mode] = metadata.split(/\s+/);
+    assert.equal(owner, 'rabbitmq');
+    assert.match(mode, /^[0-7]{3,4}$/);
+    assert.equal(Number.parseInt(mode, 8) & 0o077, 0, 'Erlang cookie must stay owner-only');
+    assert.notEqual(Number.parseInt(mode, 8) & 0o400, 0, 'Broker owner must read its cookie');
+    // Record metadata only; never read or emit the cluster authentication secret.
+    await writeFile(path.join(work, 'broker-cookie-permissions.log'), `${metadata}\n`);
+  });
   await phase('owner runtime identities reach only their own services', async () => {
     for (const service of services) {
       await until(`${service} postgres`, async () => {

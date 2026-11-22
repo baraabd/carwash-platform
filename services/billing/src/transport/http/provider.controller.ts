@@ -18,6 +18,7 @@ import {
   resolveCorrelationId,
 } from '@carwash/service-kit';
 import { BillingApplicationError, ProviderPaymentsService, RefundService } from '../../application';
+import { canonicalBillingFailure } from './canonical-http-support';
 import {
   BILLING_V1,
   contextOf,
@@ -151,6 +152,26 @@ export class ProviderController {
       response,
       (context, key) => this.payments.allocateStatementCredit(context, id, key, body),
     );
+  }
+
+  @Get('payment-attempts/:id/statement-credit')
+  async statementCreditReview(
+    @Headers() headers: RequestHeaders,
+    @Param('id') id: string,
+    @Query() query: Record<string, unknown>,
+    @Res() response: HttpResponse,
+  ): Promise<void> {
+    const context = contextOf(headers);
+    response.setHeader(CORRELATION_HEADER, context.correlationId);
+    response.setHeader('cache-control', 'no-store');
+    try {
+      if (Object.keys(query).length !== 0) throw new BillingApplicationError('REQUEST_INVALID');
+      const body = await this.payments.statementCreditReview(context, id);
+      response.status(200).json(body);
+    } catch (error: unknown) {
+      const result = canonicalBillingFailure(error, headers, context.correlationId);
+      response.status(result.status).json(result.body);
+    }
   }
 
   @Post('provider-credits/:id/refunds')

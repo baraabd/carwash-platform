@@ -256,7 +256,7 @@ async function acceptance(suite) {
     if (plan.lane === 'A') {
       await tests('provider-contract', [
         'tests/production/A/acceptance-plan.test.mjs',
-        'tests/production/A/vehicle.contract.test.mjs',
+        ...(suite === 'a-booking-billing' ? [] : ['tests/production/A/vehicle.contract.test.mjs']),
       ]);
       const pattern = 'docs/production/A/evidence/cw-p01a-*.json';
       const before = new Set(globSync(pattern, { cwd: ROOT }));
@@ -266,7 +266,9 @@ async function acceptance(suite) {
         '--services',
         ...(suite === 'a-customer-browser'
           ? ['customer,vehicle', '--customer-browser']
-          : ['customer,vehicle,geo']),
+          : suite === 'a-booking-billing'
+            ? ['booking,billing', '--booking-billing']
+            : ['customer,vehicle,geo']),
       ]);
       await childEvidence('owners', freshReport(before, pattern), (value) => {
         assert.equal(value.result, 'PASSED');
@@ -325,8 +327,13 @@ async function acceptance(suite) {
       );
     } else if (plan.lane === 'C') {
       infrastructureUsed = true;
+      if (suite === 'c-quote-hold') env.CW_PROD_C_EXTRA_SERVICES = 'catalog,pricing';
       await command('lane-stack-up', node, ['scripts/production/C/stack.mjs', 'up']);
-      if (suite === 'c-p06')
+      if (suite === 'c-quote-hold')
+        await tests('quote-hold-real-owners', [
+          'tests/production/C/pricing-scheduling-owner.test.mjs',
+        ]);
+      else if (suite === 'c-p06')
         await tests('technician-real-services', ['tests/production/C/p06c-real-services.test.mjs']);
       else {
         const owner = suite.slice(2);

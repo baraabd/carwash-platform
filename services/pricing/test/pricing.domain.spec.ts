@@ -366,3 +366,54 @@ test('catalog.v1 body: closed shape is required; the view keeps only pricing fie
   ];
   for (const value of cases) assert.equal(parseCatalogV1Body(value), null, JSON.stringify(value));
 });
+
+test('canonical duration sums only pinned independent definition minutes and quantity, independently of scheduling limits', () => {
+  const request = parseQuoteRequest(quoteRequest());
+  const pinned = catalog();
+  const entries = parsePriceBookDraft(priceBookRequest(), TEST_POLICY).entries;
+  assert.equal(
+    priceSelection({
+      request,
+      catalog: pinned,
+      entries,
+      maxAmountMinor: TEST_POLICY.maxAmountMinor,
+    }).durationMinutes,
+    90,
+  );
+  const longer = {
+    ...pinned,
+    definitions: pinned.definitions.map((definition) => ({ ...definition, durationMinutes: 480 })),
+  };
+  assert.equal(
+    priceSelection({
+      request,
+      catalog: longer,
+      entries,
+      maxAmountMinor: TEST_POLICY.maxAmountMinor,
+    }).durationMinutes,
+    1440,
+  );
+  assert.equal(
+    priceSelection({
+      request,
+      catalog: pinned,
+      entries,
+      maxAmountMinor: TEST_POLICY.maxAmountMinor,
+    }).durationMinutes,
+    90,
+  );
+  const corrupt = {
+    ...pinned,
+    definitions: pinned.definitions.map((definition) => ({ ...definition, durationMinutes: 30.5 })),
+  };
+  assert.throws(
+    () =>
+      priceSelection({
+        request,
+        catalog: corrupt,
+        entries,
+        maxAmountMinor: TEST_POLICY.maxAmountMinor,
+      }),
+    QuoteRuleError,
+  );
+});

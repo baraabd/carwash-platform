@@ -80,6 +80,52 @@ test('mislabelled screenshot bytes cannot be uploaded as visual evidence', async
   );
 });
 
+test('customer design diagnostics require synthetic provenance and retain only three declared previews', async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'cw-customer-design-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const visual = path.join(root, '.acceptance/production-A/customer-access-design');
+  const output = path.join(root, 'output');
+  await mkdir(visual, { recursive: true });
+  const files = [
+    'guest-entry-390-candidate.png',
+    'guest-recovery-390-candidate.png',
+    'guest-receipt-390-candidate.png',
+  ];
+  const png = Buffer.from('89504e470d0a1a0a', 'hex');
+  for (const file of [...files, 'real-recovery-390-candidate.png'])
+    await writeFile(path.join(visual, file), png);
+  await writeFile(path.join(visual, 'cookies.json'), 'Private browser state');
+  await assert.rejects(
+    retainBrowserDiagnostics(root, 'a-customer-browser', output, '2020-01-01T00:00:00Z'),
+    /Synthetic customer design manifest is required/,
+  );
+  const report = {
+    status: 'UNAPPROVED_CUSTOMER_ACCESS_DESIGN',
+    ownerJourneyEvidence: false,
+    forwardedApiRequests: 0,
+    containsRealCredentials: false,
+    actualIdentityIssued: false,
+    acceptedDesign: false,
+    files,
+  };
+  const manifest = path.join(visual, 'design-review.json');
+  await writeFile(manifest, JSON.stringify({ ...report, containsRealCredentials: true }));
+  await assert.rejects(
+    retainBrowserDiagnostics(root, 'a-customer-browser', output, '2020-01-01T00:00:00Z'),
+  );
+  await writeFile(manifest, JSON.stringify(report));
+  const retained = await retainBrowserDiagnostics(
+    root,
+    'a-customer-browser',
+    output,
+    '2020-01-01T00:00:00Z',
+  );
+  assert.deepEqual(
+    retained.map((entry) => path.basename(entry.file)).sort(),
+    ['design-review.json', ...files].sort(),
+  );
+});
+
 test('oversized diagnostic files fail before their contents are retained', async (t) => {
   const root = await mkdtemp(path.join(tmpdir(), 'cw-browser-diagnostics-'));
   t.after(() => rm(root, { recursive: true, force: true }));

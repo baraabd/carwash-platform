@@ -60,6 +60,27 @@ test('F007 route manifest has unique method/path and explicit owners, all compos
   for (const c of GATEWAY_COMPOSITIONS)
     for (const id of c.routes) assert.equal(GATEWAY_ROUTES.find((r) => r.id === id)?.method, 'GET');
 });
+test('Reviews principal-only routes authenticate without inventing a role grant', async (t) => {
+  const { identity, token } = await signedSession(t, []);
+  const reviews = await stub('reviews');
+  t.after(() => reviews.close());
+  const app = await start(config(identity.base, { reviews: reviews.base }));
+  t.after(() => app.close());
+  const bookingId = randomUUID();
+  const route = `/api/v1/customer/bookings/${bookingId}/review`;
+  assert.equal((await request(app.base, route)).status, 401);
+  assert.equal(reviews.calls.length, 0);
+  const allowed = await request(app.base, route, { headers: { authorization: `Bearer ${token}` } });
+  assert.equal(allowed.status, 200);
+  assert.equal(reviews.calls[0].path, `/internal/v1/reviews/bookings/${bookingId}/review`);
+  assert.equal(reviews.calls[0].headers.authorization, `Bearer ${token}`);
+  assert.equal(reviews.calls[0].headers.cookie, undefined);
+  const denied = await request(app.base, '/api/v1/admin/customer-reviews', {
+    headers: { authorization: `Bearer ${token}`, 'x-permissions': 'reviews.moderate' },
+  });
+  assert.equal(denied.status, 403);
+  assert.equal(reviews.calls.length, 1);
+});
 test('F007 route matcher rejects arbitrary origins, traversal, query injection and unsafe methods', () => {
   for (const p of [
     '/api/v1/customer/%2e%2e/billing',
@@ -754,6 +775,20 @@ test('F007 discovery marks every BFF composition authenticated with every requir
     assert.deepEqual(operation.security, [{ bearer: [] }, { session: [] }]);
     assert.deepEqual(operation['x-required-permissions'], expected);
     assert.equal(operation['x-read-only'], true);
+  }
+});
+
+test('Reviews discovery requires a principal without claiming an unrelated role grant', () => {
+  const api = gateway.gatewayOpenApi();
+  for (const [path, method] of [
+    ['/api/v1/customer/reviews', 'post'],
+    ['/api/v1/customer/bookings/{id}/review', 'get'],
+  ]) {
+    const operation = api.paths[path][method];
+    assert.deepEqual(operation.security, [{ bearer: [] }, { session: [] }]);
+    assert.equal(operation['x-required-permission'], undefined);
+    assert.equal(operation['x-any-permission'], undefined);
+    assert.equal(operation['x-public'], undefined);
   }
 });
 

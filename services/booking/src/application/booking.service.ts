@@ -259,7 +259,10 @@ export class BookingService {
         `QUOTE_${quoteStatus}`,
       );
     }
-    if (quoteSnapshot.revision !== command.quote.revision) {
+    if (
+      quoteSnapshot.quoteId !== command.quote.quoteId ||
+      quoteSnapshot.revision !== command.quote.revision
+    ) {
       throw new BookingError(
         'QUOTE_NOT_USABLE',
         'The quote changed; request a new quote.',
@@ -267,7 +270,12 @@ export class BookingService {
       );
     }
     const holdValue = usable(hold, 'HOLD_ALREADY_BOOKED', 'hold');
-    if (holdValue.state !== 'HELD' || holdValue.revision !== command.hold.revision) {
+    if (
+      holdValue.holdId !== command.hold.holdId ||
+      holdValue.state !== 'HELD' ||
+      holdValue.revision !== command.hold.revision ||
+      holdValue.expiresAt.getTime() <= this.deps.clock.now().getTime()
+    ) {
       throw new BookingError(
         'HOLD_ALREADY_BOOKED',
         'The selected time is no longer held.',
@@ -283,6 +291,16 @@ export class BookingService {
         'HOLD_ALREADY_BOOKED',
         'The selected time is no longer held.',
         'HOLD_NOT_ACTIVE',
+      );
+    }
+    if (
+      holdValue.quoteRef.quoteId !== quoteSnapshot.quoteId ||
+      holdValue.quoteRef.revision !== quoteSnapshot.revision
+    ) {
+      throw new BookingError(
+        'QUOTE_MISMATCH',
+        'The selected hold belongs to another quote.',
+        'HOLD_QUOTE_MISMATCH',
       );
     }
     const requestedSlot: RequestedSlot = {

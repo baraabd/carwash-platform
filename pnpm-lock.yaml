@@ -334,6 +334,9 @@ importers:
 
   services/booking:
     dependencies:
+      '@carwash/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@carwash/event-contracts':
         specifier: workspace:*
         version: link:../../packages/event-contracts
@@ -897,6 +900,9 @@ importers:
 
   services/reviews:
     dependencies:
+      '@carwash/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@carwash/event-contracts':
         specifier: workspace:*
         version: link:../../packages/event-contracts
@@ -946,6 +952,9 @@ importers:
 
   services/scheduling:
     dependencies:
+      '@carwash/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@carwash/event-contracts':
         specifier: workspace:*
         version: link:../../packages/event-contracts

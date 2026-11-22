@@ -12,6 +12,7 @@ export type GatewayOwner =
   | 'booking'
   | 'workforce'
   | 'billing'
+  | 'reviews'
   | 'support'
   | 'reporting'
   | 'dispatch'
@@ -258,6 +259,14 @@ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
     upstream: '/internal/v1/booking/bookings/:id/changes',
     permission: 'bookings.read:self',
   },
+  {
+    id: 'customer.bookings.obligation',
+    method: 'GET',
+    path: '/customer/bookings/:id/obligation',
+    owner: 'billing',
+    upstream: '/internal/v1/billing/bookings/:id/obligation',
+    permission: 'bookings.read:self',
+  },
   ...(['cancellation', 'reschedule'] as const).map((action): GatewayRoute => ({
     id: `customer.bookings.${action}`,
     method: 'POST',
@@ -405,6 +414,15 @@ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
     idempotency: 'required',
   },
   {
+    id: 'admin.billing.statement-credit.read',
+    method: 'GET',
+    path: '/admin/billing/payment-attempts/:id/statement-credit',
+    owner: 'billing',
+    upstream: '/internal/v1/billing/payment-attempts/:id/statement-credit',
+    permission: 'billing.reconcile',
+    query: [],
+  },
+  {
     id: 'admin.billing.statement-credit.allocate',
     method: 'POST',
     path: '/admin/billing/payment-attempts/:id/statement-credit-allocation',
@@ -462,6 +480,42 @@ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
     owner: 'workforce',
     upstream: '/internal/v1/workforce/:id/review',
     permission: 'verification.review',
+    idempotency: 'required',
+  },
+  {
+    id: 'customer.reviews.submit',
+    method: 'POST',
+    path: '/customer/reviews',
+    owner: 'reviews',
+    upstream: '/internal/v1/reviews/reviews',
+    idempotency: 'required',
+  },
+  {
+    id: 'customer.reviews.get',
+    method: 'GET',
+    path: '/customer/bookings/:id/review',
+    owner: 'reviews',
+    upstream: '/internal/v1/reviews/bookings/:id/review',
+  },
+  {
+    id: 'admin.customer-reviews.list',
+    method: 'GET',
+    path: '/admin/customer-reviews',
+    owner: 'reviews',
+    upstream: '/internal/v1/reviews/moderation/reviews',
+    permission: 'reviews.moderate',
+    query: [
+      { name: 'limit', pattern: /^(?:[1-9]|[1-9][0-9]|100)$/ },
+      { name: 'cursor', pattern: /^[A-Za-z0-9_-]{1,512}$/ },
+    ],
+  },
+  {
+    id: 'admin.customer-reviews.decide',
+    method: 'POST',
+    path: '/admin/customer-reviews/:id/decision',
+    owner: 'reviews',
+    upstream: '/internal/v1/reviews/moderation/reviews/:id/decision',
+    permission: 'reviews.moderate',
     idempotency: 'required',
   },
   {

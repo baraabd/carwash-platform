@@ -41,6 +41,20 @@ export interface BookingLink {
   readonly voidedAt: Date | null;
 }
 
+/** Immutable saga compensation fence, including the case in which no debt existed. */
+export interface BookingCompensation {
+  readonly bookingId: string;
+  readonly clientId: string;
+  readonly beneficiary: PrincipalRef;
+  readonly quoteId: string;
+  readonly reason: 'BOOKING_FAILED';
+  readonly outcome: 'ABSENT_FENCED' | 'VOIDED';
+  readonly obligationId: string | null;
+  readonly obligationRevision: number | null;
+  readonly compensatedAt: Date;
+  readonly correlationId: string;
+}
+
 export class BookingAlreadyLinked extends Error {
   constructor() {
     super('BOOKING_ALREADY_LINKED');
@@ -50,8 +64,12 @@ export class BookingAlreadyLinked extends Error {
 
 /** Booking links inside the caller's ONE local transaction. */
 export interface BookingLinkStore {
+  /** Serializes create and compensation, including while no link exists. */
+  lockBooking(bookingId: string): Promise<void>;
   forBooking(bookingId: string): Promise<BookingLink | null>;
   forObligation(obligationId: string): Promise<BookingLink | null>;
+  compensationForBooking(bookingId: string): Promise<BookingCompensation | null>;
+  insertCompensation(record: BookingCompensation): Promise<void>;
   /** Throws BookingAlreadyLinked when the booking or the obligation is already linked. */
   insert(link: BookingLink, correlationId: string): Promise<void>;
   /** Sets the void stamp once; the obligation must already be VOIDED in this transaction. */
@@ -62,6 +80,7 @@ export interface BookingLinkStore {
 export interface BookingLinkReader {
   forBooking(bookingId: string): Promise<BookingLink | null>;
   forObligation(obligationId: string): Promise<BookingLink | null>;
+  compensationForBooking(bookingId: string): Promise<BookingCompensation | null>;
 }
 
 /** Pricing's server-computed total for a quote that is valid for the beneficiary. */

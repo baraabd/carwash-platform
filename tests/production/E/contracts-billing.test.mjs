@@ -39,6 +39,36 @@ const T0 = '2026-10-10T08:00:00.000Z';
 const T1 = '2026-10-10T08:05:00.000Z';
 const id = () => randomUUID();
 
+test('statement credit review is masked, immutable review data and cannot claim settlement', () => {
+  const candidate = {
+    attemptId: id(),
+    obligationId: id(),
+    obligationRevision: 3,
+    creditId: id(),
+    creditRevision: 1,
+    provider: 'SHAM_CASH',
+    status: 'PENDING_APPROVAL',
+    amount: SYP(150000),
+    merchantAccount: '…0001',
+    reference: '…5678',
+    evidenceFingerprint: 'a1b2c3d4e5f6',
+    occurredAt: T0,
+    recordedAt: T1,
+  };
+  assert.deepEqual(b.parseStatementCreditReviewV1(candidate), candidate);
+  for (const patch of [
+    { status: 'ALLOCATED' },
+    { amount: SYP(0) },
+    { obligationRevision: 0 },
+    { merchantAccount: 'full-account' },
+    { reference: 'TX12345678' },
+    { evidenceFingerprint: 'a'.repeat(64) },
+    { recordedBy: id() },
+    { recordedAt: '2026-10-09T08:00:00.000Z' },
+  ])
+    assert.throws(() => b.parseStatementCreditReviewV1({ ...candidate, ...patch }));
+});
+
 // ---------------------------------------------------------------- descriptor
 
 test('billing.v1 descriptor passes the shared contract lint and is registered', () => {
@@ -73,6 +103,47 @@ test('provider-signed access is a plain POST de-duplicated by the owner', () => 
 });
 
 // ---------------------------------------------------------------- consumer rules
+
+test('booking compensation is an immutable binding, and absent fencing never claims a financial void', () => {
+  const binding = {
+    bookingId: id(),
+    quoteId: id(),
+    beneficiary: { kind: 'guest', subjectId: id() },
+  };
+  const request = { ...binding, reason: 'BOOKING_FAILED' };
+  assert.deepEqual(b.parseCompensateBookingObligationRequestV1(request), request);
+  const absent = {
+    ...binding,
+    outcome: 'ABSENT_FENCED',
+    obligationId: null,
+    obligationRevision: null,
+    compensatedAt: T1,
+  };
+  assert.deepEqual(b.parseBookingCompensationV1(absent), absent);
+  const voided = { ...absent, outcome: 'VOIDED', obligationId: id(), obligationRevision: 2 };
+  assert.deepEqual(b.parseBookingCompensationV1(voided), voided);
+  for (const value of [
+    { ...absent, obligationId: id() },
+    { ...absent, obligationRevision: 2 },
+    { ...voided, obligationId: null },
+    { ...voided, obligationRevision: null },
+    { ...voided, obligationRevision: 0 },
+    { ...voided, compensatedAt: '2026-10-10T08:05:00Z' },
+    { ...absent, amount: SYP(0) },
+    { ...absent, outcome: 'NOT_FOUND' },
+    { ...absent, beneficiary: { kind: 'account', subjectId: 'invented' } },
+  ])
+    assert.throws(() => b.parseBookingCompensationV1(value));
+  assert.throws(() => b.parseCompensateBookingObligationRequestV1({ ...request, amount: SYP(1) }));
+  assert.throws(() =>
+    b.parseCompensateBookingObligationRequestV1({ ...request, reason: 'REFUND' }),
+  );
+  assert.equal(
+    b.BILLING_V1.routes.compensateBookingObligation.access,
+    'service:billing.obligation.write',
+  );
+  assert.equal(b.BILLING_V1.routes.getBookingObligation.access, 'principal');
+});
 
 test('cash target contract binds restored receipts and refuses invented collection success or extra owner data', () => {
   const pending = {

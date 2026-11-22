@@ -59,6 +59,11 @@ export class BillingController {
     return run(() => this.billing.getFinancialStatus(contextOf(headers), id));
   }
 
+  @Get('bookings/:bookingId/obligation')
+  bookingObligation(@Headers() headers: RequestHeaders, @Param('bookingId') bookingId: string) {
+    return run(() => this.billing.getBookingObligation(contextOf(headers), bookingId));
+  }
+
   @Post('obligations/:id/payment-intents')
   async initialize(
     @Headers() headers: RequestHeaders,

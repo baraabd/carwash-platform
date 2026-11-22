@@ -69,6 +69,7 @@ const SERVICES = [
   'communications',
   'reporting',
   'support',
+  'reviews',
   'configuration',
   'identity',
   'workforce',

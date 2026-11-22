@@ -9,6 +9,7 @@ const OWNERS: readonly GatewayOwner[] = [
   'booking',
   'workforce',
   'billing',
+  'reviews',
   'support',
   'reporting',
   'dispatch',

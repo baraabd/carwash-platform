@@ -183,7 +183,7 @@ test('slots outside any window, already started or beyond the horizon are refuse
     await errorCode(
       at(0).holds.createHold(
         meta(who),
-        { ...holdRequestFor(who, window), zoneId: randomUUID() },
+        holdRequestFor(who, { ...window, zoneId: randomUUID() }),
         key(),
       ),
     ),

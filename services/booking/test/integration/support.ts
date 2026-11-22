@@ -138,9 +138,14 @@ export class FakeScheduling implements HoldReader, HoldCommitter {
 
   constructor(private readonly clock: Clock) {}
 
-  hold(beneficiary: PrincipalRef, zoneId: string = randomUUID()) {
+  hold(
+    beneficiary: PrincipalRef,
+    zoneId: string = randomUUID(),
+    quoteRef?: { quoteId: string; revision: number },
+  ) {
     const now = this.clock.now();
     const wire = holdWire({
+      ...(quoteRef ? { quoteRef } : {}),
       beneficiary,
       zoneId,
       startsAt: new Date(now.getTime() + 3 * HOUR),
@@ -225,7 +230,7 @@ export class FakeBilling implements BillingObligations {
     return this.apply(request.bookingId, request.amount);
   }
 
-  async voidForBooking(bookingId: string): Promise<VoidResult> {
+  async voidForBooking({ bookingId }: { bookingId: string }): Promise<VoidResult> {
     const forced = this.voidScript.shift();
     if (forced) return forced();
     this.tombstones.add(bookingId);
@@ -352,7 +357,10 @@ export function bookingBody(
     : o.pricing.issue(who, zoneId);
   const hold = overrides.holdId
     ? o.scheduling.holds.get(overrides.holdId)!.wire
-    : o.scheduling.hold(who, quote.zoneId ?? zoneId);
+    : o.scheduling.hold(who, quote.zoneId ?? zoneId, {
+        quoteId: quote.quoteId,
+        revision: quote.revision,
+      });
   return {
     quote: { quoteId: quote.quoteId, revision: quote.revision },
     hold: { holdId: hold.holdId, revision: hold.revision },

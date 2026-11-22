@@ -133,6 +133,41 @@ test('payment route table: owner, permissions, idempotency and ingress shape', (
 
 // ---------------------------------------------------------------- customer and finance
 
+test('Gateway normalizes known owner replay headers and refuses conflicting or malformed assertions', async (t) => {
+  const { identity, token } = await identityWith(t, ['bookings.read:self']);
+  let headers = {};
+  const billing = await stub('billing', (_call, res) => {
+    for (const [name, value] of Object.entries(headers)) res.setHeader(name, value);
+    json(res, 200, { ownerFact: 'unchanged' });
+  });
+  t.after(() => billing.close());
+  const app = await start(config(identity.base, { billing: billing.base }));
+  t.after(() => app.close());
+  const cases = [
+    [{ 'idempotency-replayed': 'true' }, 'true'],
+    [{ 'idempotent-replayed': 'true' }, 'true'],
+    [{ 'idempotency-replayed': 'true', 'idempotent-replayed': 'true' }, 'true'],
+    [{}, null],
+    [{ 'idempotency-replayed': 'false' }, null],
+    [{ 'idempotency-replayed': 'TRUE' }, null],
+    [{ 'idempotency-replayed': 'true, true' }, null],
+    [{ 'idempotency-replayed': 'true', 'idempotent-replayed': 'false' }, null],
+    [{ 'idempotency-replayed': 'false', 'idempotent-replayed': 'true' }, null],
+    [{ 'idempotency-replayed': 'invalid', 'idempotent-replayed': 'true' }, null],
+  ];
+  for (const [next, expected] of cases) {
+    headers = next;
+    const reply = await request(app.base, `/api/v1/customer/payments/${randomUUID()}`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(reply.status, 200);
+    assert.deepEqual(reply.body, { ownerFact: 'unchanged' });
+    assert.equal(reply.headers.get('idempotent-replayed'), expected);
+    assert.equal(reply.headers.get('idempotency-replayed'), null);
+  }
+  assert.equal(billing.calls.length, cases.length, 'Gateway never retries an owner command');
+});
+
 test('customer payment step forwards a verified identity and the Idempotency-Key only', async (t) => {
   const { identity, token, session } = await identityWith(
     t,
@@ -245,6 +280,30 @@ test('selected credit allocation: Finance permission and a stable key are requir
   assert.equal(forwarded.headers['x-auth-subject'], allowed.session.subject);
   assert.equal(forwarded.headers['idempotency-key'], commandKey);
   assert.deepEqual(JSON.parse(forwarded.raw.toString('utf8')), body);
+});
+
+test('statement credit review: read-only Finance selector denies other roles and client-supplied candidate queries', async (t) => {
+  const billing = await rawOwner(t, (_call, res) => json(res, 200, { reviewOnly: true }));
+  const attemptId = randomUUID();
+  for (const permissions of [['billing.read'], ['bookings.read:self'], ['billing.reconcile']]) {
+    const { identity, token } = await identityWith(t, permissions);
+    const app = await start(config(identity.base, { billing: billing.base }));
+    t.after(() => app.close());
+    const path = `/api/v1/admin/billing/payment-attempts/${attemptId}/statement-credit`;
+    const response = await request(app.base, path, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.equal(response.status, permissions.includes('billing.reconcile') ? 200 : 403);
+    const injected = await request(app.base, path + '?creditId=' + randomUUID(), {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    assert.ok(injected.status === 400 || injected.status === 403);
+  }
+  assert.equal(billing.calls.length, 1);
+  assert.equal(
+    billing.calls[0].path,
+    `/internal/v1/billing/payment-attempts/${attemptId}/statement-credit`,
+  );
 });
 
 test('owner reasons: only the merged contract reasons reach the client; 412 stays a conflict; timeout is never success', async (t) => {

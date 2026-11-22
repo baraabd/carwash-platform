@@ -120,6 +120,13 @@ BEGIN
       END IF;
     END LOOP;
   END IF;
+  IF current_database() = 'cw_reviews' THEN
+    FOREACH history_table IN ARRAY ARRAY['review_audit', 'review_command_receipt'] LOOP
+      IF to_regclass('app.' || history_table) IS NOT NULL THEN
+        EXECUTE format('REVOKE UPDATE, DELETE, TRUNCATE ON TABLE app.%I FROM %I', history_table, '${app}');
+      END IF;
+    END LOOP;
+  END IF;
 END
 $$;
 

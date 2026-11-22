@@ -84,7 +84,13 @@ services:
       - rabbit_data:/var/lib/rabbitmq
       - ./rabbitmq/acceptance-bootstrap.sh:/opt/cw/acceptance-bootstrap.sh:ro
     healthcheck:
-      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'check_running']
+      # Wait for the server cookie; an early root Erlang CLI can create it with
+      # ownership that prevents the unprivileged broker from starting.
+      test:
+        [
+          'CMD-SHELL',
+          'test -s /var/lib/rabbitmq/.erlang.cookie && exec su-exec rabbitmq rabbitmq-diagnostics -q check_running',
+        ]
       interval: 5s
       timeout: 10s
       retries: 30

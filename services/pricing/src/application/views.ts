@@ -20,6 +20,7 @@ export function quoteView(quote: StoredQuote, now: Date): Record<string, unknown
       amount: moneyWire(quote.currency, line.amountMinor),
     })),
     total: moneyWire(quote.currency, quote.totalMinor),
+    durationMinutes: quote.durationMinutes,
     catalogRevision: quote.catalogRevision,
     priceBookRevision: quote.priceBookRevision,
     issuedAt: quote.issuedAt.toISOString(),

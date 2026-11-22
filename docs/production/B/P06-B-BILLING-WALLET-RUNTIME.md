@@ -68,6 +68,25 @@ domain and HTTP suites passed 18 tests; shared messaging passed 30 tests.
 These counts describe the local candidate, not final-commit CI acceptance.
 Real RabbitMQ execution must still be recorded on the final source commit.
 
+### Container startup regression
+
+The 2026-11-22 CI run at `8fcae7e1704187a29fb604781c5ab8c6221a29c3`
+failed before the broker tests: the server could not read
+`/var/lib/rabbitmq/.erlang.cookie` (`eacces`). The readiness probe had invoked
+an Erlang CLI as root while the image was starting its unprivileged server.
+The image's entrypoint changes data ownership before dropping to `rabbitmq`,
+so an early root CLI can create an unreadable cookie after that ownership pass.
+The runner now waits for the server-created, nonempty cookie and executes every
+broker CLI, including provisioning, as `rabbitmq`. It verifies the cookie's
+owner and private file mode without reading or recording its secret content.
+The readiness timeout, owned-container exit detection, broker ACLs and required
+end-to-end financial tests remain enforced. A successful subsequent exact-commit
+broker run is still required; this diagnosis alone is not acceptance.
+
+References: [failed CI job](https://github.com/baraabd/carwash-platform/actions/runs/45003989592/job/137151412825),
+[official image entrypoint](https://github.com/docker-library/rabbitmq/blob/master/docker-entrypoint.sh),
+and [RabbitMQ CLI authentication guidance](https://www.rabbitmq.com/docs/cli).
+
 Operational recovery must inspect `dead_at`/`last_error`, pending-outbox age,
 the Wallet DLQ and projection freshness. Replay preserves the original event ID
 and bytes after correcting the cause; it must not create a new financial fact.

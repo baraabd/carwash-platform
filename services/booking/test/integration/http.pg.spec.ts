@@ -205,7 +205,7 @@ test('create: 201 CONFIRMED end to end through the real adapters; replay 200; co
     '/pricing/quotes/',
     '/scheduling/holds/',
     '/customer/address-snapshots/resolve',
-    '/billing/obligations',
+    '/billing/booking-obligations',
   ]) {
     assert.ok(
       owned.some((p) => p.includes(fragment)),

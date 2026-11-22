@@ -241,7 +241,7 @@ test('stale hold (expired before commit): obligation is voided and the booking r
   assert.equal(o.billing.obligations.get(result.view.booking.id)?.state, 'VOIDED');
   assert.equal(o.scheduling.commitsApplied, 0);
   // REJECTED reserved nothing: the same quote can be booked again with a new hold.
-  const fresh = o.scheduling.hold(who.principal, hold.wire.zoneId);
+  const fresh = o.scheduling.hold(who.principal, hold.wire.zoneId, body.quote);
   const retry = await h.service.create(who.meta(), key(), {
     ...body,
     hold: { holdId: fresh.holdId, revision: fresh.revision },
@@ -438,4 +438,39 @@ test('worker passes: two replicas lease due sagas with SKIP LOCKED; each saga fi
     assert.equal(await outboxFor(a, id), 1, id);
   }
   assert.equal(o.scheduling.commitsApplied, ids.length);
+});
+
+test('hold/quote/duration binding is checked before any booking, saga or Billing effect', async () => {
+  for (const mismatch of ['quote-id', 'quote-revision', 'duration', 'expired-hold'] as const) {
+    const o = owners();
+    const h = open(o);
+    const who = customer();
+    const body = bookingBody(o, who.principal);
+    const hold = o.scheduling.holds.get(body.hold.holdId)!;
+    if (mismatch === 'quote-id')
+      hold.wire = { ...hold.wire, quoteRef: { ...hold.wire.quoteRef, quoteId: randomUUID() } };
+    if (mismatch === 'quote-revision')
+      hold.wire = { ...hold.wire, quoteRef: { ...hold.wire.quoteRef, revision: 2 } };
+    if (mismatch === 'duration')
+      hold.wire = {
+        ...hold.wire,
+        endsAt: new Date(Date.parse(hold.wire.endsAt) - 60_000).toISOString(),
+      };
+    if (mismatch === 'expired-hold')
+      hold.wire = { ...hold.wire, expiresAt: o.clock.now().toISOString() };
+    assert.equal(
+      await errorCode(h.service.create(who.meta(), key(), body)),
+      mismatch === 'expired-hold' ? 'HOLD_ALREADY_BOOKED' : 'QUOTE_MISMATCH',
+    );
+    assert.equal(
+      await count(
+        h,
+        'SELECT count(*)::bigint AS n FROM app.booking WHERE principal_subject = $1::uuid',
+        who.principal.subjectId,
+      ),
+      0,
+    );
+    assert.equal(o.billing.createCalls, 0);
+    assert.equal(o.scheduling.commitCalls, 0);
+  }
 });

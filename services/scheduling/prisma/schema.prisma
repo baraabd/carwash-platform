@@ -71,6 +71,7 @@ model CapacityHold {
   zoneId             String?        @map("zone_id") @db.Uuid
   beneficiaryKind    String?        @map("beneficiary_kind")
   beneficiarySubject String?        @map("beneficiary_subject") @db.Uuid
+  /// Immutable with quoteRevision; v1 snapshot identity is also update/delete guarded.
   quoteId            String?        @map("quote_id") @db.Uuid
   quoteRevision      Int?           @map("quote_revision")
   slotStartsAt       DateTime?      @map("slot_starts_at") @db.Timestamptz(3)

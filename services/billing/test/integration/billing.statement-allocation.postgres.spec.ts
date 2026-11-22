@@ -2,7 +2,7 @@ import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
-import { billingV1 } from '@carwash/contracts';
+import { billingV1, parseApiErrorEnvelope } from '@carwash/contracts';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma.service';
 import { PrismaBillingRepository } from '../../src/infrastructure/persistence/prisma-billing.repository';
 import { productionProviderRegistry } from '../../src/infrastructure/providers/merchant-providers';
@@ -208,6 +208,112 @@ async function unchanged(subject: Awaited<ReturnType<typeof claim>>, creditId: s
   );
   assert.equal(counts.rows[0]?.n, 0, 'a rejected command cannot confirm or allocate money');
 }
+
+test('statement review: exact masked record is read-only and its revisions drive an explicit allocation', async () => {
+  const subject = await claim();
+  const creditId = await credit(subject);
+  const count = () =>
+    sql.query<{ n: number }>(
+      'SELECT count(*)::int AS n FROM app.billing_audit_event WHERE credit_id = $1',
+      [creditId],
+    );
+  const before = (await count()).rows[0]?.n;
+  const reply = await a.request(
+    'GET',
+    `${PATH}/payment-attempts/${subject.attemptId}/statement-credit`,
+    { token: TOKENS.approver },
+  );
+  assert.equal(reply.status, 200, JSON.stringify(reply.body));
+  assert.equal(reply.headers.get('cache-control'), 'no-store');
+  const view = billingV1.parseStatementCreditReviewV1(reply.body);
+  assert.equal(view.attemptId, subject.attemptId);
+  assert.equal(view.obligationId, subject.obligationId);
+  assert.equal(view.creditId, creditId);
+  assert.equal(view.status, 'PENDING_APPROVAL');
+  assert.equal(view.obligationRevision, 3);
+  assert.equal(view.creditRevision, 1);
+  assert.ok(!JSON.stringify(view).includes(MERCHANTS.SHAM_CASH));
+  assert.ok(!JSON.stringify(view).includes(subject.reference));
+  assert.ok(!JSON.stringify(view).includes(SUBJECTS.reconciler));
+  assert.equal((await count()).rows[0]?.n, before);
+  await unchanged(subject, creditId);
+  const settled = await allocate(a, subject.attemptId, {
+    creditId: view.creditId,
+    expectedCreditRevision: view.creditRevision,
+    expectedRevision: view.obligationRevision,
+    observedAmount: view.amount,
+  });
+  assert.equal(settled.status, 200);
+  assert.equal(billingV1.parseObligationV1(settled.body).financialStatus, 'PAID');
+  const consumed = await a.request(
+    'GET',
+    `${PATH}/payment-attempts/${subject.attemptId}/statement-credit`,
+    { token: TOKENS.approver },
+  );
+  assert.equal(consumed.status, 409);
+  assert.equal(parseApiErrorEnvelope(consumed.body).error.reason, 'CREDIT_NOT_PENDING');
+});
+
+test('statement review: only an independent Finance account may read a selectable credit', async () => {
+  const subject = await claim();
+  const creditId = await credit(subject);
+  for (const [token, expected] of [
+    [undefined, 401],
+    [TOKENS.unknown, 401],
+    [TOKENS.customer, 403],
+    [TOKENS.finance, 403],
+    [TOKENS.reconciler, 403],
+    [TOKENS.selfReconciler, 403],
+  ] as const) {
+    const reply = await a.request(
+      'GET',
+      `${PATH}/payment-attempts/${subject.attemptId}/statement-credit`,
+      token ? { token } : {},
+    );
+    assert.equal(reply.status, expected);
+    parseApiErrorEnvelope(reply.body);
+    assert.equal(reply.headers.get('cache-control'), 'no-store');
+    assert.ok(!JSON.stringify(reply.body).includes(creditId));
+  }
+  const invalid = await a.request(
+    'GET',
+    `${PATH}/payment-attempts/${subject.attemptId}/statement-credit?creditId=${creditId}`,
+    { token: TOKENS.approver },
+  );
+  assert.equal(invalid.status, 400);
+  assert.equal(parseApiErrorEnvelope(invalid.body).error.code, 'REQUEST_INVALID');
+  await unchanged(subject, creditId);
+});
+
+test('statement review: absent, mismatched, ambiguous or removed merchant evidence never becomes selectable', async () => {
+  const absent = await claim();
+  const read = (runtime: BillingHttpHarness, attemptId: string) =>
+    runtime.request('GET', `${PATH}/payment-attempts/${attemptId}/statement-credit`, {
+      token: TOKENS.approver,
+    });
+  const missing = await read(a, absent.attemptId);
+  assert.equal(missing.status, 409);
+  assert.equal(parseApiErrorEnvelope(missing.body).error.reason, 'PROVIDER_CREDIT_REQUIRED');
+  const mismatch = await claim();
+  const wrongCredit = await credit(mismatch, { amount: money('149999') });
+  const wrong = await read(a, mismatch.attemptId);
+  assert.equal(wrong.status, 409);
+  assert.equal(parseApiErrorEnvelope(wrong.body).error.reason, 'PROVIDER_CREDIT_CONFLICT');
+  await unchanged(mismatch, wrongCredit);
+  const ambiguous = await claim();
+  const first = await credit(ambiguous);
+  await credit(ambiguous, { merchantAccount: SECOND_MERCHANT });
+  const many = await read(a, ambiguous.attemptId);
+  assert.equal(many.status, 409);
+  assert.equal(parseApiErrorEnvelope(many.body).error.reason, 'PROVIDER_CREDIT_CONFLICT');
+  await unchanged(ambiguous, first);
+  const removed = await claim();
+  const removedId = await credit(removed);
+  const disabled = await read(removedMerchant, removed.attemptId);
+  assert.equal(disabled.status, 422);
+  assert.equal(parseApiErrorEnvelope(disabled.body).error.reason, 'MERCHANT_ACCOUNT_UNKNOWN');
+  await unchanged(removed, removedId);
+});
 
 test('selected statement credit: concurrent same-key commands allocate once, with exact owner audit and public contract', async () => {
   const subject = await claim();

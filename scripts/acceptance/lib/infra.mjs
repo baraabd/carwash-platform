@@ -141,7 +141,10 @@ export async function containerId(context, service) {
 
 /** Run a command inside a compose service without a shell on the host side. */
 export async function composeExec(context, service, argv, options = {}) {
-  return run('docker', [...composeArgs(context), 'exec', '-T', service, ...argv], {
+  // The image drops its server to rabbitmq, while docker exec defaults to root.
+  // Its Erlang CLI must use the same OS identity, including early readiness.
+  const user = service === 'rabbitmq' ? ['--user', 'rabbitmq'] : [];
+  return run('docker', [...composeArgs(context), 'exec', '-T', ...user, service, ...argv], {
     cwd: context.root,
     env: childEnv(context, options.env ?? {}),
     timeoutMs: options.timeoutMs ?? 5 * 60 * 1000,
@@ -213,7 +216,11 @@ export async function waitForRabbitReady(context, signal, { timeoutMs = 180_000 
       const result = await composeExec(
         context,
         'rabbitmq',
-        ['rabbitmq-diagnostics', '-q', 'check_running'],
+        [
+          'sh',
+          '-ec',
+          'test -s /var/lib/rabbitmq/.erlang.cookie && exec rabbitmq-diagnostics -q check_running',
+        ],
         { timeoutMs: Math.min(10_000, remainingMs), signal },
       );
       return result.code === 0 && result.outcome === 'exited';
@@ -266,6 +273,8 @@ export async function bootstrapRabbitIdentities(context, signal) {
       ...composeArgs(context),
       'exec',
       '-T',
+      '--user',
+      'rabbitmq',
       ...envArgs,
       'rabbitmq',
       'sh',

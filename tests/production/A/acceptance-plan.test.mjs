@@ -67,6 +67,32 @@ test('suite preflight rejects invalid selections and absent suites before infras
     const browser = acceptancePlan(['--services', 'customer,vehicle', '--customer-browser'], root);
     assert.equal(browser.customerBrowser, true);
     assert.match(browser.scope, /Real Chromium/);
+    for (const args of [
+      ['--services', 'booking'],
+      ['--services', 'booking,billing'],
+      ['--services', 'booking', '--booking-billing'],
+      ['--services', 'booking,billing,customer', '--booking-billing'],
+      ['--services', 'booking,billing', '--booking-billing', '--customer-browser'],
+      ['--services', 'booking,billing', '--booking-billing', '--booking-billing'],
+    ])
+      assert.throws(() => acceptancePlan(args, root));
+    assert.throws(
+      () => acceptancePlan(['--services', 'booking,billing', '--booking-billing'], root),
+      /MISSING_ACCEPTANCE_SUITE.*booking-billing/,
+    );
+    await writeFile(path.join(root, 'tests/production/A/booking-billing.integration.test.mjs'), '');
+    const bookingBilling = acceptancePlan(
+      ['--services', 'booking,billing', '--booking-billing'],
+      root,
+    );
+    assert.equal(bookingBilling.bookingBilling, true);
+    assert.equal(bookingBilling.customerBrowser, false);
+    assert.deepEqual(bookingBilling.services, ['booking', 'billing']);
+    assert.deepEqual(bookingBilling.suites, [
+      'tests/production/A/booking-billing.integration.test.mjs',
+    ]);
+    assert.match(bookingBilling.scope, /Real Identity Nest application and Redis/);
+    assert.match(bookingBilling.scope, /Production Booking adapter to Billing/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

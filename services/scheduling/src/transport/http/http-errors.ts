@@ -19,9 +19,9 @@ import {
  *   {error:{code, reason, message, requestId, correlationId, retryable, retryAfterMs, issues}}
  * `code` comes from the closed cross-service list and fixes the status;
  * `retryable` is derived from `code` exactly as the published parser checks it.
- * Declared locally because the service cannot depend on @carwash/contracts yet
- * (CR-P02-C1 §2); tests/production/C/scheduling-v1-provider.test.mjs validates
- * real responses with the published parser.
+ * This transport mirror is verified by scheduling-v1-provider.test.mjs against
+ * the published parser. The Pricing reader and stored hold receipt upcast use
+ * the shared contracts directly.
  */
 type ApiErrorCode =
   | 'REQUEST_INVALID'
@@ -75,6 +75,9 @@ const DOMAIN: Readonly<Record<SchedulingErrorCode, readonly [ApiErrorCode, strin
   CAPACITY_EXHAUSTED: ['BUSINESS_RULE_VIOLATION', 'SLOT_UNAVAILABLE'],
   SLOT_UNAVAILABLE: ['BUSINESS_RULE_VIOLATION', 'SLOT_UNAVAILABLE'],
   OUTSIDE_HORIZON: ['BUSINESS_RULE_VIOLATION', 'OUTSIDE_HORIZON'],
+  QUOTE_NOT_USABLE: ['BUSINESS_RULE_VIOLATION', 'QUOTE_NOT_USABLE'],
+  QUOTE_MISMATCH: ['BUSINESS_RULE_VIOLATION', 'QUOTE_MISMATCH'],
+  PRICING_UNAVAILABLE: ['DEPENDENCY_UNAVAILABLE', 'PRICING_UNAVAILABLE'],
   CAPACITY_BELOW_COMMITTED: ['BUSINESS_RULE_VIOLATION', 'CAPACITY_BELOW_COMMITTED'],
   HOLD_LIMIT_REACHED: ['BUSINESS_RULE_VIOLATION', 'HOLD_LIMIT_REACHED'],
   BOOKING_ALREADY_COMMITTED: ['CONFLICT', 'BOOKING_ALREADY_COMMITTED'],

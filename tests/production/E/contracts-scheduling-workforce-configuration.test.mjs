@@ -46,6 +46,7 @@ const hold = {
   holdId: HOLD,
   revision: 1,
   state: 'HELD',
+  quoteRef: { quoteId: QUOTE, revision: 2 },
   beneficiary,
   zoneId: ZONE,
   startsAt: '2026-10-08T06:00:00.000Z',
@@ -65,6 +66,9 @@ test('scheduling: descriptor', () => {
     'HOLD_EXPIRED',
     'HOLD_NOT_ACTIVE',
     'OUTSIDE_HORIZON',
+    'PRICING_UNAVAILABLE',
+    'QUOTE_MISMATCH',
+    'QUOTE_NOT_USABLE',
     'SLOT_UNAVAILABLE',
   ]);
 });
@@ -414,4 +418,18 @@ test('configuration: draft and transition bodies', () => {
     expectedRevision: 2,
   });
   throwsCode(() => cfg.parseDraftTransitionRequestV1({}), 'MISSING_FIELD');
+});
+
+test('scheduling: held quote identity and revision are required closed owner facts', () => {
+  const missing = { ...hold };
+  delete missing.quoteRef;
+  throwsCode(() => s.parseHoldV1(missing), 'MISSING_FIELD');
+  throwsCode(
+    () => s.parseHoldV1({ ...hold, quoteRef: { quoteId: QUOTE, revision: 0 } }),
+    'INVALID_INTEGER',
+  );
+  throwsCode(
+    () => s.parseHoldV1({ ...hold, quoteRef: { ...hold.quoteRef, durationMinutes: 60 } }),
+    'UNEXPECTED_FIELD',
+  );
 });

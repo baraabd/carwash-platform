@@ -51,7 +51,12 @@ export class GatewayService {
       throw new GatewayFault(403, 'AUTH_CSRF');
     if (unsafe && input.headers['sec-fetch-site'] === 'cross-site')
       throw new GatewayFault(403, 'AUTH_CSRF');
-    const requiresAuth = list.some(({ route }) => !!route.permission || !!route.anyPermission);
+    // A principal-only owner route still needs an authenticated caller. Explicit
+    // public reads and Identity transport are the only ordinary-route exceptions.
+    const requiresAuth = list.some(
+      ({ route }) =>
+        !!route.permission || !!route.anyPermission || (!route.public && !route.authTransport),
+    );
     const identity = requiresAuth
       ? await this.auth.authenticate(input.headers, unsafe, input.context)
       : undefined;

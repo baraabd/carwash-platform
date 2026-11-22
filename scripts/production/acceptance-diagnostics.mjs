@@ -7,7 +7,19 @@ import { redact } from '../acceptance/lib/exec.mjs';
 
 const PNG_NAME = /^[a-z0-9-]+-(?:reference(?:-raw|-declared)?|candidate|diff)\.png$/;
 const MAX_DIAGNOSTIC_BYTES = 20 * 1024 * 1024;
+const CUSTOMER_DESIGN_PNGS = new Set([
+  'guest-entry-390-candidate.png',
+  'guest-recovery-390-candidate.png',
+  'guest-receipt-390-candidate.png',
+]);
 const SOURCES = Object.freeze({
+  'a-customer-browser': [
+    [
+      'customer-access-design',
+      '.acceptance/production-A/customer-access-design',
+      ['design-review.json'],
+    ],
+  ],
   'c-operator-fixtures': [
     ['operator-summary', '.acceptance/production-C/operator-web', ['acceptance.json']],
     ['operator-visual', '.acceptance/production-C/operator-web/visual', ['visual-summary.json']],
@@ -19,7 +31,7 @@ const SOURCES = Object.freeze({
   ],
 });
 
-/** Only declared synthetic operator/admin visual evidence; never customer auth. */
+/** Only declared synthetic visual evidence; never a real customer auth context. */
 export async function retainBrowserDiagnostics(root, suite, output, startedAt) {
   const since = Date.parse(startedAt);
   assert.ok(Number.isFinite(since));
@@ -33,12 +45,17 @@ export async function retainBrowserDiagnostics(root, suite, output, startedAt) {
       if (error.code === 'ENOENT') continue;
       throw error;
     }
+    const pending = [];
+    let customerDesignVerified = false;
     for (const entry of entries) {
       if (!entry.isFile()) continue;
       const isJson = jsonNames.includes(entry.name);
       // The operator summary folder may contain other browser outputs. Only its
       // one manifest is allowed; screenshots come from declared visual/a11y folders.
-      const isPng = label !== 'operator-summary' && PNG_NAME.test(entry.name);
+      const isPng =
+        label === 'customer-access-design'
+          ? CUSTOMER_DESIGN_PNGS.has(entry.name)
+          : label !== 'operator-summary' && PNG_NAME.test(entry.name);
       if (!isJson && !isPng) continue;
       const source = path.join(directory, entry.name);
       // Pin the inode before checking its type and freshness. Never reopen a
@@ -80,10 +97,24 @@ export async function retainBrowserDiagnostics(root, suite, output, startedAt) {
           '89504e470d0a1a0a',
           'Invalid PNG diagnostic',
         );
-      const safe = isJson
-        ? Buffer.from(redact(JSON.stringify(JSON.parse(bytes.toString()), null, 2)) + '\n')
-        : bytes;
+      const value = isJson ? JSON.parse(bytes.toString()) : null;
+      if (label === 'customer-access-design' && isJson) {
+        assert.equal(value.status, 'UNAPPROVED_CUSTOMER_ACCESS_DESIGN');
+        assert.equal(value.ownerJourneyEvidence, false);
+        assert.equal(value.forwardedApiRequests, 0);
+        assert.equal(value.containsRealCredentials, false);
+        assert.equal(value.actualIdentityIssued, false);
+        assert.equal(value.acceptedDesign, false);
+        assert.deepEqual([...value.files].sort(), [...CUSTOMER_DESIGN_PNGS].sort());
+        customerDesignVerified = true;
+      }
+      const safe = isJson ? Buffer.from(redact(JSON.stringify(value, null, 2)) + '\n') : bytes;
       const destination = path.join('diagnostics', label, entry.name);
+      pending.push({ destination, safe });
+    }
+    if (label === 'customer-access-design' && pending.length > 0)
+      assert.ok(customerDesignVerified, 'Synthetic customer design manifest is required');
+    for (const { destination, safe } of pending) {
       await mkdir(path.join(output, 'diagnostics', label), { recursive: true });
       await writeFile(path.join(output, destination), safe);
       retained.push({

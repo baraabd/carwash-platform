@@ -327,7 +327,10 @@
         "SLOT_UNAVAILABLE",
         "HOLD_EXPIRED",
         "HOLD_NOT_ACTIVE",
-        "OUTSIDE_HORIZON"
+        "OUTSIDE_HORIZON",
+        "QUOTE_NOT_USABLE",
+        "QUOTE_MISMATCH",
+        "PRICING_UNAVAILABLE"
       ]
     },
     "workforce.v1": {
@@ -462,6 +465,15 @@
           "safe": false,
           "paged": false
         },
+        "getStatementCreditReview": {
+          "method": "GET",
+          "path": "/payment-attempts/:attemptId/statement-credit",
+          "access": "permission:billing.reconcile",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
         "allocateStatementCredit": {
           "method": "POST",
           "path": "/payment-attempts/:attemptId/statement-credit-allocation",
@@ -476,6 +488,24 @@
           "path": "/booking-obligations",
           "access": "service:billing.obligation.write",
           "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "compensateBookingObligation": {
+          "method": "POST",
+          "path": "/booking-obligations/compensations",
+          "access": "service:billing.obligation.write",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getBookingObligation": {
+          "method": "GET",
+          "path": "/bookings/:bookingId/obligation",
+          "access": "principal",
+          "idempotent": false,
           "revisioned": false,
           "safe": false,
           "paged": false
@@ -646,6 +676,7 @@
       "reasons": [
         "QUOTE_NOT_USABLE",
         "OBLIGATION_ALREADY_EXISTS",
+        "BOOKING_COMPENSATED",
         "AMOUNT_INVALID",
         "CURRENCY_UNSUPPORTED",
         "CURRENCY_MISMATCH",

@@ -26,3 +26,94 @@ model ServiceMarker {
 
   @@map("service_marker")
 }
+
+/// Private author content and the minimal completed-Booking fact used at submission.
+/// Immutable author/content/consent, one review per Booking and status transitions
+/// are also enforced by the migration. There is no public comment read model.
+model Review {
+  id                 String          @id @db.Uuid
+  bookingId          String          @unique @map("booking_id") @db.Uuid
+  bookingRevision    Int             @map("booking_revision")
+  bookingVerifiedAt  DateTime        @map("booking_verified_at") @db.Timestamptz(3)
+  authorKind         String          @map("author_kind") @db.VarChar(7)
+  authorSubject      String          @map("author_subject") @db.Uuid
+  rating             Int             @db.SmallInt
+  comment            String?         @db.VarChar(1000)
+  publicationConsent Boolean         @map("publication_consent")
+  status             String          @db.VarChar(24)
+  moderationReason   String?         @map("moderation_reason") @db.VarChar(32)
+  revision           Int
+  submittedAt        DateTime        @map("submitted_at") @db.Timestamptz(3)
+  updatedAt          DateTime        @map("updated_at") @db.Timestamptz(3)
+  audit              ReviewAudit[]
+  outbox             OutboxMessage[]
+
+  @@index([status, submittedAt, id], map: "review_moderation_queue_idx")
+  @@map("review")
+}
+
+/// Append-only reasoned moderation/submission audit. Never stores free text.
+model ReviewAudit {
+  reviewId       String                @map("review_id") @db.Uuid
+  revision       Int
+  eventId        String                @unique @map("event_id") @db.Uuid
+  actorKind      String                @map("actor_kind") @db.VarChar(7)
+  actorSubject   String                @map("actor_subject") @db.Uuid
+  action         String                @db.VarChar(8)
+  previousStatus String?               @map("previous_status") @db.VarChar(24)
+  status         String                @db.VarChar(24)
+  reason         String?               @db.VarChar(32)
+  occurredAt     DateTime              @map("occurred_at") @db.Timestamptz(3)
+  correlationId  String                @map("correlation_id") @db.Uuid
+  review         Review                @relation(fields: [reviewId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  event          OutboxMessage         @relation(fields: [eventId], references: [eventId], onDelete: Restrict, onUpdate: Restrict)
+  receipt        ReviewCommandReceipt?
+
+  @@id([reviewId, revision])
+  @@map("review_audit")
+}
+
+/// Exact command replay uses immutable review content plus this audit revision.
+/// No second copy of the private comment is stored in receipts or fingerprints.
+model ReviewCommandReceipt {
+  actorKind    String      @map("actor_kind") @db.VarChar(7)
+  actorSubject String      @map("actor_subject") @db.Uuid
+  operation    String      @db.VarChar(8)
+  key          String      @db.VarChar(128)
+  fingerprint  String      @db.Char(64)
+  reviewId     String      @map("review_id") @db.Uuid
+  revision     Int
+  audit        ReviewAudit @relation(fields: [reviewId, revision], references: [reviewId, revision], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([actorKind, actorSubject, operation, key])
+  @@unique([reviewId, revision], map: "review_receipt_revision_key")
+  @@map("review_command_receipt")
+}
+
+/// Published event payloads are constrained to the closed status-only contract.
+/// Pending rows are durable; no broker delivery or live deployment is claimed.
+model OutboxMessage {
+  id            String       @id @db.Uuid
+  eventId       String       @unique @map("event_id") @db.Uuid
+  eventType     String       @map("event_type")
+  exchange      String
+  routingKey    String       @map("routing_key")
+  payload       String
+  reviewId      String       @map("review_id") @db.Uuid
+  revision      Int
+  correlationId String       @map("correlation_id") @db.Uuid
+  traceParent   String?      @map("trace_parent") @db.VarChar(55)
+  attempts      Int          @default(0)
+  lockedBy      String?      @map("locked_by")
+  lockedUntil   DateTime?    @map("locked_until") @db.Timestamptz(3)
+  lastError     String?      @map("last_error")
+  publishedAt   DateTime?    @map("published_at") @db.Timestamptz(3)
+  deadAt        DateTime?    @map("dead_at") @db.Timestamptz(3)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  review        Review       @relation(fields: [reviewId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  audit         ReviewAudit?
+
+  @@unique([reviewId, revision], map: "review_outbox_revision_key")
+  @@index([publishedAt, deadAt, createdAt], map: "outbox_message_pending_idx")
+  @@map("outbox_message")
+}

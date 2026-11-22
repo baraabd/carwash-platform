@@ -16,12 +16,12 @@ import { BILLING_V1, run, type HttpResponse, type RequestHeaders } from './http-
 
 export const BOOKING_OBLIGATION_SERVICE = 'BOOKING_OBLIGATION_SERVICE';
 
-/** The workload credential only; a person's bearer token is never accepted here. */
+/** Workload credentials only; mixed human Authorization or Cookie is refused. */
 function workloadContext(headers: RequestHeaders): ServiceRequestContext {
   return {
     clientId: headers[SERVICE_CLIENT_HEADER],
     token: headers[SERVICE_TOKEN_HEADER],
-    bearerPresent: headers.authorization !== undefined,
+    bearerPresent: headers.authorization !== undefined || headers.cookie !== undefined,
     correlationId: resolveCorrelationId(headers[CORRELATION_HEADER]),
   };
 }
@@ -83,6 +83,17 @@ export class BookingObligationController {
   ): Promise<void> {
     await this.send('billing_booking_obligation_void', headers, response, (context, key) =>
       this.bookings.voidForBooking(context, id, key, body),
+    );
+  }
+
+  @Post('booking-obligations/compensations')
+  async compensate(
+    @Headers() headers: RequestHeaders,
+    @Body() body: unknown,
+    @Res() response: HttpResponse,
+  ): Promise<void> {
+    await this.send('billing_booking_compensation', headers, response, (context, key) =>
+      this.bookings.compensateForBooking(context, key, body),
     );
   }
 }

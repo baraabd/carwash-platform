@@ -10,6 +10,10 @@ import {
 import { PrismaSchedulingStore } from './infrastructure/persistence/prisma-scheduling.store';
 import { systemClock, uuidGenerator } from './infrastructure/runtime/system';
 import {
+  PricingQuoteHttpReader,
+  pricingReaderConfigFromEnv,
+} from './infrastructure/pricing/pricing-quote-http.reader';
+import {
   ServiceClientAuthenticator,
   parseServiceClients,
 } from './infrastructure/security/service-clients';
@@ -63,7 +67,13 @@ function positiveInt(raw: string | undefined, fallback: number): number {
     {
       provide: HoldsV1Service,
       useFactory: (store: PrismaSchedulingStore) =>
-        new HoldsV1Service(store, store, systemClock, uuidGenerator),
+        new HoldsV1Service(
+          store,
+          store,
+          systemClock,
+          uuidGenerator,
+          new PricingQuoteHttpReader(pricingReaderConfigFromEnv(process.env)),
+        ),
       inject: [PrismaSchedulingStore],
     },
     {

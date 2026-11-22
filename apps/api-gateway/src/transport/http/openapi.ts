@@ -51,6 +51,13 @@ export function gatewayOpenApi() {
     current[route.method.toLowerCase()] = {
       operationId: route.id,
       'x-owning-service': route.owner,
+      ...(!route.permission &&
+      !route.anyPermission &&
+      !route.public &&
+      !route.authTransport &&
+      !route.providerIngress
+        ? { security: SECURITY }
+        : {}),
       ...(route.permission
         ? { 'x-required-permission': route.permission, security: SECURITY }
         : {}),

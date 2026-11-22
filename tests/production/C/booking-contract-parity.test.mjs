@@ -80,6 +80,10 @@ test('pricing.v1 QuoteV1 parity (valid, arithmetic, closed shape, instants, mone
       ['expired status still a quote', { ...q, status: 'EXPIRED' }],
       ['extra field', { ...q, extra: true }],
       ['missing field', set(q, (c) => delete c.priceBookRevision)],
+      ['missing duration', set(q, (c) => delete c.durationMinutes)],
+      ['null duration', { ...q, durationMinutes: null }],
+      ['fractional duration', { ...q, durationMinutes: 60.5 }],
+      ['oversized duration', { ...q, durationMinutes: 96001 }],
       ['total mismatch', set(q, (c) => (c.total.amountMinor = '9000001'))],
       ['line amount mismatch', set(q, (c) => (c.lines[0].amount.amountMinor = '1'))],
       ['positive discount', set(q, (c) => (c.lines[2].amount.amountMinor = '500000'))],
@@ -141,6 +145,8 @@ test('scheduling.v1 HoldV1 parity', () => {
     (x) => acl.parseHold(x),
     [
       ['held', h],
+      ['missing quote binding', set(h, (c) => delete c.quoteRef)],
+      ['invalid quote binding', { ...h, quoteRef: { quoteId: h.quoteRef.quoteId, revision: 0 } }],
       [
         'committed with booking',
         { ...h, state: 'COMMITTED', bookingId: randomUUID(), revision: 2 },

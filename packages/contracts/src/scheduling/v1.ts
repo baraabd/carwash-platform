@@ -39,7 +39,15 @@ export const SCHEDULING_V1 = {
       idempotent: true,
     },
   },
-  reasons: ['SLOT_UNAVAILABLE', 'HOLD_EXPIRED', 'HOLD_NOT_ACTIVE', 'OUTSIDE_HORIZON'],
+  reasons: [
+    'SLOT_UNAVAILABLE',
+    'HOLD_EXPIRED',
+    'HOLD_NOT_ACTIVE',
+    'OUTSIDE_HORIZON',
+    'QUOTE_NOT_USABLE',
+    'QUOTE_MISMATCH',
+    'PRICING_UNAVAILABLE',
+  ],
 } as const satisfies OwnerContract;
 
 export const MIN_DURATION_MINUTES = 5;
@@ -97,6 +105,7 @@ export interface HoldV1 {
   readonly holdId: string;
   readonly revision: number;
   readonly state: HoldState;
+  readonly quoteRef: QuoteRefV1;
   readonly beneficiary: PrincipalRef;
   readonly zoneId: string;
   readonly startsAt: UtcTimestamp;
@@ -230,6 +239,7 @@ export function parseHoldV1(value: unknown, path = '$'): HoldV1 {
     'holdId',
     'revision',
     'state',
+    'quoteRef',
     'beneficiary',
     'zoneId',
     'startsAt',
@@ -253,6 +263,7 @@ export function parseHoldV1(value: unknown, path = '$'): HoldV1 {
     holdId: uuid(v.holdId, `${path}.holdId`),
     revision: parseRevision(v.revision, `${path}.revision`),
     state,
+    quoteRef: quoteRef(v.quoteRef, `${path}.quoteRef`),
     beneficiary: parsePrincipalRef(v.beneficiary, `${path}.beneficiary`),
     zoneId: uuid(v.zoneId, `${path}.zoneId`),
     ...span,

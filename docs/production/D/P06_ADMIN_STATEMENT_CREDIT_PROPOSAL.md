@@ -18,5 +18,15 @@ Canonical browser artifacts will contain `statement-credit-candidate.png`,
 `browser-report.json`. These are review evidence, not design baselines or a green
 financial journey. A decision on the visible selection/evidence interaction is
 still required before the production app adopts it. The approved implementation
-would also need a published masked-credit reader/selector, current revision
-loading, explicit mismatch errors and frozen same-key recovery after uncertainty.
+must retain explicit mismatch errors and frozen same-key recovery after uncertainty.
+
+The backend now supplies a published read-only selector at
+`GET /internal/v1/billing/payment-attempts/:attemptId/statement-credit`, exposed
+through the Finance-only Gateway alias. It resolves exactly one independent,
+pending statement record using the owner's current reference, merchant, amount
+and obligation facts. The response carries the exact credit/obligation revisions,
+masked account and reference, shortened evidence fingerprint and recorded times.
+An absent, ambiguous, mismatched, consumed or self-recorded credit is refused.
+Reading creates no approval, allocation, receipt, audit entry or journal; the
+later explicit command rechecks every invariant. These backend capabilities do
+not activate the unapproved modal or satisfy its pending browser journey.

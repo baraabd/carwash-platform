@@ -390,6 +390,7 @@ export class PricingService {
             policyRevision: book.policyRevision,
             lines: priced.lines.map((line) => ({ ...line, lineId: this.deps.ids.uuid() })),
             totalMinor: priced.totalMinor,
+            durationMinutes: priced.durationMinutes,
             issuedAt: now,
             expiresAt: quoteExpiry(now, ttl),
             correlationId: context.correlationId,

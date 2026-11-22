@@ -603,6 +603,20 @@ export class BillingService {
     return obligationView(await this.readable(context, obligationId));
   }
 
+  /** Exact customer lookup of the existing saga receivable; never creates/adopts one. */
+  async getBookingObligation(context: RequestContext, bookingId: string) {
+    const principal = await this.commands.principal(context);
+    const link = await this.deps.repository.bookings.forBooking(target(bookingId));
+    const snapshot = link ? await this.deps.repository.snapshot(link.obligationId) : null;
+    if (
+      !snapshot ||
+      !sameRef(snapshot.obligation.owner, refOf(principal)) ||
+      !principal.permissions.includes(READ_SELF_PERMISSION)
+    )
+      throw new BillingApplicationError('NOT_FOUND');
+    return obligationView(snapshot);
+  }
+
   async getFinancialStatus(context: RequestContext, obligationId: string) {
     return financialStatusView(await this.readable(context, obligationId));
   }

@@ -88,6 +88,7 @@ export class ActorResolver {
     this.userBudget.take(`user:${session.subject}`);
     return {
       correlationId,
+      credential: authorization,
       actor: {
         kind: 'USER',
         principalKind: session.principalKind,

@@ -188,7 +188,14 @@ export class BookingProcessManager {
         break;
       }
       case 'VOID_OBLIGATION': {
-        const result = await this.deps.billing.voidForBooking(booking.id, correlationId);
+        const result = await this.deps.billing.voidForBooking(
+          {
+            bookingId: booking.id,
+            beneficiary: booking.beneficiary,
+            quoteId: booking.quote.quoteId,
+          },
+          correlationId,
+        );
         next = onVoid(saga, result, this.deps.clock.now(), random);
         break;
       }

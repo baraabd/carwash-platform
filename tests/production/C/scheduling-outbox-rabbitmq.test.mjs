@@ -1,4 +1,5 @@
 /**
+ * Pricing is a finite declared quote double; no real Pricing claim is made.
  * Scheduling outbox -> real RabbitMQ, through the shared OutboxRelay.
  *
  * Real PostgreSQL (runtime role), real RabbitMQ 4.2, compiled scheduling
@@ -9,6 +10,9 @@
  * the broker bootstrap that Lane E owns (topology/ACL request in CR-C1).
  */
 import test, { after, before } from 'node:test';
+import { DeclaredQuotes } from './support/declared-pricing.mjs';
+
+const declaredQuotes = new DeclaredQuotes();
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -52,7 +56,7 @@ before(async () => {
   context = await readContext();
   prisma = new PrismaService(context.databases.scheduling.appUrl);
   const store = new PrismaSchedulingStore(prisma);
-  holds = new HoldsV1Service(store, store, clock, ids);
+  holds = new HoldsV1Service(store, store, clock, ids, declaredQuotes);
   capacity = new CapacityService(store, store, clock, ids);
   connection = await BrokerConnection.open({
     url: context.brokerUrl,
@@ -129,13 +133,13 @@ async function hold(w, correlationId = randomUUID()) {
   };
   const response = await holds.createHold(
     meta(who, correlationId),
-    {
+    declaredQuotes.register({
       beneficiary: { kind: 'guest', subjectId: who.subject },
       zoneId: w.zoneId,
       startsAt: w.startsAt,
       durationMinutes: 30,
       quoteRef: { quoteId: randomUUID(), revision: 1 },
-    },
+    }),
     key(),
   );
   return response.body;

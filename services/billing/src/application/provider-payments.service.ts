@@ -8,6 +8,7 @@ import {
   STATEMENT_REJECTION_REASONS,
   assertOccurredBefore,
   normalizeProviderReference,
+  maskProviderReference,
   planCreditAllocation,
   planStatementDecision,
   type CreditStatus,
@@ -160,6 +161,83 @@ export class ProviderPaymentsService {
   }
 
   // ---------------------------------------------------------------- commands
+
+  /**
+   * Resolve one reviewable statement record from the immutable attempt binding.
+   * This never confirms a credit or writes an audit/receipt/journal. The command
+   * must recheck the returned revisions and every financial invariant later.
+   */
+  async statementCreditReview(
+    context: RequestContext,
+    attemptId: string,
+  ): Promise<billingV1.StatementCreditReviewV1> {
+    const principal = accountOnly(await this.commands.permitted(context, RECONCILE_PERMISSION));
+    const id = target(attemptId);
+    const obligationId = await this.deps.repository.obligationIdForAttempt(id);
+    const initial = obligationId ? await this.deps.repository.snapshot(obligationId) : null;
+    const known = initial?.attempts.find((attempt) => attempt.id === id);
+    if (!initial || !known) throw new BillingApplicationError('NOT_FOUND');
+    const provider = PROVIDERS.find((value) => value === known.method);
+    if (!provider) throw new BillingApplicationError('PROVIDER_CREDIT_REQUIRED');
+    return this.deps.repository.transaction(async (uow) => {
+      await uow.providers.lockReference(provider, known.providerReference);
+      const candidates = await uow.providers.activeCreditsForReference(
+        provider,
+        known.providerReference,
+      );
+      if (candidates.length === 0) throw new BillingApplicationError('PROVIDER_CREDIT_REQUIRED');
+      if (candidates.length !== 1) throw new BillingApplicationError('PROVIDER_CREDIT_CONFLICT');
+      const credit = await uow.providers.lockCredit(candidates[0]!.id);
+      if (!credit || credit.source !== 'MERCHANT_STATEMENT')
+        throw new BillingApplicationError('PROVIDER_CREDIT_CONFLICT');
+      decide(() => planStatementDecision({ credit, decider: principal.subject }));
+      if (!this.adapter(provider).acceptsMerchantAccount(credit.merchantAccount))
+        throw new BillingApplicationError('MERCHANT_ACCOUNT_UNKNOWN');
+      const location = await uow.providers.claimFor(provider, known.providerReference);
+      if (!location || location.attemptId !== id || location.obligationId !== initial.obligation.id)
+        throw new BillingApplicationError('PROVIDER_CREDIT_CONFLICT');
+      const obligation = await uow.lockObligation(location.obligationId);
+      const snapshot = obligation ? await uow.snapshot(obligation.id) : null;
+      const claim = snapshot?.attempts.find((attempt) => attempt.id === id);
+      if (!obligation || !snapshot || !claim) throw new BillingApplicationError('NOT_FOUND');
+      if (claim.method !== credit.provider || claim.providerReference !== credit.reference)
+        throw new BillingApplicationError('PROVIDER_CREDIT_CONFLICT');
+      if (
+        principal.subject === obligation.owner.subjectId ||
+        credit.recordedBy === obligation.owner.subjectId
+      )
+        throw new BillingApplicationError('SEPARATION_OF_DUTIES');
+      const plan = planCreditAllocation({
+        credit,
+        reservedForRefund: await uow.providers.reservedForRefund(credit),
+        claim,
+        obligation,
+        intent: snapshot.activeIntent,
+      });
+      if (plan.kind !== 'ALLOCATE') throw new BillingApplicationError('PROVIDER_CREDIT_CONFLICT');
+      try {
+        return billingV1.parseStatementCreditReviewV1({
+          attemptId: id,
+          obligationId: obligation.id,
+          obligationRevision: obligation.revision,
+          creditId: credit.id,
+          creditRevision: credit.revision,
+          provider: credit.provider,
+          status: credit.status,
+          amount: credit.amount.toWire(),
+          merchantAccount: `…${credit.merchantAccount.slice(-4)}`,
+          reference: maskProviderReference(credit.reference),
+          evidenceFingerprint: credit.evidenceDigest.slice(0, 12),
+          occurredAt: credit.occurredAt.toISOString(),
+          recordedAt: credit.createdAt.toISOString(),
+        });
+      } catch (error: unknown) {
+        if (error instanceof ContractViolation)
+          throw new BillingApplicationError('SERVICE_NOT_READY');
+        throw error;
+      }
+    });
+  }
 
   /**
    * A finance reviewer selects an already recorded merchant-statement credit.

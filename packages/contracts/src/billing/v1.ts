@@ -16,6 +16,7 @@ import { parseCashReceiptV1, type CashReceiptV1 } from './custody';
 
 export * from './custody';
 export * from './refunds';
+export * from './statement-credit';
 
 /**
  * billing.v1 — owner: Billing service (Lane B).
@@ -80,6 +81,12 @@ export const BILLING_V1 = {
       access: 'permission:billing.reconcile',
       idempotent: true,
     },
+    /** One eligible, masked merchant-statement record for explicit Finance review. */
+    getStatementCreditReview: {
+      method: 'GET',
+      path: '/payment-attempts/:attemptId/statement-credit',
+      access: 'permission:billing.reconcile',
+    },
     /** Approves one selected pending statement credit and atomically binds it to this claim. */
     allocateStatementCredit: {
       method: 'POST',
@@ -93,6 +100,19 @@ export const BILLING_V1 = {
       path: '/booking-obligations',
       access: 'service:billing.obligation.write',
       idempotent: true,
+    },
+    /** An unknown create is fenced by booking identity, without guessing a missing debt. */
+    compensateBookingObligation: {
+      method: 'POST',
+      path: '/booking-obligations/compensations',
+      access: 'service:billing.obligation.write',
+      idempotent: true,
+    },
+    /** The customer's existing receivable for its booking; foreign/missing ids are concealed. */
+    getBookingObligation: {
+      method: 'GET',
+      path: '/bookings/:bookingId/obligation',
+      access: 'principal',
     },
     /** Booking saga compensation: void when the booking could not be confirmed or was cancelled unpaid. */
     voidBookingObligation: {
@@ -189,6 +209,7 @@ export const BILLING_V1 = {
   reasons: [
     'QUOTE_NOT_USABLE',
     'OBLIGATION_ALREADY_EXISTS',
+    'BOOKING_COMPENSATED',
     'AMOUNT_INVALID',
     'CURRENCY_UNSUPPORTED',
     'CURRENCY_MISMATCH',
@@ -349,6 +370,21 @@ export interface CreateBookingObligationRequestV1 {
   readonly beneficiary: PrincipalRef;
   readonly quoteId: string;
   readonly bookingId: string;
+}
+
+export interface CompensateBookingObligationRequestV1 extends CreateBookingObligationRequestV1 {
+  readonly reason: 'BOOKING_FAILED';
+}
+
+/** ABSENT_FENCED is a creation barrier, never an invoice, void journal or payment fact. */
+export interface BookingCompensationV1 {
+  readonly bookingId: string;
+  readonly beneficiary: PrincipalRef;
+  readonly quoteId: string;
+  readonly outcome: 'ABSENT_FENCED' | 'VOIDED';
+  readonly obligationId: string | null;
+  readonly obligationRevision: number | null;
+  readonly compensatedAt: UtcTimestamp;
 }
 
 export interface InitializePaymentRequestV1 {
@@ -610,6 +646,51 @@ export function parseCreateBookingObligationRequestV1(
     beneficiary: parsePrincipalRef(v.beneficiary, '$.beneficiary'),
     quoteId: uuid(v.quoteId, '$.quoteId'),
     bookingId: uuid(v.bookingId, '$.bookingId'),
+  };
+}
+
+export function parseCompensateBookingObligationRequestV1(
+  value: unknown,
+): CompensateBookingObligationRequestV1 {
+  const v = closed(value, '$', ['beneficiary', 'quoteId', 'bookingId', 'reason']);
+  return {
+    beneficiary: parsePrincipalRef(v.beneficiary, '$.beneficiary'),
+    quoteId: uuid(v.quoteId, '$.quoteId'),
+    bookingId: uuid(v.bookingId, '$.bookingId'),
+    reason: oneOf(v.reason, '$.reason', ['BOOKING_FAILED'] as const),
+  };
+}
+
+export function parseBookingCompensationV1(value: unknown, path = '$'): BookingCompensationV1 {
+  const v = closed(value, path, [
+    'bookingId',
+    'beneficiary',
+    'quoteId',
+    'outcome',
+    'obligationId',
+    'obligationRevision',
+    'compensatedAt',
+  ]);
+  const outcome = oneOf(v.outcome, `${path}.outcome`, ['ABSENT_FENCED', 'VOIDED'] as const);
+  const obligationId =
+    v.obligationId === null ? null : uuid(v.obligationId, `${path}.obligationId`);
+  const obligationRevision =
+    v.obligationRevision === null
+      ? null
+      : parseRevision(v.obligationRevision, `${path}.obligationRevision`);
+  if (
+    (outcome === 'ABSENT_FENCED' && (obligationId !== null || obligationRevision !== null)) ||
+    (outcome === 'VOIDED' && (obligationId === null || obligationRevision === null))
+  )
+    throw new ContractViolation('INCONSISTENT_COMPENSATION', `${path}.outcome`);
+  return {
+    bookingId: uuid(v.bookingId, `${path}.bookingId`),
+    beneficiary: parsePrincipalRef(v.beneficiary, `${path}.beneficiary`),
+    quoteId: uuid(v.quoteId, `${path}.quoteId`),
+    outcome,
+    obligationId,
+    obligationRevision,
+    compensatedAt: parseUtc(v.compensatedAt, `${path}.compensatedAt`),
   };
 }
 

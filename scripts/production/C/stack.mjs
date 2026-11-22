@@ -51,6 +51,18 @@ export const LANE_SERVICES = Object.freeze([
   'dispatch',
 ]);
 
+/** Explicit owner DBs for cross-lane contract verification; never arbitrary identifiers. */
+export function laneServicesForEnv(env = process.env) {
+  const raw = env.CW_PROD_C_EXTRA_SERVICES;
+  if (raw === undefined || raw === '') return [...LANE_SERVICES];
+  const extras = raw.split(',');
+  const allowed = new Set(['catalog', 'pricing']);
+  if (new Set(extras).size !== extras.length || extras.some((owner) => !allowed.has(owner))) {
+    throw new Error('INVALID_LANE_C_EXTRA_SERVICES');
+  }
+  return [...LANE_SERVICES, ...extras];
+}
+
 function run(command, args, { input, env, allowFailure = false, quiet = false, cwd = ROOT } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -141,7 +153,8 @@ function dsn(user, password, port, database) {
 async function waitForPostgres(context) {
   // Provisioning runs inside the init phase; the runtime role of the LAST
   // service existing proves the whole loop completed (the script is set -eu).
-  const last = LANE_SERVICES[LANE_SERVICES.length - 1];
+  const owners = Object.keys(context.databases);
+  const last = owners[owners.length - 1];
   await waitFor('postgres', async () => {
     const result = await run(
       'docker',
@@ -178,6 +191,7 @@ async function waitForPostgres(context) {
 }
 
 async function up() {
+  const services = laneServicesForEnv();
   const runId = randomBytes(4).toString('hex');
   const workDir = path.join(STATE_DIR, runId);
   await mkdir(workDir, { recursive: true });
@@ -193,7 +207,7 @@ async function up() {
     rabbitmq: secret(),
     s3: { accessKey: `cwc${randomBytes(6).toString('hex')}`, secretKey: secret() },
     services: Object.fromEntries(
-      LANE_SERVICES.map((service) => [service, { app: secret(), migrate: secret() }]),
+      services.map((service) => [service, { app: secret(), migrate: secret() }]),
     ),
   };
   registerSecret(credentials.s3.accessKey);
@@ -206,7 +220,7 @@ async function up() {
     mode: 0o600,
   });
   await writeFile(POINTER, JSON.stringify({ contextFile }), { mode: 0o600 });
-  const serviceEnv = LANE_SERVICES.flatMap((service) => {
+  const serviceEnv = services.flatMap((service) => {
     const prefix = service.toUpperCase();
     return [
       '-e',
@@ -234,7 +248,7 @@ async function up() {
     '-e',
     `POSTGRES_PASSWORD=${credentials.postgres}`,
     '-e',
-    `CW_SERVICES=${LANE_SERVICES.join(' ')}`,
+    `CW_SERVICES=${services.join(' ')}`,
     ...serviceEnv,
     '-v',
     `${path.join(ROOT, 'infra', 'postgres', 'provision.sh')}:/docker-entrypoint-initdb.d/01-provision.sh:ro`,
@@ -326,7 +340,7 @@ async function up() {
     },
     bootstrapUrl: `postgresql://platform_bootstrap:${encodeURIComponent(credentials.postgres)}@127.0.0.1:${ports.postgres}/postgres`,
     databases: Object.fromEntries(
-      LANE_SERVICES.map((service) => [
+      services.map((service) => [
         service,
         {
           appUrl: dsn(
@@ -398,7 +412,14 @@ async function up() {
   console.log(JSON.stringify(summary(context, contextFile), null, 2));
 }
 
-export async function migrate(context, services = LANE_SERVICES) {
+export async function migrate(context, services = Object.keys(context.databases)) {
+  const allowed = new Set([...LANE_SERVICES, 'catalog', 'pricing']);
+  if (
+    !services.length ||
+    services.some((owner) => !allowed.has(owner) || !Object.hasOwn(context.databases, owner))
+  ) {
+    throw new Error('INVALID_LANE_C_MIGRATION_SERVICES');
+  }
   for (const service of services) {
     // Equivalent to `pnpm --filter @carwash/<service> migrate:deploy`, invoked
     // through node so it also works where pnpm is a .cmd shim (Windows).
@@ -535,7 +556,7 @@ if (isMain) {
   } else if (command === 'migrate')
     await migrate(
       await readContext(),
-      process.argv.slice(3).length ? process.argv.slice(3) : LANE_SERVICES,
+      process.argv.slice(3).length ? process.argv.slice(3) : undefined,
     );
   else if (command === 'restart-postgres') await restartPostgres(await readContext());
   else if (command === 'down') await down();

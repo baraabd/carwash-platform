@@ -37,7 +37,7 @@ try {
   console.error(error.message);
   process.exit(2);
 }
-const { services, suites, scope, gatewayOwners, customerBrowser, keep } = plan;
+const { services, suites, scope, gatewayOwners, customerBrowser, bookingBilling, keep } = plan;
 
 const project = `cw-p01a-${randomBytes(6).toString('hex')}`;
 const runLabels = {
@@ -63,7 +63,7 @@ for (const service of allServices) {
 
 const report = {
   lane: 'A',
-  task: 'P01-A',
+  task: bookingBilling ? 'P06-A' : 'P01-A',
   project,
   services,
   startedAt: new Date().toISOString(),
@@ -161,7 +161,7 @@ try {
       .filter(Boolean).length;
   });
 
-  if (gatewayOwners) {
+  if (gatewayOwners || bookingBilling) {
     await phase('build the production Gateway for real owner journeys', () =>
       checked('pnpm', ['--filter', '@carwash/api-gateway', 'run', 'build']),
     );

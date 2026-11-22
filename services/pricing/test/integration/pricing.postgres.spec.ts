@@ -181,6 +181,11 @@ test('pg: a quote is persisted exactly as served and read back by its beneficiar
   const id = created.body.quoteId as string;
   const read = await replicaB.request('GET', `${PATH}/quotes/${id}`, { token: TOKENS.customer });
   assert.deepEqual(read.body, created.body);
+  assert.equal(
+    created.body.durationMinutes,
+    90,
+    'duration reconstitutes from the immutable price-book Catalog view',
+  );
   const row = await sql.query(
     `SELECT q.total_minor::text AS total, q.price_book_revision, q.beneficiary_kind, q.requested_by,
             count(l.*)::int AS lines, sum(l.amount_minor)::text AS line_sum

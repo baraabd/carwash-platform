@@ -5,9 +5,10 @@
  * hold-expiry worker as real OS processes against the lane PostgreSQL, kills
  * them with SIGKILL (no shutdown hooks) and restarts the database container.
  * Invariants checked after every disruption are read straight from the tables.
- * Identity is the lane HTTP double (token -> session view), declared in evidence.
+ * Identity (token -> session) and Pricing (finite quote registry) are declared HTTP doubles.
  */
 import test, { after, before } from 'node:test';
+import { declaredPricingHttp } from './support/declared-pricing.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
@@ -34,6 +35,7 @@ const GUESTS = Array.from({ length: 120 }, (_, i) => ({
 
 let context;
 let identity;
+let pricing;
 let db;
 let port;
 let serviceEnv;
@@ -41,6 +43,7 @@ let nextGuest = 0;
 
 before(async () => {
   context = await readContext();
+  pricing = await declaredPricingHttp();
   identity = await identityDouble({
     [OPS_TOKEN]: {
       subject: randomUUID(),
@@ -67,6 +70,7 @@ before(async () => {
     HOST: '127.0.0.1',
     DATABASE_URL: context.databases.scheduling.appUrl,
     IDENTITY_URL: identity.url,
+    PRICING_ORIGIN: pricing.url,
     SCHEDULING_USER_REQUESTS_PER_MINUTE: '1000',
     SCHEDULING_SERVICE_CLIENTS: JSON.stringify([
       { id: 'booking', tokenSha256: digest(SERVICE_TOKEN), scopes: ['scheduling.hold.commit'] },
@@ -77,6 +81,7 @@ before(async () => {
 after(async () => {
   await db?.end();
   await identity?.close();
+  await pricing?.close();
 });
 
 const base = () => `http://127.0.0.1:${port}/internal/v1/scheduling`;
@@ -120,13 +125,16 @@ async function newWindow(capacity) {
 }
 
 function holdRequest(g, window) {
-  return {
-    beneficiary: { kind: 'guest', subjectId: g.subject },
-    zoneId: window.zoneId,
-    startsAt: window.startsAt.toISOString(),
-    durationMinutes: 30,
-    quoteRef: { quoteId: randomUUID(), revision: 1 },
-  };
+  return pricing.register(
+    {
+      beneficiary: { kind: 'guest', subjectId: g.subject },
+      zoneId: window.zoneId,
+      startsAt: window.startsAt.toISOString(),
+      durationMinutes: 30,
+      quoteRef: { quoteId: randomUUID(), revision: 1 },
+    },
+    g.token,
+  );
 }
 
 const asGuest = (g, key) => ({ authorization: `Bearer ${g.token}`, 'idempotency-key': key });

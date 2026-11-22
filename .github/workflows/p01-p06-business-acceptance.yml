@@ -34,6 +34,8 @@ jobs:
             browser: false
           - suite: a-customer-browser
             browser: true
+          - suite: a-booking-billing
+            browser: false
           - suite: b-catalog
             browser: false
           - suite: b-pricing
@@ -55,6 +57,8 @@ jobs:
           - suite: c-booking
             browser: false
           - suite: c-dispatch
+            browser: false
+          - suite: c-quote-hold
             browser: false
           - suite: c-p06
             browser: true

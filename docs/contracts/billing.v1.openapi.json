@@ -9,6 +9,7 @@
   "x-error-reasons": [
     "QUOTE_NOT_USABLE",
     "OBLIGATION_ALREADY_EXISTS",
+    "BOOKING_COMPENSATED",
     "AMOUNT_INVALID",
     "CURRENCY_UNSUPPORTED",
     "CURRENCY_MISMATCH",
@@ -340,6 +341,41 @@
         }
       }
     },
+    "/internal/v1/billing/payment-attempts/{attemptId}/statement-credit": {
+      "get": {
+        "operationId": "billing.getStatementCreditReview",
+        "x-access": "permission:billing.reconcile",
+        "x-idempotent": false,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts billingV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "attemptId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/internal/v1/billing/payment-attempts/{attemptId}/statement-credit-allocation": {
       "post": {
         "operationId": "billing.allocateStatementCredit",
@@ -400,6 +436,77 @@
             "schema": {
               "type": "string",
               "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/billing/booking-obligations/compensations": {
+      "post": {
+        "operationId": "billing.compensateBookingObligation",
+        "x-access": "service:billing.obligation.write",
+        "x-idempotent": true,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts billingV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/billing/bookings/{bookingId}/obligation": {
+      "get": {
+        "operationId": "billing.getBookingObligation",
+        "x-access": "principal",
+        "x-idempotent": false,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts billingV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           }
         ],

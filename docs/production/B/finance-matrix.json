@@ -286,13 +286,15 @@
     {
       "id": "FIN-SAGA-01",
       "area": "electronic-payment",
-      "function": "Booking saga obligation create and compensating void (service scope billing.obligation.write)",
+      "function": "Booking workload obligation creation and immutable by-booking compensation fence; exact-owner principal lookup of existing obligation",
       "owner": "billing",
       "status": "IN_REVIEW",
       "child": "P06-B4",
       "contractRoutes": [
         "createBookingObligation",
-        "voidBookingObligation"
+        "voidBookingObligation",
+        "compensateBookingObligation",
+        "getBookingObligation"
       ],
       "productionGate": "FAIL_CLOSED",
       "blockers": [
@@ -300,7 +302,33 @@
       ],
       "ownerRoutes": [
         "POST /internal/v1/billing/booking-obligations",
-        "POST /internal/v1/billing/booking-obligations/:id/void"
+        "POST /internal/v1/billing/booking-obligations/:id/void",
+        "POST /internal/v1/billing/booking-obligations/compensations",
+        "GET /internal/v1/billing/bookings/:bookingId/obligation"
+      ],
+      "gatewayRoutes": [
+        "customer.bookings.obligation"
+      ],
+      "files": [
+        "services/billing/src/application/booking-obligation.service.ts",
+        "services/billing/src/application/billing.service.ts",
+        "services/billing/src/infrastructure/persistence/prisma-booking-link.store.ts",
+        "services/booking/src/infrastructure/owners/owner-adapters.ts",
+        "services/booking/src/application/process-manager.ts"
+      ],
+      "tables": [
+        "booking_obligation",
+        "booking_compensation",
+        "billing_obligation",
+        "ledger_journal"
+      ],
+      "tests": [
+        "services/billing/test/billing.booking-saga.spec.ts",
+        "services/billing/test/integration/billing.booking-saga.postgres.spec.ts",
+        "services/booking/test/unit/adapters.spec.ts",
+        "services/booking/test/integration/saga.pg.spec.ts",
+        "tests/production/A/booking-billing.integration.test.mjs",
+        "tests/production/E/contracts-billing.test.mjs"
       ]
     },
     {
@@ -311,11 +339,13 @@
       "status": "IMPLEMENTED",
       "contractRoutes": [
         "reconcileAttempt",
-        "allocateStatementCredit"
+        "allocateStatementCredit",
+        "getStatementCreditReview"
       ],
       "gatewayRoutes": [
         "admin.billing.reconcile",
-        "admin.billing.statement-credit.allocate"
+        "admin.billing.statement-credit.allocate",
+        "admin.billing.statement-credit.read"
       ],
       "files": [
         "services/billing/src/domain/payment.ts",
@@ -1006,7 +1036,7 @@
       "external": false,
       "lane": "C",
       "tracking": "docs/production/B/CONTRACT_REQUEST_E_P06.md",
-      "summary": "Booking saga does not yet call Billing booking-obligations with a billing.obligation.write service credential."
+      "summary": "Booking calls the published workload create and immutable compensation routes; exact-head canonical HTTP/PostgreSQL acceptance and configured-credential deployment verification remain required."
     },
     {
       "id": "B-P06-07",

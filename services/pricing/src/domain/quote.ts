@@ -67,6 +67,41 @@ export class QuoteRequestInvalid extends Error {
 export const MAX_SELECTIONS = 20;
 export const MAX_QUANTITY = 10;
 
+/**
+ * Duration is an immutable selection fact, using only the Catalog view pinned
+ * by this price book. No category, travel or included-extra duration is inferred.
+ * Existing quotes use their stored lines and the same pinned view at read time.
+ */
+export function selectionDuration(
+  selections: readonly QuoteSelection[],
+  catalog: CatalogView,
+): number {
+  if (
+    selections.length === 0 ||
+    selections.length > MAX_SELECTIONS ||
+    new Set(selections.map((selection) => selection.definitionId)).size !== selections.length
+  ) {
+    throw new QuoteRuleError('SELECTION_INVALID');
+  }
+  let minutes = 0;
+  for (const selection of selections) {
+    const definition = definitionOf(catalog, selection.definitionId);
+    if (
+      !definition ||
+      !Number.isSafeInteger(definition.durationMinutes) ||
+      definition.durationMinutes < 5 ||
+      definition.durationMinutes > 480 ||
+      !Number.isSafeInteger(selection.quantity) ||
+      selection.quantity < 1 ||
+      selection.quantity > MAX_QUANTITY
+    ) {
+      throw new QuoteRuleError('SELECTION_INVALID');
+    }
+    minutes += definition.durationMinutes * selection.quantity;
+  }
+  return minutes;
+}
+
 function closedObject(value: unknown, keys: string, field: string): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value))
     throw new QuoteRequestInvalid(field);
@@ -135,7 +170,11 @@ export function priceSelection(input: {
   readonly catalog: CatalogView;
   readonly entries: readonly PriceBookEntry[];
   readonly maxAmountMinor: bigint;
-}): { readonly lines: readonly PricedLine[]; readonly totalMinor: bigint } {
+}): {
+  readonly lines: readonly PricedLine[];
+  readonly totalMinor: bigint;
+  readonly durationMinutes: number;
+} {
   const { request, catalog, entries } = input;
   const lines: PricedLine[] = [];
   for (const selection of request.selections) {
@@ -163,7 +202,11 @@ export function priceSelection(input: {
   const ordered = [...packages, ...lines.filter((line) => line.kind !== 'PACKAGE')];
   const totalMinor = ordered.reduce((sum, line) => sum + line.amountMinor, 0n);
   if (totalMinor > input.maxAmountMinor) throw new QuoteRuleError('AMOUNT_LIMIT_EXCEEDED');
-  return { lines: ordered, totalMinor };
+  return {
+    lines: ordered,
+    totalMinor,
+    durationMinutes: selectionDuration(request.selections, catalog),
+  };
 }
 
 export type QuoteStatus = 'USABLE' | 'EXPIRED' | 'REVOKED';

@@ -150,6 +150,10 @@ test('application: a scope denial is 403 and an unauthenticated workload is 401,
       (error: unknown) => error instanceof BillingApplicationError && error.code === expected,
     );
     await assert.rejects(
+      service.compensateForBooking(context, 'booking-key-0000000001', {}),
+      (error: unknown) => error instanceof BillingApplicationError && error.code === expected,
+    );
+    await assert.rejects(
       service.voidForBooking(context, randomUUID(), 'booking-key-0000000001', {}),
       (error: unknown) => error instanceof BillingApplicationError && error.code === expected,
     );
@@ -266,6 +270,11 @@ test('HTTP: booking-saga routes refuse missing, wrong, unconfigured and human cr
   const cases = [
     { name: 'none', options: {} },
     { name: 'human bearer', options: { token: TOKENS.customer } },
+    { name: 'human cookie', options: { cookie: `__Host-wg_access=${TOKENS.customer}` } },
+    {
+      name: 'cookie plus valid workload',
+      options: { cookie: `__Host-wg_access=${TOKENS.customer}`, workload: WORKLOADS.booking },
+    },
     {
       name: 'bearer plus valid workload',
       options: { token: TOKENS.customer, workload: WORKLOADS.booking },
@@ -289,6 +298,12 @@ test('HTTP: booking-saga routes refuse missing, wrong, unconfigured and human cr
       body: { expectedRevision: 1 },
     });
     assert.equal(voided.status, 401, `void ${name}`);
+    const compensated = await http.request('POST', `${PATH}/booking-obligations/compensations`, {
+      ...options,
+      key,
+      body: { ...createBody(), reason: 'BOOKING_FAILED' },
+    });
+    assert.equal(compensated.status, 401, `compensate ${name}`);
   }
   const off = await unconfigured.request('POST', create, {
     workload: WORKLOADS.booking,
@@ -296,6 +311,16 @@ test('HTTP: booking-saga routes refuse missing, wrong, unconfigured and human cr
     body: createBody(),
   });
   assert.equal(off.status, 401);
+  const offCompensation = await unconfigured.request(
+    'POST',
+    `${PATH}/booking-obligations/compensations`,
+    {
+      workload: WORKLOADS.booking,
+      key,
+      body: { ...createBody(), reason: 'BOOKING_FAILED' },
+    },
+  );
+  assert.equal(offCompensation.status, 401);
 });
 
 test('HTTP: an authorized workload still needs a valid key and the exact contract body (no repository access)', async () => {
