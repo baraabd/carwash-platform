@@ -10,7 +10,11 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } f
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkMatrix, routeKey } from '../../../scripts/production/B/check-finance-matrix.mjs';
+import {
+  checkMatrix,
+  routeKey,
+  servedRouteMatches,
+} from '../../../scripts/production/B/check-finance-matrix.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const load = () =>
@@ -23,6 +27,25 @@ test('route keys ignore parameter names and slashes', () => {
     routeKey('POST', '/internal/v1/billing/obligations/:id/void'),
   );
   assert.notEqual(routeKey('GET', '/a/:x'), routeKey('POST', '/a/:x'));
+});
+
+test('fixed provider aliases match one owner route parameter, preserving owner, verb and depth', () => {
+  const pattern = 'billing|POST /internal/v1/billing/provider-notifications/:p';
+  assert.equal(
+    servedRouteMatches(
+      pattern,
+      'billing|POST /internal/v1/billing/provider-notifications/sham-cash',
+    ),
+    true,
+  );
+  for (const target of [
+    'billing|GET /internal/v1/billing/provider-notifications/sham-cash',
+    'wallet|POST /internal/v1/billing/provider-notifications/sham-cash',
+    'billing|POST /internal/v1/billing/provider-notifications/',
+    'billing|POST /internal/v1/billing/provider-notifications/sham-cash/extra',
+    'billing|POST /internal/v1/billing/other/sham-cash',
+  ])
+    assert.equal(servedRouteMatches(pattern, target), false);
 });
 
 test('the committed matrix matches this tree', () => {

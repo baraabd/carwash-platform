@@ -310,6 +310,25 @@ const SCENARIOS = [
     setup: () => {},
     ref: () => refState(SEED_KEYS.map((id) => refJob(id))),
     steps: [open('WG-2041')],
+    // Existing D10: C3 withholds the Booking address until acceptance. Align
+    // this one reference fixture with the retained Dispatch slot time before
+    // rasterisation; inline glyph ink can extend beyond its CSS bounding box.
+    // Do not expand the existing mask to cover that ink.
+    subtitle: {
+      selector: '.header-center small',
+      raw: 'المزة · 09:30 · بيانات تجريبية',
+      expected: '09:30',
+    },
+    extra: [
+      {
+        id: 'D10',
+        kind: 'html',
+        selector: '.header-center small',
+        from: 'المزة · 09:30', // PC-04 has already removed the prototype qualifier.
+        to: '09:30',
+        reason: 'C3 withholds the offered Booking area; Dispatch still supplies its slot time.',
+      },
+    ],
     // Everything below the heading (and the header area line) is a declared data-gap band.
     mask: ['.header-center small'],
     maskBelow: '#main .heading',
@@ -760,6 +779,22 @@ test(
             );
           const fullPage = !scenario.mask;
           const raw = await capture(refPage, fullPage);
+          if (scenario.subtitle) {
+            const referenceSubtitle = refPage.locator(scenario.subtitle.selector);
+            const candidateSubtitle = candPage.locator(scenario.subtitle.selector);
+            assert.equal(await referenceSubtitle.count(), 1, 'one reference offer subtitle');
+            assert.equal(await candidateSubtitle.count(), 1, 'one candidate offer subtitle');
+            assert.equal(
+              await referenceSubtitle.innerHTML(),
+              scenario.subtitle.raw,
+              'D10 applies only to the exact known raw reference fixture',
+            );
+            assert.equal(
+              await candidateSubtitle.innerHTML(),
+              scenario.subtitle.expected,
+              'C3 candidate retains the Dispatch time without an unavailable Booking area',
+            );
+          }
           // PN additions (P05-C2): copied from the candidate DOM into the reference.
           const adopted = [];
           for (const a of scenario.adopt ?? []) {
@@ -787,6 +822,18 @@ test(
             ...(scenario.extra ?? []),
             ...adopted,
           ]);
+          if (scenario.subtitle) {
+            assert.equal(
+              final.filter((region) => region.id === 'D10').length,
+              1,
+              'D10 must replace exactly one subtitle after PC-04',
+            );
+            assert.equal(
+              await refPage.locator(scenario.subtitle.selector).innerHTML(),
+              scenario.subtitle.expected,
+              'the declared reference retains the exact same Dispatch time',
+            );
+          }
           const seen = new Set();
           const regions = [...preRegions, ...final].filter((r) => {
             const key = JSON.stringify(r);

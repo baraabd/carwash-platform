@@ -29,8 +29,8 @@ export * from './refunds';
  *
  * Money truth:
  *  - choosing a method or reporting a transaction reference NEVER means money
- *    was received; only a MATCHED reconciliation (or an authorised cash
- *    receipt) settles an obligation;
+ *    was received; only allocation of an independently confirmed provider
+ *    credit (or an authorised cash receipt) settles an obligation;
  *  - an outcome that cannot be known is OUTCOME_UNKNOWN, never success;
  *  - a refund is a separate fact with its own outcome; REQUESTED or
  *    OUTCOME_UNKNOWN never means the money went back.
@@ -77,6 +77,13 @@ export const BILLING_V1 = {
     reconcileAttempt: {
       method: 'POST',
       path: '/payment-attempts/:attemptId/reconciliation',
+      access: 'permission:billing.reconcile',
+      idempotent: true,
+    },
+    /** Approves one selected pending statement credit and atomically binds it to this claim. */
+    allocateStatementCredit: {
+      method: 'POST',
+      path: '/payment-attempts/:attemptId/statement-credit-allocation',
       access: 'permission:billing.reconcile',
       idempotent: true,
     },
@@ -199,6 +206,10 @@ export const BILLING_V1 = {
     'AMOUNT_NOT_EQUAL_OUTSTANDING',
     'OBSERVED_AMOUNT_REQUIRED',
     'OBSERVED_AMOUNT_NOT_ALLOWED',
+    'PROVIDER_CREDIT_REQUIRED',
+    'PROVIDER_CREDIT_CONFLICT',
+    'CREDIT_NOT_PENDING',
+    'MERCHANT_ACCOUNT_UNKNOWN',
     // Cash custody (P03-B1).
     'COLLECTION_ALREADY_RECORDED',
     'TREASURY_REFERENCE_TAKEN',
@@ -355,6 +366,14 @@ export interface ReconcileAttemptRequestV1 {
   readonly outcome: ReconciliationOutcome;
   /** Required for MATCHED/MISMATCHED (what the statement shows); null for UNKNOWN. */
   readonly observedAmount: Money | null;
+}
+
+/** The selected record supplies authority; observedAmount is only a checked reviewer input. */
+export interface AllocateStatementCreditRequestV1 {
+  readonly creditId: string;
+  readonly expectedCreditRevision: number;
+  readonly expectedRevision: number;
+  readonly observedAmount: Money;
 }
 
 export interface VoidObligationRequestV1 {
@@ -636,6 +655,23 @@ export function parseReconcileAttemptRequestV1(value: unknown): ReconcileAttempt
 export function parseVoidObligationRequestV1(value: unknown): VoidObligationRequestV1 {
   const v = closed(value, '$', ['expectedRevision']);
   return { expectedRevision: parseRevision(v.expectedRevision, '$.expectedRevision') };
+}
+
+export function parseAllocateStatementCreditRequestV1(
+  value: unknown,
+): AllocateStatementCreditRequestV1 {
+  const v = closed(value, '$', [
+    'creditId',
+    'expectedCreditRevision',
+    'expectedRevision',
+    'observedAmount',
+  ]);
+  return {
+    creditId: uuid(v.creditId, '$.creditId'),
+    expectedCreditRevision: parseRevision(v.expectedCreditRevision, '$.expectedCreditRevision'),
+    expectedRevision: parseRevision(v.expectedRevision, '$.expectedRevision'),
+    observedAmount: parseNonNegativeMoney(v.observedAmount, '$.observedAmount'),
+  };
 }
 
 /** Response of recordCashCollection and reverseCashCollection. */

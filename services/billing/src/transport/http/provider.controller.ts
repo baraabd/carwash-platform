@@ -137,6 +137,22 @@ export class ProviderController {
     );
   }
 
+  @Post('payment-attempts/:id/statement-credit-allocation')
+  async allocateStatement(
+    @Headers() headers: RequestHeaders,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Res() response: HttpResponse,
+  ): Promise<void> {
+    await sendCommand(
+      this.logger,
+      'billing_statement_credit_allocate',
+      headers,
+      response,
+      (context, key) => this.payments.allocateStatementCredit(context, id, key, body),
+    );
+  }
+
   @Post('provider-credits/:id/refunds')
   async requestRefund(
     @Headers() headers: RequestHeaders,
@@ -158,7 +174,8 @@ export class ProviderController {
     return run(() => this.refunds.refunds(contextOf(headers), status, limit));
   }
 
-  @Get('refunds/:id')
+  /** Explicit compatibility view; the published /refunds/:id shape has a dedicated controller. */
+  @Get('legacy/refunds/:id')
   refund(@Headers() headers: RequestHeaders, @Param('id') id: string) {
     return run(() => this.refunds.getRefund(contextOf(headers), id));
   }

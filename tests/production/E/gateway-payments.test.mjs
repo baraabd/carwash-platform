@@ -18,7 +18,13 @@ import path from 'node:path';
 import { ROOT, config, own, request, start, stub } from '../../gateway/_helpers.mjs';
 
 const contracts = own('@carwash/contracts');
-const { GATEWAY_ROUTES, OWNER_CONTRACTS, PROVIDER_INGRESS_MAX_BYTES } = contracts;
+const {
+  GATEWAY_ROUTES,
+  OWNER_CONTRACTS,
+  PROVIDER_INGRESS_MAX_BYTES,
+  API_ERROR_STATUS,
+  parseApiErrorEnvelope,
+} = contracts;
 const security = createRequire(path.join(ROOT, 'packages/security-kit/package.json'));
 const { SignJWT } = security('jose');
 const keys = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -94,6 +100,8 @@ test('payment route table: owner, permissions, idempotency and ingress shape', (
     assert.ok(route.upstream.startsWith('/internal/v1/billing/'), route.id);
   const byId = Object.fromEntries(GATEWAY_ROUTES.map((r) => [r.id, r]));
   assert.equal(byId['admin.billing.reconcile'].permission, 'billing.reconcile');
+  assert.equal(byId['admin.billing.statement-credit.allocate'].permission, 'billing.reconcile');
+  assert.equal(byId['admin.billing.statement-credit.allocate'].idempotency, 'required');
   assert.equal(byId['admin.billing.refund.outcome'].permission, 'billing.reconcile');
   assert.equal(byId['admin.billing.refunds.request'].permission, 'billing.refund');
   for (const id of [
@@ -149,7 +157,8 @@ test('customer payment step forwards a verified identity and the Idempotency-Key
       body: JSON.stringify({ expectedRevision: 2, providerReference: 'TX-12345678' }),
     });
   const missing = await send({});
-  assert.equal(missing.status, 400);
+  assert.equal(missing.status, API_ERROR_STATUS.IDEMPOTENCY_KEY_REQUIRED);
+  assert.equal(parseApiErrorEnvelope(missing.body).error.code, 'IDEMPOTENCY_KEY_REQUIRED');
   assert.equal(billing.calls.length, 0, 'no key, no upstream call');
   const ok = await send({ 'idempotency-key': 'payment_attempt_000001' });
   assert.equal(ok.status, 202);
@@ -186,6 +195,56 @@ test('finance separation: only billing.reconcile reaches reconciliation; read or
   assert.equal(billing.calls.length, 0, 'denied before any owner call');
   assert.equal((await reconcile(['billing.reconcile'])).status, 200);
   assert.equal(billing.calls.length, 1);
+});
+
+test('selected credit allocation: Finance permission and a stable key are required; binding bytes reach Billing unchanged', async (t) => {
+  const billing = await rawOwner(t, (call, res) => json(res, 200, { accepted: true }));
+  const attempt = randomUUID();
+  const body = {
+    creditId: randomUUID(),
+    expectedCreditRevision: 7,
+    expectedRevision: 3,
+    observedAmount: { currency: 'SYP', amountMinor: '150000', scale: 2 },
+  };
+  const commandKey = `selected_${randomUUID()}`;
+  const send = async (permissions, key) => {
+    const { identity, token, session } = await identityWith(t, permissions);
+    const app = await start(config(identity.base, { billing: billing.base }));
+    t.after(() => app.close());
+    const response = await request(
+      app.base,
+      `/api/v1/admin/billing/payment-attempts/${attempt}/statement-credit-allocation`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+          origin: ORIGIN,
+          'x-auth-subject': randomUUID(),
+          ...(key ? { 'idempotency-key': key } : {}),
+        },
+        body: JSON.stringify(body),
+      },
+    );
+    return { response, session };
+  };
+  for (const permissions of [['bookings.read:self'], ['billing.read'], ['billing.refund']])
+    assert.equal((await send(permissions, commandKey)).response.status, 403);
+  const missing = (await send(['billing.reconcile'], undefined)).response;
+  assert.equal(missing.status, API_ERROR_STATUS.IDEMPOTENCY_KEY_REQUIRED);
+  assert.equal(parseApiErrorEnvelope(missing.body).error.code, 'IDEMPOTENCY_KEY_REQUIRED');
+  assert.equal(billing.calls.length, 0, 'no denied or keyless command reaches the owner');
+  const allowed = await send(['billing.reconcile'], commandKey);
+  assert.equal(allowed.response.status, 200);
+  assert.equal(billing.calls.length, 1);
+  const forwarded = billing.calls[0];
+  assert.equal(
+    forwarded.path,
+    `/internal/v1/billing/payment-attempts/${attempt}/statement-credit-allocation`,
+  );
+  assert.equal(forwarded.headers['x-auth-subject'], allowed.session.subject);
+  assert.equal(forwarded.headers['idempotency-key'], commandKey);
+  assert.deepEqual(JSON.parse(forwarded.raw.toString('utf8')), body);
 });
 
 test('owner reasons: only the merged contract reasons reach the client; 412 stays a conflict; timeout is never success', async (t) => {

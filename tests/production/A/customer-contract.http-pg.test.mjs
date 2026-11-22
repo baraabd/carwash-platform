@@ -11,7 +11,7 @@ import { createRequire } from 'node:module';
 
 const own = createRequire(new URL('../../../services/customer/package.json', import.meta.url));
 const { Client } = own('pg');
-const { customerV1, parseApiErrorEnvelope } = own('@carwash/contracts');
+const { customerV1, parseApiErrorEnvelope, parsePage } = own('@carwash/contracts');
 own('reflect-metadata');
 const { createHttpApplication } = own('./dist/transport/http/create-app.js');
 const databaseUrl = process.env.CUSTOMER_TEST_DATABASE_URL;
@@ -316,7 +316,7 @@ async function addressFixture(
   line = 'عنوان اختباري واضح',
 ) {
   const { actor, profile } = await bootstrap();
-  const address = await call('/me/addresses', {
+  const address = await call('/legacy/me/addresses', {
     method: 'POST',
     headers: { ...actor.headers, 'idempotency-key': key() },
     body: { label: 'المنزل', line, accessNote: 'الباب الخلفي', location },
@@ -399,7 +399,7 @@ test('snapshot owner, revision, active status and credentials are enforced befor
     [address.addressId, 'customer.address.snapshot-resolved'],
   );
   assert.equal(audit.rows[0].count, 0, 'refused reads do not record a successful resolution');
-  const archived = await call(`/me/addresses/${address.addressId}/archive`, {
+  const archived = await call(`/legacy/me/addresses/${address.addressId}/archive`, {
     method: 'POST',
     headers: { ...actor.headers, 'if-match': '"1"' },
   });
@@ -443,5 +443,333 @@ test('PostgreSQL enforces one audit actor type while keeping service facts appen
         address.addressId,
       ]),
     (error) => error.code === '42501',
+  );
+});
+
+const manualAddress = {
+  label: 'المنزل',
+  location: { mode: 'manual', description: 'حي الشهباء، شارع الاختبار' },
+  details: null,
+};
+const address = (response) => customerV1.parseAddressV1(response.body);
+const addresses = (response) => parsePage(response.body, '$', customerV1.parseAddressV1);
+const addressHeaders = (actor, revision, idempotency = key()) => ({
+  ...actor.headers,
+  'idempotency-key': idempotency,
+  ...(revision === undefined ? {} : { 'if-match': `"${revision}"` }),
+});
+const createAddress = (actor, body = manualAddress, idempotency = key()) =>
+  call('/me/addresses', {
+    method: 'POST',
+    headers: addressHeaders(actor, undefined, idempotency),
+    body,
+  });
+const changeAddress = (actor, id, revision, body, idempotency = key()) =>
+  call(`/me/addresses/${id}`, {
+    method: 'PATCH',
+    headers: addressHeaders(actor, revision, idempotency),
+    body,
+  });
+const archiveAddress = (actor, id, revision, idempotency = key()) =>
+  call(`/me/addresses/${id}/archive`, {
+    method: 'POST',
+    headers: addressHeaders(actor, revision, idempotency),
+    body: {},
+  });
+
+test('canonical address CRUD satisfies shared parsers, published field limits and durable nullable data', async () => {
+  const { actor } = await bootstrap();
+  const input = {
+    label: 'ل'.repeat(40),
+    location: { mode: 'manual', description: 'و'.repeat(300) },
+    details: 'د'.repeat(300),
+  };
+  const created = await createAddress(actor, input);
+  assert.equal(created.status, 201);
+  const value = address(created);
+  assert.equal(value.revision, 1);
+  assert.equal(value.archived, false);
+  assert.deepEqual(value.location, input.location);
+  assert.equal(value.label, input.label);
+  assert.equal(value.details, input.details);
+  assert.equal(created.headers.get('etag'), '"1"');
+  const listed = await call('/me/addresses', { headers: actor.headers });
+  assert.deepEqual(addresses(listed).items, [value]);
+  assert.equal(addresses(listed).nextCursor, null);
+  assert.equal(listed.headers.get('cache-control'), 'no-store');
+  const changed = await changeAddress(actor, value.addressId, 1, manualAddress);
+  assert.equal(changed.status, 200);
+  assert.equal(address(changed).revision, 2);
+  assert.equal(address(changed).details, null);
+  const archived = await archiveAddress(actor, value.addressId, 2);
+  assert.equal(archived.status, 200);
+  assert.equal(address(archived).archived, true);
+  assert.equal(address(archived).revision, 3);
+  assert.deepEqual(addresses(await call('/me/addresses', { headers: actor.headers })).items, []);
+});
+
+test('canonical coordinates preserve absent descriptions and never fabricate pin/device provenance', async () => {
+  const { actor } = await bootstrap();
+  const input = {
+    label: 'موقع محفوظ',
+    location: {
+      mode: 'coordinates',
+      point: { latitude: '36.200000', longitude: '37.100000' },
+      description: null,
+    },
+    details: null,
+  };
+  const created = await createAddress(actor, input);
+  assert.equal(created.status, 201);
+  const value = address(created);
+  assert.deepEqual(value.location, input.location);
+  const stored = await sql(
+    'SELECT line, location_source, latitude::text, longitude::text FROM app.customer_address WHERE id=$1',
+    [value.addressId],
+  );
+  assert.deepEqual(stored.rows, [
+    { line: null, location_source: null, latitude: '36.200000', longitude: '37.100000' },
+  ]);
+  const legacy = await call(`/legacy/me/addresses/${value.addressId}`, { headers: actor.headers });
+  assert.equal(
+    legacy.status,
+    409,
+    'legacy cannot fabricate an unsupported description or provenance',
+  );
+  const snapshot = await call('/address-snapshots/resolve', {
+    method: 'POST',
+    headers: { 'x-service-client': 'booking', 'x-service-token': workloadToken },
+    body: {
+      owner: { kind: actor.kind, subjectId: actor.subject },
+      addressId: value.addressId,
+      expectedRevision: 1,
+      purpose: 'booking-create',
+    },
+  });
+  assert.equal(snapshot.status, 200);
+  assert.deepEqual(customerV1.parseAddressSnapshotV1(snapshot.body).location, input.location);
+});
+
+test('legacy addresses remain readable, canonical updates retain provenance only for an unchanged point', async () => {
+  const { actor } = await bootstrap();
+  const legacy = await call('/legacy/me/addresses', {
+    method: 'POST',
+    headers: addressHeaders(actor),
+    body: {
+      label: 'بيتي',
+      line: 'وصف محفوظ',
+      accessNote: null,
+      location: {
+        kind: 'coordinates',
+        source: 'device',
+        coordinates: { crs: 'EPSG:4326', latitude: '36.2', longitude: '37.1' },
+      },
+    },
+  });
+  assert.equal(legacy.status, 201);
+  const canonical = addresses(await call('/me/addresses', { headers: actor.headers })).items[0];
+  assert.equal(canonical.addressId, legacy.body.addressId);
+  const input = {
+    label: canonical.label,
+    location: { ...canonical.location, description: 'وصف محدث' },
+    details: null,
+  };
+  assert.equal((await changeAddress(actor, canonical.addressId, 1, input)).status, 200);
+  assert.equal(
+    (
+      await sql('SELECT location_source FROM app.customer_address WHERE id=$1', [
+        canonical.addressId,
+      ])
+    ).rows[0].location_source,
+    'device',
+  );
+  const moved = {
+    ...input,
+    location: { ...input.location, point: { ...input.location.point, latitude: '36.300000' } },
+  };
+  assert.equal((await changeAddress(actor, canonical.addressId, 2, moved)).status, 200);
+  assert.equal(
+    (
+      await sql('SELECT location_source FROM app.customer_address WHERE id=$1', [
+        canonical.addressId,
+      ])
+    ).rows[0].location_source,
+    null,
+  );
+});
+
+test('canonical address key/revision discipline preserves atomic create/archive replay and owner isolation', async () => {
+  const { actor } = await bootstrap();
+  const foreign = (await bootstrap()).actor;
+  expectError(
+    await call('/me/addresses', { method: 'POST', headers: actor.headers, body: manualAddress }),
+    428,
+    'IDEMPOTENCY_KEY_REQUIRED',
+  );
+  const idempotency = key();
+  const first = await createAddress(actor, manualAddress, idempotency);
+  const value = address(first);
+  const replay = await createAddress(actor, manualAddress, idempotency);
+  assert.deepEqual(replay.body, first.body);
+  assert.equal(replay.headers.get('idempotent-replayed'), 'true');
+  expectError(
+    await createAddress(actor, { ...manualAddress, label: 'تغيير' }, idempotency),
+    409,
+    'IDEMPOTENCY_CONFLICT',
+  );
+  expectError(await changeAddress(foreign, value.addressId, 1, manualAddress), 404, 'NOT_FOUND');
+  expectError(await archiveAddress(foreign, value.addressId, 1), 404, 'NOT_FOUND');
+  expectError(
+    await changeAddress(actor, value.addressId, 2, manualAddress),
+    412,
+    'REVISION_CONFLICT',
+  );
+  expectError(
+    await call(`/me/addresses/${value.addressId}/archive`, {
+      method: 'POST',
+      headers: { ...actor.headers, 'if-match': '"1"' },
+      body: {},
+    }),
+    428,
+    'IDEMPOTENCY_KEY_REQUIRED',
+  );
+  const archiveKey = key();
+  const archived = await archiveAddress(actor, value.addressId, 1, archiveKey);
+  const archivedReplay = await archiveAddress(actor, value.addressId, 1, archiveKey);
+  assert.deepEqual(archivedReplay.body, archived.body);
+  assert.equal(archivedReplay.headers.get('idempotent-replayed'), 'true');
+  expectError(await archiveAddress(actor, value.addressId, 1), 412, 'REVISION_CONFLICT');
+  expectError(
+    await changeAddress(actor, value.addressId, 2, manualAddress),
+    409,
+    'CONFLICT',
+    'ADDRESS_ARCHIVED',
+  );
+  const events = await sql(
+    "SELECT count(*)::int AS count FROM app.outbox_message WHERE payload::jsonb #>> '{data,addressId}'=$1",
+    [value.addressId],
+  );
+  assert.equal(events.rows[0].count, 2, 'replays produce no duplicate outbox events');
+});
+
+test('canonical address pagination is bounded and keyset cursors are scoped to their owner', async () => {
+  const { actor } = await bootstrap();
+  const foreign = (await bootstrap()).actor;
+  const saved = [];
+  for (let i = 0; i < 3; i++)
+    saved.push(address(await createAddress(actor, { ...manualAddress, label: `عنوان ${i}` })));
+  const first = addresses(await call('/me/addresses?limit=1', { headers: actor.headers }));
+  assert.equal(first.items.length, 1);
+  assert.ok(first.nextCursor);
+  expectError(
+    await call(`/me/addresses?cursor=${first.nextCursor}`, { headers: foreign.headers }),
+    422,
+    'VALIDATION_FAILED',
+  );
+  assert.equal((await archiveAddress(actor, first.items[0].addressId, 1)).status, 200);
+  const second = addresses(
+    await call(`/me/addresses?limit=2&cursor=${first.nextCursor}`, { headers: actor.headers }),
+  );
+  assert.deepEqual(
+    second.items.map((item) => item.addressId),
+    saved.slice(1).map((item) => item.addressId),
+  );
+  assert.equal(second.nextCursor, null);
+  for (const query of [
+    'limit=101',
+    'limit=0',
+    'cursor=bad',
+    'includeArchived=true',
+    'limit=1&limit=2',
+  ]) {
+    expectError(
+      await call(`/me/addresses?${query}`, { headers: actor.headers }),
+      422,
+      'VALIDATION_FAILED',
+    );
+  }
+});
+
+test('canonical address technical cap uses the published twenty and is safe under concurrent creates', async () => {
+  const { actor } = await bootstrap();
+  for (let i = 0; i < 19; i++)
+    assert.equal(
+      (await createAddress(actor, { ...manualAddress, label: `عنوان ${i}` })).status,
+      201,
+    );
+  const final = await Promise.all([createAddress(actor), createAddress(actor)]);
+  assert.deepEqual(final.map((result) => result.status).sort(), [201, 409]);
+  expectError(
+    final.find((result) => result.status === 409),
+    409,
+    'CONFLICT',
+    'ADDRESS_LIMIT_REACHED',
+  );
+  assert.equal(
+    addresses(await call('/me/addresses?limit=100', { headers: actor.headers })).items.length,
+    20,
+  );
+});
+
+test('canonical address validation rejects artwork, excess fields and oversized values without echoing them', async () => {
+  const { actor } = await bootstrap();
+  for (const input of [
+    { ...manualAddress, label: 'x'.repeat(41) },
+    { ...manualAddress, details: 'x'.repeat(301) },
+    { ...manualAddress, location: { mode: 'manual', description: 'xx' } },
+    { ...manualAddress, location: { mode: 'manual', description: null } },
+    { ...manualAddress, location: { mode: 'manual', description: 'x'.repeat(301) } },
+    { ...manualAddress, location: { x: 350, y: 250 } },
+    { ...manualAddress, customerId: randomUUID() },
+    {
+      ...manualAddress,
+      location: {
+        mode: 'coordinates',
+        point: { latitude: '36.2', longitude: '37.1' },
+        description: null,
+      },
+    },
+  ])
+    expectError(await createAddress(actor, input), 422, 'VALIDATION_FAILED');
+  for (const body of [
+    '{',
+    JSON.stringify({ privateValue: 'PRIVATE_ADDRESS_NOT_FOR_ERRORS'.repeat(1000) }),
+  ]) {
+    const response = await fetch(`${base}/internal/v1/customer/me/addresses`, {
+      method: 'POST',
+      headers: { ...addressHeaders(actor), 'content-type': 'application/json' },
+      body,
+    });
+    const wire = await response.json();
+    assert.equal(response.status, 400);
+    assert.equal(parseApiErrorEnvelope(wire).error.code, 'REQUEST_INVALID');
+    assert.doesNotMatch(JSON.stringify(wire), /PRIVATE_ADDRESS_NOT_FOR_ERRORS/);
+  }
+});
+
+test('canonical address and profile accept the full revision range without overflowing it', async () => {
+  const { actor, profile: owner } = await bootstrap();
+  const saved = address(await createAddress(actor));
+  await sql('UPDATE app.customer_address SET revision=2147483647 WHERE id=$1', [saved.addressId]);
+  const same = await changeAddress(actor, saved.addressId, 2147483647, manualAddress);
+  assert.equal(same.status, 200);
+  assert.equal(address(same).revision, 2147483647);
+  expectError(await archiveAddress(actor, saved.addressId, 2147483647), 412, 'REVISION_CONFLICT');
+  await sql('UPDATE app.customer_profile SET revision=2147483647 WHERE id=$1', [owner.customerId]);
+  const unchanged = await call('/me', {
+    method: 'PATCH',
+    headers: addressHeaders(actor, 2147483647),
+    body: contact,
+  });
+  assert.equal(unchanged.status, 200);
+  assert.equal(parseProfile(unchanged).revision, 2147483647);
+  expectError(
+    await call('/me', {
+      method: 'PATCH',
+      headers: addressHeaders(actor, 2147483647),
+      body: { ...contact, displayName: 'تغيير' },
+    }),
+    412,
+    'REVISION_CONFLICT',
   );
 });

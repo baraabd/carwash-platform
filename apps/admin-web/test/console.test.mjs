@@ -6,6 +6,7 @@
 /* global crypto, Response -- Node 24 web globals */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { capabilities, canOpen, defaultScreen, isStaff } from '../src/domain/access.ts';
 import {
   STATUS_TONE,
@@ -71,21 +72,48 @@ test('access: each role sees only its screens; customers, technicians and guests
   assert.equal(isStaff(capabilities(session(['operations.dispatch'], 'guest'))), false);
 });
 
-test('bookings: periods are local calendar windows within the 31-day bound', () => {
-  // Wednesday 2026-10-07 15:00 local (the test runs in the process time zone).
-  const now = new Date(2026, 9, 7, 15, 0, 0);
+test('bookings: periods use Reporting UTC calendar windows within the 31-day bound', () => {
+  const now = new Date('2026-10-07T15:00:00.000Z');
   const day = periodWindow('today', now);
-  assert.equal(new Date(day.from).getTime(), new Date(2026, 9, 7).getTime());
-  assert.equal(new Date(day.to).getTime(), new Date(2026, 9, 8).getTime());
+  assert.equal(new Date(day.from).getTime(), Date.UTC(2026, 9, 7));
+  assert.equal(new Date(day.to).getTime(), Date.UTC(2026, 9, 8));
   const week = periodWindow('week', now);
-  assert.equal(new Date(week.from).getDay(), 6, 'weeks start on Saturday');
-  assert.equal(new Date(week.from).getTime(), new Date(2026, 9, 3).getTime());
+  assert.equal(new Date(week.from).getUTCDay(), 6, 'weeks start on Saturday');
+  assert.equal(new Date(week.from).getTime(), Date.UTC(2026, 9, 3));
   const month = periodWindow('month', now);
-  assert.equal(new Date(month.from).getTime(), new Date(2026, 9, 1).getTime());
-  assert.equal(new Date(month.to).getTime(), new Date(2026, 10, 1).getTime());
+  assert.equal(new Date(month.from).getTime(), Date.UTC(2026, 9, 1));
+  assert.equal(new Date(month.to).getTime(), Date.UTC(2026, 10, 1));
   for (const w of [day, week, month]) {
     assert.match(w.from, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
     assert.ok(Date.parse(w.to) - Date.parse(w.from) <= 31 * 86_400_000);
+  }
+});
+
+test('bookings: DST and viewer timezone cannot change Reporting periods or exceed its bound', () => {
+  const source = new URL('../src/domain/bookings.ts', import.meta.url).href;
+  const script = `import { periodWindow } from ${JSON.stringify(source)};
+    console.log(JSON.stringify({
+      october: periodWindow('month', new Date('2026-10-07T15:00:00Z')),
+      midnight: periodWindow('today', new Date('2026-10-31T23:30:00-02:00')),
+      year: periodWindow('week', new Date('2026-01-01T00:30:00Z'))
+    }));`;
+  for (const TZ of ['Europe/Stockholm', 'Asia/Damascus', 'America/New_York']) {
+    const result = JSON.parse(
+      execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+        env: { ...process.env, TZ },
+        encoding: 'utf8',
+        timeout: 10_000,
+      }),
+    );
+    assert.deepEqual(
+      result,
+      {
+        october: { from: '2026-10-01T00:00:00Z', to: '2026-11-01T00:00:00Z' },
+        midnight: { from: '2026-11-01T00:00:00Z', to: '2026-11-02T00:00:00Z' },
+        year: { from: '2025-12-27T00:00:00Z', to: '2026-01-03T00:00:00Z' },
+      },
+      TZ,
+    );
   }
 });
 

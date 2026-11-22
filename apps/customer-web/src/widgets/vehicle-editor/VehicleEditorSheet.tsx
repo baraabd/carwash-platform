@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Icon } from '../../shared/Icon';
 import { Sheet } from '../../shared/Sheet';
 import { spawnTapWave } from '../../shared/tapWave';
@@ -41,8 +41,15 @@ function VehicleEditorForm({
   const [values, setValues] = useState(initialValues);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [refusals, setRefusals] = useState(0);
   const plateInput = useRef<HTMLInputElement>(null);
   const booking = context === 'booking';
+
+  // Async writes disable the field. Focus after React has committed its enabled
+  // state again; focusing before that commit silently fails in a real browser.
+  useEffect(() => {
+    if (refusals > 0 && !submitting && !disabled) plateInput.current?.focus();
+  }, [refusals, submitting, disabled]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -52,7 +59,7 @@ function VehicleEditorForm({
       try {
         const message = await onSubmit(values);
         setError(message);
-        if (message) plateInput.current?.focus();
+        if (message) setRefusals((count) => count + 1);
       } catch {
         setError('تعذّر تأكيد الحفظ. راجع نتيجة الطلب قبل المحاولة مجددًا.');
       } finally {

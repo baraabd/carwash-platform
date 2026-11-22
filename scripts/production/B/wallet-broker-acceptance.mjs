@@ -15,11 +15,17 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { redact, registerSecret, run } from '../../acceptance/lib/exec.mjs';
 import { pullImageWithMirrors } from '../../lib/image-references.mjs';
 import { testResults } from '../../lib/test-results.mjs';
+import {
+  assertBrokerContainerNotExited,
+  brokerContainerDiagnostics,
+  ownedBrokerContainer,
+} from './broker-diagnostics.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const IMAGES = { postgres: 'postgres:16.10-alpine', rabbitmq: 'rabbitmq:4.2-management-alpine' };
 const record = process.argv.includes('--record');
 const runId = randomBytes(6).toString('hex');
+const containerOwner = process.env.CW_BUSINESS_ACCEPTANCE_RUN ?? runId;
 const names = { pg: `cw-p05b-wallet-pg-${runId}`, mq: `cw-p05b-wallet-mq-${runId}` };
 const work = path.join(ROOT, '.acceptance', `cw-p05b-wallet-broker-${runId}`);
 const secret = () => randomBytes(32).toString('base64url');
@@ -100,6 +106,7 @@ async function until(label, probe) {
     try {
       return await probe();
     } catch (error) {
+      if (error.code === 'ACCEPTANCE_CONTAINER_EXITED') throw error;
       last = error;
       await delay(1_000);
     }
@@ -138,7 +145,7 @@ try {
       '--name',
       names.pg,
       '--label',
-      `carwash.business-acceptance.run=${process.env.CW_BUSINESS_ACCEPTANCE_RUN ?? runId}`,
+      `carwash.business-acceptance.run=${containerOwner}`,
       '-e',
       'POSTGRES_USER=cw_finance_bootstrap',
       '-e',
@@ -166,7 +173,7 @@ try {
       '--name',
       names.mq,
       '--label',
-      `carwash.business-acceptance.run=${process.env.CW_BUSINESS_ACCEPTANCE_RUN ?? runId}`,
+      `carwash.business-acceptance.run=${containerOwner}`,
       '-e',
       'RABBITMQ_DEFAULT_USER=cw_finance_bootstrap',
       '-e',
@@ -191,11 +198,21 @@ try {
   await phase(
     'provision least-privilege broker identities and remove disposable bootstrap login',
     async () => {
-      await until('rabbitmq', () =>
-        checked('docker', ['exec', names.mq, 'rabbitmq-diagnostics', '-q', 'ping'], {
-          timeoutMs: 15_000,
-        }),
-      );
+      await until('rabbitmq', async () => {
+        const container = await ownedBrokerContainer(
+          (args) => run('docker', args, { cwd: ROOT, timeoutMs: 10_000 }),
+          names.mq,
+          containerOwner,
+        );
+        assertBrokerContainerNotExited(container);
+        return checked(
+          'docker',
+          ['exec', container.id, 'rabbitmq-diagnostics', '-q', 'check_running'],
+          {
+            timeoutMs: 15_000,
+          },
+        );
+      });
       await checked('docker', [
         'exec',
         '-e',
@@ -309,6 +326,32 @@ try {
 } catch (error) {
   console.error(redact(String(error?.stack ?? error)).slice(0, 6000));
 } finally {
+  if (!report.accepted) {
+    const diagnostics = [];
+    for (const name of started) {
+      try {
+        diagnostics.push(
+          await brokerContainerDiagnostics(
+            (args) => run('docker', args, { cwd: ROOT, timeoutMs: 10_000 }),
+            name,
+            containerOwner,
+            redact,
+          ),
+        );
+      } catch (error) {
+        diagnostics.push(redact(`Startup diagnostics unavailable: ${error.message}`));
+      }
+    }
+    const detail = diagnostics.join('\n\n') + '\n';
+    try {
+      await writeFile(path.join(work, 'infrastructure.log'), detail);
+    } catch (error) {
+      console.error(redact(`Cannot retain startup diagnostic file: ${error.message}`));
+    }
+    // The outer runner retains this command's stderr even when child reports
+    // cannot be accepted. Keep the actual startup fault visible in that artifact.
+    console.error(detail);
+  }
   for (const name of started)
     await run('docker', ['rm', '-f', '-v', name], { cwd: ROOT, timeoutMs: 120_000 }).catch(
       () => {},

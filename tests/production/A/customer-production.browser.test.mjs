@@ -8,7 +8,7 @@ import { startCustomerStack } from './_customer-stack.mjs';
 import { ROOT } from './_support.mjs';
 
 const own = createRequire(path.join(ROOT, 'apps/customer-web/package.json'));
-const { parseCustomerProfileV1 } = own('@carwash/contracts/customer-v1');
+const { parseCustomerProfileV1, parseAddressV1 } = own('@carwash/contracts/customer-v1');
 const { parseVehicleV1 } = own('@carwash/contracts/vehicle-v1');
 const { parsePage } = own('@carwash/contracts/common');
 
@@ -23,6 +23,13 @@ const sheet = (page) => page.locator('dialog[open]');
 async function openProfile(page) {
   await page.locator('[data-account-row="profile"]').click();
   await expect(sheet(page)).toBeVisible();
+}
+
+async function openAddresses(page) {
+  await page.locator('[data-account-row="addresses"]').click();
+  await expect(
+    sheet(page).getByRole('heading', { name: 'عناويني المحفوظة', exact: true }),
+  ).toBeVisible();
 }
 
 async function readReceipt(page) {
@@ -72,7 +79,7 @@ async function assertPrivateStorageEmpty(page) {
 }
 
 test(
-  'production browser persists guest profile and garage through real Gateway owners, reload and recovery',
+  'production browser persists guest profile, garage and manual addresses through real owners, reload and recovery',
   { timeout: 180000 },
   async (t) => {
     const stack = await startCustomerStack();
@@ -94,6 +101,9 @@ test(
     const profileName = 'عميل اختبار المتصفح';
     const firstName = 'سيارة اختبار المتصفح';
     const updatedName = 'السيارة بعد التعديل';
+    const addressLabel = 'منزل اختبار المتصفح';
+    const updatedAddressLabel = 'العنوان بعد التعديل';
+    const addressText = 'دمشق، شارع اختبار المتصفح، المبنى الأول';
 
     // A crafted scenario URL must still open the production anonymous account.
     await page.goto(`${stack.origin}/#/account?scenario=home-returning-customer`);
@@ -142,6 +152,52 @@ test(
     await sheet(page).getByRole('button', { name: 'حفظ البيانات', exact: false }).click();
     assert.equal((await updatedProfile).status(), 200);
     await expect(sheet(page)).toHaveCount(0);
+
+    await openAddresses(page);
+    await sheet(page).getByRole('button', { name: 'إضافة عنوان', exact: true }).click();
+    await expect(sheet(page).locator('#address-form')).toBeVisible();
+    await expect(sheet(page).locator('#location-map')).toHaveCount(0);
+    await expect(sheet(page).getByRole('button', { name: 'منزل تجريبي', exact: true })).toHaveCount(
+      0,
+    );
+    await sheet(page).locator('input[name="address"]').fill(addressText);
+    await sheet(page).locator('input[name="addressLabel"]').fill(addressLabel);
+    await sheet(page).locator('input[name="locationNote"]').fill('أمام البوابة');
+    const createdAddress = responseFor(page, 'POST', '/customer/addresses');
+    await sheet(page).getByRole('button', { name: 'حفظ العنوان', exact: false }).click();
+    assert.equal((await createdAddress).status(), 201);
+    await expect(sheet(page).locator('[data-saved-address] strong')).toHaveText(addressLabel);
+    const addressId = await sheet(page)
+      .locator('[data-saved-address]')
+      .getAttribute('data-saved-address');
+    assert.equal(
+      /^[0-9a-f-]{36}$/.test(addressId ?? ''),
+      true,
+      'address ID is issued by the owner',
+    );
+    await sheet(page).getByRole('button', { name: 'إغلاق النافذة', exact: true }).click();
+    await page.reload();
+    await expect(page.locator('[data-account-row="addresses"] small')).toHaveText(
+      '1 عناوين محفوظة',
+    );
+    await openAddresses(page);
+    await expect(sheet(page).locator('[data-saved-address] p')).toHaveText(addressText);
+    assert.equal(
+      await sheet(page).locator('[data-saved-address]').getAttribute('data-saved-address'),
+      addressId,
+    );
+    await sheet(page)
+      .getByRole('button', { name: `تعديل ${addressLabel}`, exact: true })
+      .click();
+    await sheet(page).locator('input[name="addressLabel"]').fill(updatedAddressLabel);
+    await sheet(page).locator('input[name="locationNote"]').fill('');
+    const editedAddress = responseFor(page, 'PATCH', `/customer/addresses/${addressId}`);
+    await sheet(page).getByRole('button', { name: 'حفظ العنوان', exact: false }).click();
+    assert.equal((await editedAddress).status(), 200);
+    await expect(sheet(page).locator('[data-saved-address] strong')).toHaveText(
+      updatedAddressLabel,
+    );
+    await sheet(page).getByRole('button', { name: 'إغلاق النافذة', exact: true }).click();
 
     await page.locator('[data-account-row="garage-tab"]').click();
     await expect(page).toHaveURL(`${stack.origin}/#/garage`);
@@ -226,11 +282,25 @@ test(
     assert.equal(garage.items[0].nickname, updatedName);
     assert.equal(garage.items[0].plate, null);
     assert.equal(garage.items[0].revision, 2);
+    const addressResponse = await recovered.request.get(
+      `${stack.origin}/api/v1/customer/addresses?limit=10`,
+    );
+    assert.equal(addressResponse.status(), 200);
+    const addressBook = parsePage(await addressResponse.json(), '$', parseAddressV1);
+    assert.equal(addressBook.items.length, 1);
+    assert.equal(addressBook.items[0].addressId, addressId);
+    assert.equal(addressBook.items[0].label, updatedAddressLabel);
+    assert.equal(addressBook.items[0].details, null);
+    assert.equal(addressBook.items[0].revision, 2);
+    assert.deepEqual(addressBook.items[0].location, { mode: 'manual', description: addressText });
     await assertPrivateStorageEmpty(next);
 
     await page.reload();
     await expect(page.locator('.garage-card')).toHaveCount(0);
     await page.goto(`${stack.origin}/#/account`);
+    await expect(page.locator('[data-account-row="addresses"] small')).toHaveText(
+      '0 عناوين محفوظة',
+    );
     await openProfile(page);
     await expect(page.getByRole('button', { name: 'متابعة كضيف', exact: true })).toBeEnabled();
     assert.equal(
@@ -251,6 +321,30 @@ test(
     assert.equal(finalGarage.status(), 200);
     assert.deepEqual(parsePage(await finalGarage.json(), '$', parseVehicleV1).items, []);
     await next.goto(`${stack.origin}/#/account`);
+    await expect(next.locator('[data-account-row="addresses"] small')).toHaveText(
+      '1 عناوين محفوظة',
+    );
+    await openAddresses(next);
+    await expect(sheet(next).locator('[data-saved-address] strong')).toHaveText(
+      updatedAddressLabel,
+    );
+    await sheet(next)
+      .getByRole('button', { name: `حذف ${updatedAddressLabel}`, exact: true })
+      .click();
+    const archivedAddress = responseFor(next, 'POST', `/customer/addresses/${addressId}/archive`);
+    await sheet(next).getByRole('button', { name: 'حذف العنوان', exact: true }).click();
+    assert.equal((await archivedAddress).status(), 200);
+    await expect(sheet(next).locator('[data-saved-address]')).toHaveCount(0);
+    await sheet(next).getByRole('button', { name: 'إغلاق النافذة', exact: true }).click();
+    await next.reload();
+    await expect(next.locator('[data-account-row="addresses"] small')).toHaveText(
+      '0 عناوين محفوظة',
+    );
+    const finalAddresses = await recovered.request.get(
+      `${stack.origin}/api/v1/customer/addresses?limit=10`,
+    );
+    assert.equal(finalAddresses.status(), 200);
+    assert.deepEqual(parsePage(await finalAddresses.json(), '$', parseAddressV1).items, []);
     await openProfile(next);
     const logout = responseFor(next, 'POST', '/auth/logout');
     await sheet(next).getByRole('button', { name: 'إنهاء الجلسة', exact: true }).click();

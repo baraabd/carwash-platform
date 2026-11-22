@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { apiError } from '@carwash/contracts/common';
-import { parseProfileInputV1 } from '@carwash/contracts/customer-v1';
+import { parseAddressInputV1, parseProfileInputV1 } from '@carwash/contracts/customer-v1';
 import { parseVehicleInputV1 } from '@carwash/contracts/vehicle-v1';
 import {
   browserCsrf,
@@ -61,6 +61,24 @@ const vehicle = (id = 300, extra = {}) => ({
   updatedAt: instant,
   ...extra,
 });
+const addressEditor = {
+  address: 'دمشق، شارع الخدمة، المبنى الأول',
+  addressLabel: 'المنزل',
+  locationNote: 'أمام البوابة',
+  place: null,
+  saveAddress: true,
+};
+const address = (id = 500, extra = {}) => ({
+  addressId: uuid(id),
+  revision: 1,
+  archived: false,
+  label: addressEditor.addressLabel,
+  details: addressEditor.locationNote,
+  location: { mode: 'manual', description: addressEditor.address },
+  createdAt: instant,
+  updatedAt: instant,
+  ...extra,
+});
 const deferred = () => {
   let resolve;
   const promise = new Promise((done) => {
@@ -70,7 +88,10 @@ const deferred = () => {
 };
 
 /** HTTP transport fixtures test the browser adapter; real owners run in Lane A. */
-async function gateway(t, { authenticated = true, hasProfile = true, saved = [] } = {}) {
+async function gateway(
+  t,
+  { authenticated = true, hasProfile = true, saved = [], addresses = [] } = {},
+) {
   const initial = identity();
   const state = {
     session: authenticated ? initial : null,
@@ -79,8 +100,10 @@ async function gateway(t, { authenticated = true, hasProfile = true, saved = [] 
     recoveryNumber: 0,
     profiles: new Map(hasProfile ? [[initial.subject, profile(initial)]] : []),
     vehicles: new Map([[initial.subject, saved]]),
+    addresses: new Map([[initial.subject, addresses]]),
     receipts: new Map(),
     nextVehicle: 400,
+    nextAddress: 600,
     override: null,
     afterWrite: null,
     refreshSession: null,
@@ -168,6 +191,7 @@ async function gateway(t, { authenticated = true, hasProfile = true, saved = [] 
       }
       const owner = state.session.subject;
       const cars = state.vehicles.get(owner) ?? [];
+      const locations = state.addresses.get(owner) ?? [];
       if (entry.method === 'GET') {
         if (entry.path === '/api/v1/customer/profile') {
           send(
@@ -179,6 +203,14 @@ async function gateway(t, { authenticated = true, hasProfile = true, saved = [] 
         }
         if (entry.path.startsWith('/api/v1/customer/vehicles?')) {
           send({ body: { items: cars, nextCursor: null, asOf: instant } });
+          return;
+        }
+        if (entry.path.startsWith('/api/v1/customer/addresses?')) {
+          send(
+            state.profiles.has(owner)
+              ? { body: { items: locations, nextCursor: null, asOf: instant } }
+              : error(404, 'NOT_FOUND', 'PROFILE_NOT_FOUND'),
+          );
           return;
         }
       }
@@ -217,6 +249,33 @@ async function gateway(t, { authenticated = true, hasProfile = true, saved = [] 
         const value = vehicle(state.nextVehicle++, parseVehicleInputV1(entry.body));
         state.vehicles.set(owner, [...cars, value]);
         result = { status: 201, body: value, headers: { etag: '"1"' } };
+      } else if (entry.path === '/api/v1/customer/addresses' && entry.method === 'POST') {
+        const value = address(state.nextAddress++, parseAddressInputV1(entry.body));
+        state.addresses.set(owner, [...locations, value]);
+        result = { status: 201, body: value, headers: { etag: '"1"' } };
+      } else if (entry.path.startsWith('/api/v1/customer/addresses/')) {
+        const match = /^\/api\/v1\/customer\/addresses\/([^/]+)(\/archive)?$/.exec(entry.path);
+        const current = locations.find((item) => item.addressId === match?.[1]);
+        if (!current) {
+          send(error(404, 'NOT_FOUND', 'ADDRESS_NOT_FOUND'));
+          return;
+        }
+        if (entry.headers['if-match'] !== `"${current.revision}"`) {
+          send(error(412, 'REVISION_CONFLICT'));
+          return;
+        }
+        const value = {
+          ...current,
+          ...(match[2] ? { archived: true } : parseAddressInputV1(entry.body)),
+          revision: current.revision + 1,
+        };
+        state.addresses.set(
+          owner,
+          value.archived
+            ? locations.filter((item) => item !== current)
+            : locations.map((item) => (item === current ? value : item)),
+        );
+        result = { status: 200, body: value, headers: { etag: `"${value.revision}"` } };
       } else {
         const match = /^\/api\/v1\/customer\/vehicles\/([^/]+)(\/archive)?$/.exec(entry.path);
         const current = cars.find((car) => car.vehicleId === match?.[1]);
@@ -596,4 +655,227 @@ test('closed session shapes and CSRF failures cannot be treated as authenticated
   assert.equal((await client.guest()).ok, false);
   assert.equal(requests.filter((r) => r.method === 'POST').length, 0);
   assert.equal(client.getSnapshot().authStatus, 'anonymous');
+});
+
+test('manual address CRUD uses owner IDs and nullable details, persists and never sends illustrative map coordinates', async (t) => {
+  const { client, makeClient, state, requests } = await gateway(t);
+  await client.load();
+  const result = await client.saveAddress(
+    null,
+    {
+      ...addressEditor,
+      place: { kind: 'pin', x: 350, y: 250, label: 'دبوس توضيحي' },
+    },
+    null,
+  );
+  assert.equal(result.ok, true);
+  assert.equal(result.value.addressId, uuid(600));
+  const create = requests.find(
+    (entry) => entry.method === 'POST' && entry.path === '/api/v1/customer/addresses',
+  );
+  assert.deepEqual(create.body, {
+    label: addressEditor.addressLabel,
+    details: addressEditor.locationNote,
+    location: { mode: 'manual', description: addressEditor.address },
+  });
+  assert.ok(create.headers['idempotency-key']);
+  assert.equal(create.headers['if-match'], undefined);
+  const reloaded = makeClient();
+  await reloaded.load();
+  assert.deepEqual(reloaded.getSnapshot().addresses, [result.value]);
+  const update = await reloaded.saveAddress(
+    result.value.addressId,
+    {
+      ...addressEditor,
+      addressLabel: 'العمل',
+      locationNote: '',
+    },
+    1,
+  );
+  assert.equal(update.ok, true);
+  assert.equal(update.value.label, 'العمل');
+  assert.equal(update.value.details, null);
+  assert.equal(update.value.revision, 2);
+  assert.equal((await reloaded.archiveAddress(result.value.addressId, 2)).ok, true);
+  assert.deepEqual(reloaded.getSnapshot().addresses, []);
+  assert.deepEqual(state.addresses.get(identity().subject), []);
+  const final = makeClient();
+  await final.load();
+  assert.deepEqual(final.getSnapshot().addresses, []);
+});
+
+test('description editing preserves the real saved coordinate point and permits absent descriptive text', async (t) => {
+  const point = { latitude: '33.512345', longitude: '36.287654' };
+  const { client, requests } = await gateway(t, {
+    addresses: [
+      address(500, {
+        location: { mode: 'coordinates', point, description: null },
+        details: null,
+      }),
+    ],
+  });
+  await client.load();
+  const saved = await client.saveAddress(
+    uuid(500),
+    {
+      ...addressEditor,
+      address: '',
+      locationNote: '',
+      place: { kind: 'device', x: 1, y: 1, label: 'غير حقيقي' },
+    },
+    1,
+  );
+  assert.equal(saved.ok, true);
+  const write = requests.find((entry) => entry.method === 'PATCH');
+  assert.deepEqual(write.body.location, { mode: 'coordinates', point, description: null });
+  assert.equal(write.body.details, null);
+  assert.equal(write.headers['if-match'], '"1"');
+});
+
+test('address editor rejects missing owners, invalid published input and stale revisions before sending', async (t) => {
+  const { client, requests } = await gateway(t, { addresses: [address()] });
+  await client.load();
+  const before = requests.length;
+  assert.equal((await client.saveAddress(uuid(999), addressEditor, 1)).status, 404);
+  assert.equal((await client.saveAddress(uuid(500), addressEditor, 2)).status, 412);
+  assert.equal((await client.archiveAddress(uuid(500), 2)).status, 412);
+  assert.equal(
+    (await client.saveAddress(null, { ...addressEditor, address: 'ab' }, null)).status,
+    400,
+  );
+  assert.equal(
+    (await client.saveAddress(null, { ...addressEditor, addressLabel: 'ع'.repeat(41) }, null))
+      .status,
+    400,
+  );
+  assert.equal(requests.length, before);
+  const defaultLabel = await client.saveAddress(
+    null,
+    { ...addressEditor, addressLabel: '  ' },
+    null,
+  );
+  assert.equal(defaultLabel.ok, true);
+  assert.equal(
+    defaultLabel.value.label,
+    'مكان الغسيل',
+    'the approved empty-label fallback remains intact',
+  );
+});
+
+test('address conflicts refresh authoritative records without overwriting from a stale open editor', async (t) => {
+  const { client, state, requests } = await gateway(t, { addresses: [address()] });
+  await client.load();
+  state.addresses.set(identity().subject, [address(500, { revision: 2, label: 'تعديل آخر' })]);
+  assert.equal((await client.saveAddress(uuid(500), addressEditor, 1)).status, 412);
+  assert.equal(client.getSnapshot().addresses[0].revision, 2);
+  assert.equal(client.getSnapshot().addresses[0].label, 'تعديل آخر');
+  const before = requests.length;
+  assert.equal((await client.saveAddress(uuid(500), addressEditor, 1)).status, 412);
+  assert.equal(requests.length, before);
+});
+
+test('a committed address reply lost in transport can only be retried with the original key and body', async (t) => {
+  const { client, state, requests } = await gateway(t);
+  await client.load();
+  state.afterWrite = () => ({ destroy: true });
+  assert.equal((await client.saveAddress(null, addressEditor, null)).error.code, 'OUTCOME_UNKNOWN');
+  assert.deepEqual(client.getSnapshot().addresses, []);
+  assert.equal(client.getSnapshot().pending, 'address-save');
+  const before = requests.length;
+  assert.equal(
+    (await client.saveAddress(null, { ...addressEditor, addressLabel: 'طلب آخر' }, null)).status,
+    409,
+  );
+  assert.equal(requests.length, before);
+  assert.equal((await client.retryPending()).ok, true);
+  const writes = requests.filter(
+    (entry) => entry.method === 'POST' && entry.path === '/api/v1/customer/addresses',
+  );
+  assert.equal(writes.length, 2);
+  assert.deepEqual(writes[0].body, writes[1].body);
+  assert.equal(writes[0].headers['idempotency-key'], writes[1].headers['idempotency-key']);
+  assert.equal(state.addresses.get(identity().subject).length, 1);
+  assert.equal(client.getSnapshot().addresses.length, 1);
+});
+
+test('address receipts must match the exact record, input and archive outcome before the UI confirms them', async (t) => {
+  const { client, state } = await gateway(t, { addresses: [address()] });
+  await client.load();
+  for (const incorrect of [
+    (body) => ({ ...body, addressId: uuid(999) }),
+    (body) => ({ ...body, label: 'قيمة لم يطلبها العميل' }),
+    (body) => ({ ...body, archived: true }),
+  ]) {
+    const current = client.getSnapshot().addresses[0];
+    state.afterWrite = (_entry, result) => ({ ...result, body: incorrect(result.body) });
+    assert.equal(
+      (await client.saveAddress(uuid(500), addressEditor, current.revision)).error.code,
+      'OUTCOME_UNKNOWN',
+    );
+    assert.equal(client.getSnapshot().addresses[0].revision, current.revision);
+    assert.equal((await client.retryPending()).ok, true);
+  }
+  state.afterWrite = (_entry, result) => ({ ...result, body: { ...result.body, archived: false } });
+  assert.equal(
+    (await client.archiveAddress(uuid(500), client.getSnapshot().addresses[0].revision)).error.code,
+    'OUTCOME_UNKNOWN',
+  );
+  assert.equal(client.getSnapshot().addresses.length, 1);
+  assert.equal((await client.retryPending()).ok, true);
+  assert.deepEqual(client.getSnapshot().addresses, []);
+});
+
+test('address reads reject duplicates, archived entries and repeated cursors; unavailable collections cannot be edited', async (t) => {
+  const { client, state, requests } = await gateway(t);
+  for (const body of [
+    { items: [address(), address()], nextCursor: null, asOf: instant },
+    { items: [address(500, { archived: true })], nextCursor: null, asOf: instant },
+    { items: [], nextCursor: 'repeated_cursor', asOf: instant },
+  ]) {
+    state.override = (entry) =>
+      entry.path.startsWith('/api/v1/customer/addresses?') ? { body } : null;
+    await client.load();
+    assert.equal(client.getSnapshot().addressesStatus, 'unavailable');
+    assert.deepEqual(client.getSnapshot().addresses, []);
+    const before = requests.length;
+    assert.equal((await client.saveAddress(null, addressEditor, null)).status, 503);
+    assert.equal(requests.length, before);
+  }
+});
+
+test('a new profile can immediately save a first address without treating the missing profile as an unavailable collection', async (t) => {
+  const { client } = await gateway(t, { hasProfile: false });
+  await client.load();
+  assert.equal(client.getSnapshot().profileStatus, 'missing');
+  assert.equal(client.getSnapshot().addressesStatus, 'available');
+  assert.equal((await client.saveProfile(contact, null)).ok, true);
+  assert.equal((await client.saveAddress(null, addressEditor, null)).ok, true);
+  assert.equal(client.getSnapshot().addresses.length, 1);
+});
+
+test('private addresses are cleared on principal change and a late previous-owner write cannot restore them', async (t) => {
+  const { client, state } = await gateway(t, { addresses: [address()] });
+  await client.load();
+  const committed = deferred();
+  const release = deferred();
+  state.afterWrite = async (_entry, result) => {
+    committed.resolve();
+    await release.promise;
+    return result;
+  };
+  const saving = client.saveAddress(uuid(500), { ...addressEditor, addressLabel: 'رد متأخر' }, 1);
+  await committed.promise;
+  state.session = identity(2);
+  state.profiles.set(identity(2).subject, profile(identity(2)));
+  await client.load();
+  release.resolve();
+  assert.equal((await saving).status, 401);
+  assert.deepEqual(client.getSnapshot().addresses, []);
+  assert.equal(client.getSnapshot().pending, null);
+  state.addresses.set(identity(2).subject, [address(501)]);
+  await client.load();
+  assert.equal(client.getSnapshot().addresses.length, 1);
+  const logout = client.signOut();
+  assert.deepEqual(client.getSnapshot().addresses, []);
+  await logout;
 });

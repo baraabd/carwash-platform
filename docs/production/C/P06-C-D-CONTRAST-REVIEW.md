@@ -119,20 +119,52 @@ Chromium156 binary was found, but its ordinary Playwright smoke launch was block
 by the executor's socket restriction. No local browser acceptance or screenshots
 are claimed, and no fallback was added to canonical launch configuration.
 
-## Independent three-pixel visual failure
+## Independent three-pixel visual failure and fixture correction
 
-The same old operator job reports exactly three changed pixels in
-`task-assigned-c3` at each of the six widths. This scenario masks the already
-declared unavailable-booking area below the task heading and the header subtitle.
-Every other scenario passed the existing zero-difference requirement. The old
-artifact did not retain child screenshots, so the changed coordinates and cause
-are not recoverable from it. The count alone cannot establish a rendering bug,
-mask-boundary bug or application defect.
+The retained Chromium `153.0.8010.12` evidence for source
+`8c956a61c4a93a5772e6cb94967f4ac1cedee7a8` contains raw reference, declared
+reference, candidate and diff images. It identifies the same three changed pixels
+in `task-assigned-c3` at each of the six widths; every other scenario passed the
+existing zero-difference requirement. At width 390 the pixels are:
 
-The repaired diagnostic retention will preserve the next run's raw reference,
-declared reference, candidate and diff images. Inspect those coordinates before
-changing rendering or mask logic. No pixel tolerance, mask area, baseline or
-application style has been changed to hide this failure.
+| Position | Declared reference RGB | Candidate RGB |
+| --- | --- | --- |
+| (205, 64) | (236, 224, 195) | (246, 248, 242) |
+| (206, 64) | (191, 200, 199) | (246, 248, 242) |
+| (207, 64) | (214, 232, 233) | (246, 248, 242) |
+
+The existing `.header-center small` mask records `y=52.84375, height=11` on
+both pages. Its unchanged integer painting covers rows 52 through 63. Reference
+area text paints these three pixels at row 64, outside the inline element's CSS
+box. The candidate displays only `09:30`; the reference still displays
+`المزة · 09:30` after PC-04 removes the prototype qualifier. This is the
+already documented D10 unavailable-address difference, not an emoji or a general
+header layout difference.
+
+The source authority predates this repair: `P03-C5-operator-web.md` §3 records
+D10, and `P03-C3-booking-technician-view.md` authorization matrix row 5 refuses
+Booking details while Dispatch says `OFFERED`, including an offer to the caller.
+`services/booking/src/application/technician-view.ts` enforces that rule before
+reading Booking. Its real-owner regression is
+`tests/production/C/booking-technician-view.test.mjs`. The operator therefore
+correctly retains the Dispatch slot time without inventing a Booking area.
+
+The visual fixture now applies one exact D10 reference operation **after PC-04**:
+`المزة · 09:30` becomes `09:30`. It checks that exactly one raw reference subtitle
+has the known original content, that the candidate independently contains only
+the expected time, and that exactly one D10 operation produced the expected
+reference subtitle. A changed time, extra header, unexpected markup, unremoved
+area or unmatched source text fails the capture. It never copies arbitrary
+candidate markup or colour into the reference.
+
+The immutable reference bytes, raw capture, app styles, rendering contract,
+comparison threshold, zero-difference assertion, mask selectors and mask painting
+algorithm are unchanged. The selected subtitle's measured box becomes the
+time-only box on both pages; no comparison area is newly excluded. This is
+deterministic alignment with the existing C3 fixture's visibility rule. It grants
+no new product/design approval and does not resolve the contrast or other pending
+owner decisions above. The next canonical CI browser run must verify the corrected
+six-width comparison; local source checks are not browser acceptance.
 
 ## Acceptance after an explicit visual decision
 

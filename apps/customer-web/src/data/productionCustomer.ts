@@ -9,12 +9,18 @@ import {
 } from '@carwash/contracts/identity-v1';
 import {
   parseCustomerProfileV1,
+  parseAddressInputV1,
+  parseAddressV1,
+  type AddressV1,
   parseProfileInputV1,
   type CustomerProfileV1,
   type ProfileInputV1,
 } from '@carwash/contracts/customer-v1';
 import { parseVehicleInputV1, parseVehicleV1, type VehicleV1 } from '@carwash/contracts/vehicle-v1';
 import type { VehicleEditorValues } from '../state/savedVehicles.ts';
+import { FALLBACK_ADDRESS_LABEL, type AddressSheetValues } from '../state/locationStep.ts';
+
+type OwnerRecord = CustomerProfileV1 | VehicleV1 | AddressV1;
 
 export interface ProductionCustomerSnapshot {
   readonly session: IdentitySessionView | null;
@@ -23,9 +29,12 @@ export interface ProductionCustomerSnapshot {
   readonly profileStatus: 'available' | 'missing' | 'unavailable';
   readonly vehicles: readonly VehicleV1[];
   readonly vehiclesStatus: 'available' | 'unavailable';
+  readonly addresses: readonly AddressV1[];
+  readonly addressesStatus: 'available' | 'unavailable';
   readonly loading: boolean;
   readonly busy: boolean;
-  readonly pending: 'profile' | 'vehicle-save' | 'vehicle-archive' | null;
+  readonly pending:
+    'profile' | 'vehicle-save' | 'vehicle-archive' | 'address-save' | 'address-archive' | null;
   /** Memory only. Acknowledging this receipt forgets the one-time recovery code. */
   readonly recovery: GuestSessionReceipt | null;
   readonly notice: string | null;
@@ -40,7 +49,7 @@ interface Options {
 
 interface PendingCommand {
   readonly kind: NonNullable<ProductionCustomerSnapshot['pending']>;
-  readonly spec: RequestSpec<CustomerProfileV1 | VehicleV1>;
+  readonly spec: RequestSpec<OwnerRecord>;
   readonly epoch: number;
 }
 
@@ -51,6 +60,8 @@ const EMPTY: ProductionCustomerSnapshot = {
   profileStatus: 'unavailable',
   vehicles: [],
   vehiclesStatus: 'unavailable',
+  addresses: [],
+  addressesStatus: 'unavailable',
   loading: false,
   busy: false,
   pending: null,
@@ -124,6 +135,8 @@ export function productionFailure(result: ApiResult<unknown>): string | null {
   if (result.ok) return null;
   if (result.error.reason === 'VEHICLE_LIMIT_REACHED')
     return 'وصلت إلى الحد المسموح للسيارات المحفوظة. احذف سيارة قبل إضافة أخرى.';
+  if (result.error.reason === 'ADDRESS_LIMIT_REACHED')
+    return 'وصلت إلى الحد المسموح للعناوين المحفوظة. احذف عنوانًا قبل إضافة آخر.';
   if (result.error.code === 'OUTCOME_UNKNOWN')
     return 'لم نتأكد من نتيجة الحفظ. أعد المحاولة بالطلب نفسه قبل إجراء تعديل آخر.';
   if (result.status === 401) return 'انتهت الجلسة. استعد جلسة الضيف قبل متابعة الحفظ.';
@@ -302,13 +315,14 @@ export class ProductionCustomer {
       this.pendingCommand = null;
       this.patch({ ...EMPTY, session: session.value, authStatus: 'authenticated', loading: true });
     } else this.patch({ session: session.value, authStatus: 'authenticated' });
-    const [profile, vehicles] = await Promise.all([
+    const [profile, vehicles, addresses] = await Promise.all([
       this.client.request({
         method: 'GET',
         path: '/customer/profile',
         parse: parseCustomerProfileV1,
       }),
       this.readVehicles(),
+      this.readAddresses(),
     ]);
     if (!current()) return;
     const ownProfile =
@@ -325,6 +339,8 @@ export class ProductionCustomer {
           : 'unavailable',
       vehicles: vehicles.ok ? vehicles.value : this.snapshot.vehicles,
       vehiclesStatus: vehicles.ok ? 'available' : 'unavailable',
+      addresses: addresses.ok ? addresses.value : this.snapshot.addresses,
+      addressesStatus: addresses.ok ? 'available' : 'unavailable',
       loading: false,
     });
   }
@@ -352,6 +368,91 @@ export class ProductionCustomer {
       cursors.add(cursor);
     }
     return failure(502, 'UPSTREAM_INVALID');
+  }
+
+  private async readAddresses(): Promise<ApiResult<readonly AddressV1[]>> {
+    const items: AddressV1[] = [];
+    const cursors = new Set<string>();
+    let cursor: string | undefined;
+    for (let page = 0; page < 10; page++) {
+      const result = await this.client.request({
+        method: 'GET',
+        path: '/customer/addresses',
+        query: { limit: 100, cursor },
+        parse: (value) => parsePage(value, '$', parseAddressV1),
+      });
+      if (!result.ok) {
+        if (result.status === 404 && result.error.reason === 'PROFILE_NOT_FOUND')
+          return { ok: true, status: 200, value: [], revision: null };
+        return result;
+      }
+      for (const address of result.value.items) {
+        if (address.archived || items.some((item) => item.addressId === address.addressId))
+          return failure(502, 'UPSTREAM_INVALID');
+        items.push(address);
+      }
+      if (result.value.nextCursor === null) return { ...result, value: items };
+      if (cursors.has(result.value.nextCursor)) return failure(502, 'UPSTREAM_INVALID');
+      cursor = result.value.nextCursor;
+      cursors.add(cursor);
+    }
+    return failure(502, 'UPSTREAM_INVALID');
+  }
+
+  async saveAddress(
+    addressId: string | null,
+    values: AddressSheetValues,
+    expectedRevision: number | null,
+  ): Promise<ApiResult<OwnerRecord>> {
+    if (this.snapshot.addressesStatus !== 'available')
+      return failure(503, 'DEPENDENCY_UNAVAILABLE');
+    const previous =
+      addressId === null
+        ? undefined
+        : this.snapshot.addresses.find((value) => value.addressId === addressId);
+    if (addressId !== null && !previous) return failure(404, 'NOT_FOUND');
+    if ((previous?.revision ?? null) !== expectedRevision) return failure(412, 'REVISION_CONFLICT');
+    let body;
+    try {
+      body = parseAddressInputV1({
+        label: values.addressLabel.trim() || FALLBACK_ADDRESS_LABEL,
+        details: values.locationNote.trim() || null,
+        location:
+          previous?.location.mode === 'coordinates'
+            ? { ...previous.location, description: values.address.trim() || null }
+            : { mode: 'manual', description: values.address.trim() },
+      });
+    } catch {
+      return failure(400, 'REQUEST_INVALID');
+    }
+    return this.mutate('address-save', {
+      method: addressId === null ? 'POST' : 'PATCH',
+      path:
+        addressId === null
+          ? '/customer/addresses'
+          : `/customer/addresses/${encodeURIComponent(addressId)}`,
+      body,
+      ...(expectedRevision === null ? {} : { expectedRevision }),
+      parse: parseAddressV1,
+    });
+  }
+
+  async archiveAddress(
+    addressId: string,
+    expectedRevision: number,
+  ): Promise<ApiResult<OwnerRecord>> {
+    if (this.snapshot.addressesStatus !== 'available')
+      return failure(503, 'DEPENDENCY_UNAVAILABLE');
+    const previous = this.snapshot.addresses.find((value) => value.addressId === addressId);
+    if (!previous) return failure(404, 'NOT_FOUND');
+    if (previous.revision !== expectedRevision) return failure(412, 'REVISION_CONFLICT');
+    return this.mutate('address-archive', {
+      method: 'POST',
+      path: `/customer/addresses/${encodeURIComponent(addressId)}/archive`,
+      body: {},
+      expectedRevision,
+      parse: parseAddressV1,
+    });
   }
 
   async guest(recoveryCode?: string): Promise<ApiResult<GuestSessionReceipt>> {
@@ -421,7 +522,7 @@ export class ProductionCustomer {
   async saveProfile(
     input: ProfileInputV1,
     expectedRevision: number | null,
-  ): Promise<ApiResult<CustomerProfileV1 | VehicleV1>> {
+  ): Promise<ApiResult<OwnerRecord>> {
     let body: ProfileInputV1;
     try {
       body = parseProfileInputV1(input);
@@ -445,7 +546,7 @@ export class ProductionCustomer {
     vehicleId: string | null,
     values: VehicleEditorValues,
     expectedRevision: number | null,
-  ): Promise<ApiResult<CustomerProfileV1 | VehicleV1>> {
+  ): Promise<ApiResult<OwnerRecord>> {
     if (this.snapshot.vehiclesStatus !== 'available') return failure(503, 'DEPENDENCY_UNAVAILABLE');
     const previous =
       vehicleId === null
@@ -484,7 +585,7 @@ export class ProductionCustomer {
   async archiveVehicle(
     vehicleId: string,
     expectedRevision: number,
-  ): Promise<ApiResult<CustomerProfileV1 | VehicleV1>> {
+  ): Promise<ApiResult<OwnerRecord>> {
     const current = this.snapshot.vehicles.find((value) => value.vehicleId === vehicleId);
     if (!current) return failure(404, 'NOT_FOUND');
     if (current.revision !== expectedRevision) return failure(412, 'REVISION_CONFLICT');
@@ -500,7 +601,7 @@ export class ProductionCustomer {
   private async mutate(
     kind: PendingCommand['kind'],
     spec: Omit<PendingCommand['spec'], 'idempotencyKey'>,
-  ): Promise<ApiResult<CustomerProfileV1 | VehicleV1>> {
+  ): Promise<ApiResult<OwnerRecord>> {
     if (!this.snapshot.session || this.snapshot.authStatus !== 'authenticated')
       return failure(401, 'AUTH_REQUIRED');
     if (this.snapshot.busy || this.snapshot.loading || this.pendingCommand)
@@ -514,7 +615,7 @@ export class ProductionCustomer {
     return this.execute(command);
   }
 
-  retryPending(): Promise<ApiResult<CustomerProfileV1 | VehicleV1>> {
+  retryPending(): Promise<ApiResult<OwnerRecord>> {
     if (!this.snapshot.session || this.snapshot.authStatus !== 'authenticated')
       return Promise.resolve(failure(401, 'AUTH_REQUIRED'));
     if (!this.pendingCommand || this.snapshot.busy || this.snapshot.loading)
@@ -522,9 +623,7 @@ export class ProductionCustomer {
     return this.execute(this.pendingCommand);
   }
 
-  private async execute(
-    command: PendingCommand,
-  ): Promise<ApiResult<CustomerProfileV1 | VehicleV1>> {
+  private async execute(command: PendingCommand): Promise<ApiResult<OwnerRecord>> {
     this.patch({ busy: true, pending: command.kind, notice: null });
     const csrf = await this.prepareCsrf();
     if (command.epoch !== this.epoch) return failure(401, 'AUTH_REQUIRED');
@@ -557,7 +656,7 @@ export class ProductionCustomer {
           result.value.preferences.locale !== body.locale
         )
           return failure(409, 'CONFLICT');
-      } else {
+      } else if ('vehicleId' in result.value) {
         const vehicle = result.value;
         const expectedId =
           command.kind === 'vehicle-archive'
@@ -586,14 +685,52 @@ export class ProductionCustomer {
               : [...this.snapshot.vehicles, vehicle],
           vehiclesStatus: 'available',
         });
+      } else {
+        const address = result.value;
+        const archived = command.kind === 'address-archive';
+        const expectedId = archived
+          ? command.spec.path.split('/').at(-2)
+          : command.spec.method === 'PATCH'
+            ? command.spec.path.split('/').at(-1)
+            : null;
+        const input = archived ? null : parseAddressInputV1(command.spec.body);
+        if (
+          (expectedId && expectedId !== address.addressId) ||
+          address.archived !== archived ||
+          (input &&
+            (input.label !== address.label ||
+              input.details !== address.details ||
+              JSON.stringify(input.location) !== JSON.stringify(address.location)))
+        ) {
+          this.pendingCommand = command;
+          this.patch({ pending: command.kind });
+          return failure(502, 'OUTCOME_UNKNOWN');
+        }
+        const present = this.snapshot.addresses.some(
+          (value) => value.addressId === address.addressId,
+        );
+        this.patch({
+          addresses: archived
+            ? this.snapshot.addresses.filter((value) => value.addressId !== address.addressId)
+            : present
+              ? this.snapshot.addresses.map((value) =>
+                  value.addressId === address.addressId ? address : value,
+                )
+              : [...this.snapshot.addresses, address],
+          addressesStatus: 'available',
+        });
       }
       this.patch({
         notice:
           command.kind === 'profile'
             ? 'حُفظت بيانات التواصل في الخدمة.'
-            : command.kind === 'vehicle-archive'
-              ? 'أُزيلت السيارة من السيارات المحفوظة. الحجوزات السابقة لا تتغيّر.'
-              : 'حُفظت السيارة في الخدمة.',
+            : command.kind === 'address-save'
+              ? 'حُفظ العنوان في الخدمة.'
+              : command.kind === 'address-archive'
+                ? 'أُزيل العنوان من العناوين المحفوظة. الحجوزات السابقة لا تتغيّر.'
+                : command.kind === 'vehicle-archive'
+                  ? 'أُزيلت السيارة من السيارات المحفوظة. الحجوزات السابقة لا تتغيّر.'
+                  : 'حُفظت السيارة في الخدمة.',
       });
     } else if (result.status === 412 || result.status === 404 || result.status === 401)
       await this.load();

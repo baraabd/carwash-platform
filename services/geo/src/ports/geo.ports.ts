@@ -109,8 +109,8 @@ export interface ServiceActor {
 }
 
 /**
- * Verifies a workload (service-to-service) credential. Workload identity is
- * P01-E5 and is not on main; the only adapter refuses every caller.
+ * Verifies an owner-scoped workload credential. Unconfigured or invalid
+ * credentials are refused; request headers alone establish no identity.
  */
 export interface WorkloadAuthenticator {
   authenticate(headers: Readonly<Record<string, string | undefined>>): Promise<ServiceActor>;

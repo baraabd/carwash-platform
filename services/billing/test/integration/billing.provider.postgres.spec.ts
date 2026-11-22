@@ -884,7 +884,9 @@ async function paidByStatement(replica: BillingHttpHarness = replicaA) {
 test('refund (manual channel): published HTTP views remain PAID while partial/full refund facts and caps stay exact', async () => {
   const paid = await paidByStatement();
   const first = await approvedRefund(replicaA, paid.creditId, '50000');
-  const view = await replicaA.request('GET', `${PATH}/refunds/${first}`, { token: TOKENS.finance });
+  const view = await replicaA.request('GET', `${PATH}/legacy/refunds/${first}`, {
+    token: TOKENS.finance,
+  });
   assert.equal(view.body.channel, 'MANUAL_OUT_OF_BAND');
   assert.equal(view.body.status, 'APPROVED');
   assert.equal(

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { customerV1 } from '@carwash/contracts';
+import { customerV1, closed, MAX_REVISION, parsePageRequest, parsePage } from '@carwash/contracts';
 import {
   applyAddressChanges,
   applyProfileChanges,
@@ -27,9 +27,12 @@ import { ApplicationError } from './errors';
 import { addressUpdatedEvent, profileUpdatedEvent, type EventContext } from './events';
 import {
   addressSnapshotView,
+  canonicalAddressInput,
+  canonicalAddressView,
   canonicalProfileChanges,
   canonicalProfileView,
 } from './customer-v1-wire';
+import { addressCursor, readAddressCursor } from './address-pagination';
 
 const { parseResolveAddressSnapshotRequestV1 } = customerV1;
 type AddressSnapshotV1 = customerV1.AddressSnapshotV1;
@@ -96,6 +99,17 @@ export function profileView(profile: CustomerProfile): ProfileView {
 }
 
 export function addressView(address: Address): AddressView {
+  // The explicit legacy endpoint cannot invent a description/provenance for
+  // canonical-only data. Existing compatible rows keep their original shape.
+  if (
+    address.line === null ||
+    [...address.label].length > 30 ||
+    [...address.line].length > 160 ||
+    (address.accessNote !== null && [...address.accessNote].length > 160) ||
+    (address.location.kind === 'coordinates' && address.location.source === null)
+  ) {
+    throw new ApplicationError('ADDRESS_MIGRATION_REQUIRED');
+  }
   return {
     addressId: address.id,
     label: address.label,
@@ -364,6 +378,7 @@ export class CustomerApplication {
           if (profileUnchanged(current, changes)) {
             return { status: 200, body: view(current), replayed: false };
           }
+          if (revision === MAX_REVISION) throw new ApplicationError('REVISION_CONFLICT', revision);
           const updated = await tx.updateProfile(current.id, changes, revision, now);
           if (!updated) throw new ApplicationError('REVISION_CONFLICT', current.revision);
           await tx.appendOutbox(
@@ -429,6 +444,145 @@ export class CustomerApplication {
         at: now,
       });
       return snapshot;
+    });
+  }
+
+  async listAddressesV1(context: RequestContext, rawQuery: unknown) {
+    const session = await this.session(context, READ_PERMISSION);
+    const query = closed(rawQuery, 'query', [], ['limit', 'cursor']);
+    const page = parsePageRequest(query);
+    const profile = await this.store.findProfile(session.principal);
+    if (!profile) throw new ApplicationError('PROFILE_NOT_FOUND');
+    const rows = await this.store.addressPage(
+      profile.id,
+      page.limit + 1,
+      readAddressCursor(profile.id, page.cursor),
+    );
+    const items = rows.slice(0, page.limit);
+    const last = items.at(-1);
+    return parsePage(
+      {
+        items: items.map(canonicalAddressView),
+        nextCursor: rows.length > page.limit && last ? addressCursor(profile.id, last) : null,
+        asOf: this.clock.now().toISOString(),
+      },
+      '$',
+      customerV1.parseAddressV1,
+    );
+  }
+
+  async createAddressV1(
+    context: RequestContext,
+    key: string | null,
+    body: unknown,
+  ): Promise<Outcome<customerV1.AddressV1>> {
+    const session = await this.session(context, WRITE_PERMISSION);
+    if (key === null) throw new ApplicationError('IDEMPOTENCY_KEY_REQUIRED');
+    const details = canonicalAddressInput(body);
+    return this.store.transaction(async (tx) => {
+      const now = this.clock.now();
+      return this.withIdempotency(
+        tx,
+        session,
+        key,
+        'customer.v1.address.create',
+        body,
+        now,
+        async () => {
+          const profile = await this.requireProfile(tx, session);
+          const limit = Math.min(this.policy.maxActiveAddresses, customerV1.MAX_SAVED_ADDRESSES);
+          if ((await tx.countActiveAddresses(profile.id)) >= limit)
+            throw new CustomerDomainError('ADDRESS_LIMIT_REACHED');
+          const address = await tx.insertAddress({
+            ...details,
+            id: this.ids.uuid(),
+            customerId: profile.id,
+            now,
+          });
+          await this.recordAddressChange(tx, context, session, address, 'created', now);
+          return { status: 201, body: canonicalAddressView(address), replayed: false };
+        },
+      );
+    });
+  }
+
+  async mutateAddressV1(
+    context: RequestContext,
+    id: string,
+    revision: number | null,
+    key: string | null,
+    body: unknown,
+    archive: boolean,
+  ): Promise<Outcome<customerV1.AddressV1>> {
+    const session = await this.session(context, WRITE_PERMISSION);
+    if (key === null) throw new ApplicationError('IDEMPOTENCY_KEY_REQUIRED');
+    const expected = requireRevision(revision);
+    if (archive) closed(body, '$', []);
+    else canonicalAddressInput(body);
+    return this.store.transaction(async (tx) => {
+      const now = this.clock.now();
+      return this.withIdempotency(
+        tx,
+        session,
+        key,
+        archive ? 'customer.v1.address.archive' : 'customer.v1.address.update',
+        [id, expected, body],
+        now,
+        async () => {
+          const profile = await this.requireOwnProfile(tx, session);
+          const current = await tx.findAddress(profile.id, id);
+          if (!current) throw new ApplicationError('ADDRESS_NOT_FOUND');
+          if (current.revision !== expected)
+            throw new ApplicationError('REVISION_CONFLICT', current.revision);
+          if (current.status === 'ARCHIVED') {
+            if (!archive) throw new CustomerDomainError('ADDRESS_ARCHIVED');
+            return { status: 200, body: canonicalAddressView(current), replayed: false };
+          }
+          const details = archive ? current : canonicalAddressInput(body, current);
+          if (!archive && sameAddressDetails(current, details))
+            return { status: 200, body: canonicalAddressView(current), replayed: false };
+          if (expected === MAX_REVISION) throw new ApplicationError('REVISION_CONFLICT', expected);
+          const updated = await tx.updateAddress(
+            profile.id,
+            id,
+            details,
+            archive ? 'ARCHIVED' : 'ACTIVE',
+            expected,
+            now,
+          );
+          if (!updated) throw new ApplicationError('REVISION_CONFLICT', expected);
+          await this.recordAddressChange(
+            tx,
+            context,
+            session,
+            updated,
+            archive ? 'archived' : 'updated',
+            now,
+          );
+          return { status: 200, body: canonicalAddressView(updated), replayed: false };
+        },
+      );
+    });
+  }
+
+  private async recordAddressChange(
+    tx: CustomerTransaction,
+    context: RequestContext,
+    session: AuthorizedSession,
+    address: Address,
+    change: 'created' | 'updated' | 'archived',
+    now: Date,
+  ): Promise<void> {
+    await tx.appendOutbox(addressUpdatedEvent(this.eventContext(context, now), address, change));
+    await tx.appendAudit({
+      id: this.ids.uuid(),
+      actorSubject: session.principal.subject,
+      actorSessionId: session.sessionId,
+      action: `customer.address.${change}`,
+      targetType: 'address',
+      targetId: address.id,
+      correlationId: context.correlationId,
+      at: now,
     });
   }
 

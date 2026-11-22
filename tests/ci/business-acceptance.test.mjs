@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { mkdir, mkdtemp, readdir, rm, symlink, utimes, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, open, readdir, rm, symlink, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { retainBrowserDiagnostics } from '../../scripts/production/acceptance-diagnostics.mjs';
@@ -77,6 +77,28 @@ test('mislabelled screenshot bytes cannot be uploaded as visual evidence', async
       '2020-01-01T00:00:00Z',
     ),
     /Invalid PNG/,
+  );
+});
+
+test('oversized diagnostic files fail before their contents are retained', async (t) => {
+  const root = await mkdtemp(path.join(tmpdir(), 'cw-browser-diagnostics-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const visual = path.join(root, 'docs/production/D/evidence/p02-d2');
+  await mkdir(visual, { recursive: true });
+  const file = await open(path.join(visual, 'bookings-390-candidate.png'), 'wx');
+  try {
+    await file.truncate(20 * 1024 * 1024 + 1);
+  } finally {
+    await file.close();
+  }
+  await assert.rejects(
+    retainBrowserDiagnostics(
+      root,
+      'd-admin-browser',
+      path.join(root, 'output'),
+      '2020-01-01T00:00:00Z',
+    ),
+    /oversized visual diagnostic/,
   );
 });
 

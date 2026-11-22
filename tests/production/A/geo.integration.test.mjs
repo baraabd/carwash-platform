@@ -12,7 +12,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -378,7 +378,7 @@ test('invalid geometry from a dataset is refused and writes nothing', async () =
   assert.equal(await datasetRevision(), before);
 });
 
-test('validateDecision: use case on the real store; the HTTP route stays closed', async () => {
+test('validateDecision: real store validates current facts; unconfigured HTTP route stays closed', async () => {
   const own = serviceRequire('geo');
   const { ServiceabilityApplication, VALIDATE_SCOPE } = own('./dist/application/index.js');
   const { PrismaGeoStore } = own('./dist/infrastructure/persistence/prisma-geo.store.js');
@@ -454,6 +454,95 @@ test('validateDecision: use case on the real store; the HTTP route stays closed'
       }),
       'AUTH_FORBIDDEN',
     );
+  }
+});
+
+test('validateDecision: real workload HTTP accepts only scoped credentials and rejects stale location proofs', async () => {
+  const workloadToken = randomBytes(32).toString('base64url');
+  const previous = process.env.GEO_SERVICE_CLIENTS;
+  const configured = await startService('geo', db, {
+    ...geoEnv,
+    GEO_SERVICE_CLIENTS: JSON.stringify([
+      {
+        id: 'booking',
+        tokenSha256: createHash('sha256').update(workloadToken).digest('hex'),
+        scopes: ['geo.serviceability.validate'],
+      },
+    ]),
+  });
+  try {
+    const api = client(configured.base, '/internal/v1/geo');
+    const decided = await check('10.500000', '10.500000');
+    assert.equal(decided.decision, 'SERVICEABLE');
+    const body = geoV1.parseValidateDecisionRequestV1({
+      decisionId: decided.decisionId,
+      expectedZoneRevision: decided.zoneRevision,
+      point: decided.point,
+      purpose: 'booking-create',
+    });
+    const credential = { 'x-service-client': 'booking', 'x-service-token': workloadToken };
+    const validate = (request = body, headers = credential) =>
+      api('/serviceability/validate', { method: 'POST', headers, body: request });
+    const valid = await validate();
+    assert.equal(valid.status, 200);
+    assert.equal(valid.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(geoV1.parseValidateDecisionResultV1(valid.body), {
+      decisionId: decided.decisionId,
+      valid: true,
+      reason: null,
+      zoneId: decided.zoneId,
+      zoneRevision: decided.zoneRevision,
+    });
+    for (const headers of [
+      {},
+      bearer,
+      { 'x-service-client': 'booking' },
+      { ...credential, 'x-service-token': randomBytes(32).toString('base64url') },
+      { ...credential, 'x-service-client': 'pricing' },
+      { ...credential, ...bearer },
+      { ...credential, cookie: 'wg_access=untrusted' },
+    ]) {
+      refusal(await validate(body, headers), 'AUTH_FORBIDDEN');
+    }
+    for (const [request, reason] of [
+      [{ ...body, point: { ...body.point, latitude: '10.500001' } }, 'POINT_MISMATCH'],
+      [{ ...body, expectedZoneRevision: body.expectedZoneRevision + 1 }, 'ZONE_CHANGED'],
+      [{ ...body, decisionId: randomUUID() }, 'DECISION_NOT_FOUND'],
+    ]) {
+      const response = await validate(request);
+      assert.equal(response.status, 200);
+      const result = geoV1.parseValidateDecisionResultV1(response.body);
+      assert.equal(result.valid, false);
+      assert.equal(result.reason, reason);
+    }
+    // Seed an expired decision through Geo's own role, with its real immutable
+    // persistence constraints. No mutable test clock changes the HTTP adapter.
+    const expiredId = randomUUID();
+    await sql(
+      db,
+      `INSERT INTO app.serviceability_decision
+        (id, decision, reason, detail, zone_id, zone_revision, dataset_revision,
+         latitude, longitude, checked_at, expires_at)
+       VALUES ($1::uuid, 'SERVICEABLE', NULL, NULL, $2::uuid, $3, $4,
+               $5::numeric, $6::numeric, now() - interval '2 minutes', now() - interval '1 minute')`,
+      [
+        expiredId,
+        decided.zoneId,
+        decided.zoneRevision,
+        decided.datasetRevision,
+        decided.point.latitude,
+        decided.point.longitude,
+      ],
+    );
+    const expired = await validate({ ...body, decisionId: expiredId });
+    assert.equal(expired.status, 200);
+    const expiredProof = geoV1.parseValidateDecisionResultV1(expired.body);
+    assert.equal(expiredProof.valid, false);
+    assert.equal(expiredProof.reason, 'DECISION_EXPIRED');
+  } finally {
+    await configured.app.close();
+    if (previous === undefined) delete process.env.GEO_SERVICE_CLIENTS;
+    else process.env.GEO_SERVICE_CLIENTS = previous;
   }
 });
 

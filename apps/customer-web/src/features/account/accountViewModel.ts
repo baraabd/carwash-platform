@@ -56,15 +56,7 @@ export function buildAccountViewModel(state: CustomerSessionState): AccountViewM
         'الاسم ورقم التواصل',
         state.runtimeMode === 'parity' ? 'deferred' : 'profile',
       ),
-      row(
-        'addresses',
-        'pin',
-        'عناويني',
-        state.runtimeMode === 'parity'
-          ? `${state.addresses.length} عناوين محفوظة`
-          : 'ربط خدمة العناوين قيد الاستكمال',
-        state.runtimeMode === 'parity' ? 'addresses' : 'deferred',
-      ),
+      row('addresses', 'pin', 'عناويني', `${state.addresses.length} عناوين محفوظة`, 'addresses'),
       row('garage-tab', 'car', 'سياراتي', `${state.vehicles.length} سيارات محفوظة`, 'garage'),
     ],
     secondaryRows:

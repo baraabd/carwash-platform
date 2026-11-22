@@ -13,8 +13,11 @@ may read or write these tables.
   - `POST /serviceability` `{point}`: a current account or guest session holding
     `bookings.create:self` (verified with Identity, fail closed); rate limited by
     `GEO_SERVICEABILITY_RATE_PER_MINUTE`; returns `ServiceabilityDecisionV1`.
-  - `POST /serviceability/validate`: `service:geo.serviceability.validate`, closed until
-    workload identity exists.
+  - `POST /serviceability/validate`: `service:geo.serviceability.validate`, authenticated
+    with the scoped `x-service-client` / `x-service-token` credential pair. An empty
+    `GEO_SERVICE_CLIENTS` configuration refuses every workload. Store only token SHA-256
+    digests in that list, using the platform service-client format; browser/session
+    credentials are refused on this route even when a valid workload pair is also sent.
   - See `docs/production/A/P02-A3_GEO_V1_PROVIDER.md`.
 - Without approved zones every answer is `INDETERMINATE / GEO_DATASET_UNAVAILABLE`; boundary and
   overlap cases are `INDETERMINATE / LOCATION_UNRESOLVED` until the owner approves rules.

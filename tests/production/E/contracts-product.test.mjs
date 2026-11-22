@@ -521,6 +521,26 @@ test('support: requests are closed and kind-bound', () => {
     'INVALID_LENGTH',
   );
   assert.equal(sup.parseDecisionNo('12', '$'), 12);
+  const selected = {
+    action: 'APPROVE_MATCH',
+    reason: { code: 'PROVIDER_CONFIRMED', note: 'Selected a recorded statement credit' },
+    evidence: [{ kind: 'PROVIDER_STATEMENT', reference: 'STMT-ACCEPTANCE-01' }],
+    amount: { currency: 'SYP', amountMinor: '150000', scale: 2 },
+    statementCredit: { creditId: id(), revision: 1 },
+  };
+  assert.deepEqual(sup.parseDecideCaseRequestV1(selected), selected);
+  assert.throws(() =>
+    sup.parseDecideCaseRequestV1({
+      ...selected,
+      statementCredit: { ...selected.statementCredit, revision: 0 },
+    }),
+  );
+  assert.throws(() =>
+    sup.parseDecideCaseRequestV1({
+      ...selected,
+      statementCredit: { ...selected.statementCredit, approved: true },
+    }),
+  );
   assert.throws(() => sup.parseDecisionNo('012', '$'));
   assert.equal(sup.SUPPORT_V1.routes.approveDecision.access, 'permission:billing.refund');
 });

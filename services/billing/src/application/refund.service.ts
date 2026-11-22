@@ -1,6 +1,7 @@
 import {
   EVIDENCE_DIGEST,
-  REFUND_REASONS,
+  LEGACY_REFUND_REASONS,
+  MAX_REFUNDS_PER_OBLIGATION,
   REFUND_STATUSES,
   normalizeProviderReference,
   planManualRefundCompletion,
@@ -149,6 +150,7 @@ export class RefundService {
     const refund = await uow.providers.lockRefund(refundId);
     if (!credit || !refund || refund.creditId !== credit.id)
       throw new BillingApplicationError('NOT_FOUND');
+    if (refund.workflow !== 'CREDIT_V1') throw new BillingApplicationError('NOT_FOUND');
     if (refund.revision !== expectedRevision)
       throw new BillingApplicationError('REVISION_CONFLICT');
     return { credit, refund };
@@ -178,6 +180,7 @@ export class RefundService {
   private async known(refundId: string): Promise<RefundRecord> {
     const refund = await this.deps.repository.providers.refund(refundId);
     if (!refund) throw new BillingApplicationError('NOT_FOUND');
+    if (refund.workflow !== 'CREDIT_V1') throw new BillingApplicationError('NOT_FOUND');
     return refund;
   }
 
@@ -209,7 +212,7 @@ export class RefundService {
     const input = objectWithKeys(body, ['expectedRevision', 'amount', 'reason']);
     const expectedRevision = revision(input.expectedRevision);
     const amount = moneyInput(input.amount, 'amount');
-    const reason: RefundReason = oneOf(input.reason, REFUND_REASONS, 'reason');
+    const reason: RefundReason = oneOf(input.reason, LEGACY_REFUND_REASONS, 'reason');
     const command = this.commands.command(principal, REFUND_OPERATIONS.request, key, {
       creditId: id,
       expectedRevision,
@@ -228,9 +231,15 @@ export class RefundService {
           throw new BillingApplicationError('SEPARATION_OF_DUTIES');
       }
       const reserved = await uow.providers.reservedForRefund(credit);
+      if (
+        credit.obligationId &&
+        (await uow.providers.refundsForCredit(id)).length >= MAX_REFUNDS_PER_OBLIGATION
+      )
+        throw new BillingApplicationError('REFUND_LIMIT_REACHED');
       decide(() => planRefundRequest({ credit, reserved, amount, reason }));
       const refund: RefundRecord = {
         id: this.deps.ids.uuid(),
+        workflow: 'CREDIT_V1',
         creditId: id,
         provider: credit.provider,
         amount,

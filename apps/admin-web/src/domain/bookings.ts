@@ -34,22 +34,23 @@ export interface Window {
 }
 
 /**
- * The discovery window in the operator's local calendar, sent as UTC instants.
- * Weeks start on Saturday, as the Syrian working week does. Every window stays
- * within Reporting's 31-day bound.
+ * The discovery window in Reporting's currently supported UTC calendar.
+ * Reporting defines its day in UTC (P01-D1 projection contract). Browser locale
+ * controls display, not the accounting boundary. Weeks start on Saturday and
+ * every window stays within Reporting's 31-day bound, including DST months.
  */
 export function periodWindow(period: Period, now: Date): Window {
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   let end: Date;
   if (period === 'today') {
-    end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
+    end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + 1));
   } else if (period === 'week') {
-    const sinceSaturday = (start.getDay() + 1) % 7;
-    start.setDate(start.getDate() - sinceSaturday);
-    end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7);
+    const sinceSaturday = (start.getUTCDay() + 1) % 7;
+    start.setUTCDate(start.getUTCDate() - sinceSaturday);
+    end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + 7));
   } else {
-    start.setDate(1);
-    end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+    start.setUTCDate(1);
+    end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
   }
   return { from: wire(start), to: wire(end) };
 }

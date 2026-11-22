@@ -10,9 +10,14 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import {
+  browserCsrf,
+  ProductionCustomer,
+} from '../../../apps/customer-web/src/data/productionCustomer.ts';
+import {
   ROOT,
   ORIGIN,
   Jar,
+  account,
   context,
   contracts,
   idempotencyKey,
@@ -104,6 +109,13 @@ const savedVehicle = {
 const profile = (result) => customerV1.parseCustomerProfileV1(result.body);
 const car = (result) => vehicleV1.parseVehicleV1(result.body);
 const cars = (result) => parsePage(result.body, '$', vehicleV1.parseVehicleV1);
+const savedAddress = {
+  label: 'منزل اختبار الربط',
+  details: 'أمام البوابة',
+  location: { mode: 'manual', description: 'دمشق، شارع اختبار الخدمة، المبنى الأول' },
+};
+const address = (result) => customerV1.parseAddressV1(result.body);
+const addresses = (result) => parsePage(result.body, '$', customerV1.parseAddressV1);
 
 async function bootstrap(guest, body = contact) {
   const result = await call(guest.jar, '/customer/profile', {
@@ -114,6 +126,41 @@ async function bootstrap(guest, body = contact) {
   assert.equal(result.status, 201, JSON.stringify(result.body));
   return profile(result);
 }
+
+test('actual production client can create a guest and reach the missing-profile editor through real owners', async () => {
+  const jar = new Jar();
+  const client = new ProductionCustomer({
+    origin: base,
+    csrf: () => browserCsrf(jar.header()),
+    newKey: idempotencyKey,
+    fetch: async (url, init) => {
+      const response = await fetch(url, {
+        ...init,
+        headers: {
+          ...init.headers,
+          cookie: jar.header(),
+          ...(init.method === 'GET' ? {} : { origin: ORIGIN }),
+        },
+      });
+      jar.absorb(response);
+      return response;
+    },
+  });
+  await client.load();
+  assert.equal(client.getSnapshot().authStatus, 'anonymous');
+  const entered = await client.guest();
+  assert.equal(entered.ok, true, 'Real guest entry must return a valid receipt');
+  assert.equal(client.getSnapshot().authStatus, 'authenticated');
+  assert.equal(client.getSnapshot().profileStatus, 'missing');
+  client.acknowledgeRecovery();
+  assert.equal(client.getSnapshot().recovery, null);
+  const saved = await client.saveProfile(contact, null);
+  assert.equal(saved.ok, true);
+  assert.equal(saved.revision, 1, 'the browser receives the strong owner revision ETag');
+  assert.equal(client.getSnapshot().profileStatus, 'available');
+  assert.equal(client.getSnapshot().profile.contact.displayName, contact.displayName);
+  await client.signOut();
+});
 
 test('production Gateway creates a real guest, persists canonical profile and reads the same owner data', async () => {
   const anonymous = await call(null, '/customer/profile');
@@ -272,6 +319,13 @@ test('real guest recovery preserves owned records, rotates the recovery code and
   });
   assert.equal(created.status, 201);
   const originalVehicle = car(created);
+  const location = await call(original.jar, '/customer/addresses', {
+    method: 'POST',
+    headers: { 'idempotency-key': idempotencyKey() },
+    body: savedAddress,
+  });
+  assert.equal(location.status, 201);
+  const originalAddress = address(location);
   const previousToken = original.jar.cookies.get('__Host-wg_access');
   const recoveredJar = new Jar();
   assert.equal((await call(recoveredJar, '/auth/csrf')).status, 200);
@@ -292,6 +346,7 @@ test('real guest recovery preserves owned records, rotates the recovery code and
   reloaded.cookies = new Map(recoveredJar.cookies);
   assert.deepEqual(profile(await call(reloaded, '/customer/profile')), originalProfile);
   assert.deepEqual(cars(await call(reloaded, '/customer/vehicles')).items, [originalVehicle]);
+  assert.deepEqual(addresses(await call(reloaded, '/customer/addresses')).items, [originalAddress]);
   assert.equal(
     (
       await call(null, '/customer/profile', {
@@ -308,4 +363,143 @@ test('real guest recovery preserves owned records, rotates the recovery code and
   });
   assert.equal(oldCode.status, 401);
   assert.equal(oldCode.body.error.code, 'AUTH_REQUIRED');
+});
+
+test('production Gateway persists canonical address CRUD with full revision, bounded pages and exact idempotent replay', async () => {
+  const guest = await visitor();
+  const owner = await bootstrap(guest);
+  const create = {
+    method: 'POST',
+    headers: { 'idempotency-key': idempotencyKey() },
+    body: savedAddress,
+  };
+  const created = await call(guest.jar, '/customer/addresses', create);
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const original = address(created);
+  assert.equal(created.headers.get('etag'), '"1"');
+  assert.equal(created.headers.get('cache-control'), 'no-store');
+  assert.deepEqual(address(await call(guest.jar, '/customer/addresses', create)), original);
+  const page = await call(guest.jar, '/customer/addresses?limit=1');
+  assert.equal(page.status, 200);
+  assert.deepEqual(addresses(page).items, [original]);
+  const persisted = await sql(
+    context.services.customer.app,
+    'SELECT customer_id, location_kind, location_source, latitude, longitude FROM app.customer_address WHERE id = $1',
+    [original.addressId],
+  );
+  assert.deepEqual(persisted.rows, [
+    {
+      customer_id: owner.customerId,
+      location_kind: 'manual',
+      location_source: null,
+      latitude: null,
+      longitude: null,
+    },
+  ]);
+  const update = {
+    method: 'PATCH',
+    headers: { 'idempotency-key': idempotencyKey(), 'if-match': '"1"' },
+    body: { ...savedAddress, label: 'العنوان بعد التعديل', details: null },
+  };
+  const updated = await call(guest.jar, `/customer/addresses/${original.addressId}`, update);
+  assert.equal(updated.status, 200, JSON.stringify(updated.body));
+  assert.equal(address(updated).revision, 2);
+  assert.equal(address(updated).details, null);
+  assert.deepEqual(
+    address(await call(guest.jar, `/customer/addresses/${original.addressId}`, update)),
+    address(updated),
+  );
+  const stale = await call(guest.jar, `/customer/addresses/${original.addressId}/archive`, {
+    method: 'POST',
+    headers: { 'idempotency-key': idempotencyKey(), 'if-match': '"1"' },
+    body: {},
+  });
+  assert.equal(stale.status, 412);
+  assert.equal(stale.body.error.code, 'REVISION_CONFLICT');
+  const archive = {
+    method: 'POST',
+    headers: { 'idempotency-key': idempotencyKey(), 'if-match': '"2"' },
+    body: {},
+  };
+  const archived = await call(
+    guest.jar,
+    `/customer/addresses/${original.addressId}/archive`,
+    archive,
+  );
+  assert.equal(archived.status, 200, JSON.stringify(archived.body));
+  assert.equal(address(archived).archived, true);
+  assert.equal(address(archived).revision, 3);
+  assert.deepEqual(
+    address(await call(guest.jar, `/customer/addresses/${original.addressId}/archive`, archive)),
+    address(archived),
+  );
+  assert.deepEqual(addresses(await call(guest.jar, '/customer/addresses')).items, []);
+});
+
+test('production Gateway address writes enforce CSRF, owned IDs, key/revision headers and closed pagination queries', async () => {
+  // Use real verified accounts as well as guests; this also respects Identity's
+  // unchanged per-IP guest creation budget across the whole suite.
+  const owner = await account(identity);
+  const other = await account(identity);
+  await bootstrap(owner);
+  await bootstrap(other);
+  const create = {
+    method: 'POST',
+    headers: { 'idempotency-key': idempotencyKey() },
+    body: savedAddress,
+  };
+  for (const options of [
+    { ...create, csrf: false },
+    { ...create, headers: { ...create.headers, origin: 'https://foreign.invalid' } },
+  ]) {
+    const result = await call(owner.jar, '/customer/addresses', options);
+    assert.equal(result.status, 403);
+    assert.equal(result.body.error.code, 'AUTH_CSRF');
+  }
+  const missingKey = await call(owner.jar, '/customer/addresses', {
+    method: 'POST',
+    body: savedAddress,
+  });
+  assert.equal(missingKey.status, 428);
+  assert.equal(missingKey.body.error.code, 'IDEMPOTENCY_KEY_REQUIRED');
+  const created = await call(owner.jar, '/customer/addresses', create);
+  assert.equal(created.status, 201);
+  const item = address(created);
+  const missingRevision = await call(owner.jar, `/customer/addresses/${item.addressId}`, create);
+  assert.equal(
+    missingRevision.status,
+    404,
+    'an unpublished POST-to-record alias must not become a write route',
+  );
+  const required = await call(owner.jar, `/customer/addresses/${item.addressId}`, {
+    ...create,
+    method: 'PATCH',
+  });
+  assert.equal(required.status, 428);
+  assert.equal(required.body.error.code, 'REVISION_REQUIRED');
+  for (const ending of ['', '/archive']) {
+    const denied = await call(other.jar, `/customer/addresses/${item.addressId}${ending}`, {
+      method: ending ? 'POST' : 'PATCH',
+      headers: {
+        'idempotency-key': idempotencyKey(),
+        'if-match': '"1"',
+        'x-auth-subject': owner.subject,
+      },
+      body: ending ? {} : savedAddress,
+    });
+    assert.equal(denied.status, 404);
+    assert.equal(denied.body.error.code, 'NOT_FOUND');
+  }
+  assert.deepEqual(addresses(await call(other.jar, '/customer/addresses')).items, []);
+  assert.deepEqual(addresses(await call(owner.jar, '/customer/addresses')).items, [item]);
+  for (const [query, status, code] of [
+    ['limit=0', 400, 'REQUEST_INVALID'],
+    ['limit=101', 400, 'REQUEST_INVALID'],
+    ['cursor=invalid-cursor', 422, 'VALIDATION_FAILED'],
+    [`subjectId=${owner.subject}`, 400, 'REQUEST_INVALID'],
+  ]) {
+    const result = await call(other.jar, `/customer/addresses?${query}`);
+    assert.equal(result.status, status);
+    assert.equal(result.body.error.code, code);
+  }
 });

@@ -14,6 +14,7 @@ import path from 'node:path';
 import { ROOT, readJson, inventory, auditSummary, sarifFindings, assertTap } from './policy.mjs';
 import { command, checked, git, tool, toolLock, stage } from './runtime.mjs';
 import { assertCompleteSecretScan, prepareSecretSource, secretScans } from './secret-scans.mjs';
+import { prepareReviewedSecretIgnores } from './reviewed-secret-finding.mjs';
 import { validateActiveAllocation } from '../parallel/E/allocate-environment.mjs';
 import { discoverServiceSpecs } from '../lib/test-discovery.mjs';
 const mode = process.argv[2];
@@ -270,7 +271,11 @@ try {
         path.join(process.env.CI_EVIDENCE_DIR, 'secret-source-manifest.json'),
         JSON.stringify({ sourceSha, ...sourceManifest }, null, 2) + '\n',
       );
-      for (const [name, args] of secretScans(sourceSha, scanSource)) {
+      let ignores;
+      await step('verified-historical-false-positive', () => {
+        ignores = prepareReviewedSecretIgnores(ROOT, sourceSha, temporary);
+      });
+      for (const [name, args] of secretScans(sourceSha, scanSource, ignores)) {
         const output = path.join(temporary, `${name}.json`);
         await step(`gitleaks-${name}`, async () => {
           const result = await command(
@@ -310,10 +315,12 @@ try {
         scanner: toolLock.tools.gitleaks.version,
         historyScope: 'Complete ancestry of the exact source SHA, including merge-parent diffs',
         historySourceSha: sourceSha,
+        reviewedHistoricalFinding: ignores.assessment,
         tests: testCounts,
         secrets: counts,
         audit,
-        threshold: 'All pnpm advisories block, preserving F001; no allowlist introduced.',
+        threshold:
+          'All pnpm advisories block, preserving F001; no dependency advisory allowlist introduced.',
       };
     }
     if (mode === 'codeql') {

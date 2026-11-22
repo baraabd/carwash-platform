@@ -91,6 +91,7 @@ export function routeMatch(method: string, full: string): Match | readonly Match
   throw new GatewayFault(404, 'NOT_FOUND');
 }
 export function idempotencyKey(value: string | undefined): string {
+  if (value === undefined) throw new GatewayFault(428, 'IDEMPOTENCY_KEY_REQUIRED');
   if (!value || !/^[A-Za-z0-9_-]{16,128}$/.test(value))
     throw new GatewayFault(400, 'REQUEST_INVALID');
   return value;
@@ -125,19 +126,22 @@ export function upstreamFault(status: number, body: unknown, owner?: GatewayOwne
     422: 'VALIDATION_FAILED',
     429: 'RATE_LIMITED',
   };
-  // Business-rule rejections keep the owner's published reason (CR-B-01); nothing else does.
+  // A reason is public only if the merged owner contract publishes it. This
+  // includes a missing profile (404): clients must distinguish an absent profile
+  // from a missing route before offering the canonical bootstrap operation.
   const explicitReason =
     typeof error === 'object' && error !== null
       ? (error as Record<string, unknown>).reason
       : undefined;
-  const reason = [409, 412, 422].includes(status)
-    ? (publishedReason(owner, explicitReason) ?? publishedReason(owner, code))
-    : undefined;
   // A published common code with its documented HTTP status keeps its semantics,
   // especially IDEMPOTENCY_IN_PROGRESS: a retry must retain the same request key.
   const sharedCode = API_ERROR_CODES.find(
     (candidate) => candidate === code && API_ERROR_STATUS[candidate] === status,
   );
+  const reason =
+    sharedCode || status in known
+      ? (publishedReason(owner, explicitReason) ?? publishedReason(owner, code))
+      : undefined;
   return new GatewayFault(
     sharedCode || status in known ? status : 502,
     sharedCode ?? known[status] ?? 'UPSTREAM_UNAVAILABLE',

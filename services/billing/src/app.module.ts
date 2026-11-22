@@ -9,6 +9,7 @@ import {
   BillingService,
   BookingObligationService,
   CashCustodyService,
+  CanonicalRefundService,
   FinanceQueryService,
   ProviderPaymentsService,
   RefundService,
@@ -42,6 +43,11 @@ import {
 } from './transport/http/booking-obligation.controller';
 import { CASH_CUSTODY_SERVICE, CustodyController } from './transport/http/custody.controller';
 import { FINANCE_QUERY_SERVICE, FinanceController } from './transport/http/finance.controller';
+import { ProviderNotificationController } from './transport/http/provider-notification.controller';
+import {
+  CANONICAL_REFUND_SERVICE,
+  CanonicalRefundController,
+} from './transport/http/canonical-refund.controller';
 import {
   PROVIDER_PAYMENTS_SERVICE,
   ProviderController,
@@ -87,6 +93,8 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
     BillingController,
     CustodyController,
     ProviderController,
+    ProviderNotificationController,
+    CanonicalRefundController,
     FinanceController,
     BookingObligationController,
   ],
@@ -136,6 +144,18 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
           repository,
           authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),
           providers,
+          clock: new SystemClock(),
+          ids: new RandomIds(),
+          hasher: new Sha256Hasher(),
+        }),
+    },
+    {
+      provide: CANONICAL_REFUND_SERVICE,
+      inject: [PrismaBillingRepository],
+      useFactory: (repository: PrismaBillingRepository) =>
+        new CanonicalRefundService({
+          repository,
+          authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),
           clock: new SystemClock(),
           ids: new RandomIds(),
           hasher: new Sha256Hasher(),

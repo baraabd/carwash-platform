@@ -411,6 +411,80 @@ test('F007 public verifier rejects tampered tokens before calling live Identity 
   assert.equal(response.status, 401);
   assert.equal(identity.calls.filter((x) => x.path.endsWith('/session')).length, 0);
 });
+
+test('Gateway retains only the owner-published missing-resource and canonical failure reasons', async (t) => {
+  const { identity, token } = await signedSession(t);
+  let status = 404;
+  let code = 'NOT_FOUND';
+  let reason = 'PROFILE_NOT_FOUND';
+  const owner = await stub('customer', (_call, response) => {
+    response.statusCode = status;
+    response.end(JSON.stringify({ error: { code, reason } }));
+  });
+  t.after(() => owner.close());
+  const app = await start(config(identity.base, { customer: owner.base }));
+  t.after(() => app.close());
+  const read = () =>
+    request(app.base, '/api/v1/customer/profile', {
+      headers: { authorization: `Bearer ${token}` },
+    });
+  const missing = await read();
+  assert.equal(missing.status, 404);
+  assert.equal(missing.body.error.reason, 'PROFILE_NOT_FOUND');
+  for (const [nextStatus, nextCode] of [
+    [401, 'AUTH_REQUIRED'],
+    [503, 'DEPENDENCY_UNAVAILABLE'],
+  ]) {
+    status = nextStatus;
+    code = nextCode;
+    const canonical = await read();
+    assert.equal(canonical.status, nextStatus);
+    assert.equal(canonical.body.error.reason, 'PROFILE_NOT_FOUND');
+  }
+  status = 404;
+  code = 'NOT_FOUND';
+  for (const unpublished of ['INTERNAL_PRIVATE', 'BOOKING_NOT_FOUND', 'arbitrary text']) {
+    reason = unpublished;
+    assert.equal((await read()).body.error.reason, null);
+  }
+});
+
+test('Gateway forwards strong published revisions and exact replay flags without leaking arbitrary upstream headers', async (t) => {
+  const { identity, token } = await signedSession(t);
+  let etag = '"2147483647"';
+  let replay = 'true';
+  const owner = await stub('customer', (_call, response) => {
+    response.setHeader('etag', etag);
+    response.setHeader('idempotent-replayed', replay);
+    response.setHeader('x-private-debug', 'must-not-leave-owner');
+    response.setHeader('set-cookie', 'private=do-not-forward');
+    response.end(JSON.stringify({ revision: 2147483647 }));
+  });
+  t.after(() => owner.close());
+  const app = await start(config(identity.base, { customer: owner.base }));
+  t.after(() => app.close());
+  const read = () =>
+    request(app.base, '/api/v1/customer/profile', {
+      headers: { authorization: `Bearer ${token}` },
+    });
+  const valid = await read();
+  assert.equal(valid.headers.get('etag'), '"2147483647"');
+  assert.equal(valid.headers.get('idempotent-replayed'), 'true');
+  assert.equal(valid.headers.get('x-private-debug'), null);
+  assert.equal(valid.headers.get('set-cookie'), null);
+  replay = 'not-true';
+  for (const invalid of ['W/"123"', '"2147483648"', '"00"', '"content-hash"', '*']) {
+    etag = invalid;
+    const refused = await read();
+    assert.equal(refused.status, 200);
+    assert.equal(
+      refused.headers.get('etag'),
+      null,
+      'the Gateway never invents a content-hash revision',
+    );
+    assert.equal(refused.headers.get('idempotent-replayed'), null);
+  }
+});
 test('F007 verified context replaces every spoofed identity header; cookies never cross into domain owners', async (t) => {
   const { identity, token, session } = await signedSession(t);
   const owner = await stub('customer');
@@ -537,7 +611,13 @@ test('F007 required idempotency key forwards unchanged and unsafe request sent o
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
     body: JSON.stringify({ quoteId: randomUUID() }),
   };
-  assert.equal((await request(app.base, '/api/v1/customer/bookings', options)).status, 400);
+  const missing = await request(app.base, '/api/v1/customer/bookings', options);
+  assert.equal(missing.status, 428);
+  assert.equal(missing.body.error.code, 'IDEMPOTENCY_KEY_REQUIRED');
+  options.headers['idempotency-key'] = 'short';
+  const malformed = await request(app.base, '/api/v1/customer/bookings', options);
+  assert.equal(malformed.status, 400);
+  assert.equal(malformed.body.error.code, 'REQUEST_INVALID');
   assert.equal(owner.calls.length, 0);
   options.headers['idempotency-key'] = 'safe_command_123456789';
   assert.equal((await request(app.base, '/api/v1/customer/bookings', options)).status, 200);

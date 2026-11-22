@@ -11,7 +11,7 @@ import {
   HttpIdentityAuthorizer,
   UnconfiguredIdentityAuthorizer,
 } from './infrastructure/identity/http-identity-authorizer';
-import { DenyAllWorkloadAuthenticator } from './infrastructure/identity/workload-authenticator';
+import { ServiceWorkloadAuthenticator } from './infrastructure/identity/workload-authenticator';
 import type { IdentityAuthorizer } from './ports';
 import { PrismaGeoStore } from './infrastructure/persistence/prisma-geo.store';
 import {
@@ -124,7 +124,10 @@ export function decisionTtlMsFromEnv(env: NodeJS.ProcessEnv = process.env): numb
       inject: [PrismaService, DATABASE_URL],
     },
     { provide: GEO_RATE_LIMIT, useFactory: () => rateLimitFromEnv() },
-    { provide: WORKLOAD_AUTHENTICATOR, useFactory: () => new DenyAllWorkloadAuthenticator() },
+    {
+      provide: WORKLOAD_AUTHENTICATOR,
+      useFactory: () => new ServiceWorkloadAuthenticator(process.env.GEO_SERVICE_CLIENTS),
+    },
   ],
   exports: [PrismaService],
 })

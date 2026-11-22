@@ -55,7 +55,7 @@ async function bootstrapped() {
 }
 
 async function createAddress(user, body = home, key = idempotencyKey()) {
-  return call('/me/addresses', {
+  return call('/legacy/me/addresses', {
     method: 'POST',
     headers: { ...bearer(user), 'idempotency-key': key },
     body,
@@ -159,7 +159,7 @@ test('idempotency: concurrent creates with one key make one address and replay o
   );
   assert.equal(new Set(results.map((result) => result.body.addressId)).size, 1);
   assert.equal(results.filter((result) => result.headers.get('idempotent-replayed')).length, 7);
-  const list = await call('/me/addresses', { headers: bearer(user) });
+  const list = await call('/legacy/me/addresses', { headers: bearer(user) });
   assert.equal(list.body.items.length, 1);
   const outbox = await sql(
     db,
@@ -176,7 +176,7 @@ test('idempotency: a reused key with a different body is refused; a missing key 
   const reused = await createAddress(user, { ...home, label: 'العمل' }, key);
   assert.equal(reused.status, 422);
   assert.equal(reused.body.error.code, 'IDEMPOTENCY_KEY_REUSED');
-  const missing = await call('/me/addresses', {
+  const missing = await call('/legacy/me/addresses', {
     method: 'POST',
     headers: bearer(user),
     body: home,
@@ -194,24 +194,27 @@ test('ownership: another customer cannot read, edit or archive an address (404, 
   const { user: intruder } = await bootstrapped();
   const created = await createAddress(owner, { ...home, location: pinned('36.2', '37.15') });
   const id = created.body.addressId;
-  const read = await call(`/me/addresses/${id}`, { headers: bearer(intruder) });
+  const read = await call(`/legacy/me/addresses/${id}`, { headers: bearer(intruder) });
   assert.equal(read.status, 404);
-  const edit = await call(`/me/addresses/${id}`, {
+  const edit = await call(`/legacy/me/addresses/${id}`, {
     method: 'PATCH',
     headers: { ...bearer(intruder), 'if-match': '"1"' },
     body: { label: 'سرقة' },
   });
   assert.equal(edit.status, 404);
-  const archive = await call(`/me/addresses/${id}/archive`, {
+  const archive = await call(`/legacy/me/addresses/${id}/archive`, {
     method: 'POST',
     headers: { ...bearer(intruder), 'if-match': '"1"' },
   });
   assert.equal(archive.status, 404);
-  assert.equal((await call('/me/addresses', { headers: bearer(intruder) })).body.items.length, 0);
-  const untouched = await call(`/me/addresses/${id}`, { headers: bearer(owner) });
+  assert.equal(
+    (await call('/legacy/me/addresses', { headers: bearer(intruder) })).body.items.length,
+    0,
+  );
+  const untouched = await call(`/legacy/me/addresses/${id}`, { headers: bearer(owner) });
   assert.equal(untouched.body.label, home.label);
   assert.equal(untouched.body.revision, 1);
-  const malformed = await call('/me/addresses/not-a-uuid', { headers: bearer(owner) });
+  const malformed = await call('/legacy/me/addresses/not-a-uuid', { headers: bearer(owner) });
   assert.equal(malformed.status, 404);
 });
 
@@ -251,7 +254,7 @@ test('revisions: address edits, archive is safe to retry, archived is read-only'
   const { user } = await bootstrapped();
   const created = await createAddress(user);
   const id = created.body.addressId;
-  const edited = await call(`/me/addresses/${id}`, {
+  const edited = await call(`/legacy/me/addresses/${id}`, {
     method: 'PATCH',
     headers: { ...bearer(user), 'if-match': '"1"' },
     body: { location: pinned('36.123456', '37.000001', 'device'), accessNote: 'البوابة الخلفية' },
@@ -263,26 +266,29 @@ test('revisions: address edits, archive is safe to retry, archived is read-only'
     latitude: '36.123456',
     longitude: '37.000001',
   });
-  const archived = await call(`/me/addresses/${id}/archive`, {
+  const archived = await call(`/legacy/me/addresses/${id}/archive`, {
     method: 'POST',
     headers: { ...bearer(user), 'if-match': '"2"' },
   });
   assert.equal(archived.status, 200);
   assert.equal(archived.body.status, 'ARCHIVED');
-  const retried = await call(`/me/addresses/${id}/archive`, {
+  const retried = await call(`/legacy/me/addresses/${id}/archive`, {
     method: 'POST',
     headers: { ...bearer(user), 'if-match': '"2"' },
   });
   assert.equal(retried.status, 200);
   assert.equal(retried.body.revision, 3);
-  const editArchived = await call(`/me/addresses/${id}`, {
+  const editArchived = await call(`/legacy/me/addresses/${id}`, {
     method: 'PATCH',
     headers: { ...bearer(user), 'if-match': '"3"' },
     body: { label: 'x' },
   });
   assert.equal(editArchived.status, 409);
-  assert.equal((await call('/me/addresses', { headers: bearer(user) })).body.items.length, 0);
-  const all = await call('/me/addresses?includeArchived=true', { headers: bearer(user) });
+  assert.equal(
+    (await call('/legacy/me/addresses', { headers: bearer(user) })).body.items.length,
+    0,
+  );
+  const all = await call('/legacy/me/addresses?includeArchived=true', { headers: bearer(user) });
   assert.equal(all.body.items.length, 1);
 });
 
@@ -311,7 +317,10 @@ test('coordinates: non-finite, out-of-range and over-precise values are refused 
   const artwork = await createAddress(user, { ...home, location: { x: 350, y: 240 } });
   assert.equal(artwork.status, 422);
   assert.equal(artwork.body.error.code, 'INVALID_LOCATION');
-  assert.equal((await call('/me/addresses', { headers: bearer(user) })).body.items.length, 0);
+  assert.equal(
+    (await call('/legacy/me/addresses', { headers: bearer(user) })).body.items.length,
+    0,
+  );
 });
 
 test('coordinates: PostgreSQL itself refuses NaN, out-of-range and inconsistent locations', async () => {
@@ -326,7 +335,10 @@ test('coordinates: PostgreSQL itself refuses NaN, out-of-range and inconsistent 
   assert.equal(await attempt('coordinates', 'pin', '36', 'NaN'), '23514');
   assert.equal(await attempt('coordinates', 'pin', '90.5', '37'), '23514');
   assert.equal(await attempt('coordinates', 'pin', '36', '-180.5'), '23514');
-  assert.equal(await attempt('coordinates', null, '36', '37'), '23514');
+  // customer.v1 accepts coordinates without invented provenance. Legacy HTTP
+  // still requires pin/device/geocoder; the database serves both representations.
+  assert.equal(await attempt('coordinates', null, '36', '37'), null);
+  assert.equal(await attempt('coordinates', 'invented-source', '36', '37'), '23514');
   assert.equal(await attempt('manual', null, '36', '37'), '23514');
   assert.equal(await attempt('coordinates', 'pin', '36.2', '37.1'), null);
   assert.equal(await attempt('manual', null, null, null), null);

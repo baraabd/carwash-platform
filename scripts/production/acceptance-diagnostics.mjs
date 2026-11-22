@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { lstat, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { mkdir, open, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { redact } from '../acceptance/lib/exec.mjs';
 
 const PNG_NAME = /^[a-z0-9-]+-(?:reference(?:-raw|-declared)?|candidate|diff)\.png$/;
+const MAX_DIAGNOSTIC_BYTES = 20 * 1024 * 1024;
 const SOURCES = Object.freeze({
   'c-operator-fixtures': [
     ['operator-summary', '.acceptance/production-C/operator-web', ['acceptance.json']],
@@ -39,11 +41,39 @@ export async function retainBrowserDiagnostics(root, suite, output, startedAt) {
       const isPng = label !== 'operator-summary' && PNG_NAME.test(entry.name);
       if (!isJson && !isPng) continue;
       const source = path.join(directory, entry.name);
-      const info = await lstat(source);
-      assert.ok(info.isFile(), 'Diagnostic must remain a regular file');
-      if (info.mtimeMs < since) continue;
-      assert.ok(info.size <= 20 * 1024 * 1024, 'Unexpected oversized visual diagnostic');
-      const bytes = await readFile(source);
+      // Pin the inode before checking its type and freshness. Never reopen a
+      // checked pathname: it could be replaced with a private-file symlink.
+      const file = await open(
+        source,
+        constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+      );
+      let bytes;
+      try {
+        const info = await file.stat();
+        assert.ok(info.isFile(), 'Diagnostic must remain a regular file');
+        if (info.mtimeMs < since) continue;
+        assert.ok(info.size <= MAX_DIAGNOSTIC_BYTES, 'Unexpected oversized visual diagnostic');
+        // Allocate at most the checked size plus one byte. Growth cannot turn
+        // a small screenshot into an unbounded memory allocation.
+        const buffer = Buffer.alloc(info.size + 1);
+        let offset = 0;
+        while (offset < buffer.length) {
+          const { bytesRead } = await file.read(buffer, offset, buffer.length - offset, offset);
+          if (bytesRead === 0) break;
+          offset += bytesRead;
+        }
+        const after = await file.stat();
+        assert.ok(
+          offset === info.size &&
+            after.size === info.size &&
+            after.mtimeMs === info.mtimeMs &&
+            after.ctimeMs === info.ctimeMs,
+          'Diagnostic changed while being retained',
+        );
+        bytes = buffer.subarray(0, offset);
+      } finally {
+        await file.close();
+      }
       if (isPng)
         assert.equal(
           bytes.subarray(0, 8).toString('hex'),

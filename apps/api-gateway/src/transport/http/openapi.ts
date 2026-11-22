@@ -190,7 +190,8 @@ export function gatewayOpenApi() {
                 code: { type: 'string', enum: ERROR_CODES },
                 reason: {
                   type: ['string', 'null'],
-                  description: 'Only an owning service published reason for 409, 412 or 422.',
+                  description:
+                    'Only a reason published by the owning service for a recognized HTTP failure.',
                 },
                 message: {
                   type: 'string',

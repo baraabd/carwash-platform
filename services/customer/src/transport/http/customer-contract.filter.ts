@@ -55,11 +55,14 @@ export class CustomerContractExceptionFilter implements ExceptionFilter {
     const code =
       error instanceof ApplicationError
         ? CODES[error.code]
-        : error instanceof ContractViolation || error instanceof CustomerDomainError
-          ? 'VALIDATION_FAILED'
-          : isFrameworkInputError(error)
-            ? 'REQUEST_INVALID'
-            : 'INTERNAL_ERROR';
+        : error instanceof CustomerDomainError &&
+            ['ADDRESS_LIMIT_REACHED', 'ADDRESS_ARCHIVED'].includes(error.code)
+          ? 'CONFLICT'
+          : error instanceof ContractViolation || error instanceof CustomerDomainError
+            ? 'VALIDATION_FAILED'
+            : isFrameworkInputError(error)
+              ? 'REQUEST_INVALID'
+              : 'INTERNAL_ERROR';
     const reason =
       error instanceof ApplicationError &&
       [
@@ -68,7 +71,10 @@ export class CustomerContractExceptionFilter implements ExceptionFilter {
         'ADDRESS_MIGRATION_REQUIRED',
       ].includes(error.code)
         ? error.code
-        : undefined;
+        : error instanceof CustomerDomainError &&
+            ['ADDRESS_LIMIT_REACHED', 'ADDRESS_ARCHIVED'].includes(error.code)
+          ? error.code
+          : undefined;
     const body = apiError(
       code,
       code === 'INTERNAL_ERROR' ? 'The request could not be completed.' : code,
@@ -97,12 +103,16 @@ export class CustomerTransportExceptionFilter extends AppExceptionFilter {
     const request = host
       .switchToHttp()
       .getRequest<{ readonly url?: string; readonly method?: string }>();
-    const path = request.url?.split('?')[0];
+    // Match Express's case-insensitive routes and optional trailing slash.
+    const path = request.url?.split('?')[0]?.replace(/\/$/, '').toLowerCase();
     const canonicalWrite =
       (path === '/internal/v1/customer/me' &&
         (request.method === 'PUT' || request.method === 'PATCH')) ||
       (path === '/internal/v1/customer/address-snapshots/resolve' && request.method === 'POST');
-    if (canonicalWrite) this.canonical.catch(error, host);
+    const canonicalAddressWrite =
+      /^\/internal\/v1\/customer\/me\/addresses(?:\/[^/?#]+(?:\/archive)?)?$/.test(path ?? '') &&
+      (request.method === 'POST' || request.method === 'PATCH');
+    if (canonicalWrite || canonicalAddressWrite) this.canonical.catch(error, host);
     else super.catch(error, host);
   }
 }

@@ -1,8 +1,9 @@
-import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import {
   BillingService,
   CashCustodyService,
+  CanonicalRefundService,
   ProviderPaymentsService,
   RefundService,
 } from '../../src/application';
@@ -28,6 +29,13 @@ import {
   REFUND_SERVICE,
 } from '../../src/transport/http/provider.controller';
 import { tokenFor, type PricingStub, type Stub } from './upstream-stubs';
+import { ProviderNotificationController } from '../../src/transport/http/provider-notification.controller';
+import { configureProviderNotificationTransport } from '../../src/transport/http/provider-notification.http';
+import {
+  CANONICAL_REFUND_SERVICE,
+  CanonicalRefundController,
+} from '../../src/transport/http/canonical-refund.controller';
+import { configureCanonicalRefundTransport } from '../../src/transport/http/canonical-refund.http';
 
 export const SUBJECTS = {
   customer: '6f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f',
@@ -236,17 +244,36 @@ export async function startBillingHttp(input: {
     ids: new RandomIds(),
     hasher: new Sha256Hasher(),
   });
+  const canonicalRefunds = new CanonicalRefundService({
+    repository: input.repository,
+    authority,
+    clock: input.clock,
+    ids: new RandomIds(),
+    hasher: new Sha256Hasher(),
+  });
   const moduleRef = await Test.createTestingModule({
-    controllers: [BillingController, CustodyController, ProviderController],
+    controllers: [
+      BillingController,
+      CustodyController,
+      ProviderController,
+      ProviderNotificationController,
+      CanonicalRefundController,
+    ],
     providers: [
       { provide: BILLING_SERVICE, useValue: service },
       { provide: CASH_CUSTODY_SERVICE, useValue: custody },
       { provide: PROVIDER_PAYMENTS_SERVICE, useValue: payments },
       { provide: REFUND_SERVICE, useValue: refunds },
+      { provide: CANONICAL_REFUND_SERVICE, useValue: canonicalRefunds },
     ],
   }).compile();
   // Same transport options as createHttpApplication (raw notification bytes).
-  const app: INestApplication = moduleRef.createNestApplication({ logger: false, rawBody: true });
+  const app = moduleRef.createNestApplication<NestExpressApplication>({
+    logger: false,
+    rawBody: true,
+  });
+  configureProviderNotificationTransport(app);
+  configureCanonicalRefundTransport(app);
   await app.listen(0, '127.0.0.1');
   const url = await app.getUrl();
   return {

@@ -527,7 +527,9 @@ test('C009 account view: counts, approved copy and which rows are live', () => {
 test('C009 account host: deferred controls are marked and bound to nothing', () => {
   const route = withoutComments(read('features/account/AccountRoute.tsx'));
   assert.match(route, /'aria-disabled': true, 'data-deferred': 'account'/);
-  assert.match(route, /if \(row\.action === 'addresses'\) setBook\(\{ kind: 'list' \}\)/);
+  assert.match(route, /if \(row\.action === 'addresses'\) \{/);
+  assert.match(route, /else openAddressList\(\)/);
+  assert.match(route, /setBook\(\{ kind: 'list' \}\)/);
   assert.match(route, /if \(row\.action === 'garage'\) (?:void )?navigate\('\/garage'\)/);
   // No export, reset or storage behaviour was added to complete the surrounding page.
   assert.ok(!/localStorage|sessionStorage|Blob|createObjectURL|\.download\b/.test(route));

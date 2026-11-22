@@ -1,4 +1,4 @@
-import type { GatewayOwner } from '@carwash/contracts';
+import { formatIfMatch, parseIfMatch, type GatewayOwner } from '@carwash/contracts';
 import { GatewayFault } from '../domain/policy';
 import type { HttpPort, UpstreamReply } from '../ports/http';
 import type { GatewayConfig } from './config';
@@ -58,10 +58,24 @@ export class BoundedHttpClient implements HttpPort {
           throw new GatewayFault(502, 'UPSTREAM_INVALID');
         }
       }
+      let etag: string | undefined;
+      const ownerEtag = response.headers.get('etag');
+      if (ownerEtag !== null) {
+        try {
+          etag = formatIfMatch(parseIfMatch(ownerEtag));
+        } catch {
+          // Framework content hashes, weak tags and out-of-range revisions are
+          // not the published owner revision and must never become If-Match.
+        }
+      }
       return {
         status: response.status,
         body: parsed,
         cookies: owner === 'identity' ? response.headers.getSetCookie() : [],
+        ...(etag === undefined ? {} : { etag }),
+        ...(response.headers.get('idempotent-replayed') === 'true'
+          ? { idempotentReplayed: true }
+          : {}),
       };
     } catch (error) {
       if (error instanceof GatewayFault) throw error;

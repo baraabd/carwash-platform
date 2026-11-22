@@ -231,9 +231,19 @@ async function acceptance(suite) {
         'run',
         'build',
       ]);
+    if (plan.lane === 'D')
+      await command('api-gateway-build', 'pnpm', [
+        '--filter',
+        '@carwash/api-gateway',
+        'run',
+        'build',
+      ]);
     if (suite === 'd-admin-browser') {
-      for (const app of ['api-gateway', 'admin-web'])
-        await command(`${app}-build`, 'pnpm', ['--filter', `@carwash/${app}`, 'run', 'build']);
+      await command('admin-web-build', 'pnpm', ['--filter', '@carwash/admin-web', 'run', 'build']);
+      await tests('admin-console-offline', [
+        'apps/admin-web/test/console.test.mjs',
+        'apps/admin-web/test/runtime.test.mjs',
+      ]);
     }
     if (plan.services.length && !suite.startsWith('c-'))
       await tests(

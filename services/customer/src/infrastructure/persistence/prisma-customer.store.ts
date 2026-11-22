@@ -59,10 +59,11 @@ function toLocation(row: CustomerAddress): AddressLocation {
   const source = LOCATION_SOURCES.find(
     (candidate): candidate is LocationSource => candidate === row.locationSource,
   );
-  if (row.locationKind !== 'coordinates' || !source) throw new Error('CORRUPT_LOCATION');
+  if (row.locationKind !== 'coordinates' || (row.locationSource !== null && !source))
+    throw new Error('CORRUPT_LOCATION');
   return {
     kind: 'coordinates',
-    source,
+    source: source ?? null,
     coordinates: {
       crs: CRS,
       latitude: decimalText(row.latitude),
@@ -306,6 +307,30 @@ export class PrismaCustomerStore implements CustomerStore {
     const rows = await this.client.customerAddress.findMany({
       where: includeArchived ? { customerId } : { customerId, status: 'ACTIVE' },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map(toAddress);
+  }
+
+  async addressPage(
+    customerId: string,
+    limit: number,
+    after: { readonly createdAt: Date; readonly id: string } | null,
+  ): Promise<Address[]> {
+    const rows = await this.client.customerAddress.findMany({
+      where: {
+        customerId,
+        status: 'ACTIVE',
+        ...(after
+          ? {
+              OR: [
+                { createdAt: { gt: after.createdAt } },
+                { createdAt: after.createdAt, id: { gt: after.id } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: limit,
     });
     return rows.map(toAddress);
   }

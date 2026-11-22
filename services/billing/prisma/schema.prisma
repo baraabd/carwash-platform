@@ -368,6 +368,7 @@ model ProviderCredit {
 /// A refund of (part of) one provider credit; reserving statuses hold its amount.
 model PaymentRefund {
   id                      String              @id @db.Uuid
+  workflow                String              @default("CREDIT_V1") @db.VarChar(24)
   creditId                String              @map("credit_id") @db.Uuid
   provider                String              @db.VarChar(24)
   currency                String              @db.Char(3)

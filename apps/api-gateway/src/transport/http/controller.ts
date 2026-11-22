@@ -42,6 +42,8 @@ export class GatewayController {
       context,
     });
     response.setHeader('cache-control', 'no-store');
+    if (reply.etag) response.setHeader('etag', reply.etag);
+    if (reply.idempotentReplayed === true) response.setHeader('idempotent-replayed', 'true');
     if (reply.cookies.length) response.setHeader('set-cookie', reply.cookies);
     if (reply.status === 204) {
       response.status(204).end();

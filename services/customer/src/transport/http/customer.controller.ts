@@ -14,6 +14,7 @@ import {
   UseFilters,
 } from '@nestjs/common';
 import { AppError, resolveCorrelationId, traceHeaders } from '@carwash/service-kit';
+import { parseIfMatch } from '@carwash/contracts';
 import {
   ApplicationError,
   CustomerApplication,
@@ -85,6 +86,11 @@ function header(request: HttpRequest, name: string): string | undefined {
 function expectedRevision(request: HttpRequest): number | null {
   const match = /^"([1-9][0-9]{0,8})"$/.exec(header(request, 'if-match') ?? '');
   return match?.[1] ? Number(match[1]) : null;
+}
+
+function canonicalRevision(request: HttpRequest): number | null {
+  const value = header(request, 'if-match');
+  return value === undefined ? null : parseIfMatch(value);
 }
 
 function idempotencyKey(request: HttpRequest): string | null {
@@ -220,7 +226,7 @@ export class CustomerController {
     return this.canonicalMutation(response, () =>
       this.app.updateProfileV1(
         requestContext(request),
-        expectedRevision(request),
+        canonicalRevision(request),
         idempotencyKey(request),
         body,
       ),
@@ -240,6 +246,69 @@ export class CustomerController {
   }
 
   @Get('me/addresses')
+  @UseFilters(CustomerContractExceptionFilter)
+  listAddressesV1(
+    @Req() request: HttpRequest,
+    @Query() query: Record<string, unknown>,
+    @Res({ passthrough: true }) response: HttpResponse,
+  ) {
+    response.setHeader('cache-control', 'no-store');
+    return this.app.listAddressesV1(requestContext(request), query);
+  }
+
+  @Post('me/addresses')
+  @UseFilters(CustomerContractExceptionFilter)
+  createAddressV1(
+    @Req() request: HttpRequest,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: HttpResponse,
+  ) {
+    return this.canonicalMutation(response, () =>
+      this.app.createAddressV1(requestContext(request), idempotencyKey(request), body),
+    );
+  }
+
+  @Patch('me/addresses/:addressId')
+  @UseFilters(CustomerContractExceptionFilter)
+  updateAddressV1(
+    @Req() request: HttpRequest,
+    @Param('addressId') id: string,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: HttpResponse,
+  ) {
+    return this.canonicalMutation(response, () =>
+      this.app.mutateAddressV1(
+        requestContext(request),
+        addressId(id),
+        canonicalRevision(request),
+        idempotencyKey(request),
+        body,
+        false,
+      ),
+    );
+  }
+
+  @Post('me/addresses/:addressId/archive')
+  @UseFilters(CustomerContractExceptionFilter)
+  archiveAddressV1(
+    @Req() request: HttpRequest,
+    @Param('addressId') id: string,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) response: HttpResponse,
+  ) {
+    return this.canonicalMutation(response, () =>
+      this.app.mutateAddressV1(
+        requestContext(request),
+        addressId(id),
+        canonicalRevision(request),
+        idempotencyKey(request),
+        body,
+        true,
+      ),
+    );
+  }
+
+  @Get('legacy/me/addresses')
   async addresses(
     @Req() request: HttpRequest,
     @Query('includeArchived') includeArchived: string | undefined,
@@ -251,7 +320,7 @@ export class CustomerController {
     return { items };
   }
 
-  @Post('me/addresses')
+  @Post('legacy/me/addresses')
   createAddress(
     @Req() request: HttpRequest,
     @Body() body: unknown,
@@ -262,7 +331,7 @@ export class CustomerController {
     );
   }
 
-  @Get('me/addresses/:addressId')
+  @Get('legacy/me/addresses/:addressId')
   async address(
     @Req() request: HttpRequest,
     @Param('addressId') id: string,
@@ -275,7 +344,7 @@ export class CustomerController {
     return view;
   }
 
-  @Patch('me/addresses/:addressId')
+  @Patch('legacy/me/addresses/:addressId')
   updateAddress(
     @Req() request: HttpRequest,
     @Param('addressId') id: string,
@@ -293,7 +362,7 @@ export class CustomerController {
     );
   }
 
-  @Post('me/addresses/:addressId/archive')
+  @Post('legacy/me/addresses/:addressId/archive')
   @HttpCode(200)
   archiveAddress(
     @Req() request: HttpRequest,

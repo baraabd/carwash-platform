@@ -262,6 +262,7 @@ const key = () => randomUUID().replaceAll('-', '');
 const FINANCE = ['billing.read', 'billing.refund', 'billing.reconcile'];
 const OPERATIONS = ['operations.dispatch'];
 const evidence = [{ kind: 'PROVIDER_STATEMENT', reference: 'STMT-2026-10-11-0042' }];
+const statementCredit = () => ({ creditId: randomUUID(), revision: 1 });
 
 async function openReview(h: ReturnType<typeof harness>, who: VerifiedSession) {
   const { obligationId, attemptId } = seedAttempt(h.billing);
@@ -275,7 +276,7 @@ async function openReview(h: ReturnType<typeof harness>, who: VerifiedSession) {
 
 /* ------------------------------- domain ------------------------------- */
 
-test('domain: a money decision needs a reason note, evidence and an exact amount', () => {
+test('domain: a money decision needs a reason note, evidence, an exact amount and selected independent credit', () => {
   const now = new Date();
   assert.throws(
     () =>
@@ -348,6 +349,44 @@ test('domain: a money decision needs a reason note, evidence and an exact amount
         now,
       ),
     (e: unknown) => e instanceof CaseRuleError && e.code === 'INVALID_EVIDENCE',
+  );
+  const matched = {
+    action: 'APPROVE_MATCH',
+    reason: { code: 'PROVIDER_CONFIRMED', note: 'Statement line matches exactly' },
+    evidence,
+    amount: SYP('150000'),
+  };
+  assert.throws(
+    () => decisionInput('PAYMENT_REVIEW', matched, now),
+    (e: unknown) => e instanceof CaseRuleError && e.code === 'STATEMENT_CREDIT_REQUIRED',
+  );
+  for (const invalid of [
+    { creditId: 'not-an-id', revision: 1 },
+    { creditId: randomUUID(), revision: 0 },
+    { creditId: randomUUID(), revision: 1.5 },
+    { creditId: randomUUID(), revision: 1, approved: true },
+  ])
+    assert.throws(
+      () => decisionInput('PAYMENT_REVIEW', { ...matched, statementCredit: invalid }, now),
+      (e: unknown) => e instanceof CaseRuleError && e.code === 'INVALID_STATEMENT_CREDIT',
+    );
+  const selected = statementCredit();
+  assert.deepEqual(
+    decisionInput('PAYMENT_REVIEW', { ...matched, statementCredit: selected }, now).statementCredit,
+    selected,
+  );
+  assert.throws(
+    () =>
+      decisionInput(
+        'PAYMENT_REVIEW',
+        {
+          ...matched,
+          action: 'REJECT_MISMATCH',
+          statementCredit: selected,
+        },
+        now,
+      ),
+    (e: unknown) => e instanceof CaseRuleError && e.code === 'INVALID_STATEMENT_CREDIT',
   );
 });
 
@@ -428,12 +467,16 @@ test('finance approves a match: Billing is asked once with the decider credentia
   const { caseId, attemptId, opened } = await openReview(h, finance);
   assert.equal(opened.created, true);
   assert.equal(opened.detail.record.snapshot.state.attemptStatus, 'PENDING_REVIEW');
-  const detail = await h.commands.decide(finance, auth, caseId, key(), {
+  const selected = statementCredit();
+  const decisionKey = key();
+  const body = {
     action: 'APPROVE_MATCH',
     reason: { code: 'PROVIDER_CONFIRMED', note: 'Statement line 42 matches exactly' },
     evidence,
     amount: SYP('150000'),
-  });
+    statementCredit: selected,
+  };
+  const detail = await h.commands.decide(finance, auth, caseId, decisionKey, body);
   assert.equal(detail.record.status, 'RESOLVED');
   assert.equal(detail.decisions[0]!.status, 'APPLIED');
   assert.equal(detail.decisions[0]!.ownerState, 'MATCHED');
@@ -442,6 +485,15 @@ test('finance approves a match: Billing is asked once with the decider credentia
   assert.equal(h.billing.sent[0]!.request.targetId, attemptId);
   assert.deepEqual(h.billing.sent[0]!.request.body.observedAmount, SYP('150000'));
   assert.equal(h.billing.sent[0]!.request.body.expectedRevision, 4);
+  assert.equal(h.billing.sent[0]!.request.body.creditId, selected.creditId);
+  assert.equal(h.billing.sent[0]!.request.body.expectedCreditRevision, selected.revision);
+  await assert.rejects(
+    h.commands.decide(finance, auth, caseId, decisionKey, {
+      ...body,
+      statementCredit: statementCredit(),
+    }),
+    (e: unknown) => e instanceof SupportApplicationError && e.code === 'IDEMPOTENCY_CONFLICT',
+  );
   assert.deepEqual(
     detail.events.map((e) => e.action),
     ['case.opened', 'decision.recorded', 'execution.started', 'execution.finished'],
@@ -479,7 +531,7 @@ test('reject mismatch is recorded with the observed amount; replaying the same r
   );
 });
 
-test('a lost Billing answer is OUTCOME_UNKNOWN; the resend replays the same key and body and is verified', async () => {
+test('a lost Billing answer is OUTCOME_UNKNOWN; the resend recovers the exact owner command receipt', async () => {
   const h = harness();
   const finance = session(FINANCE);
   const { caseId } = await openReview(h, finance);
@@ -489,6 +541,7 @@ test('a lost Billing answer is OUTCOME_UNKNOWN; the resend replays the same key 
     reason: { code: 'PROVIDER_CONFIRMED', note: 'Statement line 42 matches exactly' },
     evidence,
     amount: SYP('150000'),
+    statementCredit: statementCredit(),
   });
   assert.equal(unknown.record.status, 'OUTCOME_UNKNOWN');
   // No new decision may be taken over an unknown outcome.
@@ -505,15 +558,49 @@ test('a lost Billing answer is OUTCOME_UNKNOWN; the resend replays the same key 
     (e: unknown) => e instanceof SupportApplicationError && e.code === 'EXECUTION_IN_PROGRESS',
   );
   h.advance(20_000);
-  // Billing already applied the first send: the resend is refused as stale,
-  // and Billing's own record proves the decision applied.
-  h.billing.script.push({ kind: 'REJECTED', ownerStatus: 409, code: 'REVISION_CONFLICT' });
+  await assert.rejects(
+    h.commands.resend(session(FINANCE), auth, caseId, '1'),
+    (e: unknown) => e instanceof AccessFault && e.code === 'AUTH_FORBIDDEN',
+  );
+  assert.equal(
+    h.billing.sent.length,
+    1,
+    'a different actor cannot replace the original receipt scope',
+  );
+  assert.equal((await h.store.detail(caseId))!.record.status, 'OUTCOME_UNKNOWN');
+  // Billing already applied the first send: the same command key replays its
+  // recorded response, even though the obligation/credit revisions advanced.
+  h.billing.script.push({ kind: 'APPLIED', ownerStatus: 200, ownerState: 'MATCHED' });
   const resolved = await h.commands.resend(finance, auth, caseId, '1');
   assert.equal(resolved.record.status, 'RESOLVED');
   assert.equal(resolved.decisions[0]!.ownerState, 'MATCHED');
   assert.equal(h.billing.sent.length, 2);
   assert.deepEqual(h.billing.sent[1]!.request, h.billing.sent[0]!.request);
   assert.equal(resolved.decisions[0]!.executionAttempts, 2);
+});
+
+test('an unrelated MATCHED owner state is not proof that a selected-credit command applied', async () => {
+  const h = harness();
+  const finance = session(FINANCE);
+  const { caseId } = await openReview(h, finance);
+  h.billing.script.push({ kind: 'UNKNOWN', code: 'OWNER_NO_ANSWER' });
+  const first = await h.commands.decide(finance, auth, caseId, key(), {
+    action: 'APPROVE_MATCH',
+    reason: { code: 'PROVIDER_CONFIRMED', note: 'An explicitly selected statement line' },
+    evidence,
+    amount: SYP('150000'),
+    statementCredit: statementCredit(),
+  });
+  assert.equal(first.record.status, 'OUTCOME_UNKNOWN');
+  h.advance(20_000);
+  // The fake owner's current attempt is MATCHED, but it has no matching
+  // successful receipt for this frozen selection. Support must keep rejection.
+  h.billing.script.push({ kind: 'REJECTED', ownerStatus: 412, code: 'REVISION_CONFLICT' });
+  const refused = await h.commands.resend(finance, auth, caseId, '1');
+  assert.equal(refused.record.status, 'OWNER_REJECTED');
+  assert.equal(refused.decisions[0]!.ownerCode, 'REVISION_CONFLICT');
+  assert.equal(refused.decisions[0]!.ownerState, null);
+  assert.deepEqual(h.billing.sent[1]!.request, h.billing.sent[0]!.request);
 });
 
 test('refund: four-eyes approval by a different finance reviewer; the unpublished owner command blocks', async () => {

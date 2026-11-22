@@ -18,7 +18,7 @@
  *
  *   node scripts/production/D/run-real-infra.mjs --browser [--evidence <file>]
  */
-/* global document, getComputedStyle -- page.evaluate callbacks run in the browser */
+/* global document, getComputedStyle, window, HashChangeEvent, requestAnimationFrame -- page.evaluate callbacks run in the browser */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
@@ -36,7 +36,6 @@ import { captureContrastProposal } from '../support/contrast-review.mjs';
 const require = createRequire(path.join(ROOT, 'package.json'));
 const EVIDENCE = path.join(ROOT, 'docs', 'production', 'D', 'evidence', 'p02-d2');
 const TIMEZONE = 'Asia/Damascus';
-const SYRIA_OFFSET_MS = 3 * 3_600_000; // Syria has kept UTC+3 all year since 2022.
 
 /* --------------------------------- stack --------------------------------- */
 
@@ -168,13 +167,11 @@ function projectionClient() {
   });
 }
 
-/** Local 09:00 + minutes in Damascus today, as a UTC instant. */
-function damascusToday(minutes) {
-  const now = new Date(Date.now() + SYRIA_OFFSET_MS);
+/** 09:00 UTC + minutes inside Reporting's documented UTC day. */
+function reportingToday(minutes) {
+  const now = new Date();
   return (
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 9, 0) -
-    SYRIA_OFFSET_MS +
-    minutes * 60_000
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 9, 0) + minutes * 60_000
   );
 }
 
@@ -397,9 +394,9 @@ test('J2: booking discovery — rows, status filter, detail, search, paging, fre
   const events = [];
   scheduled.forEach((bookingId, i) => {
     events.push(confirmed(bookingId, Date.now() - 120_000));
-    events.push(committed(bookingId, damascusToday(i * 10), zoneId));
+    events.push(committed(bookingId, reportingToday(i * 10), zoneId));
   });
-  events.push(committed(unconfirmed, damascusToday(300), zoneId));
+  events.push(committed(unconfirmed, reportingToday(300), zoneId));
   await project(projections, events);
 
   const { page, browserContext, errors } = await newPage(browser, stack);
@@ -541,11 +538,87 @@ test('J3: technician review — approval, repeated decision refused, owner state
     // The same case again: Workforce refuses, the console says so.
     await page.goto(`${stack.origin}/#/technicians/review/${subject.caseId}`);
     await dialog.locator('#validUntil').fill(nextYear);
+    const repeatedDecision = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        response.url().endsWith(`/api/v1/admin/reviews/${subject.caseId}`),
+    );
     await dialog.getByRole('button', { name: 'إرسال القرار' }).click();
+    const repeated = await repeatedDecision;
+    assert.equal(repeated.status(), 409, 'the owner refuses a second decision');
+    assert.equal((await repeated.json()).error.code, 'CONFLICT');
     await dialog.locator('#reviewProblem[data-state="CONFLICT"]').waitFor();
     assert.deepEqual(errors, []);
     report.journeys.J3 = 'PASSED';
   } finally {
+    await browserContext.close();
+  }
+});
+
+test('J3r: a late Reporting response cannot replace a review form already being edited', async () => {
+  const reviewer = await principal(['reviewer']);
+  const { page, browserContext, errors } = await newPage(browser, stack);
+  const held = [];
+  let timeout;
+  let reached;
+  const bothReads = new Promise((resolve) => {
+    reached = resolve;
+  });
+  try {
+    await signInUi(page, stack, reviewer);
+    await page.waitForURL(/#\/technicians$/);
+    await page.locator('#resourceRows [data-state="LOADING"]').waitFor({ state: 'hidden' });
+    await page.route('**/api/v1/admin/operations/resources?*', async (route) => {
+      if (held.length >= 2) return route.continue();
+      let release;
+      const gate = new Promise((resolve) => {
+        release = resolve;
+      });
+      const entry = { release, correlation: route.request().headers()['x-correlation-id'] };
+      held.push(entry);
+      if (held.length === 2) reached();
+      // The server and response are real. Only their delivery order is controlled.
+      const response = await route.fetch();
+      await gate;
+      await route.fulfill({ response });
+    });
+    const firstRead = page.waitForRequest((request) =>
+      request.url().includes('/api/v1/admin/operations/resources?'),
+    );
+    await page.goto(`${stack.origin}/#/technicians/review/${randomUUID()}`);
+    await firstRead;
+    await page.evaluate(() => window.dispatchEvent(new HashChangeEvent('hashchange')));
+    await Promise.race([
+      bothReads,
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error('TWO_REPORTING_READS_NOT_OBSERVED')), 30_000);
+      }),
+    ]);
+    clearTimeout(timeout);
+    held[1].release();
+    const input = page.getByRole('dialog').locator('#validUntil');
+    await input.waitFor();
+    const chosen = new Date(Date.now() + 300 * 86_400_000).toISOString().slice(0, 10);
+    await input.fill(chosen);
+    const staleResponse = page.waitForResponse(
+      (response) => response.request().headers()['x-correlation-id'] === held[0].correlation,
+    );
+    held[0].release();
+    await (await staleResponse).finished();
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+    );
+    assert.equal(
+      await input.inputValue(),
+      chosen,
+      'late navigation must not erase the decision draft',
+    );
+    assert.deepEqual(errors, []);
+    report.journeys.J3r = 'PASSED';
+  } finally {
+    clearTimeout(timeout);
+    for (const entry of held) entry.release();
+    await page.unrouteAll({ behavior: 'wait' });
     await browserContext.close();
   }
 });

@@ -32,6 +32,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { migrateWithUpgradeSentinels } from './upgrade-sentinels.mjs';
+import { refundUpgradeSentinel } from './refund-upgrade-sentinel.mjs';
 import { redact, registerSecret, run } from '../../acceptance/lib/exec.mjs';
 import { pullImageWithMirrors } from '../../lib/image-references.mjs';
 
@@ -80,6 +81,8 @@ const SERVICES = {
     task: 'P06-B',
     previousMigrations: 4,
     env: 'BILLING_TEST_DATABASE_URL',
+    writeUpgradeSentinel: (url) => REFUND_UPGRADE_SENTINEL.write(url),
+    verifyUpgradeSentinel: (url) => REFUND_UPGRADE_SENTINEL.verify(url),
     // Finance asserts database-wide deltas; relay storage changes transport state
     // that the cash command suite deliberately expects to remain unpublished.
     isolatedSpecs: ['billing.finance.postgres.spec.js', 'billing.relay.postgres.spec.js'],
@@ -118,6 +121,7 @@ const record = process.argv.includes('--record');
 const spec = SERVICES[service];
 const serviceDir = path.join(ROOT, 'services', service);
 const { Client } = createRequire(path.join(serviceDir, 'package.json'))('pg');
+const REFUND_UPGRADE_SENTINEL = refundUpgradeSentinel({ query, transaction });
 
 const runId = randomBytes(6).toString('hex');
 const container = `cw-${spec.task.toLowerCase().replace('-', '')}-${service}-${runId}`;

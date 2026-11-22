@@ -72,6 +72,9 @@ const SERVICES = [
   'configuration',
   'identity',
   'workforce',
+  'booking',
+  'billing',
+  'dispatch',
 ];
 
 /** Identity's rate budget needs Redis; the acceptance stack has none, so the gate owns one. */

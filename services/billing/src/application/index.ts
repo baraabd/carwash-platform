@@ -13,6 +13,7 @@ export * from './views';
 export * from './credit-settlement';
 export * from './provider-payments.service';
 export * from './refund.service';
+export * from './canonical-refund.service';
 export * from './provider-events';
 export * from './provider-views';
 export * from './finance-query.service';

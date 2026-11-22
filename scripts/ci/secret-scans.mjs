@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdirSync, readdirSync, lstatSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  constants,
+  fstatSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 
 // gitleaks 8.30.1's archives 0.1.2 uses strings.Contains for these
@@ -68,8 +77,29 @@ export function prepareSecretSource(sourceDirectory, scanDirectory) {
         continue;
       }
       assert.ok(entry.isFile(), 'Source scan refuses symlinks and special files');
-      assert.ok(lstatSync(from).isFile(), 'Source scan requires a regular file');
-      const bytes = readFileSync(from);
+      // Check and read the same opened inode. A pathname check followed by a
+      // separate read could follow a symlink substituted between those calls.
+      // NONBLOCK also prevents a substituted FIFO from hanging the scanner.
+      const descriptor = openSync(
+        from,
+        constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+      );
+      let bytes;
+      try {
+        const before = fstatSync(descriptor);
+        assert.ok(before.isFile(), 'Source scan requires a regular file');
+        bytes = readFileSync(descriptor);
+        const after = fstatSync(descriptor);
+        assert.ok(
+          before.size === after.size &&
+            before.mtimeMs === after.mtimeMs &&
+            before.ctimeMs === after.ctimeMs &&
+            bytes.length === before.size,
+          'Source snapshot changed during the secret scan',
+        );
+      } finally {
+        closeSync(descriptor);
+      }
       writeFileSync(to, bytes, { flag: 'wx', mode: 0o600 });
       const hash = createHash('sha256').update(bytes).digest('hex');
       assert.equal(createHash('sha256').update(readFileSync(to)).digest('hex'), hash);
@@ -117,13 +147,21 @@ export function assertCompleteSecretScan(result, report) {
   return { findings: report.length, scannedBytes: counts.reduce((sum, count) => sum + count, 0) };
 }
 
-export function secretScans(sourceSha, sourceDirectory) {
+export function secretScans(sourceSha, sourceDirectory, ignores) {
   assert.match(sourceSha, /^[a-f0-9]{40}$/);
   assert.ok(path.isAbsolute(sourceDirectory), 'Source archive directory must be absolute');
+  if (ignores) {
+    assert.ok(path.isAbsolute(ignores.history) && path.isAbsolute(ignores.source));
+    assert.notEqual(ignores.history, ignores.source, 'History review cannot apply to source scans');
+  }
+  const flags = (name) => [
+    '--ignore-gitleaks-allow',
+    ...(ignores ? [`--gitleaks-ignore-path=${ignores[name]}`] : []),
+  ];
   return [
     // Scan every ancestor, including each merge parent. Unrelated fetched refs
     // must not change the security verdict for this immutable source commit.
-    ['history', ['git', `--log-opts=--full-history -m ${sourceSha}`, '.']],
-    ['source', ['dir', sourceDirectory]],
+    ['history', ['git', `--log-opts=--full-history -m ${sourceSha}`, '.', ...flags('history')]],
+    ['source', ['dir', sourceDirectory, ...flags('source')]],
   ];
 }

@@ -294,6 +294,70 @@ test('shared bootstrap bounds a hanging shutdown', async () => {
   await assert.rejects(runtime.shutdown('TEST'), /SHUTDOWN_TIMEOUT/);
 });
 
+test('shared bootstrap installs the owner transport filter with its runtime logger', async () => {
+  const filters = [];
+  let logger;
+  let closed = false;
+  const ownerFilter = { catch() {} };
+  const fakeApp = {
+    use() {
+      return fakeApp;
+    },
+    useGlobalFilters(filter) {
+      filters.push(filter);
+      return fakeApp;
+    },
+    async listen() {},
+    async close() {
+      closed = true;
+    },
+  };
+  const runtime = await serviceKit.bootstrapService({
+    service: 'fixture-owner',
+    businessReady: false,
+    createApplication: async () => fakeApp,
+    createExceptionFilter: (value) => {
+      logger = value;
+      return ownerFilter;
+    },
+    installSignalHandlers: false,
+    env: { LOG_LEVEL: 'error' },
+  });
+  assert.deepEqual(filters, [ownerFilter]);
+  assert.equal(logger, runtime.logger);
+  await runtime.shutdown('TEST');
+  assert.equal(closed, true);
+});
+
+test('shared bootstrap closes the owner application if transport setup fails', async () => {
+  let closed = false;
+  const fakeApp = {
+    use() {
+      return fakeApp;
+    },
+    useGlobalFilters() {
+      throw new Error('TRANSPORT_SETUP_FAILED');
+    },
+    async listen() {
+      assert.fail('invalid transport must not listen');
+    },
+    async close() {
+      closed = true;
+    },
+  };
+  await assert.rejects(
+    serviceKit.bootstrapService({
+      service: 'fixture-owner',
+      businessReady: false,
+      createApplication: async () => fakeApp,
+      installSignalHandlers: false,
+      env: { LOG_LEVEL: 'error' },
+    }),
+    /TRANSPORT_SETUP_FAILED/,
+  );
+  assert.equal(closed, true);
+});
+
 // The deployed distroless runtime has no named node user. Numeric UID/GID must
 // preserve the same unprivileged contract, never accept an earlier safe USER
 // followed by a root override in the final stage.

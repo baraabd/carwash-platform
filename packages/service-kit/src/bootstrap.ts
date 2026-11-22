@@ -1,4 +1,4 @@
-import type { INestApplication } from '@nestjs/common';
+import type { ExceptionFilter, INestApplication } from '@nestjs/common';
 import { loadServiceRuntimeConfig, type ServiceRuntimeConfig } from './config';
 import { AppExceptionFilter } from './http-filter';
 import type { Logger } from './logging';
@@ -8,6 +8,8 @@ export interface BootstrapOptions {
   readonly service: string;
   readonly businessReady: boolean;
   readonly createApplication: () => Promise<INestApplication>;
+  /** Owners with a published transport envelope retain it at the runtime boundary. */
+  readonly createExceptionFilter?: (logger: Logger) => ExceptionFilter;
   readonly env?: NodeJS.ProcessEnv;
   readonly installSignalHandlers?: boolean;
   readonly exit?: (code: number) => void;
@@ -45,11 +47,9 @@ export async function bootstrapService(options: BootstrapOptions): Promise<Servi
     await telemetry.shutdown();
     throw error;
   });
-  instrumentApplication(app, options.service, options.env);
-
-  app.useGlobalFilters(new AppExceptionFilter(logger));
-
   try {
+    instrumentApplication(app, options.service, options.env);
+    app.useGlobalFilters(options.createExceptionFilter?.(logger) ?? new AppExceptionFilter(logger));
     await withTimeout(
       'STARTUP_LISTEN',
       app.listen(config.port, config.host),

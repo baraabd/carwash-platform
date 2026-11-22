@@ -19,7 +19,7 @@ const {
   FOUNDATION_TRANSIENT_DELIVERY_LIMIT,
 } = messaging;
 
-const { parseFoundationProbeCreatedV1 } = contracts;
+const { parseFoundationProbeCreatedV1, BILLING_CASH_COLLECTED_V1 } = contracts;
 
 /* ------------------------------------------------------------------ *
  * Test doubles. These exercise the ADAPTER LOGIC only. They are not a
@@ -133,10 +133,10 @@ test('publisher: durable owner retry counters survive the confirmed publication'
   const channel = new FakeConfirmChannel();
   await new ConfirmingPublisher(channel).publish({
     exchange: 'wallet.billing-custody.retry',
-    routingKey: 'billing.cash-collected.v1',
+    routingKey: BILLING_CASH_COLLECTED_V1.eventType,
     body: '{}',
     messageId: uuid(1),
-    eventType: 'billing.cash-collected.v1',
+    eventType: BILLING_CASH_COLLECTED_V1.eventType,
     correlationId: uuid(2),
     headers: { 'x-wallet-custody-attempt': 3 },
   });

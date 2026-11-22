@@ -42,6 +42,21 @@ export class BillingOwnerClient implements BillingOwner {
     switch (request.operation) {
       case 'billing.reconcile': {
         const { expectedRevision, outcome, observedAmount } = request.body;
+        if (outcome === 'MATCHED') {
+          const { creditId, expectedCreditRevision } = request.body;
+          // Old frozen decisions contain no selected credit. Do not silently
+          // infer a record or revive the prohibited manual MATCHED command.
+          if (typeof creditId !== 'string' || typeof expectedCreditRevision !== 'number')
+            return Promise.resolve({ kind: 'UNAVAILABLE', code: 'OWNER_CAPABILITY_UNPUBLISHED' });
+          return ownerPost(
+            this.endpoint,
+            `${BILLING}/payment-attempts/${request.targetId}/statement-credit-allocation`,
+            auth,
+            request.key,
+            { creditId, expectedCreditRevision, expectedRevision, observedAmount },
+            (body) => attemptStatus(body, request.targetId),
+          );
+        }
         return ownerPost(
           this.endpoint,
           `${BILLING}/payment-attempts/${request.targetId}/reconciliation`,

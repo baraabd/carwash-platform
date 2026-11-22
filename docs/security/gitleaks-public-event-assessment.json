@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "classification": "published-event-name",
+  "fingerprint": "8c956a61c4a93a5772e6cb94967f4ac1cedee7a8:tests/unit/messaging.test.mjs:generic-api-key:136",
+  "commit": "8c956a61c4a93a5772e6cb94967f4ac1cedee7a8",
+  "file": "tests/unit/messaging.test.mjs",
+  "ruleId": "generic-api-key",
+  "line": 136,
+  "blobSha256": "d33aaa1ae4a0ed560070bb02a00a6a2f5738db739b219718a6678097369ea72b",
+  "lineSha256": "6fe77d028cda0b26af421a97cee3ea880d881b3b7a07d82a6afbe7dc74f31897",
+  "literalSha256": "068b53046be7f5b9df75b0b7b7ce866809f99e2880bcc0ac1e5af67baa0f2e78",
+  "context": {
+    "line": 139,
+    "lineSha256": "32eed26ac511e9a1e3a78899c102468a0e308d19df9cbe41bf45ab7dafc094b2"
+  },
+  "contract": {
+    "commit": "8c956a61c4a93a5772e6cb94967f4ac1cedee7a8",
+    "file": "packages/event-contracts/src/billing-v1.ts",
+    "blobSha256": "6d583a19c1edf559590057d1c7e2c71464b1e8bc9cd32c794c5bb75c44353918",
+    "exportName": "BILLING_CASH_COLLECTED_V1",
+    "declarationLine": 147,
+    "declarationLineSha256": "7cbc038f8aa11e9b67385e55f99be972e7c26dd44243d6f6b1f09702e7a074c9",
+    "eventLine": 148,
+    "eventLineSha256": "eddaee45890f09308d9f42b5b4d131cbc1f4bae3e82851c78c463ca9e55ad066",
+    "packageExportFile": "packages/event-contracts/src/index.ts",
+    "packageExportBlobSha256": "6318890d6af0bf1b9cfffb40fe23585500df5c4929e1cc2b2d5bbb681cb3e25b",
+    "packageExportLine": 7,
+    "packageExportLineSha256": "87a4798a991037a835cd9f91601ac37017cbe423f82618acdff8b579c8261bf0"
+  }
+}

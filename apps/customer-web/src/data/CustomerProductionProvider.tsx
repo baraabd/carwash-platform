@@ -72,6 +72,15 @@ function ProductionRuntime({ children }: { readonly children: ReactNode }) {
                 color: vehicle.color ?? '',
               }))
             : [],
+          addresses: authenticated
+            ? snapshot.addresses.map((address) => ({
+                id: address.addressId,
+                label: address.label,
+                address: address.location.description ?? '',
+                locationNote: address.details ?? '',
+                place: null,
+              }))
+            : [],
           productionData: {
             catalog: previous.productionData?.catalog ?? null,
             catalogStatus: previous.productionData?.catalogStatus ?? 'unavailable',

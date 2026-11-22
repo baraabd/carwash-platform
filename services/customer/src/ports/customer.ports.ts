@@ -151,5 +151,10 @@ export interface CustomerStore {
   transaction<T>(work: (tx: CustomerTransaction) => Promise<T>): Promise<T>;
   findProfile(principal: Principal): Promise<CustomerProfile | null>;
   listAddresses(customerId: string, includeArchived: boolean): Promise<Address[]>;
+  addressPage(
+    customerId: string,
+    limit: number,
+    after: { readonly createdAt: Date; readonly id: string } | null,
+  ): Promise<Address[]>;
   findAddress(customerId: string, addressId: string): Promise<Address | null>;
 }

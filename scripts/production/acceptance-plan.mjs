@@ -75,11 +75,11 @@ export const BUSINESS_SUITES = Object.freeze({
   'd-services': {
     lane: 'D',
     // Support's real owner HTTP suite starts Booking and Billing as well.
-    // Their generated clients and test harnesses must exist on a clean runner.
-    services: [...dOwners, 'booking', 'billing'],
+    // Admin owner commands also start Dispatch. Generate and build each on a clean runner.
+    services: [...dOwners, 'booking', 'billing', 'dispatch'],
     browser: false,
     scope:
-      'Real PostgreSQL, RabbitMQ, Redis and owner HTTP integration for communications, reporting, configuration and support; individual suites declare their producers/doubles.',
+      'Real PostgreSQL, RabbitMQ, Redis and owner HTTP integration for communications, reporting, configuration and support, plus Gateway/Workforce/Dispatch commands. Individual suites declare their producers/doubles.',
   },
   'd-admin-browser': {
     lane: 'D',

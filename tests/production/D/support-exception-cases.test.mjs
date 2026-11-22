@@ -18,16 +18,17 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createServer, request as httpRequest } from 'node:http';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { ROOT, appDsn, context, migrationDsn, sql } from '../../integration/_support.mjs';
+import { ROOT, appDsn, context, sql } from '../../integration/_support.mjs';
 import { hardenPrivileges, migrateDeploy } from '../../../scripts/acceptance/lib/migrations.mjs';
 import { account, bearer, staff, startIdentity } from './_identity.mjs';
 
 const owned = (service) => createRequire(path.join(ROOT, 'services', service, 'package.json'));
 const SUPPORT = '/internal/v1/support/cases';
+const STATEMENT_MERCHANT = 'acceptance-support-sham';
 
 /* --------------------------------- stack --------------------------------- */
 
@@ -87,7 +88,14 @@ async function startQuoteDouble() {
     );
   });
   const port = await listen(server);
-  return { quotes, origin: `http://127.0.0.1:${port}`, close: () => server.close() };
+  return {
+    quotes,
+    origin: `http://127.0.0.1:${port}`,
+    close: () => {
+      server.closeAllConnections();
+      server.close();
+    },
+  };
 }
 
 /**
@@ -108,7 +116,8 @@ async function startBillingRelay(target) {
       res.writeHead(400).end();
       return;
     }
-    const reconciliation = req.method === 'POST' && /\/reconciliation$/.test(path);
+    const reconciliation =
+      req.method === 'POST' && /\/(reconciliation|statement-credit-allocation)$/.test(path);
     if (reconciliation) state.reconciliations += 1;
     const drop = reconciliation && state.dropNextReconciliation;
     if (drop) state.dropNextReconciliation = false;
@@ -165,13 +174,10 @@ async function migrateOwners() {
 }
 
 /**
- * DEFECT FOUND (Lane B, CR-D-P04-05): Billing migration
- * 20261009100000_p03b_cash_custody_settlement revokes EXECUTE on the helper
- * functions its own invoker-rights trigger functions call, so the hardened
- * runtime identity cannot create any obligation ("permission denied for
- * function billing_assert_obligation_ledger"). The suite first PROVES the
- * accepted schema refuses the runtime identity, then applies exactly the
- * requested grant as the migration identity. Lane D does not change Billing.
+ * The current Billing migration uses owner-rights constraint triggers with a
+ * pinned search_path. Its internal ledger helpers must remain private; normal
+ * commands below prove that the runtime role can write valid financial facts
+ * without receiving an extra test-only grant.
  */
 const BILLING_LEDGER_HELPERS = [
   'app.billing_assert_obligation_ledger(uuid)',
@@ -179,48 +185,43 @@ const BILLING_LEDGER_HELPERS = [
   'app.billing_assert_handover(uuid)',
 ];
 
-async function grantBillingLedgerHelpers() {
-  const refused = await sql(
-    appDsn(context, 'billing'),
-    "SELECT app.billing_assert_obligation_ledger('00000000-0000-4000-8000-000000000000'::uuid)",
-  );
-  if (refused.ok) return 'NOT_NEEDED';
-  assert.match(
-    refused.message ?? '',
-    /permission denied for function billing_assert_obligation_ledger/,
-  );
-  const granted = await sql(
-    migrationDsn(context, 'billing'),
-    `GRANT EXECUTE ON FUNCTION ${BILLING_LEDGER_HELPERS.join(', ')} TO cw_billing_app`,
-  );
-  assert.ok(granted.ok, granted.message ?? 'grant failed');
-  return 'APPLIED';
+async function assertBillingLedgerHelpersPrivate() {
+  for (const helper of BILLING_LEDGER_HELPERS) {
+    const result = await sql(
+      appDsn(context, 'billing'),
+      `SELECT has_function_privilege(current_user, '${helper}', 'EXECUTE') AS allowed`,
+    );
+    assert.equal(result.ok, true, 'Billing helper privilege query failed');
+    assert.equal(result.rows[0].allowed, false, `${helper} must remain private`);
+  }
 }
 
 let stack;
 
 test.before(async () => {
+  stack = {};
   await migrateOwners();
-  console.log(`CR-D-P04-05 billing ledger helper grant: ${await grantBillingLedgerHelpers()}`);
-  const identity = await startIdentity();
-  const quotes = await startQuoteDouble();
+  await assertBillingLedgerHelpersPrivate();
+  const identity = (stack.identity = await startIdentity());
+  const quotes = (stack.quotes = await startQuoteDouble());
   const { startOwnerDoubles, bookingEnv } = owned('booking')(
     path.join(ROOT, 'services', 'booking', 'dist-tests', 'test', 'support', 'owner-doubles.js'),
   );
-  const doubles = await startOwnerDoubles();
-  const billing = await nestService('billing', {
+  const doubles = (stack.doubles = await startOwnerDoubles());
+  const billing = (stack.billing = await nestService('billing', {
     DATABASE_URL: appDsn(context, 'billing'),
     IDENTITY_SESSION_ORIGIN: identity.base,
     PRICING_ORIGIN: quotes.origin,
-  });
-  const booking = await nestService('booking', {
+    BILLING_SHAM_CASH_MERCHANT_ACCOUNTS: STATEMENT_MERCHANT,
+  }));
+  const booking = (stack.booking = await nestService('booking', {
     ...bookingEnv(doubles, appDsn(context, 'booking')),
     IDENTITY_URL: identity.base,
     BOOKING_USER_REQUESTS_PER_MINUTE: '600',
     BOOKING_INLINE_SAGA_BUDGET_MS: '15000',
-  });
-  const relay = await startBillingRelay(billing.origin);
-  const support = await nestService('support', {
+  }));
+  const relay = (stack.relay = await startBillingRelay(billing.origin));
+  const support = (stack.support = await nestService('support', {
     DATABASE_URL: appDsn(context, 'support'),
     IDENTITY_ORIGIN: identity.base,
     BILLING_ORIGIN: `${relay.origin}/`,
@@ -229,7 +230,7 @@ test.before(async () => {
     BOOKING_TIMEOUT_MS: '5000',
     SUPPORT_REQUESTS_PER_MINUTE: '600',
     SUPPORT_EXECUTION_LEASE_MS: '1000',
-  });
+  }));
   const [finance, reviewer, operations, supportDesk, technician, customer] = [
     await staff(identity, ['finance']),
     await staff(identity, ['finance']),
@@ -252,11 +253,19 @@ test.before(async () => {
 
 test.after(async () => {
   if (!stack) return;
-  stack.relay.close();
-  stack.quotes.close();
-  await stack.doubles.close();
-  for (const app of [stack.support.app, stack.billing.app, stack.booking.app, stack.identity.app])
-    await app.close().catch(() => {});
+  stack.relay?.close();
+  stack.quotes?.close();
+  const closed = await Promise.allSettled([
+    stack.doubles?.close(),
+    ...[stack.support, stack.billing, stack.booking, stack.identity].map((owner) =>
+      owner?.app.close(),
+    ),
+  ]);
+  assert.equal(
+    closed.filter((result) => result.status === 'rejected').length,
+    0,
+    'Every started owner must shut down',
+  );
 });
 
 /* ------------------------------- helpers ------------------------------- */
@@ -302,16 +311,47 @@ async function attemptUnderReview(amountMinor = '150000') {
     body: { expectedRevision: created.body.revision, method: 'SHAM_CASH' },
   });
   assert.ok(ok2xx(intent.status), JSON.stringify(intent.body));
+  const providerReference = `SC-${randomUUID()}`;
   const attempt = await billingCall(customer, `/obligations/${obligationId}/payment-attempts`, {
     method: 'POST',
     key: commandKey(),
     body: {
       expectedRevision: intent.body.revision,
-      providerReference: `SC-${randomUUID().slice(0, 8)}`,
+      providerReference,
     },
   });
   assert.ok(ok2xx(attempt.status), JSON.stringify(attempt.body));
-  return { obligationId, attemptId: attempt.body.attempts[0].attemptId };
+  return {
+    obligationId,
+    attemptId: attempt.body.attempts[0].attemptId,
+    providerReference,
+    amountMinor,
+  };
+}
+
+/** Record an independent statement fact through Billing; it is still unpaid.
+ * The Support decision is made by the other Finance account, never this recorder.
+ */
+async function statementFor(subject, recorder = stack.people.reviewer) {
+  const recorded = await billingCall(recorder, '/provider-credits', {
+    method: 'POST',
+    key: commandKey(),
+    body: {
+      provider: 'SHAM_CASH',
+      merchantAccount: STATEMENT_MERCHANT,
+      providerReference: subject.providerReference,
+      amount: SYP(subject.amountMinor),
+      occurredAt: new Date().toISOString(),
+      evidenceDigest: createHash('sha256')
+        .update(`acceptance-statement:${subject.providerReference}`)
+        .digest('hex'),
+    },
+  });
+  assert.equal(recorded.status, 201, JSON.stringify(recorded.body));
+  assert.equal(recorded.body.status, 'PENDING_APPROVAL');
+  const pending = await billingCall(recorder, `/obligations/${subject.obligationId}`);
+  assert.equal(pending.body.verified.amountMinor, '0');
+  return { creditId: recorded.body.creditId, revision: recorded.body.revision };
 }
 
 /** A real Booking record, created by the customer through Booking's own API. */
@@ -364,7 +404,7 @@ async function rows(statement) {
 async function billingAudit(correlationId) {
   const result = await sql(
     appDsn(context, 'billing'),
-    `SELECT action, actor_subject::text AS actor, outcome FROM app.billing_audit_event WHERE correlation_id = '${correlationId}'`,
+    `SELECT action, actor_subject::text AS actor, outcome FROM app.billing_audit_event WHERE correlation_id = '${correlationId}' ORDER BY action`,
   );
   assert.ok(result.ok, result.message);
   return result.rows;
@@ -372,9 +412,10 @@ async function billingAudit(correlationId) {
 
 /* --------------------------------- Part H -------------------------------- */
 
-test('H1: finance approves a match through REAL Billing; owner audit has the staff actor and correlation id', async () => {
+test('H1: finance allocates the explicitly selected independent statement credit through REAL Billing; owner audit identifies the approver', async () => {
   const { finance } = stack.people;
   const subject = await attemptUnderReview();
+  const statementCredit = await statementFor(subject);
   const opened = await openReview(finance, subject);
   assert.equal(opened.status, 201, JSON.stringify(opened.body));
   const caseId = opened.body.case.caseId;
@@ -392,6 +433,7 @@ test('H1: finance approves a match through REAL Billing; owner audit has the sta
       reason: { code: 'PROVIDER_CONFIRMED', note: 'Statement line 42 matches exactly' },
       evidence: EVIDENCE,
       amount: SYP('150000'),
+      statementCredit,
     },
   });
   assert.equal(decided.status, 200, JSON.stringify(decided.body));
@@ -405,7 +447,8 @@ test('H1: finance approves a match through REAL Billing; owner audit has the sta
   assert.equal(obligation.body.status, 'SETTLED');
   const audit = await billingAudit(correlationId);
   assert.deepEqual(audit, [
-    { action: 'billing.attempt.reconciled', actor: finance.subject, outcome: 'MATCHED' },
+    { action: 'billing.credit.allocated', actor: finance.subject, outcome: 'MATCHED' },
+    { action: 'billing.credit.approved', actor: finance.subject, outcome: 'ALLOCATED' },
   ]);
   // Support's own append-only audit, same actor and correlation id.
   const events = await rows(
@@ -454,6 +497,7 @@ test('H2: finance rejects a mismatch with the observed amount; Billing records M
 test('H3: a lost Billing answer is OUTCOME_UNKNOWN; refresh shows it; resend replays the SAME command once', async () => {
   const { finance } = stack.people;
   const subject = await attemptUnderReview();
+  const statementCredit = await statementFor(subject);
   const caseId = (await openReview(finance, subject)).body.case.caseId;
   const before = stack.relay.state.reconciliations;
   stack.relay.state.dropNextReconciliation = true;
@@ -464,6 +508,7 @@ test('H3: a lost Billing answer is OUTCOME_UNKNOWN; refresh shows it; resend rep
     reason: { code: 'PROVIDER_CONFIRMED', note: 'Statement line 77 matches exactly' },
     evidence: EVIDENCE,
     amount: SYP('150000'),
+    statementCredit,
   };
   const lost = await support(finance, `/${caseId}/decisions`, {
     method: 'POST',
@@ -475,7 +520,7 @@ test('H3: a lost Billing answer is OUTCOME_UNKNOWN; refresh shows it; resend rep
   assert.equal(lost.body.case.status, 'OUTCOME_UNKNOWN');
   assert.equal(lost.body.decisions[0].status, 'OUTCOME_UNKNOWN');
   // Billing really acted although Support never heard it.
-  assert.equal((await billingAudit(correlationId)).length, 1);
+  assert.equal((await billingAudit(correlationId)).length, 2);
 
   // Refresh: the authoritative state is still OUTCOME_UNKNOWN, never success.
   const refreshed = await support(finance, `/${caseId}`);
@@ -500,6 +545,17 @@ test('H3: a lost Billing answer is OUTCOME_UNKNOWN; refresh shows it; resend rep
   assert.equal(other.body.error.code, 'CASE_NOT_DECIDABLE');
 
   await new Promise((resolve) => setTimeout(resolve, 1_100));
+  const otherReviewer = await support(stack.people.reviewer, `/${caseId}/decisions/1/execution`, {
+    method: 'POST',
+  });
+  assert.equal(otherReviewer.status, 403);
+  assert.equal(otherReviewer.body.error.code, 'AUTH_FORBIDDEN');
+  assert.equal((await support(finance, `/${caseId}`)).body.case.status, 'OUTCOME_UNKNOWN');
+  assert.equal(
+    stack.relay.state.reconciliations - before,
+    1,
+    'actor change must not send a new owner command',
+  );
   const resent = await support(finance, `/${caseId}/decisions/1/execution`, {
     method: 'POST',
     correlationId: randomUUID(),
@@ -507,11 +563,11 @@ test('H3: a lost Billing answer is OUTCOME_UNKNOWN; refresh shows it; resend rep
   assert.equal(resent.status, 200, JSON.stringify(resent.body));
   assert.equal(resent.body.case.status, 'RESOLVED');
   assert.equal(resent.body.decisions[0].owner.attempts, 2);
-  // Billing replayed the same key: exactly one reconciliation fact exists.
+  // Billing replayed the same key: exactly one allocation fact exists.
   assert.equal(stack.relay.state.reconciliations - before, 2);
   const audited = await sql(
     appDsn(context, 'billing'),
-    `SELECT count(*)::int AS n FROM app.billing_audit_event WHERE attempt_id = '${subject.attemptId}' AND action = 'billing.attempt.reconciled'`,
+    `SELECT count(*)::int AS n FROM app.billing_audit_event WHERE attempt_id = '${subject.attemptId}' AND action = 'billing.credit.allocated'`,
   );
   assert.equal(audited.rows[0].n, 1);
   // Resending a finished decision is refused.
@@ -523,8 +579,9 @@ test('H3: a lost Billing answer is OUTCOME_UNKNOWN; refresh shows it; resend rep
 test('H4: refund needs a second finance reviewer; the unpublished Billing command leaves it BLOCKED_ON_OWNER', async () => {
   const { finance, reviewer } = stack.people;
   const subject = await attemptUnderReview();
+  const statementCredit = await statementFor(subject);
   const reviewCase = (await openReview(finance, subject)).body.case.caseId;
-  await support(finance, `/${reviewCase}/decisions`, {
+  const paid = await support(finance, `/${reviewCase}/decisions`, {
     method: 'POST',
     key: commandKey(),
     body: {
@@ -532,8 +589,11 @@ test('H4: refund needs a second finance reviewer; the unpublished Billing comman
       reason: { code: 'PROVIDER_CONFIRMED', note: 'Statement line 90 matches exactly' },
       evidence: EVIDENCE,
       amount: SYP('150000'),
+      statementCredit,
     },
   });
+  assert.equal(paid.status, 200, JSON.stringify(paid.body));
+  assert.equal(paid.body.case.status, 'RESOLVED');
   const opened = await support(finance, '', {
     method: 'POST',
     key: commandKey(),
@@ -582,6 +642,58 @@ test('H4: refund needs a second finance reviewer; the unpublished Billing comman
     `UPDATE app.resolution_request SET approved_by = decided_by WHERE case_id = '${caseId}'`,
   );
   assert.equal(bypass.ok, false);
+});
+
+test('H7: Support cannot approve a statement recorded by the same real Finance account or select another claim credit', async () => {
+  const { finance, reviewer } = stack.people;
+  const subject = await attemptUnderReview();
+  const statementCredit = await statementFor(subject, finance);
+  const caseId = (await openReview(finance, subject)).body.case.caseId;
+  const rejected = await support(finance, `/${caseId}/decisions`, {
+    method: 'POST',
+    key: commandKey(),
+    body: {
+      action: 'APPROVE_MATCH',
+      reason: {
+        code: 'PROVIDER_CONFIRMED',
+        note: 'This statement was recorded by the same reviewer',
+      },
+      evidence: EVIDENCE,
+      amount: SYP('150000'),
+      statementCredit,
+    },
+  });
+  assert.equal(rejected.status, 200, JSON.stringify(rejected.body));
+  assert.equal(rejected.body.case.status, 'OWNER_REJECTED');
+  assert.equal(rejected.body.decisions[0].owner.code, 'SEPARATION_OF_DUTIES');
+  const other = await attemptUnderReview();
+  const otherCase = (await openReview(reviewer, other)).body.case.caseId;
+  const wrong = await support(reviewer, `/${otherCase}/decisions`, {
+    method: 'POST',
+    key: commandKey(),
+    body: {
+      action: 'APPROVE_MATCH',
+      reason: {
+        code: 'PROVIDER_CONFIRMED',
+        note: 'This credit belongs to a different customer claim',
+      },
+      evidence: EVIDENCE,
+      amount: SYP('150000'),
+      statementCredit,
+    },
+  });
+  assert.equal(wrong.status, 200, JSON.stringify(wrong.body));
+  assert.equal(wrong.body.case.status, 'OWNER_REJECTED');
+  assert.equal(wrong.body.decisions[0].owner.code, 'PROVIDER_CREDIT_CONFLICT');
+  for (const claim of [subject, other]) {
+    const unchanged = await billingCall(finance, `/obligations/${claim.obligationId}`);
+    assert.equal(unchanged.body.status, 'OPEN');
+    assert.equal(unchanged.body.verified.amountMinor, '0');
+    assert.equal(unchanged.body.attempts[0].status, 'PENDING_REVIEW');
+  }
+  const credit = await billingCall(finance, `/provider-credits/${statementCredit.creditId}`);
+  assert.equal(credit.body.status, 'PENDING_APPROVAL');
+  assert.equal(credit.body.revision, statementCredit.revision);
 });
 
 test('H5: operations cancel and reschedule cases read REAL Booking state; the owner command is BLOCKED, Booking unchanged', async () => {

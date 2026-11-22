@@ -49,9 +49,9 @@ model CustomerProfile {
 model CustomerAddress {
   id             String          @id @db.Uuid
   customerId     String          @map("customer_id") @db.Uuid
-  label          String          @db.VarChar(30)
-  line           String          @db.VarChar(160)
-  accessNote     String?         @map("access_note") @db.VarChar(160)
+  label          String          @db.VarChar(40)
+  line           String?         @db.VarChar(300)
+  accessNote     String?         @map("access_note") @db.VarChar(300)
   locationKind   String          @map("location_kind") @db.VarChar(16)
   locationSource String?         @map("location_source") @db.VarChar(16)
   latitude       Decimal?        @db.Decimal(9, 6)
@@ -63,6 +63,7 @@ model CustomerAddress {
   customer       CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([customerId, status], map: "customer_address_owner_status_idx")
+  @@index([customerId, status, createdAt, id], map: "customer_address_owner_page_idx")
   @@map("customer_address")
 }
 

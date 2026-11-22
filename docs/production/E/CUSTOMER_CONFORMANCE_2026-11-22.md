@@ -92,12 +92,14 @@ reissues a create. It is not a durable offline command queue. The recovery code
 must be kept by the user; a lost guest-operation receipt cannot be reconstructed
 by the browser or replaced with a fabricated code.
 
-The added guest entry/receipt is a production-only extension of existing sheet,
-field and button components under the authorized integration scope. The approved
-HTML, CSS assets and parity screenshots were not rewritten. Production address
-editing remains deferred because its owner CRUD representation still needs
-canonical conformance; the interface does not report temporary address state as
-a successful service write.
+The added guest entry/receipt is a prepared production-only design extension of
+existing sheet, field and button components. ADR 0004 and DESIGN_LOCK section 9
+require explicit owner approval of those new visible states before merge;
+technical tests and general code authorization do not establish that approval.
+The approved HTML, CSS assets and parity screenshots were not rewritten. The
+subsequent canonical manual-address correction is documented in
+[CUSTOMER_ADDRESS_CONFORMANCE_2026-11-22.md](CUSTOMER_ADDRESS_CONFORMANCE_2026-11-22.md),
+including provider persistence, existing Account sheets and current evidence.
 
 ## Customer owner compatibility
 
@@ -187,9 +189,9 @@ node scripts/c002/check-feature-boundaries.mjs
 ## Remaining release requirements
 
 This change connects live Catalog browsing, guest entry/recovery, canonical
-profile writes and persisted garage CRUD, and repairs the owner contracts
-described above. It does not provide account registration/login screens,
-canonical persisted address editing, serviceable location selection, live
+profile writes and persisted garage CRUD; the subsequent address correction adds
+canonical persisted manual-address editing. It does not provide account
+registration/login screens, serviceable location selection, live
 availability, Pricing quote, Booking creation, real payment checkout or order
 tracking UI. The existing front-end booking decisions still belong to the
 approved prototype/parity implementation; they are not evidence of a complete
