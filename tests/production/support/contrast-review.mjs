@@ -1,15 +1,12 @@
 /* global CSSStyleSheet, document, getComputedStyle -- page.evaluate callbacks */
 /**
- * Unapproved, test-only colour proposals for the exact observed C/D contrast debt.
- * These rules are never imported by an app or a parity baseline. The original
- * candidate remains the source of every required accessibility assertion.
+ * Independent, exact colour specifications for PR #147's accessibility repair.
+ * Original reference bytes and raw captures never change. A derived comparison
+ * can apply only these colour declarations; no mask or tolerance is added.
  */
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
-import { comparePngBuffers } from '../../../scripts/f010/pixel-compare.mjs';
 
-export const CONTRAST_PROPOSALS = Object.freeze({
+export const CONTRAST_CORRECTIONS = Object.freeze({
   operator: Object.freeze([
     {
       selectors: [
@@ -23,12 +20,31 @@ export const CONTRAST_PROPOSALS = Object.freeze({
         '#main .compare-caption > .text-btn',
         '#sheet .field-label > .muted',
       ],
+      from: 'rgb(101, 120, 106)',
       color: '#5f7264',
+      expected: 'rgb(95, 114, 100)',
     },
-    { selectors: ['#main > .stepper > .steps > li:not(.current)'], color: '#617153' },
-    { selectors: ['#main > .segmented > .segment[aria-pressed="false"]'], color: '#5f6f51' },
+    {
+      selectors: ['#main > .stepper > .steps > li:not(.current)'],
+      from: 'rgb(133, 146, 118)',
+      color: '#617153',
+      expected: 'rgb(97, 113, 83)',
+    },
+    {
+      selectors: ['#main > .segmented > .segment[aria-pressed="false"]'],
+      from: 'rgb(112, 128, 98)',
+      color: '#5f6f51',
+      expected: 'rgb(95, 111, 81)',
+    },
   ]),
-  admin: Object.freeze([{ selectors: ['#bookings > .page-head > div > p'], color: '#5f6f86' }]),
+  admin: Object.freeze([
+    {
+      selectors: ['#bookings > .page-head > div > p'],
+      from: 'rgb(100, 116, 139)',
+      color: '#5f6f86',
+      expected: 'rgb(95, 111, 134)',
+    },
+  ]),
 });
 
 async function inspect(page, changes) {
@@ -46,6 +62,7 @@ async function inspect(page, changes) {
               backgroundColor: style.backgroundColor,
               fontSize: style.fontSize,
               fontWeight: style.fontWeight,
+              opacity: style.opacity,
               rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
             };
           }),
@@ -55,67 +72,47 @@ async function inspect(page, changes) {
   );
 }
 
-/** Save a separate preview, then remove its stylesheet even if measurement fails. */
-export async function captureContrastProposal({
-  page,
-  output,
-  base,
-  surface,
-  axe,
-  fullPage = true,
-}) {
-  assert.match(base, /^[a-z0-9-]+$/);
-  const changes = CONTRAST_PROPOSALS[surface];
-  assert.ok(changes, 'Only the recorded operator/admin contrast proposal is allowed');
-  mkdirSync(output, { recursive: true });
-  await page.evaluate(() => document.fonts.ready);
-  const options = { fullPage, animations: 'disabled', caret: 'hide' };
-  const before = await inspect(page, changes);
-  const original = await page.screenshot(options);
-  const originalFile = `${base}-candidate.png`;
-  const proposalFile = `${base}-proposal-candidate.png`;
-  const diffFile = `${base}-proposal-diff.png`;
-  writeFileSync(path.join(output, originalFile), original);
+/** Record the actual candidate colours without changing its DOM or styles. */
+export async function inspectContrastCorrection(page, surface) {
+  const changes = CONTRAST_CORRECTIONS[surface];
+  assert.ok(changes, 'Only the recorded operator/admin corrections are allowed');
+  const nodes = await inspect(page, changes);
+  for (const node of nodes) {
+    const rule = changes.find((change) => change.selectors.includes(node.selector));
+    assert.equal(node.color, rule.expected, `Candidate colour: ${node.selector}`);
+  }
+  return { scope: 'PR #147 colour-only accessibility repair', changes, nodes };
+}
+
+/**
+ * Apply only the independently specified corrections to a derived reference.
+ * Before/after styles prove that every matched element preserves geometry,
+ * background, typography and opacity. Candidate styles are only inspected.
+ */
+export async function declareContrastCorrections(reference, candidate, surface) {
+  const changes = CONTRAST_CORRECTIONS[surface];
+  assert.ok(changes);
+  const before = await inspect(reference, changes);
+  for (const node of before) {
+    const rule = changes.find((change) => change.selectors.includes(node.selector));
+    assert.equal(node.color, rule.from, `Unexpected original colour: ${node.selector}`);
+  }
   const css = changes
     .map(({ selectors, color }) => `${selectors.join(',')} { color: ${color}; }`)
     .join('\n');
-  const sheet = await page.evaluateHandle((content) => {
-    const proposal = new CSSStyleSheet();
-    proposal.replaceSync(content);
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, proposal];
-    return proposal;
+  await reference.evaluate((content) => {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(content);
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
   }, css);
-  try {
-    const after = await inspect(page, changes);
-    const proposal = await page.screenshot(options);
-    writeFileSync(path.join(output, proposalFile), proposal);
-    const violations = await axe(page);
-    const difference = await comparePngBuffers(page.context().browser(), original, proposal);
-    if (difference.diffBuffer) writeFileSync(path.join(output, diffFile), difference.diffBuffer);
-    const geometry = (nodes) =>
-      nodes.map(({ selector, index, rect }) => ({ selector, index, rect }));
-    return {
-      status: 'UNAPPROVED_COLOR_PROPOSAL_ONLY',
-      acceptanceEffect: 'none; original candidate violations and parity remain required',
-      changes,
-      before,
-      after,
-      geometryUnchanged: JSON.stringify(geometry(before)) === JSON.stringify(geometry(after)),
-      proposalViolations: violations,
-      sameDimensions: difference.sameDimensions,
-      changedPixels: difference.changedPixels,
-      files: {
-        original: originalFile,
-        proposal: proposalFile,
-        diff: difference.diffBuffer ? diffFile : null,
-      },
-    };
-  } finally {
-    await sheet.evaluate((proposal) => {
-      document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
-        (candidate) => candidate !== proposal,
-      );
-    });
-    await sheet.dispose();
-  }
+  const after = await inspect(reference, changes);
+  const withoutColour = (nodes) => nodes.map(({ color: _color, ...rest }) => rest);
+  assert.deepEqual(
+    withoutColour(after),
+    withoutColour(before),
+    'Colour repair cannot change layout or typography',
+  );
+  await inspectContrastCorrection(candidate, surface);
+  await inspectContrastCorrection(reference, surface);
+  return { id: 'A11Y-147', before, after, geometryUnchanged: true };
 }

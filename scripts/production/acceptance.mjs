@@ -242,6 +242,8 @@ async function acceptance(suite) {
       await command('admin-web-build', 'pnpm', ['--filter', '@carwash/admin-web', 'run', 'build']);
       await tests('admin-console-offline', [
         'apps/admin-web/test/console.test.mjs',
+        'apps/admin-web/test/live-finance.test.mjs',
+        'apps/admin-web/test/statement-credit.test.mjs',
         'apps/admin-web/test/runtime.test.mjs',
       ]);
     }

@@ -346,6 +346,19 @@ const reason = (result, code, refinement = null) => {
   assert.equal(result.body.error.reason, refinement);
 };
 
+test('Reviews persists Arabic and decomposed Latin comments as NFC in a UTF-8 database', async () => {
+  const [database] =
+    await reviewsDb.$queryRaw`SELECT current_setting('server_encoding') AS encoding`;
+  assert.equal(database.encoding, 'UTF8', 'Reviews NFC constraints require UTF-8 storage');
+  const bookingId = await booking();
+  const comment = 'أحمد Cafe\u0301';
+  const result = await submit(stack.customer, bodyFor(bookingId, { comment }));
+  assert.equal(result.status, 201);
+  assert.equal(result.body.comment, comment.normalize('NFC'));
+  const persisted = await reviewsDb.review.findUniqueOrThrow({ where: { bookingId } });
+  assert.equal(persisted.comment, comment.normalize('NFC'));
+});
+
 test('Reviews readiness remains fail-closed after implementation', async () => {
   const ready = await fetch(`${stack.reviews.origin}/health/ready`);
   assert.equal(ready.status, 503);

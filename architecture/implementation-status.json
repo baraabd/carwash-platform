@@ -366,7 +366,8 @@
         "CustodyHandoverItem",
         "ProviderCredit",
         "PaymentRefund",
-        "BookingObligation"
+        "BookingObligation",
+        "BookingCompensation"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
@@ -463,7 +464,11 @@
       "businessEvents": "planned-not-implemented",
       "deploymentVerified": false,
       "persistenceModels": [
-        "ServiceMarker"
+        "ServiceMarker",
+        "Review",
+        "ReviewAudit",
+        "ReviewCommandReceipt",
+        "OutboxMessage"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"

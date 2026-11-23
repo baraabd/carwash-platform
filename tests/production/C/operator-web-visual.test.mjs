@@ -29,6 +29,7 @@ import {
   newOperatorContext,
   startStack,
 } from './support/operator-browser.mjs';
+import { declareContrastCorrections } from '../support/contrast-review.mjs';
 import { DECLARED, applyDeclaredInPage } from './support/operator-declared-differences.mjs';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
@@ -839,6 +840,11 @@ test(
             const key = JSON.stringify(r);
             return seen.has(key) ? false : (seen.add(key), true);
           });
+          const contrastCorrection = await declareContrastCorrections(
+            refPage,
+            candPage,
+            'operator',
+          );
           await settle(refPage);
           let reference = await capture(refPage, fullPage);
           let candidate = await capture(candPage, fullPage);
@@ -896,6 +902,7 @@ test(
             changedPixels: result.changedPixels,
             diffRatio: result.diffRatio,
             rawDiffRatio: rawResult.diffRatio,
+            contrastCorrection,
             declaredRegions: regions.filter((r) => !r.hidden),
             declaredIds: [...new Set(regions.map((r) => r.id))],
             maskedRegions: maskedRects,

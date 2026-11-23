@@ -83,9 +83,15 @@ const SERVICES = {
     env: 'BILLING_TEST_DATABASE_URL',
     writeUpgradeSentinel: (url) => REFUND_UPGRADE_SENTINEL.write(url),
     verifyUpgradeSentinel: (url) => REFUND_UPGRADE_SENTINEL.verify(url),
-    // Finance asserts database-wide deltas; relay storage changes transport state
-    // that the cash command suite deliberately expects to remain unpublished.
-    isolatedSpecs: ['billing.finance.postgres.spec.js', 'billing.relay.postgres.spec.js'],
+    // Finance and absent-booking compensation assert database-wide deltas;
+    // unrelated suites must not write while those assertions are in flight.
+    // Relay storage changes transport state that cash command specs deliberately
+    // expect to remain unpublished. Replica races inside each spec still run.
+    isolatedSpecs: [
+      'billing.booking-saga.postgres.spec.js',
+      'billing.finance.postgres.spec.js',
+      'billing.relay.postgres.spec.js',
+    ],
     dependencies: {
       ...IDENTITY_STUB,
       pricing: 'LOCAL HTTP STUB (published pricing.v1 getQuote and validateQuote shapes)',

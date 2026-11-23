@@ -42,7 +42,6 @@ import { hardenPrivileges, migrateDeploy } from '../../../scripts/acceptance/lib
 import { STAFF_PASSWORD, account, bearer, staff, startIdentity } from './_identity.mjs';
 import { eligibleWorkforceResource } from './_admin-workforce.mjs';
 import { comparePngBuffers } from '../../../scripts/f010/pixel-compare.mjs';
-import { captureStatementCreditProposal } from '../support/statement-credit-review.mjs';
 
 const require = createRequire(path.join(ROOT, 'package.json'));
 const EVIDENCE = path.join(ROOT, 'docs', 'production', 'D', 'evidence', 'p03-d3');
@@ -923,6 +922,7 @@ test('F1: finance — cash KPIs equal Reporting; reconcile through Billing with 
   const finance = principals.finance;
   const customer = principals.customer;
   const due = await obligationUnderReview(customer, '250000');
+  const credit = await pendingStatementFor(due);
   await project([obligationFact(due.obligationId, due.revision, 'UNDER_REVIEW', '250000')]);
   const { OperationsQueries } = dist('reporting', 'application/operations.service.js');
   const { PrismaOperationsReader } = dist(
@@ -960,39 +960,72 @@ test('F1: finance — cash KPIs equal Reporting; reconcile through Billing with 
     await dialog.locator(`#reconcile-${due.attemptId}`).click();
     await dialog.locator('#reconcileSubmit').click();
     await dialog.locator('#reconcileProblem').getByText('اختر نتيجة المطابقة.').waitFor();
+    const mutations = [];
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && request.url().includes('/admin/billing/payment-attempts/'))
+        mutations.push(request);
+    });
     await dialog.locator('#reconcileOutcome').selectOption('MATCHED');
+    await dialog
+      .locator(`#statementCredit option[value="${credit.creditId}"]`)
+      .waitFor({ state: 'attached' });
+    assert.match(
+      await dialog.locator('#statementCreditReview').innerText(),
+      /بانتظار موافقة مراجع آخر/,
+    );
     await dialog.locator('#reconcileObserved').fill('2500.001');
     await dialog.locator('#reconcileSubmit').click();
     await dialog.locator('#reconcileProblem').getByText('كسور أكثر مما تسمح به العملة.').waitFor();
     await dialog.locator('#reconcileObserved').fill('2,500');
+    await dialog.locator('#reconcileSubmit').click();
+    await dialog
+      .locator('#reconcileProblem')
+      .getByText('اختر قيد الكشف المستقل بعد مراجعة تفاصيله.')
+      .waitFor();
+    await dialog.locator('#statementCredit').selectOption(credit.creditId);
+    await dialog.locator('#reconcileObserved').fill('2499');
+    await dialog.locator('#reconcileSubmit').click();
+    await dialog
+      .locator('#reconcileProblem')
+      .getByText('المبلغ المدخل لا يطابق مبلغ قيد الكشف المحدد.')
+      .waitFor();
+    await dialog.locator('#reconcileObserved').fill('2,500');
+    assert.equal(mutations.length, 0, 'loading and reviewing a statement cannot move money');
     report.accessibility.reconcileDialog = await axe(page, '.modal');
-    const credit = await pendingStatementFor(due);
-    report.statementCreditProposal = await captureStatementCreditProposal({
-      page,
-      output: EVIDENCE,
-      credit,
-    });
-    const correlation = capture(page, /\/reconciliation$/);
+    writeFileSync(
+      path.join(EVIDENCE, 'statement-credit-candidate.png'),
+      await dialog.screenshot({ animations: 'disabled', caret: 'hide' }),
+    );
+    report.statementCreditReview = {
+      source: 'independent real Billing statement',
+      explicitSelection: true,
+      creditRevision: 1,
+    };
+    const correlation = capture(page, /\/statement-credit-allocation$/);
     await dialog.locator('#reconcileSubmit').click();
     await dialog.locator('[data-financial-status="PAID"]').waitFor();
     const reconciled = await correlation;
-
+    assert.equal(mutations.length, 1, 'one explicit owner command');
+    assert.deepEqual(mutations[0].postDataJSON(), {
+      creditId: credit.creditId,
+      expectedCreditRevision: 1,
+      expectedRevision: due.revision,
+      observedAmount: { currency: 'SYP', amountMinor: '250000', scale: 2 },
+    });
     const audit = await auditRows(
       'billing',
-      `SELECT action, actor_subject::text AS actor, outcome, correlation_id::text AS correlation_id FROM app.billing_audit_event WHERE correlation_id = '${reconciled}'`,
+      `SELECT action, actor_subject::text AS actor, outcome FROM app.billing_audit_event WHERE correlation_id = '${reconciled}' ORDER BY action`,
     );
-    assert.equal(audit.length, 1, JSON.stringify(audit));
-    assert.equal(audit[0].action, 'billing.attempt.reconciled');
-    assert.equal(audit[0].actor, finance.subject);
-    assert.equal(audit[0].outcome, 'MATCHED');
-    report.audit.billing = [
-      {
-        action: audit[0].action,
-        actorIsFinance: true,
-        outcome: audit[0].outcome,
-        correlationId: reconciled,
-      },
-    ];
+    assert.deepEqual(audit, [
+      { action: 'billing.credit.allocated', actor: finance.subject, outcome: 'MATCHED' },
+      { action: 'billing.credit.approved', actor: finance.subject, outcome: 'ALLOCATED' },
+    ]);
+    report.audit.billing = audit.map((row) => ({
+      action: row.action,
+      actorIsFinance: row.actor === finance.subject,
+      outcome: row.outcome,
+      correlationId: reconciled,
+    }));
 
     // Denied by the Gateway even when hand-made with a valid CSRF token.
     assert.equal(
@@ -1018,11 +1051,108 @@ test('F1: finance — cash KPIs equal Reporting; reconcile through Billing with 
   }
 });
 
+test('F2: finance — missing statements never settle; a lost allocation answer retries the same reviewed command once', async () => {
+  const due = await obligationUnderReview(principals.customer, '150000');
+  const { page, browserContext, errors } = await asUser(principals.finance);
+  try {
+    await page.waitForURL(/#\/payments$/);
+    await page.locator('#obligationRef').fill(due.obligationId);
+    await page.locator('#obligationLookup button[type="submit"]').click();
+    const dialog = page.getByRole('dialog');
+    await dialog.locator(`#reconcile-${due.attemptId}`).click();
+    await dialog.locator('#reconcileOutcome').selectOption('MATCHED');
+    await dialog.locator('#statementCreditStatus [data-state]').waitFor();
+    await dialog.locator('#reconcileObserved').fill('1500');
+    const commands = [];
+    page.on('request', (request) => {
+      if (
+        request.method() === 'POST' &&
+        request.url().includes(`/payment-attempts/${due.attemptId}/`)
+      )
+        commands.push({
+          key: request.headers()['idempotency-key'],
+          body: request.postDataJSON(),
+          url: request.url(),
+        });
+    });
+    await dialog.locator('#reconcileSubmit').click();
+    await dialog
+      .locator('#reconcileProblem')
+      .getByText('اختر قيد الكشف المستقل بعد مراجعة تفاصيله.')
+      .waitFor();
+    assert.equal(
+      commands.length,
+      0,
+      'a manual MATCHED selection never bypasses statement evidence',
+    );
+    const before = await ownerCall(
+      stack.services.billing.origin,
+      '/internal/v1/billing',
+      principals.finance,
+      `/obligations/${due.obligationId}`,
+    );
+    assert.equal(before.body.financialStatus, 'UNDER_REVIEW');
+
+    const credit = await pendingStatementFor(due);
+    await dialog.getByRole('button', { name: 'تحديث قيد الكشف' }).click();
+    await dialog
+      .locator(`#statementCredit option[value="${credit.creditId}"]`)
+      .waitFor({ state: 'attached' });
+    await dialog.locator('#statementCredit').selectOption(credit.creditId);
+    let droppedStatus = null;
+    await page.route(
+      `**/payment-attempts/${due.attemptId}/statement-credit-allocation`,
+      async (route) => {
+        if (droppedStatus !== null) return route.continue();
+        const response = await route.fetch();
+        droppedStatus = response.status();
+        await route.abort('connectionreset');
+      },
+    );
+    await dialog.locator('#reconcileSubmit').click();
+    await dialog
+      .getByText(
+        'لم نتمكن من تأكيد تسجيل المطابقة. لا تغيّر النتيجة؛ أعد إرسال المطابقة نفسها للتحقق.',
+      )
+      .waitFor();
+    assert.equal(droppedStatus, 200, 'the first command committed before the response was lost');
+    for (const selector of ['#reconcileOutcome', '#reconcileObserved', '#statementCredit'])
+      assert.equal(await dialog.locator(selector).isDisabled(), true, selector);
+    assert.equal(commands.length, 1);
+    await dialog.locator('#reconcileSubmit').click();
+    await dialog.locator('[data-financial-status="PAID"]').waitFor();
+    assert.equal(commands.length, 2);
+    assert.deepEqual(
+      commands[1],
+      commands[0],
+      'same route, idempotency key, selected record and revisions',
+    );
+    const audit = await auditRows(
+      'billing',
+      `SELECT action, count(*)::int AS n FROM app.billing_audit_event WHERE credit_id = '${credit.creditId}' AND action IN ('billing.credit.allocated', 'billing.credit.approved') GROUP BY action ORDER BY action`,
+    );
+    assert.deepEqual(audit, [
+      { action: 'billing.credit.allocated', n: 1 },
+      { action: 'billing.credit.approved', n: 1 },
+    ]);
+    const journals = await auditRows(
+      'billing',
+      `SELECT count(*)::int AS n FROM app.ledger_journal WHERE credit_id = '${credit.creditId}'`,
+    );
+    assert.deepEqual(journals, [{ n: 2 }], 'one received journal and one allocation journal');
+    assert.deepEqual(errors, []);
+    report.journeys.F2 = 'PASSED';
+  } finally {
+    await browserContext.close();
+  }
+});
+
 test('S1: super-admin — every screen; reconcile MISMATCHED; may not reconcile its own payment', async () => {
   const superAdmin = principals.superAdmin;
   const customer = principals.customer;
   const due = await obligationUnderReview(customer, '120000');
   const own = await obligationUnderReview(superAdmin, '50000');
+  await pendingStatementFor(own);
   const { page, browserContext, errors } = await asUser(superAdmin);
   try {
     await page.waitForURL(/#\/dashboard$/);
@@ -1060,7 +1190,7 @@ test('S1: super-admin — every screen; reconcile MISMATCHED; may not reconcile 
     await dialog.locator('#reconcileOutcome').selectOption('MATCHED');
     await dialog.locator('#reconcileObserved').fill('500');
     await dialog.locator('#reconcileSubmit').click();
-    await dialog.locator('#reconcileStatus [data-state="FORBIDDEN"]').waitFor();
+    await dialog.locator('#statementCreditStatus [data-state="FORBIDDEN"]').waitFor();
     assert.deepEqual(errors, []);
     report.journeys.S1 = 'PASSED';
   } finally {

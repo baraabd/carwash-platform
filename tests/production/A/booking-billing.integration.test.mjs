@@ -8,7 +8,6 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import {
@@ -24,6 +23,7 @@ import {
   startIdentity,
   startService,
 } from './_support.mjs';
+import { billingFaultProxy } from './_billing-fault-proxy.mjs';
 
 const bookingRequire = serviceRequire('booking');
 const billingRequire = serviceRequire('billing');
@@ -55,14 +55,6 @@ let base;
 const workerPools = [];
 const money = contracts.billingV1;
 
-function deferred() {
-  let resolve;
-  const promise = new Promise((done) => {
-    resolve = done;
-  });
-  return { promise, resolve };
-}
-
 async function deadline(promise, milliseconds = 8000) {
   let timer;
   try {
@@ -75,88 +67,6 @@ async function deadline(promise, milliseconds = 8000) {
   } finally {
     clearTimeout(timer);
   }
-}
-
-/** No secret headers/bodies are retained in evidence; only opaque booking ids and counters. */
-async function billingFaultProxy(origin) {
-  const state = {
-    loseCreate: 0,
-    loseCompensation: 0,
-    rejectCreate: false,
-    rejectCompensation: false,
-    pending: null,
-  };
-  const calls = { create: 0, compensate: 0 };
-  const server = createServer((request, response) => {
-    void (async () => {
-      const chunks = [];
-      for await (const chunk of request) chunks.push(chunk);
-      const body = Buffer.concat(chunks);
-      const create = request.url === '/internal/v1/billing/booking-obligations';
-      const compensate = request.url === '/internal/v1/billing/booking-obligations/compensations';
-      if (create) calls.create += 1;
-      if (compensate) calls.compensate += 1;
-      if ((create && state.rejectCreate) || (compensate && state.rejectCompensation)) {
-        response
-          .writeHead(503, { 'content-type': 'application/json' })
-          .end('{"error":{"code":"UPSTREAM_UNAVAILABLE"}}');
-        return;
-      }
-      const gate = create ? state.pending : null;
-      if (gate) state.pending = null;
-      const headers = Object.fromEntries(
-        Object.entries(request.headers).filter(
-          ([name, value]) =>
-            value !== undefined && !['host', 'connection', 'content-length'].includes(name),
-        ),
-      );
-      const remote = await fetch(origin + request.url, {
-        method: request.method,
-        headers,
-        ...(body.length ? { body } : {}),
-        redirect: 'error',
-        signal: globalThis.AbortSignal.timeout(6000),
-      });
-      const bytes = await remote.arrayBuffer();
-      if (gate) {
-        gate.entered.resolve({
-          bookingId: JSON.parse(body.toString('utf8')).bookingId,
-          status: remote.status,
-        });
-        await gate.release.promise;
-      }
-      if ((create && state.loseCreate > 0) || (compensate && state.loseCompensation > 0)) {
-        if (create) state.loseCreate -= 1;
-        else state.loseCompensation -= 1;
-        response.destroy();
-        return;
-      }
-      response
-        .writeHead(remote.status, {
-          'content-type': remote.headers.get('content-type') ?? 'application/json',
-          'idempotency-replayed': remote.headers.get('idempotency-replayed') ?? 'false',
-        })
-        .end(Buffer.from(bytes));
-    })().catch(() => {
-      response.destroy();
-    });
-  });
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  return {
-    base: `http://127.0.0.1:${server.address().port}`,
-    state,
-    calls,
-    pauseNextCreate() {
-      const gate = { entered: deferred(), release: deferred() };
-      state.pending = gate;
-      return { entered: gate.entered.promise, release: () => gate.release.resolve() };
-    },
-    async close() {
-      state.pending?.release.resolve();
-      server.closeAllConnections();
-      await new Promise((resolve) => server.close(resolve));
-    },
-  };
 }
 
 before(async () => {
