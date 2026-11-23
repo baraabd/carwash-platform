@@ -5,8 +5,8 @@ import type { PrismaService } from './prisma.service';
  * Delivery queue of Media owner-access fences (table evidence_fence).
  *
  *   FOR UPDATE SKIP LOCKED   - competing workers lease disjoint rows;
- *   locked_by / locked_until - a worker that stalls past its lease cannot
- *                              finalise a row another worker now owns.
+ *   locked_by / locked_until / attempts - an expired worker cannot finalise a
+ *                              later lease, including one with the same id.
  * A confirmed row (fenced_at) is final; the table guard refuses any change.
  */
 interface LeasedRow {
@@ -51,14 +51,16 @@ export class PrismaEvidenceFenceStore implements EvidenceFenceQueue {
     }));
   }
 
-  async markFenced(evidenceId: string, workerId: string): Promise<boolean> {
+  async markFenced(evidenceId: string, workerId: string, attempts: number): Promise<boolean> {
     const rows = await this.prisma.client.$queryRawUnsafe<{ id: string }[]>(
       `UPDATE app.evidence_fence
           SET fenced_at = now(), locked_by = NULL, locked_until = NULL, last_error = NULL
         WHERE evidence_id = $1::uuid AND locked_by = $2 AND fenced_at IS NULL
+          AND attempts = $3 AND locked_until > now()
       RETURNING evidence_id::text AS id`,
       evidenceId,
       workerId,
+      attempts,
     );
     return rows.length === 1;
   }
@@ -66,19 +68,22 @@ export class PrismaEvidenceFenceStore implements EvidenceFenceQueue {
   async markRetry(
     evidenceId: string,
     workerId: string,
+    attempts: number,
     code: string,
     delayMs: number,
   ): Promise<boolean> {
     const rows = await this.prisma.client.$queryRawUnsafe<{ id: string }[]>(
       `UPDATE app.evidence_fence
-          SET last_error = $3,
-              next_attempt_at = now() + ($4::bigint * interval '1 millisecond'),
+          SET last_error = $4,
+              next_attempt_at = now() + ($5::bigint * interval '1 millisecond'),
               locked_by = NULL,
               locked_until = NULL
         WHERE evidence_id = $1::uuid AND locked_by = $2 AND fenced_at IS NULL
+          AND attempts = $3 AND locked_until > now()
       RETURNING evidence_id::text AS id`,
       evidenceId,
       workerId,
+      attempts,
       code.slice(0, 64),
       delayMs,
     );

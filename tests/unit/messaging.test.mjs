@@ -245,7 +245,7 @@ function record(id) {
     routingKey: 'foundation.probe.created.v1',
     payload: '{}',
     correlationId: uuid(2),
-    attempts: 0,
+    attempts: 1,
   };
 }
 
@@ -254,6 +254,7 @@ class FakeOutboxStore {
     this.records = records;
     this.ownsOnWrite = ownsOnWrite;
     this.published = [];
+    this.publishedInputs = [];
     this.failed = [];
     this.leases = [];
   }
@@ -263,6 +264,7 @@ class FakeOutboxStore {
   }
   async markPublished(input) {
     this.published.push(input.id);
+    this.publishedInputs.push(input);
     return this.ownsOnWrite;
   }
   async markFailed(input) {
@@ -283,6 +285,7 @@ test('relay: publishes then marks published, in that order', async () => {
   assert.deepEqual(pass, { leased: 1, published: 1, failed: 0, leaseLost: 0 });
   assert.equal(channel.published.length, 1);
   assert.deepEqual(store.published, [uuid(1)]);
+  assert.deepEqual(store.publishedInputs, [{ id: uuid(1), workerId: 'w1', leaseAttempt: 1 }]);
 });
 
 test('relay: a failed publish is never marked published', async () => {
@@ -299,6 +302,7 @@ test('relay: a failed publish is never marked published', async () => {
   assert.equal(pass.failed, 1);
   assert.deepEqual(store.published, []);
   assert.equal(store.failed[0].error, 'NACK');
+  assert.equal(store.failed[0].leaseAttempt, 1);
 });
 
 test('relay: owner validation failure is fenced as failed before any publication', async () => {

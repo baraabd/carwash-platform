@@ -367,6 +367,45 @@ test('replace applied but its response lost: replayed by booking, one effect, co
   assert.equal(await events(w, booking.id, 'booking.rescheduled.v1'), 1);
 });
 
+test('a mismatched committed slot remains pending with attention until exact-owner replay recovers', async () => {
+  const w = world();
+  const { who, booking } = await confirmed(w);
+  const target = newHold(w.o, who.principal, booking.slot!.zoneId);
+  const replace = w.c.commitments.replace.bind(w.c.commitments);
+  let mismatch = true;
+  w.c.commitments.replace = async (input) => {
+    const result = await replace(input);
+    return mismatch && result.kind === 'REPLACED'
+      ? { ...result, slot: { ...result.slot, zoneId: randomUUID() } }
+      : result;
+  };
+  const requested = await w.x.service.reschedule(who.meta(), booking.id, key(), {
+    expectedRevision: booking.version,
+    holdId: target.holdId,
+    holdRevision: target.revision,
+  });
+  await drain(w, requested.change.changeId, w.x, CHANGE_POLICY.attentionAfterAttempts);
+  const pending = (await w.x.store.findChange(requested.change.changeId))!.change;
+  assert.equal(pending.step, 'REPLACE_COMMITMENT');
+  assert.equal(pending.lastError, 'COMMITTED_SLOT_MISMATCH');
+  assert.equal(pending.attention, true);
+  assert.equal(pending.outcome, null);
+  assert.equal((await w.h.store.find(booking.id))!.booking.scheduleRevision, 1);
+  assert.equal(await events(w, booking.id, 'booking.rescheduled.v1'), 0);
+  assert.equal(w.c.dispatch.effects.confirmed, 0);
+  assert.equal(w.c.dispatch.effects.reverted, 0);
+  assert.equal(w.c.commitments.effects.replaced, 1, 'the owner committed exactly once');
+
+  mismatch = false;
+  await drain(w, requested.change.changeId, w.x, 1);
+  const completed = (await w.x.store.findChange(requested.change.changeId))!.change;
+  assert.equal(completed.outcome, 'COMPLETED');
+  assert.equal((await w.h.store.find(booking.id))!.booking.rescheduledSlot?.holdId, target.holdId);
+  assert.equal(await events(w, booking.id, 'booking.rescheduled.v1'), 1);
+  assert.equal(w.c.dispatch.effects.confirmed, 1);
+  assert.equal(w.c.commitments.effects.replaced, 1);
+});
+
 test('a worker that stalls after the pivot is fenced; another replica finishes the change', async () => {
   const w = world({ inlineBudgetMs: 1 });
   const { who, booking } = await confirmed(w);

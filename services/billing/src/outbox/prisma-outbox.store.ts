@@ -69,14 +69,19 @@ export class PrismaCustodyOutboxStore implements OutboxStore {
     }));
   }
 
-  async markPublished(input: { id: string; workerId: string }): Promise<boolean> {
+  async markPublished(input: {
+    id: string;
+    workerId: string;
+    leaseAttempt: number;
+  }): Promise<boolean> {
     const rows = await this.prisma.client.$queryRawUnsafe<{ id: string }[]>(
       `UPDATE app.outbox_message SET published_at = now(), locked_by = NULL,
               locked_until = NULL, last_error = NULL
-        WHERE id = $1::uuid AND locked_by = $2 AND locked_until > now()
+        WHERE id = $1::uuid AND locked_by = $2 AND attempts = $3 AND locked_until > now()
           AND published_at IS NULL AND dead_at IS NULL RETURNING id`,
       input.id,
       input.workerId,
+      input.leaseAttempt,
     );
     return rows.length === 1;
   }
@@ -84,18 +89,20 @@ export class PrismaCustodyOutboxStore implements OutboxStore {
   async markFailed(input: {
     id: string;
     workerId: string;
+    leaseAttempt: number;
     error: string;
     maxAttempts: number;
   }): Promise<boolean> {
     const rows = await this.prisma.client.$queryRawUnsafe<{ id: string }[]>(
       `UPDATE app.outbox_message SET last_error = $3, locked_by = NULL, locked_until = NULL,
               dead_at = CASE WHEN attempts >= $4 THEN now() ELSE NULL END
-        WHERE id = $1::uuid AND locked_by = $2 AND locked_until > now()
+        WHERE id = $1::uuid AND locked_by = $2 AND attempts = $5 AND locked_until > now()
           AND published_at IS NULL AND dead_at IS NULL RETURNING id`,
       input.id,
       input.workerId,
       input.error,
       input.maxAttempts,
+      input.leaseAttempt,
     );
     return rows.length === 1;
   }

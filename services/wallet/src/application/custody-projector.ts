@@ -66,8 +66,9 @@ function decode(raw: unknown): Decoded {
       sourceKind: 'RECEIPT',
       aggregateId: event.aggregate.id,
       version: event.aggregate.version,
-      plan: () =>
+      plan: (source) =>
         cashCollected({
+          receipt: source,
           receiptId: event.aggregate.id,
           version: event.aggregate.version,
           holder,

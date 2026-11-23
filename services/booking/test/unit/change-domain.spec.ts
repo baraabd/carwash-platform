@@ -154,6 +154,36 @@ test('before the pivot the new hold deadline ends the attempt with a revert', ()
   assert.deepEqual([refused.outcome, refused.refusal], ['REFUSED', 'WORK_STARTED']);
 });
 
+test('a replaced slot differing from the requested slot never advances the reschedule pivot', () => {
+  const pending = beginPivot(onRebind(reschedule(), { kind: 'REBOUND' }, at(1), 0), at(2));
+  const mismatches = [
+    { ...to, holdId: ID.hold },
+    { ...to, zoneId: ID.subject },
+    { ...to, startsAt: at(361) },
+    { ...to, endsAt: at(421) },
+  ];
+  for (const slot of mismatches) {
+    let current = pending;
+    for (let attempt = 0; attempt < CHANGE_POLICY.attentionAfterAttempts; attempt += 1) {
+      current = onReplace(current, { kind: 'REPLACED', slot }, at(20 + attempt), 0);
+      assert.equal(current.step, 'REPLACE_COMMITMENT');
+      assert.equal(current.outcome, null);
+      assert.equal(current.lastError, 'COMMITTED_SLOT_MISMATCH');
+      assert.equal(isPivotExit(pending, current), false);
+    }
+    assert.equal(current.attention, true);
+    assert.equal(
+      current.refusal,
+      null,
+      'the commit may have happened; never revert on uncertainty',
+    );
+    const corrected = onReplace(current, { kind: 'REPLACED', slot: to }, at(40), 0);
+    assert.equal(corrected.step, 'DISPATCH_CONFIRM');
+    assert.equal(corrected.attention, false);
+    assert.equal(isPivotExit(current, corrected), true);
+  }
+});
+
 function booking(overrides: Partial<Booking> = {}): Booking {
   return {
     id: ID.booking,

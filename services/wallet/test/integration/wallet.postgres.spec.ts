@@ -220,6 +220,61 @@ test('race: different events for one holder from two replicas all apply, totals 
   assert.deepEqual(await movementSum(holder), { held: expected, count: 12 });
 });
 
+test('race: distinct envelopes for a first source version produce one movement and recorded stale no-ops', async () => {
+  for (let round = 0; round < 5; round += 1) {
+    const holder = holderOf();
+    const receiptId = randomUUID();
+    const original = collected({ holder, receiptId, amount: syp(8_000) });
+    const events = Array.from({ length: 8 }, () => ({ ...original, eventId: randomUUID() }));
+    const results = await Promise.all(
+      events.map((event, index) => (index % 2 === 0 ? replicaA : replicaB).project(event)),
+    );
+    assert.deepEqual(results.map((result) => result.outcome).sort(), [
+      'APPLIED',
+      'STALE',
+      'STALE',
+      'STALE',
+      'STALE',
+      'STALE',
+      'STALE',
+      'STALE',
+    ]);
+    assert.deepEqual(await movementSum(holder), { held: 8_000, count: 1 });
+    const state = await account(holder);
+    assert.deepEqual([state?.held, state?.version], [8_000, 1]);
+    const inbox = await sql.query(
+      `SELECT count(*)::int AS count FROM wallet_inbox WHERE aggregate_id = $1`,
+      [receiptId],
+    );
+    assert.equal(inbox.rows[0].count, events.length);
+  }
+});
+
+test('receipt collection is single-use even when another valid envelope carries a higher version', async () => {
+  const holder = holderOf();
+  const receiptId = randomUUID();
+  const first = collected({ holder, receiptId, amount: syp(6_000) });
+  assert.equal((await replicaA.project(first)).outcome, 'APPLIED');
+  const repeated = collected({ holder, receiptId, amount: syp(6_000), version: 2 });
+  assert.deepEqual(await replicaB.project(repeated), {
+    outcome: 'REJECTED',
+    eventId: repeated.eventId,
+    reason: 'EVENT_INVALID',
+  });
+  assert.equal(
+    (await replicaA.project(reversed({ receiptId, amount: syp(6_000), version: 2 }))).outcome,
+    'APPLIED',
+  );
+  const resurrected = collected({ holder, receiptId, amount: syp(6_000), version: 3 });
+  assert.equal((await replicaB.project(resurrected)).outcome, 'REJECTED');
+  assert.deepEqual(await movementSum(holder), { held: 0, count: 2 });
+  const source = await sql.query(
+    `SELECT status, last_version FROM custody_source WHERE kind = 'RECEIPT' AND aggregate_id = $1`,
+    [receiptId],
+  );
+  assert.deepEqual(source.rows[0], { status: 'REVERSED', last_version: 2 });
+});
+
 test('ordering: early events are deferred (not recorded), stale versions are recorded no-ops', async () => {
   const holder = holderOf();
   const receiptId = randomUUID();
