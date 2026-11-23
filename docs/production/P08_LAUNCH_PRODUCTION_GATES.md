@@ -64,6 +64,20 @@ No broader artifact wildcard or overwrite is used to repair a retry.
 GitHub documents retained outputs for successful jobs in
 [partial workflow reruns](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs).
 
+F010 browser dependency preparation has a separate ten-minute step deadline,
+within the existing thirty-minute job limit. An installer stalled on an external
+package mirror fails the gate; all installation and browser assertions remain
+required. A partial retry must still satisfy the evidence rules above.
+
+Privacy regressions compare raw event shapes and approved audit metadata rather
+than searching arbitrary identifier or timestamp digits for private values.
+Collision-bearing UUID fixtures exercise Configuration, Customer and Booking
+events and Configuration audit rows. Exact wire/data comparisons exclude private
+fields before any contract parser can strip them; audit records must carry the
+independently calculated value hash. The Scheduling no-echo test uses a formatted
+phone marker that cannot occur in UUID metadata. The underlying privacy behavior
+and real database acceptance requirements remain unchanged.
+
 ## Release evidence workflow
 
 1. Select the exact release commit and clean checkout. Generate the candidate

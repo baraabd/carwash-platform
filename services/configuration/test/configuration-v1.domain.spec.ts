@@ -193,6 +193,10 @@ test('configuration.v1 diff: field-level changes, both sides', () => {
 });
 
 test('configuration.v1 event: the outbox payload parses with the published event contract', () => {
+  // Valid metadata may contain the same digits as a configuration value.
+  const eventId = '60000000-0000-4000-8000-000000000001';
+  const correlationId = '60000000-0000-4000-8000-000000000002';
+  const scopeId = '60000000-0000-4000-8000-000000000003';
   const published: PublishedRecord = {
     scope: { marketId: 'sy', namespace: 'booking.policy.v1' },
     version: 3,
@@ -203,12 +207,11 @@ test('configuration.v1 event: the outbox payload parses with the published event
     publishedBy: OTHER,
     publishedAt: new Date('2026-10-11T08:00:00.000Z'),
   };
-  const scopeId = randomUUID();
   const row = configurationPublishedEvent(
     {
-      eventId: randomUUID(),
+      eventId,
       occurredAt: published.publishedAt,
-      correlationId: randomUUID(),
+      correlationId,
       traceParent: 'not-a-traceparent',
       actorSubject: OTHER,
     },
@@ -218,15 +221,31 @@ test('configuration.v1 event: the outbox payload parses with the published event
   assert.equal(row.exchange, 'configuration.events');
   assert.equal(row.routingKey, 'configuration.configuration-published.v1');
   assert.equal(row.traceParent, null, 'an invalid traceparent is dropped, not forwarded');
-  const parsed = CONFIGURATION_PUBLISHED_V1.parse(JSON.parse(row.payload));
-  assert.deepEqual(parsed.aggregate, { type: 'configuration-scope', id: scopeId, version: 3 });
-  assert.deepEqual(parsed.data, {
+  const expectedData = {
     marketId: 'sy',
     namespace: 'booking.policy.v1',
     contentHash: 'a'.repeat(64),
     effectiveAt: '2026-10-11T08:00:00.000Z',
-  });
-  assert.equal(row.payload.includes('600'), false, 'content values never travel in the event');
+  };
+  const expectedPayload = {
+    eventId,
+    eventType: 'configuration.configuration-published.v1',
+    envelopeVersion: 2,
+    producer: 'configuration',
+    occurredAt: '2026-10-11T08:00:00.000Z',
+    correlationId,
+    causationId: null,
+    traceparent: null,
+    aggregate: { type: 'configuration-scope', id: scopeId, version: 3 },
+    actor: { kind: 'account', id: OTHER },
+    data: expectedData,
+  };
+  const rawPayload: unknown = JSON.parse(row.payload);
+  // Check the wire object before parsing, even if a future parser drops unknown fields.
+  assert.deepEqual(rawPayload, expectedPayload, 'the raw event contains only published metadata');
+  const parsed = CONFIGURATION_PUBLISHED_V1.parse(rawPayload);
+  assert.deepEqual(parsed.aggregate, { type: 'configuration-scope', id: scopeId, version: 3 });
+  assert.deepEqual(parsed.data, expectedData);
 });
 
 function unusedStore(overrides: Partial<ConfigurationV1Store>): ConfigurationV1Store {

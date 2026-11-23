@@ -83,6 +83,7 @@ jobs:
         with:
           node-version-file: .nvmrc
       - name: Exact toolchain and browser
+        timeout-minutes: 10
         run: |
           set -euo pipefail
           corepack enable

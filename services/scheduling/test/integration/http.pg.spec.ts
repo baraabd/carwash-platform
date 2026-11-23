@@ -432,9 +432,10 @@ test('staff surface: windows by operations only; malformed bodies are 400 withou
     200,
     'identical definition replays',
   );
-  const bad = await call('POST', '/windows', ops, { ...body, secret: '0991234567' });
+  const privatePhone = '+963 991 234 567';
+  const bad = await call('POST', '/windows', ops, { ...body, secret: privatePhone });
   expectError(bad, 400, 'REQUEST_INVALID');
-  assert.ok(!JSON.stringify(bad.body).includes('0991234567'));
+  assert.ok(!JSON.stringify(bad.body).includes(privatePhone));
   expectError(await call('POST', '/windows', ops, '{"zoneId":'), 400, 'REQUEST_INVALID');
   expectError(await call('GET', '/no-such-route', ops), 404, 'NOT_FOUND');
 });
