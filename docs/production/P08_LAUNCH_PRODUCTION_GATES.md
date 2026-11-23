@@ -18,6 +18,7 @@ itself deploy the platform or issue production authorization.
 | Boundary | Failure before this change | Enforced behavior |
 | --- | --- | --- |
 | Pull-request coverage | Artifact and recovery workflows could be absent from a `develop` pull request, or from a change outside their path filters. | Both workflows run for every pull request to `develop` and `main`. The artifact aggregate accepts only the successful path selected by the event and branch. |
+| Partial workflow retries | The F010 aggregate selected only the current attempt's artifacts, losing evidence from a successful producer reused during a retry. | Each producer exposes its immutable uploaded artifact ID. The aggregate requires both successful producers and valid distinct IDs before downloading their exact evidence, then checks the source and parity results. |
 | Candidate provenance | A gate or build could change source after the initial check while retaining the earlier commit identity in its evidence. | Relevant source must be clean and remain on the same commit and tree before and after the operation. Source drift cannot produce a passing receipt. |
 | Release manifest | A small digest map could stand in for the complete release and use a different authorization digest. | The barrier reads the full hashed release manifest, checks every catalog runtime and migration artifact, and uses its canonical digest for authorization. |
 | Candidate configuration | Configuration digests could be omitted, and the evaluator's policy could differ from the candidate's policy. | Candidate and receipt configuration digests are mandatory and recomputed from pinned Git objects. Policy, source metadata and migration sets must match that candidate. |
@@ -52,6 +53,16 @@ The desired governance policy adds these two gates and
 `All business acceptance families passed`. The business aggregate requires all
 19 acceptance families. Existing build, contracts, design lock, security,
 database, broker and browser checks continue to apply.
+
+F010 evidence remains immutable and retains its producer-attempt name. Partial
+retries consume the exact artifact IDs exposed by successful producer jobs,
+including a successful job retained from an earlier attempt. A missing or
+malformed ID fails before download; failed or skipped dependencies cannot pass.
+The aggregate still requires the complete evidence files, the current source
+SHA/tree, all 18 deterministic captures and the reference-debt/drift checks.
+No broader artifact wildcard or overwrite is used to repair a retry.
+GitHub documents retained outputs for successful jobs in
+[partial workflow reruns](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs).
 
 ## Release evidence workflow
 
