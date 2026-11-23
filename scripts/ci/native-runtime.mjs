@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { LEGACY_CONVERTER_RUNTIME_PROBE } from './runtime-hardening.mjs';
 
 export const NATIVE_PACKAGES = Object.freeze(['libgcc-s1', 'libstdc++6']);
 export const NATIVE_PACKAGE_VERSION = '14.2.0-19';
@@ -50,6 +51,7 @@ export const NATIVE_RUNTIME_PROBE = String.raw`
   }
   for (const file of ['libssl.so.3', 'libcrypto.so.3'])
     assert.ok(!fs.existsSync('/usr/lib/x86_64-linux-gnu/' + file));
+  ${LEGACY_CONVERTER_RUNTIME_PROBE}
   const identity = process.argv[1] === 'identity';
   if (identity) {
     const own = require('node:module').createRequire(require.resolve('@carwash/security-kit'));
@@ -59,6 +61,7 @@ export const NATIVE_RUNTIME_PROBE = String.raw`
     assert.equal(await argon2.verify(hash, 'different-fixture'), false);
   }
   console.log(JSON.stringify({ node: process.version, openssl: process.versions.openssl,
-    uid: process.getuid(), crypto: true, tls: true, argon2: identity, packageInventory: true }));
+    uid: process.getuid(), crypto: true, tls: true, argon2: identity, packageInventory: true,
+    legacyConverters }));
 })().catch(() => { console.error('NATIVE_RUNTIME_PROBE_FAILED'); process.exitCode = 1; });
 `;

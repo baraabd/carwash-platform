@@ -88,5 +88,5 @@ export function leaveVehicleStep(state: CustomerSessionState): SessionTransition
 
 /** "حفظ والخروج": keep the draft so Home can offer to continue it, then go Home. */
 export function saveDraftAndExit(state: CustomerSessionState): SessionTransition {
-  return { state: withDraft(state, {}), intent: { kind: 'home' } };
+  return { state: { ...withDraft(state, {}), reviewEditing: false }, intent: { kind: 'home' } };
 }

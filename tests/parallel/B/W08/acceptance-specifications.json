@@ -1,0 +1,841 @@
+{
+  "task": "W08-B",
+  "specificationStatus": "PROPOSED_NOT_ACCEPTED",
+  "parentStatus": "NOT_STARTED",
+  "fullLaunchDisposition": "NO_GO",
+  "observedTarget": {
+    "sha": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+    "tree": "1a6b3a54e926fc9e3387ac547ecc20c3d3f4252d",
+    "isAcceptedBaseW08": false
+  },
+  "acceptedBaseW08": null,
+  "currentFoundationPackages": {
+    "contracts": "0.0.2",
+    "event-contracts": "0.0.2",
+    "api-clients": "0.0.1",
+    "establishFinanceAcceptance": false
+  },
+  "document": "../../../../docs/parallel/B/W08/THREATS_AND_ACCEPTANCE.md",
+  "executionClaim": "No listed real scope acceptance case was executed. Source/model probes and foundation CI remain separate evidence.",
+  "requiredEvidenceFields": [
+    "exact source/head/tree and candidate/target",
+    "contract/policy/provider versions",
+    "run/attempt and exact accepted command",
+    "isolated environment/resource names",
+    "approved input dataset hash and provenance",
+    "current actors and allowed/denied controls",
+    "redacted durable before/after owner receipts/effects/constraints",
+    "reached fault boundary and owned process/resource handles where applicable",
+    "expected/observed invariant and PASS/FAIL/BLOCKED disposition",
+    "artifact reference/hash",
+    "genuine provider provenance where required",
+    "approved performance budget and actual measured values where required"
+  ],
+  "cases": [
+    {
+      "id": "W08-B-NUM-01",
+      "status": "NOT_RUN",
+      "experiment": "Submit altered price/tax/discount/total, incompatible immutable quote refs, wrong currency/exponent and cross-currency aggregation; include valid approved positive controls.",
+      "expected": "Reject before effects or derive the accepted authoritative total; no caller-supplied price authority or mixed-currency journal.",
+      "accountableOwners": ["B Catalog", "B Pricing", "B Billing"],
+      "requiredEnvironment": "real accepted owner HTTP/parser plus owned database constraints",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-NUM-02",
+      "status": "NOT_RUN",
+      "experiment": "Test each approved currency's smallest/largest supported amounts and approved rounding boundaries; send overflow, exponent notation, float/NaN/coercion shapes, signed/leading/whitespace malformed decimals and unsupported precision.",
+      "expected": "Closed parser and real DB constraints agree; exact accepted arithmetic or safe refusal; no truncation, overflow or implicit conversion.",
+      "accountableOwners": ["B Catalog", "B Pricing", "B Billing"],
+      "requiredEnvironment": "real accepted owner HTTP/parser plus owned database constraints",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-NUM-03",
+      "status": "NOT_RUN",
+      "experiment": "Send hostile IDs/key sizes/path/control characters, foreign refs and unexpected fields; inspect HTTP errors, events and service logs using approved nonsecret privacy sentinels.",
+      "expected": "Bounded validation under the accepted format; no injection, unbounded lookup, payload echo, existence leak or private sentinel leakage.",
+      "accountableOwners": ["B Catalog", "B Pricing", "B Billing"],
+      "requiredEnvironment": "real accepted owner HTTP/parser plus owned database constraints",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-IDEM-01",
+      "status": "NOT_RUN",
+      "experiment": "Concurrent same key/same meaning, then changed beneficiary/Money/purpose/policy/revision/quote/fence; repeat after restart. Exercise approved canonical set/order/null semantics.",
+      "expected": "One original effect and stable authorized receipt; changed meaning conflicts. Canonicalization distinguishes all material business meaning without transient credentials.",
+      "accountableOwners": ["B affected operation owner", "E contract/authority publication"],
+      "requiredEnvironment": "real accepted owner HTTP and owned database with separate concurrent transactions/restart",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-IDEM-02",
+      "status": "NOT_RUN",
+      "experiment": "Repeat one business effect under distinct keys/endpoints/staff sessions and after approved cache expiry; submit colliding key/fingerprint inputs under the accepted protocol.",
+      "expected": "Durable business constraints prevent duplicate effects; foreign replay is denied and conflicts do not disclose another actor's receipt.",
+      "accountableOwners": ["B affected operation owner", "E contract/authority publication"],
+      "requiredEnvironment": "real accepted owner HTTP and owned database with separate concurrent transactions/restart",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-AUTH-01",
+      "status": "NOT_RUN",
+      "experiment": "Separate own/foreign customers and two guests attempt commands/status/replay/history/export using substituted subject/Booking/plan/holder/purpose and guessed private refs.",
+      "expected": "Current bound object/purpose/beneficiary authority on every surface; valid own scope passes; phone/plate/known IDs do not grant access.",
+      "accountableOwners": [
+        "B affected operation/data owner",
+        "E Identity",
+        "C Media",
+        "A customer sessions",
+        "D Support/admin consumers"
+      ],
+      "requiredEnvironment": "real accepted owner HTTP/workers and current E Identity/object authority; actual private Media where required",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-AUTH-02",
+      "status": "NOT_RUN",
+      "experiment": "Revoke collector, reviewer, refund actor, publisher and recovery-service authority between admission/execute/retry/status/replay; expire or substitute authVersion.",
+      "expected": "Accepted current execution authority/fence denies stale new effects and disclosure; existing possible effects retain recovery identities and exposure.",
+      "accountableOwners": [
+        "B affected operation/data owner",
+        "E Identity",
+        "C Media",
+        "A customer sessions",
+        "D Support/admin consumers"
+      ],
+      "requiredEnvironment": "real accepted owner HTTP/workers and current E Identity/object authority; actual private Media where required",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-AUTH-03",
+      "status": "NOT_RUN",
+      "experiment": "Read proof/receipt/export as owner, foreign guest/customer, unrelated staff and Support actor; revoke between pages, export items and signed/private download.",
+      "expected": "Actual Media/B owner checks protect each item/download; artifact or Support access does not imply financial/private scope; no signed locator leak.",
+      "accountableOwners": [
+        "B affected operation/data owner",
+        "E Identity",
+        "C Media",
+        "A customer sessions",
+        "D Support/admin consumers"
+      ],
+      "requiredEnvironment": "real accepted owner HTTP/workers and current E Identity/object authority; actual private Media where required",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-AUTH-04",
+      "status": "NOT_RUN",
+      "experiment": "Make authoritative Identity/object-purpose validation unavailable on command, worker retry, privileged repair and replay. Restore authority and retry the original operation.",
+      "expected": "Critical authority fails closed; no cached broad grant fallback. Original pending/UNKNOWN result is reconciled safely after current authorization.",
+      "accountableOwners": [
+        "B affected operation/data owner",
+        "E Identity",
+        "C Media",
+        "A customer sessions",
+        "D Support/admin consumers"
+      ],
+      "requiredEnvironment": "real accepted owner HTTP/workers and current E Identity/object authority; actual private Media where required",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-AUTH-05",
+      "status": "NOT_RUN",
+      "experiment": "Execute approved anonymize/retention/hold and restore/rebuild; scan redacted logs/errors/events/exports and actual copies for approved sentinels.",
+      "expected": "Posted history stays immutable; retained exceptions are explicit; revoked access and approved suppression survive replay. Unhandled required copies prevent completion.",
+      "accountableOwners": [
+        "B affected operation/data owner",
+        "E Identity",
+        "C Media",
+        "A customer sessions",
+        "D Support/admin consumers"
+      ],
+      "requiredEnvironment": "real accepted owner HTTP/workers and current E Identity/object authority; actual private Media where required",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-SQL-01",
+      "status": "NOT_RUN",
+      "experiment": "Race cash collection for one obligation with original and distinct keys/collectors; race custody transfer/acceptance and company settlement with duplicate/partial/mismatched evidence.",
+      "expected": "One policy-valid receipt/effect per actual business identity; collection, holder movement and treasury receipt independently reconcile; differences remain reviewed facts.",
+      "accountableOwners": [
+        "B affected database owner",
+        "E isolated roles/provisioning",
+        "C lifecycle/capacity producer where required"
+      ],
+      "requiredEnvironment": "real owned PostgreSQL with separate connections, barrier-controlled contention and accepted runtime/migrator roles",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-SQL-02",
+      "status": "NOT_RUN",
+      "experiment": "Race final spendable funds across holds/capture/release/expiry, including distinct keys and Billing response loss. Restart before resolution.",
+      "expected": "No negative available funds or double capture; command-bound UNKNOWN claim stays unavailable; recovered original Billing effect backs one Wallet movement.",
+      "accountableOwners": [
+        "B affected database owner",
+        "E isolated roles/provisioning",
+        "C lifecycle/capacity producer where required"
+      ],
+      "requiredEnvironment": "real owned PostgreSQL with separate connections, barrier-controlled contention and accepted runtime/migrator roles",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-SQL-03",
+      "status": "NOT_RUN",
+      "experiment": "Race final entitlement reserve/consume/release/expiry and refund adjustment at approved exact boundary; test failed renewal with an independently valid prior term.",
+      "expected": "Actual owner constraint/claim/fence yields policy-valid conserved units; consume history stays; no refund on stale eligibility or prior-term cancellation inferred from failed renewal.",
+      "accountableOwners": [
+        "B affected database owner",
+        "E isolated roles/provisioning",
+        "C lifecycle/capacity producer where required"
+      ],
+      "requiredEnvironment": "real owned PostgreSQL with separate connections, barrier-controlled contention and accepted runtime/migrator roles",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-SQL-04",
+      "status": "NOT_RUN",
+      "experiment": "Race final campaign use, global exact budget, per-customer and guest limits; mix approved benefit/promotion stacking and cancel/restoration with delayed workers.",
+      "expected": "Held/claimed/used exposure cannot exceed approved caps; one permitted final use; UNKNOWN and unapproved restoration create no new headroom.",
+      "accountableOwners": [
+        "B affected database owner",
+        "E isolated roles/provisioning",
+        "C lifecycle/capacity producer where required"
+      ],
+      "requiredEnvironment": "real owned PostgreSQL with separate connections, barrier-controlled contention and accepted runtime/migrator roles",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-SQL-05",
+      "status": "NOT_RUN",
+      "experiment": "Race distinct-key partial/full refunds across original payments, allocations and aggregate purchase; overlap plan consume/adjustment and Wallet destination substitution.",
+      "expected": "Cumulative disjoint exposure stays within both per-source and purchase caps; exact approved route; eligibility claim survives uncertainty; no automatic unit/promotion restoration.",
+      "accountableOwners": [
+        "B affected database owner",
+        "E isolated roles/provisioning",
+        "C lifecycle/capacity producer where required"
+      ],
+      "requiredEnvironment": "real owned PostgreSQL with separate connections, barrier-controlled contention and accepted runtime/migrator roles",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-SQL-06",
+      "status": "NOT_RUN",
+      "experiment": "Fresh install and upgrade existing owned DB without reset; raw runtime SQL attempts unbalanced posting, posted UPDATE/DELETE, invalid account/currency/amount, duplicate business effect and peer DB access; repeat after E reprovision.",
+      "expected": "Actual constraints/roles enforce balance, immutability, bounds, uniqueness and ownership after every path. Permitted migrator append-only upgrade and linked correction still work.",
+      "accountableOwners": [
+        "B affected database owner",
+        "E isolated roles/provisioning",
+        "C lifecycle/capacity producer where required"
+      ],
+      "requiredEnvironment": "real owned PostgreSQL with separate connections, barrier-controlled contention and accepted runtime/migrator roles",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-SQL-07",
+      "status": "NOT_RUN",
+      "experiment": "Race reviewed-content amendment/publication/retirement and delayed worker execution at approved effective/expiry/clock boundaries; rebook against changed/retired Catalog/price/quote.",
+      "expected": "CAS/revision and current grants protect approved publication; old snapshots stay immutable; rebook uses current quote/consent and actual new C capacity.",
+      "accountableOwners": [
+        "B affected database owner",
+        "E isolated roles/provisioning",
+        "C lifecycle/capacity producer where required"
+      ],
+      "requiredEnvironment": "real owned PostgreSQL with separate connections, barrier-controlled contention and accepted runtime/migrator roles",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-REC-01",
+      "status": "NOT_RUN",
+      "experiment": "Crash before/after local transaction commit and restart; make DB unavailable at commit and broker unavailable after commit. Cover actual orphan-intent handoff and Outbox enqueue.",
+      "expected": "No partial state/effect/receipt/audit/outbox commit; committed operations remain queryable and recoverable; ambiguous commit is looked up under original identity.",
+      "accountableOwners": [
+        "B affected operation/database owner",
+        "E broker/resources/technical publisher",
+        "C saga/capacity",
+        "D operational projections"
+      ],
+      "requiredEnvironment": "real accepted owner services/owned databases/allocated broker and documented original-operation recovery; genuine provider evidence where required",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-REC-02",
+      "status": "NOT_RUN",
+      "experiment": "Commit Billing, lose reply and crash before Wallet application; restart with duplicate/gapped/correction-first delivery and later missing-update reconciliation.",
+      "expected": "One actual posting-backed movement; claimed funds remain unavailable during missing evidence; projection/status recovery never posts another journal.",
+      "accountableOwners": [
+        "B affected operation/database owner",
+        "E broker/resources/technical publisher",
+        "C saga/capacity",
+        "D operational projections"
+      ],
+      "requiredEnvironment": "real accepted owner services/owned databases/allocated broker and documented original-operation recovery; genuine provider evidence where required",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-REC-03",
+      "status": "NOT_RUN",
+      "experiment": "Crash before send, after provider may accept, after genuine response and before local confirmation; make query unavailable, then prove accepted definitive failure or actual credit/refund. Revoke actor/expire lease meanwhile.",
+      "expected": "Original operation/allowance/claims survive; UNKNOWN neither releases value nor triggers blind new send. Definitive no-effect resolution fences late work; confirmed effects are recorded once.",
+      "accountableOwners": [
+        "B affected operation/database owner",
+        "E broker/resources/technical publisher",
+        "C saga/capacity",
+        "D operational projections"
+      ],
+      "requiredEnvironment": "real accepted owner services/owned databases/allocated broker and documented original-operation recovery; genuine provider evidence where required",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent",
+        "Genuine documented required-provider protocol/account/test authority and acceptance evidence absent"
+      ]
+    },
+    {
+      "id": "W08-B-REC-04",
+      "status": "NOT_RUN",
+      "experiment": "Leave benefit/promotion reservation gaps around consume/expiry/cancel/refund; fail compensation and restart; deliver stale release/restoration after committed effect.",
+      "expected": "Durable owner reconciliation uses actual current refs/fences; preserves history/exposure and caps; routes contradiction to review without inventing units or coupon budget.",
+      "accountableOwners": [
+        "B affected operation/database owner",
+        "E broker/resources/technical publisher",
+        "C saga/capacity",
+        "D operational projections"
+      ],
+      "requiredEnvironment": "real accepted owner services/owned databases/allocated broker and documented original-operation recovery; genuine provider evidence where required",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-REC-05",
+      "status": "NOT_RUN",
+      "experiment": "Reconcile genuine collection, holder custody, handover and company receipts with missing/duplicate/wrong-currency/unexplained records; restart an audited repair command.",
+      "expected": "Per-currency explained/unexplained differences remain distinct; one permitted repair receipt with actor/reason/source refs; no balancing credit/deletion or doubled treasury receipt.",
+      "accountableOwners": [
+        "B affected operation/database owner",
+        "E broker/resources/technical publisher",
+        "C saga/capacity",
+        "D operational projections"
+      ],
+      "requiredEnvironment": "real accepted owner services/owned databases/allocated broker and documented original-operation recovery; genuine provider evidence where required",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-REC-06",
+      "status": "NOT_RUN",
+      "experiment": "Crash publisher after lease acquisition on final attempt, before/after broker confirmation and before/after markPublished; fail DB at local publication/failure marking; race lease expiry/reacquisition and stale markPublished/markFailed. Crash consumer before/after effect/Inbox commit/ACK; resume a pre-restore worker against rolled-back lease counters and the accepted fresh restore incarnation.",
+      "expected": "No indefinitely invisible row or stale worker state regression; original event survives restart as published/recoverable/audited terminal outcome. Duplicate delivery produces one durable consumer effect, not exactly-once broker claims.",
+      "accountableOwners": [
+        "B affected operation/database owner",
+        "E broker/resources/technical publisher",
+        "C saga/capacity",
+        "D operational projections"
+      ],
+      "requiredEnvironment": "real accepted owner services/owned databases/allocated broker and documented original-operation recovery; genuine provider evidence where required",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-REC-07",
+      "status": "NOT_RUN",
+      "experiment": "Deliver same event ID/same hash, changed hash, stale/reordered/gapped/unsupported versions and correction-before-original; expire approved history cursor, rebuild projection and restore approved dataset. Resume old consume/release/repair workers when restored counters repeat, under the accepted new restore-incarnation fence.",
+      "expected": "Conflict/version quarantine and bounded owner resync; per-owner coverage remains honest. No command replay/new IDs to manufacture money, units, custody or notifications; business uniqueness and privacy persist.",
+      "accountableOwners": [
+        "B affected operation/database owner",
+        "E broker/resources/technical publisher",
+        "C saga/capacity",
+        "D operational projections"
+      ],
+      "requiredEnvironment": "real accepted owner services/owned databases/allocated broker and documented original-operation recovery; genuine provider evidence where required",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-REC-08",
+      "status": "NOT_RUN",
+      "experiment": "Repeatedly construct/use/dispose the actual publisher, reconnect its real broker channel and inject confirmation/error/close during in-flight work; observe retained listeners and resource handles on the allocated scope.",
+      "expected": "Listener/channel/pending-work lifecycle stays bounded against approved budgets, each callback settles its own operation once, and disposal preserves honest unknown outcomes without leaked stale handlers or duplicate financial effects.",
+      "accountableOwners": [
+        "B affected operation/database owner",
+        "E broker/resources/technical publisher",
+        "C saga/capacity",
+        "D operational projections"
+      ],
+      "requiredEnvironment": "real accepted owner services/owned databases/allocated broker and documented original-operation recovery; genuine provider evidence where required",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-PROV-01",
+      "status": "NOT_RUN",
+      "experiment": "In each required genuine authorized merchant environment, send forged/duplicate/reordered messages; wrong merchant/recipient/ref/amount/currency; actual valid credit and independently obtained finality/status.",
+      "expected": "Only authenticated correctly correlated evidence establishes received funds; allocation remains separate; proof image/navigation/fixture never establishes credit.",
+      "accountableOwners": [
+        "B Billing",
+        "authorized provider account owner",
+        "E routing/secrets/resources",
+        "affected A/C/D consumers"
+      ],
+      "requiredEnvironment": "genuine authorized required-provider merchant/environment with actual protocol evidence and real Billing",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent",
+        "Genuine documented required-provider protocol/account/test authority and acceptance evidence absent"
+      ]
+    },
+    {
+      "id": "W08-B-PROV-02",
+      "status": "NOT_RUN",
+      "experiment": "Execute allowed genuine partial/full refund, uncertain submission/query and settlement/discrepancy protocols for each required route; record actual provider version and evidence.",
+      "expected": "Actual confirmed return and linked immutable posting once; UNKNOWN retains cumulative allowance. Unsupported required finality/query/refund/reconciliation remains a blocker.",
+      "accountableOwners": [
+        "B Billing",
+        "authorized provider account owner",
+        "E routing/secrets/resources",
+        "affected A/C/D consumers"
+      ],
+      "requiredEnvironment": "genuine authorized required-provider merchant/environment with actual protocol evidence and real Billing",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent",
+        "Genuine documented required-provider protocol/account/test authority and acceptance evidence absent"
+      ]
+    },
+    {
+      "id": "W08-B-INT-01",
+      "status": "NOT_RUN",
+      "experiment": "E serialized actual cash and every required electronic customer/operator/admin journey against merged Billing/Wallet/Subscription/Pricing/C producers; include private receipt/proof, stale grants, reconciliation and failed compensation.",
+      "expected": "Independent source facts and current authorization converge; mandatory W07 full journeys remain required before affected consumer merge; report partial/UNKNOWN states truthfully.",
+      "accountableOwners": [
+        "B financial providers",
+        "E serialized integration",
+        "A customer",
+        "C Booking/Scheduling/Media/operator",
+        "D admin/reporting"
+      ],
+      "requiredEnvironment": "E serialized combined real merged providers and actual customer/operator/admin consumers",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-INT-02",
+      "status": "NOT_RUN",
+      "experiment": "Expire/release real C Scheduling/Booking capacity before late received/allocated payment and delayed duplicate callback; race compensation/rebook.",
+      "expected": "C capacity remains authoritative; late money cannot revive expired resources. Actual original-payment reconciliation/approved refund is independent of a new current Booking.",
+      "accountableOwners": [
+        "B financial providers",
+        "E serialized integration",
+        "A customer",
+        "C Booking/Scheduling/Media/operator",
+        "D admin/reporting"
+      ],
+      "requiredEnvironment": "E serialized combined real merged providers and actual customer/operator/admin consumers",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent"
+      ]
+    },
+    {
+      "id": "W08-B-PERF-01",
+      "status": "NOT_RUN",
+      "experiment": "Run the approved measured dataset/concurrency/payment/plan/promotion mix through actual accepted providers; measure latency/throughput/locks/resources/event lag and post-load invariant totals.",
+      "expected": "Compare to explicitly approved budgets on identified environment; exact outcomes reconcile. Record measurements and failures, without invented SLA, sample size, hardware or demand.",
+      "accountableOwners": [
+        "B financial providers",
+        "E approved harness/resources/budgets",
+        "business workload/data owner",
+        "affected C/D consumers"
+      ],
+      "requiredEnvironment": "real accepted providers on named E-allocated environment with approved representative dataset/workload/budgets",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent",
+        "Approved provenance-bound performance dataset/workload/budgets absent"
+      ],
+      "performance": {
+        "approvedDataset": null,
+        "approvedBudget": null,
+        "approvingOwner": null,
+        "actualMeasurement": null,
+        "comparison": null,
+        "status": "NOT_MEASURED",
+        "numericExpectation": null
+      }
+    },
+    {
+      "id": "W08-B-PERF-02",
+      "status": "NOT_RUN",
+      "experiment": "Run agreed outage/restart/backlog and stuck-operation/custody query workload with approved recovery/age/queue/page budgets; include slow/foreign scope and source-gap reads.",
+      "expected": "Bounded pagination/current scope, telemetry and audited repairs; observed recovery/backlog/latency versus approved limits; no unbounded scan, private metric labels or fabricated complete totals.",
+      "accountableOwners": [
+        "B financial providers",
+        "E approved harness/resources/budgets",
+        "business workload/data owner",
+        "affected C/D consumers"
+      ],
+      "requiredEnvironment": "real accepted providers on named E-allocated environment with approved representative dataset/workload/budgets",
+      "testCommand": null,
+      "actualEnvironment": null,
+      "actualSource": null,
+      "actualTarget": null,
+      "actualRun": null,
+      "actualResult": null,
+      "measures": null,
+      "evidence": null,
+      "blockedBy": [
+        "Actual E-published BASE_W08 absent",
+        "Accepted full-scope financial providers/contracts and required predecessor integration absent",
+        "E isolated resource/heavy-slot and exact gate allocation absent",
+        "Approved provenance-bound performance dataset/workload/budgets absent"
+      ],
+      "performance": {
+        "approvedDataset": null,
+        "approvedBudget": null,
+        "approvingOwner": null,
+        "actualMeasurement": null,
+        "comparison": null,
+        "status": "NOT_MEASURED",
+        "numericExpectation": null
+      }
+    }
+  ],
+  "schemaVersion": 1
+}

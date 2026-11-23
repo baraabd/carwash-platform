@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "task": "W02-D",
+  "phase": "BLOCKED_ENTRY",
+  "observedAt": "2026-10-05T09:32:03.922Z",
+  "repository": "baraabd/carwash-platform",
+  "observationTarget": {
+    "sha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+    "tree": "5b51ed5f1779a2cbefc359fdbdc4720779989b4b",
+    "isAcceptedWaveBase": false
+  },
+  "acceptedBaseW02": null,
+  "verifiedOwnershipBaseW02": null,
+  "release": {
+    "status": "INTEGRATION_PENDING",
+    "acceptedNextWaveContracts": [],
+    "publishedPackageVersions": {},
+    "clientRegistryStatus": "api-clients-export-empty-skeleton",
+    "configurationPacketStatus": "externally-merged-proposal-review-pending"
+  },
+  "ownership": {
+    "registryStatus": "proposal-pending-independent-review",
+    "leaseExpiry": "verified-BASE_W02",
+    "DActiveLeaseIds": [
+      "W01-runtime-reviews",
+      "W01-runtime-configuration",
+      "W01-boot-admin-web"
+    ],
+    "sourceWritesOpened": false,
+    "postExpiryUndeclaredPaths": [
+      "services/reviews/prisma.config.ts",
+      "services/reviews/README.md",
+      "services/configuration/prisma.config.ts",
+      "services/configuration/README.md",
+      "apps/admin-web/index.html",
+      "apps/admin-web/vite.config.ts",
+      "apps/admin-web/server.mjs",
+      "apps/admin-web/test/runtime.test.mjs"
+    ],
+    "diagnosticMode": "read-only in-memory effectiveOwner expiry branch; no accepted registry created"
+  },
+  "github": {
+    "mainProtected": false,
+    "openPRsBeforeThisProposal": [],
+    "bootstrapPR": 45,
+    "bootstrapIndependentApprovalsObserved": 0,
+    "checkRuns": {
+      "total": 56,
+      "success": 55,
+      "other": [
+        {
+          "name": "customer-payment-method",
+          "status": "in_progress",
+          "conclusion": null,
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032190/job/111688262459"
+        }
+      ]
+    },
+    "workflowRuns": {
+      "total": 20,
+      "success": 19,
+      "other": [
+        {
+          "name": "C012 customer payment-method parity acceptance",
+          "status": "in_progress",
+          "conclusion": null,
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032190"
+        }
+      ]
+    },
+    "sourceUrls": [
+      "https://api.github.com/repos/baraabd/carwash-platform/branches/main",
+      "https://api.github.com/repos/baraabd/carwash-platform/pulls/45/reviews",
+      "https://api.github.com/repos/baraabd/carwash-platform/commits/3db1afdd04c6ec65a38ca83f3993c964a1bf7587/check-runs?per_page=100",
+      "https://api.github.com/repos/baraabd/carwash-platform/actions/runs?head_sha=3db1afdd04c6ec65a38ca83f3993c964a1bf7587&per_page=100"
+    ],
+    "limitation": "Dated observation of this target only, not proposal-head acceptance or W02 business evidence."
+  },
+  "toolchain": {
+    "required": {
+      "node": "24.21.0",
+      "pnpm": "10.32.1"
+    },
+    "observed": {
+      "node": "24.19.0",
+      "pnpm": "11.25.0"
+    },
+    "configurationGuard": "PASS",
+    "runtimeGuard": "FAIL"
+  },
+  "resources": {
+    "allocatedRuntime": null,
+    "ownedProcesses": [],
+    "containers": [],
+    "heavyLeases": [],
+    "databaseBrokerBrowser": "NOT_STARTED"
+  },
+  "productAcceptance": "NOT_RUN",
+  "productionReady": false
+}

@@ -1,0 +1,607 @@
+{
+  "schemaVersion": 1,
+  "task": "W09-D",
+  "phase": "PROPOSAL_ONLY / ENTRY_BLOCKED / REHEARSAL_NOT_RUN",
+  "expectedBase": "BASE_W09",
+  "acceptedBaseW09": null,
+  "analysisBase": "b47390c8ce04b2674e9222918bcd4e03fa5aed24",
+  "analysisTree": "c8a1f2f9e84f6298f1b044a8e8cec2549f33c15f",
+  "analysisBaseIsAcceptedWaveBase": false,
+  "githubIntake": {
+    "observedAtUtc": "2026-10-06T21:15:41.930Z",
+    "main": {
+      "sha": "b47390c8ce04b2674e9222918bcd4e03fa5aed24",
+      "tree": "c8a1f2f9e84f6298f1b044a8e8cec2549f33c15f",
+      "protected": false
+    },
+    "openPRsAtIntake": [],
+    "mergedWave8": [
+      {
+        "number": 77,
+        "title": "docs(W08-E): propose hardening risk campaigns and W09 rehearsal",
+        "head": "dd859c1943b4cd6f540ab0f46a65714267a3a73b",
+        "merge": "b47390c8ce04b2674e9222918bcd4e03fa5aed24",
+        "mergedAtUtc": "2026-10-06T21:08:33Z"
+      },
+      {
+        "number": 80,
+        "title": "docs(W08-D): propose admin security and accessibility hardening entry",
+        "head": "befca2c7324aefc7c309090776e5f1be7d941f2b",
+        "merge": "6c5b6e88328913ceef0e3ac39f8bdafe70410ab3",
+        "mergedAtUtc": "2026-10-06T21:08:14Z"
+      },
+      {
+        "number": 76,
+        "title": "docs(W08-C): specify real concurrency privacy and recovery evidence",
+        "head": "fd931cf3121e55ddc8183f862d9bb761723f9e9a",
+        "merge": "668c3d4b5f9b61751615a078fcaf817d8da0d424",
+        "mergedAtUtc": "2026-10-06T21:07:49Z"
+      },
+      {
+        "number": 78,
+        "title": "docs(W08-B): propose finance integrity and recovery acceptance",
+        "head": "6124235d3e9ce2d71730d11f4735b8355ed8cb22",
+        "merge": "aa0ea3c2e2becfa50144861889c258f15f0f862c",
+        "mergedAtUtc": "2026-10-06T21:07:28Z"
+      },
+      {
+        "number": 79,
+        "title": "docs(W08-A): audit customer hardening risks and blocked acceptance",
+        "head": "9f35a889a51b7be7d52fe6fa060e67614e461e84",
+        "merge": "89adbb895a87547e20cfc142256f5628fe2491e8",
+        "mergedAtUtc": "2026-10-06T21:07:10Z"
+      }
+    ],
+    "checks": {
+      "total": 42,
+      "counts": {
+        "success": 34,
+        "queued": 2,
+        "in_progress": 6
+      },
+      "failed": [],
+      "limitation": "Only this observed main snapshot, not W09 candidate/staging/independent approval."
+    },
+    "workflows": {
+      "total": 8,
+      "counts": {
+        "success": 6,
+        "in_progress": 1,
+        "queued": 1
+      },
+      "limitation": "First-page exact-source snapshot; not a measured staging rehearsal."
+    }
+  },
+  "predecessor": {
+    "pr": 80,
+    "head": "befca2c7324aefc7c309090776e5f1be7d941f2b",
+    "merge": "6c5b6e88328913ceef0e3ac39f8bdafe70410ab3",
+    "meaning": "Merged proposal only; no W08/W09 business/staging acceptance or INT-D-01 fix."
+  },
+  "wave8Delta": {
+    "from": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+    "to": "b47390c8ce04b2674e9222918bcd4e03fa5aed24",
+    "addedPaths": 34,
+    "modifiedPaths": 0,
+    "deletedPaths": 0,
+    "insertions": 7956,
+    "deletions": 0,
+    "runtimeOrHarnessChanges": 0,
+    "previousRequiredAuthoritiesAndPinnedRuntimeUnchanged": true
+  },
+  "release": {
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "bases": {
+      "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "BASE_W02": null
+    },
+    "packagesAtSource": {
+      "@carwash/contracts": "0.0.2",
+      "@carwash/event-contracts": "0.0.2",
+      "@carwash/api-clients": "0.0.1"
+    },
+    "existingClientContracts": [],
+    "acceptedNextWaveContracts": [],
+    "productDecisions": {
+      "privacyExportResetDeleteProductionMeaning": "pending-owner-decision",
+      "privacyCoordinatingOwner": null,
+      "retentionAnonymizationPolicy": null,
+      "walletReferencePurpose": "Team cash custody and settlement visibility with Billing posting references; exact account holders and hold reasons pending B/product decision.",
+      "walletIsCheckoutMethod": false,
+      "customerStoredValueFundingWithdrawalApproved": false,
+      "payrollMarketplaceOrAutomaticRecurringDebitApproved": false,
+      "approvedCheckoutMethods": [
+        "cash",
+        "sham",
+        "syriatel"
+      ],
+      "paymeraScope": "pending-owner-decision-and-actual-provider-documentation",
+      "workforceEmploymentModel": "pending-owner-decision",
+      "financialPolicy": "pending-owner-input",
+      "AleppoCoverageHoursPrices": "pending-owner-input",
+      "peakLoad": null,
+      "performanceTargets": null,
+      "recoveryTargets": null
+    }
+  },
+  "ownership": {
+    "status": "proposal-pending-independent-review",
+    "wave": "W01",
+    "scope": "W01 bootstrap lease expired per user task. Permanent D directories apply, reserved files stay E-owned. Missing accepted W09 base/contracts independently limits dependent source changes to proposals; no old registry or passing policy test revives the lease."
+  },
+  "stagingEntry": {
+    "acceptedBase": null,
+    "deployedCandidate": null,
+    "sourceTreeImageDigestManifest": null,
+    "configurationReferences": null,
+    "appliedMigrations": null,
+    "environmentNamespace": null,
+    "permittedAccounts": null,
+    "resourceSlot": null,
+    "approvedScope": null,
+    "backupRestoreRollbackCommands": null,
+    "recoveryLimits": null,
+    "realEscalationRoster": null,
+    "limitation": "Inputs not supplied or published in inspected repository packets; this does not assert an external staging cannot exist."
+  },
+  "sourceFacts": {
+    "admin": "Foundation boot only; no 17-screen business UI, tab/socket/export recovery or current object authority.",
+    "identity": "Actual session/current account/authVersion and role/status audit provider; preserve reuse. No new purpose/guest/business grant protocol inferred.",
+    "gateway": "Admin descriptors and one bounded upstream attempt; Workforce verification is not D Reviews moderation. No durable business receipt/status/replay.",
+    "dServices": "All businessReady=false; marker/probe models below are not cases/reviews/config versions/conversations/attempts/business frontiers/export/restore hooks.",
+    "INT-D-01": "Both D Inbox stores classify transaction-wide P2002/23505 as DUPLICATE. Static/open/unreproduced/unfixed; six real race/rollback controls remain prerequisites.",
+    "recovery": "Awaited foundation lifecycle guard is not backup/restore. Case D3 swallowed cleanup errors and blocked-DB cancellation are unproved; image .Id/probes are not pulled deployed business digests.",
+    "finance": "B Wallet custody/movement/handover versus Billing collection/posting/company settlement remain separate; UNKNOWN exposure/original operation and current grants preserved.",
+    "restoreFencing": "Proposed fresh execution incarnation before workers/private reads; original operation/event/provider identities stay stable. Current privacy/authority applied before execution/disclosure.",
+    "boundary": "No source defect reproduced by W09 rehearsal, no source fixes/verification hooks/migrations implemented; no peer DB imports/queries, live payment/refund/messages or infrastructure changes."
+  },
+  "modelsAtSource": [
+    {
+      "service": "communications",
+      "schema": {
+        "path": "services/communications/prisma/schema.prisma",
+        "bytes": 2012,
+        "sha256": "115eb2e4ee9cccf95be35358e0faf822b52d632444ffe381a1969cc3f2aa1c3c",
+        "blob": "9f742f6f61385c3c44c34334a536bda8982a69be"
+      },
+      "models": [
+        "ServiceMarker",
+        "InboxMessage",
+        "ProbeNotification"
+      ],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation"
+      ]
+    },
+    {
+      "service": "reviews",
+      "schema": {
+        "path": "services/reviews/prisma/schema.prisma",
+        "bytes": 921,
+        "sha256": "e41b8ca6e7a3fb2e180535b519c1bf44a86bd8f3d87aa31b5b0f47d35e7b83dc",
+        "blob": "783f0926c1b83114a79c677e2e1cc1fdd08441bf"
+      },
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20261005060000_w01_foundation"
+      ]
+    },
+    {
+      "service": "support",
+      "schema": {
+        "path": "services/support/prisma/schema.prisma",
+        "bytes": 921,
+        "sha256": "00ffe22bae2fb6fd2b9aa8a0f0a4b592b9411622b8cc58e3bc0d745b63c80580",
+        "blob": "5088c3ac4334444141069731e3c87b480f5a418e"
+      },
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation"
+      ]
+    },
+    {
+      "service": "reporting",
+      "schema": {
+        "path": "services/reporting/prisma/schema.prisma",
+        "bytes": 1923,
+        "sha256": "6732c59b6368f3a41b058f3ebf445e5ff88acbd995ea76299fe2a5207e6ea4fc",
+        "blob": "c4f1e2bfff97f5fb18023638fc99d95cccf07287"
+      },
+      "models": [
+        "ServiceMarker",
+        "InboxMessage",
+        "ProbeProjection"
+      ],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation"
+      ]
+    },
+    {
+      "service": "configuration",
+      "schema": {
+        "path": "services/configuration/prisma/schema.prisma",
+        "bytes": 927,
+        "sha256": "0891923f7b6b2df9166e0a673d8738fba5b46c908750c553873f37768df1c43c",
+        "blob": "35970d8d036935ee5e36bf30b721531840ed167a"
+      },
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20261005060000_w01_foundation"
+      ]
+    }
+  ],
+  "sourcePins": [
+    {
+      "path": "AGENTS.md",
+      "bytes": 3138,
+      "sha256": "9a36dcbe805425931884abedb1b1efefdaafa39a0a73c13837bcec71d4eb489f",
+      "blob": "3ac2760e246cd0efd23a3eb707d0078f67474bbd"
+    },
+    {
+      "path": "docs/design/DESIGN_LOCK.md",
+      "bytes": 10268,
+      "sha256": "0f05db671539f6568227cef7c6e7378ab0db4c1ae63cefd0678ce504fbfab0ec",
+      "blob": "b8f41723448f6c38e5bf8eb1fb355216a2af2ec4"
+    },
+    {
+      "path": "docs/design/reference-manifest.json",
+      "bytes": 2799,
+      "sha256": "985a98d76516c2443ad8c9a716d6d35225feb54a05b84d0fd7a004561223545a",
+      "blob": "a1c54870239f9c05e57886db93905f26cb4bca9a"
+    },
+    {
+      "path": "docs/design/f010-reference-manifest.json",
+      "bytes": 1488,
+      "sha256": "94c3c99206169e66dd0a1161b5b7968c098f1e3ee29af3d5e1c7789be4ba44f3",
+      "blob": "01fc8c5dd01e93f6b1e1a62b063aa78550376703"
+    },
+    {
+      "path": "docs/adr/0004-approved-ui-precedence.md",
+      "bytes": 1557,
+      "sha256": "d14c375db104b255fc6aa8f2692443c60751e81c7e828d3cc479e0effa6c755d",
+      "blob": "43ae29e1a49a18367dc3fbe2d32f840b061f966d"
+    },
+    {
+      "path": "docs/ARCHITECTURE_AR.md",
+      "bytes": 45553,
+      "sha256": "d11a69f75d17375f47f0648e7cfd2185211461f516d90e23d99c9b2c24eae9d8",
+      "blob": "e504970dc207e5f7d90dd1fc63b20fd41c5743db"
+    },
+    {
+      "path": "docs/VERIFICATION.md",
+      "bytes": 4653,
+      "sha256": "d8445acdd7cefd3818b538bf04b822ee07075cf1f95d68f05f7eed5437872ea3",
+      "blob": "969532fdd064cb3a0a31851b98b686a13681ee72"
+    },
+    {
+      "path": "architecture/adr/F001-monorepo-and-data-ownership.md",
+      "bytes": 7220,
+      "sha256": "46309b8de279fbccb99716b240a429a79abd1b5699e809947429d9726ece67d7",
+      "blob": "2ed9f9204293849fb05ea296dc489b8787c38e22"
+    },
+    {
+      "path": "architecture/service-catalog.json",
+      "bytes": 43887,
+      "sha256": "34462fbfb90c6a221524905aa21f7a4022c28a1b21d2243381a1b07582eac9b8",
+      "blob": "3cbd5c3fd4382926970ed6235a2569d93201e095"
+    },
+    {
+      "path": "architecture/parallel-contract-release.json",
+      "bytes": 31335,
+      "sha256": "aec04eeb6c3d893e4e0b401bab0a550c517f1e32709a5e0189f4a3ddb0ce4db9",
+      "blob": "2105e85c9e498ce25a13a2ec040956f30784aab2"
+    },
+    {
+      "path": "architecture/parallel-ownership.json",
+      "bytes": 59599,
+      "sha256": "2b696da4f8ed6d0fbb6234e33dc207e92c9e91f72e56e6f8777aac62c4f8e144",
+      "blob": "ceabe10c3133e60cbaa7fe0fed036ee5efb78c75"
+    },
+    {
+      "path": "architecture/implementation-status.json",
+      "bytes": 16460,
+      "sha256": "8a92763151eff40c685b42eb8c1fbc335d564b5ca7b0f38cf83d4e305bf57242",
+      "blob": "5034c48f9af19ec65fd8c6c6e205827549578c92"
+    },
+    {
+      "path": "design/reference/approved/washgo-payments-interactive.html",
+      "bytes": 263462,
+      "sha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549",
+      "blob": "e451bd9db408888ffd470ee7ded42246c4fcd12c"
+    },
+    {
+      "path": "design/reference/approved/washgo-technician-interactive.html",
+      "bytes": 122636,
+      "sha256": "d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc",
+      "blob": "36329a2431ed493cb685a7abd6ce2432e6840ae9"
+    },
+    {
+      "path": "design/reference/approved/washgo-admin-prototype.html",
+      "bytes": 40310,
+      "sha256": "b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273",
+      "blob": "301e247267b8d68d11d084ce8cc458b59f7d5e2e"
+    },
+    {
+      "path": "apps/admin-web/src/index.ts",
+      "bytes": 445,
+      "sha256": "666bd276e8c31ad327e2c706d589ebd04efbb692e48c61529a7d9ba814eeb6cd",
+      "blob": "413aea4978253ccaf3d12212a81b4525b1ba82cc"
+    },
+    {
+      "path": "packages/contracts/src/identity.ts",
+      "bytes": 2562,
+      "sha256": "0e122d3e0e148e1df23e54a0f4fa619d1529e7c187f430e6f6c4833de50642ae",
+      "blob": "b44840fbcc65216c61c8ce22ff85bd0b465095e4"
+    },
+    {
+      "path": "packages/contracts/src/gateway.ts",
+      "bytes": 5732,
+      "sha256": "28d73b02d8c31724c2b0537259a9f84e05ba440766116d35993ae1514c45cc40",
+      "blob": "73a4397cb6ebd56bb56065b487de4104742d422c"
+    },
+    {
+      "path": "packages/api-clients/src/index.ts",
+      "bytes": 94,
+      "sha256": "9c5162feffe8bbe37bdf5adde98f993d3d2169c1156a6ed5265cc6b7e4585c1d",
+      "blob": "cecc3736c7f4be236c389f2688ef0250152153b6"
+    },
+    {
+      "path": "services/identity/src/application/identity-auth.service.ts",
+      "bytes": 16872,
+      "sha256": "bcaa6240678273426f5bdab1acb340da6b20cb48d948859df3fe6638ad5a0763",
+      "blob": "a6e3af92697b2adb2522c64095d27a77ffe4a901"
+    },
+    {
+      "path": "apps/api-gateway/src/domain/policy.ts",
+      "bytes": 2800,
+      "sha256": "8acf47a5fc8c6f05ce5a7acc1755dfaf4abd9573639af800957abe997957ddd6",
+      "blob": "5400edc87d2a0061dbefc4fe769912badc498ff1"
+    },
+    {
+      "path": "services/communications/src/inbox/prisma-inbox.store.ts",
+      "bytes": 2251,
+      "sha256": "354ab491d7caddfcdce7d40af83d9c3d774d960336660b434eba9720b51be00b",
+      "blob": "308c43aea2ecb268d02d83de6734f72f02ce6467"
+    },
+    {
+      "path": "services/reporting/src/inbox/prisma-inbox.store.ts",
+      "bytes": 2246,
+      "sha256": "6711146f5147c38d1b1d6d56cda1052a5093d27490416e02b7f95c4e475de8e4",
+      "blob": "b358fb4899ddd8fac1e51701be7052b357507619"
+    },
+    {
+      "path": "packages/platform-messaging/src/inbox-consumer.ts",
+      "bytes": 8044,
+      "sha256": "cab0a274385e9c264f1f87731f02b160fa50dec1be7a38fa2c9f31f8459462c0",
+      "blob": "1ca2330e9234890b32b5e5adba2d373b3c6aeed0"
+    },
+    {
+      "path": "tests/integration/outbox-inbox.test.mjs",
+      "bytes": 30058,
+      "sha256": "a8ef039823f5d116a52a19f6018649ca34a36b8850233319c500bc3b03bf023f",
+      "blob": "db2736232de69eedda593c6c3291437f7c89d2b7"
+    },
+    {
+      "path": "tests/unit/f008-recovery-scope.test.mjs",
+      "bytes": 10789,
+      "sha256": "45bb362960af35adeb375a335dde86186f37801686fedee887f894461f133b67",
+      "blob": "595fab27aa4de4df1246a7eea231f1f19ca5cb64"
+    },
+    {
+      "path": "scripts/ci/secret-scans.mjs",
+      "bytes": 561,
+      "sha256": "ebd4216d0318b010d2a5fb08d722d95e052592486872123052c84645deb5c9c6",
+      "blob": "3d166b598c37303184e9e8de1767480e86ac5a6e"
+    },
+    {
+      "path": "scripts/ci/tools.lock.json",
+      "bytes": 2529,
+      "sha256": "ac0d7196bd991fd5bf68f7d92a8cba357a63c3ee463711fbc5f6e5521b72b9bb",
+      "blob": "d4680b7366ad871589940f5fbc06b88d3c13cdc3"
+    },
+    {
+      "path": "services/identity/src/domain/auth-policy.ts",
+      "bytes": 2934,
+      "sha256": "040759d5b796215e64818808efb2d3ed02d0c18080a0f8c0bf0e18cf33ef6058",
+      "blob": "d83aa910c73e87dee00d5ca2a0b33666343fc62f"
+    },
+    {
+      "path": "apps/api-gateway/src/application/gateway.service.ts",
+      "bytes": 4386,
+      "sha256": "b5e1cb900b1f5792c76d609fe3721bd3faaf8478a631bf403af96d9c9c02a355",
+      "blob": "63a5a6993910542ba16e96e0599580e6cd5990af"
+    },
+    {
+      "path": "apps/api-gateway/src/infrastructure/http-client.ts",
+      "bytes": 2626,
+      "sha256": "f5a88158df36ce0483256cd4e94a6622eee720f914bc1899d9a39d813aa0cb3f",
+      "blob": "3ee955bb03a1117cc1b8a3a3e40b8a8e33e7b8e6"
+    },
+    {
+      "path": "scripts/ci/image.mjs",
+      "bytes": 12290,
+      "sha256": "023d4373e7ccb286ab4788f7cad2b5c91936cbfceb84bd159265a4d9b2b422cb",
+      "blob": "c963cea98644cb6832c558b7465f16f467514e9f"
+    },
+    {
+      "path": "scripts/acceptance/lib/migrations.mjs",
+      "bytes": 6173,
+      "sha256": "8005e4f9bdb6107a83ac567d8769c92a6477bf043112301cdbd01dd5875e435f",
+      "blob": "f89f38cdb1c0e28777b3ff7574ea868e29145a26"
+    },
+    {
+      "path": "scripts/acceptance/lib/recovery.mjs",
+      "bytes": 1165,
+      "sha256": "2416436f3ce6c5c4b4102be913aea65ae4e68fda7126f317bd1709ac1cef92a8",
+      "blob": "f57693e49f768eb94b36828d5009d47a78815cd3"
+    },
+    {
+      "path": "docs/F006_IDENTITY_RUNBOOK.md",
+      "bytes": 4561,
+      "sha256": "b626acc20c6317aeaa07eb49804b9bf66497d5fc8c2287497008eb0da66bcdff",
+      "blob": "1aea81b89cfa748cfcf6d0f77f6ce1aa16ee57d4"
+    },
+    {
+      "path": "docs/parallel/D/W08/ADMIN_SECURITY_ACCESSIBILITY_MATRIX.md",
+      "bytes": 33592,
+      "sha256": "667587f7b0f99508db67c630a3f6e4cdd9bf1d3b09cff86105575504a4f19054",
+      "blob": "1e0924817dd404904d5ab32e9aa6f5f3380b3400"
+    },
+    {
+      "path": "docs/parallel/D/W08/SECURITY_PRIVACY_EXPORT_RECOVERY_PLAN.md",
+      "bytes": 27306,
+      "sha256": "c84614e5ade1e2e4e60f64f1754a089420e4e0824aea83482c14e35243a56a5e",
+      "blob": "b46b5f90e184ffb7899a8e18e79611b03f04824a"
+    },
+    {
+      "path": "docs/parallel/D/W08/W09_OPERATIONS_CONTRACT_REQUESTS.md",
+      "bytes": 13911,
+      "sha256": "d3d051fa3430ae0280ace712923aa6dde54c16be1084ca694a7575e727669de5",
+      "blob": "4bc72d39a8b9254d2eedeac05dd28ebc79f5e2b8"
+    },
+    {
+      "path": "docs/parallel/B/W08/W09_RESTORE_HANDOFF.md",
+      "bytes": 19520,
+      "sha256": "6618caac4768f9ba3f66b839bcd9f41b855390e30b702cd5dab1fad265e38942",
+      "blob": "bd87cfe64937ef7a676a8cd8a716d49e2e40b40e"
+    },
+    {
+      "path": "docs/parallel/B/W08/RECOVERY_AND_OPERATIONS.md",
+      "bytes": 18703,
+      "sha256": "30475152a781e38d0c92ceaf330ae785030f2d8c41f5340ad26596fd42144561",
+      "blob": "80419d368debedf16220bb43ca82d7d50bd7f07b"
+    },
+    {
+      "path": "docs/parallel/C/W08/W09_OPERATIONAL_HANDOFF.md",
+      "bytes": 4075,
+      "sha256": "a7e2b2e6b8d85f60881ee225a56a5c30d1724e28f17bb7e6ba7d74c97abfabeb",
+      "blob": "5f589a131cf8c88a698ac2ce9bfe58b65cb4e77a"
+    },
+    {
+      "path": "docs/parallel/E/W08/W09_REHEARSAL_AND_CONTRACT_REQUESTS.md",
+      "bytes": 6900,
+      "sha256": "5071484da016f441b8a37d8899d569dce7529376b706700a2434ca6145bf88e7",
+      "blob": "f895f4ee464184c6d1b316dbae18728e057c3243"
+    },
+    {
+      "path": "docs/parallel/E/W08/FAULT_AND_CONCURRENCY_CAMPAIGNS.md",
+      "bytes": 6604,
+      "sha256": "d8b924c1e53500c0df710097ea896612bd465c0812ea211e06da19390f0130af",
+      "blob": "f5eec2343cb2cea6095c8907b17fafe23508a838"
+    },
+    {
+      "path": "docs/parallel/E/W08/PERFORMANCE_PROFILE_AND_RESOURCE_BUDGET.md",
+      "bytes": 6108,
+      "sha256": "ddfb2805dc3c456b7c0ef19177119552cedd0ca75365889762b326b95cb96921",
+      "blob": "00acb400c8441a98aa8b82d3650e08001d16d612"
+    }
+  ],
+  "localEnvironment": {
+    "os": "Linux-6.18.44-x86_64-with-glibc2.39",
+    "nodeActual": "24.19.0",
+    "pnpmActual": "11.25.0",
+    "nodePin": "24.21.0",
+    "pnpmPin": "10.32.1",
+    "dependenciesInstalled": false,
+    "productDatabaseBrokerBrowserStarted": false,
+    "ownedPersistentProcesses": [],
+    "allocatedPortsQueuesDatabases": []
+  },
+  "diagnostics": {
+    "referenceBeforeAndAfter": {
+      "command": "node scripts/check-design-reference.mjs --base-ref b47390c8ce04b2674e9222918bcd4e03fa5aed24",
+      "exitCode": 0,
+      "artifacts": 10,
+      "baseCompared": true,
+      "scope": "Reference integrity only, not visual/product acceptance."
+    },
+    "f010BeforeAndAfter": {
+      "command": "node scripts/f010/reference-registry.mjs --base-ref b47390c8ce04b2674e9222918bcd4e03fa5aed24",
+      "exitCode": 0,
+      "references": 3,
+      "baseCompared": true
+    },
+    "ownershipAndReferenceTests": {
+      "command": "node --test --test-reporter=spec tests/parallel/E/ownership.test.mjs tests/design/reference-lock.test.mjs tests/f010/reference-registry.test.mjs",
+      "exitCode": 0,
+      "passed": 35,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "Historical policy controls do not revive the explicitly expired lease."
+    },
+    "implementationInventory": {
+      "command": "node architecture/implementation-status.mjs --self-test",
+      "exitCode": 0,
+      "services": 19,
+      "foundationShells": 18,
+      "capabilityRuntimes": 1,
+      "adversarialPassed": 9,
+      "productionReady": false
+    },
+    "migrationInventory": {
+      "command": "node scripts/check-migrations.mjs --base-ref b47390c8ce04b2674e9222918bcd4e03fa5aed24 --json",
+      "exitCode": 0,
+      "checks": 3,
+      "migrations": 21,
+      "filesScanned": 428,
+      "findings": 0,
+      "actualDatabaseUpgrade": false
+    },
+    "toolchainConfiguration": {
+      "command": "node scripts/verify-toolchain.mjs --json --config-only",
+      "exitCode": 0,
+      "checks": 39
+    },
+    "toolchainFull": {
+      "command": "node scripts/verify-toolchain.mjs --json",
+      "exitCode": 1,
+      "checks": 40,
+      "failed": [
+        {
+          "name": "Node runtime",
+          "actual": "24.19.0",
+          "required": "24.21.0"
+        },
+        {
+          "name": "pnpm runtime",
+          "actual": "11.25.0",
+          "required": "10.32.1"
+        }
+      ]
+    },
+    "scannerControls": {
+      "command": "CI_TOOLS_DIR=<owned temporary verified binary directory> node --test --test-reporter=spec tests/ci/secret-scans.test.mjs",
+      "exitCode": 0,
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "scannerVersion": "8.30.1",
+      "binarySha256": "88f91962aa2f93ac6ab281d553b9e125f5197bbbce38f9f2437f7299c32e5509",
+      "defaultRules": true,
+      "scope": "Real disposable Git/scanner controls; generated nonfunctional bait, not a product/staging drill. Temporary directory verified against tools.lock and cleaned; its path was not retained."
+    }
+  },
+  "requiredProductTests": {
+    "status": "BLOCKED / NOT_RUN",
+    "uniqueCaseFamilies": 51,
+    "realJourneyFamilies": 10,
+    "all17AdminScreensRetained": true,
+    "stagingJourneys": false,
+    "populatedUpgrade": false,
+    "backupRestoreRollback": false,
+    "workerProviderOutageDuplicates": false,
+    "sixRealInboxControls": false,
+    "currentPrivateAccess": false,
+    "independentReportReconciliation": false,
+    "elapsedRecoveryDataLossMeasured": false,
+    "actualAcceptanceBundleProduced": false
+  },
+  "publicationEnvelope": "Final exact proposal head/tree/PR, six-path ownership/whitespace checks, packet/default exact-history+archived-source scanner counts and hosted-check snapshot belong in the PR body. Self-containing documents cannot embed their own future commit SHA without a hash cycle."
+}

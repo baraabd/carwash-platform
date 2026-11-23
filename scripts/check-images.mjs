@@ -20,16 +20,21 @@
  *   node scripts/check-images.mjs                     default service set
  *   node scripts/check-images.mjs catalog reporting   explicit services
  */
+import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { run } from './acceptance/lib/exec.mjs';
+import { pullImageWithMirrors } from './lib/image-references.mjs';
 import {
   verifiedNonRoot,
   verifiedNoBakedSecrets,
+  verifiedReadiness,
   BAKED_SECRET_PROBE,
+  identityBootEnvironment,
 } from './lib/image-probes.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -37,17 +42,30 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 /** Must match the Dockerfile default and the image the acceptance run pins. */
 const NODE_IMAGE = 'node:24.21.0-bookworm-slim';
 
-/** The Sprint 0.2 messaging slice; enough to prove the shared Dockerfile works. */
-const DEFAULT_SERVICES = ['catalog', 'communications', 'reporting'];
-
 /**
- * Generous by default because the slow step is `pnpm install` inside the build,
- * and its duration is dominated by download throughput to the registry from
- * inside the container - which on a desktop Docker VM can be an order of
- * magnitude slower than on the host. A timeout here reports a build failure that
- * is really a network condition, so it is configurable rather than tight.
+ * Every owner runtime that boots with isolated dependency fixtures. identity needs Redis
+ * and signing/CSRF/OTP key material to start, so this boot contract cannot
+ * prove anything about it; it is excluded by name rather than silently.
  */
-const DOCKER_TIMEOUT_MS = Number(process.env.CW_IMAGE_TIMEOUT_MS ?? 60 * 60 * 1000);
+const NEEDS_FULL_PROFILE = new Set(['identity']);
+const DEFAULT_SERVICES = JSON.parse(
+  readFileSync(path.join(ROOT, 'architecture/service-catalog.json'), 'utf8'),
+)
+  .services.map((service) => service.id)
+  .filter((id) => !NEEDS_FULL_PROFILE.has(id));
+
+// Control commands must not inherit the build's much longer download budget.
+const DOCKER_TIMEOUT_MS = 120_000;
+
+/** Leave time for diagnostics, boot probes and cleanup before the CI job expires. */
+export function imageBuildTimeout(value = process.env.CW_IMAGE_TIMEOUT_MS ?? 20 * 60 * 1000) {
+  const timeoutMs = Number(value);
+  assert.ok(
+    Number.isSafeInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 2 ** 31 - 1,
+    'CW_IMAGE_TIMEOUT_MS must be a positive integer within the Node timer range',
+  );
+  return timeoutMs;
+}
 
 const runId = randomUUID().slice(0, 8);
 
@@ -75,27 +93,82 @@ function pass(service, check, detail = '') {
   return { service, check, ok: true, detail };
 }
 
-async function buildImage(service, tag) {
-  const result = await docker([
-    'build',
-    '--file',
-    'Dockerfile',
-    '--build-arg',
-    `SERVICE=${service}`,
-    '--build-arg',
-    `NODE_IMAGE=${NODE_IMAGE}`,
-    '--tag',
-    tag,
-    '.',
+function imageRepository(reference) {
+  return reference
+    .split('@')[0]
+    .replace(/:[^:/]+$/, '')
+    .replace(/^docker\.io\/(?:library\/)?/, '')
+    .replace(/^library\//, '');
+}
+
+export async function buildImage(service, tag, dockerCommand = docker, options = {}) {
+  const timeoutMs = imageBuildTimeout(options.timeoutMs);
+  const log = options.log ?? console.log;
+  log(`[BUILD] ${service}: acquiring ${NODE_IMAGE}`);
+  // Acquire the pinned version before building: a preferred mirror can serve
+  // metadata but rate-limit the following layer requests. Only image acquisition
+  // falls back; application build failures are never retried or suppressed.
+  const pulled = await pullImageWithMirrors(NODE_IMAGE, dockerCommand);
+  const inspected = await dockerCommand([
+    'image',
+    'inspect',
+    '--format',
+    '{{json .RepoDigests}}',
+    pulled.pullReference,
   ]);
-  return result;
+  assert.equal(inspected.code, 0, `Cannot inspect acquired Node base: ${inspected.stderr}`);
+  const digests = JSON.parse(inspected.stdout);
+  assert.ok(Array.isArray(digests) && digests.length > 0, 'Acquired Node base has no digest');
+  const baseImage = digests.find(
+    (reference) =>
+      typeof reference === 'string' &&
+      /^[^\s@]+@sha256:[a-f0-9]{64}$/.test(reference) &&
+      imageRepository(reference) === imageRepository(pulled.pullReference),
+  );
+  assert.ok(baseImage, 'Acquired Node base has no matching digest');
+  const started = Date.now();
+  log(`[BUILD] ${service}: building ${baseImage} (timeout=${timeoutMs}ms)`);
+  // Only elapsed time is emitted while output is incomplete. The execution
+  // harness captures bounded stdout/stderr and redacts them after completion,
+  // including secrets split across chunks; do not bypass it with raw streaming.
+  const progress = setInterval(() => {
+    log(
+      `[BUILD] ${service}: still building after ${Date.now() - started}ms (limit=${timeoutMs}ms)`,
+    );
+  }, options.progressIntervalMs ?? 30_000);
+  progress.unref?.();
+  try {
+    const result = await dockerCommand(
+      [
+        'build',
+        '--progress=plain',
+        '--file',
+        'Dockerfile',
+        '--build-arg',
+        `SERVICE=${service}`,
+        '--build-arg',
+        `NODE_IMAGE=${baseImage}`,
+        '--tag',
+        tag,
+        '.',
+      ],
+      { timeoutMs },
+    );
+    const ok = result.code === 0 && result.outcome === 'exited';
+    log(
+      `[BUILD] ${service}: outcome=${result.outcome} code=${result.code} duration=${result.durationMs ?? Date.now() - started}ms`,
+    );
+    return { ...result, baseImage, ok };
+  } finally {
+    clearInterval(progress);
+  }
 }
 
 /** Poll an endpoint from INSIDE the container, so no port has to be published. */
-async function probe(container, pathname) {
+async function probe(container, pathname, limit = 200) {
   const script =
     `fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'${pathname}')` +
-    `.then(async r=>{process.stdout.write(r.status+' '+(await r.text()).slice(0,200));process.exit(0)})` +
+    `.then(async r=>{process.stdout.write(r.status+' '+(await r.text()).slice(0,${limit}));process.exit(0)})` +
     `.catch(e=>{process.stdout.write('ERR '+e.message);process.exit(1)})`;
   const result = await docker(['exec', container, 'node', '-e', script], { timeoutMs: 60_000 });
   return result.stdout.trim();
@@ -125,13 +198,18 @@ async function verifyService(service) {
   const results = [];
 
   const built = await buildImage(service, tag);
-  if (built.code !== 0) {
+  if (!built.ok) {
     results.push(
-      fail(service, 'image builds', built.stderr.slice(-2000) || built.stdout.slice(-2000)),
+      fail(
+        service,
+        'image builds',
+        `outcome=${built.outcome} code=${built.code} duration=${built.durationMs}ms\n` +
+          `stderr:\n${built.stderr.slice(-8000)}\nstdout:\n${built.stdout.slice(-8000)}`,
+      ),
     );
     return results;
   }
-  results.push(pass(service, 'image builds', `from ${NODE_IMAGE}`));
+  results.push(pass(service, 'image builds', `from ${NODE_IMAGE} resolved to ${built.baseImage}`));
 
   const port = await freePort();
   const started = await docker([
@@ -144,6 +222,7 @@ async function verifyService(service) {
     'PORT=3000',
     '--env',
     'HOST=0.0.0.0',
+    ...identityBootEnvironment(service),
     '--env',
     // The shell needs a well-formed DSN to boot, but never connects: nothing is
     // listening on this port. The password is the literal placeholder "changeme"
@@ -184,16 +263,15 @@ async function verifyService(service) {
       return results;
     }
 
-    // ---- readiness is deliberately 503 ----
-    const ready = await probe(container, '/health/ready');
+    // ---- readiness: never 200 without a reachable database ----
+    // The DSN points at a closed port, so dependencies are DOWN by construction.
+    // A foundation shell must answer FOUNDATION_NOT_READY; an implemented
+    // service must answer DEPENDENCY_DOWN. Either way dependenciesReady is false.
+    const ready = await probe(container, '/health/ready', 8000);
+    const verdict = verifiedReadiness(ready);
+    const label = 'readiness is 503 with an honest code while the database is unreachable';
     results.push(
-      ready.startsWith('503')
-        ? pass(service, 'readiness is 503 (foundation-only, correct)', ready.slice(0, 120))
-        : fail(
-            service,
-            'readiness is 503 (foundation-only, correct)',
-            `expected 503 for a foundation shell, got: ${ready.slice(0, 200)}`,
-          ),
+      verdict.ok ? pass(service, label, verdict.detail) : fail(service, label, verdict.detail),
     );
 
     // ---- no secrets baked in ----
@@ -263,7 +341,9 @@ async function main() {
   process.exit(failures.length === 0 ? 0 : 1);
 }
 
-main().catch((error) => {
-  console.error(error.stack ?? error.message);
-  process.exit(1);
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error.stack ?? error.message);
+    process.exit(1);
+  });
+}

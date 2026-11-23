@@ -1,7 +1,10 @@
 /**
- * customer domain layer.
- *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
+ * customer domain layer: framework-free business rules for profiles, contact
+ * details and saved addresses.
  */
-export {};
+export * from './address';
+export * from './contact';
+export * from './coordinates';
+export * from './customer';
+export * from './errors';
+export * from './text';

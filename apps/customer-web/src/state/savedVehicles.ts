@@ -172,6 +172,62 @@ export function saveGarageVehicle(
   };
 }
 
+export type SaveVehicleOutcome = 'added' | 'updated' | 'capacity';
+
+export interface SaveVehicleResult {
+  readonly vehicles: readonly SavedVehicle[];
+  readonly vehicleSequence: number;
+  readonly outcome: SaveVehicleOutcome;
+  /** The saved car's id, or null when nothing was stored (the garage is full). */
+  readonly carId: string | null;
+}
+
+/**
+ * The reference's saveCar(data), without any notice, for booking confirmation:
+ * the car the draft links to (`carId`), otherwise one describing the same vehicle,
+ * is updated; otherwise a car is added unless the garage already holds 30. A full
+ * garage is not a failed booking: nothing is stored and the outcome says so.
+ * `sizeName` is the size's display name, used when the car has no name. Pure: the
+ * input arrays are never mutated.
+ */
+export function saveVehicleRecord(
+  vehicles: readonly SavedVehicle[],
+  vehicleSequence: number,
+  data: VehicleDescription & { readonly carId: string | null },
+  sizeName: string,
+): SaveVehicleResult {
+  const described: VehicleDescription = {
+    type: data.type,
+    carName: clip(data.carName, NAME_MAX_LENGTH),
+    plate: clip(data.plate, PLATE_MAX_LENGTH),
+    color: clip(data.color, COLOR_MAX_LENGTH),
+  };
+  const name = described.carName || sizeName;
+  const fields = { type: described.type, name, plate: described.plate, color: described.color };
+  const existing = findExisting(vehicles, data.carId, described, name);
+  if (existing) {
+    return {
+      vehicles: vehicles.map((vehicle) =>
+        vehicle.id === existing.id ? { ...vehicle, ...fields } : vehicle,
+      ),
+      vehicleSequence,
+      outcome: 'updated',
+      carId: existing.id,
+    };
+  }
+  if (vehicles.length >= GARAGE_CAPACITY) {
+    return { vehicles, vehicleSequence, outcome: 'capacity', carId: null };
+  }
+  const sequence = vehicleSequence + 1;
+  const id = `CAR-${sequence}`;
+  return {
+    vehicles: [...vehicles, { id, ...fields }],
+    vehicleSequence: sequence,
+    outcome: 'added',
+    carId: id,
+  };
+}
+
 /**
  * Booking editor "استخدام هذه السيارة": describe the car in the unsent draft.
  * The garage is not changed here; `carId` keeps the link to a chosen saved car.

@@ -1,0 +1,13 @@
+/*
+ * C013 booking review, ported from the approved reviewView() rules. The receipt
+ * rules live with the shared receipt (widgets/order-receipt/receipt.css); the bill
+ * (`.bill*`) and the plate chip (`.plate-mini`) are shared rules from
+ * customer-forms.css.
+ */
+.review-note {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.9;
+  text-align: center;
+  margin-top: 15px;
+}

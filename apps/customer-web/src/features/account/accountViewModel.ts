@@ -8,11 +8,12 @@ export type AccountIcon =
  *
  * - `addresses` opens the saved-addresses sheet (C009).
  * - `garage` goes to the garage screen (C005).
- * - `deferred` is shown exactly as approved but is not implemented yet: profile,
+ * - `profile` opens the canonical production profile and guest access sheet.
+ * - `deferred` is shown exactly as approved but is not implemented yet:
  *   payment codes, payment tour, motion, help, privacy, export and reset belong
  *   to the sprints that own them.
  */
-export type AccountRowAction = 'addresses' | 'garage' | 'deferred';
+export type AccountRowAction = 'profile' | 'addresses' | 'garage' | 'deferred';
 
 export interface AccountRow {
   readonly id: string;
@@ -48,20 +49,29 @@ export function buildAccountViewModel(state: CustomerSessionState): AccountViewM
     displayName: state.profile.name || 'أهلاً بك في WashGo',
     phone: state.profile.phone,
     primaryRows: [
-      row('profile', 'user', 'بياناتي', 'الاسم ورقم التواصل'),
+      row(
+        'profile',
+        'user',
+        'بياناتي',
+        'الاسم ورقم التواصل',
+        state.runtimeMode === 'parity' ? 'deferred' : 'profile',
+      ),
       row('addresses', 'pin', 'عناويني', `${state.addresses.length} عناوين محفوظة`, 'addresses'),
       row('garage-tab', 'car', 'سياراتي', `${state.vehicles.length} سيارات محفوظة`, 'garage'),
     ],
-    secondaryRows: [
-      row('pay-settings', 'qr-pay', 'رموز الدفع للتجربة', 'إضافة QR التاجر لكل محفظة محليًا'),
-      row('pay-demo', 'wallet', 'استكشف الدفع', 'جولة تجريبية جاهزة دون مال حقيقي'),
-      // The approved default; the motion setting itself is not implemented yet.
-      row('motion', 'spark', 'المؤثرات الحركية', 'حركات هادئة حسب تفضيل جهازك'),
-      row('help', 'help', 'دليل التجربة', 'الحجز، صور قبل وبعد، وإعادة الحجز'),
-      row('privacy', 'shield', 'الخصوصية والحفظ', 'بيانات محلية دون مشاركة أو خادم'),
-      row('export', 'download', 'تنزيل بيانات التجربة', 'ملف JSON دون صور'),
-      row('reset-prompt', 'trash', 'إعادة ضبط التجربة', 'حذف الحجوزات والسيارات والصور'),
-    ],
+    secondaryRows:
+      state.runtimeMode === 'parity'
+        ? [
+            row('pay-settings', 'qr-pay', 'رموز الدفع للتجربة', 'إضافة QR التاجر لكل محفظة محليًا'),
+            row('pay-demo', 'wallet', 'استكشف الدفع', 'جولة تجريبية جاهزة دون مال حقيقي'),
+            // The approved default; the motion setting itself is not implemented yet.
+            row('motion', 'spark', 'المؤثرات الحركية', 'حركات هادئة حسب تفضيل جهازك'),
+            row('help', 'help', 'دليل التجربة', 'الحجز، صور قبل وبعد، وإعادة الحجز'),
+            row('privacy', 'shield', 'الخصوصية والحفظ', 'بيانات محلية دون مشاركة أو خادم'),
+            row('export', 'download', 'تنزيل بيانات التجربة', 'ملف JSON دون صور'),
+            row('reset-prompt', 'trash', 'إعادة ضبط التجربة', 'حذف الحجوزات والسيارات والصور'),
+          ]
+        : [row('help', 'help', 'المساعدة', 'معلومات الخدمة والدعم')],
   };
 }
 

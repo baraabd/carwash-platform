@@ -1,0 +1,50 @@
+# W01 minimal operator-web technical artifact, built from the repository root.
+ARG NODE_IMAGE=node:24.21.0-bookworm-slim
+ARG RUNTIME_IMAGE=gcr.io/distroless/base-nossl-debian13@sha256:89815d620ac01d8de13cdaf04d19ed874447ca2296d4985b14b818f6e5e47854
+ARG NATIVE_RUNTIME_IMAGE=gcr.io/distroless/cc-debian13@sha256:cb87acc574abe719b6e5c547384defa2f7b1f24af9605d3f618cf852495d8be2
+
+FROM ${NODE_IMAGE} AS builder
+ARG APP=operator-web
+ENV CI=true
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+WORKDIR /app
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc tsconfig.base.json ./
+COPY packages ./packages
+COPY services ./services
+COPY apps/operator-web ./apps/operator-web
+COPY apps/admin-web ./apps/admin-web
+RUN corepack enable && corepack prepare --activate
+RUN pnpm install --frozen-lockfile
+RUN pnpm build:packages
+RUN pnpm --filter "@carwash/${APP}" run build
+RUN mkdir -p /deploy/dist \
+ && cp -r apps/${APP}/dist/. /deploy/dist/ \
+ && cp apps/${APP}/server.mjs /deploy/server.mjs
+
+FROM ${NATIVE_RUNTIME_IMAGE} AS native_libraries
+
+FROM ${RUNTIME_IMAGE} AS runner
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=3000
+WORKDIR /app
+COPY --from=builder /usr/local/bin/node /usr/local/bin/node
+# The distroless base-nossl runtime intentionally omits libstdc++/libgcc.
+# Copy Debian 13 ABI libraries with their original package identities and licenses.
+# Do not copy the donor OpenSSL libraries or hide copied binaries from scanners.
+COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+COPY --from=native_libraries /var/lib/dpkg/status.d/libstdc++6 /var/lib/dpkg/status.d/libstdc++6
+COPY --from=native_libraries /var/lib/dpkg/status.d/libgcc-s1 /var/lib/dpkg/status.d/libgcc-s1
+COPY --from=native_libraries /usr/share/doc/libstdc++6 /usr/share/doc/libstdc++6
+COPY --from=native_libraries /usr/share/doc/libgcc-s1 /usr/share/doc/libgcc-s1
+# Remove unused legacy iconv code; retain original package metadata and licences.
+USER 0
+RUN ["/usr/local/bin/node","-e","const fs=require('node:fs');for(const name of [\"UHC.so\",\"ISO-2022-CN-EXT.so\",\"IBM1390.so\",\"IBM1399.so\"]){const file='/usr/lib/x86_64-linux-gnu/gconv/'+name;if(!fs.lstatSync(file).isFile())throw Error('UNEXPECTED_CONVERTER_FILE');fs.unlinkSync(file);}"]
+COPY --from=builder --chown=1000:1000 /deploy /app
+USER 1000:1000
+ENTRYPOINT []
+EXPOSE 3000
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+CMD ["node", "server.mjs"]

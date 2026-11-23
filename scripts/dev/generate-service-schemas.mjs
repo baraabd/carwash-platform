@@ -1,20 +1,30 @@
 #!/usr/bin/env node
 /**
- * Writes the service-local Prisma schemas.
+ * Creates explicitly selected, missing service-local Prisma schemas without overwrites.
  *
- * Kept as a script only so that the ten schemas cannot drift apart by hand-editing
- * their shared technical parts. It is a developer utility: it is NOT part of any
+ * Owner evolution is expected; tracked schemas are never replaced. --check validates
+ * the local datasource invariant without requiring a pure-template schema. It is a developer utility: it is NOT part of any
  * acceptance gate, and it never touches another service's schema file than the one
  * it is generating.
  *
  * Each service owns its own schema, its own migrations and its own generated
  * client. There is deliberately no shared business schema and no shared client.
  */
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
+import {
+  generationOptions,
+  generationServices,
+  writeGeneratedFiles,
+  checkGeneratedFiles,
+} from './service-template.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const options = generationOptions(
+  process.argv.slice(2),
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..'),
+);
+const root = options.root;
 const catalog = JSON.parse(
   await readFile(path.join(root, 'architecture/service-catalog.json'), 'utf8'),
 );
@@ -130,13 +140,24 @@ model ProbeProjection {
 `,
 };
 
-for (const service of catalog.services) {
+const files = new Map();
+for (const service of generationServices(catalog, options)) {
   const id = service.id;
   let body = header(id);
   if (id === 'catalog') body += outbox;
   if (id === 'communications' || id === 'reporting') body += inbox + effects[id];
-  const dir = path.join(root, 'services', id, 'prisma');
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, 'schema.prisma'), body, 'utf8');
-  console.log(`wrote services/${id}/prisma/schema.prisma`);
+  files.set(`services/${id}/prisma/schema.prisma`, body);
+}
+
+if (options.checkOnly) {
+  await checkGeneratedFiles(root, files, (file, source) => {
+    if (!/provider\s*=\s*"postgresql"/.test(source) || /\burl\s*=/.test(source)) {
+      throw new Error(`OWNER_LOCAL_SCHEMA_REQUIRED: ${file}`);
+    }
+  });
+  console.log(
+    `Service-local schema check passed: ${files.size} schema(s); owner evolution preserved.`,
+  );
+} else {
+  for (const file of await writeGeneratedFiles(root, files)) console.log(`wrote ${file}`);
 }

@@ -26,3 +26,123 @@ model ServiceMarker {
 
   @@map("service_marker")
 }
+
+// ---------------------------------------------------------------------------
+// P04-D1. Exception cases (catalog: cases, case_events, resolution_requests).
+// Status vocabularies, the four-eyes CHECK, the slot/status agreement CHECKs
+// and the append-only guard on case_event live in migration
+// 20261011090000_p04d_exception_cases.
+// ---------------------------------------------------------------------------
+
+model SupportCase {
+  id              String              @id @db.Uuid
+  kind            String              @db.VarChar(24)
+  status          String              @db.VarChar(20)
+  subjectType     String              @map("subject_type") @db.VarChar(32)
+  subjectId       String              @map("subject_id") @db.Uuid
+  subjectParentId String?             @map("subject_parent_id") @db.Uuid
+  summary         String              @db.VarChar(200)
+  snapshot        Json
+  openedBy        String              @map("opened_by") @db.Uuid
+  openedAt        DateTime            @map("opened_at") @db.Timestamptz(3)
+  revision        Int
+  updatedAt       DateTime            @map("updated_at") @db.Timestamptz(3)
+  openKey         String              @map("open_key") @db.VarChar(128)
+  openFingerprint String              @map("open_fingerprint") @db.Char(64)
+  /// 1 while the case is not RESOLVED/CLOSED, NULL after: one active case per subject.
+  activeSlot      Int?                @map("active_slot") @db.SmallInt
+  decisions       ResolutionRequest[]
+  events          CaseEvent[]
+
+  @@unique([openedBy, openKey], map: "support_case_open_key_key")
+  @@unique([kind, subjectType, subjectId, activeSlot], map: "support_case_active_subject_key")
+  @@index([kind, openedAt, id], map: "support_case_queue_idx")
+  @@index([subjectType, subjectId], map: "support_case_subject_idx")
+  @@map("support_case")
+}
+
+/// One reasoned staff decision on a case and what its owner answered.
+model ResolutionRequest {
+  caseId            String      @map("case_id") @db.Uuid
+  decisionNo        Int         @map("decision_no")
+  action            String      @db.VarChar(24)
+  reasonCode        String      @map("reason_code") @db.VarChar(32)
+  reasonNote        String      @map("reason_note") @db.VarChar(500)
+  evidence          Json
+  amountCurrency    String?     @map("amount_currency") @db.Char(3)
+  amountMinor       Decimal?    @map("amount_minor") @db.Decimal(20, 0)
+  amountScale       Int?        @map("amount_scale") @db.SmallInt
+  windowStartsAt    DateTime?   @map("window_starts_at") @db.Timestamptz(3)
+  windowEndsAt      DateTime?   @map("window_ends_at") @db.Timestamptz(3)
+  status            String      @db.VarChar(24)
+  decidedBy         String      @map("decided_by") @db.Uuid
+  decidedAt         DateTime    @map("decided_at") @db.Timestamptz(3)
+  idempotencyKey    String      @map("idempotency_key") @db.VarChar(128)
+  fingerprint       String      @db.Char(64)
+  approvedBy        String?     @map("approved_by") @db.Uuid
+  approvedAt        DateTime?   @map("approved_at") @db.Timestamptz(3)
+  approvalNote      String?     @map("approval_note") @db.VarChar(500)
+  approvalKey       String?     @map("approval_key") @db.VarChar(128)
+  ownerOperation    String?     @map("owner_operation") @db.VarChar(32)
+  ownerTargetId     String?     @map("owner_target_id") @db.Uuid
+  ownerKey          String?     @map("owner_key") @db.VarChar(128)
+  ownerBody         Json?       @map("owner_body")
+  ownerHttpStatus   Int?        @map("owner_http_status")
+  ownerCode         String?     @map("owner_code") @db.VarChar(64)
+  ownerState        String?     @map("owner_state") @db.VarChar(32)
+  executionAttempts Int         @default(0) @map("execution_attempts")
+  executionFence    Int         @default(0) @map("execution_fence")
+  lastExecutedAt    DateTime?   @map("last_executed_at") @db.Timestamptz(3)
+  /// 1 while the decision awaits approval or its owner, NULL after: one in flight per case.
+  inflightSlot      Int?        @map("inflight_slot") @db.SmallInt
+  supportCase       SupportCase @relation(fields: [caseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([caseId, decisionNo])
+  @@unique([caseId, decidedBy, idempotencyKey], map: "resolution_request_key_key")
+  @@unique([ownerKey], map: "resolution_request_owner_key_key")
+  @@unique([caseId, inflightSlot], map: "resolution_request_inflight_key")
+  @@map("resolution_request")
+}
+
+/// Append-only audit of every case change: who, what, when, with which correlation id.
+model CaseEvent {
+  id            String      @id @db.Uuid
+  /// Commit-independent total order of the audit trail.
+  seq           BigInt      @unique @default(autoincrement())
+  caseId        String      @map("case_id") @db.Uuid
+  occurredAt    DateTime    @map("occurred_at") @db.Timestamptz(3)
+  actorSubject  String      @map("actor_subject") @db.Uuid
+  action        String      @db.VarChar(40)
+  decisionNo    Int?        @map("decision_no")
+  fromStatus    String?     @map("from_status") @db.VarChar(20)
+  toStatus      String      @map("to_status") @db.VarChar(20)
+  outcome       String?     @db.VarChar(96)
+  correlationId String      @map("correlation_id") @db.Uuid
+  supportCase   SupportCase @relation(fields: [caseId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([caseId, occurredAt], map: "case_event_case_idx")
+  @@map("case_event")
+}
+
+/// Transactional outbox (platform-messaging relay layout). Rows stay pending
+/// until Lane E registers the support event contracts and topology.
+model OutboxMessage {
+  id            String    @id @db.Uuid
+  eventId       String    @unique @map("event_id") @db.Uuid
+  eventType     String    @map("event_type")
+  exchange      String
+  routingKey    String    @map("routing_key")
+  payload       String
+  correlationId String    @map("correlation_id") @db.Uuid
+  traceParent   String?   @map("trace_parent") @db.VarChar(55)
+  attempts      Int       @default(0)
+  lockedBy      String?   @map("locked_by")
+  lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(3)
+  lastError     String?   @map("last_error")
+  publishedAt   DateTime? @map("published_at") @db.Timestamptz(3)
+  deadAt        DateTime? @map("dead_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([publishedAt, deadAt, createdAt], map: "outbox_message_pending_idx")
+  @@map("outbox_message")
+}

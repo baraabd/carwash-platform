@@ -1,3 +1,18 @@
 export * from './identity';
 export * from './gateway';
 export * from './registry';
+export * from './common';
+export * as customerV1 from './customer/v1';
+export * as vehicleV1 from './vehicle/v1';
+export * as geoV1 from './geo/v1';
+export * as catalogV1 from './catalog/v1';
+export * as pricingV1 from './pricing/v1';
+export * as schedulingV1 from './scheduling/v1';
+export * as workforceV1 from './workforce/v1';
+export * as configurationV1 from './configuration/v1';
+export * as billingV1 from './billing/v1';
+export * as subscriptionV1 from './subscription/v1';
+export * as promotionV1 from './promotion/v1';
+export * as supportV1 from './support/v1';
+export * as reviewsV1 from './reviews/v1';
+export * as reportingV1 from './reporting/v1';

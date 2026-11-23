@@ -38,7 +38,7 @@ const cases = {
   'array package': (f) => f.put('services/vehicle/package.json', []),
   'version drift': (f) =>
     f.change('packages/contracts/package.json', (p) => {
-      p.version = '0.1.0';
+      p.version = '999.0.0-drift';
     }),
   'unowned root source': (f) => f.put('services/unowned.ts', 'export {};'),
   'duplicated discovery glob': (f) =>

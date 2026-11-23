@@ -6,7 +6,12 @@ import {
   assertTopology,
   producerTopology,
 } from '@carwash/platform-messaging';
-import { createLogger, databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
+import {
+  createLogger,
+  databasePoolConfig,
+  databaseSchemaFromUrl,
+  serviceTelemetry,
+} from '@carwash/service-kit';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { PrismaClient } from '../generated/prisma/client';
@@ -79,7 +84,7 @@ async function main(): Promise<void> {
   });
 
   const databaseUrl = requireEnv('DATABASE_URL');
-  const pool = new Pool({ connectionString: databaseUrl });
+  const pool = new Pool(databasePoolConfig(databaseUrl));
   telemetry.metrics.observePool(() => pool);
   const brokerUrl = requireEnv('BROKER_URL');
 

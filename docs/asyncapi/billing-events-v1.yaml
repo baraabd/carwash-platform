@@ -1,0 +1,169 @@
+asyncapi: '2.6.0'
+info:
+  title: WashGo billing events V1 (envelope v2)
+  version: '1.0.0'
+  description: >
+    Published wire contracts for Billing payment, cash custody and refund
+    events (exchange washgo.billing.events, routing key = event type).
+    Status published-producer-pending: no accepted relay publishes these yet.
+    Data is closed and carries opaque IDs, statuses, closed reasons and exact
+    minor-unit amounts only; shapes are defined by the parsers in
+    @carwash/event-contracts billing-v1.
+defaultContentType: application/json
+channels:
+  billing.events/billing.obligation-created.v1:
+    publish:
+      operationId: publish_billing_obligation_created_v1
+      message:
+        name: billing.obligation-created.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: billing.obligation-created.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: billing
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: billing-obligation
+            data:
+              type: object
+              additionalProperties: false
+  billing.events/billing.obligation-status-changed.v1:
+    publish:
+      operationId: publish_billing_obligation_status_changed_v1
+      message:
+        name: billing.obligation-status-changed.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: billing.obligation-status-changed.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: billing
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: billing-obligation
+            data:
+              type: object
+              additionalProperties: false
+  billing.events/billing.cash-collected.v1:
+    publish:
+      operationId: publish_billing_cash_collected_v1
+      message:
+        name: billing.cash-collected.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: billing.cash-collected.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: billing
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: billing-cash-receipt
+            data:
+              type: object
+              additionalProperties: false
+  billing.events/billing.cash-collection-reversed.v1:
+    publish:
+      operationId: publish_billing_cash_collection_reversed_v1
+      message:
+        name: billing.cash-collection-reversed.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: billing.cash-collection-reversed.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: billing
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: billing-cash-receipt
+            data:
+              type: object
+              additionalProperties: false
+  billing.events/billing.custody-handover-changed.v1:
+    publish:
+      operationId: publish_billing_custody_handover_changed_v1
+      message:
+        name: billing.custody-handover-changed.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: billing.custody-handover-changed.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: billing
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: billing-custody-handover
+            data:
+              type: object
+              additionalProperties: false
+  billing.events/billing.refund-status-changed.v1:
+    publish:
+      operationId: publish_billing_refund_status_changed_v1
+      message:
+        name: billing.refund-status-changed.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: billing.refund-status-changed.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: billing
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: billing-refund
+            data:
+              type: object
+              additionalProperties: false

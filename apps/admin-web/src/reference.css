@@ -1,0 +1,6 @@
+/*
+ * Placeholder. vite.config.ts (adminReferenceStyle) replaces this module, at
+ * build and dev time, with the <style> block of the frozen approved reference
+ * after checking its SHA-256. The build fails if the replacement did not run,
+ * so this file is never shipped as-is.
+ */

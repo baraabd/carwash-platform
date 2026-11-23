@@ -10,6 +10,14 @@ const catalog = JSON.parse(
   await readFile(new URL('../../architecture/service-catalog.json', import.meta.url), 'utf8'),
 );
 const owners = [...selectFoundationShellServices(catalog), 'api-gateway'];
+const mediaBootEnvironment = {
+  IDENTITY_URL: 'http://127.0.0.1:9',
+  MEDIA_S3_ENDPOINT: 'http://127.0.0.1:9',
+  MEDIA_S3_REGION: 'us-east-1',
+  MEDIA_S3_BUCKET: 'washgo-media-test',
+  MEDIA_S3_ACCESS_KEY_ID: 'mediatestkey',
+  MEDIA_S3_SECRET_ACCESS_KEY: 'media-test-secret',
+};
 async function freePort() {
   const server = createServer();
   await new Promise((resolve, reject) => {
@@ -41,6 +49,9 @@ for (const service of owners) {
           NODE_ENV: 'test',
           LOG_LEVEL: 'info',
           IDENTITY_AUTH_ENABLED: 'false',
+          // Explicit unreachable authority: liveness must not need Identity,
+          // while configuration requests still fail closed.
+          IDENTITY_ORIGIN: 'http://127.0.0.1:9',
           DATABASE_URL: `postgresql://cw_app:${secret}@127.0.0.1:9/cw_${service}?schema=app`,
           OBSERVABILITY_METRICS_TOKEN: token,
           OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: '',
@@ -48,6 +59,7 @@ for (const service of owners) {
           IDENTITY_ISSUER: 'https://identity.washgo.invalid',
           IDENTITY_AUDIENCE: 'washgo-web',
           GATEWAY_ALLOWED_ORIGINS: 'https://customer.washgo.invalid',
+          ...(service === 'media' ? mediaBootEnvironment : {}),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -79,6 +91,14 @@ for (const service of owners) {
           await delay(25);
         }
         assert.equal(live?.status, 200, `${service} did not start: ${output}`);
+        if (service === 'configuration') {
+          const unavailable = await fetch(
+            `${url}/internal/v1/configuration/values/booking/hold-ttl?environment=production`,
+            { headers: { authorization: `Bearer ${token}` } },
+          );
+          assert.equal(unavailable.status, 503, 'unreachable Identity must fail closed');
+          assert.equal((await unavailable.json()).error.code, 'AUTH_UNAVAILABLE');
+        }
         assert.equal((await fetch(`${url}/metrics`)).status, 404);
         const correlation = randomUUID();
         const ready = await fetch(`${url}/health/ready`, {

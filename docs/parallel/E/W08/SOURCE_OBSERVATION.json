@@ -1,0 +1,643 @@
+{
+  "schemaVersion": 1,
+  "task": "W08-E",
+  "parentStatus": "NOT_STARTED / ENTRY_BLOCKED",
+  "child": "W08-E-RISK-PROPOSAL",
+  "acceptanceStatus": "PROPOSAL_ONLY",
+  "analysisSource": {
+    "sha": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+    "tree": "1a6b3a54e926fc9e3387ac547ecc20c3d3f4252d",
+    "parents": [
+      "be954a9a3ce4d206bd4a6cfd46990dece359edd2",
+      "21988ab50af8bdfaf4b0d5770ce21256a902f1c4"
+    ],
+    "acceptedBaseW08": null,
+    "acceptedBaseW09": null
+  },
+  "registry": {
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+    "BASE_W02": null,
+    "acceptedNextWaveContracts": [],
+    "publishedNextWavePackageVersions": {}
+  },
+  "sourcePackageVersions": {
+    "contracts": "0.0.2",
+    "event-contracts": "0.0.2",
+    "api-clients": "0.0.1 (empty)"
+  },
+  "inventory": {
+    "ownerServices": 19,
+    "nonIdentityBusinessNotReady": 18,
+    "frontendTechnicalBoots": 3,
+    "completeProductCampaignsExecuted": 0,
+    "proposedRiskFamilies": 45,
+    "riskFamilyStatus": "BLOCKED_NOT_RUN",
+    "numericalProfile": "UNSET / UNAPPROVED"
+  },
+  "externalMergeObservations": {
+    "pr41": {
+      "merged": true,
+      "originalHead": "04b7577097d7767e0d0cd1bf43de84ea92c02671",
+      "mergeCommit": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "boundedMeaning": "C014 session demo; no duplicate branch"
+    },
+    "pr75": {
+      "merged": true,
+      "head": "21988ab50af8bdfaf4b0d5770ce21256a902f1c4",
+      "mergeCommit": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+      "mergedAt": "2026-10-06T19:38:01Z",
+      "rootPerformedMerge": false
+    },
+    "recoveryFix": {
+      "commit": "51ba95c209326ab2c7b95845d1058fced9def5cc",
+      "integrationBlob": "db2736232de69eedda593c6c3291437f7c89d2b7",
+      "unitBlob": "595fab27aa4de4df1246a7eea231f1f19ca5cb64",
+      "sameBlobsAtAnalysisSource": true,
+      "scope": "Case A awaited recovery and controlled cancellation tests, not D3 or DB operation cancellation"
+    }
+  },
+  "analysisTargetCI": {
+    "checks": 43,
+    "successfulChecks": 43,
+    "workflows": 8,
+    "successfulWorkflows": 8,
+    "f009Run": 37520442256,
+    "attempt": 1,
+    "scope": "Foundation only; not full W08 acceptance",
+    "artifacts": [
+      {
+        "stage": "security",
+        "artifactId": 11441010322,
+        "zipSha256": "6fef8409b341ee4a8e80fe9f58e62c6b4f86c4b89e30b28b5ca4818897e022d8",
+        "recordSha256": "fe96a26a2d2b194c6b0b993a0e98ec0c28ba632d1afea5f9973a3c0d9e8d9a74",
+        "verifiedRecord": {
+          "schemaVersion": 1,
+          "id": "security",
+          "status": "passed",
+          "sourceSha": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+          "sourceTree": "1a6b3a54e926fc9e3387ac547ecc20c3d3f4252d",
+          "sourceDirty": false,
+          "runId": "37520442256",
+          "runAttempt": "1",
+          "tools": {
+            "node": "v24.21.0",
+            "docker": null,
+            "platform": "linux/x64",
+            "pnpm": "10.32.1"
+          },
+          "steps": [
+            {
+              "id": "complete-secret-scan-history",
+              "status": "passed",
+              "durationMs": 3
+            },
+            {
+              "id": "secret-scan-regression-tests",
+              "status": "passed",
+              "durationMs": 4349
+            },
+            {
+              "id": "gitleaks-history",
+              "status": "passed",
+              "durationMs": 1275
+            },
+            {
+              "id": "gitleaks-source",
+              "status": "passed",
+              "durationMs": 650
+            },
+            {
+              "id": "dependency-audit",
+              "status": "passed",
+              "durationMs": 448
+            },
+            {
+              "id": "reproducible-frozen-lockfile",
+              "status": "passed",
+              "durationMs": 1948
+            }
+          ],
+          "detail": {
+            "scanner": "v8.30.1",
+            "historyScope": "Complete ancestry of the exact source SHA, including merge-parent diffs",
+            "historySourceSha": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+            "tests": {
+              "secret-scans": {
+                "tests": 6,
+                "pass": 6,
+                "fail": 0,
+                "cancelled": 0,
+                "skipped": 0,
+                "todo": 0
+              }
+            },
+            "secrets": {
+              "history": 0,
+              "source": 0
+            },
+            "audit": {
+              "low": 0,
+              "moderate": 0,
+              "high": 0,
+              "critical": 0
+            },
+            "threshold": "All pnpm advisories block, preserving F001; no allowlist introduced."
+          }
+        },
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37520442256/artifacts/11441010322"
+      },
+      {
+        "stage": "codeql",
+        "artifactId": 11440605666,
+        "zipSha256": "c53fe7adfa3ec39a04c1d345fd4504bcc4b89b47b7f6ee21a2b3fa1f5f9a78bf",
+        "recordSha256": "a844ce24f50374740922739fbac16e4ddd748b22bbf6e3d4eed678e4abc5cc1a",
+        "verifiedRecord": {
+          "schemaVersion": 1,
+          "id": "codeql",
+          "status": "passed",
+          "sourceSha": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+          "sourceTree": "1a6b3a54e926fc9e3387ac547ecc20c3d3f4252d",
+          "sourceDirty": false,
+          "runId": "37520442256",
+          "runAttempt": "1",
+          "tools": {
+            "node": "v24.21.0",
+            "docker": null,
+            "platform": "linux/x64",
+            "pnpm": "10.32.1"
+          },
+          "steps": [
+            {
+              "id": "sarif-security-threshold",
+              "status": "passed",
+              "durationMs": 0
+            }
+          ],
+          "detail": {
+            "action": "2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2",
+            "version": "2.27.1",
+            "analyses": 1,
+            "findings": 4,
+            "blocking": 0,
+            "rules": ["js/file-access-to-http", "js/http-to-file-access"],
+            "locations": [
+              {
+                "ruleId": "js/file-access-to-http",
+                "level": "warning",
+                "securitySeverity": 6.5,
+                "locations": [
+                  {
+                    "path": "scripts/ci/install-tools.mjs",
+                    "line": 22
+                  }
+                ]
+              },
+              {
+                "ruleId": "js/file-access-to-http",
+                "level": "warning",
+                "securitySeverity": 6.5,
+                "locations": [
+                  {
+                    "path": "tests/integration/rabbitmq-acl.test.mjs",
+                    "line": 255
+                  }
+                ]
+              },
+              {
+                "ruleId": "js/file-access-to-http",
+                "level": "warning",
+                "securitySeverity": 6.5,
+                "locations": [
+                  {
+                    "path": "tests/integration/rabbitmq-acl.test.mjs",
+                    "line": 256
+                  }
+                ]
+              },
+              {
+                "ruleId": "js/http-to-file-access",
+                "level": "warning",
+                "securitySeverity": 6.3,
+                "locations": [
+                  {
+                    "path": "scripts/ci/install-tools.mjs",
+                    "line": 30
+                  }
+                ]
+              }
+            ],
+            "threshold": "Security severity >=7, or error level; no suppressed-result exception."
+          }
+        },
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37520442256/artifacts/11440605666"
+      },
+      {
+        "stage": "aggregate",
+        "artifactId": 11440387010,
+        "zipSha256": "8d37335e7fdb9f5e7125c1094b2f9555c6b1561bd41df1b9ee006693d0f1151c",
+        "recordSha256": "a7af0fe363fd41e75e318d6927c3e3f75e1ed134a4b5e8e15816849f26603430",
+        "verifiedRecord": {
+          "schemaVersion": 1,
+          "id": "aggregate",
+          "status": "passed",
+          "sourceSha": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+          "sourceTree": "1a6b3a54e926fc9e3387ac547ecc20c3d3f4252d",
+          "sourceDirty": false,
+          "runId": "37520442256",
+          "runAttempt": "1",
+          "tools": {
+            "node": "v24.21.0",
+            "docker": null,
+            "platform": "linux/x64",
+            "pnpm": "10.32.1"
+          },
+          "steps": [
+            {
+              "id": "all-required-jobs-succeeded",
+              "status": "passed",
+              "durationMs": 0
+            },
+            {
+              "id": "exact-source-complete-evidence",
+              "status": "passed",
+              "durationMs": 6
+            }
+          ],
+          "detail": {
+            "accepted": true,
+            "records": [
+              "plan",
+              "targeted",
+              "static",
+              "integration",
+              "security",
+              "codeql",
+              "image-identity",
+              "image-customer",
+              "image-vehicle",
+              "image-catalog",
+              "image-pricing",
+              "image-booking",
+              "image-scheduling",
+              "image-dispatch",
+              "image-workforce",
+              "image-billing",
+              "image-wallet",
+              "image-subscription",
+              "image-media",
+              "image-communications",
+              "image-reviews",
+              "image-support",
+              "image-geo",
+              "image-reporting",
+              "image-configuration",
+              "image-gateway",
+              "image-customer-web",
+              "image-operator-web",
+              "image-admin-web"
+            ],
+            "note": "Foundation only. No deployment, full app readiness or automatic merge."
+          }
+        },
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37520442256/artifacts/11440387010"
+      }
+    ]
+  },
+  "localChecksActuallyRunBeforeEdits": {
+    "toolchain": {
+      "checks": 40,
+      "passed": 40
+    },
+    "designGuard": {
+      "artifacts": 10,
+      "result": "PASS"
+    },
+    "f010Registry": {
+      "references": 3,
+      "initialRegistration": false,
+      "result": "PASS"
+    },
+    "controlledRecoveryRegression": {
+      "command": "node --test --test-reporter=tap tests/unit/f008-recovery-scope.test.mjs",
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "scope": "Real node:test lifecycle with mocked broker/DB/workers; not actual fault/load/product acceptance"
+    }
+  },
+  "ownedRuntimeResources": [],
+  "newMigrationIds": [],
+  "newAcceptedContractVersions": {},
+  "sourcePins": [
+    {
+      "path": "AGENTS.md",
+      "bytes": 3138,
+      "sha256": "9a36dcbe805425931884abedb1b1efefdaafa39a0a73c13837bcec71d4eb489f"
+    },
+    {
+      "path": "apps/api-gateway/src/application/gateway.service.ts",
+      "bytes": 4386,
+      "sha256": "b5e1cb900b1f5792c76d609fe3721bd3faaf8478a631bf403af96d9c9c02a355"
+    },
+    {
+      "path": "apps/api-gateway/src/infrastructure/http-client.ts",
+      "bytes": 2626,
+      "sha256": "f5a88158df36ce0483256cd4e94a6622eee720f914bc1899d9a39d813aa0cb3f"
+    },
+    {
+      "path": "apps/customer-web/src/main.tsx",
+      "bytes": 761,
+      "sha256": "53ec115a6ffff8c3e1ace4c14e7ca723376b3450e25b2a51ed93d13412ed3cff"
+    },
+    {
+      "path": "apps/customer-web/src/shared/Sheet.tsx",
+      "bytes": 5322,
+      "sha256": "1e823cdd304f81c3e0bc2286836e5121899b875c77a0e9093cc7e04346e311aa"
+    },
+    {
+      "path": "apps/customer-web/src/state/CustomerSessionProvider.tsx",
+      "bytes": 3449,
+      "sha256": "ec6946b1fcf3536ca00e99962d8e0c0efad97a34b5517db6e88ec9c7e6d607c9"
+    },
+    {
+      "path": "apps/customer-web/src/styles/customer-shell.css",
+      "bytes": 7972,
+      "sha256": "e346f7243d89f7c1eeb603dca503c186123b608cee76fbc7ccd677be0f2afa1f"
+    },
+    {
+      "path": "apps/customer-web/src/widgets/order-handoff/OrderHandoff.tsx",
+      "bytes": 3012,
+      "sha256": "ecdf7e94a90357a2bf49bd58b0bd00aff9ea2591c002f958b5e88795d9ea9d50"
+    },
+    {
+      "path": "architecture/adr/F001-monorepo-and-data-ownership.md",
+      "bytes": 7220,
+      "sha256": "46309b8de279fbccb99716b240a429a79abd1b5699e809947429d9726ece67d7"
+    },
+    {
+      "path": "architecture/parallel-contract-release.json",
+      "bytes": 31335,
+      "sha256": "aec04eeb6c3d893e4e0b401bab0a550c517f1e32709a5e0189f4a3ddb0ce4db9"
+    },
+    {
+      "path": "architecture/parallel-ownership.json",
+      "bytes": 59599,
+      "sha256": "2b696da4f8ed6d0fbb6234e33dc207e92c9e91f72e56e6f8777aac62c4f8e144"
+    },
+    {
+      "path": "architecture/service-catalog.json",
+      "bytes": 43887,
+      "sha256": "34462fbfb90c6a221524905aa21f7a4022c28a1b21d2243381a1b07582eac9b8"
+    },
+    {
+      "path": "design/reference/approved/washgo-admin-prototype.html",
+      "bytes": 40310,
+      "sha256": "b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273"
+    },
+    {
+      "path": "design/reference/approved/washgo-payments-interactive.html",
+      "bytes": 263462,
+      "sha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549"
+    },
+    {
+      "path": "design/reference/approved/washgo-technician-interactive.html",
+      "bytes": 122636,
+      "sha256": "d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc"
+    },
+    {
+      "path": "docs/ARCHITECTURE_AR.md",
+      "bytes": 45553,
+      "sha256": "d11a69f75d17375f47f0648e7cfd2185211461f516d90e23d99c9b2c24eae9d8"
+    },
+    {
+      "path": "docs/VERIFICATION.md",
+      "bytes": 4653,
+      "sha256": "d8445acdd7cefd3818b538bf04b822ee07075cf1f95d68f05f7eed5437872ea3"
+    },
+    {
+      "path": "docs/adr/0004-approved-ui-precedence.md",
+      "bytes": 1557,
+      "sha256": "d14c375db104b255fc6aa8f2692443c60751e81c7e828d3cc479e0effa6c755d"
+    },
+    {
+      "path": "docs/design/DESIGN_LOCK.md",
+      "bytes": 10268,
+      "sha256": "0f05db671539f6568227cef7c6e7378ab0db4c1ae63cefd0678ce504fbfab0ec"
+    },
+    {
+      "path": "docs/design/f010-reference-debt-baseline.json",
+      "bytes": 2618,
+      "sha256": "fbbc79fc34d3d2fc13eee24a9dfe299d547ad17d6c99266a072a0d114aa9497f"
+    },
+    {
+      "path": "docs/design/f010-reference-manifest.json",
+      "bytes": 1488,
+      "sha256": "94c3c99206169e66dd0a1161b5b7968c098f1e3ee29af3d5e1c7789be4ba44f3"
+    },
+    {
+      "path": "docs/design/reference-manifest.json",
+      "bytes": 2799,
+      "sha256": "985a98d76516c2443ad8c9a716d6d35225feb54a05b84d0fd7a004561223545a"
+    },
+    {
+      "path": "docs/parallel/E/W07/CANDIDATE_AND_STAGING_GATES.md",
+      "bytes": 9729,
+      "sha256": "f77e6dbe381aac6824e48c73f500116ec75cc23b1ac24c1e055b89d65580a0a1"
+    },
+    {
+      "path": "docs/parallel/E/W07/W08_HARDENING_AND_BLOCKERS.md",
+      "bytes": 13637,
+      "sha256": "2ce08da41aed28d226ad6047d51da87a100789a52b7c93c26f8116ca591ff216"
+    },
+    {
+      "path": "infra/postgres/provision.sh",
+      "bytes": 5800,
+      "sha256": "ce19ea0642cf33a662dfce416eadee0abd7647226f211dda2966df5d56e1ad2b"
+    },
+    {
+      "path": "packages/api-clients/package.json",
+      "bytes": 365,
+      "sha256": "f49b16dd0418f4229042536ed1a8a4e11505467a1b8b85147263301bddbabd9f"
+    },
+    {
+      "path": "packages/contracts/package.json",
+      "bytes": 767,
+      "sha256": "7fcdae7298bcf9fa5417f3d4387445bdbb3942d7e2ab041507c902fbcb13bd93"
+    },
+    {
+      "path": "packages/event-contracts/package.json",
+      "bytes": 1012,
+      "sha256": "035cdd03d0695d29ed456b340c66651ddb87a456436fd98fb1c2170d8c2d221a"
+    },
+    {
+      "path": "packages/observability/src/metrics.ts",
+      "bytes": 5640,
+      "sha256": "42194dbe825eb08e26e8fff946e6b6122f174e8eaeb4bd88e4080c4d3b9ed0fb"
+    },
+    {
+      "path": "packages/platform-messaging/src/connection.ts",
+      "bytes": 3014,
+      "sha256": "d03ff73743d19f8a463a0ecce55c188e41ed5c56d9daa212822270a8d15f62a3"
+    },
+    {
+      "path": "packages/platform-messaging/src/inbox-consumer.ts",
+      "bytes": 8044,
+      "sha256": "cab0a274385e9c264f1f87731f02b160fa50dec1be7a38fa2c9f31f8459462c0"
+    },
+    {
+      "path": "packages/platform-messaging/src/outbox-relay.ts",
+      "bytes": 4528,
+      "sha256": "0002f4e79368da310f6b7a8b16fd886c18db6b72795871da9bed1ea6f46413d3"
+    },
+    {
+      "path": "packages/platform-messaging/src/publisher.ts",
+      "bytes": 4229,
+      "sha256": "6e0d578d026855688527d3ba65aaae97e35661b446e8ca3f5051fcaf8ad46151"
+    },
+    {
+      "path": "packages/service-kit/src/health.ts",
+      "bytes": 4294,
+      "sha256": "758b46784e4425ffe6cf15eba940172291d4384ffda0d317afb50b47d170d456"
+    },
+    {
+      "path": "scripts/acceptance/lib/recovery.mjs",
+      "bytes": 1165,
+      "sha256": "2416436f3ce6c5c4b4102be913aea65ae4e68fda7126f317bd1709ac1cef92a8"
+    },
+    {
+      "path": "scripts/c004/parity-harness.mjs",
+      "bytes": 12523,
+      "sha256": "34b75c06afab42d8cee37af8f260de1f016a0a6d35bd7e18454b1f2d083c9e14"
+    },
+    {
+      "path": "scripts/ci/aggregate.mjs",
+      "bytes": 1280,
+      "sha256": "ff9abcbe0eed9221c4a6cdf38078769c77d941994c4eaf5944000094f03455ea"
+    },
+    {
+      "path": "scripts/ci/install-tools.mjs",
+      "bytes": 1890,
+      "sha256": "8ecae94d9f0a2b048eef81895c12c64a1fcb42f95a5ac820408d204fbb61e09b"
+    },
+    {
+      "path": "scripts/ci/policy.mjs",
+      "bytes": 11478,
+      "sha256": "0c8d0d7f9933e9b0b5f80d68dba9a257befbb95732875741709c561bf1035f4a"
+    },
+    {
+      "path": "services/billing/prisma/schema.prisma",
+      "bytes": 921,
+      "sha256": "82aa2c8382d9a1b5a345f75065407c213da829acd58e92c1331b3d9bfed4c3a1"
+    },
+    {
+      "path": "services/booking/prisma/schema.prisma",
+      "bytes": 921,
+      "sha256": "9ea3d6dd78593cafafc97320e392e2bdd4e5394adcca768e303d20c2146d7622"
+    },
+    {
+      "path": "services/catalog/src/outbox/prisma-outbox.store.ts",
+      "bytes": 4136,
+      "sha256": "433228770c17708dbdeaca27d29546675c4744def5c106e6546300b238354ee3"
+    },
+    {
+      "path": "services/catalog/src/outbox/relay.runner.ts",
+      "bytes": 7536,
+      "sha256": "e9faae9ff3184f9295e46a487046c290e0ed646a1977822a8921ba674f9382df"
+    },
+    {
+      "path": "services/communications/src/inbox/prisma-inbox.store.ts",
+      "bytes": 2251,
+      "sha256": "354ab491d7caddfcdce7d40af83d9c3d774d960336660b434eba9720b51be00b"
+    },
+    {
+      "path": "services/dispatch/prisma/schema.prisma",
+      "bytes": 922,
+      "sha256": "a40a7014eb73cc30c33156f220a259740f0e4f243cf02f268d69d68a5765ad92"
+    },
+    {
+      "path": "services/identity/prisma/migrations/20260926040000_identity_security/migration.sql",
+      "bytes": 2593,
+      "sha256": "ba35f1f9d59397c806ee54bc3daec75a5d4d195ebf17851acfcf4aad61bc2081"
+    },
+    {
+      "path": "services/identity/prisma/schema.prisma",
+      "bytes": 3064,
+      "sha256": "22b3951f5332a9856752dd567d5960a4ebcaa3e6993c57e58b4b23a90b3182d7"
+    },
+    {
+      "path": "services/identity/src/application/identity-auth.service.ts",
+      "bytes": 16872,
+      "sha256": "bcaa6240678273426f5bdab1acb340da6b20cb48d948859df3fe6638ad5a0763"
+    },
+    {
+      "path": "services/media/prisma/schema.prisma",
+      "bytes": 919,
+      "sha256": "5ed0b388edc04c68f6a3e5e0eaed14a5918632b6f74c0a6bfae11c57b413fbbb"
+    },
+    {
+      "path": "services/pricing/prisma/schema.prisma",
+      "bytes": 921,
+      "sha256": "5e8251634c057bb4656d0b050d52e04cd02734a3ca541d1a2667df7f73bb6686"
+    },
+    {
+      "path": "services/reporting/src/inbox/consumer.runner.ts",
+      "bytes": 6984,
+      "sha256": "39e2c4f2f31199119678aadbb44c0439b51bbddcd23d4facc70139a1b020cdf0"
+    },
+    {
+      "path": "services/reporting/src/inbox/prisma-inbox.store.ts",
+      "bytes": 2246,
+      "sha256": "6711146f5147c38d1b1d6d56cda1052a5093d27490416e02b7f95c4e475de8e4"
+    },
+    {
+      "path": "services/scheduling/prisma/schema.prisma",
+      "bytes": 924,
+      "sha256": "3b660e8a2c16783757df16e5c9c253874927d7cf3e658b1e94135fd7741a552c"
+    },
+    {
+      "path": "services/subscription/prisma/schema.prisma",
+      "bytes": 926,
+      "sha256": "b74cc9c3d0002d7c6482f68268a37e9860387ae39199e111b73b625db53b64ad"
+    },
+    {
+      "path": "services/support/prisma/schema.prisma",
+      "bytes": 921,
+      "sha256": "00ffe22bae2fb6fd2b9aa8a0f0a4b592b9411622b8cc58e3bc0d745b63c80580"
+    },
+    {
+      "path": "services/wallet/prisma/schema.prisma",
+      "bytes": 920,
+      "sha256": "e6e9b6017244473a152de02d8441d14c6e71acc4dce61fdafd4fe50bef422db2"
+    },
+    {
+      "path": "tests/gateway/api.test.mjs",
+      "bytes": 6207,
+      "sha256": "24fd96e027f9ff2eb3ff14a026a5f2470f24fc7d4ee34cc28d8d4e2d91305e4b"
+    },
+    {
+      "path": "tests/identity/api.test.mjs",
+      "bytes": 16800,
+      "sha256": "092188f836532eb1a81847d463ff1d8dd95d91571a1bdede7183d9bf1d3b05a6"
+    },
+    {
+      "path": "tests/integration/outbox-inbox.test.mjs",
+      "bytes": 30058,
+      "sha256": "a8ef039823f5d116a52a19f6018649ca34a36b8850233319c500bc3b03bf023f"
+    },
+    {
+      "path": "tests/integration/rabbitmq-acl.test.mjs",
+      "bytes": 11206,
+      "sha256": "3ca8561431b37ff17b01a29194109bece3c7569df0d7527cdce67fe7a1050f4b"
+    },
+    {
+      "path": "tests/unit/f008-recovery-scope.test.mjs",
+      "bytes": 10789,
+      "sha256": "45bb362960af35adeb375a335dde86186f37801686fedee887f894461f133b67"
+    }
+  ]
+}

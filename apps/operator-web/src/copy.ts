@@ -1,0 +1,33 @@
+/**
+ * PENDING OWNER DESIGN (TI-D03). The approved reference has no loading,
+ * offline, unknown-outcome, conflict, error, unauthenticated, lost-task or
+ * eligibility-attention state. These minimal texts are shown only through existing reference
+ * components (the `#storage-warning` status bar, `#toast`) and must be
+ * replaced by owner-approved copy. Every string here is listed in
+ * docs/production/C/P03-C5-operator-web.md ("Production states pending owner design").
+ */
+export const PENDING = {
+  loading: 'جارٍ تحميل المهام…',
+  offline: 'لا يوجد اتصال الآن. تُعرض آخر حالة مؤكدة من الخادم.',
+  unknown: 'لم يتأكد حفظ آخر إجراء بعد. ستُعاد المحاولة بالطلب نفسه عند عودة الاتصال.',
+  unknownToast: 'لم يتأكد الحفظ بعد؛ لن يُعتبر ناجحًا قبل تأكيد الخادم.',
+  auth: 'انتهت الجلسة أو لم يُسجّل الدخول. سجّل الدخول من جديد للمتابعة.',
+  forbidden: 'هذا الحساب لا يملك صلاحية مهام الفني.',
+  error: 'تعذّر تحميل البيانات من الخادم. أعد المحاولة لاحقًا.',
+  conflict: 'تغيّرت المهمة على الخادم. عُرضت أحدث حالة؛ راجعها ثم أعد المحاولة.',
+  lost: 'لم تعد هذه المهمة مسندة إليك. أُزيلت من قائمتك.',
+  refused: 'رفض الخادم هذا الإجراء. عُرضت أحدث حالة للمهمة.',
+  uploadRejected: 'رفض الخادم الصورة. التقط صورة أخرى.',
+  bookingUnavailable: 'تفاصيل الطلب غير متاحة قبل استلام المهمة.',
+  busy: 'انتظر اكتمال الإجراء السابق.',
+  // P05-C2 additions (PENDING OWNER COPY).
+  offlineCached: 'لا يوجد اتصال. يُعرض ملفك كما أكّده الخادم آخر مرة',
+  offlineAction: 'لا يمكن الحفظ دون اتصال. لم يتغيّر شيء.',
+  notActive: 'الحساب موقوف أو غير نشط حاليًا؛ لا يمكن استلام مهام جديدة.',
+  outsideArea: 'هذه المنطقة خارج منطقة خدمتك.',
+  exceptionOverlap: 'يوجد استثناء آخر في هذه الفترة.',
+  scheduleInvalid: 'اختر وقت نهاية بعد البداية بربع ساعة على الأقل، دون تداخل مع فترة أخرى.',
+  exceptionInvalid: 'اختر يوم نهاية لا يسبق يوم البداية، ولا تتجاوز المدة 31 يومًا.',
+  /** P06-C: Dispatch flagged this field task because Workforce withdrew the technician's eligibility. */
+  attention: 'تحتاج هذه المهمة مراجعة الإدارة لأن أهليتك للمهام تغيّرت. لم تُلغَ المهمة.',
+} as const;

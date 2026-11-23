@@ -1,0 +1,2588 @@
+{
+  "schemaVersion": 1,
+  "task": "W10-E",
+  "lane": "E",
+  "phase": "SOURCE_BOUND_NO_GO_PROPOSAL",
+  "parentStatus": "NOT_STARTED / ENTRY_BLOCKED",
+  "child": {
+    "id": "W10-E-LAUNCH-DOSSIER",
+    "status": "DRAFT_REVIEW_PENDING"
+  },
+  "launchDecision": "NO_GO_FULL_SCOPE",
+  "decisionBasis": "Required implementation, accepted base/RC and real functional/external/rehearsal/operational evidence absent; calendar target cannot override.",
+  "analysisSource": {
+    "sha": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+    "tree": "9288ac9a1320221f309ce33b571a057f5ec2ea57",
+    "orderedParents": [
+      "9fb6d50d8bff31d72c7151923199ccb1492bc08c",
+      "8d67b0660a3f59d3ae698283ee6702780663c705"
+    ]
+  },
+  "acceptedBASE_W10": null,
+  "registry": {
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "BASE_W02": null,
+    "acceptedNextWaveContracts": [],
+    "acceptedReleaseManifest": null,
+    "scope": "Source registry, not future accepted release"
+  },
+  "sourcePackageVersions": {
+    "contracts": "0.0.2",
+    "event-contracts": "0.0.2",
+    "api-clients": "0.0.1",
+    "businessClients": "EXPORT_EMPTY"
+  },
+  "sourceContinuity": {
+    "comparisonParent": "b47390c8ce04b2674e9222918bcd4e03fa5aed24",
+    "commits": 11,
+    "addedProposalPaths": 35,
+    "sourceChangesOutsideLaneDocsSpecs": false,
+    "peerMerges": [
+      {
+        "lane": "C",
+        "pullRequest": 81,
+        "headSha": "a1c99c202d830e5f9f7224a741fb962bca9552dd",
+        "mergeSha": "8ce37e5502cd105c788946968d94fdb6cc4ba1b8",
+        "mergedAtUtc": "2026-10-06T21:44:27Z",
+        "reviewSubmissions": 0,
+        "headChecks": 44,
+        "successfulHeadChecks": 44,
+        "semanticStatus": "PROPOSAL_ONLY_NOT_BUSINESS_ACCEPTED"
+      },
+      {
+        "lane": "A",
+        "pullRequest": 82,
+        "headSha": "2f251f30fef863f148f665883c2fcc6460a12034",
+        "mergeSha": "afa0dbdf67eec1f74cb31fc0989fa72e808deb03",
+        "mergedAtUtc": "2026-10-06T21:43:56Z",
+        "reviewSubmissions": 0,
+        "headChecks": 44,
+        "successfulHeadChecks": 44,
+        "semanticStatus": "PROPOSAL_ONLY_NOT_BUSINESS_ACCEPTED"
+      },
+      {
+        "lane": "B",
+        "pullRequest": 83,
+        "headSha": "c3672464d199e7876196c423454bf565a09879fc",
+        "mergeSha": "230481a976dd390fa8ff525414e457cdd4614426",
+        "mergedAtUtc": "2026-10-06T21:44:13Z",
+        "reviewSubmissions": 0,
+        "headChecks": 44,
+        "successfulHeadChecks": 44,
+        "semanticStatus": "PROPOSAL_ONLY_NOT_BUSINESS_ACCEPTED"
+      },
+      {
+        "lane": "D",
+        "pullRequest": 84,
+        "headSha": "9dfff0393f97e398dbf48e5edb0d2a9a31aae6e3",
+        "mergeSha": "9fb6d50d8bff31d72c7151923199ccb1492bc08c",
+        "mergedAtUtc": "2026-10-06T21:44:42Z",
+        "reviewSubmissions": 0,
+        "headChecks": 44,
+        "successfulHeadChecks": 44,
+        "semanticStatus": "PROPOSAL_ONLY_NOT_BUSINESS_ACCEPTED"
+      }
+    ],
+    "ownPriorPR": {
+      "number": 85,
+      "headSha": "8d67b0660a3f59d3ae698283ee6702780663c705",
+      "mergeSha": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+      "mergedAtUtc": "2026-10-06T21:44:58Z",
+      "mergedExternally": true,
+      "reviewSubmissions": 0
+    }
+  },
+  "governance": {
+    "mainSha": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+    "branchMetadata": {
+      "protected": false,
+      "protection": {
+        "enabled": false,
+        "required_status_checks": {
+          "enforcement_level": "off",
+          "contexts": [],
+          "checks": []
+        }
+      }
+    },
+    "repositoryRulesetsReturned": [],
+    "detailedBranchProtectionRead": {
+      "httpStatus": 403,
+      "error": "Resource not accessible by integration"
+    },
+    "detailedRequiredReviewConfiguration": "UNVERIFIED",
+    "eligibleIndependentReview": "NOT_PROVIDED",
+    "policyMandatoryGatesPreserved": true,
+    "administrationChanges": false
+  },
+  "analysisTargetCI": {
+    "checks": 43,
+    "checksSuccessful": 43,
+    "workflowRuns": [
+      {
+        "id": 37536049862,
+        "name": "F008 observability acceptance",
+        "event": "push",
+        "headSha": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1,
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37536049862"
+      },
+      {
+        "id": 37536049734,
+        "name": "F009 foundation verification",
+        "event": "push",
+        "headSha": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1,
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37536049734"
+      },
+      {
+        "id": 37536049702,
+        "name": "F010 golden HTML parity",
+        "event": "push",
+        "headSha": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1,
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37536049702"
+      },
+      {
+        "id": 37536049683,
+        "name": "F001 ownership and workspace acceptance",
+        "event": "push",
+        "headSha": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1,
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37536049683"
+      },
+      {
+        "id": 37536049622,
+        "name": "F006 identity security acceptance",
+        "event": "push",
+        "headSha": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1,
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37536049622"
+      },
+      {
+        "id": 37536049648,
+        "name": "Reference guard (not release CI)",
+        "event": "push",
+        "headSha": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1,
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37536049648"
+      },
+      {
+        "id": 37536049626,
+        "name": "Sprint 0.2 CI",
+        "event": "push",
+        "headSha": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1,
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37536049626"
+      },
+      {
+        "id": 37536049629,
+        "name": "F007 gateway contract acceptance",
+        "event": "push",
+        "headSha": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1,
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37536049629"
+      }
+    ],
+    "downloadedVerifiedArtifacts": [
+      {
+        "artifactId": 11446906120,
+        "stage": "codeql",
+        "zipSha256": "cfc99f3ab2cc8e1536c5311606c0119ef04d52a55ff473beb21c6a757a331755",
+        "jsonSha256": "77d09f9a80a8ef4038eef5379424317600ce229ee978967f774ade1b87803423",
+        "sourceSha": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+        "sourceTree": "9288ac9a1320221f309ce33b571a057f5ec2ea57",
+        "runId": "37536049734",
+        "runAttempt": "1",
+        "detail": {
+          "action": "2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2",
+          "version": "2.27.1",
+          "analyses": 1,
+          "findings": 4,
+          "blocking": 0,
+          "rules": ["js/file-access-to-http", "js/http-to-file-access"],
+          "locations": [
+            {
+              "ruleId": "js/file-access-to-http",
+              "level": "warning",
+              "securitySeverity": 6.5,
+              "locations": [
+                {
+                  "path": "scripts/ci/install-tools.mjs",
+                  "line": 22
+                }
+              ]
+            },
+            {
+              "ruleId": "js/file-access-to-http",
+              "level": "warning",
+              "securitySeverity": 6.5,
+              "locations": [
+                {
+                  "path": "tests/integration/rabbitmq-acl.test.mjs",
+                  "line": 255
+                }
+              ]
+            },
+            {
+              "ruleId": "js/file-access-to-http",
+              "level": "warning",
+              "securitySeverity": 6.5,
+              "locations": [
+                {
+                  "path": "tests/integration/rabbitmq-acl.test.mjs",
+                  "line": 256
+                }
+              ]
+            },
+            {
+              "ruleId": "js/http-to-file-access",
+              "level": "warning",
+              "securitySeverity": 6.3,
+              "locations": [
+                {
+                  "path": "scripts/ci/install-tools.mjs",
+                  "line": 30
+                }
+              ]
+            }
+          ],
+          "threshold": "Security severity >=7, or error level; no suppressed-result exception."
+        },
+        "tools": {
+          "node": "v24.21.0",
+          "docker": null,
+          "platform": "linux/x64",
+          "pnpm": "10.32.1"
+        }
+      },
+      {
+        "artifactId": 11446513727,
+        "stage": "aggregate",
+        "zipSha256": "428493c3ee8b2492c56af97e953199d6294dac9dcee4a742f9b35319a412a54d",
+        "jsonSha256": "f6d063130123a10da41f985c11774543e7fae6392a64b00df62b4b542d2a2a50",
+        "sourceSha": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+        "sourceTree": "9288ac9a1320221f309ce33b571a057f5ec2ea57",
+        "runId": "37536049734",
+        "runAttempt": "1",
+        "detail": {
+          "accepted": true,
+          "records": [
+            "plan",
+            "targeted",
+            "static",
+            "integration",
+            "security",
+            "codeql",
+            "image-identity",
+            "image-customer",
+            "image-vehicle",
+            "image-catalog",
+            "image-pricing",
+            "image-booking",
+            "image-scheduling",
+            "image-dispatch",
+            "image-workforce",
+            "image-billing",
+            "image-wallet",
+            "image-subscription",
+            "image-media",
+            "image-communications",
+            "image-reviews",
+            "image-support",
+            "image-geo",
+            "image-reporting",
+            "image-configuration",
+            "image-gateway",
+            "image-customer-web",
+            "image-operator-web",
+            "image-admin-web"
+          ],
+          "note": "Foundation only. No deployment, full app readiness or automatic merge."
+        },
+        "tools": {
+          "node": "v24.21.0",
+          "docker": null,
+          "platform": "linux/x64",
+          "pnpm": "10.32.1"
+        }
+      },
+      {
+        "artifactId": 11446367802,
+        "stage": "security",
+        "zipSha256": "2313e9f00af8e24708d81bd17a517bdbdafec55409b1b2813411383f4eb6d049",
+        "jsonSha256": "6d3fc251c13a549887254721446ced2fc038a577c3e0495860ef60b70346c6e8",
+        "sourceSha": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+        "sourceTree": "9288ac9a1320221f309ce33b571a057f5ec2ea57",
+        "runId": "37536049734",
+        "runAttempt": "1",
+        "detail": {
+          "scanner": "v8.30.1",
+          "historyScope": "Complete ancestry of the exact source SHA, including merge-parent diffs",
+          "historySourceSha": "8bfa805d033cb29373c33886bf71bce4885a2f67",
+          "tests": {
+            "secret-scans": {
+              "tests": 6,
+              "pass": 6,
+              "fail": 0,
+              "cancelled": 0,
+              "skipped": 0,
+              "todo": 0
+            }
+          },
+          "secrets": {
+            "history": 0,
+            "source": 0
+          },
+          "audit": {
+            "low": 0,
+            "moderate": 0,
+            "high": 0,
+            "critical": 0
+          },
+          "threshold": "All pnpm advisories block, preserving F001; no allowlist introduced."
+        },
+        "tools": {
+          "node": "v24.21.0",
+          "docker": null,
+          "platform": "linux/x64",
+          "pnpm": "10.32.1"
+        }
+      }
+    ],
+    "scope": "FOUNDATION_ONLY_NOT_FULL_PRODUCT_OR_DELIVERY_HEAD_OR_RC_ACCEPTANCE"
+  },
+  "peerEvidenceCorrection": {
+    "lane": "B",
+    "pullRequest": 83,
+    "claimedCountLabels": "338 unit / 26 real PostgreSQL-RabbitMQ integration",
+    "verifiedRecord": {
+      "artifactId": 11445756747,
+      "stage": "integration",
+      "zipSha256": "86779d71517ad0a0094532a934c4b248c59169ab70dfd52abcc42ccad2b827b4",
+      "jsonSha256": "e3a3939ea0e58b740726ce44928e7843d1ae419042c9eae3b5903dde20a5cc4d",
+      "sourceSha": "c3672464d199e7876196c423454bf565a09879fc",
+      "sourceTree": "3632e0a94e5de01072c1c06ec553b0ecadeeb70f",
+      "runId": "37533543413",
+      "runAttempt": "1",
+      "detail": {
+        "databases": [
+          "identity",
+          "customer",
+          "vehicle",
+          "catalog",
+          "pricing",
+          "booking",
+          "scheduling",
+          "dispatch",
+          "workforce",
+          "billing",
+          "wallet",
+          "subscription",
+          "media",
+          "communications",
+          "reviews",
+          "support",
+          "geo",
+          "reporting",
+          "configuration"
+        ],
+        "databaseTests": {
+          "tests": 338,
+          "pass": 338,
+          "fail": 0,
+          "skip": 0
+        },
+        "identityGatewayBrowserTests": {
+          "total": 26,
+          "passed": 26,
+          "failed": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "note": "Only freshly produced counts are retained; no credentials, contexts, raw HTTP or infrastructure logs are uploaded."
+      },
+      "tools": {
+        "node": "v24.21.0",
+        "docker": "Docker version 28.0.4, build b8034c0",
+        "platform": "linux/x64",
+        "pnpm": "10.32.1"
+      }
+    },
+    "correctCountLabels": "338 database/messaging; 26 Identity/Gateway/browser",
+    "disposition": "E records correction; B owns its handoff correction; no peer file changed"
+  },
+  "inventory": {
+    "dataOwners": 19,
+    "existingMigrations": 21,
+    "markerOnlySchemas": 15,
+    "nonIdentityBusinessNotReady": 18,
+    "scopeRows": 124,
+    "scopeRowsAcceptedFullRelease": 0,
+    "knownCustomerActions": 87,
+    "customerFamilies": 20,
+    "customerForms": 6,
+    "operatorViews": 5,
+    "operatorPhases": 6,
+    "operatorSheets": 21,
+    "adminCapabilities": 17,
+    "prior40Provenance": "MISSING_UNVERIFIED_NOT_REPLACED_BY124_ROWS",
+    "w09BlockedFamilies": {
+      "A": 48,
+      "B": 24,
+      "C": 16,
+      "D": 51,
+      "E": 34
+    },
+    "w09FamilyOverlap": true,
+    "w10DeclarativeReleaseFamilies": 36,
+    "w10ExecutedReleaseFamilies": 0
+  },
+  "ownerModels": [
+    {
+      "owner": "billing",
+      "models": ["ServiceMarker"],
+      "schemaSha256": "82aa2c8382d9a1b5a345f75065407c213da829acd58e92c1331b3d9bfed4c3a1"
+    },
+    {
+      "owner": "booking",
+      "models": ["ServiceMarker"],
+      "schemaSha256": "9ea3d6dd78593cafafc97320e392e2bdd4e5394adcca768e303d20c2146d7622"
+    },
+    {
+      "owner": "catalog",
+      "models": ["ServiceMarker", "FoundationProbe", "OutboxMessage"],
+      "schemaSha256": "19ab178b6d32fafd460ce1c8d737af00cb8196f6f84c5a2ff573e48b77b4678b"
+    },
+    {
+      "owner": "communications",
+      "models": ["ServiceMarker", "InboxMessage", "ProbeNotification"],
+      "schemaSha256": "115eb2e4ee9cccf95be35358e0faf822b52d632444ffe381a1969cc3f2aa1c3c"
+    },
+    {
+      "owner": "configuration",
+      "models": ["ServiceMarker"],
+      "schemaSha256": "0891923f7b6b2df9166e0a673d8738fba5b46c908750c553873f37768df1c43c"
+    },
+    {
+      "owner": "customer",
+      "models": ["ServiceMarker"],
+      "schemaSha256": "4e5de4585ce931835ee32b51000a1d44ca2999a91e286deb5fe8e76e7925f443"
+    },
+    {
+      "owner": "dispatch",
+      "models": ["ServiceMarker"],
+      "schemaSha256": "a40a7014eb73cc30c33156f220a259740f0e4f243cf02f268d69d68a5765ad92"
+    },
+    {
+      "owner": "geo",
+      "models": ["ServiceMarker"],
+      "schemaSha256": "a8faa03ed047e7cb738f85c9ed69ec022b28280a8add1b19b08b667d7c9e198c"
+    },
+    {
+      "owner": "identity",
+      "models": [
+        "ServiceMarker",
+        "IdentityAccount",
+        "IdentityChallenge",
+        "IdentitySession",
+        "IdentityRefresh",
+        "IdentityAudit"
+      ],
+      "schemaSha256": "22b3951f5332a9856752dd567d5960a4ebcaa3e6993c57e58b4b23a90b3182d7"
+    },
+    {
+      "owner": "media",
+      "models": ["ServiceMarker"],
+      "schemaSha256": "5ed0b388edc04c68f6a3e5e0eaed14a5918632b6f74c0a6bfae11c57b413fbbb"
+    },
+    {
+      "owner": "pricing",
+      "models": ["ServiceMarker"],
+      "schemaSha256": "5e8251634c057bb4656d0b050d52e04cd02734a3ca541d1a2667df7f73bb6686"
+    },
+    {
+      "owner": "reporting",
+      "models": ["ServiceMarker", "InboxMessage", "ProbeProjection"],
+      "schemaSha256": "6732c59b6368f3a41b058f3ebf445e5ff88acbd995ea76299fe2a5207e6ea4fc"
+    },
+    {
+      "owner": "reviews",
+      "models": ["ServiceMarker"],
+      "schemaSha256": "e41b8ca6e7a3fb2e180535b519c1bf44a86bd8f3d87aa31b5b0f47d35e7b83dc"
+    },
+    {
+      "owner": "scheduling",
+      "models": ["ServiceMarker"],
+      "schemaSha256": "3b660e8a2c16783757df16e5c9c253874927d7cf3e658b1e94135fd7741a552c"
+    },
+    {
+      "owner": "subscription",
+      "models": ["ServiceMarker"],
+      "schemaSha256": "b74cc9c3d0002d7c6482f68268a37e9860387ae39199e111b73b625db53b64ad"
+    },
+    {
+      "owner": "support",
+      "models": ["ServiceMarker"],
+      "schemaSha256": "00ffe22bae2fb6fd2b9aa8a0f0a4b592b9411622b8cc58e3bc0d745b63c80580"
+    },
+    {
+      "owner": "vehicle",
+      "models": ["ServiceMarker"],
+      "schemaSha256": "8d91210e287256bf81dfe99549b74e8b9808ebfc33dd9ced315efd2e74ba8a95"
+    },
+    {
+      "owner": "wallet",
+      "models": ["ServiceMarker"],
+      "schemaSha256": "e6e9b6017244473a152de02d8441d14c6e71acc4dce61fdafd4fe50bef422db2"
+    },
+    {
+      "owner": "workforce",
+      "models": ["ServiceMarker"],
+      "schemaSha256": "8dd9765f9634bcda0bb241902220a72390fadb059639bda67c12f4171fdcad19"
+    }
+  ],
+  "observedMigrationInventoryNotAcceptedProductSet": [
+    {
+      "owner": "billing",
+      "id": "20260920000000_sprint_02_foundation",
+      "path": "services/billing/prisma/migrations/20260920000000_sprint_02_foundation/migration.sql",
+      "sqlSha256": "853bd2d8015602528a48cbbed1f58c3cf92e7c1a0d1319381fa1671161f05487"
+    },
+    {
+      "owner": "booking",
+      "id": "20260920000000_sprint_02_foundation",
+      "path": "services/booking/prisma/migrations/20260920000000_sprint_02_foundation/migration.sql",
+      "sqlSha256": "f54ce827ce68e9b056732f60ef11194f7bb399ba187946be707de295367b51fd"
+    },
+    {
+      "owner": "catalog",
+      "id": "20260920000000_sprint_02_foundation",
+      "path": "services/catalog/prisma/migrations/20260920000000_sprint_02_foundation/migration.sql",
+      "sqlSha256": "5f2312f4b400f15c8bdbab7b6579550354fa638bcfa8b29a5bc35e179a289dc5"
+    },
+    {
+      "owner": "catalog",
+      "id": "20260927143000_f008_outbox_trace_context",
+      "path": "services/catalog/prisma/migrations/20260927143000_f008_outbox_trace_context/migration.sql",
+      "sqlSha256": "782bb28acc1027851df3e3762b2eb69ee7f71e33fcf6e50496f67ef166dc67a5"
+    },
+    {
+      "owner": "communications",
+      "id": "20260920000000_sprint_02_foundation",
+      "path": "services/communications/prisma/migrations/20260920000000_sprint_02_foundation/migration.sql",
+      "sqlSha256": "22b3239f19c96762bba9e360806c594d5a7d0c57689e3c967dd2926865b4d4f4"
+    },
+    {
+      "owner": "configuration",
+      "id": "20261005060000_w01_foundation",
+      "path": "services/configuration/prisma/migrations/20261005060000_w01_foundation/migration.sql",
+      "sqlSha256": "d154e2d986c0c144e0f77e00bb4e344f038b9cdba99136a929ab0c2947f5a389"
+    },
+    {
+      "owner": "customer",
+      "id": "20260920000000_sprint_02_foundation",
+      "path": "services/customer/prisma/migrations/20260920000000_sprint_02_foundation/migration.sql",
+      "sqlSha256": "491a8772808466022b2513280b559f0b20cdcb73468a2109a14af2d4c4688fdf"
+    },
+    {
+      "owner": "dispatch",
+      "id": "20261005060000_w01_foundation",
+      "path": "services/dispatch/prisma/migrations/20261005060000_w01_foundation/migration.sql",
+      "sqlSha256": "cd8934703e90575cd4bcee54f09ac404c448c4b7b8decb334537aea75ce2fc1b"
+    },
+    {
+      "owner": "geo",
+      "id": "20261005060000_w01_foundation",
+      "path": "services/geo/prisma/migrations/20261005060000_w01_foundation/migration.sql",
+      "sqlSha256": "8a490c8b3555969216f8e817821b20c7cc1e8cf512dca5a8cae93aea24e6312d"
+    },
+    {
+      "owner": "identity",
+      "id": "20260920000000_sprint_02_foundation",
+      "path": "services/identity/prisma/migrations/20260920000000_sprint_02_foundation/migration.sql",
+      "sqlSha256": "364a37201961fd43073a0e8abb2ce967e324f936daed93f93e550ec59c7c9f16"
+    },
+    {
+      "owner": "identity",
+      "id": "20260926040000_identity_security",
+      "path": "services/identity/prisma/migrations/20260926040000_identity_security/migration.sql",
+      "sqlSha256": "ba35f1f9d59397c806ee54bc3daec75a5d4d195ebf17851acfcf4aad61bc2081"
+    },
+    {
+      "owner": "media",
+      "id": "20260920000000_sprint_02_foundation",
+      "path": "services/media/prisma/migrations/20260920000000_sprint_02_foundation/migration.sql",
+      "sqlSha256": "f53bcd14bf9b9f1b864a0782bb28ec37306661f130b3f0a4cd56e59ce1574c1c"
+    },
+    {
+      "owner": "pricing",
+      "id": "20261005060000_w01_foundation",
+      "path": "services/pricing/prisma/migrations/20261005060000_w01_foundation/migration.sql",
+      "sqlSha256": "5bab6489d3c58271ae658b638964c7338374132f8f79f3d78f596cf6e2c289a4"
+    },
+    {
+      "owner": "reporting",
+      "id": "20260920000000_sprint_02_foundation",
+      "path": "services/reporting/prisma/migrations/20260920000000_sprint_02_foundation/migration.sql",
+      "sqlSha256": "a242ab9809a1aac9612cf7844535e15eff04e7028b0413f0287b4f7f10622b6d"
+    },
+    {
+      "owner": "reviews",
+      "id": "20261005060000_w01_foundation",
+      "path": "services/reviews/prisma/migrations/20261005060000_w01_foundation/migration.sql",
+      "sqlSha256": "62d6d5987cea67ccc890d2b7498c75166d1db74b2eb77a5239176b70abef488f"
+    },
+    {
+      "owner": "scheduling",
+      "id": "20261005060000_w01_foundation",
+      "path": "services/scheduling/prisma/migrations/20261005060000_w01_foundation/migration.sql",
+      "sqlSha256": "e7b6c66c0f6ea1b266803a0edc8094cfa72889cf42227af43535e9fda23211b9"
+    },
+    {
+      "owner": "subscription",
+      "id": "20261005060000_w01_foundation",
+      "path": "services/subscription/prisma/migrations/20261005060000_w01_foundation/migration.sql",
+      "sqlSha256": "1875133d1c8945fe122a1df7721a4fa6fce163b2a00a523807673eb3aeea071b"
+    },
+    {
+      "owner": "support",
+      "id": "20260920000000_sprint_02_foundation",
+      "path": "services/support/prisma/migrations/20260920000000_sprint_02_foundation/migration.sql",
+      "sqlSha256": "34cc50d8a479130c72f6a46d34b73ad15c09a4125b6972ddf72c07de73309efd"
+    },
+    {
+      "owner": "vehicle",
+      "id": "20261005060000_w01_foundation",
+      "path": "services/vehicle/prisma/migrations/20261005060000_w01_foundation/migration.sql",
+      "sqlSha256": "7aee656911313e894bb449e8e6f9b86fde85aff198e8cb6afe7b6b5b4ae28d24"
+    },
+    {
+      "owner": "wallet",
+      "id": "20261005060000_w01_foundation",
+      "path": "services/wallet/prisma/migrations/20261005060000_w01_foundation/migration.sql",
+      "sqlSha256": "7e742bf6a3cbcb42297734a7f819807ba6e4242115cc2d8f297d54ba1281cb9b"
+    },
+    {
+      "owner": "workforce",
+      "id": "20260920000000_sprint_02_foundation",
+      "path": "services/workforce/prisma/migrations/20260920000000_sprint_02_foundation/migration.sql",
+      "sqlSha256": "e3f829de61ed4cdd72f75980cc357aadc48e273aac7d3dc9739ead04402c95ff"
+    }
+  ],
+  "releaseInputsNotAcceptedManifest": {
+    "source": null,
+    "tree": null,
+    "finalRepositoryDigests": {},
+    "workerMigrationArtifactInventory": null,
+    "configurationRevision": null,
+    "secretReferences": null,
+    "intendedEnvironment": null,
+    "historicProductState": null,
+    "backupCutAndExecutor": null,
+    "RPO": null,
+    "RTO": null,
+    "operatingRoster": null,
+    "initialWindow": null,
+    "approvedThresholds": null,
+    "productOperationsIndependentSignoffs": null,
+    "productionCommandSet": null,
+    "productionExecutionAuthority": null,
+    "pendingExternalOperations": "NOT_PROVIDED / UNKNOWN_NOT_ZERO",
+    "historicalInput": "NOT_PROVIDED / ABSENCE_NOT_VERIFIED"
+  },
+  "outcomes": {
+    "implemented": "PARTIAL_FOUNDATION_ONLY",
+    "locallyTested": "SOURCE_STATIC_ONLY",
+    "integratedFoundation": "PASSED_ON_ANALYSIS_SOURCE_ONLY",
+    "integratedFullProduct": "BLOCKED_NOT_RUN",
+    "stagingAccepted": false,
+    "releaseReady": false,
+    "productionActionsByThisTask": 0,
+    "externalDeployment": "UNVERIFIED",
+    "verifiedInOperation": false,
+    "acceptedRC": false,
+    "fullLaunchDone": false
+  },
+  "requiredScopeRows": [
+    {
+      "id": "SR01",
+      "requiredScope": "SR01 identity",
+      "owner": "E",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR02",
+      "requiredScope": "SR02 customer",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR03",
+      "requiredScope": "SR03 vehicle",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR04",
+      "requiredScope": "SR04 catalog",
+      "owner": "B",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR05",
+      "requiredScope": "SR05 pricing",
+      "owner": "B",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR06",
+      "requiredScope": "SR06 booking",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR07",
+      "requiredScope": "SR07 scheduling",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR08",
+      "requiredScope": "SR08 dispatch",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR09",
+      "requiredScope": "SR09 workforce",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR10",
+      "requiredScope": "SR10 billing",
+      "owner": "B",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR11",
+      "requiredScope": "SR11 wallet",
+      "owner": "B",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR12",
+      "requiredScope": "SR12 subscription",
+      "owner": "B",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR13",
+      "requiredScope": "SR13 media",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR14",
+      "requiredScope": "SR14 communications",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR15",
+      "requiredScope": "SR15 reviews",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR16",
+      "requiredScope": "SR16 support",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR17",
+      "requiredScope": "SR17 geo",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR18",
+      "requiredScope": "SR18 reporting",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "SR19",
+      "requiredScope": "SR19 configuration",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "RT01",
+      "requiredScope": "RT01 Gateway",
+      "owner": "E",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AP01",
+      "requiredScope": "AP01 customer-web",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AP02",
+      "requiredScope": "AP02 operator-web",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AP03",
+      "requiredScope": "AP03 admin-web",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CW01",
+      "requiredScope": "CW01 Customer Home / \u0627\u0644\u0631\u0626\u064a\u0633\u064a\u0629",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CW02",
+      "requiredScope": "CW02 Customer Booking summary / \u0627\u0644\u062d\u062c\u0632",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CW03",
+      "requiredScope": "CW03 Customer Payment handoff / \u0627\u0644\u062f\u0641\u0639",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CW04",
+      "requiredScope": "CW04 Customer Tracking / \u0645\u062a\u0627\u0628\u0639\u0629 \u0627\u0644\u0637\u0644\u0628",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CW05",
+      "requiredScope": "CW05 Customer Orders / \u062d\u062c\u0648\u0632\u0627\u062a\u064a",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CW06",
+      "requiredScope": "CW06 Customer Garage / \u0633\u064a\u0627\u0631\u0627\u062a\u064a",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CW07",
+      "requiredScope": "CW07 Customer Account / \u062d\u0633\u0627\u0628\u064a",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CB01",
+      "requiredScope": "CB01 \u0627\u0644\u0633\u064a\u0627\u0631\u0629 / Vehicle",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CB02",
+      "requiredScope": "CB02 \u0627\u0644\u0639\u0646\u0627\u064a\u0629 / Care",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CB03",
+      "requiredScope": "CB03 \u0627\u0644\u0645\u0643\u0627\u0646 / Location",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CB04",
+      "requiredScope": "CB04 \u0627\u0644\u0645\u0648\u0639\u062f / Time",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CB05",
+      "requiredScope": "CB05 \u0628\u064a\u0627\u0646\u0627\u062a\u0643 / Contact",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CB06",
+      "requiredScope": "CB06 \u0627\u0644\u062f\u0641\u0639 / Payment method",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CB07",
+      "requiredScope": "CB07 \u0627\u0644\u062a\u0623\u0643\u064a\u062f / Review and confirmation",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TV01",
+      "requiredScope": "TV01 Operator Home / home",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TV02",
+      "requiredScope": "TV02 Operator Task list / tasks",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TV03",
+      "requiredScope": "TV03 Operator Collections / collections",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TV04",
+      "requiredScope": "TV04 Operator Profile / profile",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TV05",
+      "requiredScope": "TV05 Operator Task / task",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TP01",
+      "requiredScope": "TP01 \u0627\u0644\u0645\u0647\u0645\u0629 / Task acceptance",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TP02",
+      "requiredScope": "TP02 \u0627\u0644\u0637\u0631\u064a\u0642 / Route and arrival",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TP03",
+      "requiredScope": "TP03 \u0642\u0628\u0644 \u0627\u0644\u063a\u0633\u064a\u0644 / Before wash",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TP04",
+      "requiredScope": "TP04 \u0627\u0644\u0639\u0646\u0627\u064a\u0629 / Wash care",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TP05",
+      "requiredScope": "TP05 \u0628\u0639\u062f \u0627\u0644\u063a\u0633\u064a\u0644 / After evidence",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TP06",
+      "requiredScope": "TP06 \u0627\u0644\u062a\u0633\u0644\u064a\u0645 / Handoff and closure",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS01",
+      "requiredScope": "TS01 Walkthrough",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS02",
+      "requiredScope": "TS02 Notifications",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS03",
+      "requiredScope": "TS03 Task menu",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS04",
+      "requiredScope": "TS04 Contact",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS05",
+      "requiredScope": "TS05 Arrival message preview",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS06",
+      "requiredScope": "TS06 Amount breakdown",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS07",
+      "requiredScope": "TS07 History",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS08",
+      "requiredScope": "TS08 Arrival confirmation",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS09",
+      "requiredScope": "TS09 Photo options",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS10",
+      "requiredScope": "TS10 Before-state viewer",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS11",
+      "requiredScope": "TS11 Finish washing confirmation",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS12",
+      "requiredScope": "TS12 Before/after result",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS13",
+      "requiredScope": "TS13 Cash receipt",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS14",
+      "requiredScope": "TS14 Reassignment request",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS15",
+      "requiredScope": "TS15 Uncollected cash",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS16",
+      "requiredScope": "TS16 Electronic payment follow-up",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS17",
+      "requiredScope": "TS17 Help / obstacle",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS18",
+      "requiredScope": "TS18 Handoff confirmation",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS19",
+      "requiredScope": "TS19 Privacy explanation",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS20",
+      "requiredScope": "TS20 Design feedback",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "TS21",
+      "requiredScope": "TS21 Trial reset",
+      "owner": "C",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AN01",
+      "requiredScope": "AN01 dashboard / \u0644\u0648\u062d\u0629 \u0627\u0644\u062a\u062d\u0643\u0645",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AN02",
+      "requiredScope": "AN02 bookings / \u0627\u0644\u062d\u062c\u0648\u0632\u0627\u062a",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AN03",
+      "requiredScope": "AN03 customers / \u0627\u0644\u0632\u0628\u0627\u0626\u0646",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AN04",
+      "requiredScope": "AN04 technicians / \u0627\u0644\u0641\u0646\u064a\u0648\u0646",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AN05",
+      "requiredScope": "AN05 services / \u0627\u0644\u062e\u062f\u0645\u0627\u062a \u0648\u0627\u0644\u0628\u0627\u0642\u0627\u062a",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AN06",
+      "requiredScope": "AN06 fleet / \u0627\u0644\u0623\u0633\u0637\u0648\u0644 \u0648\u0627\u0644\u0645\u0631\u0643\u0628\u0627\u062a",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AN07",
+      "requiredScope": "AN07 payments / \u0627\u0644\u0645\u062f\u0641\u0648\u0639\u0627\u062a",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AN08",
+      "requiredScope": "AN08 wallets / \u0627\u0644\u0645\u062d\u0627\u0641\u0638",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AN09",
+      "requiredScope": "AN09 subscriptions / \u0627\u0644\u0627\u0634\u062a\u0631\u0627\u0643\u0627\u062a",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AN10",
+      "requiredScope": "AN10 promotions / \u0627\u0644\u0639\u0631\u0648\u0636 \u0648\u0627\u0644\u0643\u0648\u0628\u0648\u0646\u0627\u062a",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AN11",
+      "requiredScope": "AN11 coverage / \u0627\u0644\u0645\u0646\u0627\u0637\u0642 \u0648\u0627\u0644\u062a\u063a\u0637\u064a\u0629",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AN12",
+      "requiredScope": "AN12 live / \u0627\u0644\u062e\u0631\u064a\u0637\u0629 \u0627\u0644\u062d\u064a\u0629",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AN13",
+      "requiredScope": "AN13 reviews / \u0627\u0644\u062a\u0642\u064a\u064a\u0645\u0627\u062a",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AN14",
+      "requiredScope": "AN14 disputes / \u0627\u0644\u0646\u0632\u0627\u0639\u0627\u062a",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AN15",
+      "requiredScope": "AN15 notifications / \u0627\u0644\u0625\u0634\u0639\u0627\u0631\u0627\u062a",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AN16",
+      "requiredScope": "AN16 reports / \u0627\u0644\u062a\u0642\u0627\u0631\u064a\u0631 \u0648\u0627\u0644\u062a\u062d\u0644\u064a\u0644\u0627\u062a",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AN17",
+      "requiredScope": "AN17 settings / \u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AS01",
+      "requiredScope": "AS01 Admin navigation and mobile sidebar",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AS02",
+      "requiredScope": "AS02 Admin global search",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AS03",
+      "requiredScope": "AS03 Admin notification icon",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AS04",
+      "requiredScope": "AS04 Admin profile and account control",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AS05",
+      "requiredScope": "AS05 Admin language control",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "AS06",
+      "requiredScope": "AS06 Admin shared modal and save",
+      "owner": "D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF01",
+      "requiredScope": "CF01 browser hash routing and back/forward restoration",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF02",
+      "requiredScope": "CF02 save/resume local draft",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF03",
+      "requiredScope": "CF03 vehicle add/edit/delete/use",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF04",
+      "requiredScope": "CF04 plate preview",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF05",
+      "requiredScope": "CF05 package and add-on selection",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF06",
+      "requiredScope": "CF06 manual/saved/sample address selection",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF07",
+      "requiredScope": "CF07 illustrative map pin, pan, zoom, keyboard movement and optional geolocation permission",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF08",
+      "requiredScope": "CF08 demo date/time selection",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF09",
+      "requiredScope": "CF09 contact validation and demo fill",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF10",
+      "requiredScope": "CF10 cash/Sham Cash/Syriatel Cash payment choice",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF11",
+      "requiredScope": "CF11 demo QR expand/save/copy",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF12",
+      "requiredScope": "CF12 demo payment-proof reference or local image",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF13",
+      "requiredScope": "CF13 payment-state simulation and cancellation/refund-review demonstration",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF14",
+      "requiredScope": "CF14 orders active/past filtering",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF15",
+      "requiredScope": "CF15 simulated technician/order progression",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF16",
+      "requiredScope": "CF16 before/after local media and comparison reveal",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF17",
+      "requiredScope": "CF17 repeat booking",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF18",
+      "requiredScope": "CF18 motion preference/reduced-motion support",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF19",
+      "requiredScope": "CF19 local profile/addresses/garage management",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "CF20",
+      "requiredScope": "CF20 local JSON export and reset",
+      "owner": "A",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "G01",
+      "requiredScope": "G01 Prior40 provenance",
+      "owner": "Product+E",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "G02",
+      "requiredScope": "G02 Required production/English decisions",
+      "owner": "Product/design+A/B/C/D/E",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "G03",
+      "requiredScope": "G03 All finance/benefit methods",
+      "owner": "B+C+A/D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "G04",
+      "requiredScope": "G04 Authoritative full reporting",
+      "owner": "D+owner producers",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "G05",
+      "requiredScope": "G05 Populated accepted-base upgrade",
+      "owner": "E+owner migrations",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "G06",
+      "requiredScope": "G06 Published immutable artifacts",
+      "owner": "E",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "G07",
+      "requiredScope": "G07 Three builds/released route readiness",
+      "owner": "E+A/C/D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "G08",
+      "requiredScope": "G08 Actual app/reference/device",
+      "owner": "E+A/C/D",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "G09",
+      "requiredScope": "G09 Durable faults/privacy",
+      "owner": "B/C/D/E+A owners",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "G10",
+      "requiredScope": "G10 Existing staging promotion",
+      "owner": "Existing ops+E",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "G11",
+      "requiredScope": "G11 Numeric hardening profile",
+      "owner": "Baraa/product ops+E",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    },
+    {
+      "id": "G12",
+      "requiredScope": "G12 Exact complete candidate/barrier",
+      "owner": "E+eligible independent reviewer",
+      "releaseStatus": "REQUIRED_RECEIPT_NOT_ACCEPTED",
+      "receipt": null
+    }
+  ],
+  "requiredReleaseCases": [
+    {
+      "id": "L01",
+      "title": "Accepted full base, scope and manifest",
+      "owners": "E + product/operations + A-D",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L02",
+      "title": "Immutable source and reference freeze",
+      "owners": "E + build/config owners",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L03",
+      "title": "Eligible review and enforced repository gates",
+      "owners": "Repository administrator + independent reviewer + E",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L04",
+      "title": "Final actual-source mandatory CI",
+      "owners": "E",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L05",
+      "title": "Published and pulled artifact custody",
+      "owners": "E + all artifact owners",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L06",
+      "title": "Intended configuration and topology",
+      "owners": "E + operators + provider/data owners",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L07",
+      "title": "Real clean and historic migration compatibility",
+      "owners": "All migration owners + E",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L08",
+      "title": "Accepted real producer and consumer contracts",
+      "owners": "E + A-D",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L09",
+      "title": "Complete customer application and actual devices",
+      "owners": "A + E + product/design",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L10",
+      "title": "Customer ordering and stale-target repairs",
+      "owners": "A",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L11",
+      "title": "Cross-app cash and physical custody",
+      "owners": "B + C + A/D",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L12",
+      "title": "Cross-app ShamCash server verification",
+      "owners": "B + A/C/D + actual merchant",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L13",
+      "title": "Cross-app Syriatel Cash server verification",
+      "owners": "B + A/C/D + actual merchant",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L14",
+      "title": "Explicit Paymera scope disposition",
+      "owners": "B + product/provider authority + E",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L15",
+      "title": "Current catalogue, quotes and promotions",
+      "owners": "B + C + A/D",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L16",
+      "title": "Capacity, Booking and late payment races",
+      "owners": "C + B + A/D",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L17",
+      "title": "Dispatch, Work and fleet authority",
+      "owners": "C + A/D",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L18",
+      "title": "Durable idempotency and UNKNOWN recovery",
+      "owners": "Every mutation owner + E",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L19",
+      "title": "Wallet purpose and last-funds constraints",
+      "owners": "B + approved product/accounting authority",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L20",
+      "title": "Subscription and entitlement races",
+      "owners": "B + C + A/D",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L21",
+      "title": "Actual private Media and malicious uploads",
+      "owners": "C + each purpose owner + E",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L22",
+      "title": "Full operator inventory and continuation",
+      "owners": "C + E + actual field staff",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L23",
+      "title": "Full admin capability and shell scope",
+      "owners": "D + all authoritative producers + E",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L24",
+      "title": "Support, Reviews and Communications",
+      "owners": "D + A/B/C + E",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L25",
+      "title": "Reporting, history, export and rebuild",
+      "owners": "D + all producers",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L26",
+      "title": "Current authority, privacy and audit after recovery",
+      "owners": "E/Identity + D/Support/Reporting + C/Media + owners",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L27",
+      "title": "All agreed adversarial hardening",
+      "owners": "E + every affected owner",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L28",
+      "title": "Consistent isolated backup and measured restore",
+      "owners": "Every data/media/finance owner + E",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L29",
+      "title": "Compatible rollback or forward recovery",
+      "owners": "All artifact/migration/contract owners + E",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L30",
+      "title": "Business readiness, bounded drain and cleanup",
+      "owners": "E + runtime owners",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L31",
+      "title": "Actual collector, alert delivery and roster",
+      "owners": "E + named operations authority + D",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L32",
+      "title": "A-D final staging and operational signoffs",
+      "owners": "A-D + actual product/operations + independent reviewer + E",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L33",
+      "title": "Concrete final production authorization",
+      "owners": "Actual release authority + E + operators",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L34",
+      "title": "Authorized live deployment and critical smoke",
+      "owners": "E + migration/operations + A-D within approved scope",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L35",
+      "title": "Initial operating window and incident decisions",
+      "owners": "Named primary/backup operations + E + affected owners",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    },
+    {
+      "id": "L36",
+      "title": "Post-freeze changes and truthful final outcome",
+      "owners": "E + source owner + independent reviewer + release authority",
+      "status": "BLOCKED_NOT_RUN",
+      "receipt": null
+    }
+  ],
+  "sourcePinContinuityReviews": {
+    "w09EPins": 89,
+    "migrationSQLChecksums": 21,
+    "ownerSchemaHashes": 19,
+    "peerPinnedEntries": {
+      "A": 174,
+      "B": 91,
+      "D": 44
+    },
+    "peerPinEntriesOverlap": true,
+    "readOnlyHelpersNotIndependentApproval": true
+  },
+  "localChecksActuallyRunBeforeEdits": [
+    {
+      "command": "node scripts/verify-toolchain.mjs",
+      "result": "PASS40/40",
+      "scope": "Actual Node24.21.0/pnpm10.32.1 declaration/propagation/runtime; no build proof"
+    },
+    {
+      "command": "node scripts/check-design-reference.mjs --base-ref 8bfa805d033cb29373c33886bf71bce4885a2f67",
+      "result": "PASS10 artifacts",
+      "scope": "Before edits; exact references, not actual-app parity"
+    },
+    {
+      "command": "node scripts/f010/reference-registry.mjs --base-ref 8bfa805d033cb29373c33886bf71bce4885a2f67",
+      "result": "PASS3 refs; initialRegistration:false",
+      "scope": "Before edits; source-preservation only"
+    },
+    {
+      "command": "node scripts/check-migrations.mjs --base-ref 8bfa805d033cb29373c33886bf71bce4885a2f67",
+      "result": "PASS21 migrations/428 files",
+      "scope": "Layout/owner/no-db-push/explicit append-only; no DB execution"
+    },
+    {
+      "command": "node architecture/implementation-status.mjs --self-test",
+      "result": "PASS9 adversarial classification checks",
+      "scope": "19 runtimes/18 foundation shells/1 Identity capability; productionReady:false"
+    }
+  ],
+  "deliveryEvidence": "Exact head/tree and fresh hosted results belong to draft PR; no hash self-reference commit.",
+  "newMigrationIds": [],
+  "newAcceptedPublicContractVersions": {},
+  "ownedRuntimeResources": [],
+  "heavyLeases": [],
+  "newMessages": 0,
+  "liveMoneyOrRefundActions": 0,
+  "productionDeployments": 0,
+  "sourcePins": [
+    {
+      "path": "AGENTS.md",
+      "bytes": 3138,
+      "sha256": "9a36dcbe805425931884abedb1b1efefdaafa39a0a73c13837bcec71d4eb489f"
+    },
+    {
+      "path": "apps/api-gateway/src/application/gateway.service.ts",
+      "bytes": 4386,
+      "sha256": "b5e1cb900b1f5792c76d609fe3721bd3faaf8478a631bf403af96d9c9c02a355"
+    },
+    {
+      "path": "apps/api-gateway/src/infrastructure/http-client.ts",
+      "bytes": 2626,
+      "sha256": "f5a88158df36ce0483256cd4e94a6622eee720f914bc1899d9a39d813aa0cb3f"
+    },
+    {
+      "path": "apps/customer-web/src/main.tsx",
+      "bytes": 761,
+      "sha256": "53ec115a6ffff8c3e1ace4c14e7ca723376b3450e25b2a51ed93d13412ed3cff"
+    },
+    {
+      "path": "apps/customer-web/src/shared/Sheet.tsx",
+      "bytes": 5322,
+      "sha256": "1e823cdd304f81c3e0bc2286836e5121899b875c77a0e9093cc7e04346e311aa"
+    },
+    {
+      "path": "apps/customer-web/src/state/CustomerSessionProvider.tsx",
+      "bytes": 3449,
+      "sha256": "ec6946b1fcf3536ca00e99962d8e0c0efad97a34b5517db6e88ec9c7e6d607c9"
+    },
+    {
+      "path": "apps/customer-web/src/styles/customer-shell.css",
+      "bytes": 7972,
+      "sha256": "e346f7243d89f7c1eeb603dca503c186123b608cee76fbc7ccd677be0f2afa1f"
+    },
+    {
+      "path": "apps/customer-web/src/widgets/order-handoff/OrderHandoff.tsx",
+      "bytes": 3012,
+      "sha256": "ecdf7e94a90357a2bf49bd58b0bd00aff9ea2591c002f958b5e88795d9ea9d50"
+    },
+    {
+      "path": "architecture/adr/F001-monorepo-and-data-ownership.md",
+      "bytes": 7220,
+      "sha256": "46309b8de279fbccb99716b240a429a79abd1b5699e809947429d9726ece67d7"
+    },
+    {
+      "path": "architecture/implementation-status.mjs",
+      "bytes": 10326,
+      "sha256": "b59fd4d32b94061a53e08ed209f35b3cd500021c9946bb2e38fdf16e93ea8aef"
+    },
+    {
+      "path": "architecture/parallel-contract-release.json",
+      "bytes": 31335,
+      "sha256": "aec04eeb6c3d893e4e0b401bab0a550c517f1e32709a5e0189f4a3ddb0ce4db9"
+    },
+    {
+      "path": "architecture/parallel-ownership.json",
+      "bytes": 59599,
+      "sha256": "2b696da4f8ed6d0fbb6234e33dc207e92c9e91f72e56e6f8777aac62c4f8e144"
+    },
+    {
+      "path": "architecture/service-catalog.json",
+      "bytes": 43887,
+      "sha256": "34462fbfb90c6a221524905aa21f7a4022c28a1b21d2243381a1b07582eac9b8"
+    },
+    {
+      "path": "design/reference/approved/washgo-admin-prototype.html",
+      "bytes": 40310,
+      "sha256": "b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273"
+    },
+    {
+      "path": "design/reference/approved/washgo-payments-interactive.html",
+      "bytes": 263462,
+      "sha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549"
+    },
+    {
+      "path": "design/reference/approved/washgo-technician-interactive.html",
+      "bytes": 122636,
+      "sha256": "d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc"
+    },
+    {
+      "path": "docs/ARCHITECTURE_AR.md",
+      "bytes": 45553,
+      "sha256": "d11a69f75d17375f47f0648e7cfd2185211461f516d90e23d99c9b2c24eae9d8"
+    },
+    {
+      "path": "docs/F006_IDENTITY_RUNBOOK.md",
+      "bytes": 4561,
+      "sha256": "b626acc20c6317aeaa07eb49804b9bf66497d5fc8c2287497008eb0da66bcdff"
+    },
+    {
+      "path": "docs/F008_RUNBOOK.md",
+      "bytes": 5266,
+      "sha256": "6099cf0be724cdc811ef2b64b8d6c07dfef2124de198d27729c45d93cf4f238b"
+    },
+    {
+      "path": "docs/F009_RUNBOOK.md",
+      "bytes": 7860,
+      "sha256": "58c537449f917b1f832fc5d9097ab28702a8b7e2739750678ccaf2c0a175b8d6"
+    },
+    {
+      "path": "docs/VERIFICATION.md",
+      "bytes": 4653,
+      "sha256": "d8445acdd7cefd3818b538bf04b822ee07075cf1f95d68f05f7eed5437872ea3"
+    },
+    {
+      "path": "docs/adr/0004-approved-ui-precedence.md",
+      "bytes": 1557,
+      "sha256": "d14c375db104b255fc6aa8f2692443c60751e81c7e828d3cc479e0effa6c755d"
+    },
+    {
+      "path": "docs/adr/0006-postgres-data-sovereignty.md",
+      "bytes": 7611,
+      "sha256": "62133998e3b21915b0f2fc4d275e4d31380c1b21ebb529053386e7de15192bf8"
+    },
+    {
+      "path": "docs/design/DESIGN_LOCK.md",
+      "bytes": 10268,
+      "sha256": "0f05db671539f6568227cef7c6e7378ab0db4c1ae63cefd0678ce504fbfab0ec"
+    },
+    {
+      "path": "docs/design/f010-reference-debt-baseline.json",
+      "bytes": 2618,
+      "sha256": "fbbc79fc34d3d2fc13eee24a9dfe299d547ad17d6c99266a072a0d114aa9497f"
+    },
+    {
+      "path": "docs/design/f010-reference-manifest.json",
+      "bytes": 1488,
+      "sha256": "94c3c99206169e66dd0a1161b5b7968c098f1e3ee29af3d5e1c7789be4ba44f3"
+    },
+    {
+      "path": "docs/design/reference-manifest.json",
+      "bytes": 2799,
+      "sha256": "985a98d76516c2443ad8c9a716d6d35225feb54a05b84d0fd7a004561223545a"
+    },
+    {
+      "path": "docs/parallel/A/W08/W09_STAGING_HANDOFF.md",
+      "bytes": 8356,
+      "sha256": "f3f170e7b6a654621085241176192a92bccb49223988b0f67b547633df24f490"
+    },
+    {
+      "path": "docs/parallel/A/W09/CHECKPOINT.md",
+      "bytes": 3547,
+      "sha256": "558bff2a7fafb2bac9dd3f355545a74b51353c45cf5713f8ab8f8842228841e6"
+    },
+    {
+      "path": "docs/parallel/A/W09/CUSTOMER_RECOVERY_AND_SUPPORT.md",
+      "bytes": 6865,
+      "sha256": "77049c11380d5e0196c65ccac122fa957f565ad9d079d6d326b5db2fe0de74b0"
+    },
+    {
+      "path": "docs/parallel/A/W09/README.md",
+      "bytes": 5248,
+      "sha256": "33631edaaa0cebe91d2261bee356d33ba4194d53794f19c472c3564c3c09adb1"
+    },
+    {
+      "path": "docs/parallel/A/W09/REHEARSAL_MATRIX.md",
+      "bytes": 9178,
+      "sha256": "4425e956ca10fbbfac44694551d49f1f1b2f07aacb862ffc0d16af4b55a2889a"
+    },
+    {
+      "path": "docs/parallel/A/W09/RESTORE_AND_ROLLBACK_PROBES.md",
+      "bytes": 6888,
+      "sha256": "0be77dffcfa099879dc1abb75e51badda7325227eb3b0797b0de5c21712500bc"
+    },
+    {
+      "path": "docs/parallel/A/W09/STAGING_INPUTS_AND_FIXTURES.md",
+      "bytes": 8293,
+      "sha256": "7690066fd7375b885d3f38f7c0db7c31cbab081f61aa0dbcc6cef6afd051c905"
+    },
+    {
+      "path": "docs/parallel/A/W09/W10_CUSTOMER_EVIDENCE_HANDOFF.md",
+      "bytes": 4661,
+      "sha256": "660f414145157fbbf6318fcfb411ce89db6e1176b686f76b601520e3ae9e5eb6"
+    },
+    {
+      "path": "docs/parallel/A/W09/source-observation.json",
+      "bytes": 58291,
+      "sha256": "0985976c906e074d1fcecf528dab06b18974650d457e1a60923e8ee7faee6d0b"
+    },
+    {
+      "path": "docs/parallel/B/W08/W09_RESTORE_HANDOFF.md",
+      "bytes": 19520,
+      "sha256": "6618caac4768f9ba3f66b839bcd9f41b855390e30b702cd5dab1fad265e38942"
+    },
+    {
+      "path": "docs/parallel/B/W09/CHECKPOINT.md",
+      "bytes": 7391,
+      "sha256": "13ab7aee51a775f6f3537f093b624221d2208aced539c9e96e30c844e3b5b91a"
+    },
+    {
+      "path": "docs/parallel/B/W09/IMPORT_AND_LINEAGE_PROFILE.md",
+      "bytes": 18003,
+      "sha256": "e018cb8a853c17a8b6512a16e12bc4cff575ba61d4d4933d52da8ac2616ffa6f"
+    },
+    {
+      "path": "docs/parallel/B/W09/PROVIDER_REHEARSAL_GATES.md",
+      "bytes": 14244,
+      "sha256": "772a3289f11aea917cbb5919bdc307d54cbf54fe5a2a06f07698b6c48bb2921d"
+    },
+    {
+      "path": "docs/parallel/B/W09/README.md",
+      "bytes": 11854,
+      "sha256": "fdf620c484deec4caae2b2983e6cd17f6ab84c2fb72be5c8557501114b71ad0b"
+    },
+    {
+      "path": "docs/parallel/B/W09/RESTORE_AND_STAGING_GATE.md",
+      "bytes": 13588,
+      "sha256": "598df4b4548783277df9e484c0941118a2a8d08369dca85413264b80e6c885be"
+    },
+    {
+      "path": "docs/parallel/B/W09/W10_FINANCE_HANDOFF.md",
+      "bytes": 11243,
+      "sha256": "2894bc361a60c15dd7374602034cdfb955481d141a85ccd5cf129f5d5bec2d28"
+    },
+    {
+      "path": "docs/parallel/B/W09/source-observation.json",
+      "bytes": 29554,
+      "sha256": "9f8322ca9fb39514a2894cb95d8399b57b67af56b1c4bd53be9fcb9419e687eb"
+    },
+    {
+      "path": "docs/parallel/C/W08/W09_OPERATIONAL_HANDOFF.md",
+      "bytes": 4075,
+      "sha256": "a7e2b2e6b8d85f60881ee225a56a5c30d1724e28f17bb7e6ba7d74c97abfabeb"
+    },
+    {
+      "path": "docs/parallel/C/W09/CHECKPOINT.md",
+      "bytes": 5086,
+      "sha256": "5a2f146fc3eaeacc656a7088da9d100d3d42e46303883e6733ead5c1da4c03ad"
+    },
+    {
+      "path": "docs/parallel/C/W09/FIELD_REHEARSAL_AND_HANDOVER.md",
+      "bytes": 9270,
+      "sha256": "44c2549c016bfebee1b0f5ffc543a26670bad6b9185db98d9639b1d6e14ea2fd"
+    },
+    {
+      "path": "docs/parallel/C/W09/RESTORE_AND_W10_ACCEPTANCE.md",
+      "bytes": 5194,
+      "sha256": "a791f06f78550eb7a8a0604518eeabd8bd7cb103f1334c6bed4ca62f7d3e278c"
+    },
+    {
+      "path": "docs/parallel/D/W08/W09_OPERATIONS_CONTRACT_REQUESTS.md",
+      "bytes": 13911,
+      "sha256": "d3d051fa3430ae0280ace712923aa6dde54c16be1084ca694a7575e727669de5"
+    },
+    {
+      "path": "docs/parallel/D/W09/HANDOFF.md",
+      "bytes": 11638,
+      "sha256": "d282c0b15eab270c5e8b9242ab850d6761264d3fe72d640a60f30e6f5f052407"
+    },
+    {
+      "path": "docs/parallel/D/W09/ROLE_OPERATIONS_RUNBOOKS.md",
+      "bytes": 22030,
+      "sha256": "598f94331cf12b34e5461a3332a9ad6691ced933d705ba9f4f78378dbca7479c"
+    },
+    {
+      "path": "docs/parallel/D/W09/SOURCE_OBSERVATION.json",
+      "bytes": 23526,
+      "sha256": "2dc356d1854ee8b7ff487dd13ab428242a9d21ad25c2681382fd39f32cfeda6f"
+    },
+    {
+      "path": "docs/parallel/D/W09/STAGING_ENTRY_AND_W10_PACKET.md",
+      "bytes": 13323,
+      "sha256": "22e54ed627a0cbc97b6c8a955c56d34abdc2d189a2b04326e8f7b02f13b97a86"
+    },
+    {
+      "path": "docs/parallel/D/W09/SUPPORTING_SERVICES_RECOVERY_RUNBOOK.md",
+      "bytes": 28774,
+      "sha256": "6e6209a0a04861f55005754611b162dd37388201320b80ede9fc6dce04516bc8"
+    },
+    {
+      "path": "docs/parallel/E/W07/CANDIDATE_AND_STAGING_GATES.md",
+      "bytes": 9729,
+      "sha256": "f77e6dbe381aac6824e48c73f500116ec75cc23b1ac24c1e055b89d65580a0a1"
+    },
+    {
+      "path": "docs/parallel/E/W07/FULL_SCOPE_MATRIX.md",
+      "bytes": 164487,
+      "sha256": "4084368cad7e5728561a480a28ad8c1a8affdeaad22f040b67ce84909ba18d9c"
+    },
+    {
+      "path": "docs/parallel/E/W07/W08_HARDENING_AND_BLOCKERS.md",
+      "bytes": 13637,
+      "sha256": "2ce08da41aed28d226ad6047d51da87a100789a52b7c93c26f8116ca591ff216"
+    },
+    {
+      "path": "docs/parallel/E/W08/PERFORMANCE_PROFILE_AND_RESOURCE_BUDGET.md",
+      "bytes": 6108,
+      "sha256": "ddfb2805dc3c456b7c0ef19177119552cedd0ca75365889762b326b95cb96921"
+    },
+    {
+      "path": "docs/parallel/E/W08/RISK_TO_TEST_MAP.md",
+      "bytes": 31467,
+      "sha256": "585563477f347a8685bd68b87bf3ddf8fc2035e0c1a4276358e88b2240d43df6"
+    },
+    {
+      "path": "docs/parallel/E/W08/W09_REHEARSAL_AND_CONTRACT_REQUESTS.md",
+      "bytes": 6900,
+      "sha256": "5071484da016f441b8a37d8899d569dce7529376b706700a2434ca6145bf88e7"
+    },
+    {
+      "path": "docs/parallel/E/W09/BACKUP_RESTORE_AND_RECONCILIATION.md",
+      "bytes": 7775,
+      "sha256": "26ea7e59b0b383f8c7d736869dfef6454a3906387b47b638c5fc0b60a3ac22ad"
+    },
+    {
+      "path": "docs/parallel/E/W09/CHECKPOINT.md",
+      "bytes": 5058,
+      "sha256": "4b4f994af6b92b48821b62b27c5079882eba6af775066867c8093cc6d44c68b6"
+    },
+    {
+      "path": "docs/parallel/E/W09/DEPLOYMENT_MIGRATION_AND_ROLLBACK.md",
+      "bytes": 6320,
+      "sha256": "4e98faa9bc3c36f128e23f94e7d28cc5cfe131b860e648a3439c32af7ef9f9df"
+    },
+    {
+      "path": "docs/parallel/E/W09/OPERATING_ROSTER_AND_DRILLS.md",
+      "bytes": 8025,
+      "sha256": "cbfb61c041e5610a463c4a801f7f5227aede36486c804514315cab0c0c9c1b58"
+    },
+    {
+      "path": "docs/parallel/E/W09/RC_AND_W10_REQUESTS.md",
+      "bytes": 7103,
+      "sha256": "0090122ef90efa22eb7efb3898ec30997ab81649aa12db03684641754a19ec6d"
+    },
+    {
+      "path": "docs/parallel/E/W09/README.md",
+      "bytes": 3863,
+      "sha256": "e213c4617d43a5207cf4a5a25977ba8a55c425945b69ed92a7700ca87b7e805f"
+    },
+    {
+      "path": "docs/parallel/E/W09/SOURCE_OBSERVATION.json",
+      "bytes": 32904,
+      "sha256": "fb6d0d3451e005f1b49bae302742d571957cfd08347bf926b4f13f8a0678c09f"
+    },
+    {
+      "path": "infra/README.md",
+      "bytes": 1195,
+      "sha256": "6fef884da1e589450e36ed110fb68006a3c27be69543cdc9fc61ac38cd6d80d4"
+    },
+    {
+      "path": "infra/compose.acceptance.yml",
+      "bytes": 4654,
+      "sha256": "a15c3e2006659142ac411500ab8c90b0047db1299e3abc35b3a2fc8c9092890e"
+    },
+    {
+      "path": "infra/compose.dev.yml",
+      "bytes": 4447,
+      "sha256": "0eb92255c0a8d4ed2b645b5a1cd8c599992e9802ebcca4d99488f34123bf9dab"
+    },
+    {
+      "path": "infra/postgres/provision.sh",
+      "bytes": 5800,
+      "sha256": "ce19ea0642cf33a662dfce416eadee0abd7647226f211dda2966df5d56e1ad2b"
+    },
+    {
+      "path": "infra/web-runtime.mjs",
+      "bytes": 3674,
+      "sha256": "4ff6bd8a589cbb95efb7a1300dfcb35005e3da6b3613e282e2b3da695ff4053e"
+    },
+    {
+      "path": "packages/api-clients/package.json",
+      "bytes": 365,
+      "sha256": "f49b16dd0418f4229042536ed1a8a4e11505467a1b8b85147263301bddbabd9f"
+    },
+    {
+      "path": "packages/contracts/package.json",
+      "bytes": 767,
+      "sha256": "7fcdae7298bcf9fa5417f3d4387445bdbb3942d7e2ab041507c902fbcb13bd93"
+    },
+    {
+      "path": "packages/event-contracts/package.json",
+      "bytes": 1012,
+      "sha256": "035cdd03d0695d29ed456b340c66651ddb87a456436fd98fb1c2170d8c2d221a"
+    },
+    {
+      "path": "packages/observability/src/metrics.ts",
+      "bytes": 5640,
+      "sha256": "42194dbe825eb08e26e8fff946e6b6122f174e8eaeb4bd88e4080c4d3b9ed0fb"
+    },
+    {
+      "path": "packages/platform-messaging/src/connection.ts",
+      "bytes": 3014,
+      "sha256": "d03ff73743d19f8a463a0ecce55c188e41ed5c56d9daa212822270a8d15f62a3"
+    },
+    {
+      "path": "packages/platform-messaging/src/inbox-consumer.ts",
+      "bytes": 8044,
+      "sha256": "cab0a274385e9c264f1f87731f02b160fa50dec1be7a38fa2c9f31f8459462c0"
+    },
+    {
+      "path": "packages/platform-messaging/src/outbox-relay.ts",
+      "bytes": 4528,
+      "sha256": "0002f4e79368da310f6b7a8b16fd886c18db6b72795871da9bed1ea6f46413d3"
+    },
+    {
+      "path": "packages/platform-messaging/src/publisher.ts",
+      "bytes": 4229,
+      "sha256": "6e0d578d026855688527d3ba65aaae97e35661b446e8ca3f5051fcaf8ad46151"
+    },
+    {
+      "path": "packages/service-kit/src/health.ts",
+      "bytes": 4294,
+      "sha256": "758b46784e4425ffe6cf15eba940172291d4384ffda0d317afb50b47d170d456"
+    },
+    {
+      "path": "scripts/acceptance-identity.mjs",
+      "bytes": 13632,
+      "sha256": "35616dc3dd738e9465b69e2d73c6ecca6cbb5032b8447a0f2899b96b42a820ed"
+    },
+    {
+      "path": "scripts/acceptance.mjs",
+      "bytes": 17431,
+      "sha256": "e264970afb0b69d73116f07e53b3ef143b8de33ecbb78ebb20365ae6911fbaf2"
+    },
+    {
+      "path": "scripts/acceptance/lib/context.mjs",
+      "bytes": 10127,
+      "sha256": "ec5eb2d43a9a1e0dfc6321e078bd5b9dbde8dad752010006e4a47d230e4aba8e"
+    },
+    {
+      "path": "scripts/acceptance/lib/infra.mjs",
+      "bytes": 8830,
+      "sha256": "accc24bbc27c726ec1510ee9ca4b253ffc3eb410e5ddec263fd61e0316198857"
+    },
+    {
+      "path": "scripts/acceptance/lib/migrations.mjs",
+      "bytes": 6173,
+      "sha256": "8005e4f9bdb6107a83ac567d8769c92a6477bf043112301cdbd01dd5875e435f"
+    },
+    {
+      "path": "scripts/acceptance/lib/recovery.mjs",
+      "bytes": 1165,
+      "sha256": "2416436f3ce6c5c4b4102be913aea65ae4e68fda7126f317bd1709ac1cef92a8"
+    },
+    {
+      "path": "scripts/c004/parity-harness.mjs",
+      "bytes": 12523,
+      "sha256": "34b75c06afab42d8cee37af8f260de1f016a0a6d35bd7e18454b1f2d083c9e14"
+    },
+    {
+      "path": "scripts/check-boundaries.mjs",
+      "bytes": 6994,
+      "sha256": "2018307758a2154c85473048fa68283c34c678712ce80a8c8465d46a4b73795b"
+    },
+    {
+      "path": "scripts/check-migrations.mjs",
+      "bytes": 10527,
+      "sha256": "a63008fad0729040825fd4855a9915c9c38c2d98dbca0ace3f4996de7d39c10f"
+    },
+    {
+      "path": "scripts/ci/aggregate.mjs",
+      "bytes": 1280,
+      "sha256": "ff9abcbe0eed9221c4a6cdf38078769c77d941994c4eaf5944000094f03455ea"
+    },
+    {
+      "path": "scripts/ci/image.mjs",
+      "bytes": 12290,
+      "sha256": "023d4373e7ccb286ab4788f7cad2b5c91936cbfceb84bd159265a4d9b2b422cb"
+    },
+    {
+      "path": "scripts/ci/install-tools.mjs",
+      "bytes": 1890,
+      "sha256": "8ecae94d9f0a2b048eef81895c12c64a1fcb42f95a5ac820408d204fbb61e09b"
+    },
+    {
+      "path": "scripts/ci/policy.mjs",
+      "bytes": 11478,
+      "sha256": "0c8d0d7f9933e9b0b5f80d68dba9a257befbb95732875741709c561bf1035f4a"
+    },
+    {
+      "path": "services/billing/prisma/schema.prisma",
+      "bytes": 921,
+      "sha256": "82aa2c8382d9a1b5a345f75065407c213da829acd58e92c1331b3d9bfed4c3a1"
+    },
+    {
+      "path": "services/booking/prisma/schema.prisma",
+      "bytes": 921,
+      "sha256": "9ea3d6dd78593cafafc97320e392e2bdd4e5394adcca768e303d20c2146d7622"
+    },
+    {
+      "path": "services/catalog/src/outbox/prisma-outbox.store.ts",
+      "bytes": 4136,
+      "sha256": "433228770c17708dbdeaca27d29546675c4744def5c106e6546300b238354ee3"
+    },
+    {
+      "path": "services/catalog/src/outbox/relay.runner.ts",
+      "bytes": 7536,
+      "sha256": "e9faae9ff3184f9295e46a487046c290e0ed646a1977822a8921ba674f9382df"
+    },
+    {
+      "path": "services/communications/src/inbox/prisma-inbox.store.ts",
+      "bytes": 2251,
+      "sha256": "354ab491d7caddfcdce7d40af83d9c3d774d960336660b434eba9720b51be00b"
+    },
+    {
+      "path": "services/dispatch/prisma/schema.prisma",
+      "bytes": 922,
+      "sha256": "a40a7014eb73cc30c33156f220a259740f0e4f243cf02f268d69d68a5765ad92"
+    },
+    {
+      "path": "services/identity/package.json",
+      "bytes": 1026,
+      "sha256": "d9b8f8dd624a7c1f6a0ef735693c71400562b1c4815c672f142ac107fb1a3b41"
+    },
+    {
+      "path": "services/identity/prisma/migrations/20260926040000_identity_security/migration.sql",
+      "bytes": 2593,
+      "sha256": "ba35f1f9d59397c806ee54bc3daec75a5d4d195ebf17851acfcf4aad61bc2081"
+    },
+    {
+      "path": "services/identity/prisma/schema.prisma",
+      "bytes": 3064,
+      "sha256": "22b3951f5332a9856752dd567d5960a4ebcaa3e6993c57e58b4b23a90b3182d7"
+    },
+    {
+      "path": "services/identity/src/application/identity-auth.service.ts",
+      "bytes": 16872,
+      "sha256": "bcaa6240678273426f5bdab1acb340da6b20cb48d948859df3fe6638ad5a0763"
+    },
+    {
+      "path": "services/media/prisma/schema.prisma",
+      "bytes": 919,
+      "sha256": "5ed0b388edc04c68f6a3e5e0eaed14a5918632b6f74c0a6bfae11c57b413fbbb"
+    },
+    {
+      "path": "services/pricing/prisma/schema.prisma",
+      "bytes": 921,
+      "sha256": "5e8251634c057bb4656d0b050d52e04cd02734a3ca541d1a2667df7f73bb6686"
+    },
+    {
+      "path": "services/reporting/src/inbox/consumer.runner.ts",
+      "bytes": 6984,
+      "sha256": "39e2c4f2f31199119678aadbb44c0439b51bbddcd23d4facc70139a1b020cdf0"
+    },
+    {
+      "path": "services/reporting/src/inbox/prisma-inbox.store.ts",
+      "bytes": 2246,
+      "sha256": "6711146f5147c38d1b1d6d56cda1052a5093d27490416e02b7f95c4e475de8e4"
+    },
+    {
+      "path": "services/scheduling/prisma/schema.prisma",
+      "bytes": 924,
+      "sha256": "3b660e8a2c16783757df16e5c9c253874927d7cf3e658b1e94135fd7741a552c"
+    },
+    {
+      "path": "services/subscription/prisma/schema.prisma",
+      "bytes": 926,
+      "sha256": "b74cc9c3d0002d7c6482f68268a37e9860387ae39199e111b73b625db53b64ad"
+    },
+    {
+      "path": "services/support/prisma/schema.prisma",
+      "bytes": 921,
+      "sha256": "00ffe22bae2fb6fd2b9aa8a0f0a4b592b9411622b8cc58e3bc0d745b63c80580"
+    },
+    {
+      "path": "services/wallet/prisma/schema.prisma",
+      "bytes": 920,
+      "sha256": "e6e9b6017244473a152de02d8441d14c6e71acc4dce61fdafd4fe50bef422db2"
+    },
+    {
+      "path": "tests/gateway/api.test.mjs",
+      "bytes": 6207,
+      "sha256": "24fd96e027f9ff2eb3ff14a026a5f2470f24fc7d4ee34cc28d8d4e2d91305e4b"
+    },
+    {
+      "path": "tests/identity/api.test.mjs",
+      "bytes": 16800,
+      "sha256": "092188f836532eb1a81847d463ff1d8dd95d91571a1bdede7183d9bf1d3b05a6"
+    },
+    {
+      "path": "tests/integration/_support.mjs",
+      "bytes": 12312,
+      "sha256": "1b3f2a120ba0cfe5d3f0b4b400ee9686ef26add8702e8d423b69663f3f885ccf"
+    },
+    {
+      "path": "tests/integration/migrations.test.mjs",
+      "bytes": 4972,
+      "sha256": "1a2bf0c6331149b5cda5fb96642f9de8d1b45b35c2983b7ab3064b3e6112e866"
+    },
+    {
+      "path": "tests/integration/observability.test.mjs",
+      "bytes": 5960,
+      "sha256": "2db3ea3319f5c57ea1998637d3d366440773641a1061bf29dc3996d5b013af5e"
+    },
+    {
+      "path": "tests/integration/outbox-inbox.test.mjs",
+      "bytes": 30058,
+      "sha256": "a8ef039823f5d116a52a19f6018649ca34a36b8850233319c500bc3b03bf023f"
+    },
+    {
+      "path": "tests/integration/postgres-isolation.test.mjs",
+      "bytes": 8688,
+      "sha256": "44e2968c0264c8c97239dea5ca31010c0b2baca84c3d0bfe184dd7362abe76ca"
+    },
+    {
+      "path": "tests/integration/postgres-privileges.test.mjs",
+      "bytes": 13247,
+      "sha256": "3b4140f3d156a8fa6e5a312ea1880461624c1d90a905ad9b42e669792623611f"
+    },
+    {
+      "path": "tests/integration/rabbitmq-acl.test.mjs",
+      "bytes": 11206,
+      "sha256": "3ca8561431b37ff17b01a29194109bece3c7569df0d7527cdce67fe7a1050f4b"
+    },
+    {
+      "path": "tests/parallel/A/W09/ACCEPTANCE_SPECIFICATIONS.md",
+      "bytes": 15939,
+      "sha256": "5bbebcab0b5256c26b4e0de5991bdf314b21511e4adfe6f3b9fe33d9523e79ad"
+    },
+    {
+      "path": "tests/parallel/B/W09/acceptance-specifications.json",
+      "bytes": 46694,
+      "sha256": "a1368cce0f09c89adf012204bcef0a4079c63503f524a0dc546ae1d80c9284d4"
+    },
+    {
+      "path": "tests/parallel/C/W09/acceptance-specifications.md",
+      "bytes": 4021,
+      "sha256": "32a258999fc2ea85313a049317aa1a4ed4351f51c3715655aea79db6933d8f77"
+    },
+    {
+      "path": "tests/parallel/D/W09/ACCEPTANCE_SPEC.md",
+      "bytes": 34120,
+      "sha256": "2d8d2593bf9b72122b1a6a8a795a4c63da30420ebf07d0e4797a218047817bd9"
+    },
+    {
+      "path": "tests/parallel/E/W08/HARDENING_ACCEPTANCE_SPEC.md",
+      "bytes": 24549,
+      "sha256": "100926bcbbad91acaaa92904b24590cb9d9e081824471a3f8253a367d75d7cec"
+    },
+    {
+      "path": "tests/parallel/E/W09/OPERATIONAL_REHEARSAL_SPEC.md",
+      "bytes": 14225,
+      "sha256": "b24cd6b8f8853a7ed026d16c5a0d965d50d1aa526396757d73173cc804027861"
+    },
+    {
+      "path": "tests/unit/f008-recovery-scope.test.mjs",
+      "bytes": 10789,
+      "sha256": "45bb362960af35adeb375a335dde86186f37801686fedee887f894461f133b67"
+    }
+  ],
+  "currentW10PeerDraftObservationsNotAcceptedSources": {
+    "A": "NOT_PUBLISHED_AT_OBSERVATION; merged W09 handoff audited",
+    "C": {
+      "pullRequest": 86,
+      "head": "c65f597f0d5798796a5de6ec0d4d7ad7916ae67a",
+      "status": "DRAFT_NOT_ACCEPTED; 22 blocked families; no common base or release signoff"
+    },
+    "B_D": [
+      {
+        "lane": "B",
+        "pullRequest": 88,
+        "head": "3401e6b6d76a4be4de242d6cef02f82952b9be08",
+        "path": "docs/parallel/B/W10/RELEASE_RECOMMENDATION.md",
+        "bytes": 9150,
+        "sha256": "2f79e8d12013e4aad69c4672955eaf0497a92a3cdfa3dc7c1a8781a9f27137ce",
+        "status": "READ_IMMUTABLE_DRAFT_NOT_ACCEPTED; not analysis-source pins or release approval"
+      },
+      {
+        "lane": "D",
+        "pullRequest": 87,
+        "head": "168f22732b8eaea94267798ec5eacf773105061e",
+        "path": "docs/parallel/D/W10/EVIDENCE_PROVENANCE_AND_DECISION.md",
+        "bytes": 11894,
+        "sha256": "aced0f3698aa60a01f2fbc2047be21e328ed0e163e80e63a83aa28b829c3c796",
+        "status": "READ_IMMUTABLE_DRAFT_NOT_ACCEPTED; not analysis-source pins or release approval"
+      }
+    ]
+  },
+  "localChecksActuallyRunAfterEdits": [
+    {
+      "command": "node scripts/check-design-reference.mjs --base-ref 8bfa805d033cb29373c33886bf71bce4885a2f67",
+      "result": "PASS10 artifacts; source preservation only"
+    },
+    {
+      "command": "node scripts/f010/reference-registry.mjs --base-ref 8bfa805d033cb29373c33886bf71bce4885a2f67",
+      "result": "PASS3 refs; initialRegistration:false"
+    },
+    {
+      "command": "node scripts/check-migrations.mjs --base-ref 8bfa805d033cb29373c33886bf71bce4885a2f67",
+      "result": "PASS21 migrations/428 files; no DB execution"
+    },
+    {
+      "command": "node scripts/parallel/E/check-owners.mjs --base-ref 8bfa805d033cb29373c33886bf71bce4885a2f67 --worktree --lane E",
+      "result": "PASS8 E-local paths/0 findings/protected base blobs"
+    },
+    {
+      "command": "Python byte/SHA256/model inventory/receipt/link diagnostic",
+      "result": "PASS128 pins/21 SQLs/19 schemas/124 unique unaccepted scope rows/36 BLOCKED_NOT_RUN cases/16 local links",
+      "scope": "Source continuity only; no release case executed"
+    }
+  ]
+}

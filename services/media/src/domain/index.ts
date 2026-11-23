@@ -1,7 +1,6 @@
 /**
- * media domain layer.
- *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
+ * media domain layer: pure rules, no I/O, no framework.
  */
-export {};
+export * from './errors';
+export * from './content';
+export * from './media-object';

@@ -1,0 +1,94 @@
+{
+  "task": "P01-B",
+  "service": "pricing",
+  "runId": "f124cda0a537",
+  "startedAt": "2026-10-07T04:09:50.622Z",
+  "sourceSHA": "9b65d043871376a4c05796ae454965a453c07510",
+  "sourceTree": "4bf6cfa819f413a51d24bede2cc5c92a7b61cc0d",
+  "sourceDirty": false,
+  "node": "v24.21.0",
+  "docker": "29.1.3",
+  "image": {
+    "name": "postgres:16.10-alpine",
+    "repoDigests": [
+      "postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297"
+    ],
+    "serverVersion": "PostgreSQL 16.10"
+  },
+  "dependencies": {
+    "postgres": "REAL (disposable container)",
+    "identity": "LOCAL HTTP STUB",
+    "broker": "NOT USED"
+  },
+  "phases": [
+    {
+      "name": "toolchain and source provenance",
+      "status": "PASS"
+    },
+    {
+      "name": "build service and integration specs from this source",
+      "status": "PASS"
+    },
+    {
+      "name": "pull pinned PostgreSQL image",
+      "status": "PASS"
+    },
+    {
+      "name": "start disposable PostgreSQL with shared provisioner",
+      "status": "PASS"
+    },
+    {
+      "name": "runtime identity can connect after provisioning",
+      "status": "PASS"
+    },
+    {
+      "name": "upgrade from previous migration history preserves existing data",
+      "status": "PASS"
+    },
+    {
+      "name": "re-provision restricts migration history from the runtime role",
+      "status": "PASS"
+    },
+    {
+      "name": "committed Prisma schema mirror has no drift from migrated database",
+      "status": "PASS"
+    },
+    {
+      "name": "integration specs as the least-privileged runtime role",
+      "status": "PASS"
+    }
+  ],
+  "tests": {
+    "files": [
+      "services\\pricing\\dist-tests\\test\\integration\\pricing.postgres.spec.js"
+    ],
+    "summary": {
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "names": [
+      "✔ postgres: price version and quote round-trip with exact amounts beyond 2^53 (",
+      "✔ postgres: concurrent publishers on two replicas create exactly one version (",
+      "✔ postgres: the same quote key raced across replicas yields one quote (",
+      "✔ postgres: expiry, validation and catalog-revision mismatch use server state (",
+      "✔ postgres: versions, rates, quotes and receipts are immutable for the runtime role (",
+      "✔ postgres: a quote whose lines do not add up can never commit (",
+      "✔ postgres: price chain constraints hold without the application (",
+      "✔ postgres: trigger functions are not executable by the runtime role or PUBLIC ("
+    ]
+  },
+  "accepted": true,
+  "migrations": {
+    "previous": [
+      "20261005060000_w01_foundation"
+    ],
+    "added": [
+      "20261007100000_p01b_pricing_quotes"
+    ]
+  },
+  "finishedAt": "2026-10-07T04:11:07.300Z"
+}

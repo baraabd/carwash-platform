@@ -2,25 +2,13 @@ import {
   GATEWAY_V1,
   GATEWAY_ROUTES,
   GATEWAY_COMPOSITIONS,
+  API_ERROR_CODES,
   type GatewayErrorCode,
 } from '@carwash/contracts';
 
-const ERROR_CODES: readonly GatewayErrorCode[] = [
-  'REQUEST_INVALID',
-  'AUTH_REQUIRED',
-  'AUTH_FORBIDDEN',
-  'AUTH_CSRF',
-  'NOT_FOUND',
-  'CONFLICT',
-  'VALIDATION_FAILED',
-  'RATE_LIMITED',
-  'UPSTREAM_UNAVAILABLE',
-  'UPSTREAM_TIMEOUT',
-  'UPSTREAM_INVALID',
-  'INTERNAL_ERROR',
-];
+const ERROR_CODES: readonly GatewayErrorCode[] = API_ERROR_CODES;
 const ERROR_RESPONSES = Object.fromEntries(
-  [400, 401, 403, 404, 409, 413, 422, 429, 500, 502, 503, 504].map((status) => [
+  [400, 401, 403, 404, 409, 412, 413, 422, 428, 429, 500, 502, 503, 504].map((status) => [
     String(status),
     { $ref: '#/components/responses/GatewayError' },
   ]),
@@ -55,19 +43,62 @@ const RESPONSE_HEADERS = {
 export function gatewayOpenApi() {
   const paths: Record<string, unknown> = {};
   for (const route of GATEWAY_ROUTES) {
-    const path = (GATEWAY_V1 + route.path).replace(':id', '{id}');
+    const path = ((route.prefix ?? GATEWAY_V1) + route.path).replace(
+      /:([A-Za-z][A-Za-z0-9]*)/g,
+      '{$1}',
+    );
     const current = (paths[path] ?? {}) as Record<string, unknown>;
     current[route.method.toLowerCase()] = {
       operationId: route.id,
       'x-owning-service': route.owner,
+      ...(!route.permission &&
+      !route.anyPermission &&
+      !route.public &&
+      !route.authTransport &&
+      !route.providerIngress
+        ? { security: SECURITY }
+        : {}),
       ...(route.permission
         ? { 'x-required-permission': route.permission, security: SECURITY }
         : {}),
+      ...(route.anyPermission
+        ? { 'x-any-permission': route.anyPermission, security: SECURITY }
+        : {}),
+      ...(route.safe ? { 'x-read-only': true } : {}),
       ...(route.authTransport ? { 'x-auth-enforcement-owner': 'identity' } : {}),
+      ...(route.public ? { 'x-public': true, security: [] } : {}),
+      ...(route.providerIngress
+        ? {
+            'x-provider-ingress': true,
+            'x-signature-verification-owner': route.owner,
+            security: [],
+          }
+        : {}),
       parameters: [
         ...CORRELATION_PARAMETERS,
-        ...(route.path.includes(':id')
-          ? [{ in: 'path', name: 'id', required: true, schema: { type: 'string', format: 'uuid' } }]
+        ...[...route.path.matchAll(/:([A-Za-z][A-Za-z0-9]*)/g)].map((match) => ({
+          in: 'path',
+          name: match[1],
+          required: true,
+          schema: route.pathEnums?.[match[1]!]
+            ? { type: 'string', enum: route.pathEnums[match[1]!] }
+            : { type: 'string', format: 'uuid' },
+        })),
+        ...(route.query ?? []).map((parameter) => ({
+          in: 'query',
+          name: parameter.name,
+          required: false,
+          schema: { type: 'string', pattern: parameter.pattern.source },
+        })),
+        ...(route.revisioned
+          ? [
+              {
+                in: 'header',
+                name: 'If-Match',
+                required: true,
+                schema: { type: 'string', pattern: '^"[1-9][0-9]{0,8}"$' },
+              },
+            ]
           : []),
         ...(route.idempotency
           ? [
@@ -106,11 +137,11 @@ export function gatewayOpenApi() {
     paths[path] = current;
   }
   for (const read of GATEWAY_COMPOSITIONS) {
-    const permissions = read.routes.map((id) => {
+    const permissions = read.routes.flatMap((id) => {
       const route = GATEWAY_ROUTES.find((candidate) => candidate.id === id);
-      if (!route || route.method !== 'GET' || !route.permission)
+      if (!route || route.method !== 'GET' || (!route.permission && !route.public))
         throw new Error('INVALID_GATEWAY_COMPOSITION_CONTRACT');
-      return route.permission;
+      return route.permission ? [route.permission] : [];
     });
     paths[GATEWAY_V1 + read.path] = {
       get: {
@@ -152,15 +183,44 @@ export function gatewayOpenApi() {
             error: {
               type: 'object',
               additionalProperties: false,
-              required: ['code', 'message', 'requestId', 'correlationId'],
+              required: [
+                'code',
+                'reason',
+                'message',
+                'requestId',
+                'correlationId',
+                'retryable',
+                'retryAfterMs',
+                'issues',
+              ],
               properties: {
                 code: { type: 'string', enum: ERROR_CODES },
+                reason: {
+                  type: ['string', 'null'],
+                  description:
+                    'Only a reason published by the owning service for a recognized HTTP failure.',
+                },
                 message: {
                   type: 'string',
                   description: 'Fixed public text; never raw owner exceptions.',
                 },
                 requestId: { type: 'string', format: 'uuid' },
                 correlationId: { type: 'string', format: 'uuid' },
+                retryable: {
+                  type: 'boolean',
+                  description:
+                    'Shared API_ERROR_RETRYABLE semantics. Unknown mutation outcomes require reconciliation with the same key.',
+                },
+                retryAfterMs: { type: ['integer', 'null'], minimum: 0, maximum: 3600000 },
+                issues: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['field', 'code'],
+                    properties: { field: { type: 'string' }, code: { type: 'string' } },
+                  },
+                },
               },
             },
           },

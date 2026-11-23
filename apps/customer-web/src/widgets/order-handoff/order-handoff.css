@@ -1,0 +1,39 @@
+/*
+ * C014 post-confirmation handoff. Not a port of the reference's tracking or
+ * checkout screens: it reuses the shell, heading, receipt and button rules and adds
+ * only the payment-status line and the reference line below, with existing tokens.
+ */
+.order-handoff .order-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 15px;
+  margin-bottom: 15px;
+  border: 1px solid var(--line);
+  border-radius: 21px;
+  background: white;
+}
+.order-handoff .order-status > svg {
+  color: #688057;
+  width: 23px;
+  height: 23px;
+}
+.order-handoff .order-status strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+.order-handoff .order-status p {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.order-handoff .order-amount {
+  white-space: nowrap;
+}
+.order-handoff .order-reference {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  margin: 15px 0;
+}

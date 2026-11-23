@@ -325,12 +325,14 @@ test('C006 care step shows and prices the extras a draft already carries', () =>
   assert.equal(view.footerMinutes, 60 + 20 + 10 + 5);
 });
 
+// C013 gave each line a stable identity (`id`) so the shared bill keys by what a line
+// charges for, not by its label. Labels, values, order and total are unchanged.
 test('C006 price breakdown view model lists package, size, extras, visit and total', () => {
   assert.deepEqual(buildPriceBreakdown(draft()), {
     lines: [
-      { label: 'لمعة سريعة', value: '500 ل.س' },
-      { label: 'حجم السيارة · سيدان', value: 'ضمن السعر' },
-      { label: 'الوصول إلى الموقع', value: 'ضمن سعر التجربة' },
+      { id: 'package', label: 'لمعة سريعة', value: '500 ل.س' },
+      { id: 'vehicle', label: 'حجم السيارة · سيدان', value: 'ضمن السعر' },
+      { id: 'visit', label: 'الوصول إلى الموقع', value: 'ضمن سعر التجربة' },
     ],
     total: 500,
   });
@@ -340,10 +342,10 @@ test('C006 price breakdown view model lists package, size, extras, visit and tot
     ),
     {
       lines: [
-        { label: 'عناية استثنائية', value: '1,500 ل.س' },
-        { label: 'حجم السيارة · دفع رباعي', value: '+350 ل.س' },
-        { label: 'تنظيف المقاعد', value: '+350 ل.س' },
-        { label: 'الوصول إلى الموقع', value: 'ضمن سعر التجربة' },
+        { id: 'package', label: 'عناية استثنائية', value: '1,500 ل.س' },
+        { id: 'vehicle', label: 'حجم السيارة · دفع رباعي', value: '+350 ل.س' },
+        { id: 'extra:seats', label: 'تنظيف المقاعد', value: '+350 ل.س' },
+        { id: 'visit', label: 'الوصول إلى الموقع', value: 'ضمن سعر التجربة' },
       ],
       total: 2200,
     },

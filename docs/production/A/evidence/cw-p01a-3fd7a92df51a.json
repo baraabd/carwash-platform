@@ -1,0 +1,86 @@
+{
+  "lane": "A",
+  "task": "P01-A",
+  "project": "cw-p01a-3fd7a92df51a",
+  "services": [
+    "geo"
+  ],
+  "startedAt": "2026-10-08T03:19:40.128Z",
+  "node": "v24.21.0",
+  "images": {
+    "postgres:16.10-alpine": [
+      "postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297"
+    ],
+    "redis:8.2.10-alpine": [
+      "redis@sha256:b51665e66f00759be7c3152ad5ac3c66fb2f619c13ef62dea7cc1f9914524635"
+    ]
+  },
+  "source": {
+    "head": "17d4bd111964fb4d5a2ad9b82fbb5ca50b8227bd",
+    "tree": "b7517e9918e27ff9c6d8d83c82047c199f06ff95",
+    "dirtyTrackedFiles": 0
+  },
+  "phases": [
+    {
+      "name": "record exact source",
+      "status": "PASS",
+      "ms": 285
+    },
+    {
+      "name": "pin infrastructure images",
+      "status": "PASS",
+      "ms": 10361
+    },
+    {
+      "name": "start scoped disposable stack",
+      "status": "PASS",
+      "ms": 4904
+    },
+    {
+      "name": "PostgreSQL accepts every runtime identity",
+      "status": "PASS",
+      "ms": 2575
+    },
+    {
+      "name": "identity: migrate deploy with the migration identity",
+      "status": "PASS",
+      "ms": 38422
+    },
+    {
+      "name": "geo: migrate deploy with the migration identity",
+      "status": "PASS",
+      "ms": 3994
+    },
+    {
+      "name": "geo: Prisma schema mirrors the migrated database",
+      "status": "PASS",
+      "ms": 3843
+    },
+    {
+      "name": "integration suites",
+      "status": "PASS"
+    },
+    {
+      "name": "teardown owned infrastructure",
+      "status": "PASS",
+      "ms": 3677
+    }
+  ],
+  "suites": [
+    {
+      "files": [
+        "tests/production/A/geo.integration.test.mjs"
+      ],
+      "exit": 0,
+      "tests": 19,
+      "pass": 19,
+      "fail": 0,
+      "skipped": 0,
+      "todo": 0,
+      "cancelled": 0
+    }
+  ],
+  "scope": "Real PostgreSQL 16 (least-privilege roles from infra/postgres/provision.sh), real owner-service HTTP adapters on loopback (geo). Real Identity Nest application and Redis; only the OTP delivery port is captured in-process. No broker relay, no gateway, no browser, no production deployment.",
+  "finishedAt": "2026-10-08T03:21:25.230Z",
+  "result": "PASSED"
+}

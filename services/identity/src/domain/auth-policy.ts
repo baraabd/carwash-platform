@@ -17,7 +17,28 @@ export const AUTH_POLICY = Object.freeze({
   issueWindowMs: 900_000,
   verifyIpLimit: 60,
   verifyWindowMs: 60_000,
+  /**
+   * Guest lifetime is absolute from creation; sessions never outlive it.
+   * 30 days is an engineering default pending the owner's retention decision.
+   */
+  guestTtlMs: 2_592_000_000,
+  guestCreateIpLimit: 10,
+  guestRecoverIpLimit: 10,
+  guestWindowMs: 900_000,
 });
+/** Self-service only; a guest has no roles and can never gain staff permissions. */
+export const GUEST_PERMISSIONS: readonly IdentityPermission[] = Object.freeze([
+  'profile.read:self',
+  'profile.write:self',
+  'bookings.read:self',
+  'bookings.create:self',
+]);
+/** Recovery codes are 43-char base64url opaque secrets (256-bit), shown once. */
+export function recoveryCodeInput(raw: unknown): string {
+  if (typeof raw !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(raw))
+    throw new AuthFault('AUTH_INVALID_REQUEST');
+  return raw;
+}
 const ROLE_PERMISSIONS: Readonly<Record<IdentityRole, readonly IdentityPermission[]>> = {
   customer: [
     'profile.read:self',
@@ -30,9 +51,13 @@ const ROLE_PERMISSIONS: Readonly<Record<IdentityRole, readonly IdentityPermissio
     'profile.write:self',
     'work.read:assigned',
     'work.execute:assigned',
+    'billing.cash.collect',
   ],
   operations: ['operations.dispatch'],
-  finance: ['billing.read', 'billing.refund'],
+  // billing.reconcile stays separate from billing.read (CR-B-03). catalog.publish
+  // and pricing.publish are held only by super-admin until the owner approves a
+  // narrower staff mapping (decision E-P03-D1).
+  finance: ['billing.read', 'billing.refund', 'billing.reconcile'],
   support: ['support.cases.read', 'support.cases.write'],
   reviewer: ['verification.review'],
   'super-admin': IDENTITY_PERMISSIONS,

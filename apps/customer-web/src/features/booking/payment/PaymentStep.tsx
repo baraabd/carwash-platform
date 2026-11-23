@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { illustrativeCost } from '../../../fixtures/customerCatalogFixture';
+import { currentInstant } from '../../../shared/clock';
 import { Icon } from '../../../shared/Icon';
 import { Price } from '../../../shared/Price';
 import {
@@ -12,10 +13,11 @@ import {
 } from '../../../state/paymentStep';
 import { useCustomerSession } from '../../../state/CustomerSessionProvider';
 import { pathForIntent } from '../../../state/navigationPath';
+import { completeReviewEdit } from '../../../state/reviewStep';
 import type { PaymentMethodId } from '../../../state/bookingDraft';
 import { BookingFooter } from '../BookingFooter';
 import { BookingProgress } from '../BookingProgress';
-import { bookingFlow } from '../bookingFlow';
+import { bookingFlow, decisionNextLabel } from '../bookingFlow';
 import { buildPriceBreakdown } from '../priceBreakdown';
 import './payment.css';
 
@@ -85,7 +87,9 @@ export function PaymentStep() {
   };
 
   const handleNext = () => {
-    const result = run(submitPaymentStep);
+    const result = run((current) =>
+      completeReviewEdit(submitPaymentStep(current), currentInstant()),
+    );
     if (result.intent) {
       navigate(pathForIntent(result.intent));
       return;
@@ -212,7 +216,7 @@ export function PaymentStep() {
       <BookingFooter
         total={cost.total}
         minutes={cost.minutes}
-        nextLabel={bookingFlow[PAYMENT_STEP_INDEX].nextLabel}
+        nextLabel={decisionNextLabel(PAYMENT_STEP_INDEX, state.reviewEditing)}
         breakdown={breakdown}
         onNext={handleNext}
       />

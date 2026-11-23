@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "task": "W03-D",
+  "phase": "BLOCKED_ENTRY",
+  "observedAt": "2026-10-05T11:44:13.952Z",
+  "repository": "baraabd/carwash-platform",
+  "observationTarget": {
+    "sha": "82e7402ed9ab6cc4f565f423441cd0655f2d627a",
+    "tree": "050b4b8a03be2bc671cbaa00151ea7105891e2d4",
+    "isAcceptedWaveBase": false
+  },
+  "registry": {
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "BASE_W02": null,
+    "BASE_W03FieldPresent": false,
+    "acceptedW03Base": null,
+    "acceptedNextWaveContracts": [],
+    "existingClientContracts": [],
+    "publishedNextWavePackageVersions": {}
+  },
+  "ownership": {
+    "registryStatus": "proposal-pending-independent-review",
+    "verifiedBaseW02": null,
+    "currentEInstruction": "Merged W02-E packet and PR50 explicitly end bootstrap cross-owner write permission; permanent ownership applies, registry reconciliation still pending.",
+    "DTransitionUndeclaredPaths": 8,
+    "permissionRestoredByOldRegistry": false
+  },
+  "mergedW02Proposals": {
+    "numbers": [
+      46,
+      47,
+      48,
+      49,
+      50
+    ],
+    "changedPathCount": 31,
+    "changesAreDocsOrDeclarativeSpecificationsOnly": true,
+    "runtimeSourceChangesSinceBootstrap": []
+  },
+  "packages": {
+    "contracts": "0.0.2",
+    "eventContracts": "0.0.2",
+    "apiClients": "0.0.1",
+    "adminWeb": "0.0.2",
+    "reporting": "0.0.2",
+    "configuration": "0.0.2"
+  },
+  "productSource": {
+    "adminWeb": "foundation-only",
+    "operatorWeb": "foundation-only",
+    "configurationModels": [
+      "ServiceMarker"
+    ],
+    "reportingModels": [
+      "ServiceMarker",
+      "InboxMessage",
+      "ProbeProjection"
+    ],
+    "reportingConsumerEvent": "foundation.probe.created.v1",
+    "registeredBookingEvent": "booking.confirmed.v1 contract-only",
+    "CReviewerPrivateMediaBookingRuntime": "not implemented"
+  },
+  "staticIntegrityFinding": {
+    "id": "INT-D-01",
+    "path": "services/reporting/src/inbox/prisma-inbox.store.ts",
+    "finding": "Whole-transaction unique violations map to DUPLICATE without winner hash or constraint classification; consumer ACKs that result.",
+    "databaseRaceReproduced": false,
+    "requiredRealTests": [
+      "same-ID/same-hash race",
+      "same-ID/different-hash race",
+      "unrelated effect unique violation rollback"
+    ],
+    "samePatternInCommunications": true
+  },
+  "github": {
+    "mainProtected": false,
+    "openPRs": [
+      {
+        "number": 51,
+        "title": "docs(W03-C): specify capacity and durable booking recovery prework",
+        "head": "6a382fe4021aa61f3850f1d8cb0c082e3c488fcc",
+        "draft": true
+      }
+    ],
+    "targetChecks": {
+      "total": 43,
+      "success": 43,
+      "other": []
+    },
+    "targetWorkflowRuns": {
+      "total": 8,
+      "success": 8
+    },
+    "sourceUrls": [
+      "https://api.github.com/repos/baraabd/carwash-platform/branches/main",
+      "https://api.github.com/repos/baraabd/carwash-platform/commits/82e7402ed9ab6cc4f565f423441cd0655f2d627a/check-runs?per_page=100",
+      "https://api.github.com/repos/baraabd/carwash-platform/actions/runs?head_sha=82e7402ed9ab6cc4f565f423441cd0655f2d627a&per_page=100"
+    ],
+    "limitation": "Exact target's technical CI only; not accepted business contracts/base or this proposal head."
+  },
+  "toolchain": {
+    "required": {
+      "node": "24.21.0",
+      "pnpm": "10.32.1"
+    },
+    "observed": {
+      "node": "24.19.0",
+      "pnpm": "11.25.0"
+    },
+    "configurationGuard": "PASS",
+    "runtimeGuard": "FAIL"
+  },
+  "newMigrationIds": [],
+  "productCases": "ALL_BLOCKED_NOT_RUN",
+  "runtimeResources": {
+    "processes": [],
+    "containers": [],
+    "ports": [],
+    "queues": [],
+    "objects": [],
+    "leases": [],
+    "databaseBrokerBrowser": "NOT_STARTED"
+  },
+  "productionReady": false
+}

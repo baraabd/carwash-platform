@@ -1,11 +1,59 @@
+import { BILLING_V1 } from './billing/v1';
+import { CATALOG_V1 } from './catalog/v1';
+import type { OwnerContract } from './common/route';
+import { CONFIGURATION_V1 } from './configuration/v1';
+import { CUSTOMER_V1 } from './customer/v1';
 import { GATEWAY_V1 } from './gateway';
+import { GEO_V1 } from './geo/v1';
 import { IDENTITY_V1 } from './identity';
+import { PRICING_V1 } from './pricing/v1';
+import { PROMOTION_V1 } from './promotion/v1';
+import { REPORTING_V1 } from './reporting/v1';
+import { REVIEWS_V1 } from './reviews/v1';
+import { SCHEDULING_V1 } from './scheduling/v1';
+import { SUBSCRIPTION_V1 } from './subscription/v1';
+import { SUPPORT_V1 } from './support/v1';
+import { VEHICLE_V1 } from './vehicle/v1';
+import { WORKFORCE_V1 } from './workforce/v1';
 
-export type HttpContractStatus = 'foundation-runtime' | 'routing-contract-only';
+/**
+ * foundation-runtime          implemented and exercised by the foundation runtime
+ * routing-contract-only       Gateway routing vocabulary, not a business API
+ * published-provider-pending  wire contract published by Lane E; the owner's
+ *                             provider implementation is NOT yet accepted. This
+ *                             status never implies the endpoint works.
+ */
+export type HttpContractStatus =
+  'foundation-runtime' | 'routing-contract-only' | 'published-provider-pending';
+
+export const OWNER_CONTRACTS = [
+  CUSTOMER_V1,
+  VEHICLE_V1,
+  GEO_V1,
+  CATALOG_V1,
+  PRICING_V1,
+  SCHEDULING_V1,
+  WORKFORCE_V1,
+  CONFIGURATION_V1,
+  BILLING_V1,
+  // P05-E1
+  SUBSCRIPTION_V1,
+  PROMOTION_V1,
+  SUPPORT_V1,
+  REVIEWS_V1,
+  REPORTING_V1,
+] as const satisfies readonly OwnerContract[];
+
+/** Every contract one owner serves (an owner may serve more than one major/family). */
+export function contractsOf(owner: string): readonly OwnerContract[] {
+  return OWNER_CONTRACTS.filter((contract) => contract.owner === owner);
+}
+
+type OwnerContractId = (typeof OWNER_CONTRACTS)[number]['id'];
 
 export interface HttpContractDescriptor {
-  readonly id: 'identity.v1' | 'gateway.v1';
-  readonly domain: 'identity' | 'gateway';
+  readonly id: 'identity.v1' | 'gateway.v1' | OwnerContractId;
+  readonly domain: string;
   readonly version: 1;
   readonly prefix: string;
   readonly status: HttpContractStatus;
@@ -29,7 +77,15 @@ export const HTTP_CONTRACTS: readonly HttpContractDescriptor[] = [
     status: 'routing-contract-only',
     openApi: 'docs/contracts/gateway.openapi.json',
   },
-] as const;
+  ...OWNER_CONTRACTS.map((contract): HttpContractDescriptor => ({
+    id: contract.id,
+    domain: contract.owner,
+    version: 1,
+    prefix: contract.prefix,
+    status: 'published-provider-pending',
+    openApi: `docs/contracts/${contract.id}.openapi.json`,
+  })),
+];
 
 export function httpContract(id: HttpContractDescriptor['id']): HttpContractDescriptor {
   const contract = HTTP_CONTRACTS.find((candidate) => candidate.id === id);

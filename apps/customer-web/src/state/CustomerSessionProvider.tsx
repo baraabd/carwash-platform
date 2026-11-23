@@ -35,7 +35,12 @@ interface ProviderProps {
 /**
  * In-memory customer session. It holds the unsent draft and read-only order
  * snapshots for the current page lifetime only: there is no browser storage and
- * no network call here, so nothing in it can be mistaken for a saved booking.
+ * no network call here. An explicit demo confirmation (C014) adds an order to this
+ * memory; it is never sent to a service, saved durably or paid.
+ *
+ * `run` evaluates a command once against the latest state and stores its result
+ * (never a state updater React may replay), so a navigation or notice taken from
+ * that result corresponds to exactly one applied transition.
  */
 export function CustomerSessionProvider({ initialState, children }: ProviderProps) {
   const [state, setState] = useState(initialState);

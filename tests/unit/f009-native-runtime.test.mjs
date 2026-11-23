@@ -62,7 +62,8 @@ test('every Dockerfile preserves original native package metadata and license pr
     ...inventory().targets.map((t) => load(t.path + '/Dockerfile')),
     renderServiceFiles('identity').get('Dockerfile'),
   ];
-  assert.equal(files.length, 13);
+  // 19 service artifacts, Gateway, three web artifacts, root and template.
+  assert.equal(files.length, 25);
   for (const source of files) {
     assert.ok(source.includes('ARG NATIVE_RUNTIME_IMAGE=' + lock.nativeLibraries.image));
     assert.ok(source.includes('FROM ${NATIVE_RUNTIME_IMAGE} AS native_libraries'));

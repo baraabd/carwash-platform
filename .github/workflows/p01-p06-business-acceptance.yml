@@ -1,0 +1,134 @@
+# Runs the previously unwired owner suites on every candidate and main push.
+# Each job owns disposable infrastructure. Fixture browser evidence is labelled
+# separately; passing this matrix does not claim external-provider/production approval.
+name: P01–P06 business acceptance
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p01-p06-business-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+
+jobs:
+  acceptance:
+    name: Business acceptance (${{ matrix.suite }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        include:
+          - suite: a-owners
+            browser: false
+          - suite: a-customer-browser
+            browser: true
+          - suite: a-booking-billing
+            browser: false
+          - suite: b-catalog
+            browser: false
+          - suite: b-pricing
+            browser: false
+          - suite: b-billing
+            browser: false
+          - suite: b-subscription
+            browser: false
+          - suite: b-wallet
+            browser: false
+          - suite: b-wallet-broker
+            browser: false
+          - suite: c-scheduling
+            browser: false
+          - suite: c-workforce
+            browser: false
+          - suite: c-media
+            browser: false
+          - suite: c-booking
+            browser: false
+          - suite: c-dispatch
+            browser: false
+          - suite: c-quote-hold
+            browser: false
+          - suite: c-p06
+            browser: true
+          - suite: c-operator-fixtures
+            browser: true
+          - suite: d-services
+            browser: false
+          - suite: d-admin-browser
+            browser: true
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Verify pinned toolchain and frozen dependencies
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          pnpm install --frozen-lockfile
+      - name: Install pinned browser and operating-system dependencies
+        if: matrix.browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Verify the current source on isolated infrastructure
+        timeout-minutes: 24
+        env:
+          ACCEPTANCE_SUITE: ${{ matrix.suite }}
+        run: node scripts/production/acceptance.mjs --suite "$ACCEPTANCE_SUITE"
+      - name: Remove only this job's disposable resources
+        if: always()
+        timeout-minutes: 3
+        env:
+          ACCEPTANCE_SUITE: ${{ matrix.suite }}
+        run: node scripts/production/acceptance.mjs --cleanup "$ACCEPTANCE_SUITE"
+      - name: Preserve redacted evidence and failure logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: business-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .acceptance/business/${{ matrix.suite }}/evidence/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+  aggregate:
+    name: All business acceptance families passed
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    if: always()
+    needs: acceptance
+    steps:
+      - name: Require the entire matrix to succeed
+        env:
+          ACCEPTANCE_RESULT: ${{ needs.acceptance.result }}
+        run: test "$ACCEPTANCE_RESULT" = success
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          pattern: business-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .acceptance/business-download
+      - name: Require complete evidence for this exact commit and workflow attempt
+        run: node scripts/production/acceptance.mjs --aggregate .acceptance/business-download

@@ -526,7 +526,10 @@ try {
         'repeat booking header',
       );
       // Back on Home the finished order is still the only one, now with a draft to continue.
-      await page.getByRole('button', { name: 'العودة' }).click();
+      // Until C013 Review was a placeholder whose header button («العودة») walked the
+      // history; Review's header now goes to Payment as in the reference, so Home is
+      // reached through browser history, the entry repeat was pressed on.
+      await page.goBack();
       await page.locator('.quick-return').waitFor();
       assert.match(page.url(), /#\/\?scenario=home-repeat-order$/);
       assert.equal(await page.locator('.quick-return').count(), 1);

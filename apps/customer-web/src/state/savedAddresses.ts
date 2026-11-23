@@ -17,8 +17,9 @@ import {
  * A saved address is a reusable description of a place. It is never a booking
  * and never an order: choosing one only copies its fields into the unsent draft
  * or into the open editor. Everything here is in-memory session state — it lasts
- * until the page is reloaded and is stored nowhere. In production these records
- * belong to the Customer/Location services, which this frontend does not call.
+ * until the page is reloaded and is stored nowhere. These commands support
+ * parity only; production projects Customer-owned records into this view and
+ * sends address commands through the production data adapter instead.
  *
  * Three things are kept apart and never share a nested object:
  * the saved records, the booking draft, and the editor's temporary values.

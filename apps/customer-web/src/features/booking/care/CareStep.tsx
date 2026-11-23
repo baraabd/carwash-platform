@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { packageFixtures } from '../../../fixtures/customerCatalogFixture';
+import { currentInstant } from '../../../shared/clock';
 import { Icon } from '../../../shared/Icon';
 import type { CareExtraId, CarePackageId } from '../../../state/bookingDraft';
 import {
@@ -12,9 +13,10 @@ import {
 import { useCustomerSession } from '../../../state/CustomerSessionProvider';
 import { confirmExtras, setExtraSelected } from '../../../state/extrasStep';
 import { pathForIntent } from '../../../state/navigationPath';
+import { completeReviewEdit } from '../../../state/reviewStep';
 import { BookingFooter } from '../BookingFooter';
 import { BookingProgress } from '../BookingProgress';
-import { bookingFlow } from '../bookingFlow';
+import { bookingFlow, decisionNextLabel } from '../bookingFlow';
 import { buildPriceBreakdown } from '../priceBreakdown';
 import { CareContext, CarePackageList, ExtrasRow } from './components/CarePackageList';
 import { ExtrasSheet } from './components/ExtrasSheet';
@@ -137,10 +139,12 @@ export function CareStep() {
       <BookingFooter
         total={view.footerTotal}
         minutes={view.footerMinutes}
-        nextLabel={bookingFlow[CARE_STEP_INDEX].nextLabel}
+        nextLabel={decisionNextLabel(CARE_STEP_INDEX, state.reviewEditing)}
         breakdown={breakdown}
         priceRef={footerPrice}
-        onNext={() => follow(submitCareStep)}
+        onNext={() =>
+          follow((current) => completeReviewEdit(submitCareStep(current), currentInstant()))
+        }
       />
     </div>
   );

@@ -1,0 +1,78 @@
+/*
+ * The approved receipt rules (summary()), moved unchanged from C013's review.css so
+ * Review and the post-confirmation handoff share them. Where the reference declares a
+ * rule twice, the later declaration it ships with is the value used here.
+ */
+.receipt {
+  border: 1px solid var(--line);
+  background: white;
+  border-radius: 27px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.receipt-top {
+  display: flex;
+  gap: 11px;
+  align-items: center;
+  background: linear-gradient(110deg, #e9f0df, #f0f5e8);
+  padding: 16px;
+}
+.receipt-top .car-art {
+  width: 104px;
+  height: 61px;
+}
+.receipt-top h3 {
+  font-size: 15px;
+}
+.receipt-top p {
+  font-size: 11px;
+  color: var(--muted);
+}
+.edit {
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 13px;
+  background: white;
+  color: var(--green);
+  font-size: 11px;
+  transition:
+    transform var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease;
+}
+.receipt-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 15px;
+  border-bottom: 1px solid #edf0e6;
+}
+.receipt-line:last-child {
+  border: 0;
+}
+.receipt-line > svg {
+  color: #688057;
+  width: 19px;
+  height: 19px;
+}
+.receipt-line > .icon {
+  width: 23px;
+  height: 23px;
+}
+.receipt-line strong {
+  font-size: 13px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.receipt-line p {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.receipt-line .edit {
+  background: transparent;
+}
+.receipt-line > .edit {
+  font-size: 11px;
+}

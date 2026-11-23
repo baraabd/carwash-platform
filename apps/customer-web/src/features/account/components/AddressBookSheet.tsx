@@ -1,4 +1,5 @@
 import { Icon } from '../../../shared/Icon';
+import type { ReactNode } from 'react';
 import { Sheet } from '../../../shared/Sheet';
 import { spawnTapWave } from '../../../shared/tapWave';
 import type { AddressSheetValues } from '../../../state/locationStep';
@@ -27,7 +28,11 @@ interface AddressBookSheetProps {
   readonly onAdd: () => void;
   readonly onEdit: (addressId: string) => void;
   /** Saves the editor; returns the address message when the form is refused. */
-  readonly onSave: (values: AddressSheetValues) => string | null;
+  readonly onSave: (values: AddressSheetValues) => string | null | Promise<string | null>;
+  readonly production?: boolean;
+  readonly disabled?: boolean;
+  readonly optionalDescription?: boolean;
+  readonly footer?: ReactNode;
   readonly onConfirmDelete: (addressId: string) => void;
   readonly onNotice: (message: string) => void;
   readonly onAnnounce: (message: string) => void;
@@ -57,6 +62,10 @@ export function AddressBookSheet({
   onNotice,
   onAnnounce,
   onClose,
+  production = false,
+  disabled = false,
+  optionalDescription = false,
+  footer,
 }: AddressBookSheetProps) {
   const contentKey =
     view === null
@@ -90,6 +99,7 @@ export function AddressBookSheet({
                   className="icon-btn"
                   type="button"
                   aria-label={`تعديل ${item.label}`}
+                  disabled={disabled}
                   onClick={() => onEdit(item.id)}
                 >
                   <Icon name="edit" small />
@@ -98,6 +108,7 @@ export function AddressBookSheet({
                   className="icon-btn"
                   type="button"
                   aria-label={`حذف ${item.label}`}
+                  disabled={disabled}
                   onClick={() => onShow({ kind: 'delete', addressId: item.id })}
                 >
                   <Icon name="trash" small />
@@ -112,6 +123,7 @@ export function AddressBookSheet({
             type="button"
             onPointerDown={spawnTapWave}
             onClick={onAdd}
+            disabled={disabled}
           >
             <Icon name="plus" small />
             إضافة عنوان
@@ -126,6 +138,10 @@ export function AddressBookSheet({
           onSubmit={onSave}
           onNotice={onNotice}
           onAnnounce={onAnnounce}
+          production={production}
+          disabled={disabled}
+          optionalDescription={optionalDescription}
+          footer={footer}
         />
       ) : null}
       {view?.kind === 'delete' ? (
@@ -136,6 +152,7 @@ export function AddressBookSheet({
             type="button"
             onPointerDown={spawnTapWave}
             onClick={() => onConfirmDelete(view.addressId)}
+            disabled={disabled}
           >
             حذف العنوان
           </button>
@@ -149,6 +166,7 @@ export function AddressBookSheet({
           </button>
         </>
       ) : null}
+      {view?.kind !== 'editor' ? footer : null}
     </Sheet>
   );
 }

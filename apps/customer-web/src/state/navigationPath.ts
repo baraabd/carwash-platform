@@ -9,5 +9,7 @@ export function pathForIntent(intent: NavigationIntent): string {
       return `/book/${intent.step}`;
     case 'order-tracking':
       return `/order/${encodeURIComponent(intent.orderId)}`;
+    case 'order-payment':
+      return `/pay/${encodeURIComponent(intent.orderId)}`;
   }
 }

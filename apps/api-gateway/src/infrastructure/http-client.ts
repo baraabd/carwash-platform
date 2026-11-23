@@ -1,4 +1,4 @@
-import type { GatewayOwner } from '@carwash/contracts';
+import { formatIfMatch, parseIfMatch, type GatewayOwner } from '@carwash/contracts';
 import { GatewayFault } from '../domain/policy';
 import type { HttpPort, UpstreamReply } from '../ports/http';
 import type { GatewayConfig } from './config';
@@ -25,7 +25,9 @@ export class BoundedHttpClient implements HttpPort {
         headers,
         redirect: 'error',
         signal: controller.signal,
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        ...(body === undefined
+          ? {}
+          : { body: Buffer.isBuffer(body) ? new Uint8Array(body) : JSON.stringify(body) }),
       });
       const reader = response.body?.getReader();
       const chunks: Uint8Array[] = [];
@@ -56,10 +58,30 @@ export class BoundedHttpClient implements HttpPort {
           throw new GatewayFault(502, 'UPSTREAM_INVALID');
         }
       }
+      let etag: string | undefined;
+      const ownerEtag = response.headers.get('etag');
+      if (ownerEtag !== null) {
+        try {
+          etag = formatIfMatch(parseIfMatch(ownerEtag));
+        } catch {
+          // Framework content hashes, weak tags and out-of-range revisions are
+          // not the published owner revision and must never become If-Match.
+        }
+      }
+      // Existing owner APIs use both spellings. Preserve their compatibility
+      // while exposing one safe browser header; conflicting/combined values
+      // never become an asserted replay and never trigger a Gateway retry.
+      const ownerHeaders = response.headers;
+      const replayFlags = ['idempotent-replayed', 'idempotency-replayed']
+        .map((name) => ownerHeaders.get(name))
+        .filter((value) => value !== null);
+      const replayed = replayFlags.length > 0 && replayFlags.every((value) => value === 'true');
       return {
         status: response.status,
         body: parsed,
         cookies: owner === 'identity' ? response.headers.getSetCookie() : [],
+        ...(etag === undefined ? {} : { etag }),
+        ...(replayed ? { idempotentReplayed: true } : {}),
       };
     } catch (error) {
       if (error instanceof GatewayFault) throw error;

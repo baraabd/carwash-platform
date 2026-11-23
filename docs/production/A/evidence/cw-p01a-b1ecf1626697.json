@@ -1,0 +1,81 @@
+{
+  "lane": "A",
+  "task": "P01-A",
+  "project": "cw-p01a-b1ecf1626697",
+  "services": [
+    "customer"
+  ],
+  "startedAt": "2026-10-07T03:32:50.276Z",
+  "node": "v24.21.0",
+  "images": {
+    "postgres:16.10-alpine": [
+      "postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297"
+    ],
+    "redis:8.2.10-alpine": [
+      "redis@sha256:b51665e66f00759be7c3152ad5ac3c66fb2f619c13ef62dea7cc1f9914524635"
+    ]
+  },
+  "source": {
+    "head": "68a96d88d652b09061c368cb102f4e7e26355243",
+    "tree": "eb618067a6973e9609d6dd17ea8cfdae2fca0df0",
+    "dirtyTrackedFiles": 0
+  },
+  "phases": [
+    {
+      "name": "record exact source",
+      "status": "PASS",
+      "ms": 751
+    },
+    {
+      "name": "pin infrastructure images",
+      "status": "PASS",
+      "ms": 13995
+    },
+    {
+      "name": "start scoped disposable stack",
+      "status": "PASS",
+      "ms": 13341
+    },
+    {
+      "name": "PostgreSQL accepts every runtime identity",
+      "status": "PASS",
+      "ms": 9169
+    },
+    {
+      "name": "identity: migrate deploy with the migration identity",
+      "status": "PASS",
+      "ms": 9373
+    },
+    {
+      "name": "customer: migrate deploy with the migration identity",
+      "status": "PASS",
+      "ms": 6263
+    },
+    {
+      "name": "customer: Prisma schema mirrors the migrated database",
+      "status": "PASS",
+      "ms": 4222
+    },
+    {
+      "name": "integration suites",
+      "status": "PASS"
+    }
+  ],
+  "suites": [
+    {
+      "files": [
+        "tests/production/A/customer.integration.test.mjs"
+      ],
+      "exit": 0,
+      "tests": 18,
+      "pass": 18,
+      "fail": 0,
+      "skipped": 0,
+      "todo": 0,
+      "cancelled": 0
+    }
+  ],
+  "scope": "Real PostgreSQL 16 (least-privilege roles from infra/postgres/provision.sh), real Redis, real Identity Nest application and real owner-service HTTP adapters on loopback. No broker relay, no gateway, no browser, no production deployment.",
+  "finishedAt": "2026-10-07T03:34:15.645Z",
+  "result": "PASSED"
+}

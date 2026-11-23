@@ -1,0 +1,4 @@
+/* PR #147: the original reference remains intact; repair its subtitle contrast. */
+#bookings > .page-head > div > p {
+  color: #5f6f86;
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Icon } from '../../shared/Icon';
 import { Sheet } from '../../shared/Sheet';
 import { spawnTapWave } from '../../shared/tapWave';
@@ -36,7 +36,11 @@ export interface AddressEditorFormProps {
   /** Saved addresses offered as chips in the booking context. */
   readonly savedAddresses?: readonly SavedAddress[];
   /** Applies the values; returns the address message when they are refused. */
-  readonly onSubmit: (values: AddressSheetValues) => string | null;
+  readonly onSubmit: (values: AddressSheetValues) => string | null | Promise<string | null>;
+  readonly production?: boolean;
+  readonly disabled?: boolean;
+  readonly optionalDescription?: boolean;
+  readonly footer?: ReactNode;
   readonly onNotice: (message: string) => void;
   readonly onAnnounce: (message: string) => void;
 }
@@ -54,6 +58,10 @@ export function AddressEditorForm({
   onSubmit,
   onNotice,
   onAnnounce,
+  production = false,
+  disabled = false,
+  optionalDescription = false,
+  footer,
 }: AddressEditorFormProps) {
   const [values, setValues] = useState(initialValues);
   // The pin is drawn where it was put; the place keeps the rounded position.
@@ -67,6 +75,7 @@ export function AddressEditorForm({
   // the same message is already showing.
   const [refusals, setRefusals] = useState(0);
   const [locating, setLocating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const addressInput = useRef<HTMLInputElement>(null);
   // True while this editing session is on screen. A location answer that arrives
   // after it ended belongs to no editor and is dropped.
@@ -113,11 +122,22 @@ export function AddressEditorForm({
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const refusal = onSubmit(values);
-    if (refusal) {
-      setError(refusal);
-      setRefusals((count) => count + 1);
-    }
+    if (disabled || submitting) return;
+    const send = async () => {
+      setSubmitting(true);
+      try {
+        const refusal = await onSubmit(values);
+        if (refusal && mounted.current) {
+          setError(refusal);
+          setRefusals((count) => count + 1);
+        }
+      } catch {
+        if (mounted.current) setError('تعذّر تأكيد الحفظ. راجع نتيجة الطلب قبل المحاولة مجددًا.');
+      } finally {
+        if (mounted.current) setSubmitting(false);
+      }
+    };
+    void send();
   };
 
   // Focus the field once the message has rendered, so the sheet scrolls for the
@@ -130,7 +150,11 @@ export function AddressEditorForm({
 
   return (
     <>
-      <p className="sheet-intro">اكتب العنوان مباشرة، أو حرّك الخريطة وانقر لوضع الدبوس.</p>
+      <p className="sheet-intro">
+        {production
+          ? 'اكتب العنوان مباشرة.'
+          : 'اكتب العنوان مباشرة، أو حرّك الخريطة وانقر لوضع الدبوس.'}
+      </p>
       {booking && savedAddresses.length > 0 ? (
         <div className="chips" role="group" aria-label="عناوين محفوظة">
           {savedAddresses.map((record) => (
@@ -147,52 +171,63 @@ export function AddressEditorForm({
           ))}
         </div>
       ) : null}
-      <IllustrativeMap
-        key={mapRound}
-        pin={pin}
-        locating={locating}
-        onPoint={(x, y) => placePin(setSheetMapPoint(values, x, y))}
-        onNudge={(dx, dy) => placePin(moveSheetPin(values, dx, dy))}
-        onLocate={() => void locate()}
-      />
-      <p className="map-help">
-        <Icon name="pin" />
-        <span id="pin-description">{values.place?.label || 'الخريطة توضيحية وليست للملاحة'}</span>
-      </p>
+      {!production ? (
+        <>
+          <IllustrativeMap
+            key={mapRound}
+            pin={pin}
+            locating={locating}
+            onPoint={(x, y) => placePin(setSheetMapPoint(values, x, y))}
+            onNudge={(dx, dy) => placePin(moveSheetPin(values, dx, dy))}
+            onLocate={() => void locate()}
+          />
+          <p className="map-help">
+            <Icon name="pin" />
+            <span id="pin-description">
+              {values.place?.label || 'الخريطة توضيحية وليست للملاحة'}
+            </span>
+          </p>
+        </>
+      ) : null}
       <form id="address-form" noValidate onSubmit={handleSubmit}>
         <label className="field">
           <span className="field-label">
-            العنوان بالتفصيل <small>مطلوب</small>
+            العنوان بالتفصيل{' '}
+            <small>{production && optionalDescription ? 'اختياري للموقع المحفوظ' : 'مطلوب'}</small>
           </span>
           <input
             className="input"
             id="sheet-address"
             name="address"
             ref={addressInput}
-            maxLength={ADDRESS_MAX_LENGTH}
+            maxLength={production ? 300 : ADDRESS_MAX_LENGTH}
+            disabled={disabled || submitting}
             autoComplete="off"
             placeholder="الحي، الشارع، المبنى ومكان السيارة"
             value={values.address}
             onChange={(event) => setValues({ ...values, address: event.target.value })}
           />
         </label>
-        <div className="chips" style={{ marginTop: '10px' }}>
-          <button type="button" className="chip" onClick={() => fillSample('home')}>
-            <Icon name="home" />
-            منزل تجريبي
-          </button>
-          <button type="button" className="chip" onClick={() => fillSample('work')}>
-            <Icon name="work" />
-            عمل تجريبي
-          </button>
-        </div>
+        {!production ? (
+          <div className="chips" style={{ marginTop: '10px' }}>
+            <button type="button" className="chip" onClick={() => fillSample('home')}>
+              <Icon name="home" />
+              منزل تجريبي
+            </button>
+            <button type="button" className="chip" onClick={() => fillSample('work')}>
+              <Icon name="work" />
+              عمل تجريبي
+            </button>
+          </div>
+        ) : null}
         <div className="two-fields">
           <label className="field">
             <span className="field-label">اسم العنوان</span>
             <input
               className="input"
               name="addressLabel"
-              maxLength={ADDRESS_LABEL_MAX_LENGTH}
+              maxLength={production ? 40 : ADDRESS_LABEL_MAX_LENGTH}
+              disabled={disabled || submitting}
               placeholder="المنزل / العمل"
               value={values.addressLabel}
               onChange={(event) => setValues({ ...values, addressLabel: event.target.value })}
@@ -203,7 +238,8 @@ export function AddressEditorForm({
             <input
               className="input"
               name="locationNote"
-              maxLength={LOCATION_NOTE_MAX_LENGTH}
+              maxLength={production ? 300 : LOCATION_NOTE_MAX_LENGTH}
+              disabled={disabled || submitting}
               placeholder="أمام البوابة"
               value={values.locationNote}
               onChange={(event) => setValues({ ...values, locationNote: event.target.value })}
@@ -224,7 +260,13 @@ export function AddressEditorForm({
         <p className="error" id="address-error" role="alert">
           {error}
         </p>
-        <button className="btn full gap-top" type="submit" onPointerDown={spawnTapWave}>
+        {footer}
+        <button
+          className="btn full gap-top"
+          type="submit"
+          disabled={disabled || submitting}
+          onPointerDown={spawnTapWave}
+        >
           {booking ? 'اعتماد هذا المكان' : 'حفظ العنوان'} <Icon name="check" small />
         </button>
       </form>

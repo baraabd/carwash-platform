@@ -1,0 +1,309 @@
+{
+  "schemaVersion": 1,
+  "task": "W02-A",
+  "lane": "A",
+  "phase": "PROPOSAL_READY_IMPLEMENTATION_BLOCKED",
+  "observedAt": "2026-10-05T09:27:26.344Z",
+  "repository": "baraabd/carwash-platform",
+  "observedTarget": {
+    "ref": "main",
+    "sha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+    "tree": "5b51ed5f1779a2cbefc359fdbdc4720779989b4b",
+    "source": "GitHub git/ref/heads/main and local immutable tree"
+  },
+  "proposalBranch": "proposal/w02-A-entry-contracts",
+  "proposalHeadAndTree": "Recorded in draft PR body after commit creation; not self-referenced inside its own commit",
+  "wave": {
+    "recordedBaseW01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+    "baseW02": null,
+    "ownershipVerifiedBaseW02": null,
+    "releaseStatus": "INTEGRATION_PENDING",
+    "acceptedNextWaveContracts": [],
+    "bootstrapMergePublishesBase": false,
+    "leaseCondition": "verified-BASE_W02; prompt expiry assertion needs E reconciliation"
+  },
+  "packages": {
+    "contracts": "0.0.2",
+    "eventContracts": "0.0.2",
+    "apiClients": "0.0.1",
+    "apiClientExports": "export {}",
+    "guestContractAccepted": false,
+    "proposedDomainContractsAccepted": false
+  },
+  "ownerPacketAtObservedTarget": {
+    "A": "requested-not-received",
+    "B": "externally-merged-proposal-review-pending",
+    "C": "externally-merged-proposal-review-pending",
+    "D": "externally-merged-proposal-review-pending",
+    "EGuest": "requested-not-accepted"
+  },
+  "productSource": {
+    "customerModels": ["ServiceMarker"],
+    "vehicleModels": ["ServiceMarker"],
+    "geoModels": ["ServiceMarker"],
+    "businessReady": false,
+    "newMigrationIds": [],
+    "aleppoDatasetApproved": false
+  },
+  "localRuntime": {
+    "requiredNode": "24.21.0",
+    "observedNode": "24.19.0",
+    "requiredPnpm": "10.32.1",
+    "observedDefaultPnpm": "11.25.0",
+    "pinnedRuntimeGate": "FAILED; supplementary static checks are not the pinned acceptance gate"
+  },
+  "supplementaryChecks": [
+    {
+      "command": "node scripts/check-design-reference.mjs --base-ref 3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+      "exitCode": 0,
+      "scope": "10 locked reference artifacts; not pixels or business readiness"
+    },
+    {
+      "command": "node architecture/implementation-status.mjs --self-test",
+      "exitCode": 0,
+      "scope": "source inventory and 9 adversarial cases; productionReady=false"
+    },
+    {
+      "command": "node scripts/parallel/E/check-owners.mjs --base-ref 3db1afdd04c6ec65a38ca83f3993c964a1bf7587 --worktree --lane A",
+      "exitCode": 0,
+      "scope": "interim changed-path allowlist; not independent approval"
+    }
+  ],
+  "targetWorkflowObservation": {
+    "query": "actions/runs?head_sha=3db1afdd04c6ec65a38ca83f3993c964a1bf7587&per_page=100",
+    "total": 20,
+    "returned": 20,
+    "success": 18,
+    "inProgress": 2,
+    "scope": "Observed target workflows only; not proposal-head/candidate/resulting-main acceptance or verified BASE_W02",
+    "runs": [
+      {
+        "id": 37287032447,
+        "name": "C014 customer booking confirmation acceptance",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032447",
+        "updatedAt": "2026-10-05T09:02:14Z"
+      },
+      {
+        "id": 37287032415,
+        "name": "C008 customer location parity acceptance",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032415",
+        "updatedAt": "2026-10-05T09:04:59Z"
+      },
+      {
+        "id": 37287032190,
+        "name": "C012 customer payment-method parity acceptance",
+        "event": "push",
+        "status": "in_progress",
+        "conclusion": null,
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032190",
+        "updatedAt": "2026-10-05T08:58:52Z"
+      },
+      {
+        "id": 37287032052,
+        "name": "C011 customer contact parity acceptance",
+        "event": "push",
+        "status": "in_progress",
+        "conclusion": null,
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032052",
+        "updatedAt": "2026-10-05T08:58:52Z"
+      },
+      {
+        "id": 37287032272,
+        "name": "Reference guard (not release CI)",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032272",
+        "updatedAt": "2026-10-05T08:58:58Z"
+      },
+      {
+        "id": 37287032165,
+        "name": "F001 ownership and workspace acceptance",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032165",
+        "updatedAt": "2026-10-05T09:00:19Z"
+      },
+      {
+        "id": 37287032102,
+        "name": "F006 identity security acceptance",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032102",
+        "updatedAt": "2026-10-05T09:01:00Z"
+      },
+      {
+        "id": 37287032291,
+        "name": "C003 customer home parity acceptance",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032291",
+        "updatedAt": "2026-10-05T09:01:15Z"
+      },
+      {
+        "id": 37287032116,
+        "name": "F010 golden HTML parity",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032116",
+        "updatedAt": "2026-10-05T09:02:02Z"
+      },
+      {
+        "id": 37287032141,
+        "name": "C004 customer vehicle selection parity acceptance",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032141",
+        "updatedAt": "2026-10-05T09:02:30Z"
+      },
+      {
+        "id": 37287032162,
+        "name": "C007 customer extras parity acceptance",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032162",
+        "updatedAt": "2026-10-05T09:03:34Z"
+      },
+      {
+        "id": 37287032142,
+        "name": "C006 customer care packages and pricing parity acceptance",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032142",
+        "updatedAt": "2026-10-05T09:03:45Z"
+      },
+      {
+        "id": 37287032104,
+        "name": "C005 customer garage and saved vehicles parity acceptance",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032104",
+        "updatedAt": "2026-10-05T09:04:20Z"
+      },
+      {
+        "id": 37287032152,
+        "name": "C010 customer scheduling parity acceptance",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032152",
+        "updatedAt": "2026-10-05T09:05:04Z"
+      },
+      {
+        "id": 37287032074,
+        "name": "C013 customer booking review parity acceptance",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032074",
+        "updatedAt": "2026-10-05T09:05:47Z"
+      },
+      {
+        "id": 37287032137,
+        "name": "C009 customer saved addresses parity acceptance",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032137",
+        "updatedAt": "2026-10-05T09:06:19Z"
+      },
+      {
+        "id": 37287032046,
+        "name": "F008 observability acceptance",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032046",
+        "updatedAt": "2026-10-05T09:05:23Z"
+      },
+      {
+        "id": 37287032203,
+        "name": "F007 gateway contract acceptance",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032203",
+        "updatedAt": "2026-10-05T09:07:50Z"
+      },
+      {
+        "id": 37287031971,
+        "name": "Sprint 0.2 CI",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287031971",
+        "updatedAt": "2026-10-05T09:07:32Z"
+      },
+      {
+        "id": 37287032130,
+        "name": "F009 foundation verification",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "headSha": "3db1afdd04c6ec65a38ca83f3993c964a1bf7587",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37287032130",
+        "updatedAt": "2026-10-05T09:09:48Z"
+      }
+    ]
+  },
+  "independentApproval": {
+    "scope": "Observed PR42-45 reviews only",
+    "humanApprovedReviewObserved": false,
+    "subagentReviewIsIndependentApproval": false,
+    "branchRuleAcceptanceVerified": false
+  },
+  "realAcceptance": {
+    "database": "NOT_RUN",
+    "broker": "NOT_RUN",
+    "httpDomain": "NOT_RUN",
+    "browser": "NOT_RUN",
+    "device": "NOT_RUN",
+    "production": "NOT_RUN",
+    "specificationCases": 30,
+    "passedSpecificationCases": 0,
+    "realPeerIntegration": "BLOCKED"
+  },
+  "ownedResources": {
+    "pids": [],
+    "listeners": [],
+    "containers": [],
+    "databases": [],
+    "queues": [],
+    "objects": [],
+    "browserProfiles": []
+  },
+  "nextAction": "E reviews this packet, resolves accepted guest/domain/client/policy inputs and ownership/resource/gate publication, then publishes verified BASE_W02. A starts named provider children only after their prerequisites; W03 is request-only."
+}

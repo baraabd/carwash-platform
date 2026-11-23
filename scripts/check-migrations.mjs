@@ -31,6 +31,7 @@ import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isRuntimeService, selectRuntimeServices } from '../architecture/runtime-lifecycle.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -56,9 +57,7 @@ if (!existsSync(catalogFile)) {
 }
 const catalog = JSON.parse(await readFile(catalogFile, 'utf8'));
 
-const migrationServices = catalog.services.filter(
-  (service) => service.runtimeImplementation === 'existing-health-only-shell',
-);
+const migrationServices = selectRuntimeServices(catalog);
 
 if (migrationServices.length === 0) {
   console.error(
@@ -72,7 +71,7 @@ if (migrationServices.length === 0) {
 // migration before being promoted to a runtime service, fail explicitly rather
 // than silently ignoring the drift.
 for (const service of catalog.services) {
-  if (service.runtimeImplementation === 'existing-health-only-shell') continue;
+  if (isRuntimeService(service)) continue;
 
   const unexpected = await migrationsOf(service.id);
   if (unexpected.length > 0) {

@@ -1,0 +1,66 @@
+name: P01 communications acceptance
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'services/communications/**'
+      - 'packages/**'
+      - 'scripts/production/D/**'
+      - 'scripts/acceptance/**'
+      - 'scripts/dev/acceptance-infra.mjs'
+      - 'tests/production/D/**'
+      - 'tests/integration/_support.mjs'
+      - 'infra/**'
+      - 'architecture/service-catalog.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig*.json'
+      - '.nvmrc'
+      - '.github/workflows/p01-communications-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p01-communications-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  communications:
+    name: Communications delivery and PostgreSQL concurrency
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+      - name: Activate and verify the repository toolchain
+        run: |
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+      - name: Install frozen dependencies and build the candidate
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm generate
+          pnpm build
+          pnpm --filter @carwash/communications build:tests
+      - name: Domain, worker scheduling and real HTTP adapter tests
+        run: node --test services/communications/dist-tests/test/*.spec.js
+      - name: Start isolated PostgreSQL and RabbitMQ
+        run: node scripts/dev/acceptance-infra.mjs up
+      - name: Migrations, privileges, delivery state and real row-lock races
+        run: node scripts/production/D/run-real-infra.mjs --suite communications
+      - name: Tear down the isolated stack
+        if: always()
+        shell: bash
+        run: |
+          if [ -f .acceptance/current-dev-stack.json ]; then
+            node scripts/dev/acceptance-infra.mjs down
+          fi

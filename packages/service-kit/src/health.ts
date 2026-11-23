@@ -99,9 +99,15 @@ export class HealthController {
     const dependenciesUp = dependencies.every((d) => d.status === 'UP');
     // A green dependency never promotes an unimplemented service to ready.
     const ready = this.options.businessReady && dependenciesUp;
+    // `code` keeps its precedence (an unimplemented service is never READY), but
+    // `dependenciesReady` is always reported so an operator can tell a broken
+    // database/broker apart from a foundation shell even while code says
+    // FOUNDATION_NOT_READY. With no probe registered it is null ("not checked"),
+    // never a vacuous true.
     const body = {
       service: this.options.service,
       businessReady: this.options.businessReady,
+      dependenciesReady: dependencies.length === 0 ? null : dependenciesUp,
       ready,
       code: this.options.businessReady
         ? dependenciesUp

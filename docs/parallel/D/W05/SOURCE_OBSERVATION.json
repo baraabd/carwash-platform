@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 1,
+  "task": "W05-D",
+  "lane": "D",
+  "phase": "BLOCKED_ENTRY",
+  "parentProductStatus": "NOT_STARTED",
+  "observedAtUtc": "2026-10-05T18:52:24.403923Z",
+  "source": {
+    "parentTargetSha": "3ce756cd39a9b0c1013043cee0ca1bb183466da7",
+    "parentTargetTree": "cc3517ec85525c7310fe340397506ef6be3fe0a9",
+    "branch": "proposal/w05-D-finance-authority-entry",
+    "isAcceptedBASE_W05": false,
+    "previousTargetSha": "1ec9d8aebf4470a2815471116643fa6ebe0d5a95",
+    "addedPathsSincePrevious": 31,
+    "allChangesAreLaneDocumentsOrDeclarativeSpecifications": true,
+    "runtimeSharedArchitectureCIInfrastructureChanges": 0
+  },
+  "release": {
+    "registry": "architecture/parallel-contract-release.json",
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "BASE_W02": null,
+    "BASE_W03FieldPresent": false,
+    "BASE_W04FieldPresent": false,
+    "BASE_W05FieldPresent": false,
+    "acceptedNextWaveContracts": [],
+    "existingClientContracts": [],
+    "publishedNextWavePackageVersions": {},
+    "acceptedW05ContractIds": [],
+    "acceptedW05Versions": [],
+    "baseObservationIsNotPublication": true
+  },
+  "ownership": {
+    "registryStatus": "proposal-pending-independent-review",
+    "verifiedBaseW02": null,
+    "bootstrapPermissionExpiredByCurrentInstruction": true,
+    "mergedEHandOffProhibitsBootstrapWrites": true,
+    "historicalConditionalRegistryReconciliationPending": true,
+    "oldRegistryRestoresPermission": false,
+    "actualWrites": "D-local documentation/specification proposals only"
+  },
+  "github": {
+    "mergedW04Proposals": [
+      {
+        "number": 56,
+        "headSha": "d98839221bd60b2dea4ab5b0a48b29666bd2f8fc",
+        "mergeSha": "da15a98bce848c496a0fd625a7ca0f70632cb989",
+        "merged": true,
+        "mergedAtUtc": "2026-10-05T17:59:09Z",
+        "changedFiles": 4
+      },
+      {
+        "number": 57,
+        "headSha": "0c8bee159d9027770f2d7501b9367685219e1f6a",
+        "mergeSha": "b5ea7b620eab777685959d71dacd5b43632a2617",
+        "merged": true,
+        "mergedAtUtc": "2026-10-05T17:59:43Z",
+        "changedFiles": 6
+      },
+      {
+        "number": 58,
+        "headSha": "0b5de0cb51036377dc89fe5ed6410c6f6f2d6b07",
+        "mergeSha": "af6e9e9d0c25d3762685674f3ea447aeee02e029",
+        "merged": true,
+        "mergedAtUtc": "2026-10-05T17:57:20Z",
+        "changedFiles": 7
+      },
+      {
+        "number": 59,
+        "headSha": "71cb83eed14bfa2aa63dd000dddefe7af4782392",
+        "mergeSha": "fd6aaf9e5f9bb2deba35ae176ffb830cca4e7ee0",
+        "merged": true,
+        "mergedAtUtc": "2026-10-05T17:56:26Z",
+        "changedFiles": 6
+      },
+      {
+        "number": 60,
+        "headSha": "8d5d0baf9e13e12c2ce56027905f1ad80bc45b19",
+        "mergeSha": "3ce756cd39a9b0c1013043cee0ca1bb183466da7",
+        "merged": true,
+        "mergedAtUtc": "2026-10-05T18:00:13Z",
+        "changedFiles": 8
+      }
+    ],
+    "mainProtected": false,
+    "mainCheckRuns": {
+      "total": 43,
+      "success": 43
+    },
+    "mainWorkflows": {
+      "total": 8,
+      "success": 8
+    },
+    "scope": "Exact observed main foundation result, not this proposal head, latest-target candidate or W05 product acceptance",
+    "initialOpenProposals": [
+      {
+        "number": 61,
+        "headSha": "1eeafc09d6c6392201067032d76a8e4fa63de54e",
+        "baseSha": "3ce756cd39a9b0c1013043cee0ca1bb183466da7",
+        "draft": true,
+        "acceptedRuntime": false
+      }
+    ]
+  },
+  "sourceVersions": {
+    "packages/contracts/package.json": "0.0.2",
+    "packages/event-contracts/package.json": "0.0.2",
+    "packages/api-clients/package.json": "0.0.1",
+    "apps/admin-web/package.json": "0.0.2",
+    "services/reporting/package.json": "0.0.2",
+    "services/communications/package.json": "0.0.2",
+    "services/support/package.json": "0.0.2",
+    "services/reviews/package.json": "0.0.2",
+    "services/configuration/package.json": "0.0.2"
+  },
+  "actualModels": {
+    "booking": [
+      "ServiceMarker"
+    ],
+    "scheduling": [
+      "ServiceMarker"
+    ],
+    "dispatch": [
+      "ServiceMarker"
+    ],
+    "workforce": [
+      "ServiceMarker"
+    ],
+    "media": [
+      "ServiceMarker"
+    ],
+    "billing": [
+      "ServiceMarker"
+    ],
+    "wallet": [
+      "ServiceMarker"
+    ],
+    "subscription": [
+      "ServiceMarker"
+    ],
+    "support": [
+      "ServiceMarker"
+    ],
+    "reviews": [
+      "ServiceMarker"
+    ],
+    "communications": [
+      "ServiceMarker",
+      "InboxMessage",
+      "ProbeNotification"
+    ],
+    "reporting": [
+      "ServiceMarker",
+      "InboxMessage",
+      "ProbeProjection"
+    ],
+    "configuration": [
+      "ServiceMarker"
+    ]
+  },
+  "approvedReferenceHashes": {
+    "customer": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549",
+    "technician": "d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc",
+    "admin": "b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273"
+  },
+  "actualCapabilities": {
+    "admin": "foundation-only; businessReady false",
+    "apiClients": "empty export skeleton",
+    "billingWalletMediaBooking": "foundation markers; no W05 business controller or durable operation",
+    "communicationsReporting": "Catalog probe consumers only",
+    "Identity": "Real member-security foundation and coarse billing.read/refund; W05 current object/market/review/approve/settle/export scopes unpublished",
+    "Gateway": "Routing-only billing summary/refund; no accepted payment search/detail/proof/operation recovery/cancel/reschedule; query strings rejected"
+  },
+  "providerEvidence": {
+    "acceptedMerchantSetup": false,
+    "acceptedSandboxOrTestFundProof": false,
+    "acceptedVerificationMethod": false,
+    "acceptedProviderDocumentationOrAdapter": false,
+    "actualProviderAvailabilityClaimed": false,
+    "approvedMethods": [
+      "cash",
+      "sham",
+      "syriatel"
+    ],
+    "walletIsCheckoutMethod": false,
+    "paymeraScope": "pending recorded owner/provider decision; no added fourth method"
+  },
+  "integrityFinding": {
+    "id": "INT-D-01",
+    "owners": [
+      "communications",
+      "reporting"
+    ],
+    "classification": "STATIC_SOURCE_RISK_NOT_RUNTIME_REPRODUCED",
+    "finding": "Whole-transaction P2002/23505 converted to DUPLICATE and ACKed; changed-byte race/unrelated effect uniqueness not distinguished",
+    "requiredEvidence": [
+      "real same-ID/different-hash conflict race",
+      "same-ID/same-hash legitimate duplicate control",
+      "unrelated unique effect failure rollback without duplicate ACK"
+    ],
+    "fixed": false
+  },
+  "environment": {
+    "requiredNode": "24.21.0",
+    "actualNode": "24.19.0",
+    "requiredPnpm": "10.32.1",
+    "actualPnpm": "11.25.0",
+    "fullToolchainGuard": "FAIL: two runtime-version mismatches",
+    "configOnlyGuard": "PASS: declared configuration, runtime checks omitted",
+    "productCaseFamilies": 44,
+    "productCaseResults": "All BLOCKED / NOT_RUN",
+    "realWork": "Immutable source/GitHub inspection and offline source/document diagnostics",
+    "productFixturesUsedAsAcceptance": [],
+    "migrationIds": [],
+    "ownedRuntimePIDs": [],
+    "containers": [],
+    "ports": [],
+    "databasesAndRoles": [],
+    "queuesAndObjects": [],
+    "browserProfiles": [],
+    "W05ResourceAllocation": null,
+    "heavyTestLease": null,
+    "realMoneyProviderOrRefundOperationPerformed": false
+  },
+  "boundary": {
+    "cancellationAndRescheduling": "Current W05 required real C/B integration gates; NOT_RUN",
+    "W06SupportReviewsConsentConversationWalletSubscription": "Future unaccepted requests only; not W05 execution prerequisites",
+    "automaticNextWave": false,
+    "selfApproval": false,
+    "mergeOrDeploymentPerformed": false
+  }
+}

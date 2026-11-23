@@ -25,11 +25,7 @@ export class PrismaInboxStore implements InboxStore {
         const existing = await tx.inboxMessage.findUnique({
           where: { eventId: record.eventId },
         });
-        if (existing) {
-          // Same id, different bytes: an integrity fault. Never apply it, and
-          // never retry it either - retrying cannot change the contradiction.
-          return existing.payloadHash === record.payloadHash ? 'DUPLICATE' : 'CONFLICT';
-        }
+        if (existing) return classifyWinner(existing.payloadHash, record.payloadHash);
         await tx.inboxMessage.create({
           data: {
             eventId: record.eventId,
@@ -42,12 +38,39 @@ export class PrismaInboxStore implements InboxStore {
         return 'APPLIED';
       });
     } catch (error: unknown) {
-      // Two deliveries racing each other: both read "not present", one wins the
-      // insert and the loser sees a unique violation. That is a duplicate, not
-      // an error worth redelivering.
-      if (isUniqueViolation(error)) return 'DUPLICATE';
-      throw error;
+      if (!isUniqueViolation(error)) throw error;
+      // INT-D-01: a unique violation is only a duplicate when a committed inbox
+      // row for THIS event proves the effect already happened. The failed
+      // transaction rolled back, so a winner can only be another delivery that
+      // committed. Without one, the violation came from the effect itself (an
+      // unrelated business constraint) and must stay an error: ACKing it as a
+      // duplicate would discard work that was never applied.
+      const winner = await this.prisma.client.inboxMessage.findUnique({
+        where: { eventId: record.eventId },
+      });
+      if (!winner) throw new InboxEffectConflictError(record.eventId, error);
+      return classifyWinner(winner.payloadHash, record.payloadHash);
     }
+  }
+}
+
+/** Same id, different bytes is an integrity fault: never applied, never retried. */
+function classifyWinner(committedHash: string, incomingHash: string): InboxOutcome {
+  return committedHash === incomingHash ? 'DUPLICATE' : 'CONFLICT';
+}
+
+/**
+ * A uniqueness failure raised by the local effect, not by inbox deduplication.
+ * It is rethrown so the consumer NACKs and the broker's bounded delivery limit
+ * moves a persistent fault to the dead-letter queue.
+ */
+export class InboxEffectConflictError extends Error {
+  constructor(
+    readonly eventId: string,
+    cause: unknown,
+  ) {
+    super('INBOX_EFFECT_UNIQUE_CONFLICT', { cause });
+    this.name = 'InboxEffectConflictError';
   }
 }
 

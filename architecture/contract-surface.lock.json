@@ -1,0 +1,1244 @@
+{
+  "schemaVersion": 1,
+  "http": {
+    "customer.v1": {
+      "owner": "customer",
+      "prefix": "/internal/v1/customer",
+      "routes": {
+        "getProfile": {
+          "method": "GET",
+          "path": "/me",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "bootstrapProfile": {
+          "method": "PUT",
+          "path": "/me",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "updateProfile": {
+          "method": "PATCH",
+          "path": "/me",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": true,
+          "safe": false,
+          "paged": false
+        },
+        "listAddresses": {
+          "method": "GET",
+          "path": "/me/addresses",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        },
+        "createAddress": {
+          "method": "POST",
+          "path": "/me/addresses",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "updateAddress": {
+          "method": "PATCH",
+          "path": "/me/addresses/:addressId",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": true,
+          "safe": false,
+          "paged": false
+        },
+        "archiveAddress": {
+          "method": "POST",
+          "path": "/me/addresses/:addressId/archive",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": true,
+          "safe": false,
+          "paged": false
+        },
+        "resolveAddressSnapshot": {
+          "method": "POST",
+          "path": "/address-snapshots/resolve",
+          "access": "service:customer.address-snapshot.resolve",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": true,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "ADDRESS_ARCHIVED",
+        "ADDRESS_LIMIT_REACHED",
+        "PROFILE_NOT_FOUND",
+        "PROFILE_CONTACT_MIGRATION_REQUIRED",
+        "ADDRESS_MIGRATION_REQUIRED"
+      ]
+    },
+    "vehicle.v1": {
+      "owner": "vehicle",
+      "prefix": "/internal/v1/vehicle",
+      "routes": {
+        "listMine": {
+          "method": "GET",
+          "path": "/mine",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        },
+        "create": {
+          "method": "POST",
+          "path": "/mine",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "update": {
+          "method": "PATCH",
+          "path": "/mine/:vehicleId",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": true,
+          "safe": false,
+          "paged": false
+        },
+        "archive": {
+          "method": "POST",
+          "path": "/mine/:vehicleId/archive",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": true,
+          "safe": false,
+          "paged": false
+        },
+        "resolveVehicleSnapshot": {
+          "method": "POST",
+          "path": "/vehicle-snapshots/resolve",
+          "access": "service:vehicle.snapshot.resolve",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": true,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "VEHICLE_ARCHIVED",
+        "VEHICLE_LIMIT_REACHED",
+        "VEHICLE_NOT_FOUND"
+      ]
+    },
+    "geo.v1": {
+      "owner": "geo",
+      "prefix": "/internal/v1/geo",
+      "routes": {
+        "listZones": {
+          "method": "GET",
+          "path": "/service-zones",
+          "access": "public",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "checkServiceability": {
+          "method": "POST",
+          "path": "/serviceability",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": true,
+          "paged": false
+        },
+        "validateDecision": {
+          "method": "POST",
+          "path": "/serviceability/validate",
+          "access": "service:geo.serviceability.validate",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": true,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "GEO_DATASET_UNAVAILABLE",
+        "LOCATION_UNRESOLVED"
+      ]
+    },
+    "catalog.v1": {
+      "owner": "catalog",
+      "prefix": "/internal/v1/catalog",
+      "routes": {
+        "getPublished": {
+          "method": "GET",
+          "path": "/definitions",
+          "access": "public",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getDefinition": {
+          "method": "GET",
+          "path": "/definitions/:definitionId",
+          "access": "public",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "publish": {
+          "method": "POST",
+          "path": "/publications",
+          "access": "permission:catalog.publish",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "DEFINITION_RETIRED",
+        "DUPLICATE_CODE"
+      ]
+    },
+    "pricing.v1": {
+      "owner": "pricing",
+      "prefix": "/internal/v1/pricing",
+      "routes": {
+        "createQuote": {
+          "method": "POST",
+          "path": "/quotes",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getQuote": {
+          "method": "GET",
+          "path": "/quotes/:quoteId",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "validateQuote": {
+          "method": "POST",
+          "path": "/quotes/:quoteId/validate",
+          "access": "service:pricing.quote.validate",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": true,
+          "paged": false
+        },
+        "publishPriceBook": {
+          "method": "POST",
+          "path": "/price-books",
+          "access": "permission:pricing.prices.publish",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "QUOTE_EXPIRED",
+        "QUOTE_REVOKED",
+        "SELECTION_INVALID",
+        "PRICE_NOT_AVAILABLE"
+      ]
+    },
+    "scheduling.v1": {
+      "owner": "scheduling",
+      "prefix": "/internal/v1/scheduling",
+      "routes": {
+        "getAvailability": {
+          "method": "GET",
+          "path": "/availability",
+          "access": "public",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getEarliest": {
+          "method": "GET",
+          "path": "/availability/earliest",
+          "access": "public",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "createHold": {
+          "method": "POST",
+          "path": "/holds",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getHold": {
+          "method": "GET",
+          "path": "/holds/:holdId",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "commitHold": {
+          "method": "POST",
+          "path": "/holds/:holdId/commit",
+          "access": "service:scheduling.hold.commit",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "releaseHold": {
+          "method": "POST",
+          "path": "/holds/:holdId/release",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "SLOT_UNAVAILABLE",
+        "HOLD_EXPIRED",
+        "HOLD_NOT_ACTIVE",
+        "OUTSIDE_HORIZON",
+        "QUOTE_NOT_USABLE",
+        "QUOTE_MISMATCH",
+        "PRICING_UNAVAILABLE"
+      ]
+    },
+    "workforce.v1": {
+      "owner": "workforce",
+      "prefix": "/internal/v1/workforce",
+      "routes": {
+        "listCapacityResources": {
+          "method": "GET",
+          "path": "/capacity-resources",
+          "access": "service:workforce.capacity.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        }
+      },
+      "reasons": [
+        "RESOURCE_NOT_FOUND"
+      ]
+    },
+    "configuration.v1": {
+      "owner": "configuration",
+      "prefix": "/internal/v1/configuration",
+      "routes": {
+        "getCurrent": {
+          "method": "GET",
+          "path": "/scopes/:marketId/:namespace/current",
+          "access": "service:configuration.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "createDraft": {
+          "method": "POST",
+          "path": "/scopes/:marketId/:namespace/drafts",
+          "access": "permission:configuration.write",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "approveDraft": {
+          "method": "POST",
+          "path": "/drafts/:draftId/approve",
+          "access": "permission:configuration.approve",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "publishDraft": {
+          "method": "POST",
+          "path": "/drafts/:draftId/publish",
+          "access": "permission:configuration.publish",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "POLICY_UNAVAILABLE",
+        "SELF_APPROVAL_FORBIDDEN",
+        "DRAFT_NOT_APPROVED"
+      ]
+    },
+    "billing.v1": {
+      "owner": "billing",
+      "prefix": "/internal/v1/billing",
+      "routes": {
+        "createObligation": {
+          "method": "POST",
+          "path": "/obligations",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getObligation": {
+          "method": "GET",
+          "path": "/obligations/:obligationId",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getFinancialStatus": {
+          "method": "GET",
+          "path": "/obligations/:obligationId/financial-status",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "initializePayment": {
+          "method": "POST",
+          "path": "/obligations/:obligationId/payment-intents",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "submitAttempt": {
+          "method": "POST",
+          "path": "/obligations/:obligationId/payment-attempts",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "voidObligation": {
+          "method": "POST",
+          "path": "/obligations/:obligationId/void",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "reconcileAttempt": {
+          "method": "POST",
+          "path": "/payment-attempts/:attemptId/reconciliation",
+          "access": "permission:billing.reconcile",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getStatementCreditReview": {
+          "method": "GET",
+          "path": "/payment-attempts/:attemptId/statement-credit",
+          "access": "permission:billing.reconcile",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "allocateStatementCredit": {
+          "method": "POST",
+          "path": "/payment-attempts/:attemptId/statement-credit-allocation",
+          "access": "permission:billing.reconcile",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "createBookingObligation": {
+          "method": "POST",
+          "path": "/booking-obligations",
+          "access": "service:billing.obligation.write",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "compensateBookingObligation": {
+          "method": "POST",
+          "path": "/booking-obligations/compensations",
+          "access": "service:billing.obligation.write",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getBookingObligation": {
+          "method": "GET",
+          "path": "/bookings/:bookingId/obligation",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "voidBookingObligation": {
+          "method": "POST",
+          "path": "/booking-obligations/:obligationId/void",
+          "access": "service:billing.obligation.write",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getCashCollectionTarget": {
+          "method": "GET",
+          "path": "/bookings/:bookingId/cash-collection-target",
+          "access": "permission:billing.cash.collect",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "recordCashCollection": {
+          "method": "POST",
+          "path": "/obligations/:obligationId/cash-collections",
+          "access": "permission:billing.cash.collect",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getCashReceipt": {
+          "method": "GET",
+          "path": "/cash-receipts/:receiptId",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "reverseCashCollection": {
+          "method": "POST",
+          "path": "/cash-receipts/:receiptId/reversal",
+          "access": "permission:billing.cash.correct",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "declareHandover": {
+          "method": "POST",
+          "path": "/custody/handovers",
+          "access": "permission:billing.cash.collect",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getHandover": {
+          "method": "GET",
+          "path": "/custody/handovers/:handoverId",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "cancelHandover": {
+          "method": "POST",
+          "path": "/custody/handovers/:handoverId/cancel",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "receiveHandover": {
+          "method": "POST",
+          "path": "/custody/handovers/:handoverId/treasury-receipt",
+          "access": "permission:billing.treasury.receive",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "reconcileHandover": {
+          "method": "POST",
+          "path": "/custody/handovers/:handoverId/reconciliation",
+          "access": "permission:billing.reconcile",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getMyCustody": {
+          "method": "GET",
+          "path": "/custody/holders/me",
+          "access": "permission:billing.cash.collect",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getHolderCustody": {
+          "method": "GET",
+          "path": "/custody/holders/:subject",
+          "access": "permission:billing.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getCustodyReconciliation": {
+          "method": "GET",
+          "path": "/custody/reconciliation",
+          "access": "permission:billing.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "requestRefund": {
+          "method": "POST",
+          "path": "/obligations/:obligationId/refunds",
+          "access": "permission:billing.refund",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "listObligationRefunds": {
+          "method": "GET",
+          "path": "/obligations/:obligationId/refunds",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getRefund": {
+          "method": "GET",
+          "path": "/refunds/:refundId",
+          "access": "permission:billing.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "recordRefundOutcome": {
+          "method": "POST",
+          "path": "/refunds/:refundId/outcome",
+          "access": "permission:billing.reconcile",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "receiveProviderNotification": {
+          "method": "POST",
+          "path": "/provider-notifications/:provider",
+          "access": "provider-signed",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "QUOTE_NOT_USABLE",
+        "OBLIGATION_ALREADY_EXISTS",
+        "BOOKING_COMPENSATED",
+        "AMOUNT_INVALID",
+        "CURRENCY_UNSUPPORTED",
+        "CURRENCY_MISMATCH",
+        "PROVIDER_REFERENCE_TAKEN",
+        "OBLIGATION_SETTLED",
+        "OBLIGATION_VOIDED",
+        "VOID_NOT_ALLOWED",
+        "METHOD_UNCHANGED",
+        "PAYMENT_IN_REVIEW",
+        "NO_ACTIVE_INTENT",
+        "INTENT_NOT_ACCEPTING_ATTEMPTS",
+        "ATTEMPT_NOT_OPEN",
+        "ALREADY_UNKNOWN",
+        "ATTEMPT_LIMIT_REACHED",
+        "AMOUNT_NOT_EQUAL_OUTSTANDING",
+        "OBSERVED_AMOUNT_REQUIRED",
+        "OBSERVED_AMOUNT_NOT_ALLOWED",
+        "PROVIDER_CREDIT_REQUIRED",
+        "PROVIDER_CREDIT_CONFLICT",
+        "CREDIT_NOT_PENDING",
+        "MERCHANT_ACCOUNT_UNKNOWN",
+        "COLLECTION_ALREADY_RECORDED",
+        "TREASURY_REFERENCE_TAKEN",
+        "INTENT_NOT_CASH",
+        "WORK_NOT_COMPLETED",
+        "COLLECTOR_NOT_ASSIGNED",
+        "SELF_COLLECTION_FORBIDDEN",
+        "SEPARATION_OF_DUTIES",
+        "RECEIPT_ALREADY_REVERSED",
+        "RECEIPT_NOT_HELD",
+        "HANDOVER_NOT_PENDING",
+        "HANDOVER_NOT_RECEIVED",
+        "HANDOVER_EMPTY",
+        "HANDOVER_TOO_LARGE",
+        "HANDOVER_DUPLICATE_RECEIPT",
+        "HANDOVER_MIXED_CURRENCY",
+        "DECLARED_TOTAL_MISMATCH",
+        "OBLIGATION_NOT_SETTLED",
+        "REFUND_EXCEEDS_REFUNDABLE",
+        "REFUND_IN_PROGRESS",
+        "REFUND_NOT_OPEN",
+        "REFUND_REFERENCE_REQUIRED",
+        "REFUND_REFERENCE_NOT_ALLOWED",
+        "REFUND_REFERENCE_TAKEN",
+        "NOTIFICATION_SIGNATURE_INVALID",
+        "NOTIFICATION_STALE",
+        "NOTIFICATION_PROVIDER_DISABLED"
+      ]
+    },
+    "subscription.v1": {
+      "owner": "subscription",
+      "prefix": "/internal/v1/subscription",
+      "routes": {
+        "listPlans": {
+          "method": "GET",
+          "path": "/plans",
+          "access": "public",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        },
+        "getPlan": {
+          "method": "GET",
+          "path": "/plans/:planId",
+          "access": "public",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "createPurchase": {
+          "method": "POST",
+          "path": "/purchases",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getPurchase": {
+          "method": "GET",
+          "path": "/purchases/:purchaseId",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "listSubscriptions": {
+          "method": "GET",
+          "path": "/subscriptions",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        },
+        "getSubscription": {
+          "method": "GET",
+          "path": "/subscriptions/:subscriptionId",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "requestChange": {
+          "method": "POST",
+          "path": "/subscriptions/:subscriptionId/changes",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "reserveEntitlement": {
+          "method": "POST",
+          "path": "/entitlement-reservations",
+          "access": "service:subscription.entitlement.reserve",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "resolveEntitlement": {
+          "method": "POST",
+          "path": "/entitlement-reservations/:reservationId/resolution",
+          "access": "service:subscription.entitlement.resolve",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getEntitlementReservation": {
+          "method": "GET",
+          "path": "/entitlement-reservations/:reservationId",
+          "access": "service:subscription.entitlement.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "PLAN_NOT_AVAILABLE",
+        "PLAN_VERSION_CHANGED",
+        "QUOTE_MISMATCH",
+        "PURCHASE_NOT_ACTIVATABLE",
+        "SUBSCRIPTION_NOT_ACTIVE",
+        "ENTITLEMENT_EXHAUSTED",
+        "PACKAGE_NOT_COVERED",
+        "RESERVATION_NOT_ACTIVE",
+        "RESERVATION_BOOKING_MISMATCH",
+        "CHANGE_NOT_ALLOWED",
+        "POLICY_UNAVAILABLE"
+      ]
+    },
+    "promotion.v1": {
+      "owner": "pricing",
+      "prefix": "/internal/v1/pricing",
+      "routes": {
+        "checkEligibility": {
+          "method": "POST",
+          "path": "/promotions/eligibility",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": true,
+          "paged": false
+        },
+        "createPromotionQuote": {
+          "method": "POST",
+          "path": "/promotion-quotes",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "reservePromotion": {
+          "method": "POST",
+          "path": "/promotion-reservations",
+          "access": "service:pricing.promotion.reserve",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "resolvePromotion": {
+          "method": "POST",
+          "path": "/promotion-reservations/:reservationId/resolution",
+          "access": "service:pricing.promotion.resolve",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getPromotionReservation": {
+          "method": "GET",
+          "path": "/promotion-reservations/:reservationId",
+          "access": "service:pricing.promotion.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "PROMOTION_INELIGIBLE",
+        "PROMOTION_UNAVAILABLE",
+        "PROMOTION_EXHAUSTED",
+        "PROMOTION_EXPIRED",
+        "PROMOTION_NOT_COMBINABLE",
+        "PROMOTION_QUOTE_MISMATCH",
+        "PROMOTION_RESERVATION_NOT_ACTIVE",
+        "PROMOTION_BOOKING_MISMATCH"
+      ]
+    },
+    "support.v1": {
+      "owner": "support",
+      "prefix": "/internal/v1/support",
+      "routes": {
+        "listCases": {
+          "method": "GET",
+          "path": "/cases",
+          "access": "permission:support.cases.read|billing.read|operations.dispatch",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        },
+        "openCase": {
+          "method": "POST",
+          "path": "/cases",
+          "access": "permission:billing.reconcile|billing.refund|operations.dispatch",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getCase": {
+          "method": "GET",
+          "path": "/cases/:caseId",
+          "access": "permission:support.cases.read|billing.read|operations.dispatch",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getCaseSubjectCurrent": {
+          "method": "GET",
+          "path": "/cases/:caseId/current",
+          "access": "permission:support.cases.read|billing.read|operations.dispatch",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "decideCase": {
+          "method": "POST",
+          "path": "/cases/:caseId/decisions",
+          "access": "permission:billing.reconcile|billing.refund|operations.dispatch",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "approveDecision": {
+          "method": "POST",
+          "path": "/cases/:caseId/decisions/:decisionNo/approval",
+          "access": "permission:billing.refund",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "resendDecision": {
+          "method": "POST",
+          "path": "/cases/:caseId/decisions/:decisionNo/execution",
+          "access": "permission:billing.reconcile|billing.refund|operations.dispatch",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "CASE_ALREADY_OPEN",
+        "CASE_CHANGED",
+        "SUBJECT_NOT_ELIGIBLE",
+        "SUBJECT_KIND_MISMATCH",
+        "CASE_NOT_DECIDABLE",
+        "CASE_NOT_AWAITING_APPROVAL",
+        "SAME_PERSON_APPROVAL",
+        "ACTION_NOT_ALLOWED_FOR_KIND",
+        "REASON_NOT_ALLOWED_FOR_KIND",
+        "REASON_NOTE_REQUIRED",
+        "EVIDENCE_REQUIRED",
+        "STATEMENT_CREDIT_REQUIRED",
+        "INVALID_STATEMENT_CREDIT",
+        "AMOUNT_REQUIRED",
+        "WINDOW_REQUIRED",
+        "NOTHING_TO_EXECUTE"
+      ]
+    },
+    "reviews.v1": {
+      "owner": "reviews",
+      "prefix": "/internal/v1/reviews",
+      "routes": {
+        "submitReview": {
+          "method": "POST",
+          "path": "/reviews",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getBookingReview": {
+          "method": "GET",
+          "path": "/bookings/:bookingId/review",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "listModerationQueue": {
+          "method": "GET",
+          "path": "/moderation/reviews",
+          "access": "permission:reviews.moderate",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        },
+        "moderateReview": {
+          "method": "POST",
+          "path": "/moderation/reviews/:reviewId/decision",
+          "access": "permission:reviews.moderate",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "NOT_REVIEWABLE",
+        "REVIEW_ALREADY_SUBMITTED",
+        "REVIEW_NOT_PENDING",
+        "CONSENT_REQUIRED"
+      ]
+    },
+    "reporting.v1": {
+      "owner": "reporting",
+      "prefix": "/internal/v1/reporting",
+      "routes": {
+        "listBookingOperations": {
+          "method": "GET",
+          "path": "/operations/bookings",
+          "access": "permission:operations.dispatch",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        },
+        "getBookingOperation": {
+          "method": "GET",
+          "path": "/operations/bookings/:bookingId",
+          "access": "permission:operations.dispatch",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "listResources": {
+          "method": "GET",
+          "path": "/operations/resources",
+          "access": "permission:verification.review|operations.dispatch",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        },
+        "getOperationsKpis": {
+          "method": "GET",
+          "path": "/operations/kpis/operations",
+          "access": "permission:operations.dispatch",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getCashKpis": {
+          "method": "GET",
+          "path": "/operations/kpis/cash",
+          "access": "permission:billing.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getFreshness": {
+          "method": "GET",
+          "path": "/operations/freshness",
+          "access": "permission:verification.review|operations.dispatch|billing.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "NOT_PROJECTED",
+        "INVALID_WINDOW",
+        "WINDOW_TOO_LARGE"
+      ]
+    }
+  },
+  "errorCodes": [
+    "REQUEST_INVALID",
+    "VALIDATION_FAILED",
+    "AUTH_REQUIRED",
+    "AUTH_FORBIDDEN",
+    "AUTH_CSRF",
+    "NOT_FOUND",
+    "CONFLICT",
+    "REVISION_CONFLICT",
+    "REVISION_REQUIRED",
+    "IDEMPOTENCY_KEY_REQUIRED",
+    "IDEMPOTENCY_CONFLICT",
+    "IDEMPOTENCY_IN_PROGRESS",
+    "BUSINESS_RULE_VIOLATION",
+    "RATE_LIMITED",
+    "DEPENDENCY_UNAVAILABLE",
+    "UPSTREAM_UNAVAILABLE",
+    "UPSTREAM_TIMEOUT",
+    "UPSTREAM_INVALID",
+    "OUTCOME_UNKNOWN",
+    "SERVICE_NOT_READY",
+    "INTERNAL_ERROR"
+  ],
+  "currencies": {
+    "SYP": 2,
+    "USD": 2
+  },
+  "events": {
+    "customer.profile-updated.v1": {
+      "producer": "customer",
+      "aggregateType": "customer-profile",
+      "envelopeVersion": 2
+    },
+    "customer.address-updated.v1": {
+      "producer": "customer",
+      "aggregateType": "customer-address",
+      "envelopeVersion": 2
+    },
+    "vehicle.vehicle-updated.v1": {
+      "producer": "vehicle",
+      "aggregateType": "vehicle",
+      "envelopeVersion": 2
+    },
+    "geo.zone-updated.v1": {
+      "producer": "geo",
+      "aggregateType": "service-zone",
+      "envelopeVersion": 2
+    },
+    "catalog.definitions-published.v1": {
+      "producer": "catalog",
+      "aggregateType": "catalog",
+      "envelopeVersion": 2
+    },
+    "pricing.price-book-published.v1": {
+      "producer": "pricing",
+      "aggregateType": "price-book",
+      "envelopeVersion": 2
+    },
+    "pricing.quote-issued.v1": {
+      "producer": "pricing",
+      "aggregateType": "quote",
+      "envelopeVersion": 2
+    },
+    "scheduling.hold-changed.v1": {
+      "producer": "scheduling",
+      "aggregateType": "hold",
+      "envelopeVersion": 2
+    },
+    "workforce.eligibility-changed.v1": {
+      "producer": "workforce",
+      "aggregateType": "capacity-resource",
+      "envelopeVersion": 2
+    },
+    "configuration.configuration-published.v1": {
+      "producer": "configuration",
+      "aggregateType": "configuration-scope",
+      "envelopeVersion": 2
+    },
+    "billing.obligation-created.v1": {
+      "producer": "billing",
+      "aggregateType": "billing-obligation",
+      "envelopeVersion": 2
+    },
+    "billing.obligation-status-changed.v1": {
+      "producer": "billing",
+      "aggregateType": "billing-obligation",
+      "envelopeVersion": 2
+    },
+    "billing.cash-collected.v1": {
+      "producer": "billing",
+      "aggregateType": "billing-cash-receipt",
+      "envelopeVersion": 2
+    },
+    "billing.cash-collection-reversed.v1": {
+      "producer": "billing",
+      "aggregateType": "billing-cash-receipt",
+      "envelopeVersion": 2
+    },
+    "billing.custody-handover-changed.v1": {
+      "producer": "billing",
+      "aggregateType": "billing-custody-handover",
+      "envelopeVersion": 2
+    },
+    "billing.refund-status-changed.v1": {
+      "producer": "billing",
+      "aggregateType": "billing-refund",
+      "envelopeVersion": 2
+    },
+    "subscription.purchase-status-changed.v1": {
+      "producer": "subscription",
+      "aggregateType": "subscription-purchase",
+      "envelopeVersion": 2
+    },
+    "subscription.subscription-changed.v1": {
+      "producer": "subscription",
+      "aggregateType": "subscription",
+      "envelopeVersion": 2
+    },
+    "subscription.entitlement-reservation-changed.v1": {
+      "producer": "subscription",
+      "aggregateType": "subscription-entitlement-reservation",
+      "envelopeVersion": 2
+    },
+    "pricing.promotion-reservation-changed.v1": {
+      "producer": "pricing",
+      "aggregateType": "pricing-promotion-reservation",
+      "envelopeVersion": 2
+    },
+    "support.case-opened.v1": {
+      "producer": "support",
+      "aggregateType": "support-case",
+      "envelopeVersion": 2
+    },
+    "support.case-status-changed.v1": {
+      "producer": "support",
+      "aggregateType": "support-case",
+      "envelopeVersion": 2
+    },
+    "reviews.review-status-changed.v1": {
+      "producer": "reviews",
+      "aggregateType": "review",
+      "envelopeVersion": 2
+    }
+  }
+}

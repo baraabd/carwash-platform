@@ -5,6 +5,24 @@ services:
     environment:
       POSTGRES_USER: platform_bootstrap
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run dev:env first}
+      VEHICLE_DB_PASSWORD: ${VEHICLE_DB_PASSWORD:?Run dev:env first}
+      VEHICLE_MIGRATION_PASSWORD: ${VEHICLE_MIGRATION_PASSWORD:?Run dev:env first}
+      PRICING_DB_PASSWORD: ${PRICING_DB_PASSWORD:?Run dev:env first}
+      PRICING_MIGRATION_PASSWORD: ${PRICING_MIGRATION_PASSWORD:?Run dev:env first}
+      SCHEDULING_DB_PASSWORD: ${SCHEDULING_DB_PASSWORD:?Run dev:env first}
+      SCHEDULING_MIGRATION_PASSWORD: ${SCHEDULING_MIGRATION_PASSWORD:?Run dev:env first}
+      DISPATCH_DB_PASSWORD: ${DISPATCH_DB_PASSWORD:?Run dev:env first}
+      DISPATCH_MIGRATION_PASSWORD: ${DISPATCH_MIGRATION_PASSWORD:?Run dev:env first}
+      WALLET_DB_PASSWORD: ${WALLET_DB_PASSWORD:?Run dev:env first}
+      WALLET_MIGRATION_PASSWORD: ${WALLET_MIGRATION_PASSWORD:?Run dev:env first}
+      SUBSCRIPTION_DB_PASSWORD: ${SUBSCRIPTION_DB_PASSWORD:?Run dev:env first}
+      SUBSCRIPTION_MIGRATION_PASSWORD: ${SUBSCRIPTION_MIGRATION_PASSWORD:?Run dev:env first}
+      REVIEWS_DB_PASSWORD: ${REVIEWS_DB_PASSWORD:?Run dev:env first}
+      REVIEWS_MIGRATION_PASSWORD: ${REVIEWS_MIGRATION_PASSWORD:?Run dev:env first}
+      GEO_DB_PASSWORD: ${GEO_DB_PASSWORD:?Run dev:env first}
+      GEO_MIGRATION_PASSWORD: ${GEO_MIGRATION_PASSWORD:?Run dev:env first}
+      CONFIGURATION_DB_PASSWORD: ${CONFIGURATION_DB_PASSWORD:?Run dev:env first}
+      CONFIGURATION_MIGRATION_PASSWORD: ${CONFIGURATION_MIGRATION_PASSWORD:?Run dev:env first}
       IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?Run dev:env first}
       IDENTITY_MIGRATION_PASSWORD: ${IDENTITY_MIGRATION_PASSWORD:?Run dev:env first}
       CUSTOMER_DB_PASSWORD: ${CUSTOMER_DB_PASSWORD:?Run dev:env first}
@@ -27,7 +45,7 @@ services:
       REPORTING_MIGRATION_PASSWORD: ${REPORTING_MIGRATION_PASSWORD:?Run dev:env first}
       # One provisioning script serves dev and acceptance, so the two cannot
       # drift into different isolation models. It reads the service list here.
-      CW_SERVICES: 'identity customer catalog workforce booking billing media communications support reporting'
+      CW_SERVICES: 'identity customer vehicle catalog pricing workforce scheduling booking dispatch billing wallet subscription media communications support reviews reporting geo configuration'
     ports: ['127.0.0.1:55432:5432']
     volumes:
       - pg_data:/var/lib/postgresql/data

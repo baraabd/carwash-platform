@@ -1,0 +1,49 @@
+# P07-E1 immutable release artifacts.
+#
+# Pull requests rehearse the full build/push/verify/pull-by-digest path against a
+# loopback registry with no registry credential. Only a push to main (or a manual
+# dispatch on main) publishes to GHCR with Sigstore-signed provenance.
+name: P07 release artifacts
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'infra/release/**'
+      - 'infra/postgres/provision.sh'
+      - 'scripts/production/E/release/**'
+      - 'scripts/ci/**'
+      - '**/Dockerfile'
+      - '**/Dockerfile.dockerignore'
+      - '.dockerignore'
+      - 'pnpm-lock.yaml'
+      - 'services/*/prisma/**'
+      - '.github/workflows/p07-release-*.yml'
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: p07-release-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  # A newer pull-request push supersedes a rehearsal; a main publication always finishes.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  rehearse:
+    if: ${{ github.event_name == 'pull_request' }}
+    uses: ./.github/workflows/p07-release-build.yml
+    with:
+      publish: false
+    # The rehearsal never receives a registry write or OIDC token.
+    permissions:
+      contents: read
+      packages: read
+  publish:
+    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/p07-release-build.yml
+    with:
+      publish: true
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write

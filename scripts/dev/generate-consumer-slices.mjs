@@ -81,7 +81,7 @@ const runner = (service, model) => `import {
   subscriberTopology,
 } from '@carwash/platform-messaging';
 import { parseFoundationProbeCreatedV1, type FoundationProbeCreatedV1 } from '@carwash/event-contracts';
-import { createLogger, databaseSchemaFromUrl } from '@carwash/service-kit';
+import { createLogger, databasePoolConfig, databaseSchemaFromUrl } from '@carwash/service-kit';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
 import { PrismaInboxStore } from './prisma-inbox.store';
@@ -137,7 +137,7 @@ async function main(): Promise<void> {
 
   const databaseUrl = requireEnv('DATABASE_URL');
   const client = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: databaseUrl }, { schema: databaseSchemaFromUrl(databaseUrl) }),
+    adapter: new PrismaPg(databasePoolConfig(databaseUrl), { schema: databaseSchemaFromUrl(databaseUrl) }),
   });
   const store = new PrismaInboxStore({ client } as unknown as PrismaService);
 

@@ -1,7 +1,8 @@
 /**
  * catalog domain layer.
  *
- * This marker is generated so the layer exists before business code arrives.
- * Keep business rules in domain/application and framework details outside them.
+ * Framework- and IO-free business rules of the catalog.v1 definitions: the
+ * complete-snapshot publication plan, identity stability and final retirement.
+ * Catalog never owns money.
  */
-export {};
+export * from './catalog-v1';

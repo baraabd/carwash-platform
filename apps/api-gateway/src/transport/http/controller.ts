@@ -28,7 +28,7 @@ export class GatewayController {
   @Get('api/v1/contracts') contracts() {
     return gatewayOpenApi();
   }
-  @All('api/v1/{*route}') async route(
+  @All(['api/v1/{*route}', 'api/operator/{*route}']) async route(
     @Req() request: GatewayRequest,
     @Res() response: GatewayResponse,
   ) {
@@ -38,9 +38,12 @@ export class GatewayController {
       url: request.originalUrl,
       headers: scalarHeaders(request.headers),
       body: request.body,
+      ...(request.rawBody ? { rawBody: request.rawBody } : {}),
       context,
     });
     response.setHeader('cache-control', 'no-store');
+    if (reply.etag) response.setHeader('etag', reply.etag);
+    if (reply.idempotentReplayed === true) response.setHeader('idempotent-replayed', 'true');
     if (reply.cookies.length) response.setHeader('set-cookie', reply.cookies);
     if (reply.status === 204) {
       response.status(204).end();

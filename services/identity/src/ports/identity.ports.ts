@@ -1,12 +1,25 @@
-import type { AccessPrincipal, AccountStatus, IdentityRole } from '@carwash/contracts';
+import type {
+  AccessPrincipal,
+  AccountStatus,
+  IdentityPrincipalKind,
+  IdentityRole,
+} from '@carwash/contracts';
 
+/**
+ * kind 'account': email + passwordHash set, no recovery digest, no expiry.
+ * kind 'guest': no email/password/roles, recoveryDigest and guestExpiresAt set.
+ * The database enforces the same shape with a CHECK constraint.
+ */
 export interface Account {
   readonly id: string;
-  readonly email: string;
-  readonly passwordHash: string;
+  readonly kind: IdentityPrincipalKind;
+  readonly email: string | null;
+  readonly passwordHash: string | null;
   readonly status: AccountStatus;
   readonly roles: readonly IdentityRole[];
   readonly authVersion: number;
+  readonly recoveryDigest: string | null;
+  readonly guestExpiresAt: Date | null;
 }
 export type ChallengePurpose = 'REGISTER' | 'LOGIN' | 'DECOY';
 export interface Challenge {
@@ -48,9 +61,13 @@ export interface IdentityTransaction {
   account(id: string, lock?: boolean): Promise<Account | null>;
   accountByEmail(email: string): Promise<Account | null>;
   createAccount(account: Account): Promise<void>;
+  /** Locks the row when `lock` is set; matches guests only. */
+  guestByRecovery(digest: string, lock?: boolean): Promise<Account | null>;
   updateAccount(
     id: string,
-    patch: Partial<Pick<Account, 'passwordHash' | 'roles' | 'status' | 'authVersion'>>,
+    patch: Partial<
+      Pick<Account, 'passwordHash' | 'roles' | 'status' | 'authVersion' | 'recoveryDigest'>
+    >,
   ): Promise<void>;
   challenge(id: string, lock?: boolean): Promise<Challenge | null>;
   createChallenge(challenge: Challenge): Promise<void>;

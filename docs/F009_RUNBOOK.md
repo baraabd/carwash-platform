@@ -50,6 +50,8 @@ Artifacts are named `f009-stage-runId-runAttempt` and retained for 14 days. Only
 
 ## Failure handling
 
+Secret scanning binds both the exported source and complete history to the exact tested SHA. History uses `--full-history -m <sourceSha>` so deleted credentials, second-parent ancestry and merge-only additions remain covered. Unmerged fetched refs are outside this commit's verdict and require their own explicit scan before acceptance. Shallow history blocks acceptance. The security job runs real checksum-pinned Gitleaks regression fixtures before scanning the repository; generated scanner bait and redacted reports stay in disposable temporary directories. No rule, path or finding allowlist is added.
+
 Inspect the failed named step and its stage status. Fix the owning source or test; rerun every required gate on the new head. A successful old head, successful build alone, a canceled matrix member or a manually edited evidence file cannot authorize release. Tool-download checksum mismatches and vulnerability database outages are blocking. Negative tests remove only their own temporary directories.
 
 The aggregate verifies source identity but does not replace review: an author able to modify the workflow can modify its policy too. Configure required reviews and required checks on the protected branch. The repository administrator must apply that setting; this runbook does not assert it has been enabled.

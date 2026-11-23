@@ -1,0 +1,117 @@
+# Lane B — Commerce & Finance production work
+
+## P05-B — Subscription, Promotion and remaining Wallet capabilities
+
+Parent status: **INTEGRATION_PENDING**. Not production-ready, not deployed, not
+integrated.
+
+- **Base:** started from main `66aa7528500a06f65a4b73305506feee7c3fc3b3` and refreshed to `3e1ab23bff450235858ea13e049f8fb373df393f` on 2026-10-11 before committing. The audited `f875d31` was no longer current.
+- **Branching:** each child is based on main; none is stacked.
+
+| Child | Branch | Scope | Status |
+| ----- | ------ | ----- | ------ |
+| B1 | `prod/p05-b-implement-subscription--promotion-and-remaining-wallet-b1-subscription` | Subscription plans and revisions, customer subscriptions, entitlement periods, reserve/commit/release/reverse, ledger reconciliation, real PostgreSQL races | PR open — review required |
+| B2 | `prod/p05-b-implement-subscription--promotion-and-remaining-wallet-b2-promotions` | Pricing promotions and coupons, quote discount component, redemption caps (reserve/commit/release) | PR open — review required |
+| B3 | `prod/p05-b-implement-subscription--promotion-and-remaining-wallet-b3-wallet` | Wallet technician-custody projection from the registered Billing events (B-08: no customer wallet) | PR open — review required |
+| E-req | (Lane E / C) | CR-B-10 (subscription), CR-B2-5 (promotions) and CR-B-12 (wallet): permissions, contracts, events, Booking saga | SUBMITTED, not accepted |
+
+**Details:**
+- B1: `P05-B1-SUBSCRIPTION.md` (blockers B-P05-11..16);
+- B2: `P05-B2-PROMOTIONS.md`;
+- B3: `P05-B3-WALLET-CUSTODY.md`.
+
+## P04-B — Payment provider adapters, reconciliation and refunds
+
+Parent status: **INTEGRATION_PENDING**. Not production-ready, not deployed, not
+integrated, no live provider contacted. Started from main
+`c65db708b9a7c50e5a885799330479426e863758` (tree
+`9b0d9bef560cc4ea441c142839f772004de5275a`), refreshed on 2026-10-10; the audited
+`f875d31` was no longer current.
+
+| Child | Branch | Scope | Status |
+| ----- | ------ | ----- | ------ |
+| B1 | `prod/p04-b-implement-production-grade-payment-provider-adapters--r-b1` | PaymentProvider port + capabilities, documentation-pending ShamCash/Syriatel adapters, provider credits and allocation, notifications/verified query (provider-neutral), refunds with reservation and two-person control, fix for the main permission defect, real PG | PR open — review required |
+| E-req | (Lane E) | CR-B-09: events, `billing.v1` routes (and the mismatched `admin.refund` alias), callback ingress, merchant config delivery — `CONTRACT_REQUEST_E_BILLING.md` | SUBMITTED, not accepted |
+| External | (Owner + providers) | LIVE_PROVIDER_ACCEPTANCE: official merchant docs, credentials, sandbox | BLOCKED |
+
+Details, evidence and blockers B-P04-01..06: `P04-B1-PROVIDER-RECONCILIATION-REFUNDS.md`.
+
+## P03-B — Cash collection, receipt, technician custody and settlement
+
+Parent status: **INTEGRATION_PENDING**. Not production-ready, not deployed, not
+integrated; production cash collection fails closed (503) until lane C publishes
+work completion and Identity grants the CR-B-08 permissions. Started from main
+`a14997a20b85341a24f17e7878d2a188eea3fe36` (tree
+`0261a7ede0bf05c02ef5eb1f56b2afe6cfabba6b`), refreshed on 2026-10-09; the audited
+`f875d31` was no longer current.
+
+| Child | Branch | Scope | Status |
+| ----- | ------ | ----- | ------ |
+| B1 | `prod/p03-b-implement-cash-collection--receipt--technician-custody-b1` | Billing cash receipt, linked reversal, technician custody ledger, handover, treasury receipt with explicit shortage/overage, settlement reconciliation, COMMIT-time invariants, real PG races | PR open — review required |
+| E-req | (Lane E / C) | CR-B-08: permissions, cash/custody events, work-completion read (C), `billing.v1` routes and Gateway aliases — `CONTRACT_REQUEST_E_BILLING.md` | SUBMITTED, not accepted |
+| B2 | (after E) | Wallet read projection of technician custody from Billing postings (no second ledger) | NOT STARTED — blocked on registered events |
+
+Details, evidence and blockers B-P03-01..05: `P03-B1-CASH-CUSTODY.md`.
+
+## P02-B — Billing obligation and PaymentIntent core
+
+Parent status: **INTEGRATION_PENDING**. Not production-ready, not deployed, not
+integrated, no money flow enabled. Started from main
+`566d2e7435dac0803d075556fff43c435f8a29a7` (tree
+`1bd162f2578878643b3e2c2cc437fece36716588`), refreshed on 2026-10-08; the audited
+`f875d31` was no longer current.
+
+| Child | Branch | Scope | Status |
+| ----- | ------ | ----- | ------ |
+| B1 | `prod/p02-b-implement-billing-obligation-and-paymentintent-core-b1` | Obligation, PaymentIntent, attempts, reconciliation/UNKNOWN, append-only ledger, idempotency, audit, transactional outbox, owner API, real PG | PR open — review required |
+| E-req | (Lane E) | `billing.v1`, billing events, `billing.reconcile`, saga workload scope, dependencies — `CONTRACT_REQUEST_E_BILLING.md` | SUBMITTED, not accepted |
+| B2 | (after E) | Outbox relay on real RabbitMQ, saga-scoped create/void | NOT STARTED — blocked on E |
+
+Details, evidence and blockers B-P02-01..08: `P02-B1-BILLING.md`.
+
+# P01-B — Catalog and Pricing production providers
+
+Parent status: **INTEGRATION_PENDING**. No part of this task is production-ready,
+deployed or fully integrated.
+
+Audited starting main: `f875d31bf62b153b6d36ac7a607949f8c4e29389`
+(tree `6177cc0112519b6b2c718e65c3b117f42a210bf5`), confirmed current on
+2026-10-07 before work started.
+
+## Child sprints (one branch = one PR, each based on main, none stacked)
+
+| Child | Branch                                  | Scope                                                                              | Status                       |
+| ----- | --------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------- |
+| B1    | `prod/p01-b-implement-catalog-and-pricing-production-providers-b1-catalog` | Catalog definitions, immutable revisions, effective windows, owner API, real PG    | PR open — review required    |
+| B2    | `prod/p01-b-implement-catalog-and-pricing-production-providers-b2-pricing`  | Price versions, exact Money, immutable expiring quotes, owner API, real PG         | PR open — review required    |
+| E-req | (Lane E)                                | Contracts, grants, dependencies, readiness promotion — see contract request files | SUBMITTED, not accepted      |
+
+B1 and B2 are independent: Pricing never imports Catalog code, never reads the
+Catalog database and does not consume an unpublished Catalog contract. The only
+link between them is the catalog revision number Pricing receives through its
+own port, whose production adapter waits for E's published contract.
+
+## What blocks the parent from DONE
+
+1. Lane E: publish `catalog.v1` / `pricing.v1` HTTP contracts, the
+   `catalog.publish`, `pricing.publish` grants in Identity, the Gateway aliases,
+   and the dependency additions (lockfile is E-owned). See
+   `CONTRACT_REQUEST_E_CATALOG.md` (B1) and `CONTRACT_REQUEST_E_PRICING.md` (added by B2).
+2. Lane E: event contracts `catalog.definition-published.v1`,
+   `pricing.price-published.v1`, `pricing.quote-issued.v1` (no event is emitted
+   until a validated contract exists; nothing is written to the outbox).
+3. Owner decisions recorded as OPEN in `docs/parallel/B/W01/POLICY_DECISIONS.md`:
+   B-03 currency/exponent policy, B-04 real rates, B-05 quote TTL/replay lifetime,
+   B-10 promotions. The code fails closed (503 `POLICY_UNAVAILABLE`) until they
+   are configured; no default is invented.
+4. Real Identity-to-owner and Pricing-to-Catalog acceptance, Gateway journey and
+   customer UI consumers (A/C/D lanes) after E publication.
+
+## Evidence policy
+
+`evidence/*.json` files are produced by
+`node scripts/production/B/postgres-acceptance.mjs --service <svc> --record` and
+name the exact source commit/tree they ran on. They are local disposable-database
+evidence only: PostgreSQL is real, Identity is a local HTTP stub, RabbitMQ is not
+used. They are not production, deployment or integrated-journey evidence. Billing runs
+additionally use a local HTTP stub of Pricing's published `pricing.v1` quote read.

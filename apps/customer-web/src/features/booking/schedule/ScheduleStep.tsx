@@ -4,6 +4,7 @@ import { currentInstant } from '../../../shared/clock';
 import { Icon } from '../../../shared/Icon';
 import { useCustomerSession } from '../../../state/CustomerSessionProvider';
 import { pathForIntent } from '../../../state/navigationPath';
+import { completeReviewEdit } from '../../../state/reviewStep';
 import {
   TIME_STEP_INDEX,
   chooseEarliestSlot,
@@ -15,7 +16,7 @@ import {
 } from '../../../state/scheduleStep';
 import { BookingFooter } from '../BookingFooter';
 import { BookingProgress } from '../BookingProgress';
-import { bookingFlow } from '../bookingFlow';
+import { bookingFlow, decisionNextLabel } from '../bookingFlow';
 import { buildPriceBreakdown } from '../priceBreakdown';
 import { buildScheduleStepViewModel } from './scheduleViewModel';
 import './schedule.css';
@@ -98,8 +99,12 @@ export function ScheduleStep() {
   };
 
   const handleNext = () => {
-    // Judged at the moment of the tap, not when the button was drawn.
-    const result = run((current) => submitScheduleStep(current, currentInstant()));
+    // Judged at the moment of the tap, not when the button was drawn; a return to
+    // Review is guarded at that same instant.
+    const result = run((current) => {
+      const tapped = currentInstant();
+      return completeReviewEdit(submitScheduleStep(current, tapped), tapped);
+    });
     if (result.intent) {
       navigate(pathForIntent(result.intent));
       return;
@@ -224,7 +229,7 @@ export function ScheduleStep() {
       <BookingFooter
         total={view.footerTotal}
         minutes={view.footerMinutes}
-        nextLabel={bookingFlow[TIME_STEP_INDEX].nextLabel}
+        nextLabel={decisionNextLabel(TIME_STEP_INDEX, state.reviewEditing)}
         breakdown={breakdown}
         onNext={handleNext}
       />

@@ -1,0 +1,228 @@
+{
+  "schemaVersion": 1,
+  "task": "W04-A",
+  "phase": "ENTRY_PROPOSAL",
+  "implementationStatus": "BLOCKED",
+  "parentAcceptance": "NOT_ACCEPTED",
+  "observedTarget": {
+    "sha": "1ec9d8aebf4470a2815471116643fa6ebe0d5a95",
+    "tree": "9f04d674056041bbc810a62e4cc7f275c32581b8",
+    "observedAtUtc": "2026-10-05T12:35:05.619Z",
+    "acceptedWaveBase": false
+  },
+  "branch": "proposal/w04-A-cash-journey",
+  "sourceDeltaSinceW03Entry": {
+    "from": "82e7402ed9ab6cc4f565f423441cd0655f2d627a",
+    "addedFiles": 29,
+    "insertions": 4280,
+    "productSharedSchemaMigrationWorkflowChanges": 0,
+    "mergedProposalPRs": [51, 52, 53, 54, 55]
+  },
+  "priorA": {
+    "c014": {
+      "pr": 41,
+      "head": "04b7577097d7767e0d0cd1bf43de84ea92c02671",
+      "merge": "69d81a83a3409d0693272efeb19ebeb9805750f5"
+    },
+    "w03": {
+      "pr": 53,
+      "head": "95b88eab04bb859d25ba385d732224b930947f08",
+      "merge": "4c558931b598436b25547036474fa28be5c0b137"
+    },
+    "registryARequestedNotReceived": "stale; W02/W03 A packets are present, semantics remain unaccepted"
+  },
+  "registry": {
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "bases": {
+      "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "BASE_W02": null
+    },
+    "BASE_W03": "ABSENT",
+    "BASE_W04": "ABSENT",
+    "acceptedNextWaveContracts": [],
+    "guestContractAccepted": false,
+    "writerStatus": "proposal-pending-independent-review",
+    "bootstrapLease": "expired by current user instruction; stale registry expiry is not renewed authorization"
+  },
+  "packages": {
+    "@carwash/contracts": "0.0.2",
+    "@carwash/event-contracts": "0.0.2",
+    "@carwash/api-clients": "0.0.1"
+  },
+  "businessClients": "export {}; no accepted business clients",
+  "currentProduct": {
+    "orders": "ShellPlaceholder",
+    "tracking": "C014 session OrderHandoff",
+    "payment": "C014 session OrderHandoff",
+    "reload": "session order is not recovered",
+    "operatorAdmin": "technical boots; businessReady false",
+    "relevantProductSchemas": "ServiceMarker only",
+    "productionReady": false
+  },
+  "localToolchain": {
+    "expected": {
+      "node": "24.21.0",
+      "pnpm": "10.32.1"
+    },
+    "actual": {
+      "node": "24.19.0",
+      "pnpm": "11.25.0"
+    },
+    "verification": "FAIL 38/40; two runtime mismatches",
+    "configOnly": "PASS 39/39; runtime skipped",
+    "initialIncorrectVerifierAttempt": "scripts/check-toolchain.mjs does not exist; corrected to scripts/verify-toolchain.mjs"
+  },
+  "localDiagnostics": [
+    {
+      "command": "node scripts/check-design-reference.mjs --base-ref 1ec9d8aebf4470a2815471116643fa6ebe0d5a95",
+      "result": "PASS before and after six-file proposal edits, 10 artifacts, exact observed-base comparison",
+      "limit": "byte preservation only"
+    },
+    {
+      "command": "node architecture/implementation-status.mjs --self-test",
+      "result": "PASS inventory + 9 adversarial; productionReady false"
+    },
+    {
+      "command": "node scripts/parallel/E/check-owners.mjs --inventory",
+      "result": "PASS proposal-inventory-only; historical source69d81a83, not accepted live publication"
+    },
+    {
+      "command": "node scripts/f010/reference-registry.mjs --base-ref 1ec9d8aebf4470a2815471116643fa6ebe0d5a95",
+      "result": "PASS 3 registered references and base comparison; no registration/parity assertion"
+    },
+    {
+      "command": "node scripts/parallel/E/check-owners.mjs --base-ref 1ec9d8aebf4470a2815471116643fa6ebe0d5a95 --worktree --lane A",
+      "result": "PASS exactly 6 permanent-A paths; preparatory changed-scope validation, not accepted publication"
+    },
+    {
+      "command": "node /workspace/scratch/6a9547568741/carwash-platform/node_modules/prettier/bin/prettier.cjs --check --ignore-path /dev/null docs/parallel/A/W04/README.md docs/parallel/A/W04/CUSTOMER_CASH_SURFACES.md docs/parallel/A/W04/W05_CONTRACT_REQUESTS.md docs/parallel/A/W04/CHECKPOINT.md docs/parallel/A/W04/source-observation.json tests/parallel/A/W04/ACCEPTANCE_SPECIFICATIONS.md",
+      "result": "PASS exact 6-file scope, Prettier3.9.8; local Node mismatch remains"
+    },
+    {
+      "command": "git diff --cached --check",
+      "result": "PASS"
+    },
+    {
+      "command": "Python JSON/path/specification ID inventory; exact allowlist=6, unique W04 IDs=30, W05 provider/consumer IDs=8",
+      "result": "PASS static document inventory, not executed acceptance tests"
+    }
+  ],
+  "targetWorkflowSnapshot": {
+    "observedAtUtc": "2026-10-05T12:35:05.868Z",
+    "headSha": "1ec9d8aebf4470a2815471116643fa6ebe0d5a95",
+    "runs": [
+      {
+        "id": 37309616582,
+        "name": "Reference guard (not release CI)",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37309616582"
+      },
+      {
+        "id": 37309616625,
+        "name": "F007 gateway contract acceptance",
+        "status": "in_progress",
+        "conclusion": null,
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37309616625"
+      },
+      {
+        "id": 37309616595,
+        "name": "F010 golden HTML parity",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37309616595"
+      },
+      {
+        "id": 37309616645,
+        "name": "F001 ownership and workspace acceptance",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37309616645"
+      },
+      {
+        "id": 37309616559,
+        "name": "F006 identity security acceptance",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37309616559"
+      },
+      {
+        "id": 37309616584,
+        "name": "Sprint 0.2 CI",
+        "status": "in_progress",
+        "conclusion": null,
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37309616584"
+      },
+      {
+        "id": 37309616585,
+        "name": "F009 foundation verification",
+        "status": "queued",
+        "conclusion": null,
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37309616585"
+      },
+      {
+        "id": 37309616560,
+        "name": "F008 observability acceptance",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/baraabd/carwash-platform/actions/runs/37309616560"
+      }
+    ],
+    "scope": "foundation workflows; not complete W04 journey or base acceptance"
+  },
+  "openPullRequestSnapshot": {
+    "observedAtUtc": "2026-10-05T12:35:05.586Z",
+    "prs": [
+      {
+        "number": 56,
+        "title": "docs(W04-C): specify real cash drill and authority prework",
+        "draft": true,
+        "head": "d98839221bd60b2dea4ab5b0a48b29666bd2f8fc"
+      }
+    ],
+    "use": "read-only intake; no peer branch used as base"
+  },
+  "w04Acceptance": {
+    "executedNewCases": 0,
+    "status": "ALL UNEXECUTED",
+    "productionAcceptancePasses": 0,
+    "proposedSpecifications": 30
+  },
+  "migrations": [],
+  "ownedRuntimeResources": [],
+  "implementationAppBuildVisualDeviceStagingProviderLiveMoneyDeployment": "NOT_RUN",
+  "nextAction": "Reviewed predecessor bases/contracts/policies, real provider children, accepted common base, A consumer then E serialized combined-source gates and independent review.",
+  "existingCustomerUnitDiagnostic": {
+    "command": [
+      "node",
+      "--test",
+      "--test-reporter=tap",
+      "tests/unit/c001-customer-behavior-manifest.test.mjs",
+      "tests/unit/c002-customer-shell.test.mjs",
+      "tests/unit/c002-state-boundaries.test.mjs",
+      "tests/unit/c003-customer-home.test.mjs",
+      "tests/unit/c004-customer-vehicle.test.mjs",
+      "tests/unit/c005-customer-garage.test.mjs",
+      "tests/unit/c006-customer-care-packages.test.mjs",
+      "tests/unit/c007-customer-extras.test.mjs",
+      "tests/unit/c008-customer-location.test.mjs",
+      "tests/unit/c009-customer-saved-addresses.test.mjs",
+      "tests/unit/c010-customer-scheduling.test.mjs",
+      "tests/unit/c011-customer-contact.test.mjs",
+      "tests/unit/c012-customer-payment-method.test.mjs",
+      "tests/unit/c013-customer-review.test.mjs",
+      "tests/unit/c014-booking-confirmation.test.mjs"
+    ],
+    "exitCode": 0,
+    "source": "1ec9d8aebf4470a2815471116643fa6ebe0d5a95",
+    "scope": "existing C001-C014 fixture/session unit diagnostics, not W04 real cash acceptance",
+    "summary": "1..304\n# tests 304\n# suites 0\n# pass 304\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 1342.063447"
+  },
+  "w05Requests": {
+    "packet": "w04-a-w05-customer-finance-change/0.1.0",
+    "status": "PROPOSED_NOT_ACCEPTED",
+    "providerConsumerSpecifications": 8,
+    "executedNewCases": 0
+  }
+}

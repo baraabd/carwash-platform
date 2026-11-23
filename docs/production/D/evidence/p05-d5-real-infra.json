@@ -1,0 +1,76 @@
+{
+  "gate": "lane-d-real-infra",
+  "sourceSha": "6be422bcfd918a0797783cab836cd12386239491",
+  "sourceTree": "b1348eedffaebbf992a6f6a9269c7e8bde64e2c1",
+  "sourceDirty": false,
+  "runId": "20261009-2280f290",
+  "images": {
+    "postgres": "postgres:16.10-alpine",
+    "rabbitmq": "rabbitmq:4.2-management-alpine",
+    "node": "node:24.21.0-bookworm-slim",
+    "redis": "redis:8.2.10-alpine"
+  },
+  "suites": [
+    "tests/production/D/configuration-revisions.test.mjs",
+    "tests/production/D/configuration-v1.test.mjs"
+  ],
+  "suiteSha256": {
+    "tests/production/D/configuration-revisions.test.mjs": "a33fafa90d62fdb709d62446e6d66bdda77a405dea1f16f182c956f82d72e3ee",
+    "tests/production/D/configuration-v1.test.mjs": "e0111ef996902afbc6e990463d10e05a2334b49ede9b45e0660d664ecc175941"
+  },
+  "migrations": [
+    {
+      "service": "catalog",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    },
+    {
+      "service": "communications",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    },
+    {
+      "service": "reporting",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    },
+    {
+      "service": "support",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    },
+    {
+      "service": "configuration",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    },
+    {
+      "service": "identity",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    },
+    {
+      "service": "workforce",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    }
+  ],
+  "tests": {
+    "tests": 23,
+    "pass": 23,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "accepted": true
+  },
+  "exitCode": 0,
+  "scope": "Real PostgreSQL 16, single-node RabbitMQ 4 and a disposable Redis (Identity rate budget only) for one ephemeral run. Not HA, not a provider, browser or production proof."
+}

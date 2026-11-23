@@ -1,0 +1,726 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:carwash:proposal:w01-b:w02:0.1.0",
+  "title": "Unaccepted W02 finance contract candidates",
+  "description": "W01-B declarative proposal only. No published contracts or runtime/payment evidence. Semantic constraints and approved policies require owner tests. Definitions are selected explicitly by contract, not by guessing request shape.",
+  "$defs": {
+    "Id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "Revision": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "DefinitionId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "Utc": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "AmountMinor": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "description": "Canonical nonnegative base-10 integer string of minor units. Approved currency policy determines exponent/limits. Not a major-unit decimal."
+    },
+    "Money": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "amountMinor": {
+          "$ref": "#/$defs/AmountMinor"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "currencyPolicyRevision": {
+          "$ref": "#/$defs/Revision"
+        }
+      },
+      "required": ["amountMinor", "currency", "currencyPolicyRevision"]
+    },
+    "Owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": ["ACCOUNT", "GUEST"]
+        },
+        "id": {
+          "$ref": "#/$defs/Id"
+        }
+      },
+      "required": ["kind", "id"]
+    },
+    "VehicleCategory": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/DefinitionId"
+        },
+        "labelAr": {
+          "type": "string",
+          "minLength": 1
+        },
+        "extraDurationMinutes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": ["id", "labelAr", "extraDurationMinutes"]
+    },
+    "Addon": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/DefinitionId"
+        },
+        "labelAr": {
+          "type": "string",
+          "minLength": 1
+        },
+        "durationMinutes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "allowedVehicleCategoryIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DefinitionId"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": ["id", "labelAr", "durationMinutes", "allowedVehicleCategoryIds"]
+    },
+    "Package": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/DefinitionId"
+        },
+        "labelAr": {
+          "type": "string",
+          "minLength": 1
+        },
+        "durationMinutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "includedAddonIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DefinitionId"
+          },
+          "uniqueItems": true
+        },
+        "allowedVehicleCategoryIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DefinitionId"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "allowedAddonIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DefinitionId"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "labelAr",
+        "durationMinutes",
+        "includedAddonIds",
+        "allowedVehicleCategoryIds",
+        "allowedAddonIds"
+      ]
+    },
+    "CatalogDefinitionSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "vehicleCategories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/VehicleCategory"
+          },
+          "minItems": 1
+        },
+        "packages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Package"
+          },
+          "minItems": 1
+        },
+        "addons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Addon"
+          }
+        }
+      },
+      "required": ["vehicleCategories", "packages", "addons"]
+    },
+    "CatalogSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "catalogRevision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "publishedAt": {
+          "$ref": "#/$defs/Utc"
+        },
+        "definitions": {
+          "$ref": "#/$defs/CatalogDefinitionSet"
+        }
+      },
+      "required": ["schemaVersion", "catalogRevision", "publishedAt", "definitions"]
+    },
+    "CatalogPublishCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "expectedRevision": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Revision"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "definitions": {
+          "$ref": "#/$defs/CatalogDefinitionSet"
+        }
+      },
+      "required": ["schemaVersion", "expectedRevision", "definitions"]
+    },
+    "PriceRate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "packageId": {
+          "$ref": "#/$defs/DefinitionId"
+        },
+        "vehicleCategoryId": {
+          "$ref": "#/$defs/DefinitionId"
+        },
+        "addonId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DefinitionId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unitPrice": {
+          "$ref": "#/$defs/Money"
+        },
+        "kind": {
+          "enum": ["PACKAGE", "VEHICLE", "ADDON"]
+        }
+      },
+      "required": ["packageId", "vehicleCategoryId", "addonId", "unitPrice", "kind"]
+    },
+    "PricePublishCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "expectedRevision": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Revision"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "catalogRevision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "policyRevision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "rates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PriceRate"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "expectedRevision",
+        "catalogRevision",
+        "policyRevision",
+        "rates"
+      ]
+    },
+    "PriceSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "priceVersion": {
+          "$ref": "#/$defs/Revision"
+        },
+        "catalogRevision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "policyRevision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "publishedAt": {
+          "$ref": "#/$defs/Utc"
+        },
+        "rates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PriceRate"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "priceVersion",
+        "catalogRevision",
+        "policyRevision",
+        "publishedAt",
+        "rates"
+      ]
+    },
+    "QuoteCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "catalogRevision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "packageId": {
+          "$ref": "#/$defs/DefinitionId"
+        },
+        "vehicleCategoryId": {
+          "$ref": "#/$defs/DefinitionId"
+        },
+        "addonIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DefinitionId"
+          },
+          "uniqueItems": true
+        },
+        "serviceZoneId": {
+          "$ref": "#/$defs/Id"
+        },
+        "promotionCode": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "catalogRevision",
+        "packageId",
+        "vehicleCategoryId",
+        "addonIds",
+        "serviceZoneId"
+      ]
+    },
+    "LineItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lineId": {
+          "$ref": "#/$defs/DefinitionId"
+        },
+        "definitionId": {
+          "$ref": "#/$defs/DefinitionId"
+        },
+        "kind": {
+          "enum": ["PACKAGE", "VEHICLE", "ADDON"]
+        },
+        "included": {
+          "type": "boolean"
+        },
+        "amountMinor": {
+          "$ref": "#/$defs/AmountMinor"
+        }
+      },
+      "required": ["lineId", "definitionId", "kind", "included", "amountMinor"]
+    },
+    "QuoteSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "quoteId": {
+          "$ref": "#/$defs/Id"
+        },
+        "owner": {
+          "$ref": "#/$defs/Owner"
+        },
+        "catalogRevision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "priceVersion": {
+          "$ref": "#/$defs/Revision"
+        },
+        "policyRevision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "currencyPolicyRevision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "minorUnitExponent": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "packageId": {
+          "$ref": "#/$defs/DefinitionId"
+        },
+        "vehicleCategoryId": {
+          "$ref": "#/$defs/DefinitionId"
+        },
+        "addonIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DefinitionId"
+          },
+          "uniqueItems": true
+        },
+        "serviceZoneId": {
+          "$ref": "#/$defs/Id"
+        },
+        "serviceZoneRevision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "durationMinutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "issuedAt": {
+          "$ref": "#/$defs/Utc"
+        },
+        "expiresAt": {
+          "$ref": "#/$defs/Utc"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LineItem"
+          },
+          "minItems": 1
+        },
+        "subtotalMinor": {
+          "$ref": "#/$defs/AmountMinor"
+        },
+        "discountMinor": {
+          "$ref": "#/$defs/AmountMinor"
+        },
+        "feeMinor": {
+          "$ref": "#/$defs/AmountMinor"
+        },
+        "taxMinor": {
+          "$ref": "#/$defs/AmountMinor"
+        },
+        "totalMinor": {
+          "$ref": "#/$defs/AmountMinor"
+        }
+      },
+      "required": [
+        "quoteId",
+        "owner",
+        "catalogRevision",
+        "priceVersion",
+        "policyRevision",
+        "currencyPolicyRevision",
+        "currency",
+        "minorUnitExponent",
+        "packageId",
+        "vehicleCategoryId",
+        "addonIds",
+        "serviceZoneId",
+        "serviceZoneRevision",
+        "durationMinutes",
+        "issuedAt",
+        "expiresAt",
+        "lines",
+        "subtotalMinor",
+        "discountMinor",
+        "feeMinor",
+        "taxMinor",
+        "totalMinor"
+      ]
+    },
+    "QuoteView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "snapshot": {
+          "$ref": "#/$defs/QuoteSnapshot"
+        },
+        "status": {
+          "enum": ["USABLE", "EXPIRED", "REVOKED"]
+        },
+        "evaluatedAt": {
+          "$ref": "#/$defs/Utc"
+        }
+      },
+      "required": ["schemaVersion", "snapshot", "status", "evaluatedAt"]
+    },
+    "FinanceError": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "enum": [
+                "REQUEST_INVALID",
+                "AUTH_REQUIRED",
+                "AUTH_FORBIDDEN",
+                "NOT_FOUND",
+                "CONFLICT",
+                "VALIDATION_FAILED",
+                "UPSTREAM_UNAVAILABLE",
+                "UPSTREAM_TIMEOUT"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "IDEMPOTENCY_CONFLICT",
+                "REVISION_CONFLICT",
+                "QUOTE_EXPIRED",
+                "QUOTE_REVOKED",
+                "SELECTION_INVALID",
+                "CURRENCY_UNSUPPORTED",
+                "PRECISION_UNSUPPORTED",
+                "POLICY_UNAVAILABLE"
+              ]
+            },
+            "requestId": {
+              "$ref": "#/$defs/Id"
+            },
+            "correlationId": {
+              "$ref": "#/$defs/Id"
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": ["code", "requestId", "correlationId", "message"]
+        }
+      },
+      "required": ["error"]
+    },
+    "CatalogPublishedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "#/$defs/Id"
+        },
+        "eventType": {
+          "const": "catalog.definition-published.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "catalog"
+        },
+        "occurredAt": {
+          "$ref": "#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "catalogRevision": {
+              "$ref": "#/$defs/Revision"
+            }
+          },
+          "required": ["catalogRevision"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "PricePublishedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "#/$defs/Id"
+        },
+        "eventType": {
+          "const": "pricing.price-published.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "pricing"
+        },
+        "occurredAt": {
+          "$ref": "#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "priceVersion": {
+              "$ref": "#/$defs/Revision"
+            },
+            "catalogRevision": {
+              "$ref": "#/$defs/Revision"
+            },
+            "policyRevision": {
+              "$ref": "#/$defs/Revision"
+            }
+          },
+          "required": ["priceVersion", "catalogRevision", "policyRevision"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    },
+    "QuoteIssuedEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "$ref": "#/$defs/Id"
+        },
+        "eventType": {
+          "const": "pricing.quote-issued.v1"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "producer": {
+          "const": "pricing"
+        },
+        "occurredAt": {
+          "$ref": "#/$defs/Utc"
+        },
+        "correlationId": {
+          "$ref": "#/$defs/Id"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "quoteId": {
+              "$ref": "#/$defs/Id"
+            },
+            "catalogRevision": {
+              "$ref": "#/$defs/Revision"
+            },
+            "priceVersion": {
+              "$ref": "#/$defs/Revision"
+            },
+            "expiresAt": {
+              "$ref": "#/$defs/Utc"
+            }
+          },
+          "required": ["quoteId", "catalogRevision", "priceVersion", "expiresAt"]
+        }
+      },
+      "required": [
+        "eventId",
+        "eventType",
+        "schemaVersion",
+        "producer",
+        "occurredAt",
+        "correlationId",
+        "aggregateVersion",
+        "data"
+      ]
+    }
+  }
+}

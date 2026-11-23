@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import {
   appDsn,
   assertPrivilegeDenied,
@@ -211,4 +212,96 @@ test('the public schema is unusable, so nothing lands there by accident', async 
     rollbackWrapped('CREATE TABLE public.should_not_exist (id integer)'),
   );
   assertPrivilegeDenied(result, assert, 'catalog runtime CREATE TABLE in public');
+});
+
+/* --------------------- configuration trigger isolation --------------------- */
+
+test('configuration trigger functions are callable only by their migration owner', async () => {
+  const result = await sql(
+    migrationDsn(context, 'configuration'),
+    `SELECT p.proname, pg_get_userbyid(p.proowner) AS owner, p.prosecdef,
+            has_function_privilege(current_user, p.oid, 'EXECUTE') AS owner_execute,
+            has_function_privilege('cw_configuration_app', p.oid, 'EXECUTE') AS runtime_execute,
+            EXISTS (
+              SELECT 1 FROM aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl
+               WHERE acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'
+            ) AS public_execute
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'app'
+      ORDER BY p.proname`,
+  );
+  assert.equal(result.ok, true, result.message ?? '');
+  assert.deepEqual(
+    result.rows.map((row) => row.proname),
+    ['config_append_only', 'config_no_delete', 'config_scope_version_forward'],
+    'the ACL check must inspect all three owner trigger functions',
+  );
+  for (const row of result.rows) {
+    assert.equal(row.owner, 'cw_configuration_migrate');
+    assert.equal(row.owner_execute, true, `${row.proname}: owner keeps EXECUTE`);
+    assert.equal(row.runtime_execute, false, `${row.proname}: runtime cannot EXECUTE`);
+    assert.equal(row.public_execute, false, `${row.proname}: PUBLIC cannot EXECUTE`);
+    assert.equal(row.prosecdef, false, `${row.proname}: no security-definer escalation`);
+    const direct = await sql(appDsn(context, 'configuration'), `SELECT app.${row.proname}()`);
+    assertPrivilegeDenied(direct, assert, `${row.proname}: runtime direct call`);
+  }
+});
+
+test('configuration future functions deny EXECUTE by default to every other service identity', async () => {
+  // Checking today's functions alone misses an ineffective IN SCHEMA default
+  // revoke. Create a real future function as the migration identity and inspect
+  // the server's effective permissions. Roll back both the DDL and the probe.
+  const functionName = `configuration_acl_probe_${randomUUID().replaceAll('-', '')}`;
+  const roles = SERVICES.flatMap((service) => [`cw_${service}_app`, `cw_${service}_migrate`]);
+  const result = await sql(
+    migrationDsn(context, 'configuration'),
+    `BEGIN;
+     CREATE FUNCTION app.${functionName}() RETURNS integer LANGUAGE sql AS 'SELECT 1';
+     SELECT r.rolname, has_function_privilege(r.rolname, p.oid, 'EXECUTE') AS allowed
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+       CROSS JOIN pg_roles r
+      WHERE n.nspname = 'app' AND p.proname = '${functionName}'
+        AND r.rolname = ANY(ARRAY[${roles.map((role) => `'${role}'`).join(',')}])
+      ORDER BY r.rolname;
+     ROLLBACK;`,
+  );
+  assert.equal(result.ok, true, result.message ?? '');
+  assert.equal(result.rows.length, roles.length, 'every real service identity is checked');
+  for (const row of result.rows) {
+    assert.equal(row.allowed, row.rolname === 'cw_configuration_migrate', row.rolname);
+  }
+});
+
+test('configuration trigger-backed runtime writes and invariant denials survive EXECUTE revocation', async () => {
+  const id = randomUUID();
+  const market = `zz-${id.replaceAll('-', '').slice(0, 8)}`;
+  const insertScope = `INSERT INTO app.config_scope
+      (id, market_id, namespace, published_version, created_at, updated_at)
+    VALUES ('${id}', '${market}', 'booking.policy.v1', 0, now(), now());`;
+  const valid = await sql(
+    appDsn(context, 'configuration'),
+    `BEGIN; ${insertScope}
+     UPDATE app.config_scope SET published_version = 1 WHERE id = '${id}'
+       RETURNING published_version;
+     ROLLBACK;`,
+  );
+  assert.equal(valid.ok, true, valid.message ?? '');
+  assert.deepEqual(valid.rows, [{ published_version: 1 }]);
+
+  for (const [statement, code, message] of [
+    [
+      `UPDATE app.config_scope SET published_version = 2 WHERE id = '${id}'`,
+      '23514',
+      /CONFIG_SCOPE_VERSION_NOT_FORWARD/,
+    ],
+    [`DELETE FROM app.config_scope WHERE id = '${id}'`, '42501', /CONFIG_RECORD_NOT_DELETABLE/],
+  ]) {
+    const denied = await sql(
+      appDsn(context, 'configuration'),
+      `BEGIN; ${insertScope} ${statement}; ROLLBACK;`,
+    );
+    assert.equal(denied.ok, false, statement);
+    assert.equal(denied.code, code, denied.message ?? '');
+    assert.match(denied.message, message, 'the trigger itself must enforce the invariant');
+  }
 });

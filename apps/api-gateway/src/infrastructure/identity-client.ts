@@ -4,6 +4,7 @@ import {
   isAccessPrincipal,
   isIdentityRole,
   isIdentityPermission,
+  isIdentityPrincipalKind,
   type IdentitySessionView,
 } from '@carwash/contracts';
 import type { AuthPort, HttpPort, RequestContext, VerifiedIdentity } from '../ports/http';
@@ -62,7 +63,10 @@ export class PublicIdentityClient implements AuthPort {
     if (!isAccessPrincipal(body)) throw new GatewayFault(502, 'UPSTREAM_INVALID');
     const session = body as IdentitySessionView;
     if (
+      !isIdentityPrincipalKind(session.principalKind) ||
       !Array.isArray(session.roles) ||
+      // A guest never carries roles; a role on a guest view is an upstream fault.
+      (session.principalKind === 'guest' && session.roles.length !== 0) ||
       !session.roles.every(isIdentityRole) ||
       !Array.isArray(session.permissions) ||
       !session.permissions.every(isIdentityPermission) ||

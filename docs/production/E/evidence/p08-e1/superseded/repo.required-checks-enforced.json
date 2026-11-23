@@ -1,0 +1,22 @@
+{
+  "schema": "carwash.release-receipt/v1",
+  "family": "repo.required-checks-enforced",
+  "status": "FAILED",
+  "rc": {
+    "sha": "3e1ab23bff450235858ea13e049f8fb373df393f",
+    "tree": "53edea7ff5348c969408e9fd3ee23569b06a9f94"
+  },
+  "producedAt": "2026-10-10T22:17:09.841Z",
+  "producer": {
+    "actor": "lane-e-p08",
+    "tool": "release-receipt.mjs"
+  },
+  "configDigest": "sha256:a9f310a7ca42d76a8367c754028316e96307ba116b1465437d7e1ea786f64870",
+  "command": "C:\\Program Files\\GitHub CLI\\gh.exe api repos/baraabd/carwash-platform/branches/main/protection",
+  "evidence": [
+    {
+      "path": "release/evidence/repo.required-checks-enforced-2026-10-10T22-17-09-841Z.log",
+      "sha256": "sha256:5b1fcfea626649a1ce404b82128e04a4f8fa126b510f73c65a01e7c2da8262c7"
+    }
+  ]
+}

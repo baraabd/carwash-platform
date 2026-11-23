@@ -1,0 +1,1072 @@
+{
+  "schemaVersion": 1,
+  "task": "W09-B",
+  "classification": "PROPOSED_NOT_ACCEPTED",
+  "parentStatus": "NOT_STARTED",
+  "fullLaunch": "NO_GO",
+  "observedSourceSha": "b47390c8ce04b2674e9222918bcd4e03fa5aed24",
+  "observedSourceTree": "c8a1f2f9e84f6298f1b044a8e8cec2549f33c15f",
+  "acceptedBaseW09": null,
+  "requiredBusinessCaseCount": 24,
+  "allRequiredBusinessCasesStatus": "NOT_RUN",
+  "actualBusinessExecution": null,
+  "blockerCatalog": [
+    {
+      "id": "ENTRY_BASE",
+      "owner": "E",
+      "requirement": "Publish actual BASE_W09 and accepted owner/contract/command barrier."
+    },
+    {
+      "id": "FINANCE_PRODUCERS",
+      "owner": "B/E and provider owners",
+      "requirement": "Merged real financial DB/HTTP/Identity/constraint producers and repaired W08 recovery prerequisites."
+    },
+    {
+      "id": "HISTORICAL_INPUT",
+      "owner": "Authorized data/accounting owners",
+      "requirement": "Genuine authorized exports and independently approved mappings/totals/opening balances, or verified absence plus approved distinct fixtures."
+    },
+    {
+      "id": "PROVIDER_INPUT",
+      "owner": "Provider/account/product owners",
+      "requirement": "Genuine merchant protocols/accounts, documented authorized non-money paths, retention and explicit Paymera scope decision."
+    },
+    {
+      "id": "STAGING_ALLOCATION",
+      "owner": "E",
+      "requirement": "Authorized isolated staging, retained source/image/config/backup refs, current authority/fences and exact gate commands."
+    },
+    {
+      "id": "POLICIES_REVIEWERS",
+      "owner": "Accounting/privacy/E and product owners",
+      "requirement": "Approved Money/custody/retention/refund/recovery budgets and actual named eligible reviewers/operators."
+    },
+    {
+      "id": "REAL_CONSUMERS",
+      "owner": "A/C/D and C/E authority owners",
+      "requirement": "Merged real owner consumers/current capacity/privacy with serialized three-app full affected journeys."
+    }
+  ],
+  "evidenceRules": [
+    "Actual runtime commands/limits/roles/protocols come from accepted E/owner manifests, not these proposed descriptions",
+    "Genuine authorized historical evidence or verified-absence branch is separate from representative fixtures",
+    "Foundation/local/model checks cannot close real DB/HTTP/broker/merchant/staging/application acceptance",
+    "A pending retry retains run identity; original terminal receipt stable; currently authorized status snapshots expose progress",
+    "Every case needs exact source/tree/environment/run/attempt/command/result/protected artifact and eligible reviewer receipt",
+    "The accepted input branch is explicit in every case receipt; verified absence permits approved representative data without a historical-migration claim"
+  ],
+  "cases": [
+    {
+      "id": "W09-B-ENTRY01",
+      "title": "Admit only accepted source, authority, isolated non-money environment and real predecessors",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_ENTRY",
+      "blockedBy": [
+        "ENTRY_BASE",
+        "FINANCE_PRODUCERS",
+        "STAGING_ALLOCATION",
+        "POLICIES_REVIEWERS",
+        "PROVIDER_INPUT"
+      ],
+      "setup": [
+        "E-published immutable base/versions and latest-target candidate",
+        "Accepted staging/resource/command manifest, retained compatible images/config/migrations",
+        "Actual named operators/reviewers, genuine provider and data authority"
+      ],
+      "steps": [
+        "Validate full SHA/tree/version/policy/image/retention bindings and current execution grants",
+        "Check network/merchant environment cannot route authorized rehearsal to live money",
+        "Reject changed refs, unknown scope, missing isolation or unaccepted predecessor before execution"
+      ],
+      "expected": [
+        "Missing prerequisites block dependent writes with explicit reasons",
+        "Sandbox authorization never implies live payment/refund authority",
+        "Fixture provider or foundation image alone cannot admit finance staging"
+      ],
+      "requiredEvidence": [
+        "Accepted entry manifest and owner approvals",
+        "Latest-target/ref checks, isolation and image-pull receipts",
+        "Current authority decision and non-money provider attestation"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-DATA01",
+      "title": "Authenticate chosen authorized input bytes, coverage, precision and provenance",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_AUTHORIZED_INPUT_VALIDATION",
+      "blockedBy": ["ENTRY_BASE", "HISTORICAL_INPUT", "POLICIES_REVIEWERS"],
+      "setup": [
+        "Authorized historical protected exports, or DATA02 genuinely verified absence with separately approved labeled representative input; actual data-owner extraction/fixture record",
+        "Approved source schema/Money/mapping/opening-balance policy",
+        "Independent finance reviewer"
+      ],
+      "steps": [
+        "Retain original bytes/digests, source IDs, schema/coverage/as-of and extraction boundaries",
+        "Inspect decimal precision, historical quotes, receipts, duplicates and payment-source evidence",
+        "Compare chosen input coverage to independent expected partitions before migration; retain historical or absence-approved fixture classification"
+      ],
+      "expected": [
+        "Only genuine authorized historical bytes establish historical classification; absence-approved fixtures remain representative rehearsal",
+        "Coverage gaps/untrusted references and excess precision remain visible quarantine",
+        "No current price, demo paid label or invented zero substitutes for history"
+      ],
+      "requiredEvidence": [
+        "Protected export integrity/authorization receipt",
+        "Source-derived mapping and independent expected record",
+        "Redacted inspected/rejected exception report"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-DATA02",
+      "title": "Separate verified historical absence from missing export and fixture rehearsal",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_DATA_OWNER_DECISION",
+      "blockedBy": ["HISTORICAL_INPUT", "POLICIES_REVIEWERS", "STAGING_ALLOCATION"],
+      "setup": [
+        "Actual data-owner inventory across declared sources/time/partitions",
+        "Eligible reviewer and approved source-access scope"
+      ],
+      "steps": [
+        "Attempt authorized source inventory with complete declared coverage",
+        "If authoritative owner and reviewer verify absence, retain signed assertion and source/time/cut",
+        "Only then run separately approved representative fixtures in distinct labeled namespace"
+      ],
+      "expected": [
+        "Missing access/export stays NOT_PROVIDED and ABSENCE_NOT_VERIFIED",
+        "Verified empty partitions require genuine evidence; no inferred zero history",
+        "Fixture results do not claim a historical migration occurred"
+      ],
+      "requiredEvidence": [
+        "Actual coverage/owner absence assertion or explicit missing-input blocker",
+        "Independent acceptance and fixture approval if applicable",
+        "Distinct historical-versus-fixture result labels"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-MAP01",
+      "title": "Preserve exact Money, time and immutable quote/source semantics",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_IMPORT_DB",
+      "blockedBy": ["ENTRY_BASE", "FINANCE_PRODUCERS", "HISTORICAL_INPUT", "POLICIES_REVIEWERS"],
+      "setup": [
+        "Approved currency exponent/bounds/canonicalization/time rules",
+        "Authorized historical or absence-approved labeled representative valid and invalid precision/mixed-currency/quote rows"
+      ],
+      "steps": [
+        "Preview exact decimal strings and immutable source quote/catalogue/policy refs",
+        "Reject malformed/exponent/overflow/unknown currency/sign/precision under accepted policy",
+        "Import valid rows and compare per-currency posted components to original exact snapshots"
+      ],
+      "expected": [
+        "Canonical integer minor-unit strings without binary float or guessed exchange/rounding",
+        "Unsupported or ambiguous input cannot create postings",
+        "Historical quotes/prices stay immutable under current catalogue changes"
+      ],
+      "requiredEvidence": [
+        "Actual parser/mapping/version and row disposition receipts",
+        "Real DB posted components and original-source comparison",
+        "Currency/quote negative case results"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-MAP02",
+      "title": "Quarantine demo paid, proof images, ambiguous status and untrusted money",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_IMPORT_HTTP_DB",
+      "blockedBy": ["FINANCE_PRODUCERS", "HISTORICAL_INPUT", "POLICIES_REVIEWERS"],
+      "setup": [
+        "Authorized historical or absence-approved labeled representative rows, including demo/ambiguous/proof-only negative cases",
+        "Real source-backed verified collection and independent reviewer"
+      ],
+      "steps": [
+        "Preview and import mixed-trust inputs under current authority",
+        "Attempt to map demo paid/active flags or image-only proof into verified funds/benefits",
+        "Inspect authorized bounded rejection and established genuine-credit views"
+      ],
+      "expected": [
+        "Unverified inputs create no received credit, allocation or entitlement",
+        "Authentic own-merchant credit with allocation mismatch remains credit plus discrepancy",
+        "Quarantine and original provenance remain durable and visible without raw data disclosure"
+      ],
+      "requiredEvidence": [
+        "Source evidence classification and rejected row history",
+        "Actual no-effect DB/HTTP results",
+        "Independent credit-versus-allocation reconciliation"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-MAP03",
+      "title": "Deduplicate economic facts across exports, batches, mapping versions and row order",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_IMPORT_DB_CONCURRENCY",
+      "blockedBy": ["FINANCE_PRODUCERS", "HISTORICAL_INPUT", "STAGING_ALLOCATION"],
+      "setup": [
+        "Approved stable source/economic identity and canonical semantic fingerprint",
+        "Same economic rows in two distinct exports/batches/orders plus changed-meaning conflicts"
+      ],
+      "steps": [
+        "Run original import and same-key retry, then new-key/new-export reordered import",
+        "Change file digest/mapping revision without changing accepted meaning",
+        "Submit altered economic meaning under same permanent identity and race two import workers"
+      ],
+      "expected": [
+        "One permanent admitted economic effect despite run/file/mapping/actor retry key changes",
+        "Original terminal counts/history immutable; new export reports ALREADY_IMPORTED separately",
+        "Changed meaning conflicts, no overwrite/new identity escape; DB uniqueness settles races"
+      ],
+      "requiredEvidence": [
+        "Real DB unique-constraint/race results",
+        "Original/new run receipts and immutable posting/benefit refs",
+        "Semantic conflict and linked-correction review records"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-MAP04",
+      "title": "Require balanced source-backed openings, genuine references and separate custody dimensions",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_IMPORT_RECONCILIATION",
+      "blockedBy": [
+        "FINANCE_PRODUCERS",
+        "HISTORICAL_INPUT",
+        "POLICIES_REVIEWERS",
+        "REAL_CONSUMERS"
+      ],
+      "setup": [
+        "Independent approved opening balances/source cut and expected per-currency partitions",
+        "Merged real Billing/Wallet/Subscription/C reference providers"
+      ],
+      "steps": [
+        "Import valid postings/collections/allocations/custody/eligible benefit history",
+        "Import missing/foreign/orphan/unavailable references and unapproved legacy balances",
+        "Compare real owner effects with independent source expectation"
+      ],
+      "expected": [
+        "Billing balanced immutable per-currency postings; no unexplained balancing plug",
+        "Wallet backed by actual eligible Billing refs; benefits require actual eligible allocation",
+        "Collection, holder custody, handover and treasury separate; ambiguous refs quarantined"
+      ],
+      "requiredEvidence": [
+        "Opening-balance approval and actual posting/custody lineage",
+        "Real owner reference HTTP decisions and denial cases",
+        "Independent totals and unresolved discrepancy report"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-IMP01",
+      "title": "Dry-run counts, plan digest and bounded rejection reports reflect actual source rows",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_IMPORT_PREVIEW_HTTP_DB",
+      "blockedBy": ["FINANCE_PRODUCERS", "HISTORICAL_INPUT", "POLICIES_REVIEWERS"],
+      "setup": [
+        "Actual authorized manifest with E-approved canonical hash excluding its digest member",
+        "Mixed valid/rejected/quarantined/conflict rows and approved bounded page/count limits"
+      ],
+      "steps": [
+        "Preview without financial effects and retain versioned plan/status receipt",
+        "Check row dispositions count each row once and economic components separately",
+        "Alter bytes/mapping/policy/owner revision after preview and attempt execution"
+      ],
+      "expected": [
+        "Preview creates no money/benefits/provider operations; actual counts independently verified",
+        "Changed inputs require conflict/re-preview and current execution approval",
+        "Reports preserve safe reasons/coverage, no raw proof/secrets/foreign details"
+      ],
+      "requiredEvidence": [
+        "Actual preview plan/digest/count and no-effect proof",
+        "Changed-input execution rejection/current grant results",
+        "Bounded redacted report and row-count reconciliation"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-IMP02",
+      "title": "Repeat import with stable original receipt, references and immutable posted/benefit history",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_STAGING_IMPORT",
+      "blockedBy": ["ENTRY_BASE", "FINANCE_PRODUCERS", "HISTORICAL_INPUT", "STAGING_ALLOCATION"],
+      "setup": [
+        "Admitted authorized historical input, or DATA02 verified-absence approved labeled fixture input, and accepted populated destination",
+        "Actual receiving-service migration/runtime identities"
+      ],
+      "steps": [
+        "Import and retain final original counts/refs/posting/history/benefit snapshots",
+        "Repeat unchanged run after timeout/restart and replay-cache expiry",
+        "Repeat against additional authorized export and compare aggregate unique effects"
+      ],
+      "expected": [
+        "Same terminal command returns original stable receipt under current authorization",
+        "Pending retry preserves run identity; progress is separate versioned status",
+        "No duplicated obligations/credits/custody/benefits or changed posted history"
+      ],
+      "requiredEvidence": [
+        "Real repeated staging command/results and immutable DB snapshots",
+        "Original terminal receipt and new status/export receipts",
+        "Independent unique-effect and reference reconciliation"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-IMP03",
+      "title": "Resume partial owner imports through commit, publication and ACK crashes",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_DB_BROKER_PROCESS",
+      "blockedBy": ["FINANCE_PRODUCERS", "STAGING_ALLOCATION"],
+      "setup": [
+        "Allocated actual owner DB/broker/process fault boundaries",
+        "Accepted durable uniqueness/lineage/audit/outbox/inbox implementations"
+      ],
+      "steps": [
+        "Crash before/after effect transaction commit and before/after publish/ACK",
+        "Resume original run with preserved execution/business identities",
+        "Observe dependent Wallet/Subscription consumer recovery through real merged providers"
+      ],
+      "expected": [
+        "Effect, lineage, receipt, audit and outbox atomic within owning DB",
+        "Counts derive durable receipts; no optimistic success or distributed transaction fiction",
+        "Inbox effect/hash/checkpoint before ACK; partial cross-owner run stays partial"
+      ],
+      "requiredEvidence": [
+        "Actual fault/PID/time/DB transaction/broker receipts",
+        "Restart/status and dedup lineage results",
+        "Real dependent owner reconciliation and remaining gaps"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-IMP04",
+      "title": "Enforce concurrent execution fences, stale previews and current grants",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_IMPORT_HTTP_DB_RACE",
+      "blockedBy": ["FINANCE_PRODUCERS", "STAGING_ALLOCATION", "POLICIES_REVIEWERS"],
+      "setup": [
+        "Actual approved migrator/service/operator grant and execution revision/fence",
+        "Two allocated competing processes and authority unavailable/revoked variants"
+      ],
+      "steps": [
+        "Race same economic effect with different requests and stale preview",
+        "Revoke/expire authority or change approved source/policy before admission/finalization",
+        "Retry/recover under own current bounded grant and test surviving stale claim"
+      ],
+      "expected": [
+        "Exactly one effect under durable DB uniqueness and accepted fences",
+        "Critical authority absence fails closed without erasing a previously committed fact",
+        "No stale preview/worker or broad service identity can bypass owner/purpose constraints"
+      ],
+      "requiredEvidence": [
+        "Real concurrent HTTP/DB/fence and authority decision results",
+        "Committed-effect versus rejected admission receipts",
+        "Same-key/revoked/changed-payload safe replay evidence"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-IMP05",
+      "title": "Upgrade clean and populated stores without resetting immutable history or privileges",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_OWNER_MIGRATION_UPGRADE",
+      "blockedBy": ["FINANCE_PRODUCERS", "STAGING_ALLOCATION", "POLICIES_REVIEWERS"],
+      "setup": [
+        "Accepted prior populated source/image/schema and actual owner migration identity",
+        "Candidate append-only migrations and E-owned reprovision/recovery profile"
+      ],
+      "steps": [
+        "Run clean deployment and accepted populated schema upgrade in isolated owner DB",
+        "Re-run E role provisioning and attempt runtime mutation/deletion of posted history",
+        "Exercise approved forward/rollback compatibility procedure and replay existing identities"
+      ],
+      "expected": [
+        "Source rows/postings/lineage/uniqueness/receipts preserved without db push/reset",
+        "Runtime UPDATE/DELETE cannot defeat posted-journal immutability after reprovision",
+        "Prior/candidate workers/config/images meet accepted compatibility; no guessed rollback"
+      ],
+      "requiredEvidence": [
+        "Actual migration IDs/order/DB constraints and upgrade receipts",
+        "Runtime privilege negative results after real reprovision",
+        "Compatible recovery/image/source and immutable snapshot comparison"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-IMP06",
+      "title": "Protect foreign rows, raw exports, replay and rejected details under current ownership",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_HTTP_PRIVATE_ACCESS",
+      "blockedBy": [
+        "FINANCE_PRODUCERS",
+        "HISTORICAL_INPUT",
+        "STAGING_ALLOCATION",
+        "REAL_CONSUMERS"
+      ],
+      "setup": [
+        "Own and foreign customer/tenant/source evidence with real Identity/object grants",
+        "Bounded migrator/reviewer fieldsets/cursors plus invalid payload/oversize variants"
+      ],
+      "steps": [
+        "Attempt preview/execute/status/replay/report/export as own, foreign and revoked actors",
+        "Attempt privilege substitution, unsupported fields/versions, unbounded pages and cross-owner SQL access",
+        "Restore copies then test current revocation/privacy before disclosure"
+      ],
+      "expected": [
+        "Foreign/private details inaccessible and rejection codes do not leak contents",
+        "Every sensitive read/replay/execute checks current actor/object/purpose authority",
+        "Receiving owner identity has no peer DB privilege; protected original bytes retained lawfully"
+      ],
+      "requiredEvidence": [
+        "Actual HTTP denial and bounded-input results",
+        "Current Identity/object/privacy decision receipts",
+        "Protected artifact access/retention and own-versus-foreign evidence"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-PROV01",
+      "title": "Connect each required provider only through genuine authorized non-money merchant path",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "GENUINE_PROVIDER_NON_MONEY",
+      "blockedBy": [
+        "ENTRY_BASE",
+        "FINANCE_PRODUCERS",
+        "PROVIDER_INPUT",
+        "STAGING_ALLOCATION",
+        "POLICIES_REVIEWERS"
+      ],
+      "setup": [
+        "Per-required-route genuine provider-issued protocol/version/merchant/environment receipt",
+        "E secret/network/config allocation and explicit supported non-money authorization"
+      ],
+      "steps": [
+        "Validate merchant entitlement/environment/isolation and documented native operation path",
+        "Run actual authorized connectivity/verification using retained exact source/images",
+        "Record unavailable accounts/capabilities/Paymera scope as explicit blockers"
+      ],
+      "expected": [
+        "Genuine merchant/environment evidence, no local sandbox-flag or adapter fixture substitution",
+        "No live funds/refunds or extra fourth method/cash-only downgrade",
+        "Every required route has genuine evidence or keeps full launch NO_GO"
+      ],
+      "requiredEvidence": [
+        "Protected protocol/admissibility/config receipts",
+        "Real native operation/result and redacted environment/source evidence",
+        "Per-route capability/blocked-scope register"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-PROV02",
+      "title": "Verify genuine credit and callbacks independently of allocation, duplication and proof upload",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "GENUINE_PROVIDER_HTTP_CALLBACK",
+      "blockedBy": ["FINANCE_PRODUCERS", "PROVIDER_INPUT", "STAGING_ALLOCATION", "REAL_CONSUMERS"],
+      "setup": [
+        "Actual documented callback/auth/raw-byte/replay protocol or separately approved independent route",
+        "Genuine native merchant transactions and allowed duplicate/reorder/adversarial test variants"
+      ],
+      "steps": [
+        "Verify authenticated merchant/native identity, direction and exact amount/currency",
+        "Deliver duplicate/reordered/forged/wrong-merchant callbacks and conflicting native-ID observations",
+        "Observe authentic own-merchant credit whose proposed amount/reference allocation mismatches"
+      ],
+      "expected": [
+        "Unauthenticated/wrong-merchant source establishes no own-merchant credit",
+        "Authentic received credit retained with unresolved discrepancy; false allocation rejected",
+        "One financial effect per permanent native identity; private proof/current C capacity remain independent"
+      ],
+      "requiredEvidence": [
+        "Real raw-byte/auth decision and protected native evidence digests",
+        "Actual Billing credit/allocation/dedup/conflict outcomes",
+        "Independent reviewer/current authority and late-capacity denial results"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-PROV03",
+      "title": "Resolve real non-money partial/full refunds and unknown submissions using original operation",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "GENUINE_PROVIDER_REFUND_RECOVERY",
+      "blockedBy": [
+        "FINANCE_PRODUCERS",
+        "PROVIDER_INPUT",
+        "STAGING_ALLOCATION",
+        "POLICIES_REVIEWERS"
+      ],
+      "setup": [
+        "Documented authorized non-money refund/status/idempotency/finality path",
+        "Real eligible original capture/purchase allocation and disjoint reserved exposure"
+      ],
+      "steps": [
+        "Rehearse approved partial/full refund including timeout/crash/lost reply",
+        "Query/reconcile original merchant refund operation before any possible-money retry",
+        "Retry concurrently, expire TTL, revoke initiator and restore older owner snapshot"
+      ],
+      "expected": [
+        "Original ID/fingerprint retained; new key cannot resolve unknown or bypass cap",
+        "Confirmed plus disjoint reserved/inflight/UNKNOWN stay within original capture and aggregate purchase caps per currency",
+        "Subscription eligibility fence precedes return; no automatic benefit/coupon restoration"
+      ],
+      "requiredEvidence": [
+        "Genuine original operation/status/refund evidence and current grants",
+        "Real cap/uniqueness and fenced-noncommit or retained-UNKNOWN receipts",
+        "Source-bound crash/restore/cumulative exposure results"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-PROV04",
+      "title": "Retain genuine evidence and eligible independent review for every required route",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "GENUINE_PROVIDER_REVIEW_PRIVACY",
+      "blockedBy": ["PROVIDER_INPUT", "POLICIES_REVIEWERS", "STAGING_ALLOCATION", "REAL_CONSUMERS"],
+      "setup": [
+        "Actual named provider/finance/independent reviewers and approved retention/access policy",
+        "Protected genuine merchant/statement artifacts and real C private-object providers"
+      ],
+      "steps": [
+        "Apply documented independent-review route if approved and keep separately required integration open",
+        "Read/download/redact evidence as approved, foreign, revoked and same-login approval variants",
+        "Verify retention/hold/disposal and per-route W10 receipt binding"
+      ],
+      "expected": [
+        "Customer proof or self/same-login review never supplies independent provider acceptance",
+        "Manual route does not silently replace required automated protocol",
+        "Protected evidence retained with lawful lineage; bounded reports contain no secrets/raw proofs/signed URLs"
+      ],
+      "requiredEvidence": [
+        "Actual named eligible review/current object-grant receipts",
+        "Real own/foreign/revoked private access results",
+        "Retained evidence hash/coverage/retention and unresolved requirement register"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-RST01",
+      "title": "Restore agreed owner cuts and reconcile independent money, liabilities, holds, units and custody",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_STAGING_RESTORE_RECONCILIATION",
+      "blockedBy": [
+        "FINANCE_PRODUCERS",
+        "HISTORICAL_INPUT",
+        "PROVIDER_INPUT",
+        "STAGING_ALLOCATION",
+        "POLICIES_REVIEWERS"
+      ],
+      "setup": [
+        "E accepted snapshot/event-watermark/consistent-cut or convergence manifest",
+        "Actual pre-fault owner/source oracle derived independently from authorized historical input or verified-absence approved representative data, preserving classification"
+      ],
+      "steps": [
+        "Capture exact pre-fault partitions/gaps/original pending operations under current access",
+        "E backs up/restores allocated owned stores using retained compatible source/images/config",
+        "Compare actual pre/post postings/liabilities/holds/benefits/coupons/custody and repeat restore"
+      ],
+      "expected": [
+        "Independent per-currency/unit expectations not copied from restored candidate output",
+        "Owner cuts/gaps truthful without invented global transaction or zero missing partitions",
+        "Balanced immutable history, stable economic refs and discrepancies visible after repetition"
+      ],
+      "requiredEvidence": [
+        "Actual snapshot object/digest/source/image/config/migration and E execution receipt",
+        "Independent pre-fault oracle and actual restored per-partition results",
+        "Repeated restore/import and unresolved gap/operation comparison"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-RST02",
+      "title": "Invalidate surviving pre-restore workers despite repeated labels/counters and apply current privacy",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_DB_PROCESS_IDENTITY_RESTORE",
+      "blockedBy": [
+        "FINANCE_PRODUCERS",
+        "STAGING_ALLOCATION",
+        "POLICIES_REVIEWERS",
+        "REAL_CONSUMERS"
+      ],
+      "setup": [
+        "Accepted fresh restore incarnation authority outside rolled-back claim state",
+        "Actual surviving old worker and later revoked sessions/object suppression"
+      ],
+      "steps": [
+        "Restore prior lease/counter state and reuse worker label/counter",
+        "Install fresh incarnation before current recovery workers resume and attempt old-worker finalization",
+        "Apply current revocation/privacy before baseline disclosure and again after restore/replay"
+      ],
+      "expected": [
+        "Old claim cannot finalize even with repeated restored values; process kill alone insufficient",
+        "Original business/provider/event identities remain unchanged",
+        "Restored sessions/caches/private copies cannot resurrect access; authority unavailable fails closed"
+      ],
+      "requiredEvidence": [
+        "Actual DB/process interleaving and fresh-incarnation rejection proof",
+        "Current Identity/object/privacy decisions on restored copies",
+        "Stable economic identity and no unauthorized disclosure results"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-RST03",
+      "title": "Replay post-restore callbacks and real inbox/outbox without stranded final attempts or false coverage",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_BROKER_PROVIDER_RESTORE",
+      "blockedBy": ["FINANCE_PRODUCERS", "PROVIDER_INPUT", "STAGING_ALLOCATION"],
+      "setup": [
+        "Owner-reviewed W08 final-attempt/fencing/publisher repairs with real DB/broker evidence",
+        "Actual pending/dead/uncertain deliveries, hash/version conflicts and provider observations"
+      ],
+      "steps": [
+        "Restore leases/inbox/outbox/checkpoints and replay genuine callback duplicate/reorder",
+        "Crash final-attempt worker and repeat long-lived publish/subscribe lifecycles",
+        "Replay hash conflict/unsupported version/source gap and bounded authorized resync"
+      ],
+      "expected": [
+        "One effect with actual inbox hash/effect/checkpoint before ACK and permanent economic dedup",
+        "No unleaseable exhausted row, stale finalization or accumulating publisher listeners accepted",
+        "Conflicts/gaps quarantine; projection catch-up cannot issue new money command or claim complete coverage"
+      ],
+      "requiredEvidence": [
+        "Actual repaired-source refs and real DB/broker/fault/lifecycle results",
+        "Post-restore genuine callback and owner effect receipts",
+        "Gap/hash/version/redacted delivery and dedup comparison"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-RST04",
+      "title": "Preserve unknown refunds and Wallet/benefit/coupon claims until authoritative resolution",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_FINANCE_PROVIDER_RESTORE",
+      "blockedBy": [
+        "FINANCE_PRODUCERS",
+        "PROVIDER_INPUT",
+        "STAGING_ALLOCATION",
+        "POLICIES_REVIEWERS"
+      ],
+      "setup": [
+        "Actual Billing committed-but-reply-lost operation, Wallet claim and eligible benefit/coupon reservations",
+        "Genuine refund pending status and original-operation inquiry path"
+      ],
+      "steps": [
+        "Restore older snapshot while original external operation may already have completed",
+        "Expire TTL/lease, revoke initiator and make query/current authority unavailable",
+        "Resolve using original eligible Billing/provider evidence or definitive fenced noncommit"
+      ],
+      "expected": [
+        "UNKNOWN stays excluded from available Wallet/refund/benefit/coupon headroom after TTL/restore",
+        "Original posted effect recovered once; no empty/fabricated Billing refs or restored-history deletion",
+        "Release requires no-late-commit fence/current bounded recovery grant; unavailable inquiry keeps uncertainty"
+      ],
+      "requiredEvidence": [
+        "Real before/after claim and cumulative exposure snapshots",
+        "Original external/Billing inquiry/effect and current grant/fence receipts",
+        "Lost-reply/expiry/revocation/restore no-double-effect results"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-APP01",
+      "title": "Reconcile all three actual applications with real finance/custody and current C capacity/work facts",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_SERIALIZED_THREE_APP",
+      "blockedBy": [
+        "FINANCE_PRODUCERS",
+        "PROVIDER_INPUT",
+        "STAGING_ALLOCATION",
+        "REAL_CONSUMERS",
+        "POLICIES_REVIEWERS"
+      ],
+      "setup": [
+        "Merged actual A/C/D applications and B/E/C public providers",
+        "Independent current customer/guest/operator/admin sessions with real owned/foreign resources"
+      ],
+      "steps": [
+        "Run complete affected customer/operator/admin finance journeys after repeated import/restore",
+        "Compare receipts, allocation, Wallet backing, benefits, cash collection/holder/handover/company settlement and pending views",
+        "Test late credit against expired C capacity plus foreign/revoked/private-proof access"
+      ],
+      "expected": [
+        "All three views reconcile to authoritative owner records with honest as-of/gaps",
+        "Payment/work/custody/settlement independent; late payment cannot recreate capacity or assignment",
+        "Approved design/guest/optional-plate preserved; unauthorized foreign data inaccessible before consumer merge"
+      ],
+      "requiredEvidence": [
+        "Actual serialized browser/HTTP/owner reconciliation source-bound receipts",
+        "Real current C capacity and cash-custody partition results",
+        "Approved-reference/interaction/private-access evidence and consumer gate disposition"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-OPS01",
+      "title": "Expose audited bounded recovery, measured limits and actual named finance reviewers",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_STAGING_OPERATIONS",
+      "blockedBy": [
+        "FINANCE_PRODUCERS",
+        "STAGING_ALLOCATION",
+        "POLICIES_REVIEWERS",
+        "PROVIDER_INPUT"
+      ],
+      "setup": [
+        "Accepted real commands, quantitative loss/time/load/alert/retention/abort budgets",
+        "Actual named current finance/provider/independent/on-call reviewers/operators"
+      ],
+      "steps": [
+        "Exercise only bounded currently authorized repair/inquiry actions and retain audit",
+        "Measure backup age/coverage/recovery timing/loss/gaps/pending-operation age and resource headroom",
+        "Trigger approved discrepancy/uncertainty alert and record named response/retained W10 evidence"
+      ],
+      "expected": [
+        "No generic paid/balance override, invented SLA, raw secret/proof or journal deletion",
+        "Actual timing compared only to accepted budgets; unavailable finality remains explicit limit",
+        "Named eligible review required; titles or same-login agents do not supply approval"
+      ],
+      "requiredEvidence": [
+        "Real command/current grant/audit and measured recovery receipts",
+        "Actual alert/operator response and accepted-budget comparison",
+        "Named independent review and sanitized W10 packet"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    },
+    {
+      "id": "W09-B-REL01",
+      "title": "Bind W09 disposition to combined source and resulting target without bypassing launch blockers",
+      "required": true,
+      "status": "NOT_RUN",
+      "disposition": "BLOCKED",
+      "evidenceLayer": "REAL_RELEASE_BARRIER",
+      "blockedBy": [
+        "ENTRY_BASE",
+        "FINANCE_PRODUCERS",
+        "HISTORICAL_INPUT",
+        "PROVIDER_INPUT",
+        "STAGING_ALLOCATION",
+        "POLICIES_REVIEWERS",
+        "REAL_CONSUMERS"
+      ],
+      "setup": [
+        "All preceding genuine task evidence and actual named independent approval",
+        "E latest-target/head candidate plus retained compatible exact artifacts"
+      ],
+      "steps": [
+        "Run every mandatory and affected integrated gate on combined candidate and check unchanged refs",
+        "Reconcile required provider status, genuine history or verified-absence fixture branch, restore/three-app results and outstanding operations",
+        "E uses only authorized merge process, checks actual resulting target before publishing next base"
+      ],
+      "expected": [
+        "Head CI or fixture cannot close different target/staging/historical/provider acceptance",
+        "Any missing required capability/case/evidence keeps parent unaccepted and full launch NO_GO",
+        "No cash-only downgrade, auto-merge, live-money/production write or automatic W10 execution"
+      ],
+      "requiredEvidence": [
+        "Exact candidate/resulting-target SHAs/trees/checks and unchanged-ref receipts",
+        "Genuine case/provider/reviewer disposition and retained artifact hashes",
+        "Outstanding blocker/operation/limit and next-base decision"
+      ],
+      "actual": {
+        "sourceSha": null,
+        "treeSha": null,
+        "environmentRef": null,
+        "commands": null,
+        "results": null,
+        "artifactRefs": null,
+        "reviewerIdentity": null,
+        "inputClassification": null,
+        "inputDecisionRef": null
+      }
+    }
+  ],
+  "inputBranch": {
+    "status": "NOT_SELECTED",
+    "actualClassification": null,
+    "actualDecisionRef": null,
+    "allowed": ["AUTHORIZED_HISTORICAL", "VERIFIED_ABSENCE_WITH_APPROVED_REPRESENTATIVE_FIXTURE"],
+    "rules": [
+      "Data-dependent setup descriptions require authorized historical bytes or genuinely verified absence plus explicitly approved distinct fixture bytes",
+      "Every actual result retains classification, decision and coverage; fixture rehearsal does not establish historical migration",
+      "Required staging DB/HTTP/broker/provider/restore/application tests still run on real implementations; input fixtures cannot substitute for runtime providers",
+      "DATA01 validates the chosen authorized input bytes/provenance; DATA02 establishes any absence/fixture decision; no historical work is marked skipped-success"
+    ]
+  }
+}

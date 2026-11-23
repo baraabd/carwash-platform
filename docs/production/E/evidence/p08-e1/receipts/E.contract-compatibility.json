@@ -1,0 +1,22 @@
+{
+  "schema": "carwash.release-receipt/v1",
+  "family": "E.contract-compatibility",
+  "status": "PASSED",
+  "rc": {
+    "sha": "3e1ab23bff450235858ea13e049f8fb373df393f",
+    "tree": "53edea7ff5348c969408e9fd3ee23569b06a9f94"
+  },
+  "producedAt": "2026-10-10T22:16:24.853Z",
+  "producer": {
+    "actor": "lane-e-p08",
+    "tool": "release-receipt.mjs"
+  },
+  "configDigest": "sha256:a9f310a7ca42d76a8367c754028316e96307ba116b1465437d7e1ea786f64870",
+  "command": "node --test tests/production/E/contract-compatibility.test.mjs",
+  "evidence": [
+    {
+      "path": "release/evidence/E.contract-compatibility-2026-10-10T22-16-24-853Z.log",
+      "sha256": "sha256:c8aae36cdb6b9333dcdc26cf478059aa9ddb3aa36405126cdd1287b65a9ccc40"
+    }
+  ]
+}

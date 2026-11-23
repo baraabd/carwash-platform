@@ -1,0 +1,759 @@
+{
+  "schemaVersion": 1,
+  "task": "W07-B",
+  "kind": "DECLARATIVE_FUTURE_ACCEPTANCE_NOT_EXECUTABLE",
+  "parentStatus": "NOT_STARTED",
+  "sourceObservation": "../../../../docs/parallel/B/W07/source-observation.json",
+  "scopeMatrix": "../../../../docs/parallel/B/W07/FINANCE_SCOPE_MATRIX.md",
+  "acceptedBaseW07": null,
+  "observedProposalParent": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+  "resultSummary": {
+    "executed": 0,
+    "passed": 0,
+    "notRun": 45,
+    "mockedBusinessRuns": 0
+  },
+  "predecessorObligations": {
+    "path": "../W06/acceptance-specifications.json",
+    "allRemainRequired": true,
+    "acceptedByProposalMerge": false,
+    "note": "Required W04/W05 cash/provider recovery and W06 Wallet/Subscription/privacy acceptance are prerequisites; this packet does not replace or claim their execution."
+  },
+  "fullLaunchRule": "Every required function must have traceable real acceptance or accountable full-launch blocker. No silently optional provider, subscription feature or report. Conditional D01..D04 need authoritative inventory decisions before implementation and measurement.",
+  "cases": [
+    {
+      "id": "W07B-01",
+      "name": "catalog-authorization",
+      "scopeIds": ["F01"],
+      "owners": ["Catalog", "Identity", "D"],
+      "environment": "REAL_DB_HTTP",
+      "stimulus": "Publish incompatible or unauthorized service/add-on definitions and retry a valid CAS update.",
+      "requiredAssertions": "Owner validation rejects invalid combinations; stale revisions conflict; history/audit/outbox retain only the valid transition.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-02",
+      "name": "quote-money",
+      "scopeIds": ["F02", "F03"],
+      "owners": ["Pricing", "Catalog", "A", "C"],
+      "environment": "REAL_DB_HTTP",
+      "stimulus": "Request approved vehicle/package/add-on combinations including included duplicate extras and currency boundaries.",
+      "requiredAssertions": "Server totals/discount/fees/taxes/duration follow approved versioned policy; no floating rounding, unapproved currency or duplicate charge; copied browser total has no authority.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-03",
+      "name": "quote-expiry-retirement",
+      "scopeIds": ["F04"],
+      "owners": ["Pricing", "Booking", "A"],
+      "environment": "REAL_DB_HTTP",
+      "stimulus": "Admit an old quote, publish/retire prices, cross exact effective and expiry boundaries and retry.",
+      "requiredAssertions": "Historical snapshots remain immutable; admission and retirement behavior matches approved policy; only newly eligible quotes use current prices; expired quotes cannot create a new operation.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-04",
+      "name": "price-final-publication-race",
+      "scopeIds": ["F05"],
+      "owners": ["Pricing", "Identity", "D"],
+      "environment": "REAL_DB_HTTP",
+      "stimulus": "Race two independent admin sessions to publish conflicting versions from the same expected revision.",
+      "requiredAssertions": "One permitted publication wins or the accepted overlap policy applies transactionally; losing command returns conflict; replay returns durable result; no overlapping eligible prices.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-05",
+      "name": "price-forbidden-current-role",
+      "scopeIds": ["F05"],
+      "owners": ["Pricing", "Identity", "D"],
+      "environment": "REAL_DB_HTTP",
+      "stimulus": "Attempt create/review/publish/retire without the exact grant, after revocation and across tenant/object scope.",
+      "requiredAssertions": "Current owner authorization rejects every prohibited command and unauthorized historical read; audit records allowed/denied policy evidence without sensitive payload leakage.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-06",
+      "name": "price-effective-boundaries",
+      "scopeIds": ["F05", "F04"],
+      "owners": ["Pricing", "D", "A"],
+      "environment": "REAL_DB_HTTP_BROWSER",
+      "stimulus": "Use real D create/review/publish/retire actions around start/end instants then fetch A quotes and old bookings.",
+      "requiredAssertions": "Approved UTC boundary semantics, CAS and separation-of-duty policy hold; only new eligible quotes change; old receipts/bookings remain byte-equivalent in their immutable financial fields.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-07",
+      "name": "promotion-windows-applicability",
+      "scopeIds": ["F06"],
+      "owners": ["Pricing", "Catalog", "A"],
+      "environment": "REAL_DB_HTTP",
+      "stimulus": "Exercise exact start/end, excluded service/add-on/region/vehicle, retired version and unauthorized coupon access.",
+      "requiredAssertions": "Pricing uses approved applicability/window policy and server clock; invalid or unavailable promotion is refused without consuming budget.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-08",
+      "name": "promotion-stack-benefit-order",
+      "scopeIds": ["F07", "F28"],
+      "owners": ["Pricing", "Subscription", "Booking", "A"],
+      "environment": "REAL_DB_BROKER_HTTP",
+      "stimulus": "Combine two promotions and entitlement coverage including equal-precedence choices and a policy-disallowed mix.",
+      "requiredAssertions": "Accepted deterministic precedence/allocation is recorded in one immutable quote; disallowed combinations reject; entitlement funding is not subtracted twice and refund basis remains reconcilable.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-09",
+      "name": "coupon-last-redemption-race",
+      "scopeIds": ["F08"],
+      "owners": ["Pricing", "Booking"],
+      "environment": "REAL_DB_MULTI_PROCESS",
+      "stimulus": "Synchronize separate DB connections reserving the final global coupon use.",
+      "requiredAssertions": "Real transactional counters/constraints admit at most the remaining count; losers have no durable benefit; commit/release retries preserve counts and event identity.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-10",
+      "name": "coupon-budget-race",
+      "scopeIds": ["F08"],
+      "owners": ["Pricing"],
+      "environment": "REAL_DB_MULTI_PROCESS",
+      "stimulus": "Race distinct commands against the remaining approved money budget and customer cap.",
+      "requiredAssertions": "Reserved plus committed exposure never exceeds each limit; canonical discount reservation is bound to quote; no negative counter or stale-read overspend.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-11",
+      "name": "coupon-unknown-expiry",
+      "scopeIds": ["F08", "F10"],
+      "owners": ["Pricing", "Booking", "Billing"],
+      "environment": "REAL_DB_CRASH_BROKER",
+      "stimulus": "Pause commit after durable claim, lose response, let lease/quote TTL expire and deliver stale release.",
+      "requiredAssertions": "UNKNOWN claimed exposure remains unavailable; expiry does not restore capacity; fence prevents a late commit after definitive noncommit release; recovery finds one terminal effect.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-12",
+      "name": "guest-limit-ownership",
+      "scopeIds": ["F09"],
+      "owners": ["Identity", "Pricing", "Customer", "A"],
+      "environment": "REAL_DB_HTTP",
+      "stimulus": "Repeat redemptions from authorized guest contexts and replay/cross-use another guest beneficiary after conversion or token expiry.",
+      "requiredAssertions": "Accepted guest identity/window/linking policy limits each authoritative beneficiary; browser/device identifiers cannot create extra uses; object-level authorization and privacy minimize identifiers.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-13",
+      "name": "promotion-cancel-restoration-race",
+      "scopeIds": ["F10"],
+      "owners": ["Pricing", "Billing", "Subscription", "Booking"],
+      "environment": "REAL_DB_CRASH_BROKER",
+      "stimulus": "Race cancellation, committed redemption, refund status, duplicate restore with distinct keys and late workers.",
+      "requiredAssertions": "Only approved fenced restoration applies once by original redemption/correction identity; money refund, entitlement correction and coupon headroom remain independent; pending refund never restores capacity.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-14",
+      "name": "rebook-current-price",
+      "scopeIds": ["F11"],
+      "owners": ["Catalog", "Pricing", "Booking", "Scheduling", "A"],
+      "environment": "REAL_DB_HTTP_BROWSER",
+      "stimulus": "Rebook a completed booking after price/catalog/availability changes through the preserved customer flow.",
+      "requiredAssertions": "New authorized intent and current quote are required; changed price is visible before explicit confirmation; old quote/receipt unchanged; C independently revalidates capacity.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-15",
+      "name": "rebook-spent-resources",
+      "scopeIds": ["F11", "F23", "F28", "F08"],
+      "owners": ["Pricing", "Wallet", "Subscription", "Booking"],
+      "environment": "REAL_DB_BROKER_HTTP",
+      "stimulus": "Rebook using an expired quote, consumed entitlement, consumed Wallet hold or committed coupon reservation as old context.",
+      "requiredAssertions": "Old resources cannot implicitly authorize the new operation; new reservations validate current eligible balances/benefits/caps; no second spend or duplicated old discount.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-16",
+      "name": "rebook-compensation-no-capacity-resurrection",
+      "scopeIds": ["F12"],
+      "owners": ["Booking", "Scheduling", "Pricing", "Billing", "Wallet", "Subscription"],
+      "environment": "REAL_DB_CRASH_BROKER",
+      "stimulus": "Expire new capacity while a finance outcome is UNKNOWN, then deliver verified late payment.",
+      "requiredAssertions": "C retains closed capacity state, obtains authoritative same-operation outcome and routes explicit approved compensation; financial receipt cannot resurrect the booking.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-17",
+      "name": "ledger-runtime-immutability",
+      "scopeIds": ["F13"],
+      "owners": ["Billing", "E"],
+      "environment": "REAL_DB_UPGRADE_ROLES",
+      "stimulus": "Upgrade from accepted predecessor, test unbalanced/duplicate references, attempt runtime UPDATE/DELETE and rerun E provisioning.",
+      "requiredAssertions": "SQL rejects unbalanced/duplicate or unauthorized writes; posted history remains immutable after reprovisioning; approved corrections append linked balanced postings; no cross-owner DB access.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-18",
+      "name": "cash-three-facts",
+      "scopeIds": ["F14", "F15"],
+      "owners": ["Billing", "Wallet", "Booking", "C", "D"],
+      "environment": "REAL_DB_HTTP_BROWSER",
+      "stimulus": "Complete work, issue authorized cash receipt, then record custodian company handover with offline duplicate delivery.",
+      "requiredAssertions": "Work completion, customer money receipt and company settlement remain separate facts; one receipt and one linked custody movement; customer service value never becomes invented technician earnings.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-19",
+      "name": "cash-discrepancy-approval",
+      "scopeIds": ["F16"],
+      "owners": ["Billing", "Wallet", "Identity", "D"],
+      "environment": "REAL_DB_HTTP_BROWSER",
+      "stimulus": "Record amount mismatch and request audited disposition using stale/forbidden approvals and duplicate requests.",
+      "requiredAssertions": "Approved custody/discrepancy policy and current authority hold; discrepancy remains traceable; adjustments post once without editing original receipt or account balance.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-20",
+      "name": "provider-shamcash-genuine",
+      "scopeIds": ["F17", "F20"],
+      "owners": ["Billing", "Media", "Identity", "A", "D", "Provider"],
+      "environment": "REAL_PROVIDER_SANDBOX_THREE_APP",
+      "stimulus": "Run required accepted ShamCash route with genuine merchant/test references, proof access and signed/authorized verification.",
+      "requiredAssertions": "Validated recipient/reference/amount/currency/ownership and provider capability evidence precede payment confirmation; demo QR/proof image alone never closes acceptance; exactly-once durable reconciliation.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-21",
+      "name": "provider-syriatelcash-genuine",
+      "scopeIds": ["F18", "F20"],
+      "owners": ["Billing", "Media", "Identity", "A", "D", "Provider"],
+      "environment": "REAL_PROVIDER_SANDBOX_THREE_APP",
+      "stimulus": "Run required accepted SyriatelCash route including genuine failure/pending and retry evidence.",
+      "requiredAssertions": "Required approved verification and recipient/reference/amount/currency/ownership checks hold; no invented webhook or API capability; missing provider evidence remains full-launch blocker.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-22",
+      "name": "provider-paymera-decision",
+      "scopeIds": ["F19"],
+      "owners": ["BusinessOwner", "Billing", "Provider", "E"],
+      "environment": "OWNER_DECISION_AND_REAL_PROVIDER_EVIDENCE",
+      "stimulus": "Resolve B-02 required Paymera scope against approved inventory and genuine provider acceptance documentation.",
+      "requiredAssertions": "Accountable signed scope decision is recorded; if required, the genuine end-to-end route and failures pass; absence is neither silently omitted nor converted into a fourth UI method.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-23",
+      "name": "proof-current-object-authority",
+      "scopeIds": ["F20", "F34"],
+      "owners": ["Billing", "Media", "Identity", "D", "A"],
+      "environment": "REAL_DB_HTTP_BROWSER",
+      "stimulus": "Upload/read a private proof, revoke actor/session/object access, then attempt verification and export from another subject.",
+      "requiredAssertions": "Every later access and financial command revalidates current authority; no public media shortcut; proof is review evidence, never money receipt; exports redact foreign proofs.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-24",
+      "name": "refund-partial-cap-race",
+      "scopeIds": ["F21", "F29"],
+      "owners": ["Billing", "Subscription"],
+      "environment": "REAL_DB_MULTI_PROCESS",
+      "stimulus": "Race distinct partial/full refund keys against one verified allocation while entitlement consumption is attempted.",
+      "requiredAssertions": "Refund claims plus terminal refunds cannot exceed approved refundable amount; owner adjustment fence prevents benefit-use/refund double value; currency and original posting lineage match; losing request has no monetary effect.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-25",
+      "name": "refund-unknown-provider-response",
+      "scopeIds": ["F21"],
+      "owners": ["Billing", "Provider", "Wallet", "Subscription"],
+      "environment": "REAL_DB_CRASH_REAL_PROVIDER_SANDBOX",
+      "stimulus": "Crash after provider or Billing effect before reply, retry and deliver duplicate/out-of-order callbacks.",
+      "requiredAssertions": "Same business operation resolves original result once; pending/UNKNOWN reserve remains claimed; no repeated refund/credit/benefit restoration; provider noncommit proof fences late execution before release.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-26",
+      "name": "provider-settlement-discrepancy",
+      "scopeIds": ["F22", "F32"],
+      "owners": ["Billing", "Reporting", "D", "Provider"],
+      "environment": "REAL_DB_BROKER_PROVIDER_SANDBOX",
+      "stimulus": "Reconcile genuine provider settlement batches with missing/duplicate/mismatched records and reordered financial events.",
+      "requiredAssertions": "Original verification and settlement facts are distinct; mismatches remain actionable and linked; D can recompute source totals/revisions and sees explicit gaps rather than invented zero/complete counts.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-27",
+      "name": "wallet-holder-final-funds",
+      "scopeIds": ["F23"],
+      "owners": ["Wallet", "Billing", "Identity"],
+      "environment": "REAL_DB_MULTI_PROCESS_HTTP",
+      "stimulus": "Race approved holders reserving the final backed funds and attempt unsupported holder/purpose/funding route.",
+      "requiredAssertions": "Eligible available funds stay nonnegative and reconcile verified Billing references; forbidden ownership/purpose is rejected; no customer stored-value product is inferred from internal custody.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-28",
+      "name": "wallet-capture-claim-restart",
+      "scopeIds": ["F24"],
+      "owners": ["Wallet", "Billing", "Booking"],
+      "environment": "REAL_DB_CRASH_BROKER",
+      "stimulus": "Claim durable capture, commit Billing, lose reply, restart Wallet and expire local hold before original result lookup.",
+      "requiredAssertions": "Claimed funds stay unavailable throughout UNKNOWN; recovery links one original posting; stale lease/revocation cannot release exposure or allow a duplicate capture.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-29",
+      "name": "wallet-no-effect-release-contract",
+      "scopeIds": ["F24"],
+      "owners": ["Wallet", "Billing", "E"],
+      "environment": "REAL_DB_CONTRACT_HTTP",
+      "stimulus": "Try to release an unposted hold through historical wallet.hold-resolve.v1, then use the separately accepted no-effect release protocol.",
+      "requiredAssertions": "Existing required nonempty posting IDs remain strict; no fake posting is created; only new accepted terminal-authority/fence contract can release definitively unused funds.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-30",
+      "name": "wallet-refund-route-once",
+      "scopeIds": ["F25", "F21"],
+      "owners": ["Wallet", "Billing", "Identity"],
+      "environment": "REAL_DB_CRASH_HTTP",
+      "stimulus": "Request refund to approved and unapproved holders/purposes, lose Wallet-credit response and retry with new keys.",
+      "requiredAssertions": "Approved destination ownership/policy and exact original-refund lineage hold; one credit per Billing refund posting; no second ledger or alternate destination credited on retry.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-31",
+      "name": "subscription-plan-activation",
+      "scopeIds": ["F26"],
+      "owners": ["Subscription", "Billing", "Pricing", "Identity", "D", "A"],
+      "environment": "REAL_DB_HTTP_BROWSER",
+      "stimulus": "Create approved customer plan versions, verify activation allocation and retry pending/rejected payment.",
+      "requiredAssertions": "Only verified eligible Billing allocation activates one term; published plan benefits/price snapshot persist; illustrative plan rates are never accepted commercial inputs.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-32",
+      "name": "subscription-renewal-isolation",
+      "scopeIds": ["F27"],
+      "owners": ["Subscription", "Billing", "A"],
+      "environment": "REAL_DB_CRASH_HTTP",
+      "stimulus": "Lose renewal reply, fail payment or deliver duplicates while a prior valid term exists.",
+      "requiredAssertions": "Renewal attempt and prior term remain distinct; original accepted activation occurs once; no auto recurring debit or booking implied; expiry boundary follows approved policy.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-33",
+      "name": "subscription-final-unit-race",
+      "scopeIds": ["F28"],
+      "owners": ["Subscription", "Booking"],
+      "environment": "REAL_DB_MULTI_PROCESS",
+      "stimulus": "Race final-unit reserve, consume, release and expiry with late workers across separate transactions.",
+      "requiredAssertions": "One approved terminal effect wins per stable reservation; no double consume/negative remaining unit; consumed history never becomes a release and UNKNOWN claimed units are not made reusable.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-34",
+      "name": "subscription-plan-adjustment-history",
+      "scopeIds": ["F29"],
+      "owners": ["Subscription", "Billing", "Pricing", "D"],
+      "environment": "REAL_DB_CRASH_HTTP",
+      "stimulus": "Apply approved plan-change/proration and consumed-benefit reversal with duplicate or stale revisions.",
+      "requiredAssertions": "Approved eligibility/valuation/refund cap follows immutable old/new plan and posting lineage; original consumption stays in history; independent correction receipts prevent repeated restoration.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-35",
+      "name": "statement-receipt-current-auth",
+      "scopeIds": ["F30", "F33"],
+      "owners": ["Billing", "Wallet", "Subscription", "Identity", "A", "C", "D"],
+      "environment": "REAL_DB_HTTP_BROWSER",
+      "stimulus": "Read paginated owner statements and historical receipts as subject/operator/admin after role revocation and across objects.",
+      "requiredAssertions": "Current authorization and approved redaction hold for every page/download; snapshots and totals reconcile original postings; broad billing.read is not assumed sufficient for private owner records.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-36",
+      "name": "support-remedy-scope",
+      "scopeIds": ["F31"],
+      "owners": ["Support", "Billing", "Subscription", "Pricing", "Identity", "D"],
+      "environment": "REAL_DB_HTTP_BROWSER",
+      "stimulus": "Invoke approved remedy from a genuine authorized dispute with stale state, forbidden grants and duplicate resolution.",
+      "requiredAssertions": "Support owns case state; B owner independently validates remedy authority and operation binding; one financial/benefit/coupon effect occurs; no Support or admin direct DB mutation.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-37",
+      "name": "event-crash-gap-reconcile",
+      "scopeIds": ["F32"],
+      "owners": ["Billing", "Pricing", "Wallet", "Subscription", "Reporting", "E"],
+      "environment": "REAL_DB_BROKER_CRASH",
+      "stimulus": "Crash before/after outbox commit, inbox effect and ACK, reorder revisions and replay beyond transport retention.",
+      "requiredAssertions": "Local business/audit/outbox commit atomically; inbox/hash/effect/checkpoint commit before ACK; durable business dedup survives replay cache; D detects holes/rebuilds from scoped owner history without global-order assumption.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-38",
+      "name": "final-status-three-app",
+      "scopeIds": ["F33"],
+      "owners": ["A", "C", "D", "E", "B"],
+      "environment": "REAL_THREE_APP_DB_HTTP_BROWSER",
+      "stimulus": "Lose command response and reconnect customer/operator/admin during RESERVED/PENDING/UNKNOWN/rejected/terminal outcomes.",
+      "requiredAssertions": "Accepted separate resource/finance status and safe same-operation lookup appear in each app; timeout is not failure and proof navigation not payment; no new key issued before original outcome resolution.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-39",
+      "name": "privacy-export-authorization",
+      "scopeIds": ["F34"],
+      "owners": ["Billing", "Wallet", "Subscription", "Identity", "Support", "A", "D"],
+      "environment": "REAL_DB_PRIVATE_STORAGE_HTTP",
+      "stimulus": "Create approved export task, cross-use request/subject/owner, revoke current permission and retry artifact delivery.",
+      "requiredAssertions": "Accepted request/subject/owner and current authorization are checked at execution and each private access; only approved classes export; durable outcome and artifact references leak no foreign data.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-40",
+      "name": "privacy-anonymize-retain",
+      "scopeIds": ["F35"],
+      "owners": ["Billing", "Wallet", "Subscription", "Pricing", "Support", "Identity", "D"],
+      "environment": "REAL_DB_UPGRADE_PRIVATE_STORAGE",
+      "stimulus": "Run approved anonymization/retention actions with ledger exceptions, pending finance disputes and stale worker retry.",
+      "requiredAssertions": "Approved class/action policy anonymizes allowed fields/copies/indexes/artifacts and reports each retained exception truthfully; posted ledger and required lineage preserved; requested deletion is never reported as completed global erasure.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-41",
+      "name": "privacy-terminal-recovery",
+      "scopeIds": ["F34", "F35"],
+      "owners": ["B", "Support", "Identity", "E"],
+      "environment": "REAL_DB_CRASH_BROKER",
+      "stimulus": "Crash after owner fulfillment before completion reply; revoke task authority and redeliver cancellation/completion out of order.",
+      "requiredAssertions": "Durable per-owner status/audit reconciles original authorized result; no repeated destructive effect or unauthorized resumption; intake acceptance is separate from terminal fulfillment.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-42",
+      "name": "three-app-full-matrix",
+      "scopeIds": [
+        "G04",
+        "F14",
+        "F17",
+        "F18",
+        "F19",
+        "F23",
+        "F26",
+        "F27",
+        "F28",
+        "F29",
+        "F06",
+        "F11",
+        "F22"
+      ],
+      "owners": ["E", "A", "B", "C", "D", "Provider"],
+      "environment": "E_SERIALIZED_REAL_THREE_APP_CANDIDATE",
+      "stimulus": "Execute cash and every required electronic route, approved Wallet use, Subscription activation/renew/consume/refund, promotion/rebook and admin reconciliation on latest target plus head.",
+      "requiredAssertions": "Each real producer and full journey passes before consumer integration acceptance; exact source/tree/run/attempt and provider artifacts bind all cases; missing merchant/policy input is explicit NO-GO, never a mock-backed pass.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-43",
+      "name": "design-prod-state-boundaries",
+      "scopeIds": ["G04", "F05", "F11", "F33"],
+      "owners": ["A", "C", "D", "E"],
+      "environment": "PINNED_LINUX_BROWSER_AND_SEPARATE_DEVICE",
+      "stimulus": "Execute affected approved Arabic seven-step/guest/optional-plate and admin/operator actions with error, motion and reconnect states.",
+      "requiredAssertions": "Frozen golden references/tolerances unchanged; real affected flows have exact reference/candidate/diff and accessibility evidence; unapproved English/production states require owner decision; device evidence is separate.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-44",
+      "name": "workload-provenance",
+      "scopeIds": ["G05"],
+      "owners": ["E", "B", "BusinessOwner", "Provider"],
+      "environment": "MEASURED_AUTHORIZED_ISOLATED_ENVIRONMENT",
+      "stimulus": "Collect owner command/event rates, mixes, retained volumes and latency windows under allocated resources after real providers exist.",
+      "requiredAssertions": "Inputs name environment/source/policy/data/sample window/units and method; measured observations remain distinct from approved targets and fixtures; absent measurements stay NOT_MEASURED.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    },
+    {
+      "id": "W07B-45",
+      "name": "base-role-contract-provider-gates",
+      "scopeIds": ["G01", "G02", "G03"],
+      "owners": ["E", "B", "C", "Identity"],
+      "environment": "REAL_DB_HTTP_CONTRACT_UPGRADE",
+      "stimulus": "Publish actual wave base/contracts/grants/routes/clients and run provider migration/current-auth/constraints/conformance before consumers.",
+      "requiredAssertions": "Exact accepted versions and current isolated DB identities are recorded; no private DTO/model/DB import or moving peer branch; latest-target candidate and resulting-target checks remain required.",
+      "status": "NOT_RUN",
+      "evidence": null,
+      "blockers": [
+        "BASE_W07 and accepted owner contracts absent",
+        "Real owner implementation/allocated environment unavailable",
+        "Applicable approved policy/provider acceptance pending"
+      ]
+    }
+  ]
+}

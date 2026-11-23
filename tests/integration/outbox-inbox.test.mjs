@@ -123,16 +123,39 @@ test('the local change and the outbox row roll back together', async () => {
 
 /* --------------------------- Case A: broker outage --------------------------- */
 
-test('Case A: an event committed while the broker is down is published once it returns', async () => {
-  await stopService(context, 'rabbitmq', 10);
-  let created;
-  try {
-    // The producer does not touch the broker at all, so this must still succeed.
-    created = await createProbe(clients.catalog, { label: 'probe-outage' });
-    const pending = await outboxRow(created.eventId);
-    assert.equal(pending.publishedAt, null);
+test('Case A: an event committed while the broker is down is published once it returns', async (t) => {
+  let relay;
+  let consumer;
+  const step = recoveryScope(t, async () => {
+    // node:test awaits this hook even when the body times out. A body's async
+    // finally can otherwise restore RabbitMQ after the next beforeEach starts.
+    const failures = [];
+    for (const worker of [relay, consumer]) {
+      if (!worker) continue;
+      try {
+        await worker.stop(5_000);
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    try {
+      await startService(context, 'rabbitmq', { timeoutMs: 20_000 });
+      await waitForRabbitReady(context, undefined, { timeoutMs: 25_000 });
+    } catch (error) {
+      failures.push(error);
+    }
+    if (failures.length > 0) throw new AggregateError(failures, 'A_RECOVERY_FAILED');
+  });
 
-    const relay = spawnWorker(
+  await step('stop broker', (signal) => stopService(context, 'rabbitmq', 10, { signal }));
+  // The producer does not touch the broker at all, so this must still succeed.
+  const created = await step('commit probe during outage', () =>
+    createProbe(clients.catalog, { label: 'probe-outage' }),
+  );
+  assert.equal((await outboxRow(created.eventId)).publishedAt, null);
+
+  await step('observe relay outage', async () => {
+    relay = spawnWorker(
       relayArgs(['--worker-id', 'outage-relay', '--interval-ms', '200']),
       relayEnv(),
       { label: 'relay:outage' },
@@ -140,33 +163,42 @@ test('Case A: an event committed while the broker is down is published once it r
     // It must report the outage rather than marking anything published.
     await relay.waitFor((l) => l.event === 'relay_broker_unavailable', {
       description: 'broker unavailable report',
+      timeoutMs: 30_000,
     });
-    assert.equal((await outboxRow(created.eventId)).publishedAt, null);
+  });
+  assert.equal((await outboxRow(created.eventId)).publishedAt, null);
+  const relayPid = relay.child.pid;
 
-    await startService(context, 'rabbitmq');
-    await waitForRabbitReady(context);
+  await step('start broker', (signal) => startService(context, 'rabbitmq', { signal }));
+  await step('broker readiness', (signal) =>
+    waitForRabbitReady(context, signal, { timeoutMs: 45_000 }),
+  );
 
-    // The same worker reconnects and publishes the still-pending row.
-    await eventually(async () => (await outboxRow(created.eventId)).publishedAt !== null, {
+  // The same worker reconnects and publishes the still-pending row.
+  await step('pending event published after recovery', () =>
+    eventually(async () => (await outboxRow(created.eventId)).publishedAt !== null, {
       description: 'pending event published after the broker returned',
       timeoutMs: 90_000,
-    });
-    await relay.stop();
-  } finally {
-    await startService(context, 'rabbitmq').catch(() => {});
-    await waitForRabbitReady(context).catch(() => {});
-  }
+    }),
+  );
+  assert.equal(relay.child.pid, relayPid, 'the original relay process must publish');
+  assert.equal(relay.child.exitCode, null, 'the relay must still be alive');
+  await step('stop recovered relay', () => relay.stop(5_000));
 
   // And it is genuinely deliverable, not merely marked.
-  const consumer = spawnWorker(
-    consumerArgs('reporting', ['--stop-after', '1']),
-    consumerEnv('reporting'),
-    { label: 'consumer:outage' },
-  );
-  await consumer.exited;
-  const projection = await clients.reporting.probeProjection.findUnique({
-    where: { probeId: created.probeId },
+  await step('consume recovered event', async () => {
+    consumer = spawnWorker(
+      consumerArgs('reporting', ['--stop-after', '1']),
+      consumerEnv('reporting'),
+      { label: 'consumer:outage' },
+    );
+    const exit = await consumer.exited;
+    assert.equal(exit.code, 0, 'the consumer must exit successfully');
+    assert.equal(exit.signal, null);
   });
+  const projection = await step('verify recovered projection', () =>
+    clients.reporting.probeProjection.findUnique({ where: { probeId: created.probeId } }),
+  );
   assert.equal(projection?.applyCount, 1);
 });
 

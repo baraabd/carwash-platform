@@ -676,7 +676,7 @@ test('C010 architecture: one clock reader, pure rules, no reservation, storage o
   assert.ok(!/role="button"|<div[^>]*onClick/.test(component), 'native buttons only');
   const route = read('features/booking/index.tsx');
   assert.match(route, /if \(step === 'time'\) return <ScheduleStep \/>;/);
-  // C011 and C012 ported Contact and Payment; Review (C013) is still a placeholder.
+  // C011 and C012 ported Contact and Payment; C013 replaced the Review placeholder.
   assert.match(route, /if \(step === 'payment'\) return <PaymentStep \/>;/);
-  assert.ok(!route.includes('<ReviewStep'), 'review (C013) component is not mounted');
+  assert.match(route, /return <ReviewStep \/>;/, 'review (C013) is mounted');
 });

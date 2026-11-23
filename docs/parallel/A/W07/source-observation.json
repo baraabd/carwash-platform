@@ -1,0 +1,745 @@
+{
+  "schemaVersion": 1,
+  "task": "W07-A",
+  "lane": "A",
+  "phase": "ENTRY_PROPOSAL",
+  "implementation": "BLOCKED_NOT_STARTED",
+  "parentAcceptance": "NOT_ACCEPTED",
+  "observedAtUtc": "2026-10-06T14:32:11.740Z",
+  "acceptedBaseW07": null,
+  "proposalParent": {
+    "sha": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+    "tree": "2266f157ad2480855011d5da59e00e5b0cf1f68f",
+    "notAcceptedWaveBase": true
+  },
+  "branch": "proposal/w07-A-commerce-entry",
+  "worktree": "/workspace/scratch/6a9547568741/carwash-w07a-source",
+  "finalHeadTreeBinding": "Exact immutable head/tree in PR body and remote Git commit/ref, avoiding self-referential source SHA",
+  "changedPaths": [
+    "docs/parallel/A/W07/README.md",
+    "docs/parallel/A/W07/SOURCE_TO_ACCEPTANCE.md",
+    "docs/parallel/A/W07/COMMERCE_AND_REBOOKING.md",
+    "docs/parallel/A/W07/ADMIN_OWNER_PROVIDERS.md",
+    "docs/parallel/A/W07/W08_CONTRACT_REQUESTS.md",
+    "docs/parallel/A/W07/CHECKPOINT.md",
+    "docs/parallel/A/W07/source-observation.json",
+    "tests/parallel/A/W07/ACCEPTANCE_SPECIFICATIONS.md"
+  ],
+  "migrationsAdded": [],
+  "source": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+  "tree": "2266f157ad2480855011d5da59e00e5b0cf1f68f",
+  "release": {
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "bases": {
+      "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "BASE_W02": null
+    },
+    "acceptedNextWaveContracts": [],
+    "existingClientContracts": []
+  },
+  "providers": {
+    "customer": {
+      "models": ["ServiceMarker"],
+      "migrations": ["20260920000000_sprint_02_foundation"],
+      "controllers": [],
+      "scripts": {
+        "generate": "prisma generate",
+        "build": "tsc -p tsconfig.build.json",
+        "build:tests": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "migrate:deploy": "prisma migrate deploy",
+        "start": "node dist/main.js"
+      },
+      "businessReady": false
+    },
+    "vehicle": {
+      "models": ["ServiceMarker"],
+      "migrations": ["20261005060000_w01_foundation"],
+      "controllers": [],
+      "scripts": {
+        "generate": "prisma generate",
+        "build": "tsc -p tsconfig.build.json",
+        "build:tests": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "migrate:deploy": "prisma migrate deploy",
+        "start": "node dist/main.js",
+        "test:runtime": "pnpm run build:tests && node --test dist-tests/test/vehicle.nest.spec.js"
+      },
+      "businessReady": false
+    },
+    "geo": {
+      "models": ["ServiceMarker"],
+      "migrations": ["20261005060000_w01_foundation"],
+      "controllers": [],
+      "scripts": {
+        "generate": "prisma generate",
+        "build": "tsc -p tsconfig.build.json",
+        "build:tests": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "migrate:deploy": "prisma migrate deploy",
+        "start": "node dist/main.js",
+        "test:runtime": "pnpm run build:tests && node --test dist-tests/test/geo.nest.spec.js"
+      },
+      "businessReady": false
+    },
+    "pricing": {
+      "models": ["ServiceMarker"],
+      "migrations": ["20261005060000_w01_foundation"],
+      "controllers": [],
+      "scripts": {
+        "generate": "prisma generate",
+        "build": "tsc -p tsconfig.build.json",
+        "build:tests": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "migrate:deploy": "prisma migrate deploy",
+        "start": "node dist/main.js",
+        "test:runtime": "pnpm run build:tests && node --test dist-tests/test/pricing.nest.spec.js"
+      },
+      "businessReady": false
+    },
+    "subscription": {
+      "models": ["ServiceMarker"],
+      "migrations": ["20261005060000_w01_foundation"],
+      "controllers": [],
+      "scripts": {
+        "generate": "prisma generate",
+        "build": "tsc -p tsconfig.build.json",
+        "build:tests": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "migrate:deploy": "prisma migrate deploy",
+        "start": "node dist/main.js",
+        "test:runtime": "pnpm run build:tests && node --test dist-tests/test/subscription.nest.spec.js"
+      },
+      "businessReady": false
+    },
+    "wallet": {
+      "models": ["ServiceMarker"],
+      "migrations": ["20261005060000_w01_foundation"],
+      "controllers": [],
+      "scripts": {
+        "generate": "prisma generate",
+        "build": "tsc -p tsconfig.build.json",
+        "build:tests": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "migrate:deploy": "prisma migrate deploy",
+        "start": "node dist/main.js",
+        "test:runtime": "pnpm run build:tests && node --test dist-tests/test/wallet.nest.spec.js"
+      },
+      "businessReady": false
+    },
+    "billing": {
+      "models": ["ServiceMarker"],
+      "migrations": ["20260920000000_sprint_02_foundation"],
+      "controllers": [],
+      "scripts": {
+        "generate": "prisma generate",
+        "build": "tsc -p tsconfig.build.json",
+        "build:tests": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "migrate:deploy": "prisma migrate deploy",
+        "start": "node dist/main.js"
+      },
+      "businessReady": false
+    },
+    "booking": {
+      "models": ["ServiceMarker"],
+      "migrations": ["20260920000000_sprint_02_foundation"],
+      "controllers": [],
+      "scripts": {
+        "generate": "prisma generate",
+        "build": "tsc -p tsconfig.build.json",
+        "build:tests": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "migrate:deploy": "prisma migrate deploy",
+        "start": "node dist/main.js"
+      },
+      "businessReady": false
+    },
+    "scheduling": {
+      "models": ["ServiceMarker"],
+      "migrations": ["20261005060000_w01_foundation"],
+      "controllers": [],
+      "scripts": {
+        "generate": "prisma generate",
+        "build": "tsc -p tsconfig.build.json",
+        "build:tests": "tsc -p tsconfig.json",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "migrate:deploy": "prisma migrate deploy",
+        "start": "node dist/main.js",
+        "test:runtime": "pnpm run build:tests && node --test dist-tests/test/scheduling.nest.spec.js"
+      },
+      "businessReady": false
+    }
+  },
+  "packages": {
+    "@carwash/contracts": {
+      "version": "0.0.2",
+      "exports": {
+        ".": {
+          "types": "./dist/index.d.ts",
+          "default": "./dist/index.js"
+        },
+        "./identity-v1": {
+          "types": "./dist/identity.d.ts",
+          "default": "./dist/identity.js"
+        },
+        "./gateway-v1": {
+          "types": "./dist/gateway.d.ts",
+          "default": "./dist/gateway.js"
+        },
+        "./registry": {
+          "types": "./dist/registry.d.ts",
+          "default": "./dist/registry.js"
+        }
+      }
+    },
+    "@carwash/event-contracts": {
+      "version": "0.0.2",
+      "exports": {
+        ".": {
+          "types": "./dist/index.d.ts",
+          "default": "./dist/index.js"
+        },
+        "./booking-confirmed": {
+          "types": "./dist/booking-confirmed.d.ts",
+          "default": "./dist/booking-confirmed.js"
+        },
+        "./booking-confirmed-v1": {
+          "types": "./dist/booking-confirmed.d.ts",
+          "default": "./dist/booking-confirmed.js"
+        },
+        "./foundation-probe-created-v1": {
+          "types": "./dist/foundation-probe-created.d.ts",
+          "default": "./dist/foundation-probe-created.js"
+        },
+        "./registry": {
+          "types": "./dist/registry.d.ts",
+          "default": "./dist/registry.js"
+        }
+      }
+    },
+    "@carwash/api-clients": {
+      "version": "0.0.1",
+      "exports": {
+        ".": {
+          "types": "./dist/index.d.ts",
+          "import": "./dist/index.js"
+        }
+      }
+    }
+  },
+  "apps": {
+    "@carwash/customer-web": {
+      "version": "0.0.2",
+      "scripts": {
+        "dev": "vite",
+        "build": "tsc -p tsconfig.json --noEmit && vite build",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "preview": "vite preview"
+      },
+      "dependencies": {
+        "react": "19.3.0",
+        "react-dom": "19.3.0",
+        "react-router-dom": "7.18.4"
+      },
+      "devDependencies": {
+        "@types/react": "19.3.0",
+        "@types/react-dom": "19.3.0",
+        "@vitejs/plugin-react": "6.1.1",
+        "typescript": "5.9.3",
+        "vite": "8.3.1"
+      }
+    },
+    "@carwash/operator-web": {
+      "version": "0.0.2",
+      "scripts": {
+        "dev": "vite",
+        "build": "tsc -p tsconfig.json --noEmit && vite build",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "preview": "vite preview",
+        "start": "node server.mjs",
+        "test:runtime": "node --test test/runtime.test.mjs"
+      },
+      "dependencies": null,
+      "devDependencies": {
+        "typescript": "5.9.3",
+        "vite": "8.3.1"
+      }
+    },
+    "@carwash/admin-web": {
+      "version": "0.0.2",
+      "scripts": {
+        "dev": "vite",
+        "build": "tsc -p tsconfig.json --noEmit && vite build",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "preview": "vite preview",
+        "start": "node server.mjs",
+        "test:runtime": "node --test test/runtime.test.mjs"
+      },
+      "dependencies": null,
+      "devDependencies": {
+        "typescript": "5.9.3",
+        "vite": "8.3.1"
+      }
+    }
+  },
+  "fingerprints": {
+    ".nvmrc": "73fb1b615e2043a933be1c0895cde4358036acc28d785692509b822aa53c761f",
+    "AGENTS.md": "9a36dcbe805425931884abedb1b1efefdaafa39a0a73c13837bcec71d4eb489f",
+    "apps/admin-web/package.json": "8e595170d4c20c88a512ad1c0a12cfcc10cda772acd69ab74287d8e6db7eaf72",
+    "apps/api-gateway/src/domain/policy.ts": "8acf47a5fc8c6f05ce5a7acc1755dfaf4abd9573639af800957abe997957ddd6",
+    "apps/customer-web/package.json": "a5fd590e5d7eb8f3182a3b6572c785d5b72ead8debb87b95e8b3f4d99403c36d",
+    "apps/customer-web/src/app/initialSession.ts": "bae2a844708e57a6143fc4844cd7f828bc771baf74e4dbcbc134c6d180c8bfce",
+    "apps/customer-web/src/app/router.tsx": "051db269bb82d13acbf6b8cf4438c4549cd6b64a3217a04153b0d2998b510960",
+    "apps/customer-web/src/features/account/AccountRoute.tsx": "388d0feeb2c18c8998c9417129cd2e9173fe7ad31485596c24e0bf1191a84fc5",
+    "apps/customer-web/src/features/booking/priceBreakdown.ts": "129d4180782962876f229a4f657bb3da7947aaf768b1d7e8c7388062070df16d",
+    "apps/customer-web/src/features/home/components/HomeBookingEntries.tsx": "573124876affe03a63f4d89e3ebc3c0f9419c1d542f4d1d60aae53470355af22",
+    "apps/customer-web/src/features/home/homeViewModel.ts": "dddf08dc78b0b745d7df13506109b6f3bd499c3411deb030c028348ea1be170e",
+    "apps/customer-web/src/features/orders/index.tsx": "12d93cb0acbbf4a7259f928c5143f2ec1638e11ec7bcf39b89f59dc7b4cee1f7",
+    "apps/customer-web/src/fixtures/customerCatalogFixture.ts": "0eefe744567ab8e077293025e1889f75e98d2e820bc06f4e8ce592005158230e",
+    "apps/customer-web/src/state/CustomerSessionProvider.tsx": "ec6946b1fcf3536ca00e99962d8e0c0efad97a34b5517db6e88ec9c7e6d607c9",
+    "apps/customer-web/src/state/bookingConfirmation.ts": "a88f72a4141ef62c8dc8a830d69d36c4ef462404721813936ad1f24f13e27f3c",
+    "apps/customer-web/src/state/bookingEntry.ts": "b05ee20b020d55d99e05be65d63589eb590f4a2c210223fe2afa7462929088da",
+    "apps/customer-web/src/state/customerSession.ts": "2ce3b0d903a333e9618e0410fcf4ebe19df30a1b9d1fdeaa1aba478cad492dd9",
+    "apps/customer-web/src/state/scheduling.ts": "b229af333fa3da204ed01e4732e13e2029a4a51ec033fa4b9429a27f5275170e",
+    "apps/operator-web/package.json": "e11f62eff5ea4b2b503d27eb13e1b75529b41e32d94185066ed5223116c62ca3",
+    "architecture/adr/F001-monorepo-and-data-ownership.md": "46309b8de279fbccb99716b240a429a79abd1b5699e809947429d9726ece67d7",
+    "architecture/implementation-status.json": "8a92763151eff40c685b42eb8c1fbc335d564b5ca7b0f38cf83d4e305bf57242",
+    "architecture/parallel-contract-release.json": "aec04eeb6c3d893e4e0b401bab0a550c517f1e32709a5e0189f4a3ddb0ce4db9",
+    "architecture/parallel-ownership.json": "2b696da4f8ed6d0fbb6234e33dc207e92c9e91f72e56e6f8777aac62c4f8e144",
+    "architecture/service-catalog.json": "34462fbfb90c6a221524905aa21f7a4022c28a1b21d2243381a1b07582eac9b8",
+    "design/reference/approved/washgo-admin-prototype.html": "b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273",
+    "design/reference/approved/washgo-payments-interactive.html": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549",
+    "design/reference/approved/washgo-technician-interactive.html": "d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc",
+    "docs/ARCHITECTURE_AR.md": "d11a69f75d17375f47f0648e7cfd2185211461f516d90e23d99c9b2c24eae9d8",
+    "docs/VERIFICATION.md": "d8445acdd7cefd3818b538bf04b822ee07075cf1f95d68f05f7eed5437872ea3",
+    "docs/adr/0004-approved-ui-precedence.md": "d14c375db104b255fc6aa8f2692443c60751e81c7e828d3cc479e0effa6c755d",
+    "docs/customer/C001_BEHAVIOR_INVENTORY.md": "42a07fdc4155dd8c899d284f19800347e2625ec8624253588c8641b79c09f362",
+    "docs/customer/customer-parity-manifest.json": "9ac1daba20628d953e78cfb54a732ee3bca96159c8e5e6b08ab61d7ed8b4e137",
+    "docs/design/ACCEPTANCE_MATRIX.md": "ce5ec67042e1bb9d400a29b4634beb268c23aa3c69b8aa88d96c85aba180d169",
+    "docs/design/DESIGN_LOCK.md": "0f05db671539f6568227cef7c6e7378ab0db4c1ae63cefd0678ce504fbfab0ec",
+    "docs/design/f010-reference-manifest.json": "94c3c99206169e66dd0a1161b5b7968c098f1e3ee29af3d5e1c7789be4ba44f3",
+    "docs/design/reference-manifest.json": "985a98d76516c2443ad8c9a716d6d35225feb54a05b84d0fd7a004561223545a",
+    "docs/parallel/A/W06/README.md": "ab6994307908e7c3a4429a3386ba909ce7d0cc729a9fcbbb921fc44059bb32cd",
+    "docs/parallel/A/W06/W07_CONTRACT_REQUESTS.md": "26dc46df5d770c70018a5595ead311ad00e57a82839516941dd6ec28db290ac2",
+    "docs/parallel/B/W06/SUBSCRIPTION_LIFECYCLE.md": "b1d5e5698cd49f06136ed6080014e7a8ca3700dd6b5dc8dc3f6e4d3544046331",
+    "docs/parallel/B/W06/W07_CONTRACT_REQUESTS.md": "06f43a50993ae26ef1650bf68b6d331b19da6cb43bb9495a3c9dd1b3b4eb29a4",
+    "docs/parallel/C/W06/W07_CONTRACT_REQUESTS.md": "1959a3926154a92f7ba3c491316db441f30e6c01aad132fe3ea4211cac6aff0a",
+    "docs/parallel/D/W06/W07_CONTRACT_REQUESTS.md": "1c80bca0076a8a3e4221169558463974c502b97032bed8159f0086f422e25c8a",
+    "docs/parallel/E/W06/README.md": "65488453e455244a1359c4fe87e6b9836d304d7ecdb3450797d07cec31ff45dd",
+    "docs/parallel/E/W06/W07_SCOPE_GAPS.md": "593fd866dfe6cbdbe6ab9c99b8cec0f3a27491c7e5bcd2ba6e8eddb0edec3ccd",
+    "package.json": "e9d028e3cbb25d8aee603224a951d5b3c49794482aa73cc4ac2c787809dd1128",
+    "packages/api-clients/package.json": "f49b16dd0418f4229042536ed1a8a4e11505467a1b8b85147263301bddbabd9f",
+    "packages/api-clients/src/index.ts": "9c5162feffe8bbe37bdf5adde98f993d3d2169c1156a6ed5265cc6b7e4585c1d",
+    "packages/contracts/package.json": "7fcdae7298bcf9fa5417f3d4387445bdbb3942d7e2ab041507c902fbcb13bd93",
+    "packages/contracts/src/registry.ts": "a823495f3038c4c4a27c323194f86e51665b0f263ac39ec40afaa0b24f3fa97d",
+    "packages/event-contracts/package.json": "035cdd03d0695d29ed456b340c66651ddb87a456436fd98fb1c2170d8c2d221a",
+    "packages/event-contracts/src/booking-confirmed.ts": "6213d9d404f9f115f03335dd6ee7fa8346a74d112571d340db15f899921c06cd",
+    "packages/event-contracts/src/registry.ts": "9150079692bf7945d3532bdf9b3f3af07f0f085a346f0ae11ebbe3bea6fe6a6f",
+    "pnpm-lock.yaml": "08dbc96af037b792b0cfeb180ee90ccf8ca07767b203b5be2b1746332cf1300d",
+    "services/billing/package.json": "27f996405ca473a9b7fdb12c9f4146744f4ef51097df1116cffd847dd06659b0",
+    "services/billing/prisma/schema.prisma": "82aa2c8382d9a1b5a345f75065407c213da829acd58e92c1331b3d9bfed4c3a1",
+    "services/billing/src/app.module.ts": "7d0a5be630d96794e8603af930151d7218222330994cb6cbaab0bc7466256a5f",
+    "services/booking/package.json": "8d756f2a75e1509f40de868bafe3f7c9ca2931a6cadf808cff34d59cd910695c",
+    "services/booking/prisma/schema.prisma": "9ea3d6dd78593cafafc97320e392e2bdd4e5394adcca768e303d20c2146d7622",
+    "services/booking/src/app.module.ts": "ebf2900f0db9c06535d7014b029ead54acae257bfb37985919cd4ac007a676da",
+    "services/customer/package.json": "6b9a0ee270d7a627f118d09bd1cda5cbb5a9abfc01c19a5258b96231db257770",
+    "services/customer/prisma/schema.prisma": "4e5de4585ce931835ee32b51000a1d44ca2999a91e286deb5fe8e76e7925f443",
+    "services/customer/src/app.module.ts": "3b42c24da09f2c67d9e9af179d8377f62761f39c81e823b1cef230c0ef0af654",
+    "services/geo/package.json": "8906ca0c4a11ec43407fd721be296ff617d537900e9fba51b0fd8befb90a1a76",
+    "services/geo/prisma/schema.prisma": "a8faa03ed047e7cb738f85c9ed69ec022b28280a8add1b19b08b667d7c9e198c",
+    "services/geo/src/app.module.ts": "605733ab6aca6cf52259d69628e049716232c5ad3444491b303b329146f0004e",
+    "services/pricing/package.json": "eddd3b4922dde5d020087f6a256346bf2ee6706b6834cd155216e9df2598656b",
+    "services/pricing/prisma/schema.prisma": "5e8251634c057bb4656d0b050d52e04cd02734a3ca541d1a2667df7f73bb6686",
+    "services/pricing/src/app.module.ts": "9494e66c9f545f0beddb56245448a6fec960f46901af2815f56e1a2d1dfa268c",
+    "services/scheduling/package.json": "d63d67962992860413bf5a378005c03b1956284ad894b212c217b68f77a20e16",
+    "services/scheduling/prisma/schema.prisma": "3b660e8a2c16783757df16e5c9c253874927d7cf3e658b1e94135fd7741a552c",
+    "services/scheduling/src/app.module.ts": "597867bed8140d45357c654363c7801b34164efe27d301da0b01955b7aac3619",
+    "services/subscription/package.json": "607232f889df659aed06b1ebc7ef1e7b22f5d7722aa8d21eb37955c368c287c5",
+    "services/subscription/prisma/schema.prisma": "b74cc9c3d0002d7c6482f68268a37e9860387ae39199e111b73b625db53b64ad",
+    "services/subscription/src/app.module.ts": "3590f6411e58d52c310651399c1773ced095dcdceef03233cd4497c45ab04f90",
+    "services/vehicle/package.json": "b5f6c939c206bc6bceca1fbc6358f36b820f64f96d47d9be553f187c340ed325",
+    "services/vehicle/prisma/schema.prisma": "8d91210e287256bf81dfe99549b74e8b9808ebfc33dd9ced315efd2e74ba8a95",
+    "services/vehicle/src/app.module.ts": "cf728942727941105a2465e9526f66a2ff8bf4d82fba3e5f259e2f46f7345065",
+    "services/wallet/package.json": "913999ae5e57fcc56674a515e097950b89b7f9155e085322c3376041fe9b0b65",
+    "services/wallet/prisma/schema.prisma": "e6e9b6017244473a152de02d8441d14c6e71acc4dce61fdafd4fe50bef422db2",
+    "services/wallet/src/app.module.ts": "e3fbed1cad928592d6ab6c098a0d25bd5dded26e7177d629df1c1cf2a5d3da13"
+  },
+  "aRuntimeDeltaFromW06": [],
+  "w01AFolderExists": false,
+  "gitHub": {
+    "initialMain": {
+      "observedAt": "2026-10-06T14:26:57.958Z",
+      "data": {
+        "ref": "refs/heads/main",
+        "node_id": "REF_kwDOUhXo_K9yZWZzL2hlYWRzL21haW4",
+        "url": "https://api.github.com/repos/baraabd/carwash-platform/git/refs/heads/main",
+        "object": {
+          "sha": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+          "type": "commit",
+          "url": "https://api.github.com/repos/baraabd/carwash-platform/git/commits/f01e87f4619414960e9e39c65e523a3250fbcbaf"
+        }
+      }
+    },
+    "initialOpenPRs": {
+      "observedAt": "2026-10-06T14:26:57.958Z",
+      "prs": []
+    },
+    "c014": {
+      "observedAt": "2026-10-06T14:27:18.421Z",
+      "head": "04b7577097d7767e0d0cd1bf43de84ea92c02671",
+      "merged": true,
+      "merge": "69d81a83a3409d0693272efeb19ebeb9805750f5"
+    },
+    "externallyMergedW06": [
+      {
+        "number": 70,
+        "head": "2977c24065c5818b273280d8e6bf0056b5ad1472",
+        "merge": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+        "mergedAt": "2026-10-06T14:21:18Z",
+        "title": "docs(W06-E): propose owner-bound integration and recovery acceptance"
+      },
+      {
+        "number": 69,
+        "head": "1a6449e91575629f60ee6cf022633a6ab83de404",
+        "merge": "6c6a5b340e38a7101dfd6c3bb4100f4d5efc4a07",
+        "mergedAt": "2026-10-06T14:18:22Z",
+        "title": "W06-A: customer account and private experience entry proposal"
+      },
+      {
+        "number": 68,
+        "head": "97e6760bb9183b226a80a9aaaf3ffcf84218b966",
+        "merge": "5dc359d62af78d8bd2b39ecb6a305b593b17cc3a",
+        "mergedAt": "2026-10-06T14:18:53Z",
+        "title": "docs(W06-B): propose wallet, subscription and privacy acceptance"
+      },
+      {
+        "number": 67,
+        "head": "0015559c67b53a90b1f96e47a6d4f66731eef131",
+        "merge": "5fae966ae550de5835696da8d6bd1bddd6743692",
+        "mergedAt": "2026-10-06T14:20:14Z",
+        "title": "docs(W06-D): propose Support, Reviews and Communications entry"
+      },
+      {
+        "number": 66,
+        "head": "5f5d1064e237e17f26f85d1200c12770d7b93264",
+        "merge": "efb4ed7160643cac8a607b98885e955997f6e87a",
+        "mergedAt": "2026-10-06T14:19:51Z",
+        "title": "docs(W06-C): propose booking benefits and workforce readiness children"
+      }
+    ],
+    "initialTargetCI": {
+      "observedAt": "2026-10-06T14:27:18.421Z",
+      "total": 8,
+      "runs": [
+        {
+          "id": 37478254235,
+          "name": "Reference guard (not release CI)",
+          "status": "completed",
+          "conclusion": "success",
+          "head": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37478254235"
+        },
+        {
+          "id": 37478254150,
+          "name": "F009 foundation verification",
+          "status": "queued",
+          "conclusion": null,
+          "head": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37478254150"
+        },
+        {
+          "id": 37478254111,
+          "name": "F007 gateway contract acceptance",
+          "status": "in_progress",
+          "conclusion": null,
+          "head": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37478254111"
+        },
+        {
+          "id": 37478254135,
+          "name": "F010 golden HTML parity",
+          "status": "completed",
+          "conclusion": "success",
+          "head": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37478254135"
+        },
+        {
+          "id": 37478254166,
+          "name": "F006 identity security acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "head": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37478254166"
+        },
+        {
+          "id": 37478254100,
+          "name": "F001 ownership and workspace acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "head": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37478254100"
+        },
+        {
+          "id": 37478254200,
+          "name": "Sprint 0.2 CI",
+          "status": "in_progress",
+          "conclusion": null,
+          "head": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37478254200"
+        },
+        {
+          "id": 37478254107,
+          "name": "F008 observability acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "head": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37478254107"
+        }
+      ],
+      "limitation": "Dated target foundation/reference snapshot only, not W07 source-head/candidate/required business acceptance"
+    },
+    "latestPrepublication": {
+      "observedAt": "2026-10-06T14:34:12.169Z",
+      "targetSha": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+      "openPRs": [
+        {
+          "number": 71,
+          "title": "docs(W07-C): map operator features and durable reconnect acceptance",
+          "draft": true,
+          "head": "acb772782e21c138f95547ab30f9a4b36e75a0ed",
+          "branch": "sprint/w07-C-operator-prework"
+        }
+      ],
+      "ownRemoteBranchMatches": []
+    },
+    "refreshedTargetCI": {
+      "observedAt": "2026-10-06T14:34:12.169Z",
+      "total": 8,
+      "runs": [
+        {
+          "id": 37478254235,
+          "name": "Reference guard (not release CI)",
+          "status": "completed",
+          "conclusion": "success",
+          "head": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37478254235"
+        },
+        {
+          "id": 37478254107,
+          "name": "F008 observability acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "head": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37478254107"
+        },
+        {
+          "id": 37478254135,
+          "name": "F010 golden HTML parity",
+          "status": "completed",
+          "conclusion": "success",
+          "head": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37478254135"
+        },
+        {
+          "id": 37478254166,
+          "name": "F006 identity security acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "head": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37478254166"
+        },
+        {
+          "id": 37478254100,
+          "name": "F001 ownership and workspace acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "head": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37478254100"
+        },
+        {
+          "id": 37478254111,
+          "name": "F007 gateway contract acceptance",
+          "status": "completed",
+          "conclusion": "success",
+          "head": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37478254111"
+        },
+        {
+          "id": 37478254200,
+          "name": "Sprint 0.2 CI",
+          "status": "completed",
+          "conclusion": "success",
+          "head": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37478254200"
+        },
+        {
+          "id": 37478254150,
+          "name": "F009 foundation verification",
+          "status": "completed",
+          "conclusion": "success",
+          "head": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37478254150"
+        }
+      ],
+      "limitation": "Eight completed successful target foundation/reference runs; not W07 source-head/candidate/business or independent approval"
+    }
+  },
+  "toolchain": {
+    "pinned": {
+      "node": "24.21.0",
+      "pnpm": "10.32.1"
+    },
+    "actual": {
+      "node": "24.19.0",
+      "pnpm": "11.25.0"
+    },
+    "strictResult": "FAIL_38_OF_40",
+    "configOnly": "PASS_39_OF_39_RUNTIME_SKIPPED",
+    "runtimeBusinessGatesRun": false
+  },
+  "commandsActuallyRun": [
+    {
+      "command": "node scripts/check-design-reference.mjs --base-ref f01e87f4619414960e9e39c65e523a3250fbcbaf",
+      "result": "PASS_10_LOCKED_ARTIFACTS_BEFORE_EDITS",
+      "limit": "Reference byte preservation only"
+    },
+    {
+      "command": "node scripts/f010/reference-registry.mjs --base-ref f01e87f4619414960e9e39c65e523a3250fbcbaf",
+      "result": "PASS_3_REGISTERED_REFERENCES_BEFORE_EDITS"
+    },
+    {
+      "command": "node scripts/c001/customer-behavior-manifest.mjs",
+      "result": "PASS_87_ACTIONS_6_FORMS_7_SCREENS_7_STEPS_INVENTORY_ONLY"
+    },
+    {
+      "command": "node scripts/c002/check-feature-boundaries.mjs",
+      "result": "PASS_7_FEATURES_NO_ERRORS"
+    },
+    {
+      "command": "node scripts/verify-toolchain.mjs",
+      "exitCode": 1,
+      "result": "FAIL_2_RUNTIME_MISMATCHES_38_OF_40"
+    },
+    {
+      "command": "node scripts/verify-toolchain.mjs --config-only",
+      "exitCode": 0,
+      "result": "PASS_39_OF_39_RUNTIME_SKIPPED"
+    },
+    {
+      "command": "node architecture/implementation-status.mjs --self-test",
+      "result": "PASS_SOURCE_INVENTORY_AND_9_ADVERSARIAL_CASES",
+      "limit": "19 runtime services,18 foundation shells,1 capability; productionReady false"
+    },
+    {
+      "command": "node scripts/parallel/E/check-owners.mjs --inventory",
+      "result": "PASS_HISTORICAL_PROPOSAL_INVENTORY_ONLY_832_PATHS_165_CONDITIONAL_LEASES",
+      "limit": "Current task expires stale bootstrap leases; not independent policy/base acceptance"
+    },
+    {
+      "command": "python - <<'PY'\nimport json,pathlib,hashlib,re,subprocess\nr=pathlib.Path('.')\npaths=['AGENTS.md','docs/design/DESIGN_LOCK.md','docs/design/reference-manifest.json','docs/adr/0004-approved-ui-precedence.md','docs/ARCHITECTURE_AR.md','architecture/service-catalog.json','architecture/adr/F001-monorepo-and-data-ownership.md','docs/VERIFICATION.md','docs/design/ACCEPTANCE_MATRIX.md','docs/design/f010-reference-manifest.json','design/reference/approved/washgo-payments-interactive.html','design/reference/approved/washgo-technician-interactive.html','design/reference/approved/washgo-admin-prototype.html','architecture/parallel-contract-release.json','architecture/parallel-ownership.json','architecture/implementation-status.json','docs/customer/C001_BEHAVIOR_INVENTORY.md','docs/customer/customer-parity-manifest.json','apps/customer-web/src/app/router.tsx','apps/customer-web/src/app/initialSession.ts','apps/customer-web/src/features/home/homeViewModel.ts','apps/customer-web/src/features/home/components/HomeBookingEntries.tsx','apps/customer-web/src/state/bookingEntry.ts','apps/customer-web/src/state/customerSession.ts','apps/customer-web/src/state/CustomerSessionProvider.tsx','apps/customer-web/src/state/bookingConfirmation.ts','apps/customer-web/src/state/scheduling.ts','apps/customer-web/src/features/booking/priceBreakdown.ts','apps/customer-web/src/features/orders/index.tsx','apps/customer-web/src/features/account/AccountRoute.tsx','apps/customer-web/src/fixtures/customerCatalogFixture.ts','packages/contracts/src/registry.ts','packages/event-contracts/src/registry.ts','packages/event-contracts/src/booking-confirmed.ts','packages/api-clients/src/index.ts','apps/api-gateway/src/domain/policy.ts','docs/parallel/A/W06/README.md','docs/parallel/A/W06/W07_CONTRACT_REQUESTS.md','docs/parallel/B/W06/SUBSCRIPTION_LIFECYCLE.md','docs/parallel/B/W06/W07_CONTRACT_REQUESTS.md','docs/parallel/C/W06/W07_CONTRACT_REQUESTS.md','docs/parallel/D/W06/W07_CONTRACT_REQUESTS.md','docs/parallel/E/W06/README.md','docs/parallel/E/W06/W07_SCOPE_GAPS.md','package.json','pnpm-lock.yaml','.nvmrc']\nproviders={}\nfor name in ('customer','vehicle','geo','pricing','subscription','wallet','billing','booking','scheduling'):\n p=r/'services'/name\n for rel in ('prisma/schema.prisma','src/app.module.ts','package.json'):paths.append(str(p/rel))\n providers[name]={'models':re.findall(r'^model\\s+(\\w+)',(p/'prisma/schema.prisma').read_text(),re.M),'migrations':sorted(q.name for q in (p/'prisma/migrations').iterdir() if q.is_dir()),'controllers':sorted(str(q) for q in (p/'src').rglob('*controller.ts')),'scripts':json.loads((p/'package.json').read_text())['scripts'],'businessReady':False}\npackages={}\nfor name in ('contracts','event-contracts','api-clients'):\n p=r/'packages'/name/'package.json';paths.append(str(p));j=json.loads(p.read_text());packages[j['name']]={'version':j['version'],'exports':j.get('exports')}\napps={}\nfor name in ('customer-web','operator-web','admin-web'):\n p=r/'apps'/name/'package.json';paths.append(str(p));j=json.loads(p.read_text());apps[j['name']]={k:j.get(k) for k in ('version','scripts','dependencies','devDependencies')}\nregistry=json.loads((r/'architecture/parallel-contract-release.json').read_text())\nprint(json.dumps({'source':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'tree':subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip(),'release':{'wave':registry['wave'],'status':registry['status'],'bases':registry['bases'],'acceptedNextWaveContracts':registry['acceptedNextWaveContracts'],'existingClientContracts':registry['existingClientContracts']},'providers':providers,'packages':packages,'apps':apps,'fingerprints':{p:hashlib.sha256((r/p).read_bytes()).hexdigest() for p in sorted(set(paths))},'aRuntimeDeltaFromW06':subprocess.check_output(['git','diff','--name-only','78adaa2d0436f9e0fc6697a36f3f0bd7a521ad8b','HEAD','--','apps/customer-web','services/customer','services/vehicle','services/geo','packages','architecture','.github'],text=True).splitlines(),'w01AFolderExists':(r/'docs/parallel/A/W01').exists()},indent=2))\nPY",
+      "result": "PASS_READ_ONLY_80_CURRENT_SOURCE_FINGERPRINTS_PROVIDER_MODELS_MIGRATIONS_ACTUAL_APP_SCRIPTS_VERSIONS_DELTA"
+    }
+  ],
+  "documentDiagnosticResults": {
+    "sourceOnly": true,
+    "W07Families": 36,
+    "W08RequestedCases": 18,
+    "C001UniqueActions": 87,
+    "sourceFingerprints": 80,
+    "allBusinessCases": "UNEXECUTED",
+    "results": [
+      {
+        "command": "node scripts/parallel/E/check-owners.mjs --base-ref f01e87f4619414960e9e39c65e523a3250fbcbaf --worktree --lane A",
+        "exitCode": 0,
+        "result": "PASS_8_PERMANENT_A_PATHS_0_FINDINGS"
+      },
+      {
+        "command": "git diff --cached --check",
+        "exitCode": 0,
+        "result": "PASS"
+      },
+      {
+        "command": "node /workspace/scratch/6a9547568741/w06a-tools/package/bin/prettier.cjs --write --ignore-path /dev/null docs/parallel/A/W07/README.md docs/parallel/A/W07/SOURCE_TO_ACCEPTANCE.md docs/parallel/A/W07/COMMERCE_AND_REBOOKING.md docs/parallel/A/W07/ADMIN_OWNER_PROVIDERS.md docs/parallel/A/W07/W08_CONTRACT_REQUESTS.md docs/parallel/A/W07/CHECKPOINT.md docs/parallel/A/W07/source-observation.json tests/parallel/A/W07/ACCEPTANCE_SPECIFICATIONS.md",
+        "exitCode": 0,
+        "result": "PASS_EXPLICIT_8_PATHS_ONLY"
+      },
+      {
+        "command": "node scripts/check-design-reference.mjs --base-ref f01e87f4619414960e9e39c65e523a3250fbcbaf",
+        "exitCode": 0,
+        "result": "PASS",
+        "output": "{\n  \"ok\": true,\n  \"verifiedArtifacts\": 10,\n  \"baseCompared\": true,\n  \"errors\": []\n}\nScope: exact reference preservation. Not production readiness or React visual parity."
+      },
+      {
+        "command": "node scripts/f010/reference-registry.mjs --base-ref f01e87f4619414960e9e39c65e523a3250fbcbaf",
+        "exitCode": 0,
+        "result": "PASS",
+        "output": "{\n  \"ok\": true,\n  \"verifiedReferences\": 3,\n  \"baseCompared\": true,\n  \"initialRegistration\": false,\n  \"referenceSet\": \"washgo-three-apps-v1\",\n  \"errors\": []\n}"
+      },
+      {
+        "command": "node /workspace/scratch/6a9547568741/w06a-tools/package/bin/prettier.cjs --check --ignore-path /dev/null docs/parallel/A/W07/README.md docs/parallel/A/W07/SOURCE_TO_ACCEPTANCE.md docs/parallel/A/W07/COMMERCE_AND_REBOOKING.md docs/parallel/A/W07/ADMIN_OWNER_PROVIDERS.md docs/parallel/A/W07/W08_CONTRACT_REQUESTS.md docs/parallel/A/W07/CHECKPOINT.md docs/parallel/A/W07/source-observation.json tests/parallel/A/W07/ACCEPTANCE_SPECIFICATIONS.md",
+        "exitCode": 0,
+        "result": "PASS",
+        "output": "Checking formatting...\nAll matched files use Prettier code style!"
+      },
+      {
+        "command": "python - <<'PY'\nimport pathlib,json,re,hashlib,subprocess\nr=pathlib.Path('.')\nexpected=['docs/parallel/A/W07/README.md','docs/parallel/A/W07/SOURCE_TO_ACCEPTANCE.md','docs/parallel/A/W07/COMMERCE_AND_REBOOKING.md','docs/parallel/A/W07/ADMIN_OWNER_PROVIDERS.md','docs/parallel/A/W07/W08_CONTRACT_REQUESTS.md','docs/parallel/A/W07/CHECKPOINT.md','docs/parallel/A/W07/source-observation.json','tests/parallel/A/W07/ACCEPTANCE_SPECIFICATIONS.md']\nobs=json.loads((r/expected[6]).read_text())\nassert sorted(subprocess.check_output(['git','diff','--cached','--name-only'],text=True).splitlines())==sorted(expected)\nassert not subprocess.check_output(['git','diff','--name-only'],text=True).strip()\nfor p,h in obs['fingerprints'].items():assert hashlib.sha256((r/p).read_bytes()).hexdigest()==h,p\nspec=(r/expected[7]).read_text();ids=re.findall(r'\\*\\*(W07-A-\\d{3}) —',spec)\nassert ids==[f'W07-A-{i:03d}' for i in range(1,37)] and len(set(ids))==36\nassert len(re.findall(r'\\*\\*W07-A-\\d{3} — [^\\n]+UNEXECUTED\\*\\*',spec))==36\ninventory=(r/expected[1]).read_text();actions=re.findall(r'`([a-z-]+)` H:\\d+',inventory)\nmanifest=json.loads((r/'docs/customer/customer-parity-manifest.json').read_text());known=[a['id'] for a in manifest['actions']]\nassert len(actions)==len(set(actions))==87 and set(actions)==set(known)\nw08=(r/expected[4]).read_text();caseIds=set(re.findall(r'W08-A-(?:T|R|P|X|S)\\d{2}',w08));assert len(caseIds)==18\nfor p in expected:\n if p.endswith('.md'):\n  for target in re.findall(r'\\[[^\\]]*\\]\\(([^)]+)\\)',(r/p).read_text()):\n   if target.startswith(('http:','https:','#')):continue\n   q=(r/p).parent/target.split('#')[0];assert q.exists(),(p,target)\nassert obs['acceptedBaseW07'] is None and obs['migrationsAdded']==[] and obs['realVersusMocked']['realBusinessRuns']==0\nprint(json.dumps({'ok':True,'changedPaths':8,'sourceFingerprints':len(obs['fingerprints']),'C001UniqueActions':len(actions),'W07Families':len(ids),'W08RequestedCases':len(caseIds),'links':'PASS','businessAcceptance':'UNEXECUTED','limit':'Document/source diagnostic only'}))\nPY",
+        "exitCode": 1,
+        "result": "INITIAL_DOCUMENT_DIAGNOSTIC_TYPE_ERROR",
+        "reason": "Diagnostic assumed manifest action objects; actual manifest contains strings. Corrected diagnostic only; no product source change."
+      },
+      {
+        "command": "python - <<'PY'\nimport pathlib,json,re,hashlib,subprocess\nr=pathlib.Path('.')\nexpected=['docs/parallel/A/W07/README.md','docs/parallel/A/W07/SOURCE_TO_ACCEPTANCE.md','docs/parallel/A/W07/COMMERCE_AND_REBOOKING.md','docs/parallel/A/W07/ADMIN_OWNER_PROVIDERS.md','docs/parallel/A/W07/W08_CONTRACT_REQUESTS.md','docs/parallel/A/W07/CHECKPOINT.md','docs/parallel/A/W07/source-observation.json','tests/parallel/A/W07/ACCEPTANCE_SPECIFICATIONS.md']\nobs=json.loads((r/expected[6]).read_text())\nassert sorted(subprocess.check_output(['git','diff','--cached','--name-only'],text=True).splitlines())==sorted(expected)\nassert not subprocess.check_output(['git','diff','--name-only'],text=True).strip()\nfor p,h in obs['fingerprints'].items():assert hashlib.sha256((r/p).read_bytes()).hexdigest()==h,p\nspec=(r/expected[7]).read_text();ids=re.findall(r'\\*\\*(W07-A-\\d{3}) —',spec)\nassert ids==[f'W07-A-{i:03d}' for i in range(1,37)] and len(set(ids))==36\nassert len(re.findall(r'\\*\\*W07-A-\\d{3} — [^\\n]+UNEXECUTED\\*\\*',spec))==36\ninventory=(r/expected[1]).read_text();actions=re.findall(r'`([a-z-]+)` H:\\d+',inventory)\nmanifest=json.loads((r/'docs/customer/customer-parity-manifest.json').read_text());known=manifest['actions']\nassert len(actions)==len(set(actions))==87 and set(actions)==set(known)\nw08=(r/expected[4]).read_text();caseIds=set(re.findall(r'W08-A-(?:T|R|P|X|S)\\d{2}',w08));assert len(caseIds)==18\nfor p in expected:\n if p.endswith('.md'):\n  for target in re.findall(r'\\[[^\\]]*\\]\\(([^)]+)\\)',(r/p).read_text()):\n   if target.startswith(('http:','https:','#')):continue\n   q=(r/p).parent/target.split('#')[0];assert q.exists(),(p,target)\nassert obs['acceptedBaseW07'] is None and obs['migrationsAdded']==[] and obs['realVersusMocked']['realBusinessRuns']==0\nprint(json.dumps({'ok':True,'changedPaths':8,'sourceFingerprints':len(obs['fingerprints']),'C001UniqueActions':len(actions),'W07Families':len(ids),'W08RequestedCases':len(caseIds),'links':'PASS','businessAcceptance':'UNEXECUTED','limit':'Document/source diagnostic only'}))\nPY",
+        "exitCode": 0,
+        "result": "PASS",
+        "output": "{\"ok\": true, \"changedPaths\": 8, \"sourceFingerprints\": 80, \"C001UniqueActions\": 87, \"W07Families\": 36, \"W08RequestedCases\": 18, \"links\": \"PASS\", \"businessAcceptance\": \"UNEXECUTED\", \"limit\": \"Document/source diagnostic only\"}"
+      }
+    ],
+    "formatter": {
+      "version": "3.9.8",
+      "reusedExternalTool": "/workspace/scratch/6a9547568741/w06a-tools/package/bin/prettier.cjs",
+      "archiveSha256": "c33e1990a784e5a4cbc357b0755dac69868eb80a4893940db483cbab4e8aa44f",
+      "repositoryInstall": false,
+      "limit": "Standalone document formatting on actual alternate runtime, no pinned business acceptance"
+    }
+  },
+  "proposedW07Schemas": {
+    "packet": "w06-a-w07-customer-commerce-admin/0.1.0",
+    "path": "docs/parallel/A/W06/W07_CONTRACT_REQUESTS.md",
+    "accepted": false
+  },
+  "realVersusMocked": {
+    "actual": "Local immutable Git source/doc diagnostics only, read-only GitHub metadata",
+    "businessMockRuns": 0,
+    "realBusinessRuns": 0,
+    "productionBundleProduced": false
+  },
+  "unexecuted": [
+    "All W07 acceptance families and W08 requested gates",
+    "Prior W06 required real feature families; no inherited passes",
+    "App/service build/typecheck and new business units; no install",
+    "DB migration upgrade/drift/constraints; real HTTP current guest/role/object/purpose auth",
+    "Subscription purchase activation entitlement concurrent last-unit freeze/cancel/refund; real promotion use and Booking compensation",
+    "Broker replay/crash/restart current owner outcomes; no provider fixtures",
+    "Admin-to-A owner journeys and combined customer/operator/admin parity",
+    "Pinned Linux reference/candidate/diff, accessibility, separate Windows/device interaction",
+    "Actual final production bundle imports/network/demo-fallback checks and dependency security",
+    "Approved English/LTR reference acceptance",
+    "Staging/provider/merchant/live money/refund/deploy/operational verification"
+  ],
+  "ownedRuntimeHandles": {
+    "pids": [],
+    "ports": [],
+    "composeProjects": [],
+    "dbRoles": [],
+    "vhosts": [],
+    "queues": [],
+    "objectPrefixes": [],
+    "browserProfiles": []
+  },
+  "independentReview": "Pending; read-only agent QA is not eligible approval",
+  "candidate": null,
+  "resultingTarget": null,
+  "nextAction": "E publishes accepted predecessor/base/contracts/policy/design and allocated executable gate manifest; producer-first children and full consumer parity before authorized integration. Stop after W07-A handoff; no W08 implementation."
+}

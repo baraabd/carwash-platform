@@ -1,0 +1,82 @@
+{
+  "journeys": {
+    "J1": "PASSED",
+    "J2": "PASSED",
+    "J3": "PASSED",
+    "J4": "PASSED",
+    "J5": {
+      "customer": "console and Gateway refuse",
+      "technician": "console and Gateway refuse",
+      "reviewer": "bookings refused; technicians allowed",
+      "operations": "review decision refused"
+    },
+    "J6": "PASSED"
+  },
+  "accessibility": {
+    "signIn": [],
+    "bookingDetail": [],
+    "bookings": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 1,
+        "targets": [
+          "#bookings > .page-head > div > p"
+        ]
+      }
+    ],
+    "reviewDialog": [],
+    "technicians": []
+  },
+  "visual": [
+    {
+      "screen": "bookings",
+      "width": 390,
+      "sameDimensions": true,
+      "diffRatio": 0.4409487179487179,
+      "referenceSha256": "32d45a821c845f7e85b88d042bd894e784b223c08874a687f28c9393f64e5f28",
+      "candidateSha256": "14883a10d57706ed369a5ad8cacefb489c0d75064a5e2af018270cfcf66c4ad8"
+    },
+    {
+      "screen": "technicians",
+      "width": 390,
+      "sameDimensions": true,
+      "diffRatio": 0.12413675213675214,
+      "referenceSha256": "e558d764e435d92fb1e1dfbd7afb8fa7fa3858cdf875f832c5823bac50ad5562",
+      "candidateSha256": "2ae59348755bc65ec24066986a920289363a808e6953a0e8997d02a2c50db737"
+    },
+    {
+      "screen": "bookings",
+      "width": 768,
+      "sameDimensions": true,
+      "diffRatio": 0.508900462962963,
+      "referenceSha256": "707e75cefaa5a3418c9527d97674e5dcfe3a393acb0151be14a9ec44bd8a40c4",
+      "candidateSha256": "17c398190d9de06068549ffcf459cecd231bbaabd33321c422b291d2880097ae"
+    },
+    {
+      "screen": "technicians",
+      "width": 768,
+      "sameDimensions": true,
+      "diffRatio": 0.15147135416666666,
+      "referenceSha256": "0fc08f5c248ab200e56b0701fae8a406fd9d57e8a4decb51af529c89d4afeb13",
+      "candidateSha256": "a4ae8f7419f66f61908756ac8cd826635445620dfc8a036902f84569cbe2afcc"
+    },
+    {
+      "screen": "bookings",
+      "width": 1440,
+      "sameDimensions": true,
+      "diffRatio": 0.4041936728395062,
+      "referenceSha256": "267682f276f21496acbe31fc8a81ad1eff0d1ae6a5a6992f9f80c0c67b954a9f",
+      "candidateSha256": "44f937e9f9dc91ae2cca0d613ab813b2feb722b612ac76459f6b8fb827668e72"
+    },
+    {
+      "screen": "technicians",
+      "width": 1440,
+      "sameDimensions": true,
+      "diffRatio": 0.3722962962962963,
+      "referenceSha256": "65b0ee6890270922d0dbcb3f4b11df2ea890ea6fcc3597149e01d8a65ed31013",
+      "candidateSha256": "d5e0aa2cdfeec879f0f84de1535617c2d544fcea1e3490278d7e74d0aacb8eaa"
+    }
+  ],
+  "consoleErrors": []
+}

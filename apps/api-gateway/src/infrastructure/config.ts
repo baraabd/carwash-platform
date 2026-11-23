@@ -4,12 +4,17 @@ export type { GatewayConfig } from '../ports/config';
 const OWNERS: readonly GatewayOwner[] = [
   'identity',
   'customer',
+  'vehicle',
   'catalog',
   'booking',
   'workforce',
   'billing',
+  'reviews',
   'support',
   'reporting',
+  'dispatch',
+  'communications',
+  'media',
 ];
 export function validateGatewayConfig(config: GatewayConfig): GatewayConfig {
   if (

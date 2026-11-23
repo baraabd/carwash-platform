@@ -14,3 +14,11 @@ export const bookingFlow = [
 ] as const;
 
 export const BOOKING_FOOTER_SLOT_ID = 'booking-footer-slot';
+
+/** The reference's primary label while a step is open from Review's «تعديل». */
+export const REVIEW_RETURN_LABEL = 'العودة إلى المراجعة';
+
+/** Primary action label of a decision step (0–5), as the reference's `bookingFooter()`. */
+export function decisionNextLabel(step: number, reviewEditing: boolean): string {
+  return reviewEditing ? REVIEW_RETURN_LABEL : (bookingFlow[step]?.nextLabel ?? '');
+}

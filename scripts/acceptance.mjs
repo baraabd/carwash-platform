@@ -25,7 +25,7 @@
  */
 import { writeFile, mkdir } from 'node:fs/promises';
 import { createWriteStream } from 'node:fs';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -55,6 +55,7 @@ import {
 } from './acceptance/lib/migrations.mjs';
 import { bootstrapSharedTopology } from './acceptance/lib/broker.mjs';
 import { INTEGRATION_SUITES } from './run-integration-tests.mjs';
+import { finalizeAcceptance } from './parallel/E/finalize-acceptance.mjs';
 
 const SCHEMA_REV = 1;
 
@@ -83,6 +84,12 @@ class Report {
 
   summary(context, extra = {}) {
     return {
+      sourceSha: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim(),
+      sourceTree: execFileSync('git', ['rev-parse', 'HEAD^{tree}'], {
+        cwd: ROOT,
+        encoding: 'utf8',
+      }).trim(),
+      services: context?.services ?? [],
       runId: context?.runId ?? null,
       startedAt: context?.startedAt ?? null,
       finishedAt: new Date().toISOString(),
@@ -180,154 +187,145 @@ async function acceptanceRun({ keep = false, runId } = {}) {
   let digests;
 
   try {
-    const docker = await phase(report, 'docker: daemon reachable', async () => {
-      environment = await dockerEnvironment(context);
-      return {
-        note: `context=${environment.context} server=${environment.daemon.serverVersion}`,
-        environment,
-      };
-    });
-    if (!docker.ok) return finish(report, context, { mode: 'run', environment });
+    runPhases: {
+      const docker = await phase(report, 'docker: daemon reachable', async () => {
+        environment = await dockerEnvironment(context);
+        return {
+          note: `context=${environment.context} server=${environment.daemon.serverVersion}`,
+          environment,
+        };
+      });
+      if (!docker.ok) break runPhases;
 
-    const pulled = await phase(report, 'docker: pinned images resolve to digests', async () => {
-      digests = await resolveImageDigests(context);
-      return {
-        note: Object.entries(digests)
-          .map(([key, value]) => `${key}=${value.repoDigests?.[0] ?? value.imageId}`)
-          .join(' '),
-        digests,
-      };
-    });
-    if (!pulled.ok) return finish(report, context, { mode: 'run', environment });
+      const pulled = await phase(report, 'docker: pinned images resolve to digests', async () => {
+        digests = await resolveImageDigests(context);
+        return {
+          note: Object.entries(digests)
+            .map(([key, value]) => `${key}=${value.repoDigests?.[0] ?? value.imageId}`)
+            .join(' '),
+          digests,
+        };
+      });
+      if (!pulled.ok) break runPhases;
 
-    const up = await phase(report, 'infra: compose up (ephemeral, loopback only)', async () => {
-      await composeUp(context);
-      provisioned = true;
-      await waitForPostgresReady(context);
-      await waitForRabbitReady(context);
-      return { note: `postgres :${context.ports.postgres}, rabbitmq :${context.ports.rabbitmq}` };
-    });
-    if (!up.ok) return finish(report, context, { mode: 'run', environment, digests, provisioned });
+      const up = await phase(report, 'infra: compose up (ephemeral, loopback only)', async () => {
+        provisioned = true;
+        await composeUp(context);
+        await waitForPostgresReady(context);
+        await waitForRabbitReady(context);
+        return { note: `postgres :${context.ports.postgres}, rabbitmq :${context.ports.rabbitmq}` };
+      });
+      if (!up.ok) break runPhases;
 
-    const identities = await phase(report, 'rabbitmq: least-privilege identities', async () => {
-      const result = await bootstrapRabbitIdentities(context);
-      if (result.code !== 0) {
-        const error = new Error('RABBITMQ_BOOTSTRAP_FAILED');
-        error.result = result;
-        throw error;
-      }
-      return { note: `vhost ${context.vhost}, ${context.brokerServices.length} broker identities` };
-    });
-
-    // Migrations: a separate job per service, run by the migration identity.
-    const migrated = await phase(
-      report,
-      'postgres: migrate as the migration identity',
-      async () => {
-        const applied = [];
-        for (const service of SERVICES) {
-          const deploy = await migrateDeploy(context, service);
-          if (deploy.code !== 0) {
-            const error = new Error(`MIGRATE_FAILED: ${service}`);
-            error.result = deploy;
-            throw error;
-          }
-          const marker = await stampServiceMarker(context, service, SCHEMA_REV);
-          if (marker.code !== 0) {
-            const error = new Error(`MARKER_FAILED: ${service}`);
-            error.result = marker;
-            throw error;
-          }
-          applied.push(service);
+      const identities = await phase(report, 'rabbitmq: least-privilege identities', async () => {
+        const result = await bootstrapRabbitIdentities(context);
+        if (result.code !== 0) {
+          const error = new Error('RABBITMQ_BOOTSTRAP_FAILED');
+          error.result = result;
+          throw error;
         }
-        return { note: `${applied.length} services migrated`, services: applied };
-      },
-    );
+        return {
+          note: `vhost ${context.vhost}, ${context.brokerServices.length} broker identities`,
+        };
+      });
 
-    if (migrated.ok) {
-      await phase(report, 'postgres: harden runtime privileges', async () => {
-        for (const service of SERVICES) {
-          const hardened = await hardenPrivileges(context, service);
-          if (hardened.code !== 0) {
-            const error = new Error(`HARDEN_FAILED: ${service}`);
-            error.result = hardened;
-            throw error;
+      // Migrations: a separate job per service, run by the migration identity.
+      const migrated = await phase(
+        report,
+        'postgres: migrate as the migration identity',
+        async () => {
+          const applied = [];
+          for (const service of SERVICES) {
+            const deploy = await migrateDeploy(context, service);
+            if (deploy.code !== 0) {
+              const error = new Error(`MIGRATE_FAILED: ${service}`);
+              error.result = deploy;
+              throw error;
+            }
+            const marker = await stampServiceMarker(context, service, SCHEMA_REV);
+            if (marker.code !== 0) {
+              const error = new Error(`MARKER_FAILED: ${service}`);
+              error.result = marker;
+              throw error;
+            }
+            applied.push(service);
           }
-        }
-        return { note: 'app roles stripped of DDL and of _prisma_migrations' };
-      });
-    }
+          return { note: `${applied.length} services migrated`, services: applied };
+        },
+      );
 
-    if (identities.ok) {
-      await phase(report, 'rabbitmq: shared topology declared by infra identity', async () => {
-        await bootstrapSharedTopology(context);
-        return { note: 'durable exchanges asserted' };
-      });
-    }
-
-    await phase(report, 'context: write run context for the test processes', async () => {
-      const file = await writeContextFile(context);
-      return { note: path.relative(ROOT, file) };
-    });
-
-    // The suites only mean anything if every prerequisite phase passed.
-    if (report.failed.length > 0) {
-      report.record('integration: real PostgreSQL and RabbitMQ suites', 'SKIPPED', {
-        note: 'prerequisite phase failed; suites not run, and a skip is not a pass',
-      });
-    } else {
-      await phase(report, 'integration: real PostgreSQL and RabbitMQ suites', async () => {
-        const result = await runStreamingTest(INTEGRATION_SUITES, {
-          cwd: ROOT,
-          env: childEnv(context, { CW_CONTEXT_FILE: path.join(context.workDir, 'context.json') }),
-          timeoutMs: 30 * 60 * 1000,
-          tapFile: path.join(context.evidenceDir, 'integration.tap'),
+      if (migrated.ok) {
+        await phase(report, 'postgres: harden runtime privileges', async () => {
+          for (const service of SERVICES) {
+            const hardened = await hardenPrivileges(context, service);
+            if (hardened.code !== 0) {
+              const error = new Error(`HARDEN_FAILED: ${service}`);
+              error.result = hardened;
+              throw error;
+            }
+          }
+          return { note: 'app roles stripped of DDL and of _prisma_migrations' };
         });
-        const counts = parseTap(result.stdout);
-        process.stdout.write(summariseTap(result.stdout));
-        if (result.code !== 0 || result.outcome !== 'exited') {
-          const error = new Error(
-            `INTEGRATION_SUITES_FAILED: ${counts.pass} passed, ${counts.fail} failed, ${counts.skip} skipped`,
-          );
-          error.result = result;
-          throw error;
-        }
-        if (counts.skip > 0) {
-          const error = new Error(`INTEGRATION_SUITES_SKIPPED: ${counts.skip} skipped`);
-          error.result = result;
-          throw error;
-        }
-        return { note: `${counts.pass} passed, 0 failed, 0 skipped`, counts };
+      }
+
+      if (identities.ok) {
+        await phase(report, 'rabbitmq: shared topology declared by infra identity', async () => {
+          await bootstrapSharedTopology(context);
+          return { note: 'durable exchanges asserted' };
+        });
+      }
+
+      await phase(report, 'context: write run context for the test processes', async () => {
+        const file = await writeContextFile(context);
+        return { note: path.relative(ROOT, file) };
       });
-    }
 
-    await captureLogs(context, report);
-
-    return finish(report, context, {
-      mode: 'run',
-      environment,
-      digests,
-      provisioned,
-      keep,
-    });
-  } finally {
-    if (provisioned && !keep) {
-      const down = await composeDown(context);
-      if (down.code !== 0) {
-        // A stack left behind is a real problem, not a cosmetic one.
-        report.record('infra: teardown', 'FAIL', {
-          note: 'compose down failed; the ephemeral stack may still be running',
-          stderr: redact(down.stderr),
+      // The suites only mean anything if every prerequisite phase passed.
+      if (report.failed.length > 0) {
+        report.record('integration: real PostgreSQL and RabbitMQ suites', 'SKIPPED', {
+          note: 'prerequisite phase failed; suites not run, and a skip is not a pass',
         });
       } else {
-        report.record('infra: teardown', 'PASS', { note: `project ${context.project} removed` });
+        await phase(report, 'integration: real PostgreSQL and RabbitMQ suites', async () => {
+          const result = await runStreamingTest(INTEGRATION_SUITES, {
+            cwd: ROOT,
+            env: childEnv(context, { CW_CONTEXT_FILE: path.join(context.workDir, 'context.json') }),
+            timeoutMs: 30 * 60 * 1000,
+            tapFile: path.join(context.evidenceDir, 'integration.tap'),
+          });
+          const counts = parseTap(result.stdout);
+          process.stdout.write(summariseTap(result.stdout));
+          if (result.code !== 0 || result.outcome !== 'exited') {
+            const error = new Error(
+              `INTEGRATION_SUITES_FAILED: ${counts.pass} passed, ${counts.fail} failed, ${counts.skip} skipped`,
+            );
+            error.result = result;
+            throw error;
+          }
+          if (counts.skip > 0) {
+            const error = new Error(`INTEGRATION_SUITES_SKIPPED: ${counts.skip} skipped`);
+            error.result = result;
+            throw error;
+          }
+          return { note: `${counts.pass} passed, 0 failed, 0 skipped`, counts };
+        });
       }
-    } else if (provisioned && keep) {
-      report.record('infra: teardown', 'SKIPPED', {
-        note: `--keep was passed; tear down with: docker compose -p ${context.project} -f infra/compose.acceptance.yml --env-file ${context.envFile} down -v`,
-      });
+
+      await captureLogs(context, report);
     }
+  } catch (error) {
+    report.record('runner: unexpected failure', 'FAIL', { note: redact(error.message) });
   }
+  return finalizeAcceptance({
+    report,
+    context,
+    provisioned,
+    keep,
+    cleanup: composeDown,
+    finish,
+    redact,
+    detail: { mode: 'run', environment, digests, provisioned, keep },
+  });
 }
 
 /* -------------------------------- helpers -------------------------------- */

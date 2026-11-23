@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type Ref } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { illustrativeCost } from '../../../fixtures/customerCatalogFixture';
+import { currentInstant } from '../../../shared/clock';
 import { Icon } from '../../../shared/Icon';
 import {
   CONTACT_NAME_MAX_LENGTH,
@@ -16,9 +17,10 @@ import {
 } from '../../../state/contactStep';
 import { useCustomerSession } from '../../../state/CustomerSessionProvider';
 import { pathForIntent } from '../../../state/navigationPath';
+import { completeReviewEdit } from '../../../state/reviewStep';
 import { BookingFooter } from '../BookingFooter';
 import { BookingProgress } from '../BookingProgress';
-import { bookingFlow } from '../bookingFlow';
+import { bookingFlow, decisionNextLabel } from '../bookingFlow';
 import { buildPriceBreakdown } from '../priceBreakdown';
 import './contact.css';
 
@@ -125,7 +127,9 @@ export function ContactStep() {
   };
 
   const handleNext = () => {
-    const result = run(submitContactStep);
+    const result = run((current) =>
+      completeReviewEdit(submitContactStep(current), currentInstant()),
+    );
     if (result.intent) {
       navigate(pathForIntent(result.intent));
       return;
@@ -215,7 +219,7 @@ export function ContactStep() {
       <BookingFooter
         total={cost.total}
         minutes={cost.minutes}
-        nextLabel={bookingFlow[CONTACT_STEP_INDEX].nextLabel}
+        nextLabel={decisionNextLabel(CONTACT_STEP_INDEX, state.reviewEditing)}
         breakdown={breakdown}
         onNext={handleNext}
       />

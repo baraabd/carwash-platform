@@ -1,0 +1,67 @@
+name: P01 Geo provider acceptance
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '.github/workflows/p01-geo-acceptance.yml'
+      - 'services/geo/**'
+      - 'services/identity/**'
+      - 'packages/**'
+      - 'scripts/production/A/**'
+      - 'scripts/acceptance/lib/**'
+      - 'tests/production/A/**'
+      - 'infra/postgres/**'
+      - 'architecture/**'
+      - '.nvmrc'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig.base.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p01-geo-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+
+jobs:
+  geo:
+    name: Geo HTTP CLI and PostgreSQL acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Exact toolchain and frozen dependencies
+        run: |
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          pnpm install --frozen-lockfile
+      - name: Generate and build providers with their workspace dependencies
+        run: |
+          pnpm --filter @carwash/identity --filter @carwash/geo run generate
+          pnpm --filter @carwash/identity... --filter @carwash/geo... run build
+          pnpm --filter @carwash/geo run test:unit
+          node --test tests/production/A/acceptance-plan.test.mjs
+      - name: Real PostgreSQL role isolation, Geo HTTP and operator CLI
+        run: node scripts/production/A/acceptance-a.mjs --services geo
+      - name: Retain redacted source-stamped reports only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p01-geo-${{ github.run_id }}-${{ github.run_attempt }}
+          path: docs/production/A/evidence/*.json
+          if-no-files-found: error
+          retention-days: 14

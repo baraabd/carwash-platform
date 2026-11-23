@@ -108,6 +108,31 @@ This is an environment limitation, not a finding about the Dockerfile, and it is
 RUN rather than as a pass. The `images` job in `.github/workflows/sprint-02-ci.yml` runs the same
 script on a GitHub runner, and its result is the evidence for this gate.
 
+#### Image build deadlines and diagnostics — 12 October 2026
+
+In [run 38127249186](https://github.com/baraabd/carwash-platform/actions/runs/38127249186),
+the wallet build remained active until the 45-minute job cancelled it. The harness had a
+60-minute command timeout, so GitHub killed Docker and Buildx before the harness could return
+its captured build output. The available log does not identify which build step stalled.
+Billing, subscription and workforce completed their build and boot checks in roughly 45–47
+seconds in that same run; those measurements do not establish wallet performance.
+
+The image build deadline is now 20 minutes, explicitly set in CI by `CW_IMAGE_TIMEOUT_MS`.
+Ordinary Docker control commands have a separate two-minute maximum; existing shorter probe
+and cleanup limits remain in force. The 45-minute job limit is unchanged, leaving time for base
+image acquisition, boot probes and cleanup. A slow local environment can set a different positive
+`CW_IMAGE_TIMEOUT_MS`; invalid or overflowing timer values fail before acquisition begins.
+
+BuildKit uses plain progress. The harness prints the acquired base, a heartbeat every 30 seconds,
+and the command outcome and duration. On failure it prints bounded, redacted stdout/stderr tails
+after the process tree exits. Raw partial chunks are never streamed around the shared redactor.
+Timeouts, cancellations and build errors remain failures; application builds are not retried.
+The existing base-image mirror fallback and acquired-digest validation are unchanged.
+
+`tests/unit/image-build-timeout.test.mjs` checks a real blocked child process, retained output,
+redaction across chunks, timer cleanup, failure propagation and the CI deadline relationship.
+These are harness regressions, not a local Docker build or a production-readiness claim.
+
 ### Security
 
 `pnpm audit` reported 7 advisories (5 high) before this slice was completed. Both chains were

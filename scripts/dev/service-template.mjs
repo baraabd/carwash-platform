@@ -6,21 +6,24 @@
  * the repository.
  */
 
-export const FOUNDATION_RUNTIME_IMPLEMENTATION = 'existing-health-only-shell';
+import { lstat, mkdir, writeFile, link, unlink } from 'node:fs/promises';
+import path from 'node:path';
+import { randomUUID } from 'node:crypto';
+import {
+  RUNTIME_IMPLEMENTATIONS,
+  selectRuntimeServices,
+} from '../../architecture/runtime-lifecycle.mjs';
+import { readRegularFile } from '../lib/read-regular-file.mjs';
+import {
+  HARDENED_RUNTIME_IMAGE,
+  HARDENED_NATIVE_IMAGE,
+  REMOVE_LEGACY_CONVERTERS_DOCKER,
+} from '../ci/runtime-hardening.mjs';
+
+export const FOUNDATION_RUNTIME_IMPLEMENTATION = RUNTIME_IMPLEMENTATIONS.legacyFoundation;
 
 export function selectFoundationShellServices(catalog) {
-  if (!catalog || !Array.isArray(catalog.services)) {
-    throw new Error('INVALID_SERVICE_CATALOG');
-  }
-
-  const services = catalog.services
-    .filter(
-      (service) =>
-        service &&
-        typeof service === 'object' &&
-        service.runtimeImplementation === FOUNDATION_RUNTIME_IMPLEMENTATION,
-    )
-    .map((service) => service.id);
+  const services = selectRuntimeServices(catalog).map((service) => service.id);
 
   if (
     services.length === 0 ||
@@ -31,6 +34,114 @@ export function selectFoundationShellServices(catalog) {
   }
 
   return services;
+}
+
+/** Writing requires an explicit owner scope. Read-only checks may cover all runtimes. */
+export function generationOptions(args, fallbackRoot) {
+  const options = { root: fallbackRoot, checkOnly: false, ids: [] };
+  for (let index = 0; index < args.length; index += 1) {
+    const flag = args[index];
+    if (flag === '--check') options.checkOnly = true;
+    else if (['--root', '--service', '--services'].includes(flag)) {
+      const value = args[++index];
+      if (!value || value.startsWith('--')) throw new Error(`GENERATOR_OPTION_REQUIRED: ${flag}`);
+      if (flag === '--root') options.root = path.resolve(value);
+      else options.ids.push(...value.split(','));
+    } else throw new Error(`UNKNOWN_GENERATOR_OPTION: ${flag}`);
+  }
+  if (!options.checkOnly && options.ids.length === 0)
+    throw new Error('EXPLICIT_SERVICE_SCOPE_REQUIRED');
+  if (
+    options.ids.some((id) => !/^[a-z][a-z0-9-]*$/.test(id)) ||
+    new Set(options.ids).size !== options.ids.length
+  )
+    throw new Error('INVALID_GENERATOR_SCOPE');
+  return options;
+}
+
+export function generationServices(catalog, options) {
+  selectRuntimeServices(catalog); // Classify every declaration, including unknown states.
+  const ids = options.ids.length ? options.ids : selectFoundationShellServices(catalog);
+  return ids.map((id) => {
+    const service = catalog.services.find((item) => item.id === id);
+    if (!service) throw new Error(`UNKNOWN_GENERATOR_SERVICE: ${id}`);
+    return service;
+  });
+}
+
+async function safeTarget(root, relative) {
+  const target = path.resolve(root, relative);
+  const local = path.relative(root, target);
+  if (!local || local === '..' || local.startsWith(`..${path.sep}`) || path.isAbsolute(local)) {
+    throw new Error(`UNSAFE_GENERATED_PATH: ${relative}`);
+  }
+  let current = root;
+  for (const segment of local.split(path.sep)) {
+    current = path.join(current, segment);
+    try {
+      if ((await lstat(current)).isSymbolicLink())
+        throw new Error(`GENERATED_SYMLINK_REFUSED: ${relative}`);
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
+  return target;
+}
+
+/**
+ * Preflight the entire scope before creating anything. Existing unequal files
+ * are owner evolution and are never replaced. Exclusive links publish complete
+ * temporary bytes atomically; a race fails closed, and new files are rolled back.
+ */
+export async function writeGeneratedFiles(root, files) {
+  const missing = [];
+  for (const [relative, expected] of files) {
+    const target = await safeTarget(root, relative);
+    try {
+      const actual = readRegularFile(target, 4 * 1024 * 1024).toString('utf8');
+      if (actual !== expected) throw new Error(`EVOLVED_FILE_OVERWRITE_REFUSED: ${relative}`);
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      missing.push({ relative, target, expected });
+    }
+  }
+  const created = [];
+  try {
+    for (const { relative, target, expected } of missing) {
+      await mkdir(path.dirname(target), { recursive: true });
+      await safeTarget(root, relative);
+      const temporary = `${target}.generator-${randomUUID()}.tmp`;
+      try {
+        await writeFile(temporary, expected, { encoding: 'utf8', flag: 'wx' });
+        await link(temporary, target);
+        created.push(target);
+      } finally {
+        await unlink(temporary).catch((error) => {
+          if (error.code !== 'ENOENT') throw error;
+        });
+      }
+    }
+  } catch (error) {
+    for (const target of created.reverse()) await unlink(target);
+    throw error;
+  }
+  return created.map((target) => path.relative(root, target));
+}
+
+/** Evolution is valid during --check; domain/source equality is not a gate. */
+export async function checkGeneratedFiles(root, files, validate = () => {}) {
+  for (const [relative] of files) {
+    const target = await safeTarget(root, relative);
+    let source;
+    try {
+      source = readRegularFile(target, 4 * 1024 * 1024).toString('utf8');
+    } catch (error) {
+      if (error.code === 'ENOENT')
+        throw new Error(`MISSING_GENERATED_FILE: ${relative}`, { cause: error });
+      throw error;
+    }
+    await validate(relative, source);
+  }
 }
 
 const SPECIAL_SLICES = {
@@ -64,7 +175,7 @@ export {};
 function prismaService(service) {
   return `import { Inject, Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
+import { databasePoolConfig, databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
 import { Pool } from 'pg';
 import { PrismaClient } from '../../generated/prisma/client';
 
@@ -84,7 +195,7 @@ export class PrismaService implements OnModuleDestroy {
 
   constructor(@Inject(DATABASE_URL) url: string) {
     if (!url) throw new Error('DATABASE_URL_REQUIRED');
-    const pool = new Pool({ connectionString: url });
+    const pool = new Pool(databasePoolConfig(url));
     const telemetry = serviceTelemetry('${service}');
     telemetry.metrics.observePool(() => pool);
     const adapter = new PrismaPg(pool, {
@@ -233,8 +344,8 @@ function dockerfile(service) {
 # Build from the repository root:
 #   docker build -f services/${service}/Dockerfile -t washgo/${service}:dev .
 ARG NODE_IMAGE=node:24.21.0-bookworm-slim
-ARG RUNTIME_IMAGE=gcr.io/distroless/base-nossl-debian13@sha256:8c563c1fb5e120606f0d85733049775faed6192e2bd2223ef283a5393eec22b9
-ARG NATIVE_RUNTIME_IMAGE=gcr.io/distroless/cc-debian13@sha256:54df941ed0d06a1bd95ef5e0ce391fd8d9f94b64782dc9a60062727849ee3f97
+ARG RUNTIME_IMAGE=${HARDENED_RUNTIME_IMAGE}
+ARG NATIVE_RUNTIME_IMAGE=${HARDENED_NATIVE_IMAGE}
 
 FROM \${NODE_IMAGE} AS builder
 ARG SERVICE=${service}
@@ -268,6 +379,8 @@ COPY --from=native_libraries /var/lib/dpkg/status.d/libstdc++6 /var/lib/dpkg/sta
 COPY --from=native_libraries /var/lib/dpkg/status.d/libgcc-s1 /var/lib/dpkg/status.d/libgcc-s1
 COPY --from=native_libraries /usr/share/doc/libstdc++6 /usr/share/doc/libstdc++6
 COPY --from=native_libraries /usr/share/doc/libgcc-s1 /usr/share/doc/libgcc-s1
+# Remove unused legacy iconv code; retain original package metadata and licences.
+${REMOVE_LEGACY_CONVERTERS_DOCKER}
 COPY --from=builder --chown=1000:1000 /deploy /app
 USER 1000:1000
 ENTRYPOINT []

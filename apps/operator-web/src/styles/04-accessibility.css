@@ -1,0 +1,24 @@
+/*
+ * PR #147 accessibility repair. The three extracted reference sheets stay
+ * byte-identical. Only the recorded low-contrast text colours change here;
+ * raw/reference/candidate evidence retains this bounded visible difference.
+ */
+.header-center > small,
+#main > .heading > div > p,
+#main > .stepper > .stepper-head > span,
+#main > .section-title > small,
+#main .check-button.checked > .grow > small,
+#main > .center > p.muted,
+#main .compare-caption > span,
+#main .compare-caption > .text-btn,
+#sheet .field-label > .muted {
+  color: #5f7264;
+}
+
+#main > .stepper > .steps > li:not(.current) {
+  color: #617153;
+}
+
+#main > .segmented > .segment[aria-pressed="false"] {
+  color: #5f6f51;
+}

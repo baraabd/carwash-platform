@@ -1,0 +1,62 @@
+name: P01 vehicle PostgreSQL acceptance
+on:
+  pull_request:
+    paths:
+      - 'services/vehicle/**'
+      - 'services/identity/**'
+      - 'packages/**'
+      - 'scripts/production/A/**'
+      - 'scripts/acceptance/lib/**'
+      - 'tests/production/A/**'
+      - 'infra/postgres/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.nvmrc'
+      - '.github/workflows/p01-vehicle-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: p01-vehicle-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  vehicle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Pinned toolchain and frozen dependencies
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare --activate
+          node scripts/verify-toolchain.mjs
+          pnpm install --frozen-lockfile
+      - name: Build real Identity and vehicle providers
+        run: |
+          set -euo pipefail
+          pnpm --filter @carwash/identity run generate
+          pnpm --filter @carwash/vehicle run generate
+          pnpm run build:packages
+          pnpm --filter @carwash/identity run build
+          pnpm --filter @carwash/vehicle run build
+          pnpm --filter @carwash/vehicle run test:unit
+          node --test tests/production/A/acceptance-plan.test.mjs
+      - name: PostgreSQL migrations, expiry, isolation and real HTTP acceptance
+        run: node scripts/production/A/acceptance-a.mjs --services vehicle
+      - name: Preserve redacted acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: p01-vehicle-${{ github.run_id }}-${{ github.run_attempt }}
+          path: docs/production/A/evidence/
+          if-no-files-found: error
+          retention-days: 14

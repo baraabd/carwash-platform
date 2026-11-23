@@ -1,0 +1,414 @@
+{
+  "schemaVersion": 1,
+  "task": "W04-B",
+  "lane": "B",
+  "proposalRevision": "0.1.0",
+  "phase": "ENTRY_BLOCKED",
+  "parentImplementation": "NOT_STARTED",
+  "observation": {
+    "sourceSha": "1ec9d8aebf4470a2815471116643fa6ebe0d5a95",
+    "sourceTree": "9f04d674056041bbc810a62e4cc7f275c32581b8",
+    "observedAtUtc": "2026-10-05T12:39:30.517853+00:00",
+    "sourceMeaning": "Refreshed observed main audit source only, not BASE_W04 or accepted financial behavior.",
+    "initialIntakeOpenPullRequests": 0
+  },
+  "acceptedWaveBase": null,
+  "publishedBasesAtSource": {
+    "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+    "BASE_W02": null,
+    "BASE_W03": null,
+    "BASE_W04": null
+  },
+  "publishedRegistryFieldPresence": {
+    "BASE_W03": false,
+    "BASE_W04": false
+  },
+  "acceptedBusinessContractIds": [],
+  "packagesAtSource": {
+    "contracts": "0.0.2",
+    "event-contracts": "0.0.2",
+    "api-clients": "0.0.1"
+  },
+  "mergedProposalProvenance": {
+    "W03B": {
+      "pullRequest": 52,
+      "head": "09a746872750e411d2ecbe7a5e0e3b5fa253100f",
+      "mergeSha": "6f2763416c4ff7cb7e051c618ef18f8aee175c63",
+      "mergedAtUtc": "2026-10-05T12:25:48Z",
+      "meaning": "Merged finance design/contracts/specification only; no obligation or cash implementation or wave acceptance."
+    },
+    "W03E": {
+      "pullRequest": 54,
+      "mergeSha": "1ec9d8aebf4470a2815471116643fa6ebe0d5a95",
+      "meaning": "Merged E entry/topology/defect documentation, not accepted BASE_W04 or financial providers."
+    }
+  },
+  "sourceDeltaSincePriorAudit": {
+    "sourceSha": "82e7402ed9ab6cc4f565f423441cd0655f2d627a",
+    "addedOrChangedPaths": [
+      "docs/parallel/A/W03/CHECKPOINT.md",
+      "docs/parallel/A/W03/README.md",
+      "docs/parallel/A/W03/SCREEN_FACTS_AND_RECOVERY.md",
+      "docs/parallel/A/W03/W04_CONTRACT_REQUESTS.md",
+      "docs/parallel/A/W03/source-observation.json",
+      "docs/parallel/B/W03/BILLING_DESIGN.md",
+      "docs/parallel/B/W03/CONTRACT_DELTA_REQUESTS.md",
+      "docs/parallel/B/W03/ENTRY_EVIDENCE.json",
+      "docs/parallel/B/W03/ENTRY_READINESS.md",
+      "docs/parallel/B/W03/README.md",
+      "docs/parallel/B/W03/W04_CONTRACT_PACKET.md",
+      "docs/parallel/C/W03/CAPACITY_AND_RECOVERY_PROPOSAL.md",
+      "docs/parallel/C/W03/CHECKPOINT.md",
+      "docs/parallel/C/W03/W04_CONTRACT_REQUESTS.md",
+      "docs/parallel/D/W03/HANDOFF.md",
+      "docs/parallel/D/W03/README.md",
+      "docs/parallel/D/W03/SOURCE_OBSERVATION.json",
+      "docs/parallel/D/W03/W04_CONTRACT_REQUESTS.md",
+      "docs/parallel/E/W03/ACCEPTANCE_PLAN.md",
+      "docs/parallel/E/W03/CHECKPOINT.md",
+      "docs/parallel/E/W03/COMMAND_EVENTS_AND_RECOVERY.md",
+      "docs/parallel/E/W03/DEFECT_LEDGER.md",
+      "docs/parallel/E/W03/ENTRY_AUDIT.json",
+      "docs/parallel/E/W03/README.md",
+      "docs/parallel/E/W03/TOPOLOGY_AND_W04_REQUESTS.md",
+      "tests/parallel/A/W03/ACCEPTANCE_SPECIFICATIONS.md",
+      "tests/parallel/B/W03/billing-acceptance.spec.json",
+      "tests/parallel/C/W03/acceptance-specifications.md",
+      "tests/parallel/D/W03/ACCEPTANCE_SPEC.md"
+    ],
+    "pathCount": 29,
+    "outsideLaneDocumentationAndDeclarativeSpecifications": false,
+    "runtimeChanged": false
+  },
+  "writerBoundary": {
+    "permanentLane": "B",
+    "bootstrapPermission": "Expired by current task; old conditional registry requires reconciliation and grants no renewed bootstrap authority.",
+    "effectiveChangedPrefixes": ["docs/parallel/B/W04/", "tests/parallel/B/W04/"],
+    "serviceSourceWrites": false,
+    "sharedSourceWrites": false
+  },
+  "approvedInputs": {
+    "moneyPolicy": null,
+    "accountingPolicy": null,
+    "collectionTimingAndAuthorityFence": null,
+    "fullPartialOverpaymentAndBusinessIdentity": null,
+    "cashCustodyHoldersAndRecipients": null,
+    "purposeSpecificHolds": null,
+    "handoverDepositAndDiscrepancyWorkflow": null,
+    "independentTreasuryApproval": null,
+    "postingAndSettlementTriggers": null,
+    "cancellationRefundCompensationPolicy": null,
+    "safeReceiptDownloadFieldsAndFormat": null,
+    "accountGuestReceiptCapability": null,
+    "retentionReplayTimePolicy": null,
+    "missingProductionDesignStates": null
+  },
+  "environment": {
+    "localDockerAvailable": false,
+    "provisionedAllocation": null,
+    "financeRuntimeExecuted": false,
+    "realBillingWalletDatabaseTestExecuted": false,
+    "realCashReceiptCustodySettlementFlowExecuted": false,
+    "actualThreeAppAcceptanceExecuted": false,
+    "ownedActiveResources": [],
+    "limitation": "Proposal integrity checks and hosted foundation CI do not execute or close W04 cash acceptance."
+  },
+  "runtimeExecuted": false,
+  "migrationsAdded": [],
+  "entryBlockerIds": [
+    "ENTRY-01",
+    "ENTRY-02",
+    "ENTRY-03",
+    "ENTRY-04",
+    "ENTRY-05",
+    "ENTRY-06",
+    "ENTRY-07"
+  ],
+  "sourceDerivedSchemaInventory": [
+    {
+      "service": "billing",
+      "schemaPath": "services/billing/prisma/schema.prisma",
+      "schemaSha256": "82aa2c8382d9a1b5a345f75065407c213da829acd58e92c1331b3d9bfed4c3a1",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20260920000000_sprint_02_foundation"],
+      "businessAcceptanceProved": false
+    },
+    {
+      "service": "wallet",
+      "schemaPath": "services/wallet/prisma/schema.prisma",
+      "schemaSha256": "e6e9b6017244473a152de02d8441d14c6e71acc4dce61fdafd4fe50bef422db2",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20261005060000_w01_foundation"],
+      "businessAcceptanceProved": false
+    },
+    {
+      "service": "pricing",
+      "schemaPath": "services/pricing/prisma/schema.prisma",
+      "schemaSha256": "5e8251634c057bb4656d0b050d52e04cd02734a3ca541d1a2667df7f73bb6686",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20261005060000_w01_foundation"],
+      "businessAcceptanceProved": false
+    },
+    {
+      "service": "booking",
+      "schemaPath": "services/booking/prisma/schema.prisma",
+      "schemaSha256": "9ea3d6dd78593cafafc97320e392e2bdd4e5394adcca768e303d20c2146d7622",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20260920000000_sprint_02_foundation"],
+      "businessAcceptanceProved": false
+    },
+    {
+      "service": "dispatch",
+      "schemaPath": "services/dispatch/prisma/schema.prisma",
+      "schemaSha256": "a40a7014eb73cc30c33156f220a259740f0e4f243cf02f268d69d68a5765ad92",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20261005060000_w01_foundation"],
+      "businessAcceptanceProved": false
+    },
+    {
+      "service": "workforce",
+      "schemaPath": "services/workforce/prisma/schema.prisma",
+      "schemaSha256": "8dd9765f9634bcda0bb241902220a72390fadb059639bda67c12f4171fdcad19",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20260920000000_sprint_02_foundation"],
+      "businessAcceptanceProved": false
+    },
+    {
+      "service": "configuration",
+      "schemaPath": "services/configuration/prisma/schema.prisma",
+      "schemaSha256": "0891923f7b6b2df9166e0a673d8738fba5b46c908750c553873f37768df1c43c",
+      "models": ["ServiceMarker"],
+      "migrationIds": ["20261005060000_w01_foundation"],
+      "businessAcceptanceProved": false
+    }
+  ],
+  "sourceFingerprints": [
+    {
+      "path": "AGENTS.md",
+      "bytes": 3138,
+      "sha256": "9a36dcbe805425931884abedb1b1efefdaafa39a0a73c13837bcec71d4eb489f"
+    },
+    {
+      "path": "docs/design/DESIGN_LOCK.md",
+      "bytes": 10268,
+      "sha256": "0f05db671539f6568227cef7c6e7378ab0db4c1ae63cefd0678ce504fbfab0ec"
+    },
+    {
+      "path": "docs/design/reference-manifest.json",
+      "bytes": 2799,
+      "sha256": "985a98d76516c2443ad8c9a716d6d35225feb54a05b84d0fd7a004561223545a"
+    },
+    {
+      "path": "docs/adr/0004-approved-ui-precedence.md",
+      "bytes": 1557,
+      "sha256": "d14c375db104b255fc6aa8f2692443c60751e81c7e828d3cc479e0effa6c755d"
+    },
+    {
+      "path": "docs/ARCHITECTURE_AR.md",
+      "bytes": 45553,
+      "sha256": "d11a69f75d17375f47f0648e7cfd2185211461f516d90e23d99c9b2c24eae9d8"
+    },
+    {
+      "path": "docs/VERIFICATION.md",
+      "bytes": 4653,
+      "sha256": "d8445acdd7cefd3818b538bf04b822ee07075cf1f95d68f05f7eed5437872ea3"
+    },
+    {
+      "path": "architecture/service-catalog.json",
+      "bytes": 43887,
+      "sha256": "34462fbfb90c6a221524905aa21f7a4022c28a1b21d2243381a1b07582eac9b8"
+    },
+    {
+      "path": "architecture/adr/F001-monorepo-and-data-ownership.md",
+      "bytes": 7220,
+      "sha256": "46309b8de279fbccb99716b240a429a79abd1b5699e809947429d9726ece67d7"
+    },
+    {
+      "path": "architecture/parallel-contract-release.json",
+      "bytes": 31335,
+      "sha256": "aec04eeb6c3d893e4e0b401bab0a550c517f1e32709a5e0189f4a3ddb0ce4db9"
+    },
+    {
+      "path": "architecture/parallel-ownership.json",
+      "bytes": 59599,
+      "sha256": "2b696da4f8ed6d0fbb6234e33dc207e92c9e91f72e56e6f8777aac62c4f8e144"
+    },
+    {
+      "path": "docs/design/f010-reference-manifest.json",
+      "bytes": 1488,
+      "sha256": "94c3c99206169e66dd0a1161b5b7968c098f1e3ee29af3d5e1c7789be4ba44f3"
+    },
+    {
+      "path": "docs/parallel/E/W03/ENTRY_AUDIT.json",
+      "bytes": 4753,
+      "sha256": "281057ec4e5116f97705f3a14e36e8177a5e809e3b412f1bdf077ae47b774a9b"
+    },
+    {
+      "path": "docs/parallel/E/W03/DEFECT_LEDGER.md",
+      "bytes": 7072,
+      "sha256": "33f2845f1e8d6d4e13e48660a15c08bc16e43b6d2230a7353017a6a4df7aaa0f"
+    },
+    {
+      "path": "docs/parallel/E/W03/TOPOLOGY_AND_W04_REQUESTS.md",
+      "bytes": 9531,
+      "sha256": "ed1d1c9a9899918b449c6444403e28fa1b98a14b76b337534ddd0cc91f7790bb"
+    },
+    {
+      "path": "docs/parallel/B/W01/POLICY_DECISIONS.md",
+      "bytes": 9149,
+      "sha256": "c31659de750f97eaf57faacd9591665ed1d94e73c9bbb35250c311091562f344"
+    },
+    {
+      "path": "docs/parallel/B/W01/future-finance-contracts.schema.json",
+      "bytes": 50919,
+      "sha256": "1b5d9f1243b853274d2f43181a0f9aa09fc50953d8e530e069669a30295e21a9"
+    },
+    {
+      "path": "docs/parallel/B/W03/W04_CONTRACT_PACKET.md",
+      "bytes": 24622,
+      "sha256": "fe9065ba65bd987d49b70306ea6a38d0e32007a654dd6f9bde0ba88dd2f7bb36"
+    },
+    {
+      "path": "docs/parallel/A/W03/W04_CONTRACT_REQUESTS.md",
+      "bytes": 48953,
+      "sha256": "3255a81bad045312f7abf86902e4e9333a9323e7e5dd7203524df79807b17352"
+    },
+    {
+      "path": "docs/parallel/C/W03/W04_CONTRACT_REQUESTS.md",
+      "bytes": 8141,
+      "sha256": "ac9a38bdf6b0037a90782d95bfcb918c86eb47620a3b4fa1ceb97770b6e86c49"
+    },
+    {
+      "path": "docs/parallel/D/W03/W04_CONTRACT_REQUESTS.md",
+      "bytes": 14307,
+      "sha256": "3f7d83653241e6f0e5aa8d8e33240082a2e7755ba15539db93dded83a00489ad"
+    },
+    {
+      "path": "services/billing/prisma/schema.prisma",
+      "bytes": 921,
+      "sha256": "82aa2c8382d9a1b5a345f75065407c213da829acd58e92c1331b3d9bfed4c3a1"
+    },
+    {
+      "path": "services/wallet/prisma/schema.prisma",
+      "bytes": 920,
+      "sha256": "e6e9b6017244473a152de02d8441d14c6e71acc4dce61fdafd4fe50bef422db2"
+    },
+    {
+      "path": "services/billing/src/domain/ledger.ts",
+      "bytes": 1299,
+      "sha256": "90dc25a443edb96154f725bb1df781932a08664547f677fade08d33badb3f696"
+    },
+    {
+      "path": "services/billing/src/app.module.ts",
+      "bytes": 1090,
+      "sha256": "7d0a5be630d96794e8603af930151d7218222330994cb6cbaab0bc7466256a5f"
+    },
+    {
+      "path": "services/wallet/src/app.module.ts",
+      "bytes": 1088,
+      "sha256": "e3fbed1cad928592d6ab6c098a0d25bd5dded26e7177d629df1c1cf2a5d3da13"
+    },
+    {
+      "path": "services/billing/package.json",
+      "bytes": 895,
+      "sha256": "27f996405ca473a9b7fdb12c9f4146744f4ef51097df1116cffd847dd06659b0"
+    },
+    {
+      "path": "services/wallet/package.json",
+      "bytes": 989,
+      "sha256": "913999ae5e57fcc56674a515e097950b89b7f9155e085322c3376041fe9b0b65"
+    },
+    {
+      "path": "services/identity/src/application/identity-auth.service.ts",
+      "bytes": 16872,
+      "sha256": "bcaa6240678273426f5bdab1acb340da6b20cb48d948859df3fe6638ad5a0763"
+    },
+    {
+      "path": "packages/contracts/src/registry.ts",
+      "bytes": 1106,
+      "sha256": "a823495f3038c4c4a27c323194f86e51665b0f263ac39ec40afaa0b24f3fa97d"
+    },
+    {
+      "path": "packages/contracts/src/identity.ts",
+      "bytes": 2562,
+      "sha256": "0e122d3e0e148e1df23e54a0f4fa619d1529e7c187f430e6f6c4833de50642ae"
+    },
+    {
+      "path": "packages/contracts/src/gateway.ts",
+      "bytes": 5732,
+      "sha256": "28d73b02d8c31724c2b0537259a9f84e05ba440766116d35993ae1514c45cc40"
+    },
+    {
+      "path": "packages/api-clients/src/index.ts",
+      "bytes": 94,
+      "sha256": "9c5162feffe8bbe37bdf5adde98f993d3d2169c1156a6ed5265cc6b7e4585c1d"
+    },
+    {
+      "path": "packages/event-contracts/src/registry.ts",
+      "bytes": 1163,
+      "sha256": "9150079692bf7945d3532bdf9b3f3af07f0f085a346f0ae11ebbe3bea6fe6a6f"
+    },
+    {
+      "path": "packages/platform-messaging/src/inbox-consumer.ts",
+      "bytes": 8044,
+      "sha256": "cab0a274385e9c264f1f87731f02b160fa50dec1be7a38fa2c9f31f8459462c0"
+    },
+    {
+      "path": "infra/postgres/provision.sh",
+      "bytes": 5800,
+      "sha256": "ce19ea0642cf33a662dfce416eadee0abd7647226f211dda2966df5d56e1ad2b"
+    },
+    {
+      "path": "tests/integration/postgres-privileges.test.mjs",
+      "bytes": 13247,
+      "sha256": "3b4140f3d156a8fa6e5a312ea1880461624c1d90a905ad9b42e669792623611f"
+    },
+    {
+      "path": "apps/customer-web/src/widgets/order-receipt/receiptViewModel.ts",
+      "bytes": 5070,
+      "sha256": "ef226cff3ad138ae657f5d45de8e3180511f7e6665406567e8b1569a030e15ad"
+    },
+    {
+      "path": "apps/customer-web/src/state/customerSession.ts",
+      "bytes": 6475,
+      "sha256": "2ce3b0d903a333e9618e0410fcf4ebe19df30a1b9d1fdeaa1aba478cad492dd9"
+    },
+    {
+      "path": "apps/customer-web/src/state/CustomerSessionProvider.tsx",
+      "bytes": 3449,
+      "sha256": "ec6946b1fcf3536ca00e99962d8e0c0efad97a34b5517db6e88ec9c7e6d607c9"
+    },
+    {
+      "path": "apps/operator-web/src/index.ts",
+      "bytes": 448,
+      "sha256": "8ec101dc9d05d99c5026f810b49c4956acdb36a52d95871f8d09d1c701f71cff"
+    },
+    {
+      "path": "apps/admin-web/src/index.ts",
+      "bytes": 445,
+      "sha256": "666bd276e8c31ad327e2c706d589ebd04efbb692e48c61529a7d9ba814eeb6cd"
+    },
+    {
+      "path": "design/reference/approved/washgo-payments-interactive.html",
+      "bytes": 263462,
+      "sha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549"
+    },
+    {
+      "path": "design/reference/approved/washgo-technician-interactive.html",
+      "bytes": 122636,
+      "sha256": "d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc"
+    },
+    {
+      "path": "design/reference/approved/washgo-admin-prototype.html",
+      "bytes": 40310,
+      "sha256": "b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273"
+    }
+  ],
+  "databaseRestrictionGap": {
+    "source": "infra/postgres/provision.sh",
+    "fact": "Blanket runtime SELECT/INSERT/UPDATE/DELETE grant is repeated by provisioning. Marker privilege tests do not prove immutable financial journals or receipt/custody history.",
+    "requiredProof": "Owner-local reviewed controls or E privilege/provisioner changes must survive raw runtime SQL, concurrent finalization and provisioning replay.",
+    "implementationSelected": false
+  },
+  "deliveryEvidence": "Exact final delivered head/tree, local commands/results and hosted CI are recorded in the draft PR after execution. No self-referential commit, runtime acceptance or wave publication is invented."
+}

@@ -1,0 +1,70 @@
+# Migration job image, one per database owner (P07-E1).
+#
+# A release ships TWO artifacts per database owner: the runtime image built from
+# services/<id>/Dockerfile, and this one-shot migration job. They are separate on
+# purpose:
+#   - the runtime image carries no Prisma CLI and no schema engine, so a replica
+#     cannot migrate even if it is handed the wrong credentials,
+#   - this image carries no application code, only the owner's committed
+#     migrations, its schema and the pinned Prisma CLI, and it refuses to start
+#     with anything but that owner's migration identity (migrate-job.mjs).
+#
+# Build from the repository root:
+#   docker buildx build -f infra/release/Dockerfile.migrate \
+#     --build-arg SERVICE=booking --build-arg NODE_IMAGE=node@sha256:... .
+#
+# The schema engine is a native binary linked against the system OpenSSL, so
+# this job runs on the pinned Node bookworm-slim base (by digest) rather than the
+# distroless runtime base used for long-running replicas.
+ARG NODE_IMAGE=node:24.21.0-bookworm-slim
+
+# ---------------------------------------------------------------- builder ----
+FROM ${NODE_IMAGE} AS builder
+ENV CI=true
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+WORKDIR /app
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc tsconfig.base.json ./
+COPY packages ./packages
+COPY services ./services
+
+RUN corepack enable && corepack prepare --activate
+# --frozen-lockfile: the job runs exactly the Prisma CLI the lockfile resolves.
+RUN pnpm install --frozen-lockfile
+
+# Declared only now so the install layer above is shared by every owner's job.
+ARG SERVICE
+RUN test -n "${SERVICE}" \
+ && test -f "services/${SERVICE}/prisma/schema.prisma" \
+ && test -d "services/${SERVICE}/prisma/migrations"
+
+# The owner's own dependency tree, INCLUDING devDependencies, because the Prisma
+# CLI is a devDependency of every service. Only node_modules and the owner's
+# prisma directory are copied into the job below; no application source is.
+RUN pnpm --filter "@carwash/${SERVICE}" deploy --legacy /deploy
+
+# ------------------------------------------------------------------- job ----
+FROM ${NODE_IMAGE} AS job
+ARG SERVICE
+
+# Package managers are not needed to apply migrations; removing them keeps the
+# job's tool surface to node + the pinned Prisma CLI.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+      /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+      /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg
+
+ENV NODE_ENV=production
+ENV CW_SERVICE=${SERVICE}
+WORKDIR /migrate
+
+COPY --from=builder --chown=0:0 /deploy/node_modules ./node_modules
+COPY --from=builder --chown=0:0 /deploy/package.json ./package.json
+COPY --from=builder --chown=0:0 /deploy/prisma.config.ts ./prisma.config.ts
+COPY --from=builder --chown=0:0 /deploy/prisma ./prisma
+COPY --chown=0:0 infra/release/migrate-job.mjs ./migrate-job.mjs
+
+# Files are root-owned and read-only to the job identity: the job can read its
+# migrations but cannot rewrite them at run time.
+USER 1000:1000
+ENTRYPOINT ["node", "/migrate/migrate-job.mjs"]
+CMD ["deploy"]

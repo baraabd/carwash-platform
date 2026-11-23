@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Icon } from '../../shared/Icon';
 import { Sheet } from '../../shared/Sheet';
 import { spawnTapWave } from '../../shared/tapWave';
@@ -21,7 +21,10 @@ interface VehicleEditorFormProps {
   readonly onChoose: (vehicleId: string) => void;
   readonly onStartNew: () => void;
   /** Returns the validation message to show, or null when the values were accepted. */
-  readonly onSubmit: (values: VehicleEditorValues) => string | null;
+  readonly onSubmit: (values: VehicleEditorValues) => string | null | Promise<string | null>;
+  readonly production?: boolean;
+  readonly disabled?: boolean;
+  readonly footer?: ReactNode;
 }
 
 function VehicleEditorForm({
@@ -31,17 +34,39 @@ function VehicleEditorForm({
   onChoose,
   onStartNew,
   onSubmit,
+  production = false,
+  disabled = false,
+  footer,
 }: VehicleEditorFormProps) {
   const [values, setValues] = useState(initialValues);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [refusals, setRefusals] = useState(0);
   const plateInput = useRef<HTMLInputElement>(null);
   const booking = context === 'booking';
 
+  // Async writes disable the field. Focus after React has committed its enabled
+  // state again; focusing before that commit silently fails in a real browser.
+  useEffect(() => {
+    if (refusals > 0 && !submitting && !disabled) plateInput.current?.focus();
+  }, [refusals, submitting, disabled]);
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    const message = onSubmit(values);
-    setError(message);
-    if (message) plateInput.current?.focus();
+    if (disabled || submitting) return;
+    const send = async () => {
+      setSubmitting(true);
+      try {
+        const message = await onSubmit(values);
+        setError(message);
+        if (message) setRefusals((count) => count + 1);
+      } catch {
+        setError('تعذّر تأكيد الحفظ. راجع نتيجة الطلب قبل المحاولة مجددًا.');
+      } finally {
+        setSubmitting(false);
+      }
+    };
+    void send();
   };
 
   return (
@@ -81,11 +106,12 @@ function VehicleEditorForm({
                 name="carType"
                 value={option.id}
                 checked={values.type === option.id}
+                disabled={disabled || submitting}
                 onChange={() => setValues((current) => ({ ...current, type: option.id }))}
               />
               <CarArt art={option.art} />
               <strong>{option.name}</strong>
-              <small>{option.priceLabel}</small>
+              <small>{production ? 'حجم السيارة' : option.priceLabel}</small>
             </label>
           ))}
         </div>
@@ -93,14 +119,14 @@ function VehicleEditorForm({
           <CarArt art={sizeArt(values.type)} />
           <div className="plate-display">
             <span id="plate-live" dir="auto">
-              {platePreviewText(values.plate)}
+              {production && values.plate === '' ? '—' : platePreviewText(values.plate)}
             </span>
             <small>معاينة لوحة · ليست وثيقة</small>
           </div>
         </div>
         <label className="field">
           <span className="field-label">
-            لوحة السيارة <small>اختياري في النموذج</small>
+            لوحة السيارة <small>{production ? 'اختياري' : 'اختياري في النموذج'}</small>
           </span>
           <input
             ref={plateInput}
@@ -109,9 +135,10 @@ function VehicleEditorForm({
             name="plate"
             type="text"
             dir="auto"
-            maxLength={20}
+            maxLength={production ? 12 : 20}
             placeholder="مثال: 1234 أ ب ج"
             value={values.plate}
+            disabled={disabled || submitting}
             autoComplete="off"
             aria-describedby={error ? 'plate-help vehicle-error' : 'plate-help'}
             aria-invalid={error ? true : undefined}
@@ -121,7 +148,9 @@ function VehicleEditorForm({
             }}
           />
           <span className="input-note" id="plate-help">
-            أدخل الأرقام والحروف كما تظهر. تجنّب استخدام بيانات حساسة في التجربة.
+            {production
+              ? 'أدخل الأرقام والحروف كما تظهر، أو اترك اللوحة فارغة.'
+              : 'أدخل الأرقام والحروف كما تظهر. تجنّب استخدام بيانات حساسة في التجربة.'}
           </span>
         </label>
         <div className="two-fields">
@@ -130,9 +159,10 @@ function VehicleEditorForm({
             <input
               className="input"
               name="carName"
-              maxLength={60}
+              maxLength={production ? 40 : 60}
               placeholder="مثال: كامري"
               value={values.carName}
+              disabled={disabled || submitting}
               onChange={(event) => {
                 const carName = event.target.value;
                 setValues((current) => ({ ...current, carName }));
@@ -146,9 +176,10 @@ function VehicleEditorForm({
             <input
               className="input"
               name="color"
-              maxLength={30}
+              maxLength={production ? 40 : 30}
               placeholder="مثال: أبيض"
               value={values.color}
+              disabled={disabled || submitting}
               onChange={(event) => {
                 const color = event.target.value;
                 setValues((current) => ({ ...current, color }));
@@ -170,12 +201,22 @@ function VehicleEditorForm({
             <span>احفظ السيارة ولوحتها على هذا الجهاز للحجز القادم.</span>
           </label>
         ) : (
-          <p className="input-note">سيُحفظ التعديل على هذا الجهاز. الحجوزات السابقة لا تتغيّر.</p>
+          <p className="input-note">
+            {production
+              ? 'سيُحفظ التعديل في الخدمة. الحجوزات السابقة لا تتغيّر.'
+              : 'سيُحفظ التعديل على هذا الجهاز. الحجوزات السابقة لا تتغيّر.'}
+          </p>
         )}
         <p className="error" id="vehicle-error" role="alert">
           {error}
         </p>
-        <button className="btn full gap-top" type="submit" onPointerDown={spawnTapWave}>
+        {footer}
+        <button
+          className="btn full gap-top"
+          type="submit"
+          disabled={disabled || submitting}
+          onPointerDown={spawnTapWave}
+        >
           {booking ? 'استخدام هذه السيارة' : 'حفظ السيارة'} <Icon name="check" small />
         </button>
       </form>

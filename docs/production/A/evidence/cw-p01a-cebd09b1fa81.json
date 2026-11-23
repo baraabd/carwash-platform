@@ -1,0 +1,81 @@
+{
+  "lane": "A",
+  "task": "P01-A",
+  "project": "cw-p01a-cebd09b1fa81",
+  "services": ["geo"],
+  "startedAt": "2026-10-07T04:03:26.181Z",
+  "node": "v24.21.0",
+  "images": {
+    "postgres:16.10-alpine": [
+      "postgres@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297"
+    ],
+    "redis:8.2.10-alpine": [
+      "redis@sha256:b51665e66f00759be7c3152ad5ac3c66fb2f619c13ef62dea7cc1f9914524635"
+    ]
+  },
+  "source": {
+    "head": "7ce5f1890d38ad3afbb0873e06e41f9260778408",
+    "tree": "7d2674d6da154072f75c72b0ad454e2577c67c93",
+    "dirtyTrackedFiles": 0
+  },
+  "phases": [
+    {
+      "name": "record exact source",
+      "status": "PASS",
+      "ms": 443
+    },
+    {
+      "name": "pin infrastructure images",
+      "status": "PASS",
+      "ms": 8064
+    },
+    {
+      "name": "start scoped disposable stack",
+      "status": "PASS",
+      "ms": 3646
+    },
+    {
+      "name": "PostgreSQL accepts every runtime identity",
+      "status": "PASS",
+      "ms": 6728
+    },
+    {
+      "name": "identity: migrate deploy with the migration identity",
+      "status": "PASS",
+      "ms": 4839
+    },
+    {
+      "name": "geo: migrate deploy with the migration identity",
+      "status": "PASS",
+      "ms": 4965
+    },
+    {
+      "name": "geo: Prisma schema mirrors the migrated database",
+      "status": "PASS",
+      "ms": 4709
+    },
+    {
+      "name": "integration suites",
+      "status": "PASS"
+    }
+  ],
+  "suites": [
+    {
+      "files": ["tests/production/A/geo.integration.test.mjs"],
+      "exit": 0,
+      "tests": 13,
+      "pass": 13,
+      "fail": 0,
+      "skipped": 0,
+      "todo": 0,
+      "cancelled": 0
+    }
+  ],
+  "scope": "Real PostgreSQL 16 (least-privilege roles from infra/postgres/provision.sh), real Geo HTTP adapter and operator CLI on loopback. Identity was migrated and Redis started by the harness, but neither the Identity HTTP application nor its rate-budget flow was exercised. No broker relay, no gateway, no browser, no production deployment.",
+  "finishedAt": "2026-10-07T04:04:37.076Z",
+  "result": "PASSED",
+  "scopeCorrection": {
+    "reason": "The original scope overstated the Identity runtime exercised by the geo-only suite. This corrects the description only; source, test results and timestamps are unchanged. It is not evidence for the subsequent fixes.",
+    "originalScope": "Real PostgreSQL 16 (least-privilege roles from infra/postgres/provision.sh), real Redis, real Identity Nest application and real owner-service HTTP adapters on loopback. No broker relay, no gateway, no browser, no production deployment."
+  }
+}

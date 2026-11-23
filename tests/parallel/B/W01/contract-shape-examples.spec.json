@@ -1,0 +1,451 @@
+{
+  "status": "SCHEMA_FIXTURE_ONLY",
+  "notes": [
+    "XXX and all amounts/IDs/policy revisions are synthetic structural fixtures, never approved prices/currency/accounts.",
+    "Schema validity does not establish approved policy, authorization, server money or payment evidence.",
+    "Paymera negative method fixture expresses unresolved frozen-method scope, not an approved initial-launch exclusion."
+  ],
+  "examples": [
+    {
+      "id": "quote-selection-only",
+      "schemaDocument": "w02",
+      "definition": "QuoteCommand",
+      "expectedSchemaValid": true,
+      "data": {
+        "schemaVersion": 1,
+        "catalogRevision": "test-catalog-1",
+        "packageId": "test-package",
+        "vehicleCategoryId": "test-category",
+        "addonIds": [],
+        "serviceZoneId": "11111111-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "id": "reject-totalMinor",
+      "schemaDocument": "w02",
+      "definition": "QuoteCommand",
+      "expectedSchemaValid": false,
+      "data": {
+        "schemaVersion": 1,
+        "catalogRevision": "test-catalog-1",
+        "packageId": "test-package",
+        "vehicleCategoryId": "test-category",
+        "addonIds": [],
+        "serviceZoneId": "11111111-1111-4111-8111-111111111111",
+        "totalMinor": "1"
+      }
+    },
+    {
+      "id": "reject-owner",
+      "schemaDocument": "w02",
+      "definition": "QuoteCommand",
+      "expectedSchemaValid": false,
+      "data": {
+        "schemaVersion": 1,
+        "catalogRevision": "test-catalog-1",
+        "packageId": "test-package",
+        "vehicleCategoryId": "test-category",
+        "addonIds": [],
+        "serviceZoneId": "11111111-1111-4111-8111-111111111111",
+        "owner": {
+          "kind": "ACCOUNT",
+          "id": "11111111-1111-4111-8111-111111111111"
+        }
+      }
+    },
+    {
+      "id": "reject-feeMinor",
+      "schemaDocument": "w02",
+      "definition": "QuoteCommand",
+      "expectedSchemaValid": false,
+      "data": {
+        "schemaVersion": 1,
+        "catalogRevision": "test-catalog-1",
+        "packageId": "test-package",
+        "vehicleCategoryId": "test-category",
+        "addonIds": [],
+        "serviceZoneId": "11111111-1111-4111-8111-111111111111",
+        "feeMinor": "0"
+      }
+    },
+    {
+      "id": "reject-unitPrice",
+      "schemaDocument": "w02",
+      "definition": "QuoteCommand",
+      "expectedSchemaValid": false,
+      "data": {
+        "schemaVersion": 1,
+        "catalogRevision": "test-catalog-1",
+        "packageId": "test-package",
+        "vehicleCategoryId": "test-category",
+        "addonIds": [],
+        "serviceZoneId": "11111111-1111-4111-8111-111111111111",
+        "unitPrice": {
+          "amountMinor": "9007199254740993",
+          "currency": "XXX",
+          "currencyPolicyRevision": "test-money-policy"
+        }
+      }
+    },
+    {
+      "id": "reject-plate",
+      "schemaDocument": "w02",
+      "definition": "QuoteCommand",
+      "expectedSchemaValid": false,
+      "data": {
+        "schemaVersion": 1,
+        "catalogRevision": "test-catalog-1",
+        "packageId": "test-package",
+        "vehicleCategoryId": "test-category",
+        "addonIds": [],
+        "serviceZoneId": "11111111-1111-4111-8111-111111111111",
+        "plate": "required"
+      }
+    },
+    {
+      "id": "reject-duplicate-addons",
+      "schemaDocument": "w02",
+      "definition": "QuoteCommand",
+      "expectedSchemaValid": false,
+      "data": {
+        "schemaVersion": 1,
+        "catalogRevision": "test-catalog-1",
+        "packageId": "test-package",
+        "vehicleCategoryId": "test-category",
+        "addonIds": ["test-addon", "test-addon"],
+        "serviceZoneId": "11111111-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "id": "lossless-large-minor-units",
+      "schemaDocument": "w02",
+      "definition": "Money",
+      "expectedSchemaValid": true,
+      "data": {
+        "amountMinor": "9007199254740993",
+        "currency": "XXX",
+        "currencyPolicyRevision": "test-money-policy"
+      }
+    },
+    {
+      "id": "reject-minor-shape-0",
+      "schemaDocument": "w02",
+      "definition": "Money",
+      "expectedSchemaValid": false,
+      "data": {
+        "amountMinor": "1.5",
+        "currency": "XXX",
+        "currencyPolicyRevision": "test-money-policy"
+      }
+    },
+    {
+      "id": "reject-minor-shape-1",
+      "schemaDocument": "w02",
+      "definition": "Money",
+      "expectedSchemaValid": false,
+      "data": {
+        "amountMinor": "1e3",
+        "currency": "XXX",
+        "currencyPolicyRevision": "test-money-policy"
+      }
+    },
+    {
+      "id": "reject-minor-shape-2",
+      "schemaDocument": "w02",
+      "definition": "Money",
+      "expectedSchemaValid": false,
+      "data": {
+        "amountMinor": "-1",
+        "currency": "XXX",
+        "currencyPolicyRevision": "test-money-policy"
+      }
+    },
+    {
+      "id": "reject-minor-shape-3",
+      "schemaDocument": "w02",
+      "definition": "Money",
+      "expectedSchemaValid": false,
+      "data": {
+        "amountMinor": " 1",
+        "currency": "XXX",
+        "currencyPolicyRevision": "test-money-policy"
+      }
+    },
+    {
+      "id": "reject-minor-shape-4",
+      "schemaDocument": "w02",
+      "definition": "Money",
+      "expectedSchemaValid": false,
+      "data": {
+        "amountMinor": "01",
+        "currency": "XXX",
+        "currencyPolicyRevision": "test-money-policy"
+      }
+    },
+    {
+      "id": "reject-minor-shape-5",
+      "schemaDocument": "w02",
+      "definition": "Money",
+      "expectedSchemaValid": false,
+      "data": {
+        "amountMinor": 1,
+        "currency": "XXX",
+        "currencyPolicyRevision": "test-money-policy"
+      }
+    },
+    {
+      "id": "reject-minor-shape-6",
+      "schemaDocument": "w02",
+      "definition": "Money",
+      "expectedSchemaValid": false,
+      "data": {
+        "amountMinor": "+1",
+        "currency": "XXX",
+        "currencyPolicyRevision": "test-money-policy"
+      }
+    },
+    {
+      "id": "candidate-exact-event",
+      "schemaDocument": "w02",
+      "definition": "QuoteIssuedEvent",
+      "expectedSchemaValid": true,
+      "data": {
+        "eventId": "11111111-1111-4111-8111-111111111111",
+        "eventType": "pricing.quote-issued.v1",
+        "schemaVersion": 1,
+        "producer": "pricing",
+        "occurredAt": "2026-10-05T00:00:00.000Z",
+        "correlationId": "22222222-2222-4222-8222-222222222222",
+        "aggregateVersion": 1,
+        "data": {
+          "quoteId": "11111111-1111-4111-8111-111111111111",
+          "catalogRevision": "test-catalog-1",
+          "priceVersion": "test-price-1",
+          "expiresAt": "2026-10-05T00:10:00.000Z"
+        }
+      }
+    },
+    {
+      "id": "reject-wrong-producer",
+      "schemaDocument": "w02",
+      "definition": "QuoteIssuedEvent",
+      "expectedSchemaValid": false,
+      "data": {
+        "eventId": "11111111-1111-4111-8111-111111111111",
+        "eventType": "pricing.quote-issued.v1",
+        "schemaVersion": 1,
+        "producer": "billing",
+        "occurredAt": "2026-10-05T00:00:00.000Z",
+        "correlationId": "22222222-2222-4222-8222-222222222222",
+        "aggregateVersion": 1,
+        "data": {
+          "quoteId": "11111111-1111-4111-8111-111111111111",
+          "catalogRevision": "test-catalog-1",
+          "priceVersion": "test-price-1",
+          "expiresAt": "2026-10-05T00:10:00.000Z"
+        }
+      }
+    },
+    {
+      "id": "reject-event-extra",
+      "schemaDocument": "w02",
+      "definition": "QuoteIssuedEvent",
+      "expectedSchemaValid": false,
+      "data": {
+        "eventId": "11111111-1111-4111-8111-111111111111",
+        "eventType": "pricing.quote-issued.v1",
+        "schemaVersion": 1,
+        "producer": "pricing",
+        "occurredAt": "2026-10-05T00:00:00.000Z",
+        "correlationId": "22222222-2222-4222-8222-222222222222",
+        "aggregateVersion": 1,
+        "data": {
+          "quoteId": "11111111-1111-4111-8111-111111111111",
+          "catalogRevision": "test-catalog-1",
+          "priceVersion": "test-price-1",
+          "expiresAt": "2026-10-05T00:10:00.000Z",
+          "totalMinor": "1"
+        }
+      }
+    },
+    {
+      "id": "reject-invalid-calendar",
+      "schemaDocument": "w02",
+      "definition": "QuoteIssuedEvent",
+      "expectedSchemaValid": false,
+      "data": {
+        "eventId": "11111111-1111-4111-8111-111111111111",
+        "eventType": "pricing.quote-issued.v1",
+        "schemaVersion": 1,
+        "producer": "pricing",
+        "occurredAt": "2026-02-30T00:00:00.000Z",
+        "correlationId": "22222222-2222-4222-8222-222222222222",
+        "aggregateVersion": 1,
+        "data": {
+          "quoteId": "11111111-1111-4111-8111-111111111111",
+          "catalogRevision": "test-catalog-1",
+          "priceVersion": "test-price-1",
+          "expiresAt": "2026-10-05T00:10:00.000Z"
+        }
+      }
+    },
+    {
+      "id": "reject-zero-version",
+      "schemaDocument": "w02",
+      "definition": "QuoteIssuedEvent",
+      "expectedSchemaValid": false,
+      "data": {
+        "eventId": "11111111-1111-4111-8111-111111111111",
+        "eventType": "pricing.quote-issued.v1",
+        "schemaVersion": 1,
+        "producer": "pricing",
+        "occurredAt": "2026-10-05T00:00:00.000Z",
+        "correlationId": "22222222-2222-4222-8222-222222222222",
+        "aggregateVersion": 0,
+        "data": {
+          "quoteId": "11111111-1111-4111-8111-111111111111",
+          "catalogRevision": "test-catalog-1",
+          "priceVersion": "test-price-1",
+          "expiresAt": "2026-10-05T00:10:00.000Z"
+        }
+      }
+    },
+    {
+      "id": "refund-reserve-candidate",
+      "schemaDocument": "future",
+      "definition": "RefundReserveCommand",
+      "expectedSchemaValid": true,
+      "data": {
+        "schemaVersion": 1,
+        "paymentId": "11111111-1111-4111-8111-111111111111",
+        "expectedRevision": 1,
+        "requestedMoney": {
+          "amountMinor": "9007199254740993",
+          "currency": "XXX",
+          "currencyPolicyRevision": "test-money-policy"
+        },
+        "reason": "test-reason"
+      }
+    },
+    {
+      "id": "refund-unknown-not-terminal",
+      "schemaDocument": "future",
+      "definition": "RefundResolveCommand",
+      "expectedSchemaValid": false,
+      "data": {
+        "schemaVersion": 1,
+        "refundId": "11111111-1111-4111-8111-111111111111",
+        "expectedRevision": 1,
+        "independentEvidenceRef": "22222222-2222-4222-8222-222222222222",
+        "result": "PENDING"
+      }
+    },
+    {
+      "id": "refund-confirmation-candidate",
+      "schemaDocument": "future",
+      "definition": "RefundResolveCommand",
+      "expectedSchemaValid": true,
+      "data": {
+        "schemaVersion": 1,
+        "refundId": "11111111-1111-4111-8111-111111111111",
+        "expectedRevision": 1,
+        "independentEvidenceRef": "22222222-2222-4222-8222-222222222222",
+        "result": "CONFIRMED"
+      }
+    },
+    {
+      "id": "no-unapproved-method",
+      "schemaDocument": "future",
+      "definition": "PaymentIntentCommand",
+      "expectedSchemaValid": false,
+      "data": {
+        "schemaVersion": 1,
+        "obligationId": "11111111-1111-4111-8111-111111111111",
+        "expectedRevision": 1,
+        "method": "paymera"
+      }
+    },
+    {
+      "id": "custody-accept-candidate",
+      "schemaDocument": "future",
+      "definition": "CustodyAcceptCommand",
+      "expectedSchemaValid": true,
+      "data": {
+        "schemaVersion": 1,
+        "handoverId": "11111111-1111-4111-8111-111111111111",
+        "expectedRevision": 1,
+        "treasuryEvidenceRef": "22222222-2222-4222-8222-222222222222"
+      }
+    },
+    {
+      "id": "privacy-intake-is-reference",
+      "schemaDocument": "future",
+      "definition": "PrivacyFulfillCommand",
+      "expectedSchemaValid": true,
+      "data": {
+        "schemaVersion": 1,
+        "intakeRequestId": "11111111-1111-4111-8111-111111111111",
+        "subjectAuthorityRef": "22222222-2222-4222-8222-222222222222",
+        "policyRevision": "test-privacy",
+        "action": "EXPORT",
+        "resourceIds": ["11111111-1111-4111-8111-111111111111"]
+      }
+    },
+    {
+      "id": "reject-empty-proof",
+      "schemaDocument": "future",
+      "definition": "ProofSubmitCommand",
+      "expectedSchemaValid": false,
+      "data": {
+        "schemaVersion": 1,
+        "obligationId": "11111111-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "id": "proof-hint-only",
+      "schemaDocument": "future",
+      "definition": "ProofSubmitCommand",
+      "expectedSchemaValid": true,
+      "data": {
+        "schemaVersion": 1,
+        "obligationId": "11111111-1111-4111-8111-111111111111",
+        "providerTransactionHint": "TEST-REFERENCE"
+      }
+    },
+    {
+      "id": "proof-image-only",
+      "schemaDocument": "future",
+      "definition": "ProofSubmitCommand",
+      "expectedSchemaValid": true,
+      "data": {
+        "schemaVersion": 1,
+        "obligationId": "11111111-1111-4111-8111-111111111111",
+        "mediaObjectId": "11111111-1111-4111-8111-111111111111"
+      }
+    },
+    {
+      "id": "vehicle-line-keeps-breakdown",
+      "schemaDocument": "w02",
+      "definition": "LineItem",
+      "expectedSchemaValid": true,
+      "data": {
+        "lineId": "test-vehicle-line",
+        "definitionId": "test-category",
+        "kind": "VEHICLE",
+        "included": false,
+        "amountMinor": "100"
+      }
+    },
+    {
+      "id": "reject-whitespace-proof",
+      "schemaDocument": "future",
+      "definition": "ProofSubmitCommand",
+      "expectedSchemaValid": false,
+      "data": {
+        "schemaVersion": 1,
+        "obligationId": "11111111-1111-4111-8111-111111111111",
+        "providerTransactionHint": "    "
+      }
+    }
+  ]
+}

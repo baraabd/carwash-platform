@@ -35,8 +35,13 @@ export async function createGatewayApplication(config: GatewayConfig): Promise<I
   const app = await NestFactory.create<NestExpressApplication>(GatewayModule, {
     logger: false,
     bodyParser: false,
+    // Keeps the exact bytes for provider-signed notifications (req.rawBody).
+    rawBody: true,
     abortOnError: false,
   });
+  // A response content hash is not an owner revision. Only a validated owner
+  // ETag is forwarded by the transport adapter.
+  app.set('etag', false);
   observation.runtime = instrumentApplication(app, 'api-gateway');
   app.use((request: GatewayRequest, response: GatewayResponse, next: () => void) => {
     const context = contextFor(request.headers);
@@ -50,6 +55,8 @@ export async function createGatewayApplication(config: GatewayConfig): Promise<I
   });
   // Nest's platform adapter supplies JSON parsing; no additional HTTP framework dependency.
   app.useBodyParser('json', { limit: '64kb', strict: true });
+  // Provider notifications may be form-encoded; every other route still requires JSON.
+  app.useBodyParser('urlencoded', { limit: '16kb', extended: false, parameterLimit: 100 });
   app.useGlobalFilters(new GatewayFilter());
   return app;
 }

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import type { CarePackageId } from '../../../state/bookingDraft';
 import { Icon } from '../../../shared/Icon';
 import { Price } from '../../../shared/Price';
 import { Sheet } from '../../../shared/Sheet';
@@ -9,14 +8,21 @@ import type { HomePackageCard, HomePackageDetail } from '../homeViewModel';
 interface HomePackagesProps {
   readonly packages: readonly HomePackageCard[];
   readonly details: readonly HomePackageDetail[];
-  readonly onStartWithPackage: (id: CarePackageId) => void;
+  readonly onStartWithPackage: (id: string) => void;
+  readonly unavailableReasonId?: string;
 }
 
-export function HomePackages({ packages, details, onStartWithPackage }: HomePackagesProps) {
+export function HomePackages({
+  packages,
+  details,
+  onStartWithPackage,
+  unavailableReasonId,
+}: HomePackagesProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   // Choosing in the sheet starts the journey with that package, as the cards do.
-  const choose = (id: CarePackageId) => {
+  const choose = (id: string) => {
+    if (unavailableReasonId !== undefined) return;
     setDetailsOpen(false);
     onStartWithPackage(id);
   };
@@ -44,6 +50,8 @@ export function HomePackages({ packages, details, onStartWithPackage }: HomePack
             className={item.featured ? 'home-package featured' : 'home-package'}
             type="button"
             data-service={item.id}
+            disabled={unavailableReasonId !== undefined}
+            aria-describedby={unavailableReasonId}
             onClick={() => onStartWithPackage(item.id)}
           >
             <span className="package-icon">
@@ -52,9 +60,7 @@ export function HomePackages({ packages, details, onStartWithPackage }: HomePack
             <h3>{item.name}</h3>
             <p>{item.summary}</p>
             <span className="package-price">
-              <span>
-                <Price amount={item.price} />
-              </span>
+              <span>{item.price === null ? 'السعر غير متاح' : <Price amount={item.price} />}</span>
               <Icon name="arrow" />
             </span>
           </button>
@@ -66,7 +72,9 @@ export function HomePackages({ packages, details, onStartWithPackage }: HomePack
         onClose={() => setDetailsOpen(false)}
       >
         <p className="sheet-intro">
-          أرقام توضيحية للسيارة السيدان. يظهر فرق الحجم والإضافات قبل التأكيد.
+          {unavailableReasonId === undefined
+            ? 'أرقام توضيحية للسيارة السيدان. يظهر فرق الحجم والإضافات قبل التأكيد.'
+            : 'تفاصيل الباقات المنشورة. يحتاج تأكيد الحجز إلى عرض سعر وموعد متاح.'}
         </p>
         <div className="stack">
           {details.map((item) => (
@@ -74,7 +82,7 @@ export function HomePackages({ packages, details, onStartWithPackage }: HomePack
               <div className="row between">
                 <h3>{item.name}</h3>
                 <strong>
-                  <Price amount={item.price} />
+                  {item.price === null ? 'السعر غير متاح' : <Price amount={item.price} />}
                 </strong>
               </div>
               <p className="input-note">
@@ -87,6 +95,8 @@ export function HomePackages({ packages, details, onStartWithPackage }: HomePack
                 type="button"
                 onPointerDown={spawnTapWave}
                 onClick={() => choose(item.id)}
+                disabled={unavailableReasonId !== undefined}
+                aria-describedby={unavailableReasonId}
               >
                 اختيار هذه الباقة <Icon name="arrow" small />
               </button>

@@ -40,12 +40,21 @@ export default tseslint.config(
 
   js.configs.recommended,
 
+  {
+    files: ['apps/operator-web/src/**/*.ts', 'apps/admin-web/src/**/*.ts'],
+    languageOptions: {
+      globals: { document: 'readonly' },
+    },
+  },
+
   // TypeScript written in this sprint: full type-aware linting.
   {
     files: [
       'packages/*/src/**/*.ts',
       'services/*/src/**/*.ts',
       'apps/api-gateway/src/**/*.ts',
+      'apps/admin-web/src/**/*.ts',
+      'apps/operator-web/src/**/*.ts',
       'services/*/test/**/*.ts',
     ],
     extends: [...tseslint.configs.recommendedTypeChecked],
@@ -90,7 +99,13 @@ export default tseslint.config(
 
   // Harness, scripts and tests: plain JavaScript modules run by Node directly.
   {
-    files: ['scripts/**/*.mjs', 'tests/**/*.mjs'],
+    files: [
+      'scripts/**/*.mjs',
+      'tests/**/*.mjs',
+      'architecture/**/*.mjs',
+      'apps/*/**/*.mjs',
+      'infra/**/*.mjs',
+    ],
     languageOptions: {
       ecmaVersion: 2024,
       sourceType: 'module',
@@ -108,6 +123,7 @@ export default tseslint.config(
         URL: 'readonly',
         AbortController: 'readonly',
         WeakSet: 'readonly',
+        structuredClone: 'readonly',
       },
     },
     rules: {

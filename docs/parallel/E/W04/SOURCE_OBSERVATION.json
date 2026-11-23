@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "task": "W04-E",
+  "phase": "ENTRY_BLOCKED",
+  "parentStatus": "NOT_STARTED",
+  "child": "W04-E-CASH-ACCEPTANCE-PROPOSAL",
+  "observedAtUtc": "2026-10-05T12:34:07.214Z",
+  "repository": "baraabd/carwash-platform",
+  "observedTargetSha": "1ec9d8aebf4470a2815471116643fa6ebe0d5a95",
+  "observedTargetTree": "9f04d674056041bbc810a62e4cc7f275c32581b8",
+  "branch": "sprint/w04-E-cash-acceptance",
+  "expectedBase": {
+    "name": "BASE_W04",
+    "published": false,
+    "sha": null
+  },
+  "publishedBases": {
+    "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+    "BASE_W02": null
+  },
+  "releaseRegistry": {
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "acceptedNextWaveContracts": [],
+    "nextReleaseSourceSha": null,
+    "nextReleaseReviewRecord": null
+  },
+  "packages": {
+    "@carwash/contracts": "0.0.2",
+    "@carwash/event-contracts": "0.0.2",
+    "@carwash/api-clients": "0.0.1"
+  },
+  "effectiveOwnership": {
+    "basis": "Current task explicitly expires W01 bootstrap lease; permanent product owners apply.",
+    "registryStatus": "proposal-pending-independent-review",
+    "verifiedBaseW02": null,
+    "staleConditionalLeaseCount": 11
+  },
+  "predecessorChanges": {
+    "fromSha": "82e7402ed9ab6cc4f565f423441cd0655f2d627a",
+    "addedPaths": 29,
+    "scope": "W03 documents and declarative specifications only; runtime, contracts, registry and approved references unchanged."
+  },
+  "prs": {
+    "C014": {
+      "number": 41,
+      "state": "merged",
+      "mergeSha": "69d81a83a3409d0693272efeb19ebeb9805750f5"
+    },
+    "W03": {
+      "A": {
+        "number": 53,
+        "mergeSha": "4c558931b598436b25547036474fa28be5c0b137"
+      },
+      "B": {
+        "number": 52,
+        "mergeSha": "6f2763416c4ff7cb7e051c618ef18f8aee175c63"
+      },
+      "C": {
+        "number": 51,
+        "mergeSha": "7c9e2fb0ef049af303497c2a75b1e3f56b000fc2"
+      },
+      "D": {
+        "number": 55,
+        "mergeSha": "a2eb3aba835b48c0908fb4d0ac6339bd4120fbb3"
+      },
+      "E": {
+        "number": 54,
+        "mergeSha": "1ec9d8aebf4470a2815471116643fa6ebe0d5a95"
+      }
+    },
+    "openAtEntry": 0,
+    "independentReviewsOnW03": 0
+  },
+  "governance": {
+    "mainProtected": false,
+    "rulesets": [],
+    "sameLoginIsIndependentApproval": false
+  },
+  "targetChecks": {
+    "totalObserved": 41,
+    "success": 35,
+    "pending": 6,
+    "failed": 0,
+    "scope": "Dated in-progress target observation; not final CI or W04 acceptance."
+  },
+  "environments": {
+    "local": {
+      "node": "24.21.0",
+      "pnpm": "10.32.1",
+      "dockerAvailable": false,
+      "productStackStarted": false
+    },
+    "runtimeHandles": [],
+    "mockedW04Journey": false,
+    "realW04Journey": false
+  },
+  "changes": {
+    "migrations": [],
+    "publishedContracts": [],
+    "businessCode": [],
+    "runtimeTopology": [],
+    "approvedReferenceEdits": []
+  },
+  "blockers": [
+    "BASE_W04 and predecessor accepted bases/contracts unpublished",
+    "W03 real booking/capacity race and recovery acceptance not run",
+    "Dispatch/work/media/cash/custody/receipt/reporting business providers absent",
+    "Guest/staff grants, real coverage/pricing and production policy inputs unaccepted",
+    "Independent review and protected integration process pending"
+  ],
+  "forecast": {
+    "day3": "NOT_REACHED",
+    "day7": "NOT_EVIDENCE_SUPPORTED",
+    "replacementCalendarDate": null
+  },
+  "evidenceBoundary": "Entry snapshot only. Proposal head/tree, latest candidate and final CI/artifacts are bound in the live draft PR after commit."
+}

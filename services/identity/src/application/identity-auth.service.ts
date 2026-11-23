@@ -2,12 +2,15 @@ import type {
   AccessPrincipal,
   AccountStatus,
   ChallengeReceipt,
+  GuestSessionReceipt,
   IdentityPermission,
   IdentitySessionView,
 } from '@carwash/contracts';
 import {
   AUTH_POLICY as P,
   AuthFault,
+  GUEST_PERMISSIONS,
+  recoveryCodeInput,
   normalizeEmail,
   passwordInput,
   permissionsFor,
@@ -37,6 +40,18 @@ export interface SessionTokens {
   readonly refreshToken: string;
   readonly expiresAt: Date;
   readonly session: IdentitySessionView;
+}
+export interface GuestTokens extends SessionTokens {
+  readonly recoveryCode: string;
+  readonly guestExpiresAt: string;
+}
+/** Wire receipt: never includes access/refresh tokens, which travel only as cookies. */
+export function guestReceipt(tokens: GuestTokens): GuestSessionReceipt {
+  return {
+    session: tokens.session,
+    recoveryCode: tokens.recoveryCode,
+    guestExpiresAt: tokens.guestExpiresAt,
+  };
 }
 export interface AuthDependencies {
   readonly store: IdentityStore;
@@ -149,8 +164,8 @@ export class IdentityAuthService {
         account?.passwordHash ?? this.d.passwords.dummyHash,
         password,
       );
-      eligible = verified && account?.status === 'ACTIVE';
-      if (eligible && account && this.d.passwords.needsRehash(account.passwordHash)) {
+      eligible = verified && account?.kind === 'account' && account.status === 'ACTIVE';
+      if (eligible && account?.passwordHash && this.d.passwords.needsRehash(account.passwordHash)) {
         const hash = await this.d.passwords.hash(password);
         await this.d.store.transaction(async (tx) => {
           const current = await tx.account(account.id, true);
@@ -234,13 +249,119 @@ export class IdentityAuthService {
     return this.receipt(challenge);
   }
   private view(account: Account, session: Session): IdentitySessionView {
+    const guest = account.kind === 'guest';
     return {
       subject: account.id,
       sessionId: session.id,
       authVersion: account.authVersion,
-      roles: account.roles,
-      permissions: permissionsFor(account.roles),
+      principalKind: account.kind,
+      roles: guest ? [] : account.roles,
+      permissions: guest ? [...GUEST_PERMISSIONS] : permissionsFor(account.roles),
     };
+  }
+  /** An expired guest is treated exactly like a revoked session everywhere. */
+  private usable(account: Account, now: Date): boolean {
+    if (account.status !== 'ACTIVE') return false;
+    if (account.kind === 'guest') return !!account.guestExpiresAt && account.guestExpiresAt > now;
+    return true;
+  }
+  private guestSession(account: Account, now: Date): Session {
+    const cap = account.guestExpiresAt?.getTime() ?? now.getTime();
+    return {
+      id: this.d.secrets.id(),
+      accountId: account.id,
+      expiresAt: new Date(Math.min(now.getTime() + P.sessionTtlMs, cap)),
+      revokedAt: null,
+    };
+  }
+  private async guestTokens(
+    account: Account,
+    session: Session,
+    refreshToken: string,
+    recoveryCode: string,
+  ): Promise<GuestTokens> {
+    const tokens = await this.tokens(account, session, refreshToken);
+    return {
+      ...tokens,
+      recoveryCode,
+      guestExpiresAt: (account.guestExpiresAt ?? session.expiresAt).toISOString(),
+    };
+  }
+  /**
+   * Guest booking identity without account creation. Abuse-budgeted per IP;
+   * the recovery code is returned once and only its keyed digest is stored.
+   */
+  async createGuest(context: AuthContext): Promise<GuestTokens> {
+    await this.budget('guest-create-ip', context.ip, P.guestCreateIpLimit, P.guestWindowMs);
+    const now = this.now();
+    const recoveryCode = this.d.secrets.opaque();
+    const refreshToken = this.d.secrets.opaque();
+    const account: Account = {
+      id: this.d.secrets.id(),
+      kind: 'guest',
+      email: null,
+      passwordHash: null,
+      status: 'ACTIVE',
+      roles: [],
+      authVersion: 1,
+      recoveryDigest: this.d.secrets.digest(recoveryCode),
+      guestExpiresAt: new Date(now.getTime() + P.guestTtlMs),
+    };
+    const session = this.guestSession(account, now);
+    await this.d.store.transaction(async (tx) => {
+      await tx.createAccount(account);
+      await tx.createSession(session);
+      await tx.createRefresh({
+        digest: this.d.secrets.digest(refreshToken),
+        sessionId: session.id,
+        usedAt: null,
+        expiresAt: session.expiresAt,
+      });
+      await this.audit(tx, 'guest.created', 'SUCCESS', context, account.id, account.id);
+    });
+    return this.guestTokens(account, session, refreshToken, recoveryCode);
+  }
+  /**
+   * Exchange a recovery code for a new session. The code rotates on success
+   * (single use), every earlier session of the guest is revoked and the auth
+   * version is bumped, so a leaked old code or token stops working at once.
+   * Unknown, suspended and expired guests share one generic failure.
+   */
+  async recoverGuest(raw: unknown, context: AuthContext): Promise<GuestTokens> {
+    const code = recoveryCodeInput(raw);
+    await this.budget('guest-recover-ip', context.ip, P.guestRecoverIpLimit, P.guestWindowMs);
+    const nextCode = this.d.secrets.opaque();
+    const refreshToken = this.d.secrets.opaque();
+    const outcome = await this.d.store.transaction(async (tx) => {
+      const found = await tx.guestByRecovery(this.d.secrets.digest(code), true);
+      const now = this.now();
+      if (!found || !this.usable(found, now)) {
+        await this.audit(tx, 'guest.recovery-rejected', 'DENIED', context, found?.id ?? null);
+        return null; // The denial audit must commit; never throw inside the transaction.
+      }
+      const account: Account = {
+        ...found,
+        authVersion: found.authVersion + 1,
+        recoveryDigest: this.d.secrets.digest(nextCode),
+      };
+      await tx.updateAccount(found.id, {
+        authVersion: account.authVersion,
+        recoveryDigest: account.recoveryDigest,
+      });
+      await tx.revokeAll(found.id, now);
+      const session = this.guestSession(account, now);
+      await tx.createSession(session);
+      await tx.createRefresh({
+        digest: this.d.secrets.digest(refreshToken),
+        sessionId: session.id,
+        usedAt: null,
+        expiresAt: session.expiresAt,
+      });
+      await this.audit(tx, 'guest.recovered', 'SUCCESS', context, found.id, found.id);
+      return { account, session };
+    });
+    if (!outcome) throw new AuthFault('AUTH_INVALID');
+    return this.guestTokens(outcome.account, outcome.session, refreshToken, nextCode);
   }
   private async tokens(
     account: Account,
@@ -302,16 +423,19 @@ export class IdentityAuthService {
         }
         account = {
           id: this.d.secrets.id(),
+          kind: 'account',
           email: challenge.email,
           passwordHash: challenge.passwordHash,
           status: 'ACTIVE',
           roles: ['customer'],
           authVersion: 1,
+          recoveryDigest: null,
+          guestExpiresAt: null,
         };
         await tx.createAccount(account);
       } else {
         account = challenge.accountId ? await tx.account(challenge.accountId, true) : null;
-        if (!account || account.status !== 'ACTIVE') {
+        if (!account || account.kind !== 'account' || account.status !== 'ACTIVE') {
           await tx.updateChallenge(id, { state: 'INVALID' });
           return null;
         }
@@ -358,7 +482,7 @@ export class IdentityAuthService {
         return null; // The revocation survives the rejected response.
       }
       if (
-        account.status !== 'ACTIVE' ||
+        !this.usable(account, now) ||
         session.revokedAt ||
         session.expiresAt <= now ||
         token.expiresAt <= now
@@ -388,7 +512,7 @@ export class IdentityAuthService {
         !account ||
         !session ||
         session.accountId !== account.id ||
-        account.status !== 'ACTIVE' ||
+        !this.usable(account, this.now()) ||
         session.revokedAt ||
         session.expiresAt <= this.now() ||
         principal.authVersion !== account.authVersion
@@ -463,6 +587,8 @@ export class IdentityAuthService {
         throw new AuthFault('AUTH_FORBIDDEN');
       const account = await tx.account(target, true);
       if (!account) throw new AuthFault('AUTH_INVALID_REQUEST');
+      // Guests have no roles by construction; staff grants require a real account.
+      if (account.kind === 'guest' && 'roles' in patch) throw new AuthFault('AUTH_INVALID_REQUEST');
       await tx.updateAccount(target, { ...patch, authVersion: account.authVersion + 1 });
       await tx.revokeAll(target, this.now());
       await this.audit(

@@ -94,9 +94,10 @@ export async function migrationDrift(context, service, options = {}) {
  * cannot change the schema" and "the app cannot change the schema or lie about
  * having changed it".
  */
-export async function hardenPrivileges(context, service, options = {}) {
+export function privilegeHardeningSql(service) {
+  if (!/^[a-z][a-z0-9_]*$/.test(service)) throw new Error('INVALID_SERVICE_OWNER');
   const app = `cw_${service}_app`;
-  const sql = `
+  return `
 DO $$
 BEGIN
   -- Fail loudly rather than silently leaving the grant in place.
@@ -108,13 +109,37 @@ $$;
 
 REVOKE ALL ON TABLE app._prisma_migrations FROM "${app}";
 
+-- Reassert the owner's append-only history policy after migrations or repair.
+DO $$
+DECLARE history_table text;
+BEGIN
+  IF current_database() = 'cw_configuration' THEN
+    FOREACH history_table IN ARRAY ARRAY['config_revision', 'config_review', 'config_audit'] LOOP
+      IF to_regclass('app.' || history_table) IS NOT NULL THEN
+        EXECUTE format('REVOKE UPDATE, DELETE, TRUNCATE ON TABLE app.%I FROM %I', history_table, '${app}');
+      END IF;
+    END LOOP;
+  END IF;
+  IF current_database() = 'cw_reviews' THEN
+    FOREACH history_table IN ARRAY ARRAY['review_audit', 'review_command_receipt'] LOOP
+      IF to_regclass('app.' || history_table) IS NOT NULL THEN
+        EXECUTE format('REVOKE UPDATE, DELETE, TRUNCATE ON TABLE app.%I FROM %I', history_table, '${app}');
+      END IF;
+    END LOOP;
+  END IF;
+END
+$$;
+
 -- Belt and braces: no CREATE anywhere for the application identity.
 REVOKE CREATE ON SCHEMA app FROM "${app}";
 REVOKE CREATE ON SCHEMA public FROM "${app}";
 REVOKE ALL ON DATABASE cw_${service} FROM "${app}";
 GRANT CONNECT ON DATABASE cw_${service} TO "${app}";
 `;
-  return psqlBootstrap(context, `cw_${service}`, sql, options);
+}
+
+export async function hardenPrivileges(context, service, options = {}) {
+  return psqlBootstrap(context, `cw_${service}`, privilegeHardeningSql(service), options);
 }
 
 /** Written by the migration job so a test can prove the job actually ran. */

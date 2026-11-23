@@ -1,9 +1,22 @@
 import assert from 'node:assert/strict';
-import { globSync, mkdirSync, readdirSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  globSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+  mkdtempSync,
+  rmSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { ROOT, readJson, inventory, auditSummary, sarifFindings, assertTap } from './policy.mjs';
 import { command, checked, git, tool, toolLock, stage } from './runtime.mjs';
+import { assertCompleteSecretScan, prepareSecretSource, secretScans } from './secret-scans.mjs';
+import { prepareReviewedSecretIgnores } from './reviewed-secret-finding.mjs';
+import { validateActiveAllocation } from '../parallel/E/allocate-environment.mjs';
+import { discoverServiceSpecs } from '../lib/test-discovery.mjs';
 const mode = process.argv[2];
 assert.ok(['targeted', 'static', 'integration', 'security', 'codeql'].includes(mode));
 const pnpm = (...args) => checked('pnpm', args);
@@ -43,7 +56,15 @@ try {
       const base = process.env.BASE_SHA;
       assert.match(base ?? '', /^[a-f0-9]{40}$/);
       await step('workflow-syntax', () => checked(tool('actionlint'), []));
-      await step('ci-adversarial-tests', () => tapSuite('ci', ['tests/ci/gates.test.mjs']));
+      // Scanner adversarial tests belong to the security job, which installs
+      // gitleaks. Keep this offline family independent of that external tool.
+      await step('ci-adversarial-tests', () =>
+        tapSuite('ci', [
+          'tests/ci/gates.test.mjs',
+          'tests/ci/test-discovery.test.mjs',
+          'tests/ci/business-acceptance.test.mjs',
+        ]),
+      );
       await step('f001-full-foundation', () =>
         node(
           'scripts/f001/acceptance.mjs',
@@ -66,6 +87,15 @@ try {
         'check:design-reference',
       ])
         await step(name.replaceAll(':', '-'), () => pnpm(name));
+      // Root build/typecheck intentionally cover backend workspaces. Each web
+      // artifact must independently prove its actual app commands as well.
+      for (const app of inventory().apps) {
+        for (const name of ['typecheck', 'build'])
+          await step(`${app.id}-${name}`, () => pnpm('--filter', app.packageName, 'run', name));
+      }
+      await step('parallel-platform-tests', () =>
+        tapSuite('parallel-platform', globSync('tests/parallel/E/*.test.mjs')),
+      );
       await step('unit-tests', () =>
         tapSuite('unit', [...globSync('tests/unit/*.test.mjs'), ...globSync('tests/*.test.mjs')]),
       );
@@ -76,11 +106,7 @@ try {
       await step('nest-test-build', () => pnpm('build:tests'));
       const nestFiles = inventory()
         .targets.filter((t) => t.database)
-        .flatMap((t) => {
-          const files = globSync(`${t.path}/dist-tests/test/*.spec.js`);
-          assert.ok(files.length > 0, `Missing Nest specs: ${t.id}`);
-          return files;
-        });
+        .flatMap((t) => discoverServiceSpecs(path.join(ROOT, t.path)));
       await step('nest-tests', () => tapSuite('nest', nestFiles));
       await step('append-only-migrations', () =>
         node('scripts/check-migrations.mjs', '--base-ref', base),
@@ -98,16 +124,76 @@ try {
     if (mode === 'integration') {
       await step('generate', () => pnpm('generate'));
       await step('build', () => pnpm('build'));
-      const before = new Set(readdirSync(path.join(ROOT, 'evidence/acceptance')));
+      const allocation = process.env.CW_PARALLEL_ALLOCATION
+        ? await validateActiveAllocation(process.env.CW_PARALLEL_ALLOCATION)
+        : null;
+      const acceptanceDirectory =
+        allocation?.paths.artifacts ?? path.join(ROOT, 'evidence/acceptance');
+      const allocatedReport =
+        allocation && path.join(acceptanceDirectory, 'acceptance-report.json');
+      const previousAllocatedReport =
+        allocatedReport && existsSync(allocatedReport)
+          ? readFileSync(allocatedReport, 'utf8')
+          : null;
+      const before = allocatedReport ? null : new Set(readdirSync(acceptanceDirectory));
+      const acceptanceStartedAt = Date.now();
       await step('real-postgres-rabbitmq-and-all-schema-drift', () => pnpm('acceptance:run'));
-      const added = readdirSync(path.join(ROOT, 'evidence/acceptance')).filter(
-        (n) => !before.has(n),
-      );
-      assert.equal(added.length, 1, 'Require evidence newly created by this invocation');
-      const database = readJson(
-        path.join(ROOT, 'evidence/acceptance', added[0], 'acceptance-report.json'),
-      );
+      let databaseReport;
+      if (allocatedReport) {
+        // Allocated runs use a fixed owned artifact directory rather than a new
+        // repository subdirectory. A previous report cannot satisfy this run.
+        assert.ok(existsSync(allocatedReport), 'Missing current allocated acceptance report');
+        assert.notEqual(
+          readFileSync(allocatedReport, 'utf8'),
+          previousAllocatedReport,
+          'Require allocated evidence freshly written by this invocation',
+        );
+        databaseReport = allocatedReport;
+      } else {
+        const added = readdirSync(acceptanceDirectory).filter((name) => !before.has(name));
+        assert.equal(added.length, 1, 'Require evidence newly created by this invocation');
+        databaseReport = path.join(acceptanceDirectory, added[0], 'acceptance-report.json');
+      }
+      const database = readJson(databaseReport);
+      if (allocation) {
+        assert.equal(
+          database.runId,
+          allocation.namespace,
+          'Acceptance evidence has wrong allocated run',
+        );
+        assert.ok(
+          Date.parse(database.startedAt) >= acceptanceStartedAt,
+          'Allocated acceptance evidence predates this invocation',
+        );
+      }
       assert.equal(database.accepted, true);
+      assert.equal(
+        database.sourceSha,
+        git('rev-parse', 'HEAD'),
+        'Database evidence has wrong source',
+      );
+      assert.equal(
+        database.sourceTree,
+        git('rev-parse', 'HEAD^{tree}'),
+        'Database evidence has wrong tree',
+      );
+      const expectedDatabases = inventory()
+        .targets.filter((target) => target.database)
+        .map((target) => target.id)
+        .sort();
+      assert.deepEqual(
+        [...database.services].sort(),
+        expectedDatabases,
+        'Database acceptance omitted an owner',
+      );
+      const applied = database.phases.find(
+        (phase) => phase.name === 'postgres: migrate as the migration identity',
+      );
+      assert.deepEqual(
+        [...(applied?.services ?? [])].sort(),
+        expectedDatabases,
+        'Migration evidence omitted an owner',
+      );
       assert.ok(database.phases.length > 0 && database.phases.every((p) => p.status === 'PASS'));
       const count = database.phases.find((p) => p.counts)?.counts;
       assert.ok(
@@ -116,6 +202,26 @@ try {
           count.tests === count.pass &&
           count.fail === 0 &&
           count.skip === 0,
+      );
+      await step('two-disposable-stack-data-isolation', () =>
+        node(
+          'scripts/parallel/E/two-stack-acceptance.mjs',
+          '--evidence-dir',
+          process.env.CI_EVIDENCE_DIR,
+        ),
+      );
+      const isolation = readJson(
+        path.join(process.env.CI_EVIDENCE_DIR, 'two-stack-isolation.json'),
+      );
+      assert.equal(isolation.accepted, true);
+      assert.equal(isolation.sourceSha, git('rev-parse', 'HEAD'));
+      assert.equal(isolation.sourceTree, git('rev-parse', 'HEAD^{tree}'));
+      assert.equal(isolation.sourceDirty, false);
+      assert.equal(isolation.leasesRetained, false);
+      assert.equal(isolation.observations.length, 2);
+      assert.equal(isolation.ownedDockerHandles.length, 2);
+      assert.ok(
+        isolation.phases.length > 0 && isolation.phases.every((phase) => phase.status === 'PASS'),
       );
       await step('chromium-install', () =>
         pnpm('exec', 'playwright', 'install', '--with-deps', 'chromium'),
@@ -143,32 +249,54 @@ try {
     }
     if (mode === 'security') {
       const counts = {};
+      const sourceSha = git('rev-parse', 'HEAD');
+      await step('complete-secret-scan-history', () =>
+        assert.equal(
+          git('rev-parse', '--is-shallow-repository'),
+          'false',
+          'Secret scanning requires complete source history',
+        ),
+      );
+      await step('secret-scan-regression-tests', () =>
+        tapSuite('secret-scans', ['tests/ci/secret-scans.test.mjs']),
+      );
       const source = path.join(temporary, 'source');
       mkdirSync(source);
       const archive = path.join(temporary, 'source.tar');
-      await checked('git', ['archive', '--format=tar', '--output', archive, 'HEAD']);
+      await checked('git', ['archive', '--format=tar', '--output', archive, sourceSha]);
       await checked('tar', ['-xf', archive, '-C', source]);
-      for (const [name, args] of [
-        ['history', ['git', '--log-opts=--all', '.']],
-        ['source', ['dir', source]],
-      ]) {
+      const scanSource = path.join(temporary, 'source-scan');
+      const sourceManifest = prepareSecretSource(source, scanSource);
+      writeFileSync(
+        path.join(process.env.CI_EVIDENCE_DIR, 'secret-source-manifest.json'),
+        JSON.stringify({ sourceSha, ...sourceManifest }, null, 2) + '\n',
+      );
+      let ignores;
+      await step('verified-historical-false-positive', () => {
+        ignores = prepareReviewedSecretIgnores(ROOT, sourceSha, temporary);
+      });
+      for (const [name, args] of secretScans(sourceSha, scanSource, ignores)) {
         const output = path.join(temporary, `${name}.json`);
         await step(`gitleaks-${name}`, async () => {
-          const result = await command(tool('gitleaks'), [
-            ...args,
-            '--redact=100',
-            '--max-archive-depth=2',
-            '--max-decode-depth=2',
-            '--report-format=json',
-            `--report-path=${output}`,
-          ]);
+          const result = await command(
+            tool('gitleaks'),
+            [
+              ...args,
+              '--redact=100',
+              '--max-archive-depth=2',
+              '--max-decode-depth=2',
+              '--report-format=json',
+              `--report-path=${output}`,
+            ],
+            { capture: true },
+          );
           const report = readJson(output);
-          assert.ok(Array.isArray(report));
-          counts[name] = report.length;
           // Findings never leave the temporary directory, even if a scanner's
           // future JSON format adds non-redacted fields. Failures remain blocking.
-          assert.equal(result.code, 0, 'Gitleaks findings or scanner failure');
-          assert.equal(report.length, 0, 'Gitleaks findings');
+          counts[name] = assertCompleteSecretScan(result, report);
+          console.log(
+            `Gitleaks ${name}: ${counts[name].scannedBytes} bytes, zero findings or read errors`,
+          );
         });
       }
       let audit;
@@ -185,9 +313,14 @@ try {
       await step('reproducible-frozen-lockfile', () => node('scripts/verify-frozen-install.mjs'));
       return {
         scanner: toolLock.tools.gitleaks.version,
+        historyScope: 'Complete ancestry of the exact source SHA, including merge-parent diffs',
+        historySourceSha: sourceSha,
+        reviewedHistoricalFinding: ignores.assessment,
+        tests: testCounts,
         secrets: counts,
         audit,
-        threshold: 'All pnpm advisories block, preserving F001; no allowlist introduced.',
+        threshold:
+          'All pnpm advisories block, preserving F001; no dependency advisory allowlist introduced.',
       };
     }
     if (mode === 'codeql') {

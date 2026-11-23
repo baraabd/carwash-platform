@@ -1,0 +1,70 @@
+{
+  "gate": "lane-d-browser",
+  "sourceSha": "9d5307e69ec80ec681ff85beeaf7a40753da934c",
+  "sourceTree": "4fbc4219a6487a9ad866a3a61f2c50442b23ef51",
+  "sourceDirty": true,
+  "runId": "20261009-2280f290",
+  "images": {
+    "postgres": "postgres:16.10-alpine",
+    "rabbitmq": "rabbitmq:4.2-management-alpine",
+    "node": "node:24.21.0-bookworm-slim",
+    "redis": "redis:8.2.10-alpine"
+  },
+  "suites": [
+    "tests/production/D/admin-live-finance.browser.mjs",
+    "tests/production/D/admin-operations.browser.mjs"
+  ],
+  "suiteSha256": {
+    "tests/production/D/admin-live-finance.browser.mjs": "beeb3e62c450059f144d751578616e74aba557e7d11df9fcb52a02625354c533",
+    "tests/production/D/admin-operations.browser.mjs": "c99667bbdf5606e51c7a63910605d768d711f95c2e74e1410962e3f084ec0022"
+  },
+  "migrations": [
+    {
+      "service": "catalog",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    },
+    {
+      "service": "communications",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    },
+    {
+      "service": "reporting",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    },
+    {
+      "service": "configuration",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    },
+    {
+      "service": "identity",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    },
+    {
+      "service": "workforce",
+      "migrateDeploy": "PASSED",
+      "hardenPrivileges": "PASSED",
+      "drift": "NONE"
+    }
+  ],
+  "tests": {
+    "tests": 16,
+    "pass": 15,
+    "fail": 1,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "accepted": false
+  },
+  "exitCode": 1,
+  "scope": "Real services and headless Chromium on one machine, against real PostgreSQL 16, single-node RabbitMQ 4 and a disposable Redis. Not HA, not a device matrix, not production proof."
+}

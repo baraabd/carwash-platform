@@ -1,0 +1,99 @@
+{
+  "journeys": {
+    "O1": "PASSED",
+    "O2": "PASSED",
+    "F1": "PASSED",
+    "S1": "PASSED",
+    "D1": "PASSED",
+    "M1": "PASSED"
+  },
+  "accessibility": {
+    "dashboard": [],
+    "bookingDetail": [],
+    "payments": [],
+    "reconcileDialog": []
+  },
+  "visual": [
+    {
+      "screen": "dashboard",
+      "width": 390,
+      "sameDimensions": true,
+      "diffRatio": 0.6965128205128205,
+      "referenceSha256": "8fa9c97fcca5a1dc4ec9a134fdf6378dc8f7b6ef8fd553415104559b3dc2e2bc",
+      "candidateSha256": "6eb74141b2076867d7bcbcbe69fe4d0a2b2134d0ec034ef92ec9dd22f1aa570a"
+    },
+    {
+      "screen": "payments",
+      "width": 390,
+      "sameDimensions": true,
+      "diffRatio": 0.25524786324786325,
+      "referenceSha256": "daef8fecef4add1b0db70888b5730f013a933cb02b2cd0dbb629be27d958d008",
+      "candidateSha256": "35c051089ab9cbaabe9efbb079ffd3b5664e8b5915137cc9cfe082e09fa0a2ec"
+    },
+    {
+      "screen": "dashboard",
+      "width": 768,
+      "sameDimensions": true,
+      "diffRatio": 0.27707175925925925,
+      "referenceSha256": "03f2263be5566b958e38c07a50eb75df032a325cd5fe8987953d98acc309a610",
+      "candidateSha256": "94e9a3b049fc3d9a0183eeb932cbec9884e4713450e435eb7ab2178562f505cd"
+    },
+    {
+      "screen": "payments",
+      "width": 768,
+      "sameDimensions": true,
+      "diffRatio": 0.4390060763888889,
+      "referenceSha256": "279f6ec1992cc3fe21d55141ff55c2994d792ee237cae4ccfb8c3398286eb3ba",
+      "candidateSha256": "81af41ad418a7f04309c1f877b665f350d12d6d7401bcecf7fe34f98f6335255"
+    },
+    {
+      "screen": "dashboard",
+      "width": 1440,
+      "sameDimensions": true,
+      "diffRatio": 0.3755871913580247,
+      "referenceSha256": "e497f9abab7e135f36f863c8ae668b4a540fe82f15e9af7b48323048b4686ce0",
+      "candidateSha256": "be14aee80298adff2ac8cb71b96a27a60a9bf3306faca89a1e8cd156f68ace22"
+    },
+    {
+      "screen": "payments",
+      "width": 1440,
+      "sameDimensions": true,
+      "diffRatio": 0.3670679012345679,
+      "referenceSha256": "bafb751723f545525b8d892d19b5f8ac9d27876c4bea6a29520c8df6d97372ed",
+      "candidateSha256": "8507a4f5301e926a6214aea2bec264149172421083b3a8d44a5e5d20077f18a4"
+    }
+  ],
+  "audit": {
+    "dispatch": [
+      {
+        "action": "offer.created",
+        "actorIsOperations": true,
+        "correlationId": "54ef2076-971c-4438-8767-d480b136d293"
+      },
+      {
+        "action": "assignment.reassigned",
+        "actorIsOperations": true,
+        "correlationId": "ffce497d-b6a5-4297-a1f0-b75839c26540"
+      },
+      {
+        "action": "offer.created",
+        "actorIsOperations": true,
+        "correlationId": "ffce497d-b6a5-4297-a1f0-b75839c26540"
+      },
+      {
+        "action": "assignment.unassigned",
+        "actorIsOperations": true,
+        "correlationId": "18d949c4-2dac-4a95-b442-8a760d43cb7e"
+      }
+    ],
+    "billing": [
+      {
+        "action": "billing.attempt.reconciled",
+        "actorIsFinance": true,
+        "outcome": "MATCHED",
+        "correlationId": "04914b0b-7d92-48b7-ac64-d911031d2ba5"
+      }
+    ]
+  },
+  "consoleErrors": []
+}

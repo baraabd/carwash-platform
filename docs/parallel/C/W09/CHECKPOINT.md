@@ -1,0 +1,25 @@
+# W09-C — field rehearsal checkpoint
+
+Task W09-C; phase ENTRY_BLOCKED / PROPOSAL_ONLY; implementation/rehearsal NOT_STARTED; parent INTEGRATION_PENDING, not DONE. Expected BASE_W09 unpublished. This packet is the task-authorized read-only analysis/lane-local proposal exception, not actual staging acceptance.
+
+Observed target/sole parent 2026-10-06 UTC (2026-10-07 Asia/Damascus): `b47390c8ce04b2674e9222918bcd4e03fa5aed24`, tree `c8a1f2f9e84f6298f1b044a8e8cec2549f33c15f`. API: zero open PRs; W08-C #76 externally merged at `668c3d4b5f9b61751615a078fcaf817d8da0d424`. C014 #41 earlier verified merged at `69d81a83a3409d0693272efeb19ebeb9805750f5`; no duplicate work. Neither merge establishes staging or real business acceptance. Exact submitted head/tree and artifact links bound in English draft PR.
+
+Own branch `sprint/w09-C-field-rehearsal-prework`, worktree `/workspace/scratch/d980e1354a15/carwash-w09-c`. Initial base clone and W08 worktree clean; existing work retained. No reset/stash/clean/force-push/peer branch import.
+
+| Entry requirement | Actual evidence | Required closure |
+| --- | --- | --- |
+| Accepted BASE_W09 | Release registry BASE_W02 null/acceptedNextWaveContracts empty; E W08 explicitly BASE_W08/09 unpublished and45 families BLOCKED_NOT_RUN | E closes real predecessor gates, publishes immutable accepted source/packages/independent review |
+| Identified staging and deployment | No approved environment identity/URL/runtime access, candidate deployment/source/config binding or published image repository digests | E/environment owner supplies existing approved staging, exact deployed images/config/contracts and access |
+| Representative devices/staff/data | No explicit phone access/versions, named operators/reviewers/dispatchers, real Aleppo operational input or safe sandbox destinations | Actual owners approve device/staff/account/config/evidence/provider manifest, not invented names/numbers |
+| Backup/restore/rollback | E and B W08 handoffs proposals, datasets/digests/commands/timing/compatibility absent | E approved populated backup/consistent-cut plan and tested rollback/forward policy; C actual owner verification |
+| Functional providers | Operator technical boot businessReady false, Booking application marker; prior full feature/infra matrices proposals only | Real accepted C/B/A/D producers and source-bound combined journeys |
+
+AGENTS reread; mandatory design/reference/manifest/ADR/architecture/F001/VERIFICATION/package scripts remain unchanged from inspected W08 `f0b76221c1a1991ba78327c019f0b4a0a7c53dff`; current delta only W08 lane packets/specifications. Actual operator/Booking source refreshed; reference guards rechecked. [E staging request](../../E/W08/W09_REHEARSAL_AND_CONTRACT_REQUESTS.md), [B restore request](../../B/W08/W09_RESTORE_HANDOFF.md), [D operations request](../../D/W08/W09_OPERATIONS_CONTRACT_REQUESTS.md) are unaccepted intake. Current approved Arabic F010 prototypes do not supply missing English/production recovery/provider policy.
+
+Deliverables: [operator/dispatcher drill and operation manifest](FIELD_REHEARSAL_AND_HANDOVER.md), [restore/W10 verification handoff](RESTORE_AND_W10_ACCEPTANCE.md), [16 blocked scope tests](../../../../tests/parallel/C/W09/acceptance-specifications.md). No staged fixture created via guessed APIs or prototype navigation; all artifact/staff sign-offs pending.
+
+Pre-edit actual commands: `node scripts/check-design-reference.mjs --base-ref b47390c8ce04b2674e9222918bcd4e03fa5aed24` PASS ten artifacts; `node scripts/f010/reference-registry.mjs --base-ref b47390c8ce04b2674e9222918bcd4e03fa5aed24` PASS three references. Final commands/results recorded after execution in draft PR; static checks not device/staging proof.
+
+Changed scope only three docs/parallel/C/W09 files and one tests/parallel/C/W09 specification. New migrations none; W09 accepted contract versions none; contracts/event-contracts/api-clients unchanged0.0.2/0.0.2/0.0.1. No app/service/schema/manifests/shared/architecture/CI/infra/reference fixes. No install/build/typecheck, real/mock business fixture, DB/broker/storage/scanner/provider/browser/phone/Windows/staging/backup/restore/rollback/financial/privacy-delete/deploy operation. Owned runtime/PID/worker/lease/port/DB/queue/object/browser/device handles none; no cleanup. All16 families BLOCKED_NOT_RUN. Staff sign-off none; deployment/image/device references unavailable, not placeholders promoted to facts.
+
+Resume: E provides accepted base and identified immutable staging/candidate/backup manifest; obtain explicit device/staff/sandbox access, approved Aleppo/policy/UI data and full functional matrix. Operators execute actual drill and teach-back; owners capture receipts. C applies only reproduced owner-local fixes, E handles infrastructure/artifact updates; any change invalidates prior affected evidence and requires reverified deployment/repeated drill. Parent pending until real cases/restore/device/staff outcomes pass. No W10 auto-start, merge/auto-merge/production deployment/live money or destructive production action.

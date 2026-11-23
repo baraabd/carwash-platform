@@ -28,6 +28,8 @@ export interface OutboxRelayOptions {
   readonly leaseMs?: number;
   readonly batchSize?: number;
   readonly maxAttempts?: number;
+  /** Owner-specific wire validation before any broker publication. */
+  readonly validate?: (record: OutboxRecord) => void;
   /** Observation/fault-injection seam after the durable lease is acquired. */
   readonly onLeased?: (records: readonly OutboxRecord[]) => void | Promise<void>;
 }
@@ -74,6 +76,7 @@ export class OutboxRelay {
     for (const record of records) {
       if (signal?.aborted) break;
       try {
+        this.options.validate?.(record);
         await this.publish(record);
       } catch (error: unknown) {
         failed += 1;

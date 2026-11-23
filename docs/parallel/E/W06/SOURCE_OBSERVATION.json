@@ -1,0 +1,394 @@
+{
+  "schemaVersion": 1,
+  "task": "W06-E",
+  "lane": "E",
+  "phase": "ENTRY_BLOCKED",
+  "parentStatus": "NOT_STARTED",
+  "childSprint": "W06-E-INTEGRATION-PROPOSAL",
+  "childStatus": "DRAFT_REVIEW_PENDING",
+  "observationGeneratedAtUtc": "2026-10-06T13:53:48.038960+00:00",
+  "expectedAcceptedBaseW06": null,
+  "analysisParentSha": "78adaa2d0436f9e0fc6697a36f3f0bd7a521ad8b",
+  "analysisParentTree": "c5bd3137ef9d4e0ab7b70b9646e126f10e011883",
+  "analysisOrderedParents": [
+    "d9f2c88548395f98fbe309f93db74dc4d2fa782d",
+    "467a66d3bfd072e102a6234dfd50dcbf657b38cf"
+  ],
+  "proposalBranch": "sprint/w06-E-resilient-events",
+  "acceptedBaseW07": null,
+  "waveRegistryAtSource": {
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "bases": {
+      "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "BASE_W02": null
+    },
+    "acceptedNextWaveContracts": [],
+    "publishedNextPackageVersions": {}
+  },
+  "packagesAtSource": {
+    "@carwash/contracts": "0.0.2",
+    "@carwash/event-contracts": "0.0.2",
+    "@carwash/api-clients": "0.0.1"
+  },
+  "servicesAtSource": [
+    {
+      "id": "identity",
+      "permanentLane": "E",
+      "models": [
+        "ServiceMarker",
+        "IdentityAccount",
+        "IdentityChallenge",
+        "IdentitySession",
+        "IdentityRefresh",
+        "IdentityAudit"
+      ],
+      "runtimeImplementation": "implemented-capability-runtime",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/identity/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "customer",
+      "permanentLane": "A",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/customer/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "vehicle",
+      "permanentLane": "A",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/vehicle/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "catalog",
+      "permanentLane": "B",
+      "models": ["ServiceMarker", "FoundationProbe", "OutboxMessage"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/catalog/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "pricing",
+      "permanentLane": "B",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/pricing/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "booking",
+      "permanentLane": "C",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/booking/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "scheduling",
+      "permanentLane": "C",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/scheduling/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "dispatch",
+      "permanentLane": "C",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/dispatch/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "workforce",
+      "permanentLane": "C",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/workforce/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "billing",
+      "permanentLane": "B",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/billing/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "wallet",
+      "permanentLane": "B",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/wallet/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "subscription",
+      "permanentLane": "B",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/subscription/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "media",
+      "permanentLane": "C",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/media/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "communications",
+      "permanentLane": "D",
+      "models": ["ServiceMarker", "InboxMessage", "ProbeNotification"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/communications/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "reviews",
+      "permanentLane": "D",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/reviews/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "support",
+      "permanentLane": "D",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/support/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "geo",
+      "permanentLane": "A",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/geo/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "reporting",
+      "permanentLane": "D",
+      "models": ["ServiceMarker", "InboxMessage", "ProbeProjection"],
+      "runtimeImplementation": "existing-health-only-shell",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/reporting/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    },
+    {
+      "id": "configuration",
+      "permanentLane": "D",
+      "models": ["ServiceMarker"],
+      "runtimeImplementation": "onboarded-foundation-runtime",
+      "apiCatalogStatus": "planned-not-implemented",
+      "eventCatalogStatus": "planned-not-implemented",
+      "businessReadinessSource": "services/configuration/src/app.module.ts",
+      "businessReadyFalseObserved": true
+    }
+  ],
+  "sourceBlobDigests": {
+    "architecture/parallel-contract-release.json": "aec04eeb6c3d893e4e0b401bab0a550c517f1e32709a5e0189f4a3ddb0ce4db9",
+    "architecture/parallel-ownership.json": "2b696da4f8ed6d0fbb6234e33dc207e92c9e91f72e56e6f8777aac62c4f8e144",
+    "docs/api/contract-registry.json": "9bab31342f680df6df925dabec88ae507016f11191071ffbb38e9025f951f636",
+    "docs/asyncapi/contract-registry.json": "8d64bc6ca54ae2451ddf349e7f8ce5a798fbb88edf5dced6ed7852eee236b7be",
+    "packages/contracts/src/index.ts": "0aae653cf5528fba4b9f464f8ab2f59c02d2a62ff50d3b3fef46f5f3ccb18ae1",
+    "packages/event-contracts/src/index.ts": "553cf308f44b3299ad3db02bb285262cf4af75951ed9cd6be0fa68944121f0df",
+    "packages/api-clients/src/index.ts": "9c5162feffe8bbe37bdf5adde98f993d3d2169c1156a6ed5265cc6b7e4585c1d",
+    "docs/parallel/E/W05/CHECKPOINT.md": "a0765bc7a9db4fc08da00a1308dfe7160b5683692b2d15d5f734a7a96f44655d",
+    "tests/parallel/E/W05/PAYMENT_ACCEPTANCE_SPEC.md": "9fdd70fd8063fd6600e7e05814da63dd23fcbd2c578de1d7677be889bf11db7f"
+  },
+  "inheritedAcceptance": {
+    "w04CashFamilies": 32,
+    "w04State": "BLOCKED_NOT_RUN",
+    "w05PaymentFamilies": 40,
+    "w05State": "BLOCKED_NOT_RUN",
+    "w05EProposalPr": 64,
+    "w05EHead": "93356a40d5c10a494367571edcaefa86b6ae8a2b",
+    "w05EMergeTarget": "d9f2c88548395f98fbe309f93db74dc4d2fa782d",
+    "limitation": "External merge and foundation CI do not supply real provider/payment/compensation evidence or an accepted wave base."
+  },
+  "peerIntake": {
+    "pr": 66,
+    "lane": "C",
+    "head": "5f5d1064e237e17f26f85d1200c12770d7b93264",
+    "draft": true,
+    "disposition": "Read-only proposal intake; not accepted contract or implementation.",
+    "observedFiles": [
+      "docs/parallel/C/W06/CHECKPOINT.md",
+      "docs/parallel/C/W06/CHILD_SEQUENCE_AND_RECOVERY.md",
+      "docs/parallel/C/W06/W07_CONTRACT_REQUESTS.md",
+      "tests/parallel/C/W06/acceptance-specifications.md"
+    ],
+    "declaredBusinessFamilies": 24,
+    "businessStatus": "BLOCKED_NOT_RUN",
+    "materialRequests": [
+      "Split real intent/binding/capture/eligibility producers before consumers",
+      "C.1 benefit coordination then C.2 fleet readiness are proposed children",
+      "W06 scoped admin HTTP to Scheduling/Dispatch and independent operator journey remains mandatory despite W07 full D browser proposal",
+      "Interval/multi-resource/fence and privacy execution wave remain unaccepted decisions"
+    ]
+  },
+  "currentProposalAcceptance": {
+    "declarativeBusinessFamilies": 50,
+    "executedBusinessFamilies": 0,
+    "status": "BLOCKED_NOT_RUN",
+    "newBusinessMigrations": [],
+    "newPublicContractVersions": {},
+    "newBusinessRuntime": false,
+    "providerOperations": false,
+    "realBusinessJourneys": false,
+    "mockedBusinessJourneys": false,
+    "dbBrokerFaultExecution": false,
+    "localDockerAvailable": false,
+    "staging": false,
+    "production": false,
+    "independentApproval": false,
+    "mergePerformed": false
+  },
+  "ownedRuntimeHandles": {
+    "processes": [],
+    "ports": [],
+    "composeProjects": [],
+    "databases": [],
+    "queues": [],
+    "containers": [],
+    "volumes": [],
+    "objectPrefixes": [],
+    "browserProfiles": [],
+    "activeRuntimeLeases": []
+  },
+  "entryBlockers": [
+    "No accepted BASE_W06 or predecessor/W05 business acceptance",
+    "Unpublished business contracts/parsers/clients and exact package versions",
+    "Real Wallet/Subscription/fleet/Support/Reviews and affected owner producers absent",
+    "Unaccepted Money/holders/restoration/current grants/privacy wave/policy/channel/location decisions",
+    "Owner messaging defect closures and real business crash/recovery/rebuild evidence absent"
+  ],
+  "limitation": "Immutable read-only source observation and proposal plan, not runtime, candidate, independent review or W06/W07 acceptance.",
+  "baseFoundationCiSnapshot": {
+    "observedAtUtc": "2026-10-06T13:53:48.038960+00:00",
+    "totalChecks": 43,
+    "successfulChecks": 43,
+    "pendingChecks": 0,
+    "unsuccessfulCompletedChecks": 0,
+    "workflowRuns": [
+      {
+        "id": 37472690811,
+        "name": "Reference guard (not release CI)",
+        "event": "push",
+        "head": "78adaa2d0436f9e0fc6697a36f3f0bd7a521ad8b",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1
+      },
+      {
+        "id": 37472690799,
+        "name": "F001 ownership and workspace acceptance",
+        "event": "push",
+        "head": "78adaa2d0436f9e0fc6697a36f3f0bd7a521ad8b",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1
+      },
+      {
+        "id": 37472690792,
+        "name": "F010 golden HTML parity",
+        "event": "push",
+        "head": "78adaa2d0436f9e0fc6697a36f3f0bd7a521ad8b",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1
+      },
+      {
+        "id": 37472690789,
+        "name": "F006 identity security acceptance",
+        "event": "push",
+        "head": "78adaa2d0436f9e0fc6697a36f3f0bd7a521ad8b",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1
+      },
+      {
+        "id": 37472690813,
+        "name": "F008 observability acceptance",
+        "event": "push",
+        "head": "78adaa2d0436f9e0fc6697a36f3f0bd7a521ad8b",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1
+      },
+      {
+        "id": 37472690797,
+        "name": "F009 foundation verification",
+        "event": "push",
+        "head": "78adaa2d0436f9e0fc6697a36f3f0bd7a521ad8b",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1
+      },
+      {
+        "id": 37472690802,
+        "name": "Sprint 0.2 CI",
+        "event": "push",
+        "head": "78adaa2d0436f9e0fc6697a36f3f0bd7a521ad8b",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1
+      },
+      {
+        "id": 37472690801,
+        "name": "F007 gateway contract acceptance",
+        "event": "push",
+        "head": "78adaa2d0436f9e0fc6697a36f3f0bd7a521ad8b",
+        "status": "completed",
+        "conclusion": "success",
+        "attempt": 1
+      }
+    ],
+    "limitation": "Historical/current analysis-parent foundation evidence only, not this new proposal head or W06 business acceptance."
+  }
+}

@@ -1,0 +1,184 @@
+/*
+ * Production additions on top of the approved reference stylesheet, which is
+ * loaded unchanged (virtual:admin-reference.css). Only what the reference has
+ * no rule for is defined here, using its own tokens. Each rule is listed as a
+ * declared difference in docs/production/D/P02-D2_ADMIN_OPERATIONS_CONSOLE.md.
+ */
+
+/* The reference sets this inline; the console CSP forbids inline styles. */
+.topbar-start {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+/* Projection freshness, shown apart from the rows it qualifies. */
+.freshness-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.freshness-strip:empty {
+  display: none;
+}
+
+.load-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+.load-more:empty {
+  display: none;
+}
+
+.state-cell {
+  white-space: normal;
+  color: var(--muted);
+  text-align: center;
+  padding: 22px 10px;
+}
+
+tbody tr[data-booking] {
+  cursor: pointer;
+}
+tbody tr[data-booking]:hover {
+  background: var(--surface2);
+}
+
+.state-panel {
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+.state-panel p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.field-error {
+  color: #b91c1c;
+  font-size: 12px;
+  margin: 0;
+}
+.field-error:empty {
+  display: none;
+}
+
+.pending form {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+.pending form p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.pending form input {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.detail-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+.detail-list dt {
+  color: var(--muted);
+}
+.detail-list dd {
+  margin: 0;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .toast {
+    transition: none;
+  }
+}
+
+/*
+ * P03-D3. The reference colours its KPI icons with inline styles; the CSP
+ * forbids inline styles, so the same five colours are set by attribute.
+ */
+.kpi .icon[data-tone='blue'] {
+  background: #3b82f6;
+}
+.kpi .icon[data-tone='green'] {
+  background: #10b981;
+}
+.kpi .icon[data-tone='violet'] {
+  background: #8b5cf6;
+}
+.kpi .icon[data-tone='amber'] {
+  background: #f59e0b;
+}
+.kpi .icon[data-tone='rose'] {
+  background: #fb7185;
+}
+
+/* Booking detail: one section per owner, inside the reference modal. */
+.detail-section {
+  display: grid;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.detail-section:last-child {
+  border-bottom: 0;
+}
+.detail-section h3 {
+  margin: 0;
+  font-size: 14px;
+}
+.action-form {
+  padding: 0;
+}
+.action-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+.lookup-panel {
+  margin-top: 14px;
+}
+/* The obligation lookup keeps the reference's primary button (not the list-row style of .pending). */
+.lookup-form {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.lookup-form label {
+  font-size: 13px;
+}
+.lookup-form input {
+  justify-self: stretch;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+}

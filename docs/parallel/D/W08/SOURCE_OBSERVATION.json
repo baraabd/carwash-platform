@@ -1,0 +1,988 @@
+{
+  "schemaVersion": 1,
+  "task": "W08-D",
+  "phase": "PROPOSAL_ONLY / INTEGRATION_PENDING",
+  "expectedBase": "BASE_W08",
+  "acceptedBaseW08": null,
+  "analysisBase": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+  "analysisTree": "1a6b3a54e926fc9e3387ac547ecc20c3d3f4252d",
+  "analysisBaseIsAcceptedWaveBase": false,
+  "githubIntake": {
+    "observedAtUtc": "2026-10-06T19:45:52.684Z",
+    "main": {
+      "sha": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+      "tree": "1a6b3a54e926fc9e3387ac547ecc20c3d3f4252d",
+      "protected": false
+    },
+    "openPullRequests": [],
+    "mergedWave7": [
+      {
+        "number": 75,
+        "title": "docs(W07-E): reconcile full scope and candidate acceptance gates",
+        "head": "21988ab50af8bdfaf4b0d5770ce21256a902f1c4",
+        "merge": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+        "mergedAtUtc": "2026-10-06T19:38:01Z"
+      },
+      {
+        "number": 72,
+        "title": "docs(W07-D): propose complete admin and reconciled Reporting entry",
+        "head": "6a903fbe2e931b178fdc9bfa9e8ed50d79584218",
+        "merge": "be954a9a3ce4d206bd4a6cfd46990dece359edd2",
+        "mergedAtUtc": "2026-10-06T19:37:42Z"
+      },
+      {
+        "number": 71,
+        "title": "docs(W07-C): map operator features and durable reconnect acceptance",
+        "head": "acb772782e21c138f95547ab30f9a4b36e75a0ed",
+        "merge": "05d27ee0d34150d014b8aed234938de3083f714d",
+        "mergedAtUtc": "2026-10-06T19:37:05Z"
+      },
+      {
+        "number": 73,
+        "title": "docs(W07-B): map full finance scope and acceptance contracts",
+        "head": "1659bd547d45dd2dc1c12484b98c7f0f45a1c248",
+        "merge": "a519fcd9e84781ea5cdb5ea5dd38e05652445a55",
+        "mergedAtUtc": "2026-10-06T19:36:39Z"
+      },
+      {
+        "number": 74,
+        "title": "W07-A: commerce entry proposal and broker outage acceptance fix",
+        "head": "51ba95c209326ab2c7b95845d1058fced9def5cc",
+        "merge": "67ecf3d4acde9f0df178357726052a8a2b4f5fee",
+        "mergedAtUtc": "2026-10-06T19:36:12Z"
+      }
+    ],
+    "targetChecks": {
+      "total": 41,
+      "byStatus": {
+        "in_progress": 6,
+        "success": 35
+      },
+      "securityJob": [
+        {
+          "id": 112466010580,
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37520442514/job/112466010580",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "id": 112464361630,
+          "url": "https://github.com/baraabd/carwash-platform/actions/runs/37520442256/job/112464361630",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ],
+      "limitations": "Snapshot of observed main only; not W08 candidate, full product acceptance or independent approval."
+    },
+    "targetRuns": {
+      "total": 8,
+      "byStatus": {
+        "success": 4,
+        "in_progress": 4
+      },
+      "limitations": "First page returned; no inference from historical checks."
+    }
+  },
+  "predecessor": {
+    "pr": 72,
+    "head": "6a903fbe2e931b178fdc9bfa9e8ed50d79584218",
+    "merge": "be954a9a3ce4d206bd4a6cfd46990dece359edd2",
+    "mergedAtUtc": "2026-10-06T19:37:42Z",
+    "semanticStatus": "merged proposal; no business contract/base acceptance"
+  },
+  "wave7Delta": {
+    "from": "f01e87f4619414960e9e39c65e523a3250fbcbaf",
+    "to": "f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+    "paths": [
+      {
+        "status": "A",
+        "path": "docs/parallel/A/W07/ADMIN_OWNER_PROVIDERS.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/A/W07/CHECKPOINT.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/A/W07/COMMERCE_AND_REBOOKING.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/A/W07/README.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/A/W07/SOURCE_TO_ACCEPTANCE.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/A/W07/W08_CONTRACT_REQUESTS.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/A/W07/source-observation.json"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/B/W07/CHECKPOINT.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/B/W07/FINANCE_SCOPE_MATRIX.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/B/W07/PROMOTIONS_AND_PRICING_ADMIN.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/B/W07/README.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/B/W07/REBOOKING_AND_ADJUSTMENTS.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/B/W07/W08_ADVERSARIAL_AND_WORKLOAD_REQUESTS.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/B/W07/source-observation.json"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/C/W07/CHECKPOINT.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/C/W07/OPERATOR_FEATURE_AND_RECOVERY_MATRIX.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/C/W07/W08_ACCEPTANCE_HANDOFF.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/D/W07/ADMIN_ACTION_MATRIX.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/D/W07/HANDOFF.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/D/W07/REPORTING_RECONCILIATION_PLAN.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/D/W07/SOURCE_OBSERVATION.json"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/D/W07/W08_SECURITY_FAULT_PROPOSALS.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/E/W07/CANDIDATE_AND_STAGING_GATES.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/E/W07/CHECKPOINT.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/E/W07/CONTRACTS_AND_PROVIDER_SEQUENCE.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/E/W07/FULL_SCOPE_MATRIX.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/E/W07/README.md"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/E/W07/SOURCE_OBSERVATION.json"
+      },
+      {
+        "status": "A",
+        "path": "docs/parallel/E/W07/W08_HARDENING_AND_BLOCKERS.md"
+      },
+      {
+        "status": "M",
+        "path": "tests/integration/outbox-inbox.test.mjs"
+      },
+      {
+        "status": "A",
+        "path": "tests/parallel/A/W07/ACCEPTANCE_SPECIFICATIONS.md"
+      },
+      {
+        "status": "A",
+        "path": "tests/parallel/B/W07/acceptance-specifications.json"
+      },
+      {
+        "status": "A",
+        "path": "tests/parallel/C/W07/acceptance-specifications.md"
+      },
+      {
+        "status": "A",
+        "path": "tests/parallel/D/W07/ACCEPTANCE_SPEC.md"
+      },
+      {
+        "status": "A",
+        "path": "tests/parallel/E/W07/FULL_SCOPE_ACCEPTANCE_SPEC.md"
+      },
+      {
+        "status": "M",
+        "path": "tests/unit/f008-recovery-scope.test.mjs"
+      }
+    ],
+    "addedPaths": 34,
+    "modifiedPaths": 2,
+    "insertions": 7273,
+    "deletions": 28,
+    "runtimeSourceChanges": 0,
+    "testRepairMeaning": "Case A recoveryScope/awaited after-hook cleanup, original relay PID and consumer exit checks plus two cancellation fixtures. Harness lifecycle correction, not D Inbox race closure or product recovery evidence."
+  },
+  "release": {
+    "wave": "W01",
+    "status": "INTEGRATION_PENDING",
+    "bases": {
+      "BASE_W01": "69d81a83a3409d0693272efeb19ebeb9805750f5",
+      "BASE_W02": null
+    },
+    "BASE_W08Published": false,
+    "acceptedNextWaveContracts": [],
+    "existingHttpContracts": [
+      {
+        "id": "identity.v1",
+        "domain": "identity",
+        "version": 1,
+        "prefix": "/internal/v1/identity",
+        "status": "foundation-runtime",
+        "openApi": "docs/contracts/gateway.openapi.json",
+        "scope": "Identity-owned routes represented through the current gateway routing discovery document; not a complete standalone Identity business OpenAPI."
+      },
+      {
+        "id": "gateway.v1",
+        "domain": "gateway",
+        "version": 1,
+        "prefix": "/api/v1",
+        "status": "routing-contract-only",
+        "openApi": "docs/contracts/gateway.openapi.json",
+        "scope": "Gateway/BFF routing discovery. Route presence does not claim the owning business endpoint is implemented."
+      }
+    ],
+    "existingEventContracts": [
+      {
+        "id": "foundation.probe.created.v1",
+        "producer": "catalog",
+        "schemaVersion": 1,
+        "status": "foundation-runtime",
+        "asyncApi": "docs/asyncapi/foundation-probe.yaml"
+      },
+      {
+        "id": "booking.confirmed.v1",
+        "producer": "booking",
+        "schemaVersion": 1,
+        "status": "contract-only",
+        "asyncApi": "docs/asyncapi/booking-confirmed-v1.yaml"
+      }
+    ],
+    "existingClientContracts": [],
+    "clientRegistryStatus": "api-clients-export-empty-skeleton",
+    "packagesAtSource": {
+      "@carwash/contracts": "0.0.2",
+      "@carwash/event-contracts": "0.0.2",
+      "@carwash/api-clients": "0.0.1"
+    },
+    "productDecisions": {
+      "privacyExportResetDeleteProductionMeaning": "pending-owner-decision",
+      "privacyCoordinatingOwner": null,
+      "retentionAnonymizationPolicy": null,
+      "walletReferencePurpose": "Team cash custody and settlement visibility with Billing posting references; exact account holders and hold reasons pending B/product decision.",
+      "walletIsCheckoutMethod": false,
+      "customerStoredValueFundingWithdrawalApproved": false,
+      "payrollMarketplaceOrAutomaticRecurringDebitApproved": false,
+      "approvedCheckoutMethods": [
+        "cash",
+        "sham",
+        "syriatel"
+      ],
+      "paymeraScope": "pending-owner-decision-and-actual-provider-documentation",
+      "workforceEmploymentModel": "pending-owner-decision",
+      "financialPolicy": "pending-owner-input",
+      "AleppoCoverageHoursPrices": "pending-owner-input",
+      "peakLoad": null,
+      "performanceTargets": null,
+      "recoveryTargets": null
+    }
+  },
+  "ownership": {
+    "status": "proposal-pending-independent-review",
+    "wave": "W01",
+    "verifiedBaseW02": null,
+    "serviceOwners": {
+      "customer": "A",
+      "vehicle": "A",
+      "geo": "A",
+      "catalog": "B",
+      "pricing": "B",
+      "billing": "B",
+      "wallet": "B",
+      "subscription": "B",
+      "media": "C",
+      "workforce": "C",
+      "scheduling": "C",
+      "booking": "C",
+      "dispatch": "C",
+      "communications": "D",
+      "reviews": "D",
+      "support": "D",
+      "reporting": "D",
+      "configuration": "D",
+      "identity": "E"
+    },
+    "appOwners": {
+      "customer-web": "A",
+      "operator-web": "C",
+      "admin-web": "D",
+      "api-gateway": "E"
+    },
+    "historicalConditionalLeaseCount": 11,
+    "scope": "User task expires W01 lease and permits permanent D scope, but unpublished W08 entry limits this packet to D lane-local proposals. Historical lease tests do not reactivate source permissions. Reserved files remain E-owned."
+  },
+  "sourceFacts": {
+    "serviceCount": 19,
+    "identityRoles": [
+      "customer",
+      "technician",
+      "operations",
+      "finance",
+      "support",
+      "reviewer",
+      "super-admin"
+    ],
+    "identityPermissions": [
+      "profile.read:self",
+      "profile.write:self",
+      "bookings.read:self",
+      "bookings.create:self",
+      "work.read:assigned",
+      "work.execute:assigned",
+      "operations.dispatch",
+      "billing.read",
+      "billing.refund",
+      "support.cases.read",
+      "support.cases.write",
+      "verification.review",
+      "identity.accounts.suspend",
+      "identity.roles.assign"
+    ],
+    "identityFoundation": "Real current session authorization and transactional role/status changes exist. Current account/session/authVersion are checked; target changes increment generation and revoke sessions. Product-scoped grants/admin tab consumers are absent.",
+    "adminBoot": "WEB_RUNTIME foundation-only/businessReady false; no implemented 17-screen app, caches/websocket/export providers or product routes.",
+    "DProviders": "Marker/probe foundations only; no business Support/Reviews/Configuration/export/projection-generation endpoints.",
+    "gateway": "Existing seven admin route descriptors plus Billing/Support overview composition; current Identity checks/CSRF/header stripping are real. Query strings are rejected; path UUID validation is not resource ownership. /admin/reviews is Workforce verification, not D Reviews moderation.",
+    "apiClients": "export-empty skeleton",
+    "INT-D-01": "Unchanged broad whole-transaction P2002/23505→DUPLICATE in both D stores without verifying Inbox constraint/winner hash. Static risk, not reproduced here; six real DB controls remain required.",
+    "authoritySeams": [
+      "D proposed conversation bindings vs C current Booking/Dispatch relationships and E private Identity mapping unresolved",
+      "C/E task-location authority unresolved",
+      "Privacy coordinator/owner obligation/action/retention/export job/artifact purpose contracts unaccepted",
+      "Wallet custody movements separate from Billing collection/treasury receipt/posting/settlement; no double-counting",
+      "B W06 fulfillment intent supersedes obsolete automatic W07 financial privacy deferral; no accepted execution follows"
+    ],
+    "securityReview": "E W07 retains four historical f01 CodeQL warnings OPEN_REVIEW. They are not a fresh f0b CodeQL observation or reproduced vulnerability; E/reviewer own closure, no suppressions added.",
+    "threatModelAndBudgets": "No accepted W08 business threat model or numeric load/SLO/freshness/recovery profile found. Technical defaults and provisional harness budgets remain non-product inputs."
+  },
+  "modelsAtSource": [
+    {
+      "service": "identity",
+      "schema": {
+        "path": "services/identity/prisma/schema.prisma",
+        "bytes": 3064,
+        "sha256": "22b3951f5332a9856752dd567d5960a4ebcaa3e6993c57e58b4b23a90b3182d7",
+        "blob": "723d2a9da32f191c907008a4e5a85aa76613011a"
+      },
+      "models": [
+        "ServiceMarker",
+        "IdentityAccount",
+        "IdentityChallenge",
+        "IdentitySession",
+        "IdentityRefresh",
+        "IdentityAudit"
+      ],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation",
+        "20260926040000_identity_security"
+      ]
+    },
+    {
+      "service": "communications",
+      "schema": {
+        "path": "services/communications/prisma/schema.prisma",
+        "bytes": 2012,
+        "sha256": "115eb2e4ee9cccf95be35358e0faf822b52d632444ffe381a1969cc3f2aa1c3c",
+        "blob": "9f742f6f61385c3c44c34334a536bda8982a69be"
+      },
+      "models": [
+        "ServiceMarker",
+        "InboxMessage",
+        "ProbeNotification"
+      ],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation"
+      ]
+    },
+    {
+      "service": "reporting",
+      "schema": {
+        "path": "services/reporting/prisma/schema.prisma",
+        "bytes": 1923,
+        "sha256": "6732c59b6368f3a41b058f3ebf445e5ff88acbd995ea76299fe2a5207e6ea4fc",
+        "blob": "c4f1e2bfff97f5fb18023638fc99d95cccf07287"
+      },
+      "models": [
+        "ServiceMarker",
+        "InboxMessage",
+        "ProbeProjection"
+      ],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation"
+      ]
+    },
+    {
+      "service": "reviews",
+      "schema": {
+        "path": "services/reviews/prisma/schema.prisma",
+        "bytes": 921,
+        "sha256": "e41b8ca6e7a3fb2e180535b519c1bf44a86bd8f3d87aa31b5b0f47d35e7b83dc",
+        "blob": "783f0926c1b83114a79c677e2e1cc1fdd08441bf"
+      },
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20261005060000_w01_foundation"
+      ]
+    },
+    {
+      "service": "support",
+      "schema": {
+        "path": "services/support/prisma/schema.prisma",
+        "bytes": 921,
+        "sha256": "00ffe22bae2fb6fd2b9aa8a0f0a4b592b9411622b8cc58e3bc0d745b63c80580",
+        "blob": "5088c3ac4334444141069731e3c87b480f5a418e"
+      },
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation"
+      ]
+    },
+    {
+      "service": "configuration",
+      "schema": {
+        "path": "services/configuration/prisma/schema.prisma",
+        "bytes": 927,
+        "sha256": "0891923f7b6b2df9166e0a673d8738fba5b46c908750c553873f37768df1c43c",
+        "blob": "35970d8d036935ee5e36bf30b721531840ed167a"
+      },
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20261005060000_w01_foundation"
+      ]
+    },
+    {
+      "service": "billing",
+      "schema": {
+        "path": "services/billing/prisma/schema.prisma",
+        "bytes": 921,
+        "sha256": "82aa2c8382d9a1b5a345f75065407c213da829acd58e92c1331b3d9bfed4c3a1",
+        "blob": "2c28c14a9b670a0181216180efc2399df090dd93"
+      },
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation"
+      ]
+    },
+    {
+      "service": "wallet",
+      "schema": {
+        "path": "services/wallet/prisma/schema.prisma",
+        "bytes": 920,
+        "sha256": "e6e9b6017244473a152de02d8441d14c6e71acc4dce61fdafd4fe50bef422db2",
+        "blob": "b4810f93f7d59ce9a44bab332d7e84b2a6871ec2"
+      },
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20261005060000_w01_foundation"
+      ]
+    },
+    {
+      "service": "subscription",
+      "schema": {
+        "path": "services/subscription/prisma/schema.prisma",
+        "bytes": 926,
+        "sha256": "b74cc9c3d0002d7c6482f68268a37e9860387ae39199e111b73b625db53b64ad",
+        "blob": "d98bcecd4730a13d2a27d9bb068c5de2125a579f"
+      },
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20261005060000_w01_foundation"
+      ]
+    },
+    {
+      "service": "booking",
+      "schema": {
+        "path": "services/booking/prisma/schema.prisma",
+        "bytes": 921,
+        "sha256": "9ea3d6dd78593cafafc97320e392e2bdd4e5394adcca768e303d20c2146d7622",
+        "blob": "a6058eead134e1fc02b43d891851f51f2a4d5653"
+      },
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation"
+      ]
+    },
+    {
+      "service": "media",
+      "schema": {
+        "path": "services/media/prisma/schema.prisma",
+        "bytes": 919,
+        "sha256": "5ed0b388edc04c68f6a3e5e0eaed14a5918632b6f74c0a6bfae11c57b413fbbb",
+        "blob": "3da11a5862a8fcd1a2237a86399bde317f4b82cd"
+      },
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation"
+      ]
+    },
+    {
+      "service": "workforce",
+      "schema": {
+        "path": "services/workforce/prisma/schema.prisma",
+        "bytes": 923,
+        "sha256": "8dd9765f9634bcda0bb241902220a72390fadb059639bda67c12f4171fdcad19",
+        "blob": "a391aea15bfeff311062aa875fbdd718e45bdb22"
+      },
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation"
+      ]
+    },
+    {
+      "service": "customer",
+      "schema": {
+        "path": "services/customer/prisma/schema.prisma",
+        "bytes": 922,
+        "sha256": "4e5de4585ce931835ee32b51000a1d44ca2999a91e286deb5fe8e76e7925f443",
+        "blob": "c791b7e49069730281b7c90161bb4601b26e00a7"
+      },
+      "models": [
+        "ServiceMarker"
+      ],
+      "migrationIds": [
+        "20260920000000_sprint_02_foundation"
+      ]
+    }
+  ],
+  "sourcePins": [
+    {
+      "path": "AGENTS.md",
+      "bytes": 3138,
+      "sha256": "9a36dcbe805425931884abedb1b1efefdaafa39a0a73c13837bcec71d4eb489f",
+      "blob": "3ac2760e246cd0efd23a3eb707d0078f67474bbd"
+    },
+    {
+      "path": "docs/design/DESIGN_LOCK.md",
+      "bytes": 10268,
+      "sha256": "0f05db671539f6568227cef7c6e7378ab0db4c1ae63cefd0678ce504fbfab0ec",
+      "blob": "b8f41723448f6c38e5bf8eb1fb355216a2af2ec4"
+    },
+    {
+      "path": "docs/design/reference-manifest.json",
+      "bytes": 2799,
+      "sha256": "985a98d76516c2443ad8c9a716d6d35225feb54a05b84d0fd7a004561223545a",
+      "blob": "a1c54870239f9c05e57886db93905f26cb4bca9a"
+    },
+    {
+      "path": "docs/design/f010-reference-manifest.json",
+      "bytes": 1488,
+      "sha256": "94c3c99206169e66dd0a1161b5b7968c098f1e3ee29af3d5e1c7789be4ba44f3",
+      "blob": "01fc8c5dd01e93f6b1e1a62b063aa78550376703"
+    },
+    {
+      "path": "docs/adr/0004-approved-ui-precedence.md",
+      "bytes": 1557,
+      "sha256": "d14c375db104b255fc6aa8f2692443c60751e81c7e828d3cc479e0effa6c755d",
+      "blob": "43ae29e1a49a18367dc3fbe2d32f840b061f966d"
+    },
+    {
+      "path": "docs/ARCHITECTURE_AR.md",
+      "bytes": 45553,
+      "sha256": "d11a69f75d17375f47f0648e7cfd2185211461f516d90e23d99c9b2c24eae9d8",
+      "blob": "e504970dc207e5f7d90dd1fc63b20fd41c5743db"
+    },
+    {
+      "path": "docs/VERIFICATION.md",
+      "bytes": 4653,
+      "sha256": "d8445acdd7cefd3818b538bf04b822ee07075cf1f95d68f05f7eed5437872ea3",
+      "blob": "969532fdd064cb3a0a31851b98b686a13681ee72"
+    },
+    {
+      "path": "architecture/adr/F001-monorepo-and-data-ownership.md",
+      "bytes": 7220,
+      "sha256": "46309b8de279fbccb99716b240a429a79abd1b5699e809947429d9726ece67d7",
+      "blob": "2ed9f9204293849fb05ea296dc489b8787c38e22"
+    },
+    {
+      "path": "architecture/service-catalog.json",
+      "bytes": 43887,
+      "sha256": "34462fbfb90c6a221524905aa21f7a4022c28a1b21d2243381a1b07582eac9b8",
+      "blob": "3cbd5c3fd4382926970ed6235a2569d93201e095"
+    },
+    {
+      "path": "architecture/parallel-contract-release.json",
+      "bytes": 31335,
+      "sha256": "aec04eeb6c3d893e4e0b401bab0a550c517f1e32709a5e0189f4a3ddb0ce4db9",
+      "blob": "2105e85c9e498ce25a13a2ec040956f30784aab2"
+    },
+    {
+      "path": "architecture/parallel-ownership.json",
+      "bytes": 59599,
+      "sha256": "2b696da4f8ed6d0fbb6234e33dc207e92c9e91f72e56e6f8777aac62c4f8e144",
+      "blob": "ceabe10c3133e60cbaa7fe0fed036ee5efb78c75"
+    },
+    {
+      "path": "architecture/implementation-status.json",
+      "bytes": 16460,
+      "sha256": "8a92763151eff40c685b42eb8c1fbc335d564b5ca7b0f38cf83d4e305bf57242",
+      "blob": "5034c48f9af19ec65fd8c6c6e205827549578c92"
+    },
+    {
+      "path": "design/reference/approved/washgo-payments-interactive.html",
+      "bytes": 263462,
+      "sha256": "04a7c74fe7209efc7bfb31d56e27f8d22e65932c412ea20cba8a1820d54f0549",
+      "blob": "e451bd9db408888ffd470ee7ded42246c4fcd12c"
+    },
+    {
+      "path": "design/reference/approved/washgo-technician-interactive.html",
+      "bytes": 122636,
+      "sha256": "d330aa743c6a38f842b1b9c75b69b5ce62e40d453c49334437fe369b46455efc",
+      "blob": "36329a2431ed493cb685a7abd6ce2432e6840ae9"
+    },
+    {
+      "path": "design/reference/approved/washgo-admin-prototype.html",
+      "bytes": 40310,
+      "sha256": "b13353195e914a7572ad033040d2a5112973e3eeabf2a584aa23282cd1ca8273",
+      "blob": "301e247267b8d68d11d084ce8cc458b59f7d5e2e"
+    },
+    {
+      "path": "apps/admin-web/src/index.ts",
+      "bytes": 445,
+      "sha256": "666bd276e8c31ad327e2c706d589ebd04efbb692e48c61529a7d9ba814eeb6cd",
+      "blob": "413aea4978253ccaf3d12212a81b4525b1ba82cc"
+    },
+    {
+      "path": "packages/contracts/src/identity.ts",
+      "bytes": 2562,
+      "sha256": "0e122d3e0e148e1df23e54a0f4fa619d1529e7c187f430e6f6c4833de50642ae",
+      "blob": "b44840fbcc65216c61c8ce22ff85bd0b465095e4"
+    },
+    {
+      "path": "packages/contracts/src/gateway.ts",
+      "bytes": 5732,
+      "sha256": "28d73b02d8c31724c2b0537259a9f84e05ba440766116d35993ae1514c45cc40",
+      "blob": "73a4397cb6ebd56bb56065b487de4104742d422c"
+    },
+    {
+      "path": "packages/api-clients/src/index.ts",
+      "bytes": 94,
+      "sha256": "9c5162feffe8bbe37bdf5adde98f993d3d2169c1156a6ed5265cc6b7e4585c1d",
+      "blob": "cecc3736c7f4be236c389f2688ef0250152153b6"
+    },
+    {
+      "path": "services/identity/src/application/identity-auth.service.ts",
+      "bytes": 16872,
+      "sha256": "bcaa6240678273426f5bdab1acb340da6b20cb48d948859df3fe6638ad5a0763",
+      "blob": "a6e3af92697b2adb2522c64095d27a77ffe4a901"
+    },
+    {
+      "path": "apps/api-gateway/src/domain/policy.ts",
+      "bytes": 2800,
+      "sha256": "8acf47a5fc8c6f05ce5a7acc1755dfaf4abd9573639af800957abe997957ddd6",
+      "blob": "5400edc87d2a0061dbefc4fe769912badc498ff1"
+    },
+    {
+      "path": "services/communications/src/inbox/prisma-inbox.store.ts",
+      "bytes": 2251,
+      "sha256": "354ab491d7caddfcdce7d40af83d9c3d774d960336660b434eba9720b51be00b",
+      "blob": "308c43aea2ecb268d02d83de6734f72f02ce6467"
+    },
+    {
+      "path": "services/reporting/src/inbox/prisma-inbox.store.ts",
+      "bytes": 2246,
+      "sha256": "6711146f5147c38d1b1d6d56cda1052a5093d27490416e02b7f95c4e475de8e4",
+      "blob": "b358fb4899ddd8fac1e51701be7052b357507619"
+    },
+    {
+      "path": "packages/platform-messaging/src/inbox-consumer.ts",
+      "bytes": 8044,
+      "sha256": "cab0a274385e9c264f1f87731f02b160fa50dec1be7a38fa2c9f31f8459462c0",
+      "blob": "1ca2330e9234890b32b5e5adba2d373b3c6aeed0"
+    },
+    {
+      "path": "tests/integration/outbox-inbox.test.mjs",
+      "bytes": 30058,
+      "sha256": "a8ef039823f5d116a52a19f6018649ca34a36b8850233319c500bc3b03bf023f",
+      "blob": "db2736232de69eedda593c6c3291437f7c89d2b7"
+    },
+    {
+      "path": "tests/unit/f008-recovery-scope.test.mjs",
+      "bytes": 10789,
+      "sha256": "45bb362960af35adeb375a335dde86186f37801686fedee887f894461f133b67",
+      "blob": "595fab27aa4de4df1246a7eea231f1f19ca5cb64"
+    },
+    {
+      "path": "scripts/ci/secret-scans.mjs",
+      "bytes": 561,
+      "sha256": "ebd4216d0318b010d2a5fb08d722d95e052592486872123052c84645deb5c9c6",
+      "blob": "3d166b598c37303184e9e8de1767480e86ac5a6e"
+    },
+    {
+      "path": "scripts/ci/tools.lock.json",
+      "bytes": 2529,
+      "sha256": "ac0d7196bd991fd5bf68f7d92a8cba357a63c3ee463711fbc5f6e5521b72b9bb",
+      "blob": "d4680b7366ad871589940f5fbc06b88d3c13cdc3"
+    },
+    {
+      "path": "docs/parallel/D/W07/ADMIN_ACTION_MATRIX.md",
+      "bytes": 48015,
+      "sha256": "dcf733fd020805e75ccd93bdea9c38d9d38745f1874aef4fe811ce3b9fc08a1a",
+      "blob": "82dd55c5978e2e7e759baacb98f824a660d1cbfe"
+    },
+    {
+      "path": "docs/parallel/D/W07/REPORTING_RECONCILIATION_PLAN.md",
+      "bytes": 34714,
+      "sha256": "096d4f679e9f5a873a97ab82bcb94a1fd7c6c6aa224772d84c718e872f176698",
+      "blob": "f3c55af617c62edda2141c6a0d4f011d27d8b784"
+    },
+    {
+      "path": "docs/parallel/E/W07/W08_HARDENING_AND_BLOCKERS.md",
+      "bytes": 13637,
+      "sha256": "2ce08da41aed28d226ad6047d51da87a100789a52b7c93c26f8116ca591ff216",
+      "blob": "38f2b19af6c7e467bb08aefce8e04fe154add08a"
+    },
+    {
+      "path": "docs/parallel/B/W07/W08_ADVERSARIAL_AND_WORKLOAD_REQUESTS.md",
+      "bytes": 37202,
+      "sha256": "89c0d6a91c095e07cd8204c4aedcb48821c4f1bcf5223a60c2a9b1fc0e802023",
+      "blob": "ebb246753d29677b41e05f35f61605d64ebeb8e3"
+    },
+    {
+      "path": "docs/parallel/C/W07/OPERATOR_FEATURE_AND_RECOVERY_MATRIX.md",
+      "bytes": 9609,
+      "sha256": "6c93a0269bd38353e9b4a168907c5a8882316351ea150d864d91d3db4a096525",
+      "blob": "84c420b74496e99d779acb418f291599cc3e2d35"
+    }
+  ],
+  "visualProvenance": {
+    "referenceSet": "washgo-three-apps-v1",
+    "renderingProfile": {
+      "viewports": [
+        320,
+        390,
+        430,
+        768,
+        1024,
+        1440
+      ],
+      "height": 900,
+      "deviceScaleFactor": 1,
+      "locale": "ar-SY",
+      "timezoneId": "Asia/Damascus",
+      "colorScheme": "light",
+      "reducedMotion": "reduce",
+      "fixedTime": "2026-09-20T09:00:00.000Z",
+      "channelThreshold": 8,
+      "allowedDiffRatio": 0
+    },
+    "candidateBrowserVersion": null,
+    "candidateFontProvenance": null,
+    "canonicalLinuxComparisonRun": false,
+    "windowsInteractionRun": false,
+    "limitation": "Hashes verify locked bytes only. Admin runtime/production/complete English states and real browser/device evidence are missing; no parity/accessibility PASS."
+  },
+  "localEnvironment": {
+    "os": "Linux-6.18.44-x86_64-with-glibc2.39",
+    "nodeActual": "v24.19.0",
+    "pnpmActual": "11.25.0",
+    "nodePin": "24.21.0",
+    "pnpmPin": "pnpm@10.32.1",
+    "dependenciesInstalled": false,
+    "databaseBrokerBrowserStarted": false,
+    "ownedPersistentProcesses": [],
+    "allocatedPortsQueuesDatabases": []
+  },
+  "diagnostics": {
+    "referenceBefore": {
+      "command": "node scripts/check-design-reference.mjs",
+      "exitCode": 0,
+      "verifiedArtifacts": 10
+    },
+    "F010Before": {
+      "command": "node scripts/f010/reference-registry.mjs",
+      "exitCode": 0,
+      "verifiedReferences": 3
+    },
+    "guardTests": {
+      "command": "node --test --test-reporter=spec tests/parallel/E/ownership.test.mjs tests/design/reference-lock.test.mjs tests/f010/reference-registry.test.mjs",
+      "exitCode": 0,
+      "tests": 35,
+      "pass": 35,
+      "fail": 0,
+      "skipped": 0,
+      "limitation": "Historical registry lease controls do not grant W08 source permission."
+    },
+    "harnessTests": {
+      "command": "node --test --test-reporter=spec tests/unit/f008-recovery-scope.test.mjs",
+      "exitCode": 0,
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0,
+      "realEnvironment": "Fault-injected lifecycle fixtures, not live DB/broker/admin acceptance."
+    },
+    "scannerControls": {
+      "command": "CI_TOOLS_DIR=<owned temporary verified binary directory> node --test --test-reporter=spec tests/ci/secret-scans.test.mjs",
+      "exitCode": 0,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "binaryVersion": "8.30.1",
+      "binarySha256": "88f91962aa2f93ac6ab281d553b9e125f5197bbbce38f9f2437f7299c32e5509",
+      "realEnvironment": "Real disposable Git repositories and scanner with generated nonfunctional bait; all temporary data cleaned."
+    },
+    "implementationStatus": {
+      "command": "node architecture/implementation-status.mjs --self-test",
+      "exitCode": 0,
+      "runtimeServices": 19,
+      "foundationShells": 18,
+      "capabilityRuntimes": 1,
+      "adversarialPassed": 9,
+      "productionReady": false
+    },
+    "migrationStatic": {
+      "command": "node scripts/check-migrations.mjs --base-ref f0b76221c1a1991ba78327c019f0b4a0a7c53dff --json",
+      "exitCode": 0,
+      "checks": 3,
+      "migrationCount": 21,
+      "filesScanned": 428,
+      "findings": 0,
+      "realDatabaseMigrationRun": false
+    },
+    "toolchainConfig": {
+      "command": "node scripts/verify-toolchain.mjs --json --config-only",
+      "exitCode": 0,
+      "ok": true,
+      "checks": 39,
+      "failed": []
+    },
+    "toolchainFull": {
+      "command": "node scripts/verify-toolchain.mjs --json",
+      "exitCode": 1,
+      "ok": false,
+      "checks": 40,
+      "failed": [
+        {
+          "group": "runtime",
+          "name": "running Node matches .nvmrc",
+          "ok": false,
+          "detail": "running 24.19.0, declared 24.21.0. Switch to the pinned runtime (nvm/fnm read .nvmrc) rather than changing the pin."
+        },
+        {
+          "group": "runtime",
+          "name": "pnpm matches packageManager",
+          "ok": false,
+          "detail": "running 11.25.0, declared 10.32.1. corepack activates the pin; do not install a different pnpm globally."
+        }
+      ]
+    },
+    "referenceAfter": {
+      "command": "node scripts/check-design-reference.mjs --base-ref f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+      "exitCode": 0,
+      "verifiedArtifacts": 10,
+      "baseCompared": true
+    },
+    "F010After": {
+      "command": "node scripts/f010/reference-registry.mjs --base-ref f0b76221c1a1991ba78327c019f0b4a0a7c53dff",
+      "exitCode": 0,
+      "verifiedReferences": 3,
+      "baseCompared": true
+    },
+    "ownerWorktree": {
+      "command": "node scripts/parallel/E/check-owners.mjs --base-ref f0b76221c1a1991ba78327c019f0b4a0a7c53dff --worktree --lane D",
+      "exitCode": 0,
+      "paths": 6,
+      "findings": 0,
+      "trust": "protected-base-blob",
+      "independentApproval": false
+    },
+    "packetStructure": {
+      "command": "python /workspace/scratch/c990830ae7db/w08-packet-qa.py",
+      "exitCode": 0,
+      "paths": 6,
+      "uniqueFamilies": 68,
+      "uniqueScreens": 17,
+      "realRaceControlsDefined": 6,
+      "allFamiliesBlockedNotRun": true,
+      "sourceSchemaPinsVerified": 46,
+      "relativeLinksFencesWhitespace": "PASS",
+      "runtimeAcceptance": false
+    },
+    "packetSecretScans": {
+      "command": "python /workspace/scratch/c990830ae7db/w08-scan.py packet",
+      "exitCode": 0,
+      "scannerVersion": "8.30.1",
+      "defaultRules": true,
+      "docsFindings": 0,
+      "specFindings": 0,
+      "temporaryDataCleaned": true,
+      "limitations": "Only the D W08 documents/specification directories. Exact final committed history and archived source counts belong to the publication envelope."
+    }
+  },
+  "requiredProductTests": {
+    "status": "BLOCKED / NOT_RUN",
+    "all17Screens": true,
+    "permissionMatrix": false,
+    "realDBRace6": false,
+    "privateExportAbuse": false,
+    "revocationTabSocketExport": false,
+    "concurrentAdminOwnerRecovery": false,
+    "brokerRestartProjectionCatchup": false,
+    "manualAccessibilityAndLinuxVisuals": false,
+    "windowsDevice": false,
+    "measuredDashboardSearchExport": false,
+    "reason": "No accepted BASE_W08/clients/security contracts/real integrated providers/approved states/threat model/budgets/isolated acceptance allocation."
+  },
+  "publicationEnvelope": "Final exact proposal head/tree/PR, committed owner/whitespace/scanner results and hosted check snapshot are attached to the PR body. This self-containing file cannot contain its own future commit SHA without a hash cycle."
+}

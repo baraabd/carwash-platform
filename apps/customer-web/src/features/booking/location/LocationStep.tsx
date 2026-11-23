@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { currentInstant } from '../../../shared/clock';
 import { Icon } from '../../../shared/Icon';
 import { useCustomerSession } from '../../../state/CustomerSessionProvider';
 import {
@@ -14,11 +15,12 @@ import {
   type SamplePlaceKind,
 } from '../../../state/locationStep';
 import { pathForIntent } from '../../../state/navigationPath';
+import { completeReviewEdit } from '../../../state/reviewStep';
 import { chooseSavedAddress } from '../../../state/savedAddresses';
 import { AddressEditorSheet } from '../../../widgets/address-editor/AddressEditor';
 import { BookingFooter } from '../BookingFooter';
 import { BookingProgress } from '../BookingProgress';
-import { bookingFlow } from '../bookingFlow';
+import { bookingFlow, decisionNextLabel } from '../bookingFlow';
 import { buildPriceBreakdown } from '../priceBreakdown';
 import { LocationCard, LocationShortcuts, SavedAddressChips } from './components/LocationCard';
 import { buildLocationStepViewModel } from './locationViewModel';
@@ -92,7 +94,9 @@ export function LocationStep() {
   };
 
   const handleNext = () => {
-    const result = run(submitLocationStep);
+    const result = run((current) =>
+      completeReviewEdit(submitLocationStep(current), currentInstant()),
+    );
     if (result.intent) {
       navigate(pathForIntent(result.intent));
       return;
@@ -165,7 +169,7 @@ export function LocationStep() {
       <BookingFooter
         total={view.footerTotal}
         minutes={view.footerMinutes}
-        nextLabel={bookingFlow[LOCATION_STEP_INDEX].nextLabel}
+        nextLabel={decisionNextLabel(LOCATION_STEP_INDEX, state.reviewEditing)}
         breakdown={breakdown}
         onNext={handleNext}
       />

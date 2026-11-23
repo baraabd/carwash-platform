@@ -36,13 +36,13 @@
     }
   },
   "runtime": {
-    "image": "gcr.io/distroless/base-nossl-debian13@sha256:8c563c1fb5e120606f0d85733049775faed6192e2bd2223ef283a5393eec22b9",
+    "image": "gcr.io/distroless/base-nossl-debian13@sha256:89815d620ac01d8de13cdaf04d19ed874447ca2296d4985b14b818f6e5e47854",
     "sourceTag": "gcr.io/distroless/base-nossl-debian13:nonroot",
-    "scope": "Minimal glibc runtime without system OpenSSL; exact pinned Node plus only required C++ ABI libraries are copied from the builder.",
-    "diagnosticRun": "36697756791"
+    "scope": "Minimal glibc runtime without system OpenSSL. Final images remove four unused legacy iconv converters and prove their absence, intact package metadata and Unicode/native functionality before narrowly scoped VEX assessment.",
+    "resolvedOn": "2026-11-22"
   },
   "nativeLibraries": {
-    "image": "gcr.io/distroless/cc-debian13@sha256:54df941ed0d06a1bd95ef5e0ce391fd8d9f94b64782dc9a60062727849ee3f97",
+    "image": "gcr.io/distroless/cc-debian13@sha256:cb87acc574abe719b6e5c547384defa2f7b1f24af9605d3f618cf852495d8be2",
     "platform": "linux/amd64",
     "packageVersion": "14.2.0-19",
     "packages": ["libgcc-s1", "libstdc++6"],

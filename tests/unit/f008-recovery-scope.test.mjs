@@ -163,6 +163,109 @@ test('the after-hook barrier restores infrastructure before the next case', () =
   assert.doesNotMatch(tap, /not ok 2 - next case sees restored broker/);
 });
 
+/** Execute the actual Case A body with fault-injected lifecycle dependencies. */
+function outageCancellationFixture(blockedWorker) {
+  const source = readFileSync(
+    new URL('../integration/outbox-inbox.test.mjs', import.meta.url),
+    'utf8',
+  );
+  const caseA = source.slice(
+    source.indexOf("test('Case A:"),
+    source.indexOf('/* ------------------- Case A2:'),
+  );
+  const dir = mkdtempSync(path.join(tmpdir(), 'cw-outage-cancellation-'));
+  const fixture = path.join(dir, 'outage.test.mjs');
+  const code = `
+import nodeTest from 'node:test';
+import assert from 'node:assert/strict';
+import { setTimeout as delay } from 'node:timers/promises';
+import { recoveryScope } from ${JSON.stringify(moduleUrl)};
+const test = (name, body) => nodeTest(name, { timeout: 300 }, body);
+const context = {};
+let brokerUp = true;
+let bodyFinished = false;
+const workers = [];
+const clients = {
+  catalog: {},
+  reporting: { probeProjection: { findUnique: async () => {
+    bodyFinished = true;
+    return { applyCount: 1 };
+  } } },
+};
+const stopService = async () => { brokerUp = false; };
+const startService = async () => { await delay(15); brokerUp = true; };
+const waitForRabbitReady = async () => { assert.equal(brokerUp, true); };
+const createProbe = async () => ({ eventId: 'event', probeId: 'probe' });
+const outboxRow = async () => ({ publishedAt: brokerUp ? new Date() : null });
+const relayArgs = () => ['relay'];
+const consumerArgs = () => ['consumer'];
+const relayEnv = () => ({});
+const consumerEnv = () => ({});
+const eventually = async (probe) => { assert.equal(await probe(), true); };
+const spawnWorker = ([kind]) => {
+  let release;
+  const blocked = new Promise((resolve) => { release = resolve; });
+  const keepAlive = setInterval(() => {}, 1000);
+  const worker = {
+    kind,
+    stopped: false,
+    child: { pid: workers.length + 1, exitCode: null },
+    waitFor: async () => ${JSON.stringify(blockedWorker)} === kind ? blocked : {},
+    exited: ${JSON.stringify(blockedWorker)} === kind ? blocked : Promise.resolve({ code: 0, signal: null }),
+    stop: async () => {
+      worker.stopped = true;
+      clearInterval(keepAlive);
+      release({ code: 0, signal: null });
+    },
+  };
+  workers.push(worker);
+  return worker;
+};
+${caseA}
+nodeTest('next case sees restored broker and stopped outage workers', () => {
+  assert.equal(brokerUp, true);
+  assert.equal(bodyFinished, false, 'the cancelled body must not continue into effects');
+  assert.ok(workers.some((worker) => worker.kind === ${JSON.stringify(blockedWorker)}));
+  assert.ok(workers.every((worker) => worker.stopped), 'all owned workers must be stopped');
+});
+`;
+  try {
+    writeFileSync(fixture, code);
+    const env = { ...process.env };
+    delete env.NODE_TEST_CONTEXT;
+    const result = spawnSync(
+      process.execPath,
+      ['--test', '--test-concurrency=1', '--test-reporter=tap', fixture],
+      { encoding: 'utf8', timeout: 5000, env },
+    );
+    assert.equal(
+      result.error,
+      undefined,
+      'cancellation must not leak a worker and hang the runner',
+    );
+    assert.equal(result.signal, null);
+    assert.equal(result.status, 1, 'the cancelled outage test must remain failed');
+    assert.match(result.stdout, /failureType: 'testTimeoutFailure'/);
+    assert.match(
+      result.stdout,
+      /\nok 2 - next case sees restored broker and stopped outage workers/,
+    );
+    return result.stdout;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('Case A cancellation during relay outage restores the broker before the next case', () => {
+  const tap = outageCancellationFixture('relay');
+  assert.match(tap, /recovery-case stage start: observe relay outage/);
+});
+
+test('Case A cancellation during consumption stops both workers before the next case', () => {
+  const tap = outageCancellationFixture('consumer');
+  assert.match(tap, /recovery-case stage start: consume recovered event/);
+});
+
 test('A2 retains real same-process and database-effect assertions', () => {
   const source = readFileSync(
     new URL('../integration/outbox-inbox.test.mjs', import.meta.url),

@@ -1,0 +1,22 @@
+{
+  "schema": "carwash.release-receipt/v1",
+  "family": "E.design-lock",
+  "status": "PASSED",
+  "rc": {
+    "sha": "3e1ab23bff450235858ea13e049f8fb373df393f",
+    "tree": "53edea7ff5348c969408e9fd3ee23569b06a9f94"
+  },
+  "producedAt": "2026-10-10T22:16:20.130Z",
+  "producer": {
+    "actor": "lane-e-p08",
+    "tool": "release-receipt.mjs"
+  },
+  "configDigest": "sha256:a9f310a7ca42d76a8367c754028316e96307ba116b1465437d7e1ea786f64870",
+  "command": "node scripts/check-design-reference.mjs",
+  "evidence": [
+    {
+      "path": "release/evidence/E.design-lock-2026-10-10T22-16-20-130Z.log",
+      "sha256": "sha256:fa91db373bf09c1f45ec5d929d3fd14aaa91a2696cbed521e6ad87071cbde5d5"
+    }
+  ]
+}
