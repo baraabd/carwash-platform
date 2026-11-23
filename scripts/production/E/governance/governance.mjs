@@ -115,6 +115,9 @@ export function validatePolicy(policy, contexts) {
     'Static gates, builds and offline tests',
     'Real PostgreSQL and RabbitMQ acceptance',
     'Dependency and secret scanning',
+    'All business acceptance families passed',
+    'Release artifacts verified',
+    'Data-plane recovery drill',
   ]) {
     if (!required.some((c) => c.context === mandatory))
       fail('MANDATORY_CHECK_MISSING', { mandatory });

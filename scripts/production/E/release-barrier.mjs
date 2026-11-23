@@ -65,14 +65,16 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const receiptsDir = option('--receipts');
     if (!candidatePath || !receiptsDir)
       throw new BarrierInputError('--candidate and --receipts are required');
-    const policy = JSON.parse(
-      readFileSync(path.join(repoRoot, 'architecture/release-barrier.json'), 'utf8'),
-    );
+    const candidate = JSON.parse(readFileSync(candidatePath, 'utf8'));
+    const io = gitIo(root);
+    const policy = io.sourceContext(candidate.sha)?.policy;
+    if (!policy)
+      throw new BarrierInputError('candidate release policy cannot be resolved from git');
     const report = evaluateBarrier({
       policy,
-      candidate: JSON.parse(readFileSync(candidatePath, 'utf8')),
+      candidate,
       receipts: loadReceipts(receiptsDir),
-      io: gitIo(root),
+      io,
       now: Date.now(),
     });
     const out = option('--out');

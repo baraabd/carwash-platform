@@ -5,6 +5,34 @@ Docker host. The workflow retains the JSON report, including measured recovery
 values and failures. Passing this drill is not production readiness or approval
 of RPO/RTO targets.
 
+## Source and owner coverage
+
+The drill starts only from a clean committed checkout, with no untracked source
+files. It records the exact commit and tree and verifies both again after the
+recovery scenarios, cleanup and initial report write. A changed file, newly added
+source or moved commit leaves `accepted: false` and a `failures.source` entry even
+if every component recovered successfully. An initial source refusal records no
+successful source SHA or tree and does not acquire images or run scenarios.
+
+Keep the report outside the checkout, in ignored `.acceptance/`, or as a generated
+JSON report under `evidence/` or `release/`. A report path that overwrites tracked
+source or introduces an unapproved untracked file cannot receive passing evidence.
+
+`ownerInventory` records every owner in `architecture/service-catalog.json`, its
+database identities and its committed migration names and SHA-256 checksums. A
+missing or empty migration directory, missing SQL file, duplicate owner or
+mismatched identity fails preparation; no owner is silently omitted. PostgreSQL
+acceptance requires the exact inventory, all committed migration checksums before
+and after restore, unchanged migration history and table counts, runtime DDL and
+migration-history denial, and the Configuration and Reviews append-only policies.
+
+`sourceVerification.startedClean` and
+`sourceVerification.finishedCleanAndUnchanged` must both be true. The final
+`accepted` flag also requires no recorded failures and all five component results.
+The regression tests use temporary Git repositories and synthetic component
+outcomes to prove this reporting behavior. Actual crash/restore evidence is
+produced separately by the Docker recovery workflow.
+
 ## RabbitMQ fixture and crash boundary
 
 The RabbitMQ scenario tests a single broker with an established durable quorum

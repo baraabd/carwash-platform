@@ -11,6 +11,7 @@ import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import https from 'node:https';
 import http from 'node:http';
+import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -19,6 +20,8 @@ import {
   validateTarget,
   SmokeInputError,
   TARGET_SCHEMA,
+  httpGet,
+  tlsProbe,
 } from '../../../scripts/production/E/release/smoke.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -91,6 +94,7 @@ async function stack(t, overrides = {}) {
     hang: false,
     rules: ['GatewayHigh5xx', 'BillingProviderDown'],
     alertmanager: 'ready',
+    dashboardBody: JSON.stringify({ dashboard: { uid: 'carwash-operations' } }),
     ...overrides,
   };
   const seen = [];
@@ -121,7 +125,7 @@ async function stack(t, overrides = {}) {
       );
     if (req.url.startsWith('/api/dashboards/uid/')) {
       res.statusCode = req.headers.authorization === `Bearer ${TOKEN}` ? 200 : 401;
-      return res.end('{}');
+      return res.end(state.dashboardBody);
     }
     res.statusCode = 404;
     res.end('{}');
@@ -159,6 +163,7 @@ async function stack(t, overrides = {}) {
   const io = (extra = {}) => ({
     ...defaultIo({
       ca: PKI.ca,
+      allowLoopbackHttpForFixtures: true,
       readSecretRef: (ref) => (ref === 'env://GRAFANA_READ_TOKEN' ? TOKEN : null),
     }),
     ...extra,
@@ -171,7 +176,8 @@ const result = (report, name) => report.results.find((r) => r.check === name);
 test('every probe PASSED on a healthy target', async (t) => {
   const { target, io } = await stack(t);
   const report = await runSmoke(target, io());
-  assert.equal(report.verdict, 'PASSED', JSON.stringify(report.results, null, 2));
+  assert.equal(report.verdict, 'PASSED_FIXTURE_ONLY', JSON.stringify(report.results, null, 2));
+  assert.equal(report.fixtureOnly, true);
   assert.equal(result(report, 'tls localhost').status, 'PASSED');
   assert.ok(
     report.pendingSeparately.some((p) => /booking/.test(p)),
@@ -221,6 +227,60 @@ test('a hung target is a timeout FAILURE, never success', async (t) => {
   assert.equal(result(report, 'identity session denies anonymous').reason, 'timeout');
 });
 
+test('a slow-drip HTTP response still has one wall-clock deadline', async (t) => {
+  let writes = 0;
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200);
+    res.write('{');
+    const timer = setInterval(() => {
+      writes += 1;
+      res.write(' ');
+    }, 20);
+    res.once('close', () => clearInterval(timer));
+  });
+  const port = await listen(server);
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+  });
+  const started = Date.now();
+  await assert.rejects(httpGet(`http://127.0.0.1:${port}`, { timeoutMs: 300 }), /timeout/);
+  assert.ok(writes > 1, 'the response kept making progress before the deadline');
+  assert.ok(Date.now() - started < 2000, 'continuous body traffic cannot extend the deadline');
+});
+
+test('DNS and TLS operations that never finish cannot hold the smoke open', async (t) => {
+  const { target, io } = await stack(t);
+  const never = () => new Promise(() => undefined);
+  const report = await runSmoke(
+    { ...target, timeoutMs: 150 },
+    io({ lookup: never, tlsProbe: never }),
+  );
+  assert.equal(result(report, 'dns localhost').reason, 'timeout');
+  assert.equal(result(report, 'tls localhost').reason, 'timeout');
+  assert.equal(report.verdict, 'FAILED');
+});
+
+test('a stalled real TLS handshake times out and closes its socket', async (t) => {
+  const sockets = new Set();
+  const server = net.createServer((socket) => {
+    sockets.add(socket);
+    socket.once('close', () => sockets.delete(socket));
+    socket.on('data', () => undefined);
+  });
+  const port = await listen(server);
+  t.after(() => {
+    for (const socket of sockets) socket.destroy();
+    server.close();
+  });
+  const r = await tlsProbe('localhost', port, {
+    timeoutMs: 150,
+    minValidDays: 14,
+    now: Date.now(),
+  });
+  assert.deepEqual(r, { status: 'FAILED', reason: 'timeout' });
+});
+
 test('an untrusted certificate and a near-expiry certificate both fail TLS', async (t) => {
   const { target, io } = await stack(t);
   const untrusted = await runSmoke(target, io({ ca: undefined }));
@@ -249,6 +309,20 @@ test('dashboards without a resolved token are NOT_AUTHORIZED; the token never re
   assert.ok(seen.filter((s) => s.authorization).every((s) => s.url.startsWith('/api/dashboards/')));
 });
 
+test('dashboard availability requires the exact requested UID, not an arbitrary successful page', async (t) => {
+  const { state, target, io } = await stack(t);
+  for (const body of [
+    '{}',
+    '<html>Sign in</html>',
+    JSON.stringify({ dashboard: { uid: 'unrelated' } }),
+  ]) {
+    state.dashboardBody = body;
+    const report = await runSmoke(target, io());
+    assert.equal(result(report, 'dashboard carwash-operations').status, 'FAILED');
+    assert.equal(report.verdict, 'FAILED');
+  }
+});
+
 test('target validation refuses defaults and plaintext gateways', () => {
   const base = {
     schema: TARGET_SCHEMA,
@@ -270,6 +344,54 @@ test('target validation refuses defaults and plaintext gateways', () => {
   assert.equal(validateTarget(base), base);
   assert.throws(
     () => validateTarget({ ...base, gatewayUrl: 'http://api.example.invalid' }),
+    SmokeInputError,
+  );
+  assert.throws(
+    () => validateTarget({ ...base, hostnames: ['unrelated.invalid'] }),
+    /gateway hostname/,
+  );
+  for (const name of ['sessionPath', 'privateObjectPath']) {
+    const group = name === 'sessionPath' ? 'identity' : 'media';
+    for (const value of [
+      'https://unrelated.invalid/denied',
+      '//unrelated.invalid/denied',
+      '/\\unrelated.invalid/denied',
+      '/denied#fragment',
+    ])
+      assert.throws(() => validateTarget({ ...base, [group]: { [name]: value } }), SmokeInputError);
+  }
+  for (const field of ['prometheusUrl', 'alertmanagerUrl']) {
+    for (const value of [
+      'http://remote.invalid',
+      'ftp://remote.invalid',
+      'https://user:secret@remote.invalid',
+    ])
+      assert.throws(
+        () => validateTarget({ ...base, alerts: { ...base.alerts, [field]: value } }),
+        SmokeInputError,
+      );
+  }
+  for (const value of ['http://remote.invalid', 'https://user:secret@remote.invalid'])
+    assert.throws(
+      () => validateTarget({ ...base, dashboards: { ...base.dashboards, grafanaUrl: value } }),
+      SmokeInputError,
+    );
+  assert.throws(
+    () => validateTarget({ ...base, gatewayUrl: 'https://user:secret@api.example.invalid' }),
+    /credentials/,
+  );
+  const local = {
+    ...base,
+    dashboards: { ...base.dashboards, grafanaUrl: 'http://127.0.0.1:3000' },
+  };
+  assert.throws(() => validateTarget(local), /explicit loopback fixtures/);
+  assert.equal(validateTarget(local, { allowLoopbackHttpForFixtures: true }), local);
+  assert.throws(
+    () =>
+      validateTarget(
+        { ...base, dashboards: { ...base.dashboards, grafanaUrl: 'http://remote.invalid' } },
+        { allowLoopbackHttpForFixtures: true },
+      ),
     SmokeInputError,
   );
   assert.throws(() => validateTarget({ ...base, tls: {} }), /no default/);
@@ -299,11 +421,13 @@ test('CLI resolves only env:// token references and exits 2 on FAILED', async (t
         path.join(dir, 'ca.pem'),
         '--out',
         path.join(dir, 'report.json'),
+        '--allow-loopback-http-fixtures',
       ],
       env,
     );
   const passed = await run({ ...process.env, GRAFANA_READ_TOKEN: TOKEN });
-  assert.equal(passed.code, 0, passed.stdout + passed.stderr);
+  assert.equal(passed.code, 4, passed.stdout + passed.stderr);
+  assert.match(passed.stdout, /PASSED_FIXTURE_ONLY/);
   assert.ok(!readFileSync(path.join(dir, 'report.json'), 'utf8').includes(TOKEN));
   const failed = await run({ ...process.env, GRAFANA_READ_TOKEN: '' });
   assert.equal(failed.code, 2);
