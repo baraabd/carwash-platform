@@ -24,7 +24,7 @@ interface LeasedRow {
  *                             disjoint rows instead of blocking or colliding.
  *   locked_by / locked_until - a worker that stalls past its lease loses
  *                             ownership; every later write is guarded by
- *                             `locked_by = $workerId`, so the stalled worker's
+ *                             `locked_by`, `attempts` and an unexpired `locked_until`, so the stalled worker's
  *                             update matches zero rows instead of overwriting
  *                             what the new owner did.
  *
@@ -41,6 +41,15 @@ export class PrismaOutboxStore implements OutboxStore {
     limit: number;
     maxAttempts: number;
   }): Promise<OutboxRecord[]> {
+    // A crash on the final attempt must become visible to dead-letter alerts.
+    // Preserve attempts: it is also the monotonically increasing lease fence.
+    await this.prisma.client.$executeRawUnsafe(
+      `UPDATE app.outbox_message SET dead_at = now(), locked_by = NULL,
+              locked_until = NULL, last_error = 'LEASE_EXHAUSTED'
+        WHERE published_at IS NULL AND dead_at IS NULL AND attempts >= $1
+          AND (locked_until IS NULL OR locked_until <= now())`,
+      input.maxAttempts,
+    );
     const rows = await this.prisma.client.$queryRawUnsafe<LeasedRow[]>(
       `UPDATE app.outbox_message AS o
           SET locked_by = $1,
@@ -79,16 +88,22 @@ export class PrismaOutboxStore implements OutboxStore {
     }));
   }
 
-  async markPublished(input: { id: string; workerId: string }): Promise<boolean> {
-    // `locked_by = $2` is the lease guard. Without it a resumed worker would
-    // mark a row published that another worker is still responsible for.
+  async markPublished(input: {
+    id: string;
+    workerId: string;
+    leaseAttempt: number;
+  }): Promise<boolean> {
+    // Match the acquisition as well as the worker: a restarted process can
+    // reuse its ID while an earlier publication is still waiting for a confirm.
     const rows = await this.prisma.client.$queryRawUnsafe<{ id: string }[]>(
       `UPDATE app.outbox_message
           SET published_at = now(), locked_by = NULL, locked_until = NULL, last_error = NULL
-        WHERE id = $1 AND locked_by = $2 AND published_at IS NULL
+        WHERE id = $1 AND locked_by = $2 AND attempts = $3
+          AND locked_until > now() AND published_at IS NULL AND dead_at IS NULL
       RETURNING id`,
       input.id,
       input.workerId,
+      input.leaseAttempt,
     );
     return rows.length === 1;
   }
@@ -96,6 +111,7 @@ export class PrismaOutboxStore implements OutboxStore {
   async markFailed(input: {
     id: string;
     workerId: string;
+    leaseAttempt: number;
     error: string;
     maxAttempts: number;
   }): Promise<boolean> {
@@ -107,12 +123,14 @@ export class PrismaOutboxStore implements OutboxStore {
               locked_by = NULL,
               locked_until = NULL,
               dead_at = CASE WHEN attempts >= $4 THEN now() ELSE NULL END
-        WHERE id = $1 AND locked_by = $2 AND published_at IS NULL
+        WHERE id = $1 AND locked_by = $2 AND attempts = $5
+          AND locked_until > now() AND published_at IS NULL AND dead_at IS NULL
       RETURNING id, dead_at`,
       input.id,
       input.workerId,
       input.error,
       input.maxAttempts,
+      input.leaseAttempt,
     );
     return rows.length === 1;
   }

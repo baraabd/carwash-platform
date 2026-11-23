@@ -251,15 +251,30 @@ test('lease fencing: a relay whose lease expired cannot finalise the row another
     maxAttempts: 5,
   });
   assert.equal(fresh[0]?.id, stale[0].id, 'the expired lease was taken over');
-  assert.equal(await store.markPublished({ id: stale[0].id, workerId: 'stale-worker' }), false);
+  assert.equal(
+    await store.markPublished({
+      id: stale[0].id,
+      workerId: 'stale-worker',
+      leaseAttempt: stale[0].attempts,
+    }),
+    false,
+  );
   assert.equal(
     await store.markFailed({
       id: stale[0].id,
       workerId: 'stale-worker',
+      leaseAttempt: stale[0].attempts,
       error: 'X',
       maxAttempts: 5,
     }),
     false,
   );
-  assert.equal(await store.markPublished({ id: stale[0].id, workerId: 'fresh-worker' }), true);
+  assert.equal(
+    await store.markPublished({
+      id: fresh[0].id,
+      workerId: 'fresh-worker',
+      leaseAttempt: fresh[0].attempts,
+    }),
+    true,
+  );
 });

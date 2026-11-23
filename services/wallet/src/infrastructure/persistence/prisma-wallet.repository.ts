@@ -97,6 +97,13 @@ class PrismaWalletUnitOfWork implements WalletUnitOfWork {
   }
 
   async lockSource(kind: SourceKind, aggregateId: string): Promise<SourceState | null> {
+    // SELECT FOR UPDATE cannot lock a source that has not been projected yet.
+    // Fence first delivery too: separate envelopes for the same source/version
+    // must re-read the committed source before planning any account movement.
+    // This transaction-scoped lock is owner-local and released on rollback.
+    const lockKey = `wallet:custody-source:${kind}:${aggregateId.toLowerCase()}`;
+    await this.tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))::text`;
     const rows = await this.tx.$queryRaw<{ aggregate_id: string }[]>`
       SELECT aggregate_id FROM app.custody_source WHERE kind = ${kind} AND aggregate_id = ${aggregateId}::uuid FOR UPDATE`;
     if (rows.length === 0) return null;

@@ -16,6 +16,7 @@ export interface OutboxRecord {
   /** Canonical JSON text as it was committed with the local change. */
   readonly payload: string;
   readonly correlationId: string;
+  /** Monotonically increasing acquisition number, also the lease fencing token. */
   readonly attempts: number;
   /** Optional technical metadata; legacy rows legitimately have no trace. */
   readonly traceParent?: string | null;
@@ -30,6 +31,11 @@ export interface OutboxRecord {
  * its lease expired cannot overwrite the state written by the worker that took
  * over. Returning true unconditionally re-introduces the lost-update defect the
  * lease exists to prevent.
+ *
+ * A worker ID may be reused after a restart. Finalization MUST also match the
+ * acquisition number returned by leaseBatch and an unexpired lease. Attempts
+ * must never be reset when requeuing a row; a replay must keep this generation
+ * monotonic or create a new row.
  */
 export interface OutboxStore {
   leaseBatch(input: {
@@ -38,10 +44,11 @@ export interface OutboxStore {
     limit: number;
     maxAttempts: number;
   }): Promise<OutboxRecord[]>;
-  markPublished(input: { id: string; workerId: string }): Promise<boolean>;
+  markPublished(input: { id: string; workerId: string; leaseAttempt: number }): Promise<boolean>;
   markFailed(input: {
     id: string;
     workerId: string;
+    leaseAttempt: number;
     error: string;
     maxAttempts: number;
   }): Promise<boolean>;

@@ -90,6 +90,7 @@ export class OutboxRelay {
         const owned = await this.options.store.markFailed({
           id: record.id,
           workerId: this.options.workerId,
+          leaseAttempt: record.attempts,
           error: reason,
           maxAttempts: this.maxAttempts,
         });
@@ -105,6 +106,7 @@ export class OutboxRelay {
       const owned = await this.options.store.markPublished({
         id: record.id,
         workerId: this.options.workerId,
+        leaseAttempt: record.attempts,
       });
       if (owned) {
         published += 1;

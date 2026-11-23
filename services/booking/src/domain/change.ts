@@ -366,7 +366,22 @@ export function onReplace(
 ): ChangeState {
   expectStep(change, 'REPLACE_COMMITMENT');
   if (!change.pivotAttempted) throw new Error('CHANGE_PIVOT_NOT_RECORDED');
-  if (result.kind === 'REPLACED') return advance(change, 'DISPATCH_CONFIRM', now);
+  if (result.kind === 'REPLACED') {
+    const requested = change.to;
+    if (
+      requested === null ||
+      result.slot.holdId !== requested.holdId ||
+      result.slot.zoneId !== requested.zoneId ||
+      result.slot.startsAt.getTime() !== requested.startsAt.getTime() ||
+      result.slot.endsAt.getTime() !== requested.endsAt.getTime()
+    ) {
+      // Scheduling may have committed, so neither reverting Dispatch nor
+      // adopting a different slot is safe. Keep replaying the same pivot and
+      // raise attention through the existing retry policy until reconciled.
+      return retry(change, 'COMMITTED_SLOT_MISMATCH', now, random);
+    }
+    return advance(change, 'DISPATCH_CONFIRM', now);
+  }
   if (result.kind === 'REFUSED') {
     return advance(change, 'DISPATCH_REVERT', now, { refusal: result.reason });
   }

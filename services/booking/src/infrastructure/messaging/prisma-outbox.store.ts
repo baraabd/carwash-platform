@@ -50,6 +50,15 @@ export class PrismaOutboxStore {
   }): Promise<OutboxLeaseRecord[]> {
     // RETURNING has no defined order, so the leased rows are re-sorted: a batch
     // is published in commit order (created_at, id), never in heap order.
+    // A crash on the final attempt must become visible to dead-letter alerts.
+    // Preserve attempts: it is also the monotonically increasing lease fence.
+    await this.prisma.client.$executeRawUnsafe(
+      `UPDATE app.outbox_message SET dead_at = now(), locked_by = NULL,
+              locked_until = NULL, last_error = 'LEASE_EXHAUSTED'
+        WHERE published_at IS NULL AND dead_at IS NULL AND attempts >= $1
+          AND (locked_until IS NULL OR locked_until <= now())`,
+      input.maxAttempts,
+    );
     const rows = await this.prisma.client.$queryRawUnsafe<LeasedRow[]>(
       `WITH leased AS (
        UPDATE app.outbox_message AS o
@@ -93,14 +102,20 @@ export class PrismaOutboxStore {
     }));
   }
 
-  async markPublished(input: { id: string; workerId: string }): Promise<boolean> {
+  async markPublished(input: {
+    id: string;
+    workerId: string;
+    leaseAttempt: number;
+  }): Promise<boolean> {
     const rows = await this.prisma.client.$queryRawUnsafe<{ id: string }[]>(
       `UPDATE app.outbox_message
           SET published_at = now(), locked_by = NULL, locked_until = NULL, last_error = NULL
-        WHERE id = $1::uuid AND locked_by = $2 AND published_at IS NULL
+        WHERE id = $1::uuid AND locked_by = $2 AND attempts = $3
+          AND locked_until > now() AND published_at IS NULL AND dead_at IS NULL
       RETURNING id::text`,
       input.id,
       input.workerId,
+      input.leaseAttempt,
     );
     return rows.length === 1;
   }
@@ -108,6 +123,7 @@ export class PrismaOutboxStore {
   async markFailed(input: {
     id: string;
     workerId: string;
+    leaseAttempt: number;
     error: string;
     maxAttempts: number;
   }): Promise<boolean> {
@@ -117,12 +133,14 @@ export class PrismaOutboxStore {
               locked_by = NULL,
               locked_until = NULL,
               dead_at = CASE WHEN attempts >= $4 THEN now() ELSE NULL END
-        WHERE id = $1::uuid AND locked_by = $2 AND published_at IS NULL
+        WHERE id = $1::uuid AND locked_by = $2 AND attempts = $5
+          AND locked_until > now() AND published_at IS NULL AND dead_at IS NULL
       RETURNING id::text`,
       input.id,
       input.workerId,
       input.error.slice(0, 200),
       input.maxAttempts,
+      input.leaseAttempt,
     );
     return rows.length === 1;
   }

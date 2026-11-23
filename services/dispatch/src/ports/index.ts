@@ -273,7 +273,8 @@ export interface EvidenceObjects {
 
 /**
  * Media's owner-access fence (media.v1 `media.object.fence`). Resolves only
- * on Media's 2xx; any other answer is a failure code to retry, never success.
+ * on Media's validated revocation for the requested object; every other
+ * answer is a failure code to retry, never success.
  */
 export type FenceOutcome =
   { readonly kind: 'FENCED' } | { readonly kind: 'FAILED'; readonly code: string };
@@ -296,13 +297,19 @@ export interface LeasedFence {
 
 /**
  * Delivery queue of fence requests. Leases are exclusive (SKIP LOCKED) and
- * guarded by worker id, so a stalled worker cannot finalise a row another
- * worker now owns.
+ * guarded by worker id, lease generation (attempts), and expiry. Reusing a
+ * worker id after a restart never lets its stale attempt finalise a new lease.
  */
 export interface EvidenceFenceQueue {
   leaseDue(workerId: string, leaseMs: number, limit: number): Promise<LeasedFence[]>;
-  markFenced(evidenceId: string, workerId: string): Promise<boolean>;
-  markRetry(evidenceId: string, workerId: string, code: string, delayMs: number): Promise<boolean>;
+  markFenced(evidenceId: string, workerId: string, attempts: number): Promise<boolean>;
+  markRetry(
+    evidenceId: string,
+    workerId: string,
+    attempts: number,
+    code: string,
+    delayMs: number,
+  ): Promise<boolean>;
   /** Unconfirmed requests with at least `attempts` failed deliveries. */
   countStuck(attempts: number): Promise<number>;
 }

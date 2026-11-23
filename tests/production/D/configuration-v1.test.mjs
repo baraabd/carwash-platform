@@ -45,6 +45,7 @@ import {
 } from '../../integration/_support.mjs';
 import { composeExec } from '../../../scripts/acceptance/lib/infra.mjs';
 import { account, bearer, staff, startIdentity } from './_identity.mjs';
+import { assertOutboxLeaseFencing } from '../../integration/support/outbox-lease.mjs';
 
 const svcRequire = createRequire(path.join(ROOT, 'services', 'configuration', 'package.json'));
 svcRequire('reflect-metadata');
@@ -292,6 +293,9 @@ async function scopeId(m, ns) {
 }
 
 /* ------------------------- C: contract conformance ------------------------ */
+
+test('configuration outbox fences reused worker IDs and parks expired final attempts', () =>
+  assertOutboxLeaseFencing({ store: new PrismaOutboxStore(db), client: db }));
 
 test('V1-C1 contract: owner parsers accept/reject exactly like the PUBLISHED configuration.v1 parsers', () => {
   const contents = [

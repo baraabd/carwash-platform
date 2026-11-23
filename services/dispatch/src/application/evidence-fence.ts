@@ -3,8 +3,9 @@ import type { EvidenceFenceQueue, EvidenceFenceTarget } from '../ports';
 /**
  * Delivers queued owner-access fences to Media (CR-P08-C1).
  *
- * A request completes only on Media's 2xx. Every other answer (timeout, 5xx,
- * 4xx) is kept with a capped exponential backoff and retried on a later pass;
+ * A request completes only on Media's validated revocation. Every other answer
+ * (timeout, 5xx, 4xx or an invalid success body) is kept with a capped
+ * exponential backoff and retried on a later pass;
  * there is no dead letter, because dropping a fence would leave a superseded
  * technician able to read the photos. Requests that keep failing are counted
  * as stuck so operations can see them (worker log line and metric).
@@ -54,12 +55,14 @@ export class EvidenceFenceRelay {
         correlationId,
       );
       if (outcome.kind === 'FENCED') {
-        if (await this.queue.markFenced(request.evidenceId, workerId)) fenced += 1;
+        if (await this.queue.markFenced(request.evidenceId, workerId, request.attempts))
+          fenced += 1;
       } else {
         failed += 1;
         await this.queue.markRetry(
           request.evidenceId,
           workerId,
+          request.attempts,
           outcome.code,
           fenceRetryDelayMs(request.attempts),
         );

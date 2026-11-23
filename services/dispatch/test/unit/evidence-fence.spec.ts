@@ -15,17 +15,27 @@ import type {
 
 class FakeQueue implements EvidenceFenceQueue {
   readonly fenced: string[] = [];
+  readonly completions: { id: string; workerId: string; attempts: number }[] = [];
   readonly retries: { id: string; code: string; delayMs: number }[] = [];
+  readonly retryLeases: { id: string; workerId: string; attempts: number }[] = [];
   constructor(private readonly due: LeasedFence[]) {}
   leaseDue(): Promise<LeasedFence[]> {
     return Promise.resolve(this.due.splice(0));
   }
-  markFenced(evidenceId: string): Promise<boolean> {
+  markFenced(evidenceId: string, workerId: string, attempts: number): Promise<boolean> {
     this.fenced.push(evidenceId);
+    this.completions.push({ id: evidenceId, workerId, attempts });
     return Promise.resolve(true);
   }
-  markRetry(evidenceId: string, _w: string, code: string, delayMs: number): Promise<boolean> {
+  markRetry(
+    evidenceId: string,
+    workerId: string,
+    attempts: number,
+    code: string,
+    delayMs: number,
+  ): Promise<boolean> {
     this.retries.push({ id: evidenceId, code, delayMs });
+    this.retryLeases.push({ id: evidenceId, workerId, attempts });
     return Promise.resolve(true);
   }
   countStuck(): Promise<number> {
@@ -39,7 +49,7 @@ const fence = (attempts = 1): LeasedFence => ({
   attempts,
 });
 
-test('only Media 2xx confirms a fence; every other answer is kept for retry', async () => {
+test('only a validated Media fence confirms; every other answer is kept for retry', async () => {
   const ok = fence();
   const down = fence(3);
   const refused = fence();
@@ -60,6 +70,11 @@ test('only Media 2xx confirms a fence; every other answer is kept for retry', as
 
   assert.deepEqual(result, { leased: 3, fenced: 1, failed: 2 });
   assert.deepEqual(queue.fenced, [ok.evidenceId]);
+  assert.deepEqual(queue.completions, [{ id: ok.evidenceId, workerId: 'w', attempts: 1 }]);
+  assert.deepEqual(queue.retryLeases, [
+    { id: down.evidenceId, workerId: 'w', attempts: 3 },
+    { id: refused.evidenceId, workerId: 'w', attempts: 1 },
+  ]);
   assert.deepEqual(
     queue.retries.map((r) => [r.id, r.code]),
     [
