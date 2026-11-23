@@ -45,9 +45,20 @@ function artifact(target, role, digestChar) {
     digest: D(digestChar),
     reference: `${repository}@${D(digestChar)}`,
     platform: 'linux/amd64',
-    attestations: { sbom: true, provenance: true },
+    attestations: {
+      sbom: true,
+      provenance: true,
+      sbomSha256: D('7'),
+      provenanceSha256: D('8'),
+      registryAttestationManifests: 1,
+    },
   };
-  if (role === 'migration') a.migrationSet = { digest: D('9'), migrations: ['20260101000000_x'] };
+  if (role === 'migration') {
+    a.migrationSet = { digest: D('9'), migrations: ['20260101000000_x'] };
+    a.database = target.database;
+    a.migrationRole = target.migrationRole;
+    a.runtimeRole = target.runtimeRole;
+  }
   return a;
 }
 
@@ -60,9 +71,23 @@ function validManifest(targets = inventory().targets) {
   return {
     kind: 'carwash.release-manifest',
     schemaVersion: 1,
-    source: { sha: SHA, tree: 'b'.repeat(40), lockfileBlob: 'c'.repeat(40), dirty: false },
+    source: {
+      repository: 'baraabd/carwash-platform',
+      sha: SHA,
+      tree: 'b'.repeat(40),
+      committedAt: '2026-11-23T00:00:00Z',
+      lockfileBlob: 'c'.repeat(40),
+      toolsLockBlob: 'd'.repeat(40),
+      migrationDockerfileBlob: 'e'.repeat(40),
+      configDigest: D('6'),
+      dirty: false,
+    },
     registry: REGISTRY,
-    baseImages: { node: `public.ecr.aws/docker/library/node@${D('d')}` },
+    baseImages: {
+      node: `public.ecr.aws/docker/library/node@${D('d')}`,
+      runtime: `gcr.io/distroless/nodejs24-debian13@${D('e')}`,
+      nativeLibraries: `docker.io/library/node@${D('f')}`,
+    },
     artifacts,
   };
 }
@@ -71,6 +96,78 @@ const codes = (problems) => problems.map((p) => p.code);
 
 test('a complete manifest covering every catalog target validates', () => {
   assert.deepEqual(validateManifest(validManifest(), inventory().targets), []);
+});
+
+test('manifest validation rejects malformed records without treating them as an empty successful release', () => {
+  const targets = inventory().targets;
+  for (const malformed of [null, [], 'manifest'])
+    assert.ok(codes(validateManifest(malformed, targets)).includes('MANIFEST_OBJECT_REQUIRED'));
+  for (const malformed of [null, [], 0, 'artifact']) {
+    const manifest = validManifest();
+    manifest.artifacts.push(malformed);
+    assert.ok(codes(validateManifest(manifest, targets)).includes('ARTIFACT_OBJECT_REQUIRED'));
+  }
+  assert.ok(codes(validateManifest(validManifest(), [])).includes('EXPECTED_TARGETS_REQUIRED'));
+});
+
+test('source configuration, provenance hashes and catalog artifact identities are mandatory', () => {
+  const targets = inventory().targets;
+  const cases = [
+    [(manifest) => delete manifest.source.configDigest, 'SOURCE_CONFIG_DIGEST'],
+    [(manifest) => delete manifest.source.toolsLockBlob, 'SOURCE_BLOB'],
+    [(manifest) => delete manifest.source.migrationDockerfileBlob, 'SOURCE_BLOB'],
+    [
+      (manifest) => {
+        manifest.source.repository = 'another/repository';
+      },
+      'SOURCE_REPOSITORY',
+    ],
+    [
+      (manifest) => {
+        manifest.source.committedAt = 'not a date';
+      },
+      'SOURCE_COMMITTED_AT',
+    ],
+    [
+      (manifest) => delete manifest.artifacts[0].attestations.provenanceSha256,
+      'ATTESTATION_DIGEST',
+    ],
+    [
+      (manifest) => {
+        manifest.artifacts[0].attestations.registryAttestationManifests = 0;
+      },
+      'ATTESTATION_MANIFESTS',
+    ],
+    [
+      (manifest) => {
+        manifest.artifacts[0].kind = 'web-app';
+      },
+      'TARGET_KIND_MISMATCH',
+    ],
+    [
+      (manifest) => {
+        manifest.artifacts[1].database = 'cw_another_owner';
+      },
+      'MIGRATION_IDENTITY',
+    ],
+    [
+      (manifest) => {
+        manifest.artifacts[1].migrationSet.migrations = [];
+      },
+      'MIGRATION_NAMES',
+    ],
+    [
+      (manifest) => {
+        manifest.artifacts[1].migrationSet.migrations.push('20260101000000_x');
+      },
+      'MIGRATION_NAMES',
+    ],
+  ];
+  for (const [mutate, code] of cases) {
+    const manifest = validManifest();
+    mutate(manifest);
+    assert.ok(codes(validateManifest(manifest, targets)).includes(code), code);
+  }
 });
 
 test('every catalog database owner needs a migration artifact; others must not have one', () => {

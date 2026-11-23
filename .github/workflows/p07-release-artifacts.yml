@@ -6,20 +6,9 @@
 name: P07 release artifacts
 on:
   pull_request:
-    branches: [main]
-    paths:
-      - 'infra/release/**'
-      - 'infra/postgres/provision.sh'
-      - 'scripts/production/E/release/**'
-      - 'scripts/ci/**'
-      - '**/Dockerfile'
-      - '**/Dockerfile.dockerignore'
-      - '.dockerignore'
-      - 'pnpm-lock.yaml'
-      - 'services/*/prisma/**'
-      - '.github/workflows/p07-release-*.yml'
+    branches: [main, develop]
   push:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 permissions:
   contents: read
@@ -29,7 +18,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   rehearse:
-    if: ${{ github.event_name == 'pull_request' }}
+    if: ${{ github.event_name == 'pull_request' || github.ref != 'refs/heads/main' }}
     uses: ./.github/workflows/p07-release-build.yml
     with:
       publish: false
@@ -47,3 +36,24 @@ jobs:
       packages: write
       id-token: write
       attestations: write
+  gate:
+    name: Release artifacts verified
+    if: always()
+    needs: [rehearse, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - name: Require the selected artifact verification path
+        env:
+          REHEARSAL_RESULT: ${{ needs.rehearse.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+        run: node scripts/production/E/governance/release-workflow-gate.mjs

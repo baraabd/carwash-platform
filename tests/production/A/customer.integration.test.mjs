@@ -377,7 +377,8 @@ test('limits: the active-address ceiling holds under concurrency and rolls back 
 
 test('outbox: events carry references and revisions only, never contact or address text', async () => {
   const { user, profile } = await bootstrapped();
-  const correlationId = randomUUID();
+  // Valid metadata may contain the same digits as the customer's phone.
+  const correlationId = '00000000-0000-4000-8000-000900000000';
   const updated = await call('/me', {
     method: 'PATCH',
     headers: { ...bearer(user), 'if-match': '"1"', 'x-correlation-id': correlationId },
@@ -385,14 +386,15 @@ test('outbox: events carry references and revisions only, never contact or addre
   });
   assert.equal(updated.status, 200);
   assert.equal(updated.body.phone, '0900000000');
-  await createAddress(user, {
+  const address = await createAddress(user, {
     ...home,
     accessNote: 'ملاحظة خاصة',
     location: pinned('36.2', '37.1'),
   });
+  assert.equal(address.status, 201);
   const rows = await sql(
     db,
-    'SELECT event_type, payload, correlation_id FROM app.outbox_message WHERE payload LIKE $1 ORDER BY created_at',
+    'SELECT event_id, event_type, payload, correlation_id FROM app.outbox_message WHERE payload LIKE $1 ORDER BY created_at',
     [`%${profile.customerId}%`],
   );
   assert.deepEqual(
@@ -401,7 +403,29 @@ test('outbox: events carry references and revisions only, never contact or addre
   );
   const patchEvent = rows.rows[1];
   assert.equal(patchEvent.correlation_id, correlationId);
-  for (const row of rows.rows) {
+  const expectedEvents = [
+    {
+      aggregateVersion: profile.revision,
+      occurredAt: profile.createdAt,
+      data: { customerId: profile.customerId, change: 'created' },
+    },
+    {
+      aggregateVersion: updated.body.revision,
+      occurredAt: updated.body.updatedAt,
+      data: { customerId: profile.customerId, change: 'updated' },
+    },
+    {
+      aggregateVersion: address.body.revision,
+      occurredAt: address.body.createdAt,
+      data: {
+        customerId: profile.customerId,
+        addressId: address.body.addressId,
+        change: 'created',
+        status: 'ACTIVE',
+      },
+    },
+  ];
+  for (const [index, row] of rows.rows.entries()) {
     const payload = JSON.parse(row.payload);
     assert.deepEqual(Object.keys(payload).sort(), [
       'aggregateVersion',
@@ -413,17 +437,15 @@ test('outbox: events carry references and revisions only, never contact or addre
       'producer',
       'schemaVersion',
     ]);
-    for (const secret of [
-      'سامر',
-      '0900000000',
-      'حي تجريبي',
-      'ملاحظة',
-      '36.2',
-      '37.1',
-      user.subject,
-    ]) {
-      assert.ok(!row.payload.includes(secret), `event must not carry ${secret}`);
-    }
+    // Check the raw wire object so no parser can discard leaked contact or address fields.
+    assert.deepEqual(payload, {
+      eventId: row.event_id,
+      eventType: row.event_type,
+      schemaVersion: 1,
+      producer: 'customer',
+      correlationId: row.correlation_id,
+      ...expectedEvents[index],
+    });
   }
 });
 

@@ -36,6 +36,12 @@ import { privilegeHardeningSql } from '../../../acceptance/lib/migrations.mjs';
 import { observePostgresClient, startAcknowledgedWrites } from './postgres-writer.mjs';
 import { run as runCommand } from '../../../acceptance/lib/exec.mjs';
 import { acquireDrillImage } from './image-acquisition.mjs';
+import { assessHistory, localMigrations } from '../../../../infra/release/migrate-job.mjs';
+import {
+  assertExactSource,
+  assertSameSource,
+  SourceProvenanceError,
+} from '../release/source-provenance.mjs';
 import {
   assertSameQuorumTopology,
   closeRecoveredQueue,
@@ -150,19 +156,57 @@ const images = {};
 
 /* ------------------------------------------------------------- postgres --- */
 
-const catalog = JSON.parse(
-  readFileSync(path.join(ROOT, 'architecture/service-catalog.json'), 'utf8'),
-);
-const OWNERS = catalog.services
-  .filter((s) => s.database && readdirSafe(path.join(ROOT, s.path, 'prisma/migrations')).length > 0)
-  .map((s) => s.id);
+/** Every catalog owner must be recoverable; a missing migration is never a skip. */
+export function recoveryOwners(root = ROOT) {
+  const catalog = JSON.parse(
+    readFileSync(path.join(root, 'architecture/service-catalog.json'), 'utf8'),
+  );
+  assert.ok(
+    Array.isArray(catalog.services) && catalog.services.length > 0,
+    'RECOVERY_OWNER_INVENTORY_EMPTY',
+  );
+  const seen = new Set();
+  return catalog.services.map((service) => {
+    const { id, path: ownerPath, database, runtimeRole, migrationRole } = service;
+    assert.match(id ?? '', /^[a-z][a-z0-9_]*$/, 'RECOVERY_OWNER_ID_INVALID');
+    assert.ok(!seen.has(id), `RECOVERY_OWNER_DUPLICATE: ${id}`);
+    seen.add(id);
+    assert.equal(ownerPath, `services/${id}`, `RECOVERY_OWNER_PATH_MISMATCH: ${id}`);
+    assert.equal(database, `cw_${id}`, `RECOVERY_OWNER_DATABASE_MISMATCH: ${id}`);
+    assert.equal(runtimeRole, `cw_${id}_app`, `RECOVERY_OWNER_RUNTIME_ROLE_MISMATCH: ${id}`);
+    assert.equal(
+      migrationRole,
+      `cw_${id}_migrate`,
+      `RECOVERY_OWNER_MIGRATION_ROLE_MISMATCH: ${id}`,
+    );
+    const directory = path.join(root, ownerPath, 'prisma/migrations');
+    let migrations;
+    try {
+      // A symlink or stray entry must not disappear from the inventory either.
+      for (const entry of readdirSync(directory, { withFileTypes: true })) {
+        assert.ok(
+          entry.isDirectory() || (entry.isFile() && entry.name === 'migration_lock.toml'),
+          `unexpected migration entry: ${entry.name}`,
+        );
+      }
+      migrations = localMigrations(directory);
+    } catch (error) {
+      throw new Error(`RECOVERY_OWNER_MIGRATIONS_INVALID: ${id}`, { cause: error });
+    }
+    assert.ok(migrations.length > 0, `RECOVERY_OWNER_MIGRATIONS_EMPTY: ${id}`);
+    return { id, path: ownerPath, database, runtimeRole, migrationRole, migrations };
+  });
+}
 
-function readdirSafe(dir) {
-  try {
-    return readdirSync(dir);
-  } catch {
-    return [];
-  }
+export function hasExactOwnerCoverage(owners, ownerChecks) {
+  const expected = owners.map((owner) => owner.id).sort();
+  const covered = Object.keys(ownerChecks).sort();
+  return (
+    expected.length > 0 &&
+    new Set(expected).size === expected.length &&
+    expected.length === covered.length &&
+    expected.every((owner, index) => owner === covered[index])
+  );
 }
 
 async function pgClient(port, user, password, database) {
@@ -187,6 +231,8 @@ async function pgClient(port, user, password, database) {
 }
 
 async function postgresDrill(report) {
+  const owners = report.ownerInventory;
+  const OWNERS = owners.map((owner) => owner.id);
   const bootstrap = secret();
   const passwords = Object.fromEntries(
     OWNERS.map((o) => [o, { app: secret(), migrate: secret() }]),
@@ -300,14 +346,23 @@ async function postgresDrill(report) {
   };
   const bulkBefore = await fingerprint(drill);
   const history = {};
-  for (const owner of OWNERS) {
+  for (const { id: owner, migrations } of owners) {
     const c = await pgClient(port, 'cw_drill_bootstrap', bootstrap, `cw_${owner}`);
-    const r = await c.query(
-      "SELECT count(*)::int AS n, md5(string_agg(migration_name || ':' || checksum, ',' ORDER BY migration_name)) AS h FROM app._prisma_migrations WHERE finished_at IS NOT NULL",
-    );
-    const t = await c.query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname = 'app'");
-    history[owner] = { migrations: r.rows[0].n, historyHash: r.rows[0].h, tables: t.rows[0].n };
-    await c.end();
+    try {
+      const applied = await c.query(
+        'SELECT migration_name, checksum, finished_at, rolled_back_at FROM app._prisma_migrations',
+      );
+      const assessment = assessHistory(migrations, applied.rows, 'after');
+      assert.deepEqual(assessment.problems, [], `committed migration history: ${owner}`);
+      assert.equal(applied.rows.length, migrations.length, `migration count: ${owner}`);
+      const r = await c.query(
+        "SELECT count(*)::int AS n, md5(string_agg(migration_name || ':' || checksum, ',' ORDER BY migration_name)) AS h FROM app._prisma_migrations WHERE finished_at IS NOT NULL",
+      );
+      const t = await c.query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname = 'app'");
+      history[owner] = { migrations: r.rows[0].n, historyHash: r.rows[0].h, tables: t.rows[0].n };
+    } finally {
+      await c.end();
+    }
   }
 
   // Continuous acknowledged writes: the client-side ack log is the RPO ground truth.
@@ -436,13 +491,20 @@ async function postgresDrill(report) {
   const [bulkN, bulkH] = bulkAfter.stdout.trim().split('|');
 
   const ownerChecks = {};
-  for (const owner of OWNERS) {
+  for (const { id: owner, migrations } of owners) {
     const r = await sql(
       `cw_${owner}`,
       "SELECT count(*), md5(string_agg(migration_name || ':' || checksum, ',' ORDER BY migration_name)) FROM app._prisma_migrations WHERE finished_at IS NOT NULL",
     );
     const t = await sql(`cw_${owner}`, "SELECT count(*) FROM pg_tables WHERE schemaname = 'app'");
     const [n, h] = r.stdout.trim().split('|');
+    const applied = await sql(
+      `cw_${owner}`,
+      `SELECT coalesce(json_agg(m), '[]'::json) FROM
+       (SELECT migration_name, checksum, finished_at, rolled_back_at FROM app._prisma_migrations) m`,
+    );
+    assert.equal(applied.code, 0, `restored migration history query: ${owner}`);
+    const rows = JSON.parse(applied.stdout);
     const ddl = await sql(
       `cw_${owner}`,
       'CREATE TABLE app.cw_restore_probe (i int)',
@@ -458,25 +520,37 @@ async function postgresDrill(report) {
       passwords[owner].app,
     );
     let configurationHistoryImmutable = true;
-    if (owner === 'configuration') {
+    let reviewsHistoryImmutable = true;
+    const appendOnlyTables = {
+      configuration: ['config_revision', 'config_review', 'config_audit'],
+      reviews: ['review_audit', 'review_command_receipt'],
+    }[owner];
+    if (appendOnlyTables) {
       const appendOnly = await sql(
-        'cw_configuration',
+        `cw_${owner}`,
         `SELECT bool_and(NOT has_table_privilege(current_user, history_table,
            'UPDATE,DELETE,TRUNCATE'))
-         FROM unnest(ARRAY['app.config_revision', 'app.config_review', 'app.config_audit'])
+         FROM unnest(ARRAY[${appendOnlyTables.map((table) => `'app.${table}'`).join(', ')}])
            AS history_table`,
-        'cw_configuration_app',
+        `cw_${owner}_app`,
         passwords[owner].app,
       );
-      configurationHistoryImmutable = appendOnly.code === 0 && appendOnly.stdout.trim() === 't';
+      const immutable = appendOnly.code === 0 && appendOnly.stdout.trim() === 't';
+      if (owner === 'configuration') configurationHistoryImmutable = immutable;
+      if (owner === 'reviews') reviewsHistoryImmutable = immutable;
     }
     ownerChecks[owner] = {
-      history: Number(n) === history[owner].migrations && h === history[owner].historyHash,
-      tables: Number(t.stdout.trim()) === history[owner].tables,
+      committedMigrations:
+        rows.length === migrations.length &&
+        assessHistory(migrations, rows, 'after').problems.length === 0,
+      history:
+        r.code === 0 && Number(n) === history[owner].migrations && h === history[owner].historyHash,
+      tables: t.code === 0 && Number(t.stdout.trim()) === history[owner].tables,
       runtimeDdlDenied: ddl.code !== 0 && /permission denied/i.test(ddl.stderr),
       runtimeMigrationHistoryDenied:
         runtimePolicy.code === 0 && runtimePolicy.stdout.trim() === 't|t',
       configurationHistoryImmutable,
+      reviewsHistoryImmutable,
     };
   }
   // Egress from the restore network must be impossible (no route out of --internal).
@@ -487,12 +561,17 @@ async function postgresDrill(report) {
     restoredWithinAcknowledged: maxSeq <= lastAck.seq,
     replayedPastBaseBackup: lastWrittenMs > backupStarted + backupMs,
     staticDataIdentical: Number(bulkN) === bulkBefore.n && bulkH === bulkBefore.h,
+    exactOwnerInventory: hasExactOwnerCoverage(owners, ownerChecks),
+    allOwnersCommittedMigrations: Object.values(ownerChecks).every((c) => c.committedMigrations),
     allOwnersHistoryAndTables: Object.values(ownerChecks).every((c) => c.history && c.tables),
     allOwnersRuntimeDdlDeniedAfterRestore: Object.values(ownerChecks).every(
       (c) => c.runtimeDdlDenied,
     ),
     allOwnersRuntimePoliciesPreserved: Object.values(ownerChecks).every(
-      (c) => c.runtimeMigrationHistoryDenied && c.configurationHistoryImmutable,
+      (c) =>
+        c.runtimeMigrationHistoryDenied &&
+        c.configurationHistoryImmutable &&
+        c.reviewsHistoryImmutable,
     ),
     restoreNetworkIsolated: reachOut.code !== 0,
   };
@@ -1121,6 +1200,42 @@ async function alertDrill(report, work) {
 
 /* ----------------------------------------------------------------- main --- */
 
+/** Write failed evidence first, then accept only the unchanged source and full inventory. */
+export function finishRecoveryReport(report, source, reportFile, root = ROOT) {
+  report.finishedAt = new Date().toISOString();
+  report.accepted = false;
+  const persist = () => writeFileSync(reportFile, `${JSON.stringify(report, null, 2)}\n`);
+  mkdirSync(path.dirname(reportFile), { recursive: true });
+  persist();
+  // Check after writing the report too: a report path must not overwrite source
+  // or introduce an untracked build input while claiming the old committed tree.
+  if (source) {
+    try {
+      assertSameSource(root, source);
+      report.sourceVerification.finishedCleanAndUnchanged = true;
+    } catch (error) {
+      report.failures.source = redact(error.stack ?? error.message).slice(0, 4000);
+      report.sourceVerification.finishedCleanAndUnchanged = false;
+    }
+  }
+  if (
+    report.components.postgres?.ok === true &&
+    !hasExactOwnerCoverage(report.ownerInventory, report.components.postgres.ownerChecks ?? {})
+  ) {
+    report.failures.inventory = 'RECOVERY_OWNER_COVERAGE_MISMATCH';
+  }
+  report.accepted =
+    Boolean(source) &&
+    report.sourceVerification.startedClean &&
+    report.sourceVerification.finishedCleanAndUnchanged &&
+    Object.keys(report.failures).length === 0 &&
+    ['postgres', 'rabbitmq', 'redis', 'objects', 'alerts'].every(
+      (c) => report.components[c]?.ok === true,
+    );
+  persist();
+  return report;
+}
+
 export async function main({ argv = process.argv.slice(2), resolveImage = byDigest } = {}) {
   const reportFile = argv[argv.indexOf('--report') + 1];
   assert.ok(argv.includes('--report') && reportFile, '--report <file> is required');
@@ -1130,14 +1245,22 @@ export async function main({ argv = process.argv.slice(2), resolveImage = byDige
     schemaVersion: 1,
     runId: run,
     startedAt: new Date().toISOString(),
-    sourceSha: (await exec('git', ['rev-parse', 'HEAD'])).stdout.trim(),
-    sourceTree: (await exec('git', ['rev-parse', 'HEAD^{tree}'])).stdout.trim(),
+    sourceSha: null,
+    sourceTree: null,
+    sourceVerification: { startedClean: false, finishedCleanAndUnchanged: false },
+    ownerInventory: [],
     targets: 'NOT APPROVED: measured values only; RPO/RTO targets are an owner decision',
     images,
     components: {},
     failures: {},
   };
+  let source;
   try {
+    source = assertExactSource(ROOT);
+    report.sourceSha = source.sha;
+    report.sourceTree = source.tree;
+    report.sourceVerification.startedClean = true;
+    report.ownerInventory = recoveryOwners();
     for (const [key, tag] of Object.entries(IMAGE_TAGS)) images[key] = await resolveImage(tag);
     images.seaweedfs = SEAWEED;
     for (const [component, drill] of Object.entries({
@@ -1165,7 +1288,8 @@ export async function main({ argv = process.argv.slice(2), resolveImage = byDige
       }
     }
   } catch (error) {
-    report.failures.preparation = redact(error.stack ?? error.message).slice(0, 4000);
+    const phase = error instanceof SourceProvenanceError ? 'source' : 'preparation';
+    report.failures[phase] = redact(error.stack ?? error.message).slice(0, 4000);
   } finally {
     if (!argv.includes('--keep')) {
       for (const c of created.containers.reverse()) await exec('docker', ['rm', '-f', c]);
@@ -1174,12 +1298,7 @@ export async function main({ argv = process.argv.slice(2), resolveImage = byDige
       rmSync(work, { recursive: true, force: true });
     }
   }
-  report.finishedAt = new Date().toISOString();
-  report.accepted = ['postgres', 'rabbitmq', 'redis', 'objects', 'alerts'].every(
-    (c) => report.components[c]?.ok === true,
-  );
-  mkdirSync(path.dirname(reportFile), { recursive: true });
-  writeFileSync(reportFile, `${JSON.stringify(report, null, 2)}\n`);
+  finishRecoveryReport(report, source, reportFile);
   console.log(report.accepted ? 'RECOVERY DRILL PASSED' : 'RECOVERY DRILL FAILED');
   return report;
 }

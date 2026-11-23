@@ -6,6 +6,8 @@
 // Secret references resolve only from `env://NAME` (the operator injects the
 // value from the secret store into the environment); values never enter the
 // target file or the report. Exit 0 = PASSED, 2 = FAILED, 1 = unusable input.
+// Explicit --allow-loopback-http-fixtures runs are labelled PASSED_FIXTURE_ONLY
+// and exit 4 on fixture success; they cannot become a passing release receipt.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { runSmoke, defaultIo, SmokeInputError } from './release/smoke.mjs';
@@ -27,7 +29,11 @@ try {
   const caPath = option('--ca');
   const report = await runSmoke(
     JSON.parse(readFileSync(targetPath, 'utf8')),
-    defaultIo({ ca: caPath ? readFileSync(caPath) : undefined, readSecretRef: envSecretRef }),
+    defaultIo({
+      ca: caPath ? readFileSync(caPath) : undefined,
+      readSecretRef: envSecretRef,
+      allowLoopbackHttpForFixtures: process.argv.includes('--allow-loopback-http-fixtures'),
+    }),
   );
   const out = option('--out');
   if (out) {
@@ -37,7 +43,7 @@ try {
   for (const r of report.results)
     process.stdout.write(`${r.status.padEnd(14)} ${r.check}${r.reason ? ` — ${r.reason}` : ''}\n`);
   process.stdout.write(`smoke ${report.verdict}\n`);
-  process.exit(report.verdict === 'PASSED' ? 0 : 2);
+  process.exit(report.verdict === 'PASSED' ? 0 : report.verdict === 'PASSED_FIXTURE_ONLY' ? 4 : 2);
 } catch (error) {
   process.stderr.write(
     `production-smoke: ${error instanceof Error ? error.message : String(error)}\n`,

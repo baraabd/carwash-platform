@@ -32,6 +32,25 @@ test('every required check is produced unconditionally by a pull request to main
   }
 });
 
+test('business acceptance, artifact verification and recovery cannot be removed from launch governance', () => {
+  for (const mandatory of [
+    'All business acceptance families passed',
+    'Release artifacts verified',
+    'Data-plane recovery drill',
+  ]) {
+    assert.ok(
+      mutate((policy) => {
+        const checks = rule(policy, 'required_status_checks').parameters;
+        checks.required_status_checks = checks.required_status_checks.filter(
+          (entry) => entry.context !== mandatory,
+        );
+      }).includes('MANDATORY_CHECK_MISSING'),
+      mandatory,
+    );
+  }
+  assert.equal(rule(readPolicy(), 'pull_request').parameters.required_approving_review_count, 0);
+});
+
 test('weakening the policy is rejected', () => {
   assert.ok(mutate((p) => (p.enforcement = 'evaluate')).includes('NOT_ACTIVE'));
   assert.ok(

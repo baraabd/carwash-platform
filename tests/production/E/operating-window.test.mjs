@@ -62,6 +62,37 @@ test('an open window with good samples is only OBSERVING', () => {
   assert.equal(r.decision, 'OBSERVING');
 });
 
+test('an empty window never verifies even when the approved gap covers its whole duration', () => {
+  for (const durationMinutes of [5, 10]) {
+    const r = evaluateWindow({
+      policy: { ...policy, durationMinutes, maxSampleGapMinutes: 10 },
+      observations: { ...observations(), samples: [] },
+      now: minutes(durationMinutes + 1),
+    });
+    assert.equal(r.decision, 'STOP');
+    assert.match(r.unobservable[0].reason, /no samples/);
+  }
+  const futureOnly = { ...observations(), samples: [{ at: iso(minutes(70)), metrics: {} }] };
+  assert.equal(
+    evaluateWindow({ policy, observations: futureOnly, now: minutes(61) }).decision,
+    'STOP',
+  );
+});
+
+test('unobservable evidence outranks forward recovery but not rollback', () => {
+  for (const [metric, decision] of [
+    ['p95LatencyMs', 'STOP'],
+    ['http5xxRate', 'ROLLBACK'],
+  ]) {
+    const obs = observations({ metrics: (m) => (m === 20 ? { [metric]: 900 } : {}) });
+    obs.samples = obs.samples.filter((sample) => sample.at !== iso(minutes(40)));
+    const r = evaluateWindow({ policy, observations: obs, now: minutes(61) });
+    assert.equal(r.decision, decision);
+    assert.equal(r.breaches.length, 1);
+    assert.ok(r.unobservable.length > 0);
+  }
+});
+
 test('each breach maps to its approved action; rollback outranks stop outranks forward recovery', () => {
   const fwd = evaluateWindow({
     policy,
@@ -124,6 +155,79 @@ test('unresolved or unacknowledged incidents keep the window from verifying', ()
   });
   assert.deepEqual(unacked.unacknowledgedIncidents, ['INC-2']);
   assert.equal(unacked.decision, 'OBSERVING');
+});
+
+test('incident acknowledgements and resolutions must be real observations at evaluation time', () => {
+  for (const incident of [
+    { id: 'INC-1', acknowledgedBy: true, resolvedAt: iso(minutes(40)) },
+    { id: 'INC-1', acknowledgedBy: '  ', resolvedAt: iso(minutes(40)) },
+    { id: 'INC-1', acknowledgedBy: 'primary-oncall', resolvedAt: true },
+    { id: 'INC-1', acknowledgedBy: 'primary-oncall', resolvedAt: 'not-a-time' },
+    { id: 'INC-1', acknowledgedBy: 'primary-oncall', resolvedAt: iso(minutes(62)) },
+    { id: '  ', acknowledgedBy: 'primary-oncall', resolvedAt: iso(minutes(40)) },
+  ])
+    assert.throws(
+      () =>
+        evaluateWindow({
+          policy,
+          observations: observations({ incidents: [incident] }),
+          now: minutes(61),
+        }),
+      WindowInputError,
+    );
+  const resolved = { id: 'INC-1', acknowledgedBy: 'primary-oncall', resolvedAt: iso(minutes(40)) };
+  assert.equal(
+    evaluateWindow({
+      policy,
+      observations: observations({ incidents: [resolved] }),
+      now: minutes(61),
+    }).decision,
+    'VERIFIED_IN_OPERATION',
+  );
+  assert.throws(
+    () =>
+      evaluateWindow({
+        policy,
+        observations: observations({ incidents: [resolved, resolved] }),
+        now: minutes(61),
+      }),
+    /distinct/,
+  );
+});
+
+test('contacts and threshold actions cannot be truthy objects or inherited property names', () => {
+  for (const contacts of [
+    { primary: {}, backup: [] },
+    { primary: ' ', backup: 'backup' },
+    { primary: 'Primary-Oncall', backup: ' primary-oncall ' },
+  ])
+    assert.throws(
+      () =>
+        evaluateWindow({ policy, observations: { ...observations(), contacts }, now: minutes(61) }),
+      WindowInputError,
+    );
+  for (const onBreach of ['toString', 'constructor', '__proto__', {}, ['rollback']])
+    assert.throws(
+      () =>
+        evaluateWindow({
+          policy: {
+            ...policy,
+            thresholds: { http5xxRate: { bound: 'max', limit: 0.1, onBreach } },
+          },
+          observations: observations(),
+          now: minutes(61),
+        }),
+      WindowInputError,
+    );
+  assert.throws(
+    () =>
+      evaluateWindow({
+        policy,
+        observations: observations({ open: minutes(65) }),
+        now: minutes(61),
+      }),
+    /future/,
+  );
 });
 
 test('samples outside the window and future samples are ignored', () => {

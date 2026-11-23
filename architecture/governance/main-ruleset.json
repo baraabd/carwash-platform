@@ -39,7 +39,10 @@
           { "context": "Static gates, builds and offline tests", "integration_id": 15368 },
           { "context": "Real PostgreSQL and RabbitMQ acceptance", "integration_id": 15368 },
           { "context": "Dependency and secret scanning", "integration_id": 15368 },
-          { "context": "Declared scope of these gates", "integration_id": 15368 }
+          { "context": "Declared scope of these gates", "integration_id": 15368 },
+          { "context": "All business acceptance families passed", "integration_id": 15368 },
+          { "context": "Release artifacts verified", "integration_id": 15368 },
+          { "context": "Data-plane recovery drill", "integration_id": 15368 }
         ]
       }
     },

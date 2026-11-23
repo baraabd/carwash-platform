@@ -21,7 +21,7 @@ gap this child closes once authorized.
 | deletion, non_fast_forward | on | no deleting or rewriting `main` |
 | pull_request | required; stale approvals dismissed on push; review threads must be resolved; merge commits only | every change arrives as a reviewed PR |
 | approvals | **0 (owner decision)** | single-maintainer repo: the author cannot approve their own PR, so ≥1 would block every merge until a second reviewer exists |
-| required_status_checks | strict (branch must be up to date with `main`), 11 checks from GitHub Actions (app 15368) | "a green old head is not evidence for a changed merge tree" |
+| required_status_checks | strict (branch must be up to date with `main`), 14 checks from GitHub Actions (app 15368) | "a green old head is not evidence for a changed merge tree" |
 | code_scanning | CodeQL: security alerts `high_or_higher`, alerts `errors` | new high/critical findings block merge |
 | bypass_actors | none | admins are not exempt |
 
@@ -30,11 +30,30 @@ unique names): F001 final-source acceptance · identity-security · gateway ·
 F008 redaction trace metrics and runtime acceptance · Foundation release gate ·
 F010 parity harness gate · Frozen design reference · Static gates, builds and offline tests ·
 Real PostgreSQL and RabbitMQ acceptance · Dependency and secret scanning ·
-Declared scope of these gates.
+Declared scope of these gates · All business acceptance families passed ·
+Release artifacts verified · Data-plane recovery drill.
 
-Not required on purpose: path-filtered lane workflows (`p01-*`, `c0xx-*`,
-`p07-release-artifacts`), which would leave unrelated PRs pending forever, and the
+Not required on purpose: path-filtered lane workflows (`p01-*`, `c0xx-*`),
+which would leave unrelated PRs pending forever, and the
 ambiguous job name `static` (exists in both f009 and f010; the aggregates cover them).
+
+### P08 reconciliation — 2026-11-23
+
+The complete business-acceptance aggregate is now mandatory in the desired
+policy. Artifact and recovery rehearsals run on every `main`/`develop` PR,
+without path filters; their named gates can therefore be required without
+leaving unrelated changes permanently pending. Artifact publication remains
+restricted to non-PR `main` runs. Develop and feature/manual runs use the
+credential-free rehearsal path, and the aggregate rejects skipped, failed or
+cancelled selected work.
+
+The 2026-11-23 read of GitHub still returned no rulesets and both `main` and
+`develop` reported protection disabled. The desired policy is source code,
+not evidence of live enforcement. Apply it only after the corresponding
+unconditional workflow definitions are present on the protected target, and
+verify the live API record. The owner's zero-review policy for ordinary PRs is
+preserved; the separate production-release independent-review receipt is still
+mandatory. No code-scanning alert is dismissed by this sprint.
 
 `validatePolicy` rejects: non-active enforcement, non-default-branch target, any bypass
 actor, a missing mandatory rule, non-strict checks, kept stale approvals, unresolved

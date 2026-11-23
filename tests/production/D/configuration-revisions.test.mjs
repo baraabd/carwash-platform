@@ -10,7 +10,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
@@ -33,8 +33,10 @@ const { createHttpApplication } = require(
   path.join(ROOT, 'services', 'configuration', 'dist', 'transport', 'http', 'create-app.js'),
 );
 
-const AUTHOR = randomUUID();
-const REVIEWER = randomUUID();
+// Force a collision with H3's value digits in allowed metadata while retaining
+// fresh identities for isolated runs. Privacy checks must validate row fields.
+const AUTHOR = `900000${randomUUID().slice(6)}`;
+const REVIEWER = `900000${randomUUID().slice(6)}`;
 const READER = randomUUID();
 const STAFF = randomUUID();
 const SESSIONS = {
@@ -278,7 +280,33 @@ test('H3: propose → four-eyes review → activate → effective read, with ide
   });
   assert.deepEqual(audit.map((a) => a.action).sort(), ['ACTIVATED', 'APPROVED', 'PROPOSED']);
   assert.deepEqual(audit.map((a) => a.actorSubject).sort(), [AUTHOR, AUTHOR, REVIEWER].sort());
-  assert.ok(!JSON.stringify(audit).includes('900000'), 'audit rows carry a hash, never the value');
+  const valueHash = createHash('sha256')
+    .update(JSON.stringify(['duration-ms', 900_000]))
+    .digest('hex');
+  assert.equal(created.body.revision.valueHash, valueHash);
+  for (const row of audit) {
+    assert.deepEqual(
+      Object.keys(row).sort(),
+      [
+        'action',
+        'actorSubject',
+        'correlationId',
+        'id',
+        'occurredAt',
+        'revisionId',
+        'scopeKey',
+        'valueHash',
+      ],
+      'audit rows contain only identifiers, a timestamp and the value hash',
+    );
+    assert.match(row.id, /^[0-9a-f-]{36}$/);
+    assert.equal(row.revisionId, id);
+    assert.equal(row.actorSubject, row.action === 'APPROVED' ? REVIEWER : AUTHOR);
+    assert.equal(row.scopeKey, `${target.namespace}/${target.key}@${target.environment}/*`);
+    assert.equal(row.valueHash, valueHash);
+    assert.match(row.correlationId, /^[0-9a-f-]{36}$/);
+    assert.ok(row.occurredAt instanceof Date && Number.isFinite(row.occurredAt.getTime()));
+  }
 });
 
 test('H4: a tenant value overrides only that tenant; decimals stay exact', async () => {

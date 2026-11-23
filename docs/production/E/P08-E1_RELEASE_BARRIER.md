@@ -1,7 +1,9 @@
 # P08-E1 — Final release barrier
 
-Status: **implemented barrier; release verdict on current main is NO_GO**. Nothing was
-deployed. Parent P08-E stays `INTEGRATION_PENDING`.
+Status: **implemented barrier; hardened by the 2026-11-23 P08 delivery**. The
+historical 2026-10-10 candidate below received `NO_GO`; it is not a verdict for
+today's main or a later candidate. Nothing was deployed by this tooling.
+Production release still requires current evidence for every mandatory family.
 
 ## What this child delivers
 
@@ -10,9 +12,9 @@ deployed. Parent P08-E stays `INTEGRATION_PENDING`.
 | `architecture/release-barrier.json` | The mandatory receipt families, each with owner and required action. No thresholds or authorizations are defaulted here. |
 | `scripts/production/E/release/barrier.mjs` | Pure evaluator (injected git/digest/clock). Produces `carwash.release-barrier-report/v1`. |
 | `scripts/production/E/release/io.mjs` | Real git object/ref resolution and evidence sha256 digests (paths may not escape the root). |
-| `scripts/production/E/release-receipt.mjs` | Uniform receipt producer: `candidate` pins sha/tree/refs/config digest; `run` executes one gate on a clean tracked tree and records PASSED only on exit 0. |
+| `scripts/production/E/release-receipt.mjs` | Uniform receipt producer: `candidate` pins sha/tree/refs/config digest; `run` executes one gate on clean, stable source and records PASSED only after a successful command and provenance verification. |
 | `scripts/production/E/release-barrier.mjs` | CLI. Exit `0` GO, `2` NO_GO, `1` unusable input; writes JSON + Markdown. |
-| `tests/production/E/release-barrier.test.mjs` | 22 tests on a disposable real git repository (runs under `pnpm test:production:e`). |
+| `tests/production/E/release-barrier.test.mjs` | Positive and negative barrier regressions on a disposable real Git repository (runs under `pnpm test:production:e`). |
 
 ## Receipt contract (`carwash.release-receipt/v1`)
 
@@ -26,7 +28,7 @@ deployed. Parent P08-E stays `INTEGRATION_PENDING`.
   "producer": { "actor": "lane-c" },
   "configDigest": "sha256:<64 hex>",
   "dependencies": { "postgres": "REAL (disposable container)", "rabbitmq": "REAL" },
-  "artifacts": { "booking": "sha256:<64 hex>" },
+  "artifacts": { "booking/runtime": "sha256:<64 hex>" },
   "evidence": [{ "path": "release/evidence/c.log", "sha256": "sha256:<64 hex>" }],
   "details": {}
 }
@@ -39,27 +41,55 @@ authorization (`authorizer`, `candidateSha`, `artifactManifestDigest`, `scope.li
 incident contacts (`primary`/`backup` `{name, channel}`), window policy (`approvedBy`,
 `durationMinutes`, `maxSampleGapMinutes`, `thresholds{name: {bound, limit, onBreach}}`).
 
+The artifacts family uses `details.manifestPath` to reference the full
+file (`kind: carwash.release-manifest`, `schemaVersion: 1`) as hashed evidence. A bare image digest map is
+insufficient. Artifact keys include both target and role (`booking/runtime`,
+`booking/migration`), and coverage comes from the candidate's service catalog.
+The authorization uses the canonical digest of that full manifest, including
+its source and provenance metadata.
+
 ## Rules enforced (each has a negative test)
 
 - Exactly one receipt per family; duplicates are `CONFLICT`, unknown/unparseable receipts block GO.
 - Every receipt bound to the candidate sha **and** tree; candidate tree re-resolved from git; every pinned ref must still resolve to the pinned sha (a moved `main` is NO_GO).
 - Evidence files re-hashed at evaluation; edited or missing evidence invalidates the receipt.
 - Acceptance dependencies must be `REAL…`; any stub/mock/double/simulated/not-used label is rejected.
-- Any receipt that names an artifact digest must equal the single published manifest; the authorization must name the canonical manifest digest, so deployment can only use identical digests.
+- The published manifest must cover every runtime and migration target in the candidate catalog, with the correct artifact kind, source blobs, migration sets, digest and provenance metadata. Any receipt that names an artifact digest must match this manifest; the authorization must name its canonical digest.
 - Review must be APPROVED, on the candidate commit, by someone other than the author.
-- Branch protection must enforce checks, approvals and admins.
+- Branch protection must enforce the complete candidate-pinned required-check policy and admins. Its ordinary PR approval count follows the recorded governance policy (currently zero); the separate independent production review remains mandatory.
 - Authorization is time-bounded against an injected clock and must state `liveMoney` explicitly.
 - Secret values anywhere in a receipt are rejected; only store references are accepted.
 - Primary and backup incident contacts must be two distinct named people.
 - Window thresholds must be finite with an explicit breach action; none are invented.
-- Config digest drift and future-dated receipts are invalid.
+- Every configuration digest is mandatory and recomputed from the candidate's Git objects. An evaluator policy that differs from the pinned policy, config digest drift or future-dated receipts blocks release.
+- A gate that changes relevant source, the commit or its tree cannot emit a passing receipt. Explicit local smoke fixture evidence cannot authorize production.
 
 GO yields `deployment: AUTHORIZED_PENDING_RUNBOOK` — it **permits** the reviewed runbook
 with the reported manifest digest; the barrier itself never deploys. No reviewed production
 executor or runbook with real targets exists in this repository (see W10-E), so deployment
 remains blocked even after a GO until that input exists.
 
-## Verdict on current main
+## Artifact receipt command
+
+After obtaining the full release manifest from the artifact workflow, use a
+clean checkout of its exact candidate and record actual verification:
+
+```sh
+node scripts/production/E/release-receipt.mjs run --root <candidate-checkout> \
+  --family E.artifacts-published \
+  --artifact-manifest <candidate-checkout>/release/release-manifest.json \
+  --receipts <candidate-checkout>/release/receipts \
+  --evidence-dir <candidate-checkout>/release/evidence \
+  -- node scripts/production/E/release/verify-release.mjs \
+     --manifest release/release-manifest.json --pull true \
+     --report release/verify-release.json
+```
+
+The producer hashes the manifest and records its path. A verification command
+that changes the source or the manifest fails. Keep evidence outside source
+input directories and retain the published registry objects by digest.
+
+## Historical verdict on main (2026-10-10)
 
 See `docs/production/E/evidence/p08-e1/` for the report produced by the real commands
 below against a detached checkout of main. Commands:

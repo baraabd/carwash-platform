@@ -28,17 +28,33 @@ import {
   CANDIDATE_SCHEMA,
 } from '../../../scripts/production/E/release/barrier.mjs';
 import { evidenceDigester, gitIo, sha256Hex } from '../../../scripts/production/E/release/io.mjs';
+import {
+  artifactDigests,
+  manifestDigest,
+  repositoryFor,
+} from '../../../scripts/production/E/release/manifest.mjs';
+import { inventory } from '../../../scripts/ci/policy.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const policy = JSON.parse(
   readFileSync(path.join(repoRoot, 'architecture/release-barrier.json'), 'utf8'),
 );
+const governance = JSON.parse(
+  readFileSync(path.join(repoRoot, 'architecture/governance/main-ruleset.json'), 'utf8'),
+);
+const REQUIRED_CHECKS = governance.rules
+  .find((rule) => rule.type === 'required_status_checks')
+  .parameters.required_status_checks.map((check) => check.context);
+const REQUIRED_APPROVALS = governance.rules.find((rule) => rule.type === 'pull_request').parameters
+  .required_approving_review_count;
 const NOW = Date.parse('2026-10-11T12:00:00.000Z');
-const ARTIFACTS = {
-  'api-gateway': `sha256:${'a'.repeat(64)}`,
-  identity: `sha256:${'b'.repeat(64)}`,
+const TARGETS = inventory().targets;
+const DIGEST = `sha256:${'a'.repeat(64)}`;
+const LOCKED_BASE_IMAGES = {
+  runtime: `gcr.io/distroless/base-nossl-debian13@${DIGEST}`,
+  nativeLibraries: `gcr.io/distroless/cc-debian13@${DIGEST}`,
 };
-const CONFIG = `sha256:${'c'.repeat(64)}`;
+const MANIFEST_PATH = 'evidence/release-manifest.json';
 
 function sh(cwd, ...args) {
   return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
@@ -54,22 +70,94 @@ function fixtureRepo(t) {
   sh(dir, 'config', 'commit.gpgsign', 'false');
   sh(dir, 'config', 'core.autocrlf', 'false');
   writeFileSync(path.join(dir, 'source.txt'), 'release candidate\n');
+  const file = (name, content) => {
+    mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+    writeFileSync(path.join(dir, name), content);
+  };
+  file(
+    'architecture/service-catalog.json',
+    readFileSync(path.join(repoRoot, 'architecture/service-catalog.json')),
+  );
+  file('architecture/release-barrier.json', JSON.stringify(policy));
+  file('architecture/governance/main-ruleset.json', JSON.stringify(governance));
+  file('pnpm-lock.yaml', 'lockfileVersion: 9.0\n');
+  file(
+    'scripts/ci/tools.lock.json',
+    JSON.stringify({
+      runtime: { image: LOCKED_BASE_IMAGES.runtime },
+      nativeLibraries: { image: LOCKED_BASE_IMAGES.nativeLibraries },
+    }),
+  );
+  file('infra/release/Dockerfile.migrate', 'FROM scratch\n');
+  for (const target of TARGETS.filter((target) => target.database)) {
+    file(`${target.path}/prisma/schema.prisma`, '// synthetic migration schema\n');
+    file(`${target.path}/prisma/migrations/20260101000000_fixture/migration.sql`, 'SELECT 1;\n');
+  }
   sh(dir, 'add', '.');
   sh(dir, 'commit', '-q', '-m', 'rc');
   mkdirSync(path.join(dir, 'evidence'));
   writeFileSync(path.join(dir, 'evidence/run.log'), 'gate output\n');
-  return {
+  const repo = {
     dir,
     sha: sh(dir, 'rev-parse', 'HEAD'),
     tree: sh(dir, 'rev-parse', 'HEAD^{tree}'),
     evidence: [{ path: 'evidence/run.log', sha256: `sha256:${sha256Hex('gate output\n')}` }],
   };
+  const source = gitIo(dir).sourceContext(repo.sha);
+  assert.ok(source);
+  repo.configDigest = source.source.configDigest;
+  const registry = 'ghcr.io/baraabd';
+  const artifacts = TARGETS.flatMap((target) =>
+    (target.database ? ['runtime', 'migration'] : ['runtime']).map((role) => {
+      const repository = repositoryFor(registry, target.id, role);
+      return {
+        id: target.id,
+        kind: target.kind,
+        role,
+        repository,
+        digest: DIGEST,
+        reference: `${repository}@${DIGEST}`,
+        platform: 'linux/amd64',
+        attestations: {
+          sbom: true,
+          provenance: true,
+          sbomSha256: DIGEST,
+          provenanceSha256: DIGEST,
+          registryAttestationManifests: 1,
+        },
+        ...(role === 'migration'
+          ? {
+              database: target.database,
+              migrationRole: target.migrationRole,
+              runtimeRole: target.runtimeRole,
+              migrationSet: source.migrationSets[target.id],
+            }
+          : {}),
+      };
+    }),
+  );
+  const body = {
+    kind: 'carwash.release-manifest',
+    schemaVersion: 1,
+    source: source.source,
+    registry,
+    baseImages: {
+      node: `docker.io/library/node@${DIGEST}`,
+      ...LOCKED_BASE_IMAGES,
+    },
+    artifacts,
+  };
+  repo.manifest = { ...body, manifestDigest: manifestDigest(body) };
+  const bytes = JSON.stringify(repo.manifest);
+  writeFileSync(path.join(dir, MANIFEST_PATH), bytes);
+  repo.manifestEvidence = { path: MANIFEST_PATH, sha256: `sha256:${sha256Hex(bytes)}` };
+  return repo;
 }
-
-const manifestDigest = () => `sha256:${sha256Hex(canonicalJson(ARTIFACTS))}`;
 
 function details(kind, repo) {
   switch (kind) {
+    case 'artifacts':
+      return { manifestPath: MANIFEST_PATH };
     case 'review':
       return {
         pullRequest: 140,
@@ -81,15 +169,15 @@ function details(kind, repo) {
     case 'branch-protection':
       return {
         branch: 'main',
-        requiredChecks: ['aggregate'],
+        requiredChecks: REQUIRED_CHECKS,
         enforceAdmins: true,
-        requiredApprovals: 1,
+        requiredApprovals: REQUIRED_APPROVALS,
       };
     case 'authorization':
       return {
         authorizer: 'project-owner',
         candidateSha: repo.sha,
-        artifactManifestDigest: manifestDigest(),
+        artifactManifestDigest: repo.manifest.manifestDigest,
         scope: { liveMoney: false },
         notBefore: '2026-10-11T00:00:00Z',
         expiresAt: '2026-10-12T00:00:00Z',
@@ -123,12 +211,15 @@ function receiptFor(family, repo) {
     rc: { sha: repo.sha, tree: repo.tree },
     producedAt: '2026-10-11T10:00:00.000Z',
     producer: { actor: `owner-of-${family.id}` },
-    configDigest: CONFIG,
+    configDigest: repo.configDigest,
     evidence: repo.evidence,
   };
   if (family.kind === 'acceptance')
     receipt.dependencies = { postgres: 'REAL (disposable container)', rabbitmq: 'REAL' };
-  if (family.kind === 'artifacts') receipt.artifacts = { ...ARTIFACTS };
+  if (family.kind === 'artifacts') {
+    receipt.artifacts = artifactDigests(repo.manifest);
+    receipt.evidence = [...repo.evidence, repo.manifestEvidence];
+  }
   const d = details(family.kind, repo);
   if (d) receipt.details = d;
   return receipt;
@@ -143,12 +234,12 @@ function setup(t, { fresh = false } = {}) {
     sha: repo.sha,
     tree: repo.tree,
     refs: { 'refs/heads/main': repo.sha },
-    configDigest: CONFIG,
+    configDigest: repo.configDigest,
   };
   const receipts = Object.fromEntries(policy.families.map((f) => [f.id, receiptFor(f, repo)]));
   const evaluate = (overrides = {}) =>
     evaluateBarrier({
-      policy,
+      policy: overrides.policy ?? policy,
       candidate: overrides.candidate ?? candidate,
       receipts:
         overrides.receipts ??
@@ -160,6 +251,24 @@ function setup(t, { fresh = false } = {}) {
 }
 
 const familyResult = (report, id) => report.families.find((f) => f.family === id);
+
+function replaceManifest(repo, receipt, manifest, { rehash = true } = {}) {
+  if (rehash && manifest && !Array.isArray(manifest) && typeof manifest === 'object') {
+    const body = { ...manifest };
+    delete body.manifestDigest;
+    manifest.manifestDigest = manifestDigest(body);
+  }
+  const bytes = JSON.stringify(manifest);
+  writeFileSync(path.join(repo.dir, MANIFEST_PATH), bytes);
+  receipt.evidence = [
+    ...repo.evidence,
+    { path: MANIFEST_PATH, sha256: `sha256:${sha256Hex(bytes)}` },
+  ];
+  // A map is optional because the actual artifact receipt producer records the
+  // full manifest as evidence. Its complete artifact inventory is authoritative.
+  delete receipt.artifacts;
+  return manifest?.manifestDigest;
+}
 
 test('policy: every family has a unique id, owner, action and a validator kind', () => {
   const ids = policy.families.map((f) => f.id);
@@ -184,11 +293,19 @@ test('policy: every family has a unique id, owner, action and a validator kind',
 });
 
 test('GO only when every family has one valid PASSED receipt bound to the candidate', (t) => {
-  const { evaluate } = setup(t);
+  const { evaluate, repo } = setup(t);
   const report = evaluate();
   assert.equal(report.verdict, 'GO', JSON.stringify(report.blockers, null, 2));
   assert.equal(report.deployment, 'AUTHORIZED_PENDING_RUNBOOK');
-  assert.equal(report.artifactManifestDigest, manifestDigest());
+  assert.equal(
+    repo.manifest.artifacts.filter((artifact) => artifact.role === 'runtime').length,
+    23,
+  );
+  assert.equal(
+    repo.manifest.artifacts.filter((artifact) => artifact.role === 'migration').length,
+    19,
+  );
+  assert.equal(report.artifactManifestDigest, repo.manifest.manifestDigest);
   assert.deepEqual(report.blockers, []);
 });
 
@@ -313,7 +430,263 @@ test('branch protection without required checks or enforce_admins is a blocker',
     requiredApprovals: 0,
   };
   const problems = familyResult(evaluate(), 'repo.required-checks-enforced').problems;
-  assert.equal(problems.length, 3);
+  assert.match(problems.join(), /no required status checks/);
+  assert.match(problems.join(), /enforce_admins/);
+  assert.doesNotMatch(problems.join(), /approving review/);
+});
+
+test('branch protection covers every pinned check while ordinary PR approvals follow owner policy', (t) => {
+  const { evaluate, receipts } = setup(t);
+  assert.equal(REQUIRED_APPROVALS, 0);
+  assert.equal(REQUIRED_CHECKS.length, 14);
+  assert.equal(evaluate().verdict, 'GO');
+  receipts['repo.required-checks-enforced'].details.requiredChecks = REQUIRED_CHECKS.filter(
+    (check) => check !== 'Release artifacts verified',
+  );
+  assert.match(
+    familyResult(evaluate(), 'repo.required-checks-enforced').problems.join(),
+    /required status check is not enforced: Release artifacts verified/,
+  );
+  receipts['repo.required-checks-enforced'].details.requiredChecks = REQUIRED_CHECKS;
+  receipts['repo.required-checks-enforced'].details.requiredApprovals = -1;
+  assert.match(
+    familyResult(evaluate(), 'repo.required-checks-enforced').problems.join(),
+    /required approving reviews/,
+  );
+  receipts['repo.required-checks-enforced'].details.requiredApprovals = 0;
+  delete receipts['review.independent'];
+  const report = evaluate();
+  assert.equal(familyResult(report, 'repo.required-checks-enforced').status, 'PASSED');
+  assert.equal(familyResult(report, 'review.independent').status, 'MISSING');
+  assert.equal(report.verdict, 'NO_GO');
+});
+
+test('an arbitrary digest map cannot substitute for the full source-bound manifest', (t) => {
+  const { evaluate, receipts } = setup(t);
+  const artifactReceipt = receipts['E.artifacts-published'];
+  artifactReceipt.artifacts = { gateway: DIGEST, billing: DIGEST };
+  delete artifactReceipt.details.manifestPath;
+  receipts['ext.production-authorization'].details.artifactManifestDigest = manifestDigest(
+    artifactReceipt.artifacts,
+  );
+  const report = evaluate();
+  assert.equal(report.verdict, 'NO_GO');
+  assert.equal(report.artifactManifestDigest, null);
+  assert.match(
+    familyResult(report, 'E.artifacts-published').problems.join(),
+    /full release manifest/,
+  );
+  assert.match(
+    familyResult(report, 'ext.production-authorization').problems.join(),
+    /no validated/,
+  );
+});
+
+test('a rehashed, authorized manifest with a missing runtime or owner migration is refused', (t) => {
+  const { evaluate, receipts, repo } = setup(t, { fresh: true });
+  for (const role of ['runtime', 'migration']) {
+    const manifest = structuredClone(repo.manifest);
+    manifest.artifacts = manifest.artifacts.filter(
+      (artifact) => !(artifact.id === 'billing' && artifact.role === role),
+    );
+    receipts['ext.production-authorization'].details.artifactManifestDigest = replaceManifest(
+      repo,
+      receipts['E.artifacts-published'],
+      manifest,
+    );
+    const report = evaluate();
+    assert.equal(report.verdict, 'NO_GO');
+    assert.equal(report.artifactManifestDigest, null);
+    assert.match(
+      familyResult(report, 'E.artifacts-published').problems.join(),
+      new RegExp(`${role.toUpperCase()}_ARTIFACT_MISSING: billing`),
+    );
+  }
+});
+
+test('the manifest source blobs, configuration and migration bytes must match the candidate git objects', (t) => {
+  const { evaluate, receipts, repo } = setup(t, { fresh: true });
+  const mutations = [
+    [
+      'source tree',
+      (manifest) => {
+        manifest.source.tree = 'f'.repeat(40);
+      },
+    ],
+    [
+      'source lockfileBlob',
+      (manifest) => {
+        manifest.source.lockfileBlob = 'f'.repeat(40);
+      },
+    ],
+    [
+      'source toolsLockBlob',
+      (manifest) => {
+        manifest.source.toolsLockBlob = 'f'.repeat(40);
+      },
+    ],
+    [
+      'source migrationDockerfileBlob',
+      (manifest) => {
+        manifest.source.migrationDockerfileBlob = 'f'.repeat(40);
+      },
+    ],
+    [
+      'source configDigest',
+      (manifest) => {
+        manifest.source.configDigest = `sha256:${'f'.repeat(64)}`;
+      },
+    ],
+    [
+      'migration set billing',
+      (manifest) => {
+        manifest.artifacts.find(
+          (artifact) => artifact.id === 'billing' && artifact.role === 'migration',
+        ).migrationSet.digest = `sha256:${'f'.repeat(64)}`;
+      },
+    ],
+  ];
+  for (const [reason, mutate] of mutations) {
+    const manifest = structuredClone(repo.manifest);
+    mutate(manifest);
+    receipts['ext.production-authorization'].details.artifactManifestDigest = replaceManifest(
+      repo,
+      receipts['E.artifacts-published'],
+      manifest,
+    );
+    const report = evaluate();
+    assert.equal(report.verdict, 'NO_GO', reason);
+    assert.equal(report.artifactManifestDigest, null);
+    assert.ok(
+      familyResult(report, 'E.artifacts-published').problems.some((problem) =>
+        problem.includes(reason),
+      ),
+      reason,
+    );
+  }
+});
+
+test('a rehashed manifest cannot substitute either tool-lock-pinned base image', (t) => {
+  const { evaluate, receipts, repo } = setup(t, { fresh: true });
+  for (const name of ['runtime', 'nativeLibraries']) {
+    const manifest = structuredClone(repo.manifest);
+    manifest.baseImages[name] = LOCKED_BASE_IMAGES[name].replace(
+      DIGEST,
+      `sha256:${'f'.repeat(64)}`,
+    );
+    receipts['ext.production-authorization'].details.artifactManifestDigest = replaceManifest(
+      repo,
+      receipts['E.artifacts-published'],
+      manifest,
+    );
+    const report = evaluate();
+    assert.equal(report.verdict, 'NO_GO', name);
+    assert.equal(report.artifactManifestDigest, null);
+    assert.match(
+      familyResult(report, 'E.artifacts-published').problems.join(),
+      new RegExp(`base image ${name} differs from the pinned tool lock`),
+    );
+  }
+});
+
+test('manifest evidence and its canonical digest are both immutable receipt inputs', (t) => {
+  const { evaluate, receipts, repo } = setup(t, { fresh: true });
+  const manifest = structuredClone(repo.manifest);
+  manifest.manifestDigest = `sha256:${'e'.repeat(64)}`;
+  replaceManifest(repo, receipts['E.artifacts-published'], manifest, { rehash: false });
+  assert.match(
+    familyResult(evaluate(), 'E.artifacts-published').problems.join(),
+    /canonical digest/,
+  );
+  replaceManifest(repo, receipts['E.artifacts-published'], repo.manifest);
+  assert.equal(evaluate().verdict, 'GO');
+  writeFileSync(path.join(repo.dir, MANIFEST_PATH), `${JSON.stringify(repo.manifest)}\n`);
+  const report = evaluate();
+  assert.equal(report.verdict, 'NO_GO');
+  assert.match(familyResult(report, 'E.artifacts-published').problems.join(), /unchanged, hashed/);
+});
+
+test('malformed full manifest evidence is a blocker without crashing the barrier', (t) => {
+  const { evaluate, receipts, repo } = setup(t, { fresh: true });
+  for (const malformed of [null, [], 'manifest', { ...repo.manifest, artifacts: [null] }]) {
+    replaceManifest(repo, receipts['E.artifacts-published'], malformed);
+    const report = evaluate();
+    assert.equal(report.verdict, 'NO_GO');
+    assert.equal(report.artifactManifestDigest, null);
+    assert.match(familyResult(report, 'E.artifacts-published').problems.join(), /OBJECT_REQUIRED/);
+  }
+});
+
+test('authorization uses the complete manifest digest rather than a separately hashed artifact map', (t) => {
+  const { evaluate, receipts, repo } = setup(t);
+  const mapDigest = manifestDigest(artifactDigests(repo.manifest));
+  assert.notEqual(mapDigest, repo.manifest.manifestDigest);
+  receipts['ext.production-authorization'].details.artifactManifestDigest = mapDigest;
+  assert.match(
+    familyResult(evaluate(), 'ext.production-authorization').problems.join(),
+    /different artifact manifest/,
+  );
+});
+
+test('a failed artifact receipt or partial digest map cannot anchor production authorization', (t) => {
+  const { evaluate, receipts } = setup(t);
+  const receipt = receipts['E.artifacts-published'];
+  receipt.status = 'FAILED';
+  let report = evaluate();
+  assert.equal(report.artifactManifestDigest, null);
+  assert.equal(report.verdict, 'NO_GO');
+  receipt.status = 'PASSED';
+  delete receipt.artifacts['billing/migration'];
+  report = evaluate();
+  assert.equal(report.artifactManifestDigest, null);
+  assert.equal(report.verdict, 'NO_GO');
+  assert.match(
+    familyResult(report, 'ext.production-authorization').problems.join(),
+    /no validated/,
+  );
+});
+
+test('cross-family artifact maps must use canonical role-qualified keys and cannot be null', (t) => {
+  const { evaluate, receipts } = setup(t);
+  const receipt = receipts['E.recovery-rehearsal'];
+  for (const artifacts of [null, [], { billing: DIGEST }, { 'billing/unknown': DIGEST }]) {
+    receipt.artifacts = artifacts;
+    assert.equal(familyResult(evaluate(), 'E.recovery-rehearsal').status, 'INVALID');
+  }
+  receipt.artifacts = { 'billing/runtime': DIGEST, 'billing/migration': DIGEST };
+  assert.equal(evaluate().verdict, 'GO');
+});
+
+test('configuration cannot be omitted or forged consistently across candidate and receipts', (t) => {
+  const { evaluate, candidate, receipts } = setup(t);
+  delete receipts['E.design-lock'].configDigest;
+  assert.match(
+    familyResult(evaluate(), 'E.design-lock').problems.join(),
+    /must declare its configuration/,
+  );
+  const forged = `sha256:${'e'.repeat(64)}`;
+  for (const receipt of Object.values(receipts)) receipt.configDigest = forged;
+  const report = evaluate({ candidate: { ...candidate, configDigest: forged } });
+  assert.equal(report.verdict, 'NO_GO');
+  assert.equal(
+    report.candidateChecks.find((check) => check.check === 'candidate-configuration').status,
+    'FAILED',
+  );
+});
+
+test('the candidate git policy cannot be replaced with a policy that omits a mandatory family', (t) => {
+  const { evaluate, receipts } = setup(t);
+  const changedPolicy = {
+    ...policy,
+    families: policy.families.filter((family) => family.id !== 'review.independent'),
+  };
+  delete receipts['review.independent'];
+  const report = evaluate({ policy: changedPolicy });
+  assert.equal(report.verdict, 'NO_GO');
+  assert.equal(
+    report.candidateChecks.find((check) => check.check === 'candidate-release-policy').status,
+    'FAILED',
+  );
 });
 
 test('authorization: expired, not-yet-valid, wrong manifest or unstated live-money scope', (t) => {
@@ -342,7 +715,7 @@ test('authorization: expired, not-yet-valid, wrong manifest or unstated live-mon
 
 test('any receipt naming a different artifact digest breaks identical-digest deployment', (t) => {
   const { evaluate, receipts } = setup(t);
-  receipts['E.recovery-rehearsal'].artifacts = { 'api-gateway': `sha256:${'d'.repeat(64)}` };
+  receipts['E.recovery-rehearsal'].artifacts = { 'gateway/runtime': `sha256:${'d'.repeat(64)}` };
   assert.match(
     familyResult(evaluate(), 'E.recovery-rehearsal').problems.join(),
     /differs from the published manifest/,
@@ -484,6 +857,8 @@ fs.writeFileSync = (file, ...args) => {
 syncBuiltinESMExports();
 `,
   );
+  sh(repo.dir, 'add', 'competing-writer.mjs');
+  sh(repo.dir, 'commit', '-q', '-m', 'tracked test hook');
   const run = spawnSync(
     process.execPath,
     [
@@ -509,6 +884,52 @@ syncBuiltinESMExports();
   assert.equal(run.status, 1, run.stderr);
   assert.match(run.stderr, /exists; remove it deliberately/);
   assert.equal(readFileSync(receiptPath, 'utf8'), 'competing receipt\n');
+});
+
+test('CLI artifact receipt with the full 42-artifact manifest is directly consumable by the barrier', (t) => {
+  const { repo, receipts, evaluate } = setup(t, { fresh: true });
+  const receiptsDirectory = path.join(repo.dir, 'release/generated-receipts');
+  const run = spawnSync(
+    process.execPath,
+    [
+      path.join(repoRoot, 'scripts/production/E/release-receipt.mjs'),
+      'run',
+      '--root',
+      repo.dir,
+      '--family',
+      'E.artifacts-published',
+      '--artifact-manifest',
+      MANIFEST_PATH,
+      '--receipts',
+      receiptsDirectory,
+      '--evidence-dir',
+      path.join(repo.dir, 'release/evidence'),
+      '--',
+      process.execPath,
+      '-e',
+      'console.log("synthetic registry verification fixture")',
+    ],
+    { encoding: 'utf8' },
+  );
+  assert.equal(run.status, 0, run.stderr);
+  const generated = JSON.parse(
+    readFileSync(path.join(receiptsDirectory, 'E.artifacts-published.json'), 'utf8'),
+  );
+  assert.equal(generated.details.manifestPath, MANIFEST_PATH);
+  assert.ok(
+    generated.evidence.some(
+      (item) => item.path === MANIFEST_PATH && item.sha256 === repo.manifestEvidence.sha256,
+    ),
+  );
+  receipts['E.artifacts-published'] = generated;
+  const now = Date.now();
+  for (const [id, receipt] of Object.entries(receipts))
+    if (id !== 'E.artifacts-published') receipt.producedAt = new Date(now - 60_000).toISOString();
+  receipts['ext.production-authorization'].details.notBefore = new Date(now - 60_000).toISOString();
+  receipts['ext.production-authorization'].details.expiresAt = new Date(now + 60_000).toISOString();
+  const report = evaluate({ now });
+  assert.equal(report.verdict, 'GO', JSON.stringify(report.blockers, null, 2));
+  assert.equal(report.artifactManifestDigest, repo.manifest.manifestDigest);
 });
 
 test('CLI: receipt producer binds the exact tree, and barrier exits 2 on NO_GO', (t) => {

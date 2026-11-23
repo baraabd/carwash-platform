@@ -7,6 +7,9 @@
 // material, and agrees with the candidate config digest and the published
 // artifact manifest. Anything else is NO-GO with the owning lane and action.
 
+import { artifactDigests, canonicalJson, manifestDigest, validateManifest } from './manifest.mjs';
+export { canonicalJson } from './manifest.mjs';
+
 export const RECEIPT_SCHEMA = 'carwash.release-receipt/v1';
 export const CANDIDATE_SCHEMA = 'carwash.release-candidate/v1';
 
@@ -80,13 +83,8 @@ const KIND_CHECKS = {
         problems.push(`dependency ${name} is not real (${String(label)})`);
     return problems;
   },
-  artifacts(receipt) {
-    const artifacts = receipt.artifacts;
-    if (!isObject(artifacts) || Object.keys(artifacts).length === 0)
-      return ['artifact manifest must list at least one image digest'];
-    return Object.entries(artifacts)
-      .filter(([, digest]) => !DIGEST.test(digest))
-      .map(([name]) => `artifact ${name} digest must be sha256:<hex>`);
+  artifacts(_receipt, _candidate, ctx) {
+    return ctx.manifestProblems;
   },
   review(receipt, candidate) {
     const d = receipt.details ?? {};
@@ -102,15 +100,32 @@ const KIND_CHECKS = {
       problems.push('review approved a different commit than the candidate');
     return problems;
   },
-  'branch-protection'(receipt) {
+  'branch-protection'(receipt, _candidate, ctx) {
     const d = receipt.details ?? {};
     const problems = [];
     if (d.branch !== 'main') problems.push('protection record must be for main');
-    if (!Array.isArray(d.requiredChecks) || d.requiredChecks.length === 0)
+    const requiredChecks = ctx.governance?.rules?.find(
+      (rule) => rule.type === 'required_status_checks',
+    )?.parameters?.required_status_checks;
+    const requiredApprovals = ctx.governance?.rules?.find((rule) => rule.type === 'pull_request')
+      ?.parameters?.required_approving_review_count;
+    if (!Array.isArray(requiredChecks) || !Number.isInteger(requiredApprovals))
+      problems.push('required branch governance cannot be resolved from the candidate');
+    if (
+      !Array.isArray(d.requiredChecks) ||
+      d.requiredChecks.length === 0 ||
+      d.requiredChecks.some((check) => !nonEmptyString(check))
+    )
       problems.push('no required status checks are enforced');
+    else if (requiredChecks)
+      for (const { context } of requiredChecks)
+        if (!d.requiredChecks.includes(context))
+          problems.push(`required status check is not enforced: ${context}`);
     if (d.enforceAdmins !== true) problems.push('enforce_admins is not enabled');
-    if (!Number.isInteger(d.requiredApprovals) || d.requiredApprovals < 1)
-      problems.push('at least one required approving review must be enforced');
+    if (!Number.isInteger(d.requiredApprovals) || d.requiredApprovals < requiredApprovals)
+      problems.push(
+        `required approving reviews do not satisfy the candidate governance (${requiredApprovals})`,
+      );
     return problems;
   },
   authorization(receipt, candidate, ctx) {
@@ -121,7 +136,9 @@ const KIND_CHECKS = {
       problems.push('authorization names a different candidate');
     if (!DIGEST.test(d.artifactManifestDigest ?? ''))
       problems.push('authorization must name the artifact manifest digest');
-    else if (ctx.artifactManifestDigest && d.artifactManifestDigest !== ctx.artifactManifestDigest)
+    else if (!ctx.artifactManifestDigest)
+      problems.push('authorization has no validated published artifact manifest');
+    else if (d.artifactManifestDigest !== ctx.artifactManifestDigest)
       problems.push('authorization names a different artifact manifest than the published one');
     if (!isObject(d.scope) || typeof d.scope.liveMoney !== 'boolean')
       problems.push('authorization scope must state liveMoney explicitly');
@@ -204,7 +221,9 @@ function validateReceipt(receipt, family, candidate, ctx) {
   if (parseInstant(receipt.producedAt) === null) problems.push('producedAt must be a UTC instant');
   else if (parseInstant(receipt.producedAt) > ctx.now) problems.push('producedAt is in the future');
   if (!nonEmptyString(receipt.producer?.actor)) problems.push('producer.actor is required');
-  if (receipt.configDigest !== undefined && receipt.configDigest !== candidate.configDigest)
+  if (!DIGEST.test(receipt.configDigest ?? ''))
+    problems.push('receipt must declare its configuration digest');
+  else if (receipt.configDigest !== candidate.configDigest)
     problems.push('receipt ran against a different configuration digest');
   if (!Array.isArray(receipt.evidence) || receipt.evidence.length === 0)
     problems.push('receipt must reference at least one evidence file');
@@ -219,10 +238,21 @@ function validateReceipt(receipt, family, candidate, ctx) {
       else if (actual !== item.sha256)
         problems.push(`evidence ${item.path} changed after the receipt was issued`);
     }
-  if (receipt.artifacts !== undefined && family.kind !== 'artifacts' && ctx.artifacts)
-    for (const [name, digest] of Object.entries(receipt.artifacts))
-      if (ctx.artifacts[name] !== digest)
-        problems.push(`artifact ${name} differs from the published manifest`);
+  if (receipt.artifacts !== undefined) {
+    if (!isObject(receipt.artifacts))
+      problems.push('artifacts must be a role-qualified digest map');
+    else if (!ctx.artifacts) problems.push('artifacts have no validated published manifest');
+    else {
+      for (const [name, digest] of Object.entries(receipt.artifacts))
+        if (!Object.hasOwn(ctx.artifacts, name) || ctx.artifacts[name] !== digest)
+          problems.push(`artifact ${name} differs from the published manifest`);
+      if (
+        family.kind === 'artifacts' &&
+        canonicalJson(receipt.artifacts) !== canonicalJson(ctx.artifacts)
+      )
+        problems.push('artifact receipt digest map does not cover its complete manifest');
+    }
+  }
   for (const path of findSecretMaterial(receipt)) problems.push(`secret material at ${path}`);
   const kindCheck = KIND_CHECKS[family.kind];
   if (!kindCheck) problems.push(`policy kind ${family.kind} has no validator`);
@@ -230,15 +260,65 @@ function validateReceipt(receipt, family, candidate, ctx) {
   return problems;
 }
 
-/** Canonical JSON (sorted keys) so manifest digests do not depend on key order. */
-export function canonicalJson(value) {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
-  if (isObject(value))
-    return `{${Object.keys(value)
-      .sort()
-      .map((k) => `${JSON.stringify(k)}:${canonicalJson(value[k])}`)
-      .join(',')}}`;
-  return JSON.stringify(value);
+/** Read and validate the same full manifest produced by the P07 build. */
+function publishedManifest(receipt, candidate, sourceContext, io) {
+  const problems = [];
+  const rejected = () => ({ problems, digest: null, artifacts: null });
+  const manifestPath = receipt.details?.manifestPath;
+  if (!nonEmptyString(manifestPath)) {
+    problems.push(
+      'artifact receipt must reference the full release manifest in details.manifestPath',
+    );
+    return rejected();
+  }
+  const evidence = Array.isArray(receipt.evidence)
+    ? receipt.evidence.find((item) => isObject(item) && item.path === manifestPath)
+    : null;
+  const file = typeof io.readEvidence === 'function' ? io.readEvidence(manifestPath) : null;
+  if (!evidence || !file || evidence.sha256 !== file.sha256) {
+    problems.push('release manifest must be present as unchanged, hashed receipt evidence');
+    return rejected();
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(file.content);
+  } catch {
+    problems.push('release manifest evidence must contain JSON');
+    return rejected();
+  }
+  if (!sourceContext) {
+    problems.push('release manifest cannot be checked without the candidate source inventory');
+    return rejected();
+  }
+  const structural = validateManifest(manifest, sourceContext.targets);
+  problems.push(
+    ...structural.map(
+      (problem) =>
+        `release manifest ${problem.code}: ${problem.key ?? problem.id ?? problem.name ?? ''}`,
+    ),
+  );
+  if (structural.length) return rejected();
+  const { manifestDigest: recorded, ...body } = manifest;
+  const digest = manifestDigest(body);
+  if (recorded !== digest)
+    problems.push('release manifest canonical digest does not match its content');
+  if (manifest.source.sha !== candidate.sha || manifest.source.tree !== candidate.tree)
+    problems.push('release manifest names a different candidate source');
+  for (const [name, value] of Object.entries(sourceContext.source))
+    if (manifest.source[name] !== value)
+      problems.push(`release manifest source ${name} does not match the pinned git object`);
+  for (const [name, reference] of Object.entries(sourceContext.baseImages))
+    if (manifest.baseImages[name] !== reference)
+      problems.push(`release manifest base image ${name} differs from the pinned tool lock`);
+  for (const artifact of manifest.artifacts) {
+    if (artifact.role !== 'migration') continue;
+    const expected = sourceContext.migrationSets[artifact.id];
+    if (!expected || canonicalJson(artifact.migrationSet) !== canonicalJson(expected))
+      problems.push(`release manifest migration set ${artifact.id} differs from the candidate`);
+  }
+  for (const secretPath of findSecretMaterial(manifest))
+    problems.push(`secret material in release manifest at ${secretPath}`);
+  return problems.length ? rejected() : { problems, digest, artifacts: artifactDigests(manifest) };
 }
 
 /**
@@ -246,7 +326,7 @@ export function canonicalJson(value) {
  * @param {object} input.policy        architecture/release-barrier.json
  * @param {object} input.candidate     carwash.release-candidate/v1
  * @param {Array<{source: string, receipt: unknown}>} input.receipts
- * @param {object} input.io            { resolveTree(sha), resolveRef(ref), digestEvidence(path), sha256(text) }
+ * @param {object} input.io            { resolveTree(sha), resolveRef(ref), sourceContext(sha), readEvidence(path), digestEvidence(path) }
  * @param {number} input.now           epoch ms (injected clock)
  */
 export function evaluateBarrier({ policy, candidate, receipts, io, now }) {
@@ -257,6 +337,11 @@ export function evaluateBarrier({ policy, candidate, receipts, io, now }) {
     throw new BarrierInputError('policy has no families');
   if (policy.receiptSchema !== RECEIPT_SCHEMA)
     throw new BarrierInputError('policy receipt schema mismatch');
+  if (
+    policy.schemaVersion !== 1 ||
+    new Set(families.map((family) => family.id)).size !== families.length
+  )
+    throw new BarrierInputError('policy schema or family identity is invalid');
 
   const candidateChecks = [];
   const tree = io.resolveTree(candidate.sha);
@@ -265,6 +350,35 @@ export function evaluateBarrier({ policy, candidate, receipts, io, now }) {
   else if (tree !== candidate.tree)
     candidateChecks.push({ check: 'candidate-tree', status: 'FAILED', reason: `tree is ${tree}` });
   else candidateChecks.push({ check: 'candidate-tree', status: 'PASSED' });
+  const sourceContext =
+    typeof io.sourceContext === 'function' ? io.sourceContext(candidate.sha) : null;
+  candidateChecks.push(
+    sourceContext
+      ? { check: 'candidate-release-inputs', status: 'PASSED' }
+      : {
+          check: 'candidate-release-inputs',
+          status: 'FAILED',
+          reason: 'candidate release inputs cannot be resolved from git',
+        },
+  );
+  candidateChecks.push(
+    sourceContext?.source.configDigest === candidate.configDigest
+      ? { check: 'candidate-configuration', status: 'PASSED' }
+      : {
+          check: 'candidate-configuration',
+          status: 'FAILED',
+          reason: 'configuration digest differs from pinned source inputs',
+        },
+  );
+  candidateChecks.push(
+    sourceContext && canonicalJson(sourceContext.policy) === canonicalJson(policy)
+      ? { check: 'candidate-release-policy', status: 'PASSED' }
+      : {
+          check: 'candidate-release-policy',
+          status: 'FAILED',
+          reason: 'release policy differs from the pinned candidate policy',
+        },
+  );
   for (const [ref, expected] of Object.entries(candidate.refs)) {
     const actual = io.resolveRef(ref);
     candidateChecks.push(
@@ -285,19 +399,30 @@ export function evaluateBarrier({ policy, candidate, receipts, io, now }) {
     byFamily.set(id, [...(byFamily.get(id) ?? []), { source, receipt }]);
   }
 
-  // The published manifest anchors every artifact comparison, but only when
-  // its own receipt is singular; a conflicting manifest anchors nothing.
-  const manifestReceipts = byFamily.get(families.find((f) => f.kind === 'artifacts')?.id) ?? [];
+  // Only a singular, passed, source-bound and complete manifest receipt can
+  // anchor artifact comparisons and production authorization.
+  const manifestFamily = families.find((family) => family.kind === 'artifacts');
+  const manifestReceipts = byFamily.get(manifestFamily?.id) ?? [];
   const manifest =
-    manifestReceipts.length === 1 && isObject(manifestReceipts[0].receipt.artifacts)
-      ? manifestReceipts[0].receipt.artifacts
-      : null;
+    manifestReceipts.length === 1
+      ? publishedManifest(manifestReceipts[0].receipt, candidate, sourceContext, io)
+      : { problems: ['no singular published manifest receipt'], digest: null, artifacts: null };
   const ctx = {
     now,
-    artifacts: manifest,
-    artifactManifestDigest: manifest ? `sha256:${io.sha256(canonicalJson(manifest))}` : null,
+    governance: sourceContext?.governance,
+    artifacts: manifest.artifacts,
+    artifactManifestDigest: manifest.digest,
+    manifestProblems: manifest.problems,
     digestEvidence: io.digestEvidence,
   };
+  if (
+    manifestReceipts.length === 1 &&
+    (manifestReceipts[0].receipt.status !== 'PASSED' ||
+      validateReceipt(manifestReceipts[0].receipt, manifestFamily, candidate, ctx).length > 0)
+  ) {
+    ctx.artifacts = null;
+    ctx.artifactManifestDigest = null;
+  }
 
   const results = families.map((family) => {
     const found = byFamily.get(family.id) ?? [];
