@@ -1,0 +1,48 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://washgo.example.invalid/vex/removed-legacy-converters-amd64-v1",
+  "author": "WashGo Security",
+  "timestamp": "2026-11-22T00:00:00Z",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2026-121757"
+      },
+      "products": [
+        {
+          "@id": "pkg:deb/debian/libc6@2.41-12%2Bdeb13u4?arch=amd64&distro=debian-13.7"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "The final WashGo linux/amd64 image physically removes UHC.so (CP949) from glibc 2.41-12+deb13u4 on Debian 13.7. Original package records, checksum manifests and licences remain present. This statement may be applied only after the immutable scanned image ID passes mandatory absence checks for all four removed converter modules and UTF-8, Arabic, ICU, TLS, crypto and native-runtime checks. It does not apply to the upstream distroless image, another package/version/architecture, or an image without the current bound filesystem proof. The unfiltered inventory remains recorded and every other finding remains blocking."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-121758"
+      },
+      "products": [
+        {
+          "@id": "pkg:deb/debian/libc6@2.41-12%2Bdeb13u4?arch=amd64&distro=debian-13.7"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "The final WashGo linux/amd64 image physically removes ISO-2022-CN-EXT.so from glibc 2.41-12+deb13u4 on Debian 13.7. Original package records, checksum manifests and licences remain present. This statement may be applied only after the immutable scanned image ID passes mandatory absence checks for all four removed converter modules and UTF-8, Arabic, ICU, TLS, crypto and native-runtime checks. It does not apply to the upstream distroless image, another package/version/architecture, or an image without the current bound filesystem proof. The unfiltered inventory remains recorded and every other finding remains blocking."
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-124024"
+      },
+      "products": [
+        {
+          "@id": "pkg:deb/debian/libc6@2.41-12%2Bdeb13u4?arch=amd64&distro=debian-13.7"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "The final WashGo linux/amd64 image physically removes IBM1390.so and IBM1399.so from glibc 2.41-12+deb13u4 on Debian 13.7. Original package records, checksum manifests and licences remain present. This statement may be applied only after the immutable scanned image ID passes mandatory absence checks for all four removed converter modules and UTF-8, Arabic, ICU, TLS, crypto and native-runtime checks. It does not apply to the upstream distroless image, another package/version/architecture, or an image without the current bound filesystem proof. The unfiltered inventory remains recorded and every other finding remains blocking."
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import {
   REFUND_CHANNELS,
   REFUND_REASONS,
   REFUND_STATUSES,
+  REFUND_WORKFLOWS,
   RESERVING_REFUND_STATUSES,
   STATEMENT_REJECTION_REASONS,
   UNALLOCATED_REASONS,
@@ -79,6 +80,7 @@ function toCredit(row: CreditRow): ProviderCreditRecord {
 function toRefund(row: RefundRow): RefundRecord {
   return {
     id: row.id,
+    workflow: member(REFUND_WORKFLOWS, row.workflow, 'REFUND_WORKFLOW'),
     creditId: row.creditId,
     provider: member(PROVIDERS, row.provider, 'PROVIDER'),
     amount: Money.of(row.currency, row.amountMinor),
@@ -153,6 +155,18 @@ export class PrismaProviderStore implements ProviderStore {
     return row ? toCredit(row) : null;
   }
 
+  async activeCreditsForReference(
+    provider: ProviderId,
+    reference: string,
+  ): Promise<readonly ProviderCreditRecord[]> {
+    const rows = await this.tx.providerCredit.findMany({
+      where: { provider, providerReference: reference, activeSlot: 1 },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: 2,
+    });
+    return rows.map(toCredit);
+  }
+
   async claimFor(provider: ProviderId, reference: string): Promise<ClaimLocation | null> {
     const row = await this.tx.paymentAttempt.findUnique({
       where: { method_providerReference: { method: provider, providerReference: reference } },
@@ -219,6 +233,7 @@ export class PrismaProviderStore implements ProviderStore {
     await this.tx.paymentRefund.create({
       data: {
         id: refund.id,
+        workflow: refund.workflow,
         creditId: refund.creditId,
         provider: refund.provider,
         currency: refund.amount.currency,
@@ -233,6 +248,14 @@ export class PrismaProviderStore implements ProviderStore {
         correlationId,
       },
     });
+  }
+
+  async refundsForCredit(creditId: string): Promise<readonly RefundRecord[]> {
+    const rows = await this.tx.paymentRefund.findMany({
+      where: { creditId },
+      orderBy: [{ requestedAt: 'desc' }, { id: 'desc' }],
+    });
+    return rows.map(toRefund);
   }
 
   async lockRefund(id: string): Promise<RefundRecord | null> {
@@ -279,6 +302,15 @@ export class PrismaProviderReader implements ProviderReader {
     return row ? toCredit(row) : null;
   }
 
+  async allocatedCreditForObligation(obligationId: string): Promise<ProviderCreditRecord | null> {
+    const rows = await this.client.providerCredit.findMany({
+      where: { obligationId, status: 'ALLOCATED' },
+      take: 2,
+    });
+    if (rows.length > 1) throw new Error('MULTIPLE_ALLOCATED_CREDITS_FOR_OBLIGATION');
+    return rows[0] ? toCredit(rows[0]) : null;
+  }
+
   async refund(id: string): Promise<RefundRecord | null> {
     const row = await this.client.paymentRefund.findUnique({ where: { id } });
     return row ? toRefund(row) : null;
@@ -303,7 +335,7 @@ export class PrismaProviderReader implements ProviderReader {
 
   async refunds(filter: RefundQueueFilter): Promise<readonly RefundRecord[]> {
     const rows = await this.client.paymentRefund.findMany({
-      where: { status: filter.status },
+      where: { status: filter.status, workflow: 'CREDIT_V1' },
       orderBy: [{ requestedAt: 'asc' }, { id: 'asc' }],
       take: Math.min(filter.limit, MAX_QUEUE),
     });

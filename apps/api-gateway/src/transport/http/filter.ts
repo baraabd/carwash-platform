@@ -1,5 +1,5 @@
 import { Catch, type ArgumentsHost, type ExceptionFilter, HttpException } from '@nestjs/common';
-import type { GatewayErrorCode, GatewayErrorEnvelope } from '@carwash/contracts';
+import { apiError, type GatewayErrorCode, type GatewayErrorEnvelope } from '@carwash/contracts';
 import { GatewayFault } from '../../domain/policy';
 import { contextFor, type GatewayRequest, type GatewayResponse } from './context';
 const MESSAGES: Record<GatewayErrorCode, string> = {
@@ -9,6 +9,15 @@ const MESSAGES: Record<GatewayErrorCode, string> = {
   AUTH_CSRF: 'The request origin could not be verified.',
   NOT_FOUND: 'The resource was not found.',
   CONFLICT: 'The request conflicts with the current state.',
+  REVISION_CONFLICT: 'The resource changed; read the current revision.',
+  REVISION_REQUIRED: 'A current resource revision is required.',
+  IDEMPOTENCY_KEY_REQUIRED: 'An idempotency key is required.',
+  IDEMPOTENCY_CONFLICT: 'The idempotency key belongs to another command.',
+  IDEMPOTENCY_IN_PROGRESS: 'The same command is still being processed.',
+  BUSINESS_RULE_VIOLATION: 'The operation is not allowed in the current state.',
+  DEPENDENCY_UNAVAILABLE: 'A required service is temporarily unavailable.',
+  OUTCOME_UNKNOWN: 'The outcome is unknown; reconcile before retrying.',
+  SERVICE_NOT_READY: 'The required service is not ready.',
   VALIDATION_FAILED: 'The request could not be validated.',
   RATE_LIMITED: 'Please retry later.',
   UPSTREAM_UNAVAILABLE: 'The service is temporarily unavailable.',
@@ -44,15 +53,13 @@ export class GatewayFilter implements ExceptionFilter {
           : [400, 413].includes(status)
             ? 'REQUEST_INVALID'
             : 'INTERNAL_ERROR';
-    const body: GatewayErrorEnvelope = {
-      error: {
-        code,
-        ...(error instanceof GatewayFault && error.reason ? { reason: error.reason } : {}),
-        message: MESSAGES[code],
-        requestId: context.requestId,
-        correlationId: context.correlationId,
-      },
-    };
+    const envelope = apiError(
+      code,
+      MESSAGES[code],
+      context,
+      error instanceof GatewayFault && error.reason ? { reason: error.reason } : {},
+    );
+    const body: GatewayErrorEnvelope = { error: { ...envelope.error, code } };
     response.setHeader('cache-control', 'no-store');
     response.setHeader('x-request-id', context.requestId);
     response.setHeader('x-correlation-id', context.correlationId);

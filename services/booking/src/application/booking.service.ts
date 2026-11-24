@@ -23,7 +23,13 @@ import type {
   UserCredential,
   VehicleSnapshots,
 } from '../ports';
-import { CREATE_PERMISSION, assertCanRead, requirePrincipal } from './authorization';
+import {
+  CREATE_PERMISSION,
+  READ_PERMISSION,
+  assertCanRead,
+  requirePrincipal,
+} from './authorization';
+import { bookingCursor, bookingListQuery } from './booking-list';
 import { fingerprint } from './canonical-json';
 import { idempotencyKey, parseCreateBooking, type CreateBookingCommand } from './commands';
 import type { BookingProcessManager, DriveResult } from './process-manager';
@@ -174,6 +180,21 @@ export class BookingService {
     return { booking: record.booking, saga: record.saga };
   }
 
+  async listMine(meta: RequestMeta, query: Readonly<Record<string, unknown>>) {
+    const owner = requirePrincipal(meta.actor, READ_PERMISSION);
+    const { limit, after } = bookingListQuery(query);
+    const records = await this.deps.store.listOwned(owner, after, limit + 1);
+    const items = records.slice(0, limit);
+    const last = items.at(-1)?.booking;
+    return {
+      items,
+      nextCursor:
+        records.length > limit && last
+          ? bookingCursor({ createdAt: last.createdAt, id: last.id })
+          : null,
+    };
+  }
+
   private async driveInline(bookingId: string): Promise<DriveResult> {
     try {
       return await this.deps.saga.drive(bookingId, this.deps.instanceId, this.deps.inlineBudgetMs);
@@ -238,7 +259,10 @@ export class BookingService {
         `QUOTE_${quoteStatus}`,
       );
     }
-    if (quoteSnapshot.revision !== command.quote.revision) {
+    if (
+      quoteSnapshot.quoteId !== command.quote.quoteId ||
+      quoteSnapshot.revision !== command.quote.revision
+    ) {
       throw new BookingError(
         'QUOTE_NOT_USABLE',
         'The quote changed; request a new quote.',
@@ -246,7 +270,12 @@ export class BookingService {
       );
     }
     const holdValue = usable(hold, 'HOLD_ALREADY_BOOKED', 'hold');
-    if (holdValue.state !== 'HELD' || holdValue.revision !== command.hold.revision) {
+    if (
+      holdValue.holdId !== command.hold.holdId ||
+      holdValue.state !== 'HELD' ||
+      holdValue.revision !== command.hold.revision ||
+      holdValue.expiresAt.getTime() <= this.deps.clock.now().getTime()
+    ) {
       throw new BookingError(
         'HOLD_ALREADY_BOOKED',
         'The selected time is no longer held.',
@@ -262,6 +291,16 @@ export class BookingService {
         'HOLD_ALREADY_BOOKED',
         'The selected time is no longer held.',
         'HOLD_NOT_ACTIVE',
+      );
+    }
+    if (
+      holdValue.quoteRef.quoteId !== quoteSnapshot.quoteId ||
+      holdValue.quoteRef.revision !== quoteSnapshot.revision
+    ) {
+      throw new BookingError(
+        'QUOTE_MISMATCH',
+        'The selected hold belongs to another quote.',
+        'HOLD_QUOTE_MISMATCH',
       );
     }
     const requestedSlot: RequestedSlot = {

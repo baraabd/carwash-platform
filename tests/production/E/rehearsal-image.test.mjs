@@ -26,7 +26,7 @@ function imageTest(name, fn) {
   });
 }
 
-for (const tag of ['registry:3.0.0', 'postgres:16.10-alpine']) {
+for (const tag of ['registry:3.0.0', 'postgres:16.10-alpine', 'node:24.21.0-bookworm-slim']) {
   imageTest(`${tag}: layer rate limiting falls back with the already resolved digest`, async () => {
     const calls = [];
     const name = tag.split(':')[0];

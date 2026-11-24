@@ -37,26 +37,27 @@ model ServiceMarker {
 /// What one customer owes for one priced quote. Never "paid" until a
 /// reconciled payment is posted to the ledger.
 model BillingObligation {
-  id            String                @id @db.Uuid
-  ownerKind     String                @map("owner_kind") @db.VarChar(8)
-  ownerSubject  String                @map("owner_subject") @db.Uuid
-  quoteId       String                @unique @map("quote_id") @db.Uuid
-  currency      String                @db.Char(3)
-  amountMinor   BigInt                @map("amount_minor")
-  verifiedMinor BigInt                @map("verified_minor")
-  status        String                @db.VarChar(8)
-  revision      Int
-  createdAt     DateTime              @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime              @map("updated_at") @db.Timestamptz(3)
-  correlationId String                @map("correlation_id") @db.Uuid
-  intents       PaymentIntent[]
-  attempts      PaymentAttempt[]
-  journals      LedgerJournal[]
-  auditEvents   BillingAuditEvent[]
-  cashReceipts  CashReceipt[]
-  reversals     CashReceiptReversal[]
-  credits       ProviderCredit[]
-  bookingLink   BookingObligation?
+  id                  String                @id @db.Uuid
+  ownerKind           String                @map("owner_kind") @db.VarChar(8)
+  ownerSubject        String                @map("owner_subject") @db.Uuid
+  quoteId             String                @unique @map("quote_id") @db.Uuid
+  currency            String                @db.Char(3)
+  amountMinor         BigInt                @map("amount_minor")
+  verifiedMinor       BigInt                @map("verified_minor")
+  status              String                @db.VarChar(8)
+  revision            Int
+  createdAt           DateTime              @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime              @map("updated_at") @db.Timestamptz(3)
+  correlationId       String                @map("correlation_id") @db.Uuid
+  intents             PaymentIntent[]
+  attempts            PaymentAttempt[]
+  journals            LedgerJournal[]
+  auditEvents         BillingAuditEvent[]
+  cashReceipts        CashReceipt[]
+  reversals           CashReceiptReversal[]
+  credits             ProviderCredit[]
+  bookingLink         BookingObligation?
+  bookingCompensation BookingCompensation?
 
   @@index([ownerKind, ownerSubject, createdAt], map: "billing_obligation_owner_idx")
   @@map("billing_obligation")
@@ -368,6 +369,7 @@ model ProviderCredit {
 /// A refund of (part of) one provider credit; reserving statuses hold its amount.
 model PaymentRefund {
   id                      String              @id @db.Uuid
+  workflow                String              @default("CREDIT_V1") @db.VarChar(24)
   creditId                String              @map("credit_id") @db.Uuid
   provider                String              @db.VarChar(24)
   currency                String              @db.Char(3)
@@ -413,4 +415,22 @@ model BookingObligation {
   obligation           BillingObligation @relation(fields: [obligationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@map("booking_obligation")
+}
+
+/// Append-only compensation fence. ABSENT_FENCED is not a financial obligation.
+model BookingCompensation {
+  bookingId          String             @id @map("booking_id") @db.Uuid
+  clientId           String             @map("client_id") @db.VarChar(64)
+  beneficiaryKind    String             @map("beneficiary_kind") @db.VarChar(8)
+  beneficiarySubject String             @map("beneficiary_subject") @db.Uuid
+  quoteId            String             @map("quote_id") @db.Uuid
+  reason             String             @db.VarChar(24)
+  outcome            String             @db.VarChar(16)
+  obligationId       String?            @unique @map("obligation_id") @db.Uuid
+  obligationRevision Int?               @map("obligation_revision")
+  compensatedAt      DateTime           @map("compensated_at") @db.Timestamptz(3)
+  correlationId      String             @map("correlation_id") @db.Uuid
+  obligation         BillingObligation? @relation(fields: [obligationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@map("booking_compensation")
 }

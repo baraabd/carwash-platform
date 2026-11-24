@@ -7,6 +7,7 @@ import type {
   RefundProviderOutcome,
   RefundReason,
   RefundStatus,
+  RefundWorkflow,
   StatementRejectionReason,
   UnallocatedReason,
 } from '../domain';
@@ -81,7 +82,7 @@ export type AuthenticatedNotification =
 
 /** Bad signature, outside the replay window, malformed or unknown sender. */
 export class NotificationRejected extends Error {
-  constructor() {
+  constructor(readonly reason: 'SIGNATURE_INVALID' | 'STALE' = 'SIGNATURE_INVALID') {
     super('NOTIFICATION_REJECTED');
     this.name = 'NotificationRejected';
   }
@@ -181,6 +182,7 @@ export interface ProviderCreditRecord {
 
 export interface RefundRecord {
   readonly id: string;
+  readonly workflow: RefundWorkflow;
   readonly creditId: string;
   readonly provider: ProviderId;
   readonly amount: Money;
@@ -228,6 +230,11 @@ export interface ProviderStore {
    * it, so two concurrent writers can never both miss each other's row.
    */
   lockReference(provider: ProviderId, reference: string): Promise<void>;
+  /** Under the reference lock: at most two active credits, sufficient to refuse ambiguity. */
+  activeCreditsForReference(
+    provider: ProviderId,
+    reference: string,
+  ): Promise<readonly ProviderCreditRecord[]>;
   effectiveCredit(
     provider: ProviderId,
     merchantAccount: string,
@@ -247,6 +254,8 @@ export interface ProviderStore {
   updateCredit(id: string, expectedRevision: number, next: ProviderCreditRecord): Promise<void>;
   /** Sum of the credit's refunds that still hold money (RESERVING_REFUND_STATUSES). */
   reservedForRefund(credit: ProviderCreditRecord): Promise<Money>;
+  /** All refund workflows; caller holds the credit lock for a coherent financial read. */
+  refundsForCredit(creditId: string): Promise<readonly RefundRecord[]>;
   insertRefund(refund: RefundRecord, correlationId: string): Promise<void>;
   /** SELECT … FOR UPDATE. */
   lockRefund(id: string): Promise<RefundRecord | null>;
@@ -267,6 +276,8 @@ export interface RefundQueueFilter {
 /** Finance reads (outside any command transaction). */
 export interface ProviderReader {
   credit(id: string): Promise<ProviderCreditRecord | null>;
+  /** Immutable allocation binding; more than one allocated credit is an invariant failure. */
+  allocatedCreditForObligation(obligationId: string): Promise<ProviderCreditRecord | null>;
   refund(id: string): Promise<RefundRecord | null>;
   refundsForCredit(creditId: string): Promise<readonly RefundRecord[]>;
   credits(filter: CreditQueueFilter): Promise<readonly ProviderCreditRecord[]>;

@@ -32,6 +32,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { migrateWithUpgradeSentinels } from './upgrade-sentinels.mjs';
+import { refundUpgradeSentinel } from './refund-upgrade-sentinel.mjs';
 import { redact, registerSecret, run } from '../../acceptance/lib/exec.mjs';
 import { pullImageWithMirrors } from '../../lib/image-references.mjs';
 
@@ -80,13 +81,23 @@ const SERVICES = {
     task: 'P06-B',
     previousMigrations: 4,
     env: 'BILLING_TEST_DATABASE_URL',
-    // Run ALONE after the parallel batch: they assert exact database-wide deltas (P06-B6).
-    isolatedSpecs: ['billing.finance.postgres.spec.js'],
+    writeUpgradeSentinel: (url) => REFUND_UPGRADE_SENTINEL.write(url),
+    verifyUpgradeSentinel: (url) => REFUND_UPGRADE_SENTINEL.verify(url),
+    // Finance and absent-booking compensation assert database-wide deltas;
+    // unrelated suites must not write while those assertions are in flight.
+    // Relay storage changes transport state that cash command specs deliberately
+    // expect to remain unpublished. Replica races inside each spec still run.
+    isolatedSpecs: [
+      'billing.booking-saga.postgres.spec.js',
+      'billing.finance.postgres.spec.js',
+      'billing.relay.postgres.spec.js',
+    ],
     dependencies: {
       ...IDENTITY_STUB,
       pricing: 'LOCAL HTTP STUB (published pricing.v1 getQuote and validateQuote shapes)',
       workloads: 'LOCAL TEST CREDENTIALS (service-kit x-service-client / x-service-token)',
-      broker: 'NOT USED (outbox rows written; relay not started until E registers billing events)',
+      broker:
+        'NOT USED by these specs (cash relay storage is tested; see wallet-broker acceptance for real runtime delivery)',
     },
   },
   subscription: {
@@ -116,6 +127,7 @@ const record = process.argv.includes('--record');
 const spec = SERVICES[service];
 const serviceDir = path.join(ROOT, 'services', service);
 const { Client } = createRequire(path.join(serviceDir, 'package.json'))('pg');
+const REFUND_UPGRADE_SENTINEL = refundUpgradeSentinel({ query, transaction });
 
 const runId = randomBytes(6).toString('hex');
 const container = `cw-${spec.task.toLowerCase().replace('-', '')}-${service}-${runId}`;
@@ -571,6 +583,8 @@ try {
       '-d',
       '--name',
       container,
+      '--label',
+      `carwash.business-acceptance.run=${process.env.CW_BUSINESS_ACCEPTANCE_RUN ?? runId}`,
       '-e',
       'POSTGRES_USER=cw_p01b_bootstrap',
       '-e',

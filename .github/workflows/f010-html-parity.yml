@@ -14,6 +14,8 @@ jobs:
   static:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    outputs:
+      evidence_artifact_id: ${{ steps.evidence.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -58,6 +60,7 @@ jobs:
           pnpm format:check
           pnpm lint
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        id: evidence
         if: always()
         with:
           name: f010-static-${{ github.run_id }}-${{ github.run_attempt }}
@@ -68,6 +71,8 @@ jobs:
   browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    outputs:
+      evidence_artifact_id: ${{ steps.evidence.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -78,6 +83,7 @@ jobs:
         with:
           node-version-file: .nvmrc
       - name: Exact toolchain and browser
+        timeout-minutes: 10
         run: |
           set -euo pipefail
           corepack enable
@@ -93,6 +99,7 @@ jobs:
           pnpm f010:fonts
           pnpm test:f010:browser
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        id: evidence
         if: always()
         with:
           name: f010-browser-${{ github.run_id }}-${{ github.run_attempt }}
@@ -115,9 +122,14 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version-file: .nvmrc
+      - name: Validate exact producer evidence artifacts
+        id: evidence_inputs
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: node scripts/f010/evidence-artifacts.mjs
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
         with:
-          pattern: f010-*-${{ github.run_id }}-${{ github.run_attempt }}
+          artifact-ids: ${{ steps.evidence_inputs.outputs.artifact_ids }}
           path: ${{ runner.temp }}/f010-downloaded
           merge-multiple: true
       - name: Fail closed on missing or inconsistent evidence

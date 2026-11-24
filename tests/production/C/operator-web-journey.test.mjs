@@ -228,6 +228,13 @@ test('full cash journey: accept, depart, arrive, photos, checklist, finish, exac
       scale: 2,
     });
     assert.equal(closed.collection.outcome, 'CASH_COLLECTED');
+    const receipt = stack.fixture.control.cashReceiptOf('WG-2041');
+    assert.equal(receipt.bookingId, closed.bookingId);
+    assert.deepEqual(receipt.amount, closed.collection.amount);
+    assert.equal(receipt.custodyStatus, 'HELD');
+    const financial = mutationsOf(/\/obligations\/[^/]+\/cash-collections$/);
+    assert.equal(financial.length, 1);
+    assert.match(financial[0].key, /^[0-9a-f-]{36}_billing$/);
 
     for (const request of mutationsOf(/\/internal\/v1\/dispatch\/tasks\//)) {
       assert.match(request.key ?? '', /^[0-9a-f-]{36}$/, `Idempotency-Key on ${request.path}`);
@@ -290,6 +297,63 @@ async function seedWithPhotos(key, stage, extra = {}) {
     ...extra,
   });
 }
+
+test('a closed Dispatch cash declaration stays outstanding until Billing issues its own receipt', async () => {
+  const control = stack.fixture.control;
+  control.reset();
+  await seedWithPhotos('WG-2041', 'CLOSED', {
+    collection: {
+      outcome: 'CASH_COLLECTED',
+      amount: { currency: 'SYP', amountMinor: '105000', scale: 2 },
+      reason: null,
+      declaredAt: new Date().toISOString(),
+      lateAmount: null,
+      lateDeclaredAt: null,
+    },
+  });
+  control.setBillingUnavailable(true);
+  const { context, page, problems } = await session();
+  try {
+    await page.locator('nav [data-action="collections"]').click();
+    await page.waitForFunction(() => document.documentElement.dataset.view === 'collections');
+    assert.equal(await page.locator('.ledger-hero .amount').textContent(), '0ل.س');
+    assert.equal(control.cashReceiptOf('WG-2041'), null);
+    control.setBillingUnavailable(false);
+    await page.locator(`[data-action="open-job"][data-id="${id('WG-2041')}"]`).click();
+    await page.locator('[data-action="cash-dialog"]').first().click();
+    await page.fill('#cash-amount', '1050');
+    await page.check('#cash-check');
+    await page.locator('#cash-confirm').click();
+    await page.waitForFunction(
+      () => document.querySelector('#toast')?.textContent === 'سُجّل التحصيل مرة واحدة.',
+    );
+    assert.ok(control.cashReceiptOf('WG-2041'));
+    assert.equal(
+      mutationsOf(/\/tasks\/[^/]+\/(close|cash-collection)$/).length,
+      0,
+      'the existing declaration is not repeated',
+    );
+    assert.equal(mutationsOf(/\/obligations\/[^/]+\/cash-collections$/).length, 1);
+    control.reverseCashReceipt('WG-2041');
+    await page.reload();
+    await page.waitForFunction(
+      () => document.querySelector('#main .heading, #main .hero') !== null,
+    );
+    if (await page.locator('[data-action="task-menu"]').count())
+      await page.locator('header [data-action="home"]').click();
+    await page.locator('nav [data-action="collections"]').click();
+    await page.waitForFunction(() => document.documentElement.dataset.view === 'collections');
+    assert.equal(await page.locator('.ledger-hero .amount').textContent(), '0ل.س');
+    assert.equal(
+      mutationsOf(/\/obligations\/[^/]+\/cash-collections$/).length,
+      1,
+      'a reload after reversal never recollects',
+    );
+    assertNoProblems(problems);
+  } finally {
+    await context.close();
+  }
+});
 
 test('cash not collected, then a late collection with the exact amount', async () => {
   stack.fixture.control.reset();

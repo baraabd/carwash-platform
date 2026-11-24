@@ -603,13 +603,12 @@ test('C013 review commands never touch orders, garage, address book or profile',
 // effect is the confirm command it hands to the session.
 test('C013 Review has no side effect of its own; its action is the C014 confirm command', () => {
   const step = read('features/booking/review/ReviewStep.tsx');
-  assert.ok(step.includes('onNext={confirm}'));
+  assert.ok(step.includes('onNext: confirm'));
   assert.ok(
     step.includes('confirmBooking(current, { ...reviewed, now, catalog: confirmationCatalog })'),
   );
-  assert.ok(
-    step.includes('<span id={CONFIRMATION_DISCLOSURE_ID}>{CONFIRMATION_DISCLOSURE_TEXT}</span>'),
-  );
+  assert.match(step, /state\.runtimeMode === 'parity'\s+\? CONFIRMATION_DISCLOSURE_TEXT/);
+  assert.ok(step.includes('unavailableReasonId: CONFIRMATION_DISCLOSURE_ID'));
   assert.ok(!reference.includes(CONFIRMATION_DISCLOSURE_TEXT), 'a C014 disclosure, not a quote');
   const footer = read('features/booking/BookingFooter.tsx');
   assert.match(

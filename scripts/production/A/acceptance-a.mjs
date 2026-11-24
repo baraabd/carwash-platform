@@ -37,9 +37,12 @@ try {
   console.error(error.message);
   process.exit(2);
 }
-const { services, suites, scope, keep } = plan;
+const { services, suites, scope, gatewayOwners, customerBrowser, bookingBilling, keep } = plan;
 
 const project = `cw-p01a-${randomBytes(6).toString('hex')}`;
+const runLabels = {
+  'carwash.business-acceptance.run': process.env.CW_BUSINESS_ACCEPTANCE_RUN ?? project,
+};
 const work = path.join(ROOT, '.acceptance', project);
 const composeFile = path.join(work, 'compose.json');
 const evidenceDir = path.join(ROOT, 'docs', 'production', 'A', 'evidence');
@@ -60,7 +63,7 @@ for (const service of allServices) {
 
 const report = {
   lane: 'A',
-  task: 'P01-A',
+  task: bookingBilling ? 'P06-A' : 'P01-A',
   project,
   services,
   startedAt: new Date().toISOString(),
@@ -158,6 +161,17 @@ try {
       .filter(Boolean).length;
   });
 
+  if (gatewayOwners || bookingBilling) {
+    await phase('build the production Gateway for real owner journeys', () =>
+      checked('pnpm', ['--filter', '@carwash/api-gateway', 'run', 'build']),
+    );
+  }
+  if (customerBrowser) {
+    await phase('build the production customer bundle for the real browser journey', () =>
+      checked('pnpm', ['--filter', '@carwash/customer-web', 'run', 'build']),
+    );
+  }
+
   await phase('pin infrastructure images', async () => {
     for (const image of [PG_IMAGE, REDIS_IMAGE]) {
       await pullPinnedImage(image);
@@ -188,6 +202,7 @@ try {
       {
         services: {
           postgres: {
+            labels: runLabels,
             image: PG_IMAGE,
             environment: pgEnvironment,
             ports: ['127.0.0.1::5432'],
@@ -196,6 +211,7 @@ try {
             ],
           },
           redis: {
+            labels: runLabels,
             image: REDIS_IMAGE,
             command: [
               'redis-server',
@@ -210,6 +226,7 @@ try {
             volumes: [`${path.join(work, 'users.acl')}:/run/cw/users.acl:ro`],
           },
         },
+        networks: { default: { labels: runLabels } },
       },
       null,
       2,
@@ -294,7 +311,16 @@ try {
     {
       cwd: ROOT,
       timeoutMs: 900_000,
-      env: { ...process.env, P01A_CONTEXT_FILE: contextFile },
+      env: {
+        ...process.env,
+        P01A_CONTEXT_FILE: contextFile,
+        ...Object.fromEntries(
+          services.map((service) => [
+            `${service.toUpperCase()}_TEST_DATABASE_URL`,
+            urls[service].app,
+          ]),
+        ),
+      },
     },
   );
   const output = redact(result.stdout + result.stderr);

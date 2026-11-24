@@ -207,6 +207,7 @@ test('billing: the composed cash/custody API is mounted and fails closed', async
       assert.equal(unverifiable.status, 503, path);
     }
     for (const path of [
+      `/bookings/${id}/cash-collection-target`,
       `/cash-receipts/${id}`,
       `/custody/handovers/${id}`,
       '/custody/holders/me',

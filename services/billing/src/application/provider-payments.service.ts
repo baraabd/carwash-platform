@@ -1,3 +1,4 @@
+import { billingV1, ContractViolation } from '@carwash/contracts';
 import {
   CREDIT_STATUSES,
   EVIDENCE_DIGEST,
@@ -7,6 +8,8 @@ import {
   STATEMENT_REJECTION_REASONS,
   assertOccurredBefore,
   normalizeProviderReference,
+  maskProviderReference,
+  planCreditAllocation,
   planStatementDecision,
   type CreditStatus,
   type ProviderId,
@@ -51,12 +54,13 @@ import {
 import { CreditSettlement, PROVIDER_AUDIT_SUBJECTS } from './credit-settlement';
 import { creditView, providerDiagnosticsView } from './provider-views';
 import { providerCreditChangedEvent } from './provider-events';
-import { financialStatusView } from './views';
+import { financialStatusView, obligationView } from './views';
 
 export const PROVIDER_OPERATIONS = {
   recordStatement: 'billing.credit.statement.record.v1',
   decideStatement: 'billing.credit.statement.decide.v1',
   verifyAttempt: 'billing.attempt.provider-verify.v1',
+  allocateStatement: 'billing.attempt.statement-credit.allocate.v1',
 } as const;
 
 const DECISIONS = ['APPROVE', 'REJECT'] as const;
@@ -157,6 +161,180 @@ export class ProviderPaymentsService {
   }
 
   // ---------------------------------------------------------------- commands
+
+  /**
+   * Resolve one reviewable statement record from the immutable attempt binding.
+   * This never confirms a credit or writes an audit/receipt/journal. The command
+   * must recheck the returned revisions and every financial invariant later.
+   */
+  async statementCreditReview(
+    context: RequestContext,
+    attemptId: string,
+  ): Promise<billingV1.StatementCreditReviewV1> {
+    const principal = accountOnly(await this.commands.permitted(context, RECONCILE_PERMISSION));
+    const id = target(attemptId);
+    const obligationId = await this.deps.repository.obligationIdForAttempt(id);
+    const initial = obligationId ? await this.deps.repository.snapshot(obligationId) : null;
+    const known = initial?.attempts.find((attempt) => attempt.id === id);
+    if (!initial || !known) throw new BillingApplicationError('NOT_FOUND');
+    const provider = PROVIDERS.find((value) => value === known.method);
+    if (!provider) throw new BillingApplicationError('PROVIDER_CREDIT_REQUIRED');
+    return this.deps.repository.transaction(async (uow) => {
+      await uow.providers.lockReference(provider, known.providerReference);
+      const candidates = await uow.providers.activeCreditsForReference(
+        provider,
+        known.providerReference,
+      );
+      if (candidates.length === 0) throw new BillingApplicationError('PROVIDER_CREDIT_REQUIRED');
+      if (candidates.length !== 1) throw new BillingApplicationError('PROVIDER_CREDIT_CONFLICT');
+      const credit = await uow.providers.lockCredit(candidates[0]!.id);
+      if (!credit || credit.source !== 'MERCHANT_STATEMENT')
+        throw new BillingApplicationError('PROVIDER_CREDIT_CONFLICT');
+      decide(() => planStatementDecision({ credit, decider: principal.subject }));
+      if (!this.adapter(provider).acceptsMerchantAccount(credit.merchantAccount))
+        throw new BillingApplicationError('MERCHANT_ACCOUNT_UNKNOWN');
+      const location = await uow.providers.claimFor(provider, known.providerReference);
+      if (!location || location.attemptId !== id || location.obligationId !== initial.obligation.id)
+        throw new BillingApplicationError('PROVIDER_CREDIT_CONFLICT');
+      const obligation = await uow.lockObligation(location.obligationId);
+      const snapshot = obligation ? await uow.snapshot(obligation.id) : null;
+      const claim = snapshot?.attempts.find((attempt) => attempt.id === id);
+      if (!obligation || !snapshot || !claim) throw new BillingApplicationError('NOT_FOUND');
+      if (claim.method !== credit.provider || claim.providerReference !== credit.reference)
+        throw new BillingApplicationError('PROVIDER_CREDIT_CONFLICT');
+      if (
+        principal.subject === obligation.owner.subjectId ||
+        credit.recordedBy === obligation.owner.subjectId
+      )
+        throw new BillingApplicationError('SEPARATION_OF_DUTIES');
+      const plan = planCreditAllocation({
+        credit,
+        reservedForRefund: await uow.providers.reservedForRefund(credit),
+        claim,
+        obligation,
+        intent: snapshot.activeIntent,
+      });
+      if (plan.kind !== 'ALLOCATE') throw new BillingApplicationError('PROVIDER_CREDIT_CONFLICT');
+      try {
+        return billingV1.parseStatementCreditReviewV1({
+          attemptId: id,
+          obligationId: obligation.id,
+          obligationRevision: obligation.revision,
+          creditId: credit.id,
+          creditRevision: credit.revision,
+          provider: credit.provider,
+          status: credit.status,
+          amount: credit.amount.toWire(),
+          merchantAccount: `…${credit.merchantAccount.slice(-4)}`,
+          reference: maskProviderReference(credit.reference),
+          evidenceFingerprint: credit.evidenceDigest.slice(0, 12),
+          occurredAt: credit.occurredAt.toISOString(),
+          recordedAt: credit.createdAt.toISOString(),
+        });
+      } catch (error: unknown) {
+        if (error instanceof ContractViolation)
+          throw new BillingApplicationError('SERVICE_NOT_READY');
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * A finance reviewer selects an already recorded merchant-statement credit.
+   * Its immutable provider/reference/merchant/amount facts must identify this
+   * exact claim. Approval, allocation, journals, audit, outbox and the command
+   * receipt commit together; no partial approval survives a failed binding.
+   */
+  async allocateStatementCredit(
+    context: RequestContext,
+    attemptId: string,
+    idempotencyKey: unknown,
+    body: unknown,
+  ): Promise<CommandResult> {
+    const principal = accountOnly(await this.commands.permitted(context, RECONCILE_PERMISSION));
+    const id = target(attemptId);
+    const key = this.commands.key(idempotencyKey);
+    let input: billingV1.AllocateStatementCreditRequestV1;
+    try {
+      input = billingV1.parseAllocateStatementCreditRequestV1(body);
+    } catch (error: unknown) {
+      if (error instanceof ContractViolation) throw new BillingApplicationError('REQUEST_INVALID');
+      throw error;
+    }
+    const observed = moneyInput(input.observedAmount, 'observedAmount');
+    const command = this.commands.command(principal, PROVIDER_OPERATIONS.allocateStatement, key, {
+      attemptId: id,
+      ...input,
+    });
+    const existing = await this.commands.committed(command);
+    if (existing) return existing;
+    const known = await this.deps.repository.providers.credit(input.creditId);
+    if (!known) throw new BillingApplicationError('NOT_FOUND');
+
+    return this.commands.execute(command, async (uow, now) => {
+      // Same ordering as all credit/claim/refund paths: reference, credit,
+      // obligation. A concurrent statement cannot introduce an ambiguity.
+      await uow.providers.lockReference(known.provider, known.reference);
+      const credit = await uow.providers.lockCredit(input.creditId);
+      if (!credit) throw new BillingApplicationError('NOT_FOUND');
+      if (credit.revision !== input.expectedCreditRevision)
+        throw new BillingApplicationError('REVISION_CONFLICT');
+      if (credit.source !== 'MERCHANT_STATEMENT')
+        throw new BillingApplicationError('PROVIDER_CREDIT_CONFLICT');
+      decide(() => planStatementDecision({ credit, decider: principal.subject }));
+      if (!this.adapter(credit.provider).acceptsMerchantAccount(credit.merchantAccount))
+        throw new BillingApplicationError('MERCHANT_ACCOUNT_UNKNOWN');
+      const candidates = await uow.providers.activeCreditsForReference(
+        credit.provider,
+        credit.reference,
+      );
+      if (candidates.length !== 1 || candidates[0]?.id !== credit.id)
+        throw new BillingApplicationError('PROVIDER_CREDIT_CONFLICT');
+      const claim = await uow.providers.claimFor(credit.provider, credit.reference);
+      if (!claim || claim.attemptId !== id)
+        throw new BillingApplicationError('PROVIDER_CREDIT_CONFLICT');
+      const obligation = await uow.lockObligation(claim.obligationId);
+      if (!obligation) throw new BillingApplicationError('NOT_FOUND');
+      if (obligation.revision !== input.expectedRevision)
+        throw new BillingApplicationError('REVISION_CONFLICT');
+      const before = await uow.snapshot(obligation.id);
+      const attempt = before?.attempts.find((candidate) => candidate.id === id);
+      if (
+        !before ||
+        !attempt ||
+        attempt.method !== credit.provider ||
+        attempt.providerReference !== credit.reference ||
+        !observed.equals(credit.amount)
+      )
+        throw new BillingApplicationError('PROVIDER_CREDIT_CONFLICT');
+      if (
+        principal.subject === obligation.owner.subjectId ||
+        credit.recordedBy === obligation.owner.subjectId
+      )
+        throw new BillingApplicationError('SEPARATION_OF_DUTIES');
+      const plan = planCreditAllocation({
+        credit,
+        reservedForRefund: await uow.providers.reservedForRefund(credit),
+        claim: attempt,
+        obligation: before.obligation,
+        intent: before.activeIntent,
+      });
+      if (plan.kind !== 'ALLOCATE') throw new BillingApplicationError('PROVIDER_CREDIT_CONFLICT');
+      const result = await this.settlement.confirm(
+        { uow, now, correlationId: context.correlationId, actor: refOf(principal) },
+        { ...credit, decidedBy: principal.subject, decidedAt: now },
+        credit,
+      );
+      if (
+        result.credit.status !== 'ALLOCATED' ||
+        result.credit.attemptId !== id ||
+        result.obligation?.obligation.id !== obligation.id
+      )
+        throw new BillingApplicationError('PROVIDER_CREDIT_CONFLICT');
+      await this.audit(uow, command, context, now, 'billing.credit.approved', result.credit);
+      return { status: 200, body: obligationView(result.obligation) };
+    });
+  }
 
   /**
    * Finance records a credit read from the merchant's own statement for an
@@ -368,7 +546,9 @@ export class ProviderPaymentsService {
     try {
       authenticated = await adapter.authenticateNotification(notification, received);
     } catch (error: unknown) {
-      if (error instanceof NotificationRejected || error instanceof ProviderCapabilityMissing)
+      if (error instanceof NotificationRejected)
+        throw new BillingApplicationError('NOTIFICATION_REJECTED', { reason: error.reason });
+      if (error instanceof ProviderCapabilityMissing)
         throw new BillingApplicationError('NOTIFICATION_REJECTED');
       throw error;
     }

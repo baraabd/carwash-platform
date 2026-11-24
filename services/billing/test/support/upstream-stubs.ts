@@ -159,7 +159,7 @@ export async function startPricingStub(): Promise<PricingStub> {
         revision: 1,
         status: quote.status,
         beneficiary: { kind: 'account', subjectId: '00000000-0000-4000-8000-000000000000' },
-        vehicleType: 'SEDAN',
+        vehicleType: 'sedan',
         zoneId: null,
         currency: quote.currency,
         lines: [
@@ -173,6 +173,7 @@ export async function startPricingStub(): Promise<PricingStub> {
           },
         ],
         total: money,
+        durationMinutes: 30,
         catalogRevision: 1,
         priceBookRevision: 1,
         issuedAt: '2026-10-08T10:00:00.000Z',

@@ -19,7 +19,7 @@ export function createWebRuntime({ documentRoot = new URL('./dist/', import.meta
     response.setHeader('Cache-Control', 'no-store');
     response.setHeader(
       'Content-Security-Policy',
-      "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+      "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
     );
     const send = (code, type, content) => {
       response.writeHead(code, { 'Content-Type': type });

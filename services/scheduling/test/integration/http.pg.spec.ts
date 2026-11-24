@@ -6,14 +6,18 @@ import type { AddressInfo } from 'node:net';
 import type { INestApplication } from '@nestjs/common';
 import { createHttpApplication } from '../../src/transport/http/create-app';
 import { laneContext } from './support';
+import { DeclaredQuotes } from '../support/quotes';
+
+const declaredQuotes = new DeclaredQuotes();
+let pricing: Server;
 
 /**
  * scheduling.v1 over the real Nest HTTP server on the real lane PostgreSQL.
  *
  * Identity is a local HTTP double of `GET /internal/v1/identity/session`
- * (IdentitySessionView shape, incl. principalKind). It is the only substitute
- * in this suite and is declared as such in the evidence; token verification
- * itself is Identity's own tested responsibility.
+ * (IdentitySessionView shape, incl. principalKind). Pricing is a finite declared
+ * HTTP quote double. This suite proves Scheduling HTTP/PG behavior, not real
+ * Pricing or Identity business conformance.
  */
 const SERVICE_TOKEN = 's'.repeat(48);
 const NOSCOPE_TOKEN = 'n'.repeat(48);
@@ -69,6 +73,27 @@ before(async () => {
       .end(JSON.stringify({ ...session, sessionId: randomUUID(), authVersion: 1, roles: [] }));
   });
   await new Promise<void>((resolve) => identity.listen(0, '127.0.0.1', resolve));
+  pricing = createServer((req, res) => {
+    const match = /^\/internal\/v1\/pricing\/quotes\/([^/]+)$/.exec(req.url ?? '');
+    const token = (req.headers.authorization ?? '').replace(/^Bearer /, '');
+    const session = SESSIONS[token];
+    const quote = match ? declaredQuotes.quotes.get(match[1]!) : undefined;
+    if (
+      !quote ||
+      !session ||
+      session === 'DOWN' ||
+      quote.beneficiary.subjectId !== session.subject ||
+      quote.beneficiary.kind !== session.principalKind
+    ) {
+      res.writeHead(404, { 'content-type': 'application/json' }).end('{}');
+      return;
+    }
+    res
+      .writeHead(200, { 'content-type': 'application/json' })
+      .end(JSON.stringify(declaredQuotes.wire(quote.quoteId)));
+  });
+  await new Promise<void>((resolve) => pricing.listen(0, '127.0.0.1', resolve));
+  process.env.PRICING_ORIGIN = `http://127.0.0.1:${(pricing.address() as AddressInfo).port}`;
   process.env.DATABASE_URL = laneContext().databases.scheduling!.appUrl;
   process.env.IDENTITY_URL = `http://127.0.0.1:${(identity.address() as AddressInfo).port}`;
   process.env.SCHEDULING_USER_REQUESTS_PER_MINUTE = '60';
@@ -89,6 +114,7 @@ before(async () => {
 after(async () => {
   await app.close();
   await new Promise<void>((resolve) => identity.close(() => resolve()));
+  await new Promise<void>((resolve) => pricing.close(() => resolve()));
 });
 
 const user = (token: string) => ({ authorization: `Bearer ${token}` });
@@ -150,12 +176,19 @@ async function newWindow(capacity = 2) {
 }
 
 function holdBody(who: Session, zoneId: string, startsAt: Date) {
+  const request = declaredQuotes.register({
+    beneficiary: { kind: who.principalKind, subjectId: who.subject },
+    zoneId,
+    startsAt,
+    durationMinutes: 45,
+    quoteRef: { quoteId: randomUUID(), revision: 1 },
+  });
   return {
     beneficiary: { kind: who.principalKind, subjectId: who.subject },
     zoneId,
     startsAt: startsAt.toISOString(),
     durationMinutes: 45,
-    quoteRef: { quoteId: randomUUID(), revision: 1 },
+    quoteRef: request.quoteRef,
   };
 }
 
@@ -245,6 +278,7 @@ test('hold lifecycle: guest holds for itself, other principals get 404, Booking 
     'endsAt',
     'expiresAt',
     'holdId',
+    'quoteRef',
     'revision',
     'startsAt',
     'state',
@@ -398,9 +432,10 @@ test('staff surface: windows by operations only; malformed bodies are 400 withou
     200,
     'identical definition replays',
   );
-  const bad = await call('POST', '/windows', ops, { ...body, secret: '0991234567' });
+  const privatePhone = '+963 991 234 567';
+  const bad = await call('POST', '/windows', ops, { ...body, secret: privatePhone });
   expectError(bad, 400, 'REQUEST_INVALID');
-  assert.ok(!JSON.stringify(bad.body).includes('0991234567'));
+  assert.ok(!JSON.stringify(bad.body).includes(privatePhone));
   expectError(await call('POST', '/windows', ops, '{"zoneId":'), 400, 'REQUEST_INVALID');
   expectError(await call('GET', '/no-such-route', ops), 404, 'NOT_FOUND');
 });

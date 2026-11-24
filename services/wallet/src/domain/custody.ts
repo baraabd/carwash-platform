@@ -140,12 +140,16 @@ export function applyStep(account: Buckets, step: ProjectionStep): Buckets {
 }
 
 export function cashCollected(input: {
+  readonly receipt: SourceState | null;
   readonly receiptId: string;
   readonly version: number;
   readonly holder: string;
   readonly currency: Currency;
   readonly amountMinor: bigint;
 }): ProjectionStep {
+  // The same receipt cannot be collected twice, including after reversal. A
+  // later valid collection is a new Billing receipt, not a newer envelope.
+  if (input.receipt) throw new ProjectionRejected('EVENT_INVALID');
   return {
     kind: 'CASH_COLLECTED',
     holder: input.holder,

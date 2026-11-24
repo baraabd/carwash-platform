@@ -33,7 +33,7 @@ model CustomerProfile {
   id               String            @id @db.Uuid
   principalKind    String            @map("principal_kind") @db.VarChar(16)
   principalSubject String            @map("principal_subject") @db.Uuid
-  displayName      String?           @map("display_name") @db.VarChar(60)
+  displayName      String?           @map("display_name") @db.VarChar(80)
   phone            String?           @db.VarChar(16)
   preferredLocale  String            @map("preferred_locale") @db.VarChar(2)
   revision         Int
@@ -49,9 +49,9 @@ model CustomerProfile {
 model CustomerAddress {
   id             String          @id @db.Uuid
   customerId     String          @map("customer_id") @db.Uuid
-  label          String          @db.VarChar(30)
-  line           String          @db.VarChar(160)
-  accessNote     String?         @map("access_note") @db.VarChar(160)
+  label          String          @db.VarChar(40)
+  line           String?         @db.VarChar(300)
+  accessNote     String?         @map("access_note") @db.VarChar(300)
   locationKind   String          @map("location_kind") @db.VarChar(16)
   locationSource String?         @map("location_source") @db.VarChar(16)
   latitude       Decimal?        @db.Decimal(9, 6)
@@ -63,6 +63,7 @@ model CustomerAddress {
   customer       CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([customerId, status], map: "customer_address_owner_status_idx")
+  @@index([customerId, status, createdAt, id], map: "customer_address_owner_page_idx")
   @@map("customer_address")
 }
 
@@ -107,8 +108,10 @@ model OutboxMessage {
 /// Append-only audit facts for personal-data mutations. Identifiers only.
 model AuditEntry {
   id             String   @id @db.Uuid
-  actorSubject   String   @map("actor_subject") @db.Uuid
-  actorSessionId String   @map("actor_session_id") @db.Uuid
+  actorSubject   String?  @map("actor_subject") @db.Uuid
+  actorSessionId String?  @map("actor_session_id") @db.Uuid
+  actorService   String?  @map("actor_service") @db.VarChar(64)
+  actorPurpose   String?  @map("actor_purpose") @db.VarChar(32)
   action         String   @db.VarChar(60)
   targetType     String   @map("target_type") @db.VarChar(16)
   targetId       String   @map("target_id") @db.Uuid

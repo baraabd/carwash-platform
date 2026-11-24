@@ -51,6 +51,7 @@ const ROLE_PERMISSIONS: Readonly<Record<IdentityRole, readonly IdentityPermissio
     'profile.write:self',
     'work.read:assigned',
     'work.execute:assigned',
+    'billing.cash.collect',
   ],
   operations: ['operations.dispatch'],
   // billing.reconcile stays separate from billing.read (CR-B-03). catalog.publish

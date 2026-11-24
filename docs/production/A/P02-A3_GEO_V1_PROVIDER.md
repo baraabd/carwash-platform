@@ -89,9 +89,15 @@ contract. It does not change customer-web, the gateway or any shared package.
   5. Re-evaluating the point against the CURRENT dataset still yields the same zone at the
      same revision, otherwise `ZONE_CHANGED`. This covers a revision, a retirement and a
      new overlapping zone.
-- **The HTTP route is closed.** `DenyAllWorkloadAuthenticator` refuses every caller with
-  `403 AUTH_FORBIDDEN`, because workload identity (P01-E5 / P02-E2) is not on main.
-  Headers such as `x-service-client` are not credentials.
+- **The HTTP route requires a configured workload.** The November 2026 conformance
+  correction uses the shared digest-only service-client primitive with the owner scope
+  `geo.serviceability.validate`. `GEO_SERVICE_CLIENTS` contains only the client ID,
+  SHA-256 token digest and explicit scopes. A missing configuration, invalid credential
+  or mixed browser/session credential returns `403 AUTH_FORBIDDEN`; a service-name
+  header alone is never an identity. Invalid configuration stops startup. Real HTTP
+  acceptance covers valid, forged, mixed, expired, point-mismatched and stale-revision
+  proofs against Geo's own PostgreSQL. This does not approve a zone dataset or prove
+  that a Booking consumer has integrated serviceability.
 
 ### Dataset revision and decisions (persistence)
 

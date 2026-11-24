@@ -102,6 +102,8 @@ export interface QuoteSnapshot {
   readonly currency: Currency;
   readonly lines: readonly QuoteLineSnapshot[];
   readonly total: Money;
+  /** null only for historical stored snapshots predating the published duration field. */
+  readonly durationMinutes: number | null;
   readonly catalogRevision: number;
   readonly priceBookRevision: number;
   readonly issuedAt: string;

@@ -18,6 +18,18 @@ export function snapshotFinancialStatus(snapshot: FinancialSnapshot): FinancialS
   });
 }
 
+/**
+ * billing.v1 keeps payment settlement and refund outcomes as separate facts.
+ * Internal finance projections retain the refund extent; the public obligation
+ * remains PAID after either a partial or full refund (its receivable is settled).
+ */
+function publicFinancialStatus(
+  snapshot: FinancialSnapshot,
+): Exclude<FinancialStatus, 'PARTIALLY_REFUNDED' | 'REFUNDED'> {
+  const status = snapshotFinancialStatus(snapshot);
+  return status === 'PARTIALLY_REFUNDED' || status === 'REFUNDED' ? 'PAID' : status;
+}
+
 function intentView(intent: IntentRecord): Record<string, unknown> {
   return {
     intentId: intent.id,
@@ -51,7 +63,7 @@ export function obligationView(snapshot: FinancialSnapshot): Record<string, unkn
     obligationId: obligation.id,
     revision: obligation.revision,
     status: obligation.status,
-    financialStatus: snapshotFinancialStatus(snapshot),
+    financialStatus: publicFinancialStatus(snapshot),
     quoteId: obligation.quoteId,
     amount: obligation.amount.toWire(),
     verified: obligation.verified.toWire(),

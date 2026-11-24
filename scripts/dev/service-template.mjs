@@ -14,6 +14,11 @@ import {
   selectRuntimeServices,
 } from '../../architecture/runtime-lifecycle.mjs';
 import { readRegularFile } from '../lib/read-regular-file.mjs';
+import {
+  HARDENED_RUNTIME_IMAGE,
+  HARDENED_NATIVE_IMAGE,
+  REMOVE_LEGACY_CONVERTERS_DOCKER,
+} from '../ci/runtime-hardening.mjs';
 
 export const FOUNDATION_RUNTIME_IMPLEMENTATION = RUNTIME_IMPLEMENTATIONS.legacyFoundation;
 
@@ -170,7 +175,7 @@ export {};
 function prismaService(service) {
   return `import { Inject, Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
+import { databasePoolConfig, databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
 import { Pool } from 'pg';
 import { PrismaClient } from '../../generated/prisma/client';
 
@@ -190,7 +195,7 @@ export class PrismaService implements OnModuleDestroy {
 
   constructor(@Inject(DATABASE_URL) url: string) {
     if (!url) throw new Error('DATABASE_URL_REQUIRED');
-    const pool = new Pool({ connectionString: url });
+    const pool = new Pool(databasePoolConfig(url));
     const telemetry = serviceTelemetry('${service}');
     telemetry.metrics.observePool(() => pool);
     const adapter = new PrismaPg(pool, {
@@ -339,8 +344,8 @@ function dockerfile(service) {
 # Build from the repository root:
 #   docker build -f services/${service}/Dockerfile -t washgo/${service}:dev .
 ARG NODE_IMAGE=node:24.21.0-bookworm-slim
-ARG RUNTIME_IMAGE=gcr.io/distroless/base-nossl-debian13@sha256:8c563c1fb5e120606f0d85733049775faed6192e2bd2223ef283a5393eec22b9
-ARG NATIVE_RUNTIME_IMAGE=gcr.io/distroless/cc-debian13@sha256:54df941ed0d06a1bd95ef5e0ce391fd8d9f94b64782dc9a60062727849ee3f97
+ARG RUNTIME_IMAGE=${HARDENED_RUNTIME_IMAGE}
+ARG NATIVE_RUNTIME_IMAGE=${HARDENED_NATIVE_IMAGE}
 
 FROM \${NODE_IMAGE} AS builder
 ARG SERVICE=${service}
@@ -374,6 +379,8 @@ COPY --from=native_libraries /var/lib/dpkg/status.d/libstdc++6 /var/lib/dpkg/sta
 COPY --from=native_libraries /var/lib/dpkg/status.d/libgcc-s1 /var/lib/dpkg/status.d/libgcc-s1
 COPY --from=native_libraries /usr/share/doc/libstdc++6 /usr/share/doc/libstdc++6
 COPY --from=native_libraries /usr/share/doc/libgcc-s1 /usr/share/doc/libgcc-s1
+# Remove unused legacy iconv code; retain original package metadata and licences.
+${REMOVE_LEGACY_CONVERTERS_DOCKER}
 COPY --from=builder --chown=1000:1000 /deploy /app
 USER 1000:1000
 ENTRYPOINT []

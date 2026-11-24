@@ -25,11 +25,12 @@
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { pullImageWithMirrors } from '../../lib/image-references.mjs';
+import { redact, registerSecret } from '../../acceptance/lib/exec.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const STATE_DIR = path.join(ROOT, '.acceptance', 'production-C');
@@ -49,6 +50,18 @@ export const LANE_SERVICES = Object.freeze([
   'booking',
   'dispatch',
 ]);
+
+/** Explicit owner DBs for cross-lane contract verification; never arbitrary identifiers. */
+export function laneServicesForEnv(env = process.env) {
+  const raw = env.CW_PROD_C_EXTRA_SERVICES;
+  if (raw === undefined || raw === '') return [...LANE_SERVICES];
+  const extras = raw.split(',');
+  const allowed = new Set(['catalog', 'pricing']);
+  if (new Set(extras).size !== extras.length || extras.some((owner) => !allowed.has(owner))) {
+    throw new Error('INVALID_LANE_C_EXTRA_SERVICES');
+  }
+  return [...LANE_SERVICES, ...extras];
+}
 
 function run(command, args, { input, env, allowFailure = false, quiet = false, cwd = ROOT } = {}) {
   return new Promise((resolve, reject) => {
@@ -71,7 +84,9 @@ function run(command, args, { input, env, allowFailure = false, quiet = false, c
     child.on('error', reject);
     child.on('close', (code) => {
       if (code !== 0 && !allowFailure) {
-        reject(new Error(`${command} ${args[0]} exited ${code}: ${stderr.trim().slice(-400)}`));
+        reject(
+          new Error(`${command} ${args[0]} exited ${code}: ${redact(stderr).trim().slice(-400)}`),
+        );
       } else resolve({ code, stdout, stderr });
     });
     if (input !== undefined) child.stdin.end(input);
@@ -83,7 +98,11 @@ async function dockerResult(args, options = {}) {
   return run('docker', args, { quiet: true, allowFailure: true, ...options });
 }
 
-const secret = () => randomBytes(18).toString('base64url');
+const secret = () => {
+  const value = randomBytes(18).toString('base64url');
+  registerSecret(value);
+  return value;
+};
 
 /**
  * Explicit loopback host ports. Docker's ephemeral mapping (127.0.0.1::5432)
@@ -134,7 +153,8 @@ function dsn(user, password, port, database) {
 async function waitForPostgres(context) {
   // Provisioning runs inside the init phase; the runtime role of the LAST
   // service existing proves the whole loop completed (the script is set -eu).
-  const last = LANE_SERVICES[LANE_SERVICES.length - 1];
+  const owners = Object.keys(context.databases);
+  const last = owners[owners.length - 1];
   await waitFor('postgres', async () => {
     const result = await run(
       'docker',
@@ -171,10 +191,12 @@ async function waitForPostgres(context) {
 }
 
 async function up() {
+  const services = laneServicesForEnv();
   const runId = randomBytes(4).toString('hex');
   const workDir = path.join(STATE_DIR, runId);
   await mkdir(workDir, { recursive: true });
   const label = `carwash.production-c.run=${runId}`;
+  const acceptanceLabel = `carwash.business-acceptance.run=${process.env.CW_BUSINESS_ACCEPTANCE_RUN ?? runId}`;
   const containers = {
     postgres: `cwprodc-${runId}-pg`,
     rabbitmq: `cwprodc-${runId}-mq`,
@@ -185,12 +207,20 @@ async function up() {
     rabbitmq: secret(),
     s3: { accessKey: `cwc${randomBytes(6).toString('hex')}`, secretKey: secret() },
     services: Object.fromEntries(
-      LANE_SERVICES.map((service) => [service, { app: secret(), migrate: secret() }]),
+      services.map((service) => [service, { app: secret(), migrate: secret() }]),
     ),
   };
+  registerSecret(credentials.s3.accessKey);
 
   const reserved = { postgres: await freePort(), rabbitmq: await freePort(), s3: await freePort() };
-  const serviceEnv = LANE_SERVICES.flatMap((service) => {
+  // Persist cleanup ownership before the first container is created. A failed
+  // image/start/readiness operation must still leave a scoped teardown target.
+  const contextFile = path.join(workDir, 'context.json');
+  await writeFile(contextFile, JSON.stringify({ runId, label, workDir, containers }), {
+    mode: 0o600,
+  });
+  await writeFile(POINTER, JSON.stringify({ contextFile }), { mode: 0o600 });
+  const serviceEnv = services.flatMap((service) => {
     const prefix = service.toUpperCase();
     return [
       '-e',
@@ -211,12 +241,14 @@ async function up() {
     containers.postgres,
     '--label',
     label,
+    '--label',
+    acceptanceLabel,
     '-e',
     'POSTGRES_USER=platform_bootstrap',
     '-e',
     `POSTGRES_PASSWORD=${credentials.postgres}`,
     '-e',
-    `CW_SERVICES=${LANE_SERVICES.join(' ')}`,
+    `CW_SERVICES=${services.join(' ')}`,
     ...serviceEnv,
     '-v',
     `${path.join(ROOT, 'infra', 'postgres', 'provision.sh')}:/docker-entrypoint-initdb.d/01-provision.sh:ro`,
@@ -232,6 +264,8 @@ async function up() {
     containers.rabbitmq,
     '--label',
     label,
+    '--label',
+    acceptanceLabel,
     '-e',
     'RABBITMQ_DEFAULT_USER=cw_prod_c',
     '-e',
@@ -259,11 +293,24 @@ async function up() {
     containers.s3,
     '--label',
     label,
+    '--label',
+    acceptanceLabel,
     '-v',
-    `${s3ConfigFile}:/etc/seaweedfs/s3.json:ro`,
+    `${s3ConfigFile}:/run/secrets/s3.json:ro`,
     '-p',
     `127.0.0.1:${reserved.s3}:8333`,
+    '--entrypoint',
+    '/bin/sh',
     IMAGES.s3,
+    '-ec',
+    // The pinned image's entrypoint drops to seaweed:seaweed (uid 1000).
+    // GitHub's runner owns the host's 0600 secret under another uid. Keep
+    // that bind mount private, copy it into the container with the correct
+    // owner, then use the image's normal privilege-dropping entrypoint.
+    'umask 077; cp /run/secrets/s3.json /etc/seaweedfs/s3.json; ' +
+      'chown seaweed:seaweed /etc/seaweedfs/s3.json; ' +
+      'chmod 600 /etc/seaweedfs/s3.json; exec /entrypoint.sh "$@"',
+    'seaweed-private-config',
     'server',
     '-dir=/data',
     '-s3',
@@ -293,7 +340,7 @@ async function up() {
     },
     bootstrapUrl: `postgresql://platform_bootstrap:${encodeURIComponent(credentials.postgres)}@127.0.0.1:${ports.postgres}/postgres`,
     databases: Object.fromEntries(
-      LANE_SERVICES.map((service) => [
+      services.map((service) => [
         service,
         {
           appUrl: dsn(
@@ -312,9 +359,29 @@ async function up() {
       ]),
     ),
   };
-  const contextFile = path.join(workDir, 'context.json');
   await writeFile(contextFile, JSON.stringify(context, null, 2), { mode: 0o600 });
   await writeFile(POINTER, JSON.stringify({ contextFile }), { mode: 0o600 });
+
+  await waitFor(
+    's3_private_config',
+    async () =>
+      (
+        await run(
+          'docker',
+          [
+            'exec',
+            '--user',
+            'seaweed:seaweed',
+            containers.s3,
+            '/bin/sh',
+            '-ec',
+            'test -r /etc/seaweedfs/s3.json && test "$(stat -c %a /etc/seaweedfs/s3.json)" = 600',
+          ],
+          { quiet: true, allowFailure: true },
+        )
+      ).code === 0,
+    15000,
+  );
 
   await waitForPostgres(context);
   await waitFor(
@@ -345,7 +412,14 @@ async function up() {
   console.log(JSON.stringify(summary(context, contextFile), null, 2));
 }
 
-export async function migrate(context, services = LANE_SERVICES) {
+export async function migrate(context, services = Object.keys(context.databases)) {
+  const allowed = new Set([...LANE_SERVICES, 'catalog', 'pricing']);
+  if (
+    !services.length ||
+    services.some((owner) => !allowed.has(owner) || !Object.hasOwn(context.databases, owner))
+  ) {
+    throw new Error('INVALID_LANE_C_MIGRATION_SERVICES');
+  }
   for (const service of services) {
     // Equivalent to `pnpm --filter @carwash/<service> migrate:deploy`, invoked
     // through node so it also works where pnpm is a .cmd shim (Windows).
@@ -413,12 +487,21 @@ async function restartPostgres(context) {
 }
 
 async function down() {
-  const context = await readContext();
+  let context;
+  try {
+    context = await readContext();
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    console.log('No owned lane C stack to remove');
+    return;
+  }
   const { stdout } = await run('docker', ['ps', '-aq', '--filter', `label=${context.label}`], {
     quiet: true,
   });
   const ids = stdout.split(/\s+/).filter(Boolean);
   if (ids.length > 0) await run('docker', ['rm', '-f', '-v', ...ids], { quiet: true });
+  await rm(POINTER, { force: true });
+  await rm(context.workDir, { recursive: true, force: true });
   console.log(`removed ${ids.length} container(s) for run ${context.runId}`);
 }
 
@@ -432,14 +515,48 @@ function summary(context, contextFile) {
   };
 }
 
+/** Read bounded logs only from this run, with generated credentials removed. */
+async function failureDiagnostics() {
+  let context;
+  try {
+    context = await readContext();
+  } catch {
+    return;
+  }
+  if (!/^[a-f0-9]{8}$/.test(context.runId)) return;
+  for (const name of Object.values(context.containers ?? {})) {
+    if (!new RegExp(`^cwprodc-${context.runId}-(pg|mq|s3)$`).test(name)) continue;
+    const owner = await dockerResult([
+      'inspect',
+      '--format',
+      '{{index .Config.Labels "carwash.production-c.run"}}',
+      name,
+    ]);
+    if (owner.code !== 0 || owner.stdout.trim() !== context.runId) continue;
+    const state = await dockerResult(['inspect', '--format', '{{json .State}}', name]);
+    const logs = await dockerResult(['logs', '--tail', '80', name]);
+    console.error(
+      redact(`Owned container ${name}\n${state.stdout}\n${logs.stdout}\n${logs.stderr}`).slice(
+        -12000,
+      ),
+    );
+  }
+}
+
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   const command = process.argv[2] ?? 'print';
-  if (command === 'up') await up();
-  else if (command === 'migrate')
+  if (command === 'up') {
+    try {
+      await up();
+    } catch (error) {
+      await failureDiagnostics().catch(() => {});
+      throw error;
+    }
+  } else if (command === 'migrate')
     await migrate(
       await readContext(),
-      process.argv.slice(3).length ? process.argv.slice(3) : LANE_SERVICES,
+      process.argv.slice(3).length ? process.argv.slice(3) : undefined,
     );
   else if (command === 'restart-postgres') await restartPostgres(await readContext());
   else if (command === 'down') await down();

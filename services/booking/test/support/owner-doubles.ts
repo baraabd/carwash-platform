@@ -5,8 +5,7 @@ import { HOUR, addressWire, holdWire, quoteWire, vehicleWire } from './fixtures'
 
 /**
  * One local HTTP server standing in for Identity, Pricing, Scheduling, Vehicle,
- * Customer and Billing, speaking their PUBLISHED route shapes (Billing: the
- * REQUESTED shape of CR-P02-C2). Stateful where the contract is: holds commit
+ * Customer and Billing, speaking their PUBLISHED route shapes. Stateful where the contract is: holds commit
  * once per booking, obligations are idempotent per booking with a void
  * tombstone. It checks the service credential Booking presents per owner and
  * the bearer token on on-behalf reads. Declared as a double in the evidence.
@@ -105,6 +104,7 @@ export async function startOwnerDoubles(): Promise<OwnerDoubles> {
       const hold = {
         ...holdWire({
           beneficiary: owner,
+          quoteRef: { quoteId: quote.quoteId, revision: quote.revision },
           zoneId,
           startsAt: new Date(now.getTime() + 3 * HOUR),
           now,
@@ -250,14 +250,13 @@ export async function startOwnerDoubles(): Promise<OwnerDoubles> {
           );
         }
 
-        if (path === '/internal/v1/billing/obligations' && req.method === 'POST') {
+        if (path === '/internal/v1/billing/booking-obligations' && req.method === 'POST') {
           if (!service(req, 'billing')) return err(res, 403, 'AUTH_FORBIDDEN');
           const bookingId = String(body.bookingId);
           const existing = state.obligations.get(bookingId);
-          if (existing?.state === 'VOIDED')
-            return err(res, 422, 'BUSINESS_RULE_VIOLATION', 'OBLIGATION_VOIDED');
+          if (existing?.state === 'VOIDED') return err(res, 409, 'BOOKING_COMPENSATED');
           const obligation = existing ?? {
-            obligationId: `obl_${randomUUID().replace(/-/g, '')}`,
+            obligationId: randomUUID(),
             state: 'OPEN' as const,
           };
           state.obligations.set(bookingId, obligation);
@@ -265,12 +264,24 @@ export async function startOwnerDoubles(): Promise<OwnerDoubles> {
           if (!quote) return err(res, 422, 'BUSINESS_RULE_VIOLATION', 'QUOTE_NOT_USABLE');
           return send(res, existing ? 200 : 201, {
             obligationId: obligation.obligationId,
+            revision: 1,
             status: obligation.state,
+            financialStatus: 'UNPAID',
             quoteId: quote.quoteId,
             amount: quote.total,
+            verified: { ...quote.total, amountMinor: '0' },
+            outstanding: quote.total,
+            activeIntent: null,
+            attempts: [],
+            cashReceipt: null,
+            createdAt: quote.issuedAt,
+            updatedAt: quote.issuedAt,
           });
         }
-        if (path === '/internal/v1/billing/obligations/void-for-booking' && req.method === 'POST') {
+        if (
+          path === '/internal/v1/billing/booking-obligations/compensations' &&
+          req.method === 'POST'
+        ) {
           if (!service(req, 'billing')) return err(res, 403, 'AUTH_FORBIDDEN');
           const bookingId = String(body.bookingId);
           const existing = state.obligations.get(bookingId);
@@ -278,7 +289,16 @@ export async function startOwnerDoubles(): Promise<OwnerDoubles> {
             obligationId: existing?.obligationId ?? 'tombstone',
             state: 'VOIDED',
           });
-          return send(res, 200, { state: 'VOIDED' });
+          return send(res, 200, {
+            bookingId,
+            beneficiary: body.beneficiary,
+            quoteId: body.quoteId,
+            outcome: existing && existing.obligationId !== 'tombstone' ? 'VOIDED' : 'ABSENT_FENCED',
+            obligationId:
+              existing && existing.obligationId !== 'tombstone' ? existing.obligationId : null,
+            obligationRevision: existing && existing.obligationId !== 'tombstone' ? 2 : null,
+            compensatedAt: new Date().toISOString(),
+          });
         }
         if (changeRoutes(state, req, path, body, res, service)) return;
         err(res, 404, 'NOT_FOUND');

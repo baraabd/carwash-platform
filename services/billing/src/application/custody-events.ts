@@ -13,10 +13,9 @@ import type { OutboxEvent, PrincipalRef } from '../ports';
 import { BILLING_EVENTS_EXCHANGE } from './events';
 
 /**
- * Cash collection and custody integration events (PROPOSED, CR-B-08 in
- * docs/production/B/CONTRACT_REQUEST_E_BILLING.md). Written to the local outbox
- * in the same transaction as the fact; the relay is not started until Lane E
- * registers them. Data carries opaque IDs, statuses and amounts only: never a
+ * Registered cash collection and custody integration events. Written to the
+ * local outbox in the same transaction as the fact; the standalone cash-relay
+ * publishes these three types to Wallet. Data carries opaque IDs, statuses and amounts only: never a
  * treasury/settlement reference, phone, name or customer detail.
  *
  * These events are separate from payment confirmation: a collected-cash event

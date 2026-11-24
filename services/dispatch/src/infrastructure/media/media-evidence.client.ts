@@ -22,6 +22,16 @@ function unavailable(): DispatchError {
   return new DispatchError('EVIDENCE_UNAVAILABLE', 'Evidence storage is unavailable.');
 }
 
+function field(body: unknown, name: string): unknown {
+  return typeof body === 'object' && body !== null && !Array.isArray(body)
+    ? (body as Record<string, unknown>)[name]
+    : undefined;
+}
+
+function sameId(value: unknown, id: string): boolean {
+  return typeof value === 'string' && value.toLowerCase() === id.toLowerCase();
+}
+
 /** Reads only the fields Dispatch needs; the rest of ObjectView is ignored. */
 export function parseEvidenceObject(body: unknown): EvidenceObject {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) throw unavailable();
@@ -56,7 +66,9 @@ export class MediaEvidenceClient implements EvidenceObjects, EvidenceFenceTarget
     const outcome = await this.http.request('GET', `${PREFIX}/${objectId}`, correlationId);
     if (outcome.kind === 'status' && outcome.status === 404) return null;
     if (outcome.kind !== 'ok') throw unavailable();
-    return parseEvidenceObject(outcome.body);
+    const object = parseEvidenceObject(outcome.body);
+    if (!sameId(object.objectId, objectId)) throw unavailable();
+    return object;
   }
 
   async claim(objectId: string, claimRef: string, correlationId: string): Promise<void> {
@@ -70,7 +82,17 @@ export class MediaEvidenceClient implements EvidenceObjects, EvidenceFenceTarget
       },
       { idempotent: true },
     );
-    if (outcome.kind === 'ok') return;
+    if (outcome.kind === 'ok') {
+      const claim = field(outcome.body, 'claim');
+      if (
+        sameId(field(outcome.body, 'objectId'), objectId) &&
+        field(outcome.body, 'claimed') === true &&
+        sameId(field(claim, 'claimRef'), claimRef) &&
+        field(claim, 'holder') === 'dispatch.task-evidence'
+      )
+        return;
+      throw unavailable();
+    }
     // A refused claim (object not AVAILABLE any more) is not usable evidence.
     if (outcome.kind === 'status' && (outcome.status === 404 || outcome.status === 409)) {
       throw new DispatchError('EVIDENCE_INVALID', 'The photo is not usable evidence.');
@@ -91,7 +113,12 @@ export class MediaEvidenceClient implements EvidenceObjects, EvidenceFenceTarget
       { access: 'REVOKED', reason: 'TASK_ENDED' },
       { idempotent: true, idempotencyKey },
     );
-    if (outcome.kind === 'ok') return { kind: 'FENCED' };
+    if (outcome.kind === 'ok') {
+      return sameId(field(outcome.body, 'objectId'), objectId) &&
+        field(outcome.body, 'ownerAccess') === 'REVOKED'
+        ? { kind: 'FENCED' }
+        : { kind: 'FAILED', code: 'MEDIA_UPSTREAM_INVALID' };
+    }
     return {
       kind: 'FAILED',
       code: outcome.kind === 'status' ? `MEDIA_HTTP_${outcome.status}` : 'MEDIA_UNAVAILABLE',

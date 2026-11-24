@@ -97,6 +97,8 @@ function body(owner: { kind: 'account' | 'guest'; subjectId: string }) {
 
 /** The response fields these tests read (booking view or error envelope). */
 interface BookingResponse {
+  readonly items?: readonly BookingResponse[];
+  readonly nextCursor?: string | null;
   readonly bookingId?: string;
   readonly status?: string;
   readonly confirmation?: string;
@@ -141,6 +143,41 @@ async function call(
 const key = () => `http-${randomUUID()}`;
 const customer = { kind: 'account' as const, subjectId: '' };
 
+test('GET mine pages only the current principal and refuses caller-selected ownership', async () => {
+  const token = `list-${randomUUID()}`;
+  const owner = { kind: 'guest' as const, subjectId: randomUUID() };
+  doubles.sessions.set(token, {
+    subject: owner.subjectId,
+    principalKind: owner.kind,
+    permissions: ['bookings.create:self', 'bookings.read:self'],
+  });
+  const created: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    const result = await call('POST', '/bookings', { token, key: key(), body: body(owner) });
+    assert.equal(result.status, 201);
+    created.push(result.json.bookingId!);
+  }
+  const first = await call('GET', '/mine?limit=2', { token });
+  assert.equal(first.status, 200);
+  assert.equal(first.json.items?.length, 2);
+  assert.ok(first.json.nextCursor);
+  const last = await call('GET', `/mine?limit=2&cursor=${first.json.nextCursor}`, { token });
+  assert.equal(last.status, 200);
+  assert.equal(last.json.items?.length, 1);
+  assert.equal(last.json.nextCursor, null);
+  assert.deepEqual(
+    [...first.json.items, ...last.json.items].map((item) => item.bookingId).sort(),
+    created.sort(),
+  );
+  const foreign = await call('GET', '/mine?limit=100', { token: OTHER });
+  assert.equal(foreign.status, 200);
+  assert.ok(foreign.json.items?.every((item) => !created.includes(item.bookingId!)));
+  for (const query of ['owner=' + ids.customer, 'limit=101', 'limit=1&limit=2', 'cursor=invalid'])
+    assert.equal((await call('GET', `/mine?${query}`, { token })).status, 400);
+  assert.equal((await call('GET', '/mine', { token: TECH })).status, 403);
+  assert.equal((await call('GET', '/mine')).status, 401);
+});
+
 test('create: 201 CONFIRMED end to end through the real adapters; replay 200; conflict 409', async () => {
   const who = { ...customer, subjectId: ids.customer };
   const b = body(who);
@@ -168,7 +205,7 @@ test('create: 201 CONFIRMED end to end through the real adapters; replay 200; co
     '/pricing/quotes/',
     '/scheduling/holds/',
     '/customer/address-snapshots/resolve',
-    '/billing/obligations',
+    '/billing/booking-obligations',
   ]) {
     assert.ok(
       owned.some((p) => p.includes(fragment)),

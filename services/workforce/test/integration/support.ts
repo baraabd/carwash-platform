@@ -55,8 +55,8 @@ export interface Replica {
 }
 
 /** One "replica" = its own connection pool, like a separate process would have. */
-export function replica(clock: Clock): Replica {
-  const prisma = new PrismaService(workforceAppUrl());
+export function replica(clock: Clock, databaseUrl = workforceAppUrl()): Replica {
+  const prisma = new PrismaService(databaseUrl);
   const store = new PrismaWorkforceStore(prisma);
   return {
     prisma,

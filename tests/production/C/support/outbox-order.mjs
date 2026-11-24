@@ -14,6 +14,22 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readContext, serviceDist } from '../_support.mjs';
+import { assertOutboxLeaseFencing } from '../../../integration/support/outbox-lease.mjs';
+
+export async function assertOwnerLeaseFencing(service) {
+  const context = await readContext();
+  const { PrismaService } = serviceDist(service, 'infrastructure/persistence/prisma.service.js');
+  const { PrismaOutboxStore } = serviceDist(
+    service,
+    'infrastructure/messaging/prisma-outbox.store.js',
+  );
+  const prisma = new PrismaService(context.databases[service].appUrl);
+  try {
+    await assertOutboxLeaseFencing({ store: new PrismaOutboxStore(prisma), client: prisma.client });
+  } finally {
+    await prisma.client.$disconnect();
+  }
+}
 
 export async function assertLeaseOrder(service) {
   const context = await readContext();
@@ -59,7 +75,8 @@ export async function assertLeaseOrder(service) {
       maxAttempts: 10,
     });
     const mine = leased.filter((row) => ids.includes(row.id));
-    for (const row of mine) await store.markPublished({ id: row.id, workerId });
+    for (const row of mine)
+      await store.markPublished({ id: row.id, workerId, leaseAttempt: row.attempts });
     assert.equal(mine.length, ids.length, 'every inserted row was leased in one batch');
     assert.deepEqual(
       mine.map((row) => row.id),

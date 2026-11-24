@@ -21,7 +21,10 @@ import {
   type PrincipalKind,
   type ReleaseReason,
 } from '../domain';
+import { PricingUnavailable } from '../ports';
 import type {
+  SchedulingQuote,
+  SchedulingQuoteReader,
   AvailabilityRow,
   Clock,
   IdGenerator,
@@ -47,6 +50,7 @@ export interface HoldV1View {
   readonly holdId: string;
   readonly revision: number;
   readonly state: ReturnType<typeof v1State>;
+  readonly quoteRef: { readonly quoteId: string; readonly revision: number };
   readonly beneficiary: { readonly kind: PrincipalKind; readonly subjectId: string };
   readonly zoneId: string;
   readonly startsAt: string;
@@ -90,6 +94,7 @@ export function holdView(hold: HoldState): HoldV1View {
     holdId: hold.id,
     revision: hold.version,
     state,
+    quoteRef: { quoteId: hold.quoteId, revision: hold.quoteRevision },
     beneficiary: { kind: hold.beneficiaryKind, subjectId: hold.beneficiarySubject },
     zoneId: hold.zoneId,
     startsAt: hold.slotStartsAt.toISOString(),
@@ -179,6 +184,7 @@ export class HoldsV1Service {
     private readonly read: SchedulingReadModel,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
+    private readonly quotes: SchedulingQuoteReader,
   ) {}
 
   // ---------------------------------------------------------------- holds
@@ -198,17 +204,16 @@ export class HoldsV1Service {
     }
     assertUuid(request.zoneId, 'zoneId');
     assertUuid(request.quoteRef.quoteId, 'quoteRef.quoteId');
+    if (
+      !Number.isSafeInteger(request.quoteRef.revision) ||
+      request.quoteRef.revision < 1 ||
+      request.quoteRef.revision > 2_147_483_647
+    )
+      throw invalid('quoteRef.revision is invalid.');
     assertDurationMinutes(request.durationMinutes);
     const startsAt = request.startsAt;
     if (!Number.isFinite(startsAt.getTime())) throw invalid('startsAt is invalid.');
     const endsAt = new Date(startsAt.getTime() + request.durationMinutes * MINUTE);
-    const now = this.clock.now();
-    if (startsAt.getTime() - now.getTime() > HOLD_LIMITS.horizonDays * DAY) {
-      throw new SchedulingError('OUTSIDE_HORIZON', 'The slot is beyond the booking horizon.');
-    }
-    if (startsAt.getTime() <= now.getTime()) {
-      throw new SchedulingError('SLOT_UNAVAILABLE', 'The slot has already started.');
-    }
     const zoneId = request.zoneId.toLowerCase();
     const actor = actorKey(principal);
     const scope = `${CONTRACT}:createHold:${actor}`;
@@ -223,12 +228,37 @@ export class HoldsV1Service {
       },
     });
 
+    const knownReceipt = await this.read.findIdempotency(scope, key, print);
+    if (knownReceipt) {
+      const replay = settle(knownReceipt);
+      if (replay) return replay;
+    }
+    this.assertFreshSlot(startsAt, this.clock.now());
+    let quote: SchedulingQuote | null;
+    try {
+      quote = await this.quotes.read(
+        request.quoteRef.quoteId.toLowerCase(),
+        meta.credential,
+        meta.correlationId,
+      );
+    } catch (error) {
+      if (!(error instanceof PricingUnavailable)) throw error;
+      throw new SchedulingError('PRICING_UNAVAILABLE', 'Pricing is unavailable.');
+    }
+    this.assertQuote(quote, request, principal, this.clock.now());
+
     try {
       return await this.uow.run(async (tx) => {
+        // The preflight is only an optimization. The atomic claim remains the
+        // authority when two replicas race to use the same key.
         const replay = settle(await tx.claimIdempotency(scope, key, print));
         if (replay) return replay;
         await tx.lockBeneficiary(principal.principalKind, principal.subject);
-        const active = await tx.countActiveHolds(principal.principalKind, principal.subject, now);
+        const active = await tx.countActiveHolds(
+          principal.principalKind,
+          principal.subject,
+          this.clock.now(),
+        );
         if (active >= HOLD_LIMITS.maxActivePerBeneficiary) {
           throw new SchedulingError('HOLD_LIMIT_REACHED', 'Too many active holds.');
         }
@@ -236,6 +266,11 @@ export class HoldsV1Service {
         if (!locked) {
           throw new SchedulingError('SLOT_UNAVAILABLE', 'No bookable window for this slot.');
         }
+        // Lock waits must not turn an expired quote or an already-started slot
+        // into a new hold. No upstream IO occurs while these locks are held.
+        const now = this.clock.now();
+        this.assertFreshSlot(startsAt, now);
+        this.assertQuote(quote, request, principal, now);
         const current = await expireDueHoldsOf(tx, this.ids, locked, now, meta.correlationId);
         const next = holdUnits(current, 1, now, startsAt);
         const hold: HoldState = {
@@ -274,6 +309,41 @@ export class HoldsV1Service {
       });
     } catch (error) {
       throw asSlotUnavailable(error);
+    }
+  }
+
+  private assertFreshSlot(startsAt: Date, now: Date): void {
+    if (startsAt.getTime() - now.getTime() > HOLD_LIMITS.horizonDays * DAY) {
+      throw new SchedulingError('OUTSIDE_HORIZON', 'The slot is beyond the booking horizon.');
+    }
+    if (startsAt.getTime() <= now.getTime()) {
+      throw new SchedulingError('SLOT_UNAVAILABLE', 'The slot has already started.');
+    }
+  }
+
+  private assertQuote(
+    quote: SchedulingQuote | null,
+    request: HoldRequest,
+    principal: PrincipalActor,
+    now: Date,
+  ): void {
+    if (
+      !quote ||
+      quote.status !== 'USABLE' ||
+      !Number.isFinite(quote.expiresAt.getTime()) ||
+      quote.expiresAt.getTime() <= now.getTime()
+    ) {
+      throw new SchedulingError('QUOTE_NOT_USABLE', 'The quote can no longer be used.');
+    }
+    if (
+      quote.quoteId !== request.quoteRef.quoteId.toLowerCase() ||
+      quote.revision !== request.quoteRef.revision ||
+      quote.beneficiary.kind !== principal.principalKind ||
+      quote.beneficiary.subjectId !== principal.subject ||
+      (quote.zoneId !== null && quote.zoneId !== request.zoneId.toLowerCase()) ||
+      quote.durationMinutes !== request.durationMinutes
+    ) {
+      throw new SchedulingError('QUOTE_MISMATCH', 'The quote does not match the selected slot.');
     }
   }
 

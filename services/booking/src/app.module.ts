@@ -17,9 +17,10 @@ import { BookingController } from './transport/http/booking.controller';
  *
  * Nest belongs here at the outside edge. Domain/application/ports do not import
  * it. BUSINESS_READY stays false: the booking aggregate, saga and API are
- * implemented, but Billing has no published contract (every booking is
- * rejected before its pivot until it has one), the Booking contracts are only
- * requested from Lane E, and no release acceptance ran on this exact source.
+ * implemented with the published Billing workload create and durable by-booking
+ * compensation contract. The Booking response contract is still requested
+ * from Lane E; complete production checkout and release acceptance remain
+ * separate readiness gates.
  */
 export const SERVICE_NAME = 'booking';
 export const BUSINESS_READY = false;

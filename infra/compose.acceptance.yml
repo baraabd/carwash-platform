@@ -16,9 +16,10 @@ services:
       POSTGRES_USER: cw_acceptance_bootstrap
       POSTGRES_PASSWORD: ${POSTGRES_BOOTSTRAP_PASSWORD:?required}
       POSTGRES_DB: postgres
-      # Deterministic collation so migration/order assertions do not depend on
-      # the host locale.
+      # Keep deterministic C collation with explicit UTF-8 storage. Locale C
+      # alone defaults initdb to SQL_ASCII, which cannot enforce NFC comments.
       LANG: C
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
       CW_SERVICES: ${CW_SERVICES:?required}
       VEHICLE_DB_PASSWORD: ${VEHICLE_DB_PASSWORD:?required}
       VEHICLE_MIGRATION_PASSWORD: ${VEHICLE_MIGRATION_PASSWORD:?required}
@@ -84,7 +85,13 @@ services:
       - rabbit_data:/var/lib/rabbitmq
       - ./rabbitmq/acceptance-bootstrap.sh:/opt/cw/acceptance-bootstrap.sh:ro
     healthcheck:
-      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'check_running']
+      # Wait for the server cookie; an early root Erlang CLI can create it with
+      # ownership that prevents the unprivileged broker from starting.
+      test:
+        [
+          'CMD-SHELL',
+          'test -s /var/lib/rabbitmq/.erlang.cookie && exec su-exec rabbitmq rabbitmq-diagnostics -q check_running',
+        ]
       interval: 5s
       timeout: 10s
       retries: 30

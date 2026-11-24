@@ -7,6 +7,7 @@
 import './styles/01-reference-base.css';
 import './styles/02-reference-sheets-motion.css';
 import './styles/03-reference-compact.css';
+import './styles/04-accessibility.css';
 import { applyInlineStyles } from './dom';
 import { start } from './app';
 

@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { InboxConsumer, runReconnectingInboxLoop } from '@carwash/platform-messaging';
-import { createLogger, databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
+import {
+  createLogger,
+  databasePoolConfig,
+  databaseSchemaFromUrl,
+  serviceTelemetry,
+} from '@carwash/service-kit';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { PrismaClient, type Prisma } from '../generated/prisma/client';
@@ -85,7 +90,7 @@ async function main(): Promise<void> {
   };
 
   const databaseUrl = requireEnv('DATABASE_URL');
-  const pool = new Pool({ connectionString: databaseUrl });
+  const pool = new Pool(databasePoolConfig(databaseUrl));
   telemetry.metrics.observePool(() => pool);
   const client = new PrismaClient({
     adapter: new PrismaPg(pool, {

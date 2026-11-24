@@ -98,3 +98,28 @@ export function reconcileAttempt(input: {
     },
   );
 }
+
+/** Approval and allocation are one owner transaction, bound to the reviewed versions. */
+export function allocateStatementCredit(input: {
+  readonly attemptId: string;
+  readonly creditId: string;
+  readonly expectedCreditRevision: number;
+  readonly expectedRevision: number;
+  readonly observedAmount: MoneyWire;
+  readonly key: string;
+}): Promise<Result<Obligation>> {
+  return request(
+    `/admin/billing/payment-attempts/${encodeURIComponent(input.attemptId)}/statement-credit-allocation`,
+    {
+      method: 'POST',
+      body: {
+        creditId: input.creditId,
+        expectedCreditRevision: input.expectedCreditRevision,
+        expectedRevision: input.expectedRevision,
+        observedAmount: input.observedAmount,
+      },
+      idempotencyKey: input.key,
+      read: obligation,
+    },
+  );
+}

@@ -344,3 +344,20 @@ test('saga: backoff is bounded, jittered and never a hot loop', () => {
   assert.ok(backoffMs(3, false, 0.5) < backoffMs(3, false, 0.9));
   assert.equal(newSaga(randomUUID(), NOW).deadlineAt.getTime(), NOW.getTime() + 10 * MINUTE);
 });
+
+test('creation requires an authoritative exact quote duration; historical unknown duration cannot create a new booking', () => {
+  const who = principal();
+  const quote = quoteSnapshot(who, NOW);
+  const slot = requestedSlot(NOW);
+  for (const durationMinutes of [null, 59, 61, 0, 60.5, 96_001]) {
+    assert.throws(
+      () =>
+        booking({ beneficiary: who, quote: { ...quote, durationMinutes }, requestedSlot: slot }),
+      (error: unknown) =>
+        error instanceof BookingError &&
+        error.code === 'QUOTE_MISMATCH' &&
+        error.reason === 'DURATION_MISMATCH',
+    );
+  }
+  assert.equal(booking({ beneficiary: who, quote, requestedSlot: slot }).quote.durationMinutes, 60);
+});

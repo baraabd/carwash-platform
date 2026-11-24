@@ -21,6 +21,8 @@ export interface IdGenerator {
  * Identity for verification and never stored, logged or put in an event.
  */
 export interface SessionCredentials {
+  readonly serviceClient?: string;
+  readonly serviceToken?: string;
   readonly authorization?: string;
   readonly cookie?: string;
   readonly origin?: string;
@@ -44,6 +46,13 @@ export type AccessIntent = 'read' | 'write';
  */
 export interface IdentityAuthorizer {
   authorize(credentials: SessionCredentials, intent: AccessIntent): Promise<AuthorizedSession>;
+}
+
+export interface WorkloadAuthenticator {
+  authenticate(credentials: SessionCredentials): Promise<{
+    readonly service: string;
+    readonly scopes: readonly string[];
+  }>;
 }
 
 export interface IdempotencyRequest {
@@ -71,10 +80,8 @@ export interface OutboxEvent {
 }
 
 /** Audit facts carry identifiers only; the changed personal values are never copied. */
-export interface AuditEntry {
+interface AuditFact {
   readonly id: string;
-  readonly actorSubject: string;
-  readonly actorSessionId: string;
   readonly action: string;
   readonly targetType: 'customer' | 'address';
   readonly targetId: string;
@@ -82,10 +89,27 @@ export interface AuditEntry {
   readonly at: Date;
 }
 
+export type AuditEntry = AuditFact &
+  (
+    | {
+        readonly actorSubject: string;
+        readonly actorSessionId: string;
+        readonly actorService?: never;
+        readonly actorPurpose?: never;
+      }
+    | {
+        readonly actorSubject: null;
+        readonly actorSessionId: null;
+        readonly actorService: string;
+        readonly actorPurpose: 'booking-quote' | 'booking-create' | 'booking-display';
+      }
+  );
+
 export interface NewProfile {
   readonly id: string;
   readonly principal: Principal;
   readonly now: Date;
+  readonly initialContact?: ProfileChanges;
 }
 
 export interface NewAddress extends AddressDetails {
@@ -127,5 +151,10 @@ export interface CustomerStore {
   transaction<T>(work: (tx: CustomerTransaction) => Promise<T>): Promise<T>;
   findProfile(principal: Principal): Promise<CustomerProfile | null>;
   listAddresses(customerId: string, includeArchived: boolean): Promise<Address[]>;
+  addressPage(
+    customerId: string,
+    limit: number,
+    after: { readonly createdAt: Date; readonly id: string } | null,
+  ): Promise<Address[]>;
   findAddress(customerId: string, addressId: string): Promise<Address | null>;
 }

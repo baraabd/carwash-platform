@@ -108,7 +108,7 @@ function sumTotals(jobs: readonly Job[], template: Money): Money {
 
 /**
  * Reference `renderCollections`. Figures are computed only from server data:
- * Dispatch collection declarations and Booking totals (full order value, not
+ * Billing cash receipts and Booking totals (full order value, not
  * earnings). PC-13..16.
  */
 export function renderCollections(): string {

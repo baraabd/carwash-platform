@@ -70,6 +70,7 @@ export function quoteWire(input: {
       },
     ],
     total: { currency: 'SYP', amountMinor: '9000000', scale: 2 },
+    durationMinutes: 60,
     catalogRevision: 3,
     priceBookRevision: 7,
     issuedAt: new Date(input.now.getTime() - MINUTE).toISOString(),
@@ -86,11 +87,13 @@ export function holdWire(input: {
   readonly state?: 'HELD' | 'COMMITTED' | 'RELEASED' | 'EXPIRED';
   readonly revision?: number;
   readonly bookingId?: string | null;
+  readonly quoteRef?: { readonly quoteId: string; readonly revision: number };
 }) {
   return {
     holdId: input.holdId ?? randomUUID(),
     revision: input.revision ?? 1,
     state: input.state ?? 'HELD',
+    quoteRef: input.quoteRef ?? { quoteId: randomUUID(), revision: 1 },
     beneficiary: input.beneficiary,
     zoneId: input.zoneId,
     startsAt: input.startsAt.toISOString(),
@@ -155,6 +158,7 @@ export function quoteSnapshot(
       },
     ],
     total: money('SYP', 9_000_000n),
+    durationMinutes: 60,
     catalogRevision: 3,
     priceBookRevision: 7,
     issuedAt: now.toISOString(),

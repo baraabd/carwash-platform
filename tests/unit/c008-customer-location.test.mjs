@@ -640,7 +640,7 @@ test('C008 scope: location and later owned steps mount; Review confirms explicit
   assert.ok(shell.includes("'/book/6'"), 'the shell treats review as ported');
   // C014 superseded "confirmation stays unavailable": Review's action is the explicit
   // demo confirmation (tests/unit/c014-booking-confirmation.test.mjs).
-  assert.match(read('features/booking/review/ReviewStep.tsx'), /onNext={confirm}/);
+  assert.match(read('features/booking/review/ReviewStep.tsx'), /onNext: confirm/);
 });
 
 test('C008 safety: customer text is rendered as text', () => {

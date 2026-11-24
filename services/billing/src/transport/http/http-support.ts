@@ -22,6 +22,7 @@ export const MESSAGES: Readonly<Record<string, string>> = {
   NOT_FOUND: 'The requested resource was not found.',
   IDEMPOTENCY_CONFLICT: 'The Idempotency-Key was already used for a different request.',
   OBLIGATION_ALREADY_EXISTS: 'This quote already has a financial obligation.',
+  BOOKING_COMPENSATED: 'Creation for this booking has been compensated.',
   QUOTE_NOT_USABLE: 'The quote is no longer usable; request a new quote.',
   AMOUNT_INVALID: 'The amount is not billable.',
   CURRENCY_UNSUPPORTED: 'The currency or scale is not supported.',

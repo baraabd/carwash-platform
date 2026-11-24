@@ -23,6 +23,7 @@ import {
   type OwnerOutcome,
 } from '../domain';
 import {
+  AccessFault,
   CaseConflict,
   OwnerReadError,
   type BillingOwner,
@@ -179,7 +180,14 @@ export class CaseCommands {
     if (!current) throw new SupportApplicationError('NOT_FOUND');
     const kind = current.record.kind;
     requireRead(session, kind);
-    const raw = object(body, ['action', 'reason', 'evidence', 'amount', 'window']);
+    const raw = object(body, [
+      'action',
+      'reason',
+      'evidence',
+      'amount',
+      'window',
+      'statementCredit',
+    ]);
     const action = oneOf(raw.action, actionsOf(kind), 'ACTION_NOT_ALLOWED_FOR_KIND');
     requireDecide(session, kind, action);
     const key = idempotencyKey(rawKey);
@@ -415,6 +423,10 @@ export class CaseCommands {
       assertResendable(decision.status);
       const request = decision.ownerRequest;
       if (!request) throw new Error('DECISION_WITHOUT_OWNER_REQUEST');
+      // Billing command receipts are scoped to the human actor. A different
+      // Finance account cannot replay this receipt or establish its outcome.
+      if (request.body.creditId !== undefined && session.subject !== decision.decidedBy)
+        throw new AccessFault('AUTH_FORBIDDEN');
       const fence = decision.executionFence + 1;
       const attempt = decision.executionAttempts + 1;
       await this.fencedUpdate(uow, decision, {
@@ -443,6 +455,7 @@ export class CaseCommands {
       outcome.kind === 'REJECTED' &&
       claim.attempt > 1 &&
       claim.request.operation === 'billing.reconcile' &&
+      claim.request.body.creditId === undefined &&
       STALE_ON_RESEND.includes(outcome.code)
     )
       outcome = await this.verifyReconciliation(auth, claim.request, claim.action, outcome);
@@ -591,6 +604,12 @@ export class CaseCommands {
             expectedRevision: obligation.revision,
             outcome: reconciliationOutcome(decision.action),
             observedAmount: decision.action === 'MARK_UNKNOWN' ? null : decision.amount,
+            ...(decision.statementCredit
+              ? {
+                  creditId: decision.statementCredit.creditId,
+                  expectedCreditRevision: decision.statementCredit.revision,
+                }
+              : {}),
           },
         };
       }
@@ -790,11 +809,18 @@ function approvalNote(value: unknown): string {
 }
 
 function storedInput(decision: DecisionRecord): DecisionInput {
+  const creditId = decision.ownerRequest?.body.creditId;
+  const revision = decision.ownerRequest?.body.expectedCreditRevision;
+  if (creditId !== undefined && (typeof creditId !== 'string' || typeof revision !== 'number'))
+    throw new Error('INVALID_FROZEN_STATEMENT_CREDIT');
   return {
     action: decision.action,
     reason: { code: decision.reasonCode, note: decision.reasonNote },
     evidence: decision.evidence,
     amount: decision.amount,
     window: decision.window,
+    ...(typeof creditId === 'string' && typeof revision === 'number'
+      ? { statementCredit: { creditId, revision } }
+      : {}),
   };
 }

@@ -2,6 +2,7 @@ import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
+import { billingV1 } from '@carwash/contracts';
 import { parseEnvelopeV2 } from '@carwash/event-contracts';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma.service';
 import { PrismaBillingRepository } from '../../src/infrastructure/persistence/prisma-billing.repository';
@@ -140,6 +141,25 @@ function voidIt(
       workload: options.workload ?? WORKLOADS.booking,
       key: options.key ?? key(),
       body: { expectedRevision },
+    },
+  );
+}
+
+function compensate(
+  body: { bookingId: string; quoteId: string; beneficiary?: unknown },
+  options: {
+    key?: string;
+    replica?: BookingSagaHttp;
+    workload?: { clientId: string; token: string };
+  } = {},
+) {
+  return (options.replica ?? replicaA).request(
+    'POST',
+    `${PATH}/booking-obligations/compensations`,
+    {
+      workload: options.workload ?? WORKLOADS.booking,
+      key: options.key ?? key(),
+      body: { ...body, beneficiary: body.beneficiary ?? BENEFICIARY, reason: 'BOOKING_FAILED' },
     },
   );
 }
@@ -535,5 +555,321 @@ test('database: the runtime role cannot rewrite, delete or adopt a booking link'
       [randomUUID(), String(other.obligationId), randomUUID()],
     ),
     /BOOKING_LINK_INVALID_INSERT|booking_obligation_obligation_id_key/,
+  );
+});
+
+// ----------------------------------------------- unknown create compensation
+
+test('compensation: absent creates only an immutable fence and receipt, never financial facts', async () => {
+  const input = { bookingId: randomUUID(), quoteId: quote() };
+  const k = key();
+  const before = await rows(
+    `SELECT
+    (SELECT count(*)::int FROM app.billing_obligation) AS obligations,
+    (SELECT count(*)::int FROM app.ledger_journal) AS journals,
+    (SELECT count(*)::int FROM app.billing_audit_event) AS audit,
+    (SELECT count(*)::int FROM app.outbox_message) AS events`,
+    [],
+  );
+  const first = await compensate(input, { key: k });
+  assert.equal(first.status, 200, JSON.stringify(first.body));
+  const receipt = billingV1.parseBookingCompensationV1(first.body);
+  assert.equal(receipt.outcome, 'ABSENT_FENCED');
+  assert.equal(receipt.obligationId, null);
+  assert.equal(receipt.obligationRevision, null);
+  assert.deepEqual(
+    await rows(
+      `SELECT
+    (SELECT count(*)::int FROM app.billing_obligation) AS obligations,
+    (SELECT count(*)::int FROM app.ledger_journal) AS journals,
+    (SELECT count(*)::int FROM app.billing_audit_event) AS audit,
+    (SELECT count(*)::int FROM app.outbox_message) AS events`,
+      [],
+    ),
+    before,
+  );
+  const replay = await compensate(input, { key: k, replica: replicaB });
+  assert.equal(replay.headers.get('idempotency-replayed'), 'true');
+  assert.deepEqual(replay.body, first.body);
+  assert.deepEqual((await compensate(input, { replica: replicaB })).body, first.body);
+  const late = await create(input);
+  assert.equal(late.status, 409);
+  assert.equal(code(late.body), 'BOOKING_COMPENSATED');
+  assert.equal(
+    (
+      await rows(`SELECT count(*)::int AS n FROM app.booking_compensation WHERE booking_id=$1`, [
+        input.bookingId,
+      ])
+    )[0]?.n,
+    1,
+  );
+});
+
+test('compensation: wins while Pricing is in flight; late create rolls back without a receivable', async () => {
+  const input = { bookingId: randomUUID(), quoteId: quote() };
+  let release!: () => void;
+  let reached!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const arrived = new Promise<void>((resolve) => {
+    reached = resolve;
+  });
+  validate.beforeRespond = async (quoteId) => {
+    if (quoteId !== input.quoteId) return;
+    reached();
+    await gate;
+  };
+  let creating: ReturnType<typeof create> | undefined;
+  try {
+    creating = create(input);
+    await arrived;
+    // This must finish before releasing Pricing: no network call holds the booking lock.
+    const fenced = await compensate(input, { replica: replicaB });
+    assert.equal(fenced.status, 200, JSON.stringify(fenced.body));
+    assert.equal(billingV1.parseBookingCompensationV1(fenced.body).outcome, 'ABSENT_FENCED');
+    release();
+    const late = await creating;
+    assert.equal(late.status, 409);
+    assert.equal(code(late.body), 'BOOKING_COMPENSATED');
+    assert.equal(
+      (
+        await rows(`SELECT count(*)::int AS n FROM app.billing_obligation WHERE quote_id=$1`, [
+          input.quoteId,
+        ])
+      )[0]?.n,
+      0,
+    );
+  } finally {
+    validate.beforeRespond = null;
+    release();
+    await creating;
+  }
+});
+
+test('compensation: unknown committed create is voided by booking, and a historical replay cannot reopen it', async () => {
+  const input = { bookingId: randomUUID(), quoteId: quote() };
+  const creationKey = key();
+  const committed = await create(input, { key: creationKey });
+  assert.equal(committed.status, 201);
+  // The compensating caller supplies no obligation id, as when create's response was lost.
+  const response = await compensate(input, { replica: replicaB });
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  const receipt = billingV1.parseBookingCompensationV1(response.body);
+  assert.equal(receipt.outcome, 'VOIDED');
+  assert.equal(receipt.obligationId, committed.body.obligationId);
+  assert.equal(receipt.obligationRevision, 2);
+  const replay = await create(input, { key: creationKey });
+  assert.equal(replay.headers.get('idempotency-replayed'), 'true');
+  assert.deepEqual(replay.body, committed.body, 'historical receipt remains historical');
+  assert.equal((await create(input)).status, 409, 'new commands cannot reopen the booking');
+  const current = await replicaA.request('GET', `${PATH}/bookings/${input.bookingId}/obligation`, {
+    token: TOKENS.customer,
+  });
+  assert.equal(billingV1.parseObligationV1(current.body).status, 'VOIDED');
+  assert.deepEqual(
+    await rows(`SELECT kind FROM app.ledger_journal WHERE obligation_id=$1 ORDER BY kind`, [
+      receipt.obligationId,
+    ]),
+    [{ kind: 'OBLIGATION_BILLED' }, { kind: 'OBLIGATION_VOIDED' }],
+  );
+});
+
+test('compensation: two replicas and different keys persist one fence, one void and one status event', async () => {
+  const input = await created();
+  const replies = await Promise.all([
+    compensate({ bookingId: input.bookingId, quoteId: input.quoteId }),
+    compensate({ bookingId: input.bookingId, quoteId: input.quoteId }, { replica: replicaB }),
+  ]);
+  assert.deepEqual(
+    replies.map((r) => r.status),
+    [200, 200],
+  );
+  assert.deepEqual(replies[0]?.body, replies[1]?.body);
+  const id = String(input.obligation.obligationId);
+  assert.equal(
+    (
+      await rows(
+        `SELECT count(*)::int AS n FROM app.ledger_journal WHERE obligation_id=$1 AND kind='OBLIGATION_VOIDED'`,
+        [id],
+      )
+    )[0]?.n,
+    1,
+  );
+  assert.equal(
+    (
+      await rows(`SELECT count(*)::int AS n FROM app.booking_compensation WHERE booking_id=$1`, [
+        input.bookingId,
+      ])
+    )[0]?.n,
+    1,
+  );
+  assert.equal(
+    (await outbox(id)).filter((e) => e.type === 'billing.obligation-status-changed.v1').length,
+    1,
+  );
+});
+
+test('compensation: creation races are serialized to either an absent fence or exactly one real void', async () => {
+  for (let round = 0; round < 5; round += 1) {
+    const input = { bookingId: randomUUID(), quoteId: quote() };
+    const [createdReply, fencedReply] = await Promise.all([
+      create(input),
+      compensate(input, { replica: replicaB }),
+    ]);
+    assert.equal(fencedReply.status, 200, JSON.stringify(fencedReply.body));
+    const fence = billingV1.parseBookingCompensationV1(fencedReply.body);
+    const persisted = await rows(
+      `SELECT o.id::text, o.status FROM app.billing_obligation o WHERE quote_id=$1`,
+      [input.quoteId],
+    );
+    if (fence.outcome === 'ABSENT_FENCED') {
+      assert.equal(createdReply.status, 409);
+      assert.deepEqual(persisted, []);
+    } else {
+      assert.equal(createdReply.status, 201);
+      assert.deepEqual(persisted, [{ id: fence.obligationId, status: 'VOIDED' }]);
+    }
+  }
+});
+
+test('compensation: owner, quote and workload binding cannot be changed before or after the fence', async () => {
+  const { bookingId, quoteId } = await created();
+  for (const afterFence of [false, true]) {
+    if (afterFence) assert.equal((await compensate({ bookingId, quoteId })).status, 200);
+    for (const [body, options] of [
+      [{ bookingId, quoteId: randomUUID() }, {}],
+      [{ bookingId, quoteId, beneficiary: { kind: 'guest', subjectId: SUBJECTS.customer } }, {}],
+      [
+        { bookingId, quoteId, beneficiary: { kind: 'account', subjectId: SUBJECTS.otherCustomer } },
+        {},
+      ],
+      [{ bookingId, quoteId }, { workload: WORKLOADS.other }],
+    ] as const)
+      assert.equal((await compensate(body, options)).status, 404);
+  }
+});
+
+test('compensation: payment-report refusal leaves no fence and no fabricated void', async () => {
+  const { bookingId, quoteId, obligation } = await created();
+  const id = String(obligation.obligationId);
+  assert.equal(
+    (
+      await replicaA.request('POST', `${PATH}/obligations/${id}/payment-intents`, {
+        token: TOKENS.customer,
+        key: key(),
+        body: { expectedRevision: 1, method: 'SHAM_CASH' },
+      })
+    ).status,
+    201,
+  );
+  assert.equal(
+    (
+      await replicaA.request('POST', `${PATH}/obligations/${id}/payment-attempts`, {
+        token: TOKENS.customer,
+        key: key(),
+        body: { expectedRevision: 2, providerReference: `FENCE${Date.now()}${seq}` },
+      })
+    ).status,
+    202,
+  );
+  const refused = await compensate({ bookingId, quoteId });
+  assert.equal(refused.status, 409);
+  assert.equal(code(refused.body), 'VOID_NOT_ALLOWED');
+  assert.deepEqual(
+    await rows(`SELECT outcome FROM app.booking_compensation WHERE booking_id=$1`, [bookingId]),
+    [],
+  );
+  assert.deepEqual(await rows(`SELECT kind FROM app.ledger_journal WHERE obligation_id=$1`, [id]), [
+    { kind: 'OBLIGATION_BILLED' },
+  ]);
+});
+
+test('by-booking read: only the exact own principal reads canonical ObligationV1; missing and foreign are indistinguishable', async () => {
+  const { bookingId, obligation } = await created();
+  const own = await replicaA.request('GET', `${PATH}/bookings/${bookingId}/obligation`, {
+    token: TOKENS.customer,
+  });
+  assert.equal(own.status, 200);
+  assert.deepEqual(billingV1.parseObligationV1(own.body), billingV1.parseObligationV1(obligation));
+  for (const token of [TOKENS.otherCustomer, TOKENS.guest, TOKENS.finance]) {
+    const denied = await replicaA.request('GET', `${PATH}/bookings/${bookingId}/obligation`, {
+      token,
+    });
+    assert.equal(denied.status, 404);
+    assert.equal(code(denied.body), 'NOT_FOUND');
+  }
+  assert.equal(
+    (
+      await replicaA.request('GET', `${PATH}/bookings/${randomUUID()}/obligation`, {
+        token: TOKENS.customer,
+      })
+    ).status,
+    404,
+  );
+  assert.equal(
+    (await replicaA.request('GET', `${PATH}/bookings/${bookingId}/obligation`)).status,
+    401,
+  );
+  assert.equal(
+    (
+      await replicaA.request('GET', `${PATH}/bookings/${bookingId}/obligation`, {
+        workload: WORKLOADS.booking,
+      })
+    ).status,
+    401,
+  );
+});
+
+test('database: compensation is immutable and cannot claim missing money was voided or an existing obligation absent', async () => {
+  const absent = { bookingId: randomUUID(), quoteId: quote() };
+  assert.equal((await compensate(absent)).status, 200);
+  await assert.rejects(
+    sql.query(`UPDATE app.booking_compensation SET quote_id=$2 WHERE booking_id=$1`, [
+      absent.bookingId,
+      randomUUID(),
+    ]),
+    /BILLING_APPEND_ONLY/,
+  );
+  await assert.rejects(
+    sql.query(`DELETE FROM app.booking_compensation WHERE booking_id=$1`, [absent.bookingId]),
+    /BILLING_APPEND_ONLY/,
+  );
+  const { bookingId, quoteId, obligation } = await created();
+  const insert = `INSERT INTO app.booking_compensation
+    (booking_id,client_id,beneficiary_kind,beneficiary_subject,quote_id,reason,outcome,obligation_id,obligation_revision,compensated_at,correlation_id)
+    VALUES ($1,'booking','account',$2,$3,'BOOKING_FAILED',$4,$5,$6,now(),$7)`;
+  await assert.rejects(
+    sql.query(insert, [
+      bookingId,
+      BENEFICIARY.subjectId,
+      quoteId,
+      'ABSENT_FENCED',
+      null,
+      null,
+      randomUUID(),
+    ]),
+    /BOOKING_COMPENSATION_INVALID_ABSENCE/,
+  );
+  await assert.rejects(
+    sql.query(insert, [
+      randomUUID(),
+      BENEFICIARY.subjectId,
+      randomUUID(),
+      'VOIDED',
+      obligation.obligationId,
+      1,
+      randomUUID(),
+    ]),
+    /BOOKING_COMPENSATION_INVALID_VOID/,
+  );
+  // An older writer ignoring the application fence still cannot link money to the failed booking.
+  await assert.rejects(
+    sql.query(
+      `INSERT INTO app.booking_obligation
+    (booking_id,obligation_id,client_id,created_at,created_correlation_id) VALUES ($1,$2,'booking',now(),$3)`,
+      [absent.bookingId, obligation.obligationId, randomUUID()],
+    ),
+    /BOOKING_COMPENSATED/,
   );
 });

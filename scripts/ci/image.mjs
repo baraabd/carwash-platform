@@ -8,6 +8,11 @@ import { ROOT, inventory, readJson, trivyFindings, runtimeEnvironment } from './
 import { checked, command, tool, toolLock, stage, git, sourceDirty } from './runtime.mjs';
 import { assessUnfilteredImageScan } from './image-security.mjs';
 import { assertNativeSbom, NATIVE_RUNTIME_PROBE } from './native-runtime.mjs';
+import {
+  assertHardenedRuntimeSbom,
+  assertLegacyConverterEvidence,
+  REMOVED_CONVERTER_CVES,
+} from './runtime-hardening.mjs';
 import { pullImageWithMirrors } from '../lib/image-references.mjs';
 const id = process.argv[2];
 const target = inventory().targets.find((t) => t.id === id);
@@ -17,6 +22,10 @@ const tag = `cw-f009-${id}:${run}`;
 const name = `cw-f009-${id}-${run}`;
 const temporary = mkdtempSync(path.join(tmpdir(), 'cw-f009-image-'));
 const vexPath = path.join(ROOT, 'security/vex/CVE-2026-97399.openvex.json');
+const removedConvertersVexPath = path.join(
+  ROOT,
+  'security/vex/removed-legacy-converters.openvex.json',
+);
 const docker = (...args) =>
   checked('docker', args, { timeoutMs: 1800000, capture: !['build', 'pull'].includes(args[0]) });
 const dockerResult = (args, options = {}) =>
@@ -105,7 +114,7 @@ try {
             '--rm',
             '--network',
             'none',
-            tag,
+            info.imageId,
             'node',
             '-e',
             NATIVE_RUNTIME_PROBE,
@@ -120,6 +129,22 @@ try {
         assert.equal(result.argon2, id === 'identity');
         return result;
       });
+      info.legacyConverters = await step(
+        'removed-converters-and-unicode-runtime-proof',
+        async () => {
+          const proof = {
+            ...info.nativeRuntime.legacyConverters,
+            imageId: info.imageId,
+            runtimeImage: info.runtimeImage,
+          };
+          assertLegacyConverterEvidence(proof, info.imageId);
+          writeFileSync(
+            path.join(process.env.CI_EVIDENCE_DIR, `hardening-${id}.json`),
+            JSON.stringify(proof, null, 2) + '\n',
+          );
+          return proof;
+        },
+      );
       await step('no-shell-or-build-toolchain', async () => {
         const script =
           "const fs=require('node:fs');if(['/bin/sh','/bin/bash','/usr/bin/apt','/usr/local/bin/npm','/usr/local/bin/corepack'].some(p=>fs.existsSync(p)))process.exit(1)";
@@ -183,7 +208,11 @@ try {
         );
         assert.equal(diagnostic.code, 0, 'Trivy diagnostic scan failure');
         const unfilteredReport = readJson(unfilteredOutput);
-        const assessment = assessUnfilteredImageScan(unfilteredReport, info.architecture);
+        const assessment = assessUnfilteredImageScan(
+          unfilteredReport,
+          info.architecture,
+          info.legacyConverters,
+        );
         const { unreviewedBlocking, reviewedFindingCount } = assessment;
         // Persist bounded, redacted diagnostics BEFORE enforcing the gate.
         // A rejected scan is evidence, not a successful image stage.
@@ -201,6 +230,7 @@ try {
               runtimeImage: info.runtimeImage,
               architecture: info.architecture,
               scannerVersion: toolLock.tools.trivy.version,
+              hardening: info.legacyConverters,
               scope: 'Unfiltered diagnostic inventory; never acceptance on its own.',
               ...assessment,
             },
@@ -224,6 +254,8 @@ try {
             'vuln,secret',
             '--vex',
             vexPath,
+            '--vex',
+            removedConvertersVexPath,
             '--format',
             'json',
             '--output',
@@ -248,11 +280,12 @@ try {
           findings,
           secretCount: secrets,
           reviewedVex: {
-            vulnerability: 'CVE-2026-97399',
+            vulnerabilities: ['CVE-2026-97399', ...REMOVED_CONVERTER_CVES],
             package: 'libc6',
             status: 'not_affected',
             justification: 'vulnerable_code_not_present',
             matchedUnfilteredFindings: reviewedFindingCount,
+            removedConverterProof: info.legacyConverters,
           },
         };
         writeFileSync(
@@ -276,6 +309,7 @@ try {
         assert.equal(sbom.bomFormat, 'CycloneDX');
         assert.ok(sbom.components?.length > 0);
         info.nativePackages = assertNativeSbom(sbom);
+        info.runtimePackages = assertHardenedRuntimeSbom(sbom);
         // Preserve valid package inventory without runtime/config/source fields.
         const safe = {
           bomFormat: sbom.bomFormat,

@@ -104,6 +104,8 @@ export type CaseRuleCode =
   | 'REASON_NOTE_REQUIRED'
   | 'INVALID_EVIDENCE'
   | 'EVIDENCE_REQUIRED'
+  | 'STATEMENT_CREDIT_REQUIRED'
+  | 'INVALID_STATEMENT_CREDIT'
   | 'INVALID_AMOUNT'
   | 'AMOUNT_REQUIRED'
   | 'AMOUNT_NOT_ALLOWED'
@@ -443,6 +445,7 @@ export interface DecisionInput {
   readonly evidence: readonly Evidence[];
   readonly amount: ExactAmount | null;
   readonly window: ServiceWindow | null;
+  readonly statementCredit?: { readonly creditId: string; readonly revision: number };
 }
 
 /** Validates a decision against its kind's policy; the shape is closed. */
@@ -474,7 +477,34 @@ export function decisionInput(
   } else if (raw.window !== undefined && raw.window !== null) {
     throw new CaseRuleError('WINDOW_NOT_ALLOWED');
   }
-  return { action, reason: parsedReason, evidence, amount, window };
+  let statementCredit: DecisionInput['statementCredit'];
+  if (action === 'APPROVE_MATCH' || action === 'ACCEPT_LATE_PAYMENT') {
+    if (raw.statementCredit === undefined || raw.statementCredit === null)
+      throw new CaseRuleError('STATEMENT_CREDIT_REQUIRED');
+    const value = raw.statementCredit;
+    if (typeof value !== 'object' || Array.isArray(value))
+      throw new CaseRuleError('INVALID_STATEMENT_CREDIT');
+    const selected = value as Record<string, unknown>;
+    if (
+      Object.keys(selected).sort().join(',') !== 'creditId,revision' ||
+      typeof selected.creditId !== 'string' ||
+      !UUID.test(selected.creditId) ||
+      typeof selected.revision !== 'number' ||
+      !Number.isSafeInteger(selected.revision) ||
+      selected.revision < 1 ||
+      selected.revision > 2_147_483_647
+    )
+      throw new CaseRuleError('INVALID_STATEMENT_CREDIT');
+    statementCredit = { creditId: selected.creditId.toLowerCase(), revision: selected.revision };
+  } else if (raw.statementCredit !== undefined) throw new CaseRuleError('INVALID_STATEMENT_CREDIT');
+  return {
+    action,
+    reason: parsedReason,
+    evidence,
+    amount,
+    window,
+    ...(statementCredit ? { statementCredit } : {}),
+  };
 }
 
 export function actionPolicy(kind: CaseKind, action: CaseAction): ActionPolicy {

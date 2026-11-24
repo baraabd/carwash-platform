@@ -12,6 +12,7 @@
     "start": "node dist/main.js"
   },
   "dependencies": {
+    "@carwash/contracts": "workspace:*",
     "@carwash/event-contracts": "workspace:*",
     "@carwash/service-kit": "workspace:*",
     "@nestjs/common": "11.2.5",

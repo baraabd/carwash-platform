@@ -76,13 +76,14 @@ test('a connection error after writer cleanup remains observed rather than crash
 });
 
 test('recovery applies the canonical owner policy after migrations and probes restored grants', () => {
-  for (const owner of ['identity', 'workforce', 'configuration']) {
+  for (const owner of ['identity', 'workforce', 'configuration', 'reviews']) {
     const sql = privilegeHardeningSql(owner);
     assert.match(
       sql,
       new RegExp(`REVOKE ALL ON TABLE app\\._prisma_migrations FROM "cw_${owner}_app"`),
     );
     assert.match(sql, /config_revision.*config_review.*config_audit/);
+    assert.match(sql, /review_audit.*review_command_receipt/);
     assert.match(sql, /MIGRATION_TABLE_MISSING/);
   }
   assert.throws(() => privilegeHardeningSql('workforce; DROP ROLE other'), /INVALID_SERVICE_OWNER/);
@@ -93,4 +94,5 @@ test('recovery applies the canonical owner policy after migrations and probes re
   assert.match(drill, /cwd: path\.join\(ROOT, 'services', owner\)/);
   assert.match(drill, /policy\.query\(privilegeHardeningSql\(owner\)\)/);
   assert.match(drill, /allOwnersRuntimePoliciesPreserved/);
+  assert.match(drill, /reviewsHistoryImmutable/);
 });

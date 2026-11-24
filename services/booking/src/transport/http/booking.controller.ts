@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Inject, Param, Post, Req, Res, UseFilters } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Post,
+  Query,
+  Req,
+  Res,
+  UseFilters,
+} from '@nestjs/common';
 import { BookingService, ChangeService, TechnicianViewQuery } from '../../application';
 import { BookingError, isUuid } from '../../domain';
 import { ActorResolver, type HeaderBag } from './actor-resolver';
@@ -27,6 +38,19 @@ export class BookingController {
     @Inject(TechnicianViewQuery) private readonly technician: TechnicianViewQuery,
     @Inject(ChangeService) private readonly changes: ChangeService,
   ) {}
+
+  @Get('mine')
+  async mine(@Req() req: HeaderBag, @Query() query: Record<string, unknown>) {
+    const page = await this.bookings.listMine(await this.actors.resolve(req), query);
+    return {
+      items: await Promise.all(
+        page.items.map(async (view) =>
+          bookingView(view.booking, view.saga, await this.changes.openChange(view.booking.id)),
+        ),
+      ),
+      nextCursor: page.nextCursor,
+    };
+  }
 
   @Post('bookings')
   async create(

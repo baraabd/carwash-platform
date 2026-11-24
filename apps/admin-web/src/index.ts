@@ -1,5 +1,6 @@
 import './reference.css';
 import './production.css';
+import './accessibility.css';
 import { currentSession, signOut } from './api/session';
 import {
   SCREENS,
@@ -51,6 +52,7 @@ const NO_CAPABILITIES: Capabilities = {
 };
 let session: StaffSession | null = null;
 let caps: Capabilities = NO_CAPABILITIES;
+let renderGeneration = 0;
 
 function route(): { screen: Screen | null; caseId: string | null } {
   const [, first, second, third] = location.hash.split('/');
@@ -84,6 +86,8 @@ function gateNavigation(): void {
 }
 
 async function render(): Promise<void> {
+  const current = ++renderGeneration;
+  const renderingSession = session;
   if (!session) return;
   if (!isStaff(caps)) {
     showConsoleState(copy().consoleForbidden, { label: copy().signOut, run: () => void leave() });
@@ -112,11 +116,16 @@ async function render(): Promise<void> {
       return;
     case 'technicians':
       await showTechnicians();
+      // Hash changes can overtake an outstanding Reporting read. Only the
+      // current navigation may open a dialog; an older render must not replace
+      // a decision form the reviewer has already started filling in.
+      if (current !== renderGeneration || session !== renderingSession) return;
       if (caseId) openReview(caseId);
   }
 }
 
 function unauthenticated(): void {
+  renderGeneration += 1;
   session = null;
   caps = NO_CAPABILITIES;
   renderProfile();

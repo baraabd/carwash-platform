@@ -9,6 +9,8 @@ import {
   BookingAlreadyLinked,
   ObligationAlreadyExists,
   QuoteUnavailable,
+  type BillingUnitOfWork,
+  type BookingCompensation,
   type BillingRepository,
   type BillingServiceScope,
   type Clock,
@@ -43,6 +45,7 @@ export const OBLIGATION_WRITE_SCOPE: BillingServiceScope = 'billing.obligation.w
 export const BOOKING_OPERATIONS = {
   create: 'billing.booking-obligation.create.v1',
   void: 'billing.booking-obligation.void.v1',
+  compensate: 'billing.booking-obligation.compensate.v1',
 } as const;
 
 const PRINCIPAL_KINDS: readonly PrincipalKind[] = ['account', 'guest'];
@@ -51,7 +54,7 @@ const PRINCIPAL_KINDS: readonly PrincipalKind[] = ['account', 'guest'];
 export interface ServiceRequestContext {
   readonly clientId: string | undefined;
   readonly token: string | undefined;
-  /** True when the request also carried an Authorization header: refused (ambiguous identity). */
+  /** True for Authorization or Cookie: refused as mixed workload/human identity. */
   readonly bearerPresent: boolean;
   readonly correlationId: string;
 }
@@ -77,6 +80,31 @@ function beneficiaryOf(value: unknown): PrincipalRef {
     kind: oneOf(input.kind, PRINCIPAL_KINDS, 'beneficiary.kind'),
     subjectId: uuid(input.subjectId, 'beneficiary.subjectId'),
   };
+}
+
+function compensationView(record: BookingCompensation): Readonly<Record<string, unknown>> {
+  return {
+    bookingId: record.bookingId,
+    beneficiary: record.beneficiary,
+    quoteId: record.quoteId,
+    outcome: record.outcome,
+    obligationId: record.obligationId,
+    obligationRevision: record.obligationRevision,
+    compensatedAt: record.compensatedAt.toISOString(),
+  };
+}
+
+function matchesCompensation(
+  record: BookingCompensation,
+  clientId: string,
+  beneficiary: PrincipalRef,
+  quoteId: string,
+): boolean {
+  return (
+    record.clientId === clientId &&
+    sameRef(record.beneficiary, beneficiary) &&
+    record.quoteId === quoteId
+  );
 }
 
 /**
@@ -183,6 +211,10 @@ export class BookingObligationService {
     });
     const replayed = await this.commands.committed(command);
     if (replayed) return replayed;
+    // A historical success is replay evidence only. Every new create command
+    // after compensation is refused, including one whose Pricing call was slow.
+    if (await this.deps.repository.bookings.compensationForBooking(bookingId))
+      throw new BillingApplicationError('BOOKING_COMPENSATED');
     const existing = await this.existingFor(bookingId, clientId, beneficiary, quoteId);
     if (existing) return { status: 200, body: obligationView(existing), replayed: false };
     // A quote obligated through the customer route can never be adopted.
@@ -207,6 +239,9 @@ export class BookingObligationService {
 
     try {
       return await this.commands.execute(command, async (uow, now) => {
+        await uow.bookings.lockBooking(bookingId);
+        if (await uow.bookings.compensationForBooking(bookingId))
+          throw new BillingApplicationError('BOOKING_COMPENSATED');
         if (await uow.bookings.forBooking(bookingId)) throw new BookingAlreadyLinked();
         if (await uow.obligationIdForQuote(quoteId)) throw new ObligationAlreadyExists();
         const obligation: ObligationRecord = {
@@ -277,6 +312,78 @@ export class BookingObligationService {
   }
 
   /**
+   * Compensates by the stable Booking identity when create's outcome is unknown.
+   * The fence and any real void commit together under the same lock as create.
+   * An absent obligation produces only a fence and command receipt, never money.
+   */
+  async compensateForBooking(
+    context: ServiceRequestContext,
+    idempotencyKey: unknown,
+    body: unknown,
+  ): Promise<CommandResult> {
+    const clientId = this.authorizeWorkload(context);
+    const key = this.commands.key(idempotencyKey);
+    const input = objectWithKeys(body, ['bookingId', 'beneficiary', 'quoteId', 'reason']);
+    const bookingId = uuid(input.bookingId, 'bookingId');
+    const beneficiary = beneficiaryOf(input.beneficiary);
+    const quoteId = uuid(input.quoteId, 'quoteId');
+    const reason = oneOf(input.reason, ['BOOKING_FAILED'] as const, 'reason');
+    const command = this.command(beneficiary, BOOKING_OPERATIONS.compensate, key, {
+      clientId,
+      bookingId,
+      beneficiary,
+      quoteId,
+      reason,
+    });
+    return this.commands.execute(command, async (uow) => {
+      await uow.bookings.lockBooking(bookingId);
+      const existing = await uow.bookings.compensationForBooking(bookingId);
+      if (existing) {
+        if (!matchesCompensation(existing, clientId, beneficiary, quoteId))
+          throw new BillingApplicationError('NOT_FOUND');
+        return { status: 200, body: compensationView(existing) };
+      }
+      const link = await uow.bookings.forBooking(bookingId);
+      let obligation: FinancialSnapshot | null = null;
+      if (link) {
+        if (link.clientId !== clientId) throw new BillingApplicationError('NOT_FOUND');
+        const before = await uow.snapshot(link.obligationId);
+        if (
+          !before ||
+          !sameRef(before.obligation.owner, beneficiary) ||
+          before.obligation.quoteId !== quoteId
+        )
+          throw new BillingApplicationError('NOT_FOUND');
+        if (before.obligation.status === 'VOIDED' && link.voidedAt !== null) {
+          obligation = before;
+        } else {
+          obligation = await this.voidLocked(
+            uow,
+            link.obligationId,
+            null,
+            beneficiary,
+            context.correlationId,
+          );
+        }
+      }
+      const record: BookingCompensation = {
+        bookingId,
+        clientId,
+        beneficiary,
+        quoteId,
+        reason,
+        outcome: obligation ? 'VOIDED' : 'ABSENT_FENCED',
+        obligationId: obligation?.obligation.id ?? null,
+        obligationRevision: obligation?.obligation.revision ?? null,
+        compensatedAt: this.deps.clock.now(),
+        correlationId: context.correlationId,
+      };
+      await uow.bookings.insertCompensation(record);
+      return { status: 200, body: compensationView(record) };
+    });
+  }
+
+  /**
    * Saga compensation: the booking will not happen. Only the workload that
    * created the booking's obligation may void it, and only while no payment was
    * ever reported (planVoid). Anything else is NOT_FOUND / VOID_NOT_ALLOWED.
@@ -302,73 +409,91 @@ export class BookingObligationService {
       obligationId: id,
       expectedRevision,
     });
-    return this.commands.execute(command, async (uow, now) => {
-      const obligation = await uow.lockObligation(id);
-      if (!obligation) throw new BillingApplicationError('NOT_FOUND');
-      if (obligation.revision !== expectedRevision)
-        throw new BillingApplicationError('REVISION_CONFLICT');
-      const before = await uow.snapshot(id);
-      if (!before) throw new Error('LOCKED_OBLIGATION_WITHOUT_SNAPSHOT');
-      const attemptsSoFar = await uow.countAttempts(id);
-      decide(() => planVoid({ obligation: before.obligation, attemptsSoFar }));
-      // planVoid passed, so the obligation is OPEN and unpaid; an active cash
-      // receipt would have settled it.
-      if (before.activeIntent)
-        await uow.setIntentStatus(
-          before.activeIntent.id,
-          before.activeIntent.status,
-          'CANCELLED',
-          now,
-        );
-      await uow.postJournal(obligationVoidedJournal(id, before.obligation.amount), {
-        id: this.deps.ids.uuid(),
-        obligationId: id,
-        handoverId: null,
-        postedAt: now,
-        correlationId: context.correlationId,
-      });
-      await uow.updateObligation(id, expectedRevision, {
-        verified: before.obligation.verified,
-        status: 'VOIDED',
-        updatedAt: now,
-      });
-      await uow.bookings.markVoided(id, now, context.correlationId);
-      await uow.appendAudit({
-        id: this.deps.ids.uuid(),
-        occurredAt: now,
-        actor: beneficiary,
-        action: 'billing.obligation.voided',
-        obligationId: id,
-        attemptId: null,
-        receiptId: null,
-        handoverId: null,
-        outcome: 'VOIDED',
-        correlationId: context.correlationId,
-      });
-      const after = await uow.snapshot(id);
-      if (!after) throw new Error('OBLIGATION_DISAPPEARED');
-      const previous: FinancialStatus = snapshotFinancialStatus(before);
-      const next: FinancialStatus = snapshotFinancialStatus(after);
-      if (previous !== next)
-        await uow.appendOutbox(
-          obligationStatusChangedEvent(
-            {
-              previousFinancialStatus: previous,
-              financialStatus: next,
-              verified: after.obligation.verified.toWire(),
-              outstanding: Money.zero(after.obligation.amount.currency).toWire(),
-            },
-            {
-              eventId: this.deps.ids.uuid(),
-              occurredAt: now,
-              correlationId: context.correlationId,
-              actor: beneficiary,
-              obligationId: id,
-              revision: after.obligation.revision,
-            },
-          ),
-        );
+    return this.commands.execute(command, async (uow) => {
+      const after = await this.voidLocked(
+        uow,
+        id,
+        expectedRevision,
+        beneficiary,
+        context.correlationId,
+      );
       return { status: 200, body: obligationView(after) };
     });
+  }
+
+  private async voidLocked(
+    uow: BillingUnitOfWork,
+    id: string,
+    expectedRevision: number | null,
+    beneficiary: PrincipalRef,
+    correlationId: string,
+  ): Promise<FinancialSnapshot> {
+    const obligation = await uow.lockObligation(id);
+    const now = this.deps.clock.now();
+    if (!obligation) throw new BillingApplicationError('NOT_FOUND');
+    if (expectedRevision !== null && obligation.revision !== expectedRevision)
+      throw new BillingApplicationError('REVISION_CONFLICT');
+    const before = await uow.snapshot(id);
+    if (!before) throw new Error('LOCKED_OBLIGATION_WITHOUT_SNAPSHOT');
+    const attemptsSoFar = await uow.countAttempts(id);
+    decide(() => planVoid({ obligation: before.obligation, attemptsSoFar }));
+    // planVoid passed, so the obligation is OPEN and unpaid; an active cash
+    // receipt would have settled it.
+    if (before.activeIntent)
+      await uow.setIntentStatus(
+        before.activeIntent.id,
+        before.activeIntent.status,
+        'CANCELLED',
+        now,
+      );
+    await uow.postJournal(obligationVoidedJournal(id, before.obligation.amount), {
+      id: this.deps.ids.uuid(),
+      obligationId: id,
+      handoverId: null,
+      postedAt: now,
+      correlationId,
+    });
+    await uow.updateObligation(id, obligation.revision, {
+      verified: before.obligation.verified,
+      status: 'VOIDED',
+      updatedAt: now,
+    });
+    await uow.bookings.markVoided(id, now, correlationId);
+    await uow.appendAudit({
+      id: this.deps.ids.uuid(),
+      occurredAt: now,
+      actor: beneficiary,
+      action: 'billing.obligation.voided',
+      obligationId: id,
+      attemptId: null,
+      receiptId: null,
+      handoverId: null,
+      outcome: 'VOIDED',
+      correlationId,
+    });
+    const after = await uow.snapshot(id);
+    if (!after) throw new Error('OBLIGATION_DISAPPEARED');
+    const previous: FinancialStatus = snapshotFinancialStatus(before);
+    const next: FinancialStatus = snapshotFinancialStatus(after);
+    if (previous !== next)
+      await uow.appendOutbox(
+        obligationStatusChangedEvent(
+          {
+            previousFinancialStatus: previous,
+            financialStatus: next,
+            verified: after.obligation.verified.toWire(),
+            outstanding: Money.zero(after.obligation.amount.currency).toWire(),
+          },
+          {
+            eventId: this.deps.ids.uuid(),
+            occurredAt: now,
+            correlationId,
+            actor: beneficiary,
+            obligationId: id,
+            revision: after.obligation.revision,
+          },
+        ),
+      );
+    return after;
   }
 }

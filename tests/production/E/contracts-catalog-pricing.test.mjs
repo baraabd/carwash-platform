@@ -77,6 +77,7 @@ const quoteFixture = {
     },
   ],
   total: syp('6350100'),
+  durationMinutes: 135,
   catalogRevision: 3,
   priceBookRevision: 7,
   issuedAt: '2026-10-07T08:00:00.000Z',
@@ -272,4 +273,17 @@ test('pricing: price book entries unique per (definition, vehicle type) and sing
   const usd = clone(book);
   usd.entries[0].unitPrice = { currency: 'USD', amountMinor: '1', scale: 2 };
   throwsCode(() => pricing.parsePublishPriceBookRequestV1(usd), 'CURRENCY_MISMATCH');
+});
+
+test('pricing: required duration is an exact bounded integer and never an inferred client default', () => {
+  const missing = clone(quoteFixture);
+  delete missing.durationMinutes;
+  throwsCode(() => pricing.parseQuoteV1(missing), 'MISSING_FIELD');
+  for (const durationMinutes of [null, '60', 4, 60.5, 96_001]) {
+    throwsCode(() => pricing.parseQuoteV1({ ...quoteFixture, durationMinutes }), 'INVALID_INTEGER');
+  }
+  assert.equal(
+    pricing.parseQuoteV1({ ...quoteFixture, durationMinutes: 1440 }).durationMinutes,
+    1440,
+  );
 });

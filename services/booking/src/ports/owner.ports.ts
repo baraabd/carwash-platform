@@ -32,6 +32,7 @@ export interface HoldView {
   readonly holdId: string;
   readonly revision: number;
   readonly state: 'HELD' | 'COMMITTED' | 'RELEASED' | 'EXPIRED';
+  readonly quoteRef: { readonly quoteId: string; readonly revision: number };
   readonly beneficiary: PrincipalRef;
   readonly zoneId: string;
   readonly startsAt: Date;
@@ -113,7 +114,10 @@ export interface ObligationRequest {
  */
 export interface BillingObligations {
   create(request: ObligationRequest, correlationId: string): Promise<ObligationResult>;
-  voidForBooking(bookingId: string, correlationId: string): Promise<VoidResult>;
+  voidForBooking(
+    request: Pick<ObligationRequest, 'bookingId' | 'beneficiary' | 'quoteId'>,
+    correlationId: string,
+  ): Promise<VoidResult>;
 }
 
 export type HoldCommit =

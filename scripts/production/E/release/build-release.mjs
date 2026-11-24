@@ -28,6 +28,8 @@ import { inventory, ROOT } from '../../../ci/policy.mjs';
 import { command } from '../../../ci/runtime.mjs';
 import { officialImagePullCandidates } from '../../../lib/image-references.mjs';
 import { pullRehearsalImage } from './rehearsal-image.mjs';
+import { configDigest } from './configuration.mjs';
+import { assertExactSource, assertSameSource } from './source-provenance.mjs';
 import {
   MANIFEST_KIND,
   MANIFEST_SCHEMA_VERSION,
@@ -42,7 +44,6 @@ import {
 
 const SOURCE_URL = 'https://github.com/baraabd/carwash-platform';
 const PLATFORM = 'linux/amd64';
-const toolLock = JSON.parse(readFileSync(path.join(ROOT, 'scripts/ci/tools.lock.json'), 'utf8'));
 
 function args(argv) {
   const out = { _: argv[0] };
@@ -65,33 +66,18 @@ async function docker(argv, options = {}) {
 
 /** The source must be exactly a commit: nothing modified or untracked in the build context. */
 export function assertCleanSource(root = ROOT) {
-  const status = gitAt(
-    root,
-    'status',
-    '--porcelain',
-    '--untracked-files=all',
-    '--',
-    'package.json',
-    'pnpm-lock.yaml',
-    'pnpm-workspace.yaml',
-    '.npmrc',
-    'tsconfig.base.json',
-    'packages',
-    'services',
-    'apps',
-    'infra/release',
-    'Dockerfile',
-    '.dockerignore',
-  );
-  assert.equal(status, '', `Build context differs from the commit:\n${status}`);
+  return assertExactSource(root);
 }
 
 export function sourceRecord(root = ROOT) {
-  const sha = gitAt(root, 'rev-parse', 'HEAD');
+  const { sha, tree } = assertCleanSource(root);
+  const configuration = configDigest(root, sha);
+  assert.ok(configuration, 'Committed deployment configuration is incomplete');
   return {
     repository: 'baraabd/carwash-platform',
     sha,
-    tree: gitAt(root, 'rev-parse', 'HEAD^{tree}'),
+    tree,
+    configDigest: configuration,
     committedAt: gitAt(root, 'show', '-s', '--format=%cI', sha),
     lockfileBlob: blobAt(root, sha, 'pnpm-lock.yaml'),
     toolsLockBlob: blobAt(root, sha, 'scripts/ci/tools.lock.json'),
@@ -101,8 +87,8 @@ export function sourceRecord(root = ROOT) {
 }
 
 /** Resolves the pinned Node base tag to a manifest digest without trusting the tag later. */
-async function resolveNodeBase() {
-  const dockerfile = readFileSync(path.join(ROOT, 'Dockerfile'), 'utf8');
+async function resolveNodeBase(source) {
+  const dockerfile = gitAt(ROOT, 'show', `${source.sha}:Dockerfile`);
   const tag = (/^ARG NODE_IMAGE=(.+)$/m.exec(dockerfile) ?? [])[1];
   assert.ok(tag, 'Root Dockerfile must pin NODE_IMAGE');
   const failures = [];
@@ -174,7 +160,7 @@ export async function registryAttestations(reference) {
   };
 }
 
-async function buildOne({ target, role, registry, source, nodeBase, out, work }) {
+async function buildOne({ target, role, registry, source, nodeBase, toolLock, out, work }) {
   const repository = repositoryFor(registry, target.id, role);
   const dockerfile =
     role === 'migration' ? 'infra/release/Dockerfile.migrate' : `${target.path}/Dockerfile`;
@@ -273,11 +259,12 @@ async function buildOne({ target, role, registry, source, nodeBase, out, work })
 async function build(options) {
   const { target: id, registry, out } = options;
   assert.ok(id && registry && out, 'build requires --target, --registry and --out');
-  const target = inventory().targets.find((t) => t.id === id);
-  assert.ok(target, `Unknown catalog target ${id}`);
   assertCleanSource();
   const source = sourceRecord();
-  const nodeBase = await resolveNodeBase();
+  const target = inventory().targets.find((t) => t.id === id);
+  assert.ok(target, `Unknown catalog target ${id}`);
+  const toolLock = JSON.parse(gitAt(ROOT, 'show', `${source.sha}:scripts/ci/tools.lock.json`));
+  const nodeBase = await resolveNodeBase(source);
   mkdirSync(out, { recursive: true });
   const work = mkdtempSync(path.join(tmpdir(), 'cw-release-'));
   try {
@@ -285,7 +272,11 @@ async function build(options) {
       target.kind === 'service' && target.database ? ['runtime', 'migration'] : ['runtime'];
     const artifacts = [];
     for (const role of roles) {
-      artifacts.push(await buildOne({ target, role, registry, source, nodeBase, out, work }));
+      assertSameSource(ROOT, source);
+      artifacts.push(
+        await buildOne({ target, role, registry, source, nodeBase, toolLock, out, work }),
+      );
+      assertSameSource(ROOT, source);
     }
     const part = {
       source,
@@ -298,7 +289,16 @@ async function build(options) {
       baseImagePulledFrom: { node: nodeBase.pullReference },
       artifacts,
     };
-    writeFileSync(path.join(out, `part-${id}.json`), `${JSON.stringify(part, null, 2)}\n`);
+    const partPath = path.join(out, `part-${id}.json`);
+    writeFileSync(partPath, `${JSON.stringify(part, null, 2)}\n`, { flag: 'wx' });
+    try {
+      assertSameSource(ROOT, source);
+    } catch (error) {
+      // A newly written part is not releasable evidence if its output path
+      // introduced source or source moved before the part was finalized.
+      rmSync(partPath);
+      throw error;
+    }
     console.log(JSON.stringify({ target: id, artifacts: artifacts.map((a) => a.reference) }));
   } finally {
     rmSync(work, { recursive: true, force: true });

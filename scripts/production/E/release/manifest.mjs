@@ -20,6 +20,15 @@ const DIGEST = /^sha256:[0-9a-f]{64}$/;
 const REPOSITORY = /^[a-z0-9.-]+(?::[0-9]{1,5})?(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)+$/;
 const ROLES = new Set(['runtime', 'migration']);
 const KINDS = new Set(['service', 'gateway', 'web-app']);
+const ID = /^[a-z][a-z0-9-]*$/;
+const MIGRATION = /^[0-9]{14}_[a-z0-9_]+$/;
+const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+
+export const SOURCE_BLOBS = Object.freeze({
+  lockfileBlob: 'pnpm-lock.yaml',
+  toolsLockBlob: 'scripts/ci/tools.lock.json',
+  migrationDockerfileBlob: 'infra/release/Dockerfile.migrate',
+});
 
 export function repositoryFor(registry, id, role) {
   const name = role === 'migration' ? `carwash-${id}-migrate` : `carwash-${id}`;
@@ -110,46 +119,93 @@ export function validateManifest(manifest, expected) {
   const problems = [];
   const fail = (code, detail = {}) => problems.push({ code, ...detail });
 
+  if (!object(manifest)) return [{ code: 'MANIFEST_OBJECT_REQUIRED' }];
+  if (!Array.isArray(expected) || expected.length === 0)
+    return [{ code: 'EXPECTED_TARGETS_REQUIRED' }];
   if (manifest?.kind !== MANIFEST_KIND) fail('KIND');
   if (manifest?.schemaVersion !== MANIFEST_SCHEMA_VERSION) fail('SCHEMA_VERSION');
   const source = manifest?.source ?? {};
   if (!SHA1.test(source.sha ?? '')) fail('SOURCE_SHA');
   if (!SHA1.test(source.tree ?? '')) fail('SOURCE_TREE');
-  if (!SHA1.test(source.lockfileBlob ?? '')) fail('LOCKFILE_BLOB');
+  if (source.repository !== 'baraabd/carwash-platform') fail('SOURCE_REPOSITORY');
+  for (const name of Object.keys(SOURCE_BLOBS))
+    if (!SHA1.test(source[name] ?? '')) fail('SOURCE_BLOB', { name });
+  if (!DIGEST.test(source.configDigest ?? '')) fail('SOURCE_CONFIG_DIGEST');
+  if (
+    typeof source.committedAt !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(
+      source.committedAt,
+    ) ||
+    !Number.isFinite(Date.parse(source.committedAt))
+  )
+    fail('SOURCE_COMMITTED_AT');
   if (source.dirty !== false) fail('SOURCE_NOT_CLEAN');
   if (typeof manifest?.registry !== 'string' || !REPOSITORY.test(`${manifest.registry}/x`)) {
     fail('REGISTRY');
   }
-  for (const [name, reference] of Object.entries(manifest?.baseImages ?? {})) {
+  const baseImages = object(manifest.baseImages) ? manifest.baseImages : {};
+  for (const [name, reference] of Object.entries(baseImages)) {
     if (!parseDigestReference(reference)) fail('BASE_IMAGE_NOT_BY_DIGEST', { name });
   }
-  if (!manifest?.baseImages?.node) fail('BASE_IMAGE_MISSING', { name: 'node' });
+  for (const name of ['node', 'runtime', 'nativeLibraries'])
+    if (!baseImages[name]) fail('BASE_IMAGE_MISSING', { name });
 
   const artifacts = Array.isArray(manifest?.artifacts) ? manifest.artifacts : [];
   if (artifacts.length === 0) fail('NO_ARTIFACTS');
   const seen = new Set();
+  const targets = new Map(expected.map((target) => [target.id, target]));
   for (const artifact of artifacts) {
+    if (!object(artifact)) {
+      fail('ARTIFACT_OBJECT_REQUIRED');
+      continue;
+    }
     const key = `${artifact.id}/${artifact.role}`;
     if (seen.has(key)) fail('DUPLICATE_ARTIFACT', { key });
     seen.add(key);
+    if (!ID.test(artifact.id ?? '')) fail('ARTIFACT_ID', { key });
     if (!ROLES.has(artifact.role)) fail('ROLE', { key });
     if (!KINDS.has(artifact.kind)) fail('ARTIFACT_KIND', { key });
+    const target = targets.get(artifact.id);
+    if (!target) fail('UNKNOWN_TARGET', { id: artifact.id });
+    else if (artifact.kind !== target.kind) fail('TARGET_KIND_MISMATCH', { key });
     const parsed = parseDigestReference(artifact.reference);
     if (!parsed) {
       fail('REFERENCE_NOT_BY_DIGEST', { key, reference: artifact.reference });
       continue;
     }
     if (parsed.digest !== artifact.digest) fail('DIGEST_MISMATCH', { key });
-    if (parsed.repository !== repositoryFor(manifest.registry, artifact.id, artifact.role)) {
+    if (
+      artifact.repository !== parsed.repository ||
+      typeof manifest.registry !== 'string' ||
+      parsed.repository !== repositoryFor(manifest.registry, artifact.id, artifact.role)
+    ) {
       fail('REPOSITORY_MISMATCH', { key });
     }
     if (artifact.platform !== 'linux/amd64') fail('PLATFORM', { key });
     if (artifact.attestations?.sbom !== true || artifact.attestations?.provenance !== true) {
       fail('ATTESTATIONS_MISSING', { key });
     }
+    for (const name of ['sbomSha256', 'provenanceSha256'])
+      if (!DIGEST.test(artifact.attestations?.[name] ?? ''))
+        fail('ATTESTATION_DIGEST', { key, name });
+    if (
+      !Number.isInteger(artifact.attestations?.registryAttestationManifests) ||
+      artifact.attestations.registryAttestationManifests < 1
+    )
+      fail('ATTESTATION_MANIFESTS', { key });
     if (artifact.role === 'migration') {
       if (!DIGEST.test(artifact.migrationSet?.digest ?? '')) fail('MIGRATION_SET', { key });
-      if (!Array.isArray(artifact.migrationSet?.migrations)) fail('MIGRATION_NAMES', { key });
+      const names = artifact.migrationSet?.migrations;
+      if (
+        !Array.isArray(names) ||
+        names.length === 0 ||
+        names.some((name) => typeof name !== 'string' || !MIGRATION.test(name)) ||
+        new Set(names).size !== names.length
+      )
+        fail('MIGRATION_NAMES', { key });
+      for (const name of ['database', 'migrationRole', 'runtimeRole'])
+        if (!target?.[name] || artifact[name] !== target[name])
+          fail('MIGRATION_IDENTITY', { key, name });
     }
   }
 
@@ -160,11 +216,14 @@ export function validateManifest(manifest, expected) {
     if (needsMigration && !hasMigration) fail('MIGRATION_ARTIFACT_MISSING', { id: target.id });
     if (!needsMigration && hasMigration) fail('UNEXPECTED_MIGRATION_ARTIFACT', { id: target.id });
   }
-  const expectedIds = new Set(expected.map((t) => t.id));
-  for (const artifact of artifacts) {
-    if (!expectedIds.has(artifact.id)) fail('UNKNOWN_TARGET', { id: artifact.id });
-  }
   return problems;
+}
+
+/** Canonical, role-qualified names prevent a runtime from shadowing its migration job. */
+export function artifactDigests(manifest) {
+  return Object.fromEntries(
+    manifest.artifacts.map((artifact) => [`${artifact.id}/${artifact.role}`, artifact.digest]),
+  );
 }
 
 /** Stable serialisation so the manifest digest is reproducible. */

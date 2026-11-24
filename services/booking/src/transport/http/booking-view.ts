@@ -52,6 +52,7 @@ export function bookingView(
       revision: booking.quote.revision,
       catalogRevision: booking.quote.catalogRevision,
       priceBookRevision: booking.quote.priceBookRevision,
+      durationMinutes: booking.quote.durationMinutes,
       lines: booking.quote.lines.map((line) => ({
         lineId: line.lineId,
         kind: line.kind,

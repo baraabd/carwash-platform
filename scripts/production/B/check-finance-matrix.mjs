@@ -57,6 +57,18 @@ export function routeKey(method, ...parts) {
   return `${method.toUpperCase()} /${joined}`;
 }
 
+/** A fixed Gateway alias may target one value of an owner's parameter route. */
+export function servedRouteMatches(pattern, target) {
+  const source = pattern.split('/');
+  const destination = target.split('/');
+  return (
+    source.length === destination.length &&
+    source.every((part, index) =>
+      part === ':p' ? destination[index] !== '' : part === destination[index],
+    )
+  );
+}
+
 function walk(dir, out = []) {
   if (!existsSync(dir)) return out;
   for (const name of readdirSync(dir)) {
@@ -225,7 +237,7 @@ export function checkMatrix(root, matrix) {
       claimedGateway.set(id, f.id);
       if (route && f.status === 'IMPLEMENTED') {
         const servedKey = `${route.owner}|${routeKey(route.method, route.upstream)}`;
-        if (!served.has(servedKey))
+        if (![...served.keys()].some((pattern) => servedRouteMatches(pattern, servedKey)))
           fail(
             `${where}: IMPLEMENTED but Gateway upstream ${route.method} ${route.upstream} (${id}) is not served`,
           );

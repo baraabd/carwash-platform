@@ -6,6 +6,9 @@ import { PrismaService } from '../../src/infrastructure/persistence/prisma.servi
 import { PrismaSchedulingStore } from '../../src/infrastructure/persistence/prisma-scheduling.store';
 import { uuidGenerator } from '../../src/infrastructure/runtime/system';
 import type { Actor, Clock, RequestMeta } from '../../src/ports';
+import { DeclaredQuotes } from '../support/quotes';
+
+export const declaredQuotes = new DeclaredQuotes();
 
 /**
  * Real-infrastructure test support. Requires the lane-C stack:
@@ -59,7 +62,7 @@ export function replica(clock: Clock): Replica {
   return {
     prisma,
     store,
-    holds: new HoldsV1Service(store, store, clock, uuidGenerator),
+    holds: new HoldsV1Service(store, store, clock, uuidGenerator, declaredQuotes),
     capacity: new CapacityService(store, store, clock, uuidGenerator),
     commitments: new CommitmentsService(store, store, clock, uuidGenerator),
   };
@@ -125,13 +128,13 @@ export function holdRequestFor(
   durationMinutes = 30,
   offsetMinutes = 0,
 ) {
-  return {
+  return declaredQuotes.register({
     beneficiary: { kind: who.principalKind, subjectId: who.subject },
     zoneId: window.zoneId,
     startsAt: new Date(window.startsAt.getTime() + offsetMinutes * 60_000),
     durationMinutes,
     quoteRef: { quoteId: randomUUID(), revision: 1 },
-  };
+  });
 }
 
 /** Body of a stored v1 hold response. */

@@ -30,7 +30,7 @@
 /* global document, getComputedStyle, crypto -- page.evaluate callbacks run in the browser */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createServer, request as httpRequest } from 'node:http';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -40,14 +40,15 @@ import { chromium } from '@playwright/test';
 import { ROOT, appDsn, context, sql } from '../../integration/_support.mjs';
 import { hardenPrivileges, migrateDeploy } from '../../../scripts/acceptance/lib/migrations.mjs';
 import { STAFF_PASSWORD, account, bearer, staff, startIdentity } from './_identity.mjs';
+import { eligibleWorkforceResource } from './_admin-workforce.mjs';
 import { comparePngBuffers } from '../../../scripts/f010/pixel-compare.mjs';
 
 const require = createRequire(path.join(ROOT, 'package.json'));
 const EVIDENCE = path.join(ROOT, 'docs', 'production', 'D', 'evidence', 'p03-d3');
 const REFERENCE = path.join(ROOT, 'design', 'reference', 'approved', 'washgo-admin-prototype.html');
 const TIMEZONE = 'Asia/Damascus';
-const SYRIA_OFFSET_MS = 3 * 3_600_000;
 const MIN = 60_000;
+const STATEMENT_MERCHANT = 'acceptance-admin-sham';
 
 const owned = (service) => createRequire(path.join(ROOT, 'services', service, 'package.json'));
 const dist = (service, file) => owned(service)(path.join(ROOT, 'services', service, 'dist', file));
@@ -138,7 +139,7 @@ async function startQuoteDouble() {
 
 async function migrateOwners() {
   const ctx = { ...context, root: ROOT };
-  for (const service of ['booking', 'dispatch', 'billing']) {
+  for (const service of ['booking', 'dispatch', 'billing', 'workforce']) {
     const migrated = await migrateDeploy(ctx, service);
     assert.equal(migrated.code, 0, `${service} migrate deploy: ${migrated.stderr}`);
     const hardened = await hardenPrivileges(ctx, service);
@@ -162,7 +163,19 @@ async function startStack() {
   );
   const doubles = await startOwnerDoubles();
   const quotes = await startQuoteDouble();
+  const capacityToken = randomBytes(24).toString('hex');
   const env = {
+    workforce: {
+      DATABASE_URL: appDsn(context, 'workforce'),
+      IDENTITY_URL: identity.base,
+      WORKFORCE_SERVICE_CLIENTS: JSON.stringify([
+        {
+          id: 'dispatch',
+          tokenSha256: createHash('sha256').update(capacityToken).digest('hex'),
+          scopes: ['workforce.capacity.read'],
+        },
+      ]),
+    },
     reporting: {
       DATABASE_URL: appDsn(context, 'reporting'),
       IDENTITY_ORIGIN: identity.base,
@@ -191,11 +204,19 @@ async function startStack() {
       DATABASE_URL: appDsn(context, 'billing'),
       IDENTITY_SESSION_ORIGIN: identity.base,
       PRICING_ORIGIN: quotes.origin,
+      BILLING_SHAM_CASH_MERCHANT_ACCOUNTS: STATEMENT_MERCHANT,
     },
   };
   const services = {};
-  for (const name of Object.keys(env))
+  for (const name of Object.keys(env)) {
+    if (name === 'dispatch')
+      Object.assign(env.dispatch, {
+        DISPATCH_WORKFORCE_URL: services.workforce.origin,
+        DISPATCH_WORKFORCE_CLIENT_ID: 'dispatch',
+        DISPATCH_WORKFORCE_CLIENT_TOKEN: capacityToken,
+      });
     services[name] = await nestService(name, { ...env[name], PORT: '' });
+  }
   const gatewayRequire = createRequire(path.join(ROOT, 'apps', 'api-gateway', 'package.json'));
   gatewayRequire('reflect-metadata');
   const { createGatewayApplication, loadGatewayConfig } = gatewayRequire('./dist/index.js');
@@ -270,7 +291,10 @@ async function createBooking(customer) {
     principalKind: 'account',
     permissions: ['bookings.create:self', 'bookings.read:self'],
   });
-  const issued = stack.doubles.issue({ kind: 'account', subjectId: customer.subject });
+  const issued = stack.doubles.issue(
+    { kind: 'account', subjectId: customer.subject },
+    assignmentZone,
+  );
   const created = await ownerCall(
     stack.services.booking.origin,
     '/internal/v1/booking',
@@ -394,7 +418,7 @@ function timingFacts(minutesToAssign) {
   const facts = [];
   minutesToAssign.forEach((m, i) => {
     const created = Date.now() - 90 * MIN;
-    const startsAt = damascusToday(14 * 60 + i * 30);
+    const startsAt = reportingToday(14 * 60 + i * 30);
     const base = {
       assignmentId: randomUUID(),
       bookingId: randomUUID(),
@@ -489,12 +513,13 @@ async function obligationUnderReview(customer, amountMinor) {
     body: { expectedRevision: created.body.revision, method: 'SHAM_CASH' },
   });
   assert.ok(ok2xx(intent.status), JSON.stringify(intent.body));
+  const providerReference = `SC-${randomUUID()}`;
   const attempt = await billing(`/obligations/${obligationId}/payment-attempts`, {
     method: 'POST',
     key: commandKey(),
     body: {
       expectedRevision: intent.body.revision,
-      providerReference: `SC-${randomUUID().slice(0, 8)}`,
+      providerReference,
     },
   });
   assert.ok(ok2xx(attempt.status), JSON.stringify(attempt.body));
@@ -503,16 +528,42 @@ async function obligationUnderReview(customer, amountMinor) {
     obligationId,
     attemptId: attempt.body.attempts[0].attemptId,
     revision: attempt.body.revision,
+    providerReference,
+    amountMinor,
   };
 }
 
-function damascusToday(minutes) {
-  const now = new Date(Date.now() + SYRIA_OFFSET_MS);
-  return (
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0) -
-    SYRIA_OFFSET_MS +
-    minutes * MIN
+/** Actual statement-only owner path; no approval and no money movement. */
+async function pendingStatementFor(subject) {
+  const recorded = await ownerCall(
+    stack.services.billing.origin,
+    '/internal/v1/billing',
+    principals.financeRecorder,
+    '/provider-credits',
+    {
+      method: 'POST',
+      key: commandKey(),
+      body: {
+        provider: 'SHAM_CASH',
+        merchantAccount: STATEMENT_MERCHANT,
+        providerReference: subject.providerReference,
+        amount: { currency: 'SYP', amountMinor: subject.amountMinor, scale: 2 },
+        occurredAt: new Date().toISOString(),
+        evidenceDigest: createHash('sha256')
+          .update(`acceptance-statement:${subject.providerReference}`)
+          .digest('hex'),
+      },
+    },
   );
+  assert.equal(recorded.status, 201, JSON.stringify(recorded.body));
+  assert.equal(recorded.body.status, 'PENDING_APPROVAL');
+  assert.equal(recorded.body.obligationId, null);
+  return recorded.body;
+}
+
+function reportingToday(minutes) {
+  const now = new Date();
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0) + minutes * MIN;
 }
 
 /** Owner audit rows, read with the owner's runtime identity (test evidence only). */
@@ -625,6 +676,7 @@ let technician;
 let technicianTwo;
 let resourceOne;
 let resourceTwo;
+const assignmentZone = randomUUID();
 /** One account per role for the whole suite (see `asUser`). */
 const principals = {};
 const report = { journeys: {}, accessibility: {}, visual: [], audit: {}, consoleErrors: [] };
@@ -644,10 +696,19 @@ test.before(async () => {
   technicianTwo = await staff(stack.identity, ['technician']);
   principals.operations = await staff(stack.identity, ['operations']);
   principals.finance = await staff(stack.identity, ['finance']);
+  principals.financeRecorder = await staff(stack.identity, ['finance']);
   principals.superAdmin = await staff(stack.identity, ['super-admin']);
   principals.customer = await account(stack.identity);
-  resourceOne = randomUUID();
-  resourceTwo = randomUUID();
+  const eligibility = {
+    origin: stack.services.workforce.origin,
+    operations: principals.operations,
+    reviewer: principals.superAdmin,
+    zoneId: assignmentZone,
+    startsAt: new Date(Date.now() - 5 * MIN).toISOString(),
+    endsAt: new Date(Date.now() + 12 * 60 * MIN).toISOString(),
+  };
+  resourceOne = await eligibleWorkforceResource({ ...eligibility, technician });
+  resourceTwo = await eligibleWorkforceResource({ ...eligibility, technician: technicianTwo });
 });
 
 test.after(async () => {
@@ -678,9 +739,9 @@ test('O1: operations — dashboard KPIs equal Reporting, live assignment, offer/
   try {
     await page.waitForURL(/#\/dashboard$/);
     await page.locator('#dashboardKpis .kpi').first().waitFor();
-    // Same window the console asks for (Damascus calendar day).
-    const from = new Date(damascusToday(0)).toISOString();
-    const to = new Date(damascusToday(24 * 60)).toISOString();
+    // Same published UTC day the console asks Reporting for; display locale is separate.
+    const from = new Date(reportingToday(0)).toISOString();
+    const to = new Date(reportingToday(24 * 60)).toISOString();
     const expected = await queries.operationsKpis({ from, to, zoneId: undefined });
     const cards = await page.locator('#dashboardKpis .kpi b').allInnerTexts();
     const total = [...expected.bookingsByStatus.values()].reduce((a, b) => a + b, 0);
@@ -861,6 +922,7 @@ test('F1: finance — cash KPIs equal Reporting; reconcile through Billing with 
   const finance = principals.finance;
   const customer = principals.customer;
   const due = await obligationUnderReview(customer, '250000');
+  const credit = await pendingStatementFor(due);
   await project([obligationFact(due.obligationId, due.revision, 'UNDER_REVIEW', '250000')]);
   const { OperationsQueries } = dist('reporting', 'application/operations.service.js');
   const { PrismaOperationsReader } = dist(
@@ -898,33 +960,72 @@ test('F1: finance — cash KPIs equal Reporting; reconcile through Billing with 
     await dialog.locator(`#reconcile-${due.attemptId}`).click();
     await dialog.locator('#reconcileSubmit').click();
     await dialog.locator('#reconcileProblem').getByText('اختر نتيجة المطابقة.').waitFor();
+    const mutations = [];
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && request.url().includes('/admin/billing/payment-attempts/'))
+        mutations.push(request);
+    });
     await dialog.locator('#reconcileOutcome').selectOption('MATCHED');
+    await dialog
+      .locator(`#statementCredit option[value="${credit.creditId}"]`)
+      .waitFor({ state: 'attached' });
+    assert.match(
+      await dialog.locator('#statementCreditReview').innerText(),
+      /بانتظار موافقة مراجع آخر/,
+    );
     await dialog.locator('#reconcileObserved').fill('2500.001');
     await dialog.locator('#reconcileSubmit').click();
     await dialog.locator('#reconcileProblem').getByText('كسور أكثر مما تسمح به العملة.').waitFor();
     await dialog.locator('#reconcileObserved').fill('2,500');
+    await dialog.locator('#reconcileSubmit').click();
+    await dialog
+      .locator('#reconcileProblem')
+      .getByText('اختر قيد الكشف المستقل بعد مراجعة تفاصيله.')
+      .waitFor();
+    await dialog.locator('#statementCredit').selectOption(credit.creditId);
+    await dialog.locator('#reconcileObserved').fill('2499');
+    await dialog.locator('#reconcileSubmit').click();
+    await dialog
+      .locator('#reconcileProblem')
+      .getByText('المبلغ المدخل لا يطابق مبلغ قيد الكشف المحدد.')
+      .waitFor();
+    await dialog.locator('#reconcileObserved').fill('2,500');
+    assert.equal(mutations.length, 0, 'loading and reviewing a statement cannot move money');
     report.accessibility.reconcileDialog = await axe(page, '.modal');
-    const correlation = capture(page, /\/reconciliation$/);
+    writeFileSync(
+      path.join(EVIDENCE, 'statement-credit-candidate.png'),
+      await dialog.screenshot({ animations: 'disabled', caret: 'hide' }),
+    );
+    report.statementCreditReview = {
+      source: 'independent real Billing statement',
+      explicitSelection: true,
+      creditRevision: 1,
+    };
+    const correlation = capture(page, /\/statement-credit-allocation$/);
     await dialog.locator('#reconcileSubmit').click();
     await dialog.locator('[data-financial-status="PAID"]').waitFor();
     const reconciled = await correlation;
-
+    assert.equal(mutations.length, 1, 'one explicit owner command');
+    assert.deepEqual(mutations[0].postDataJSON(), {
+      creditId: credit.creditId,
+      expectedCreditRevision: 1,
+      expectedRevision: due.revision,
+      observedAmount: { currency: 'SYP', amountMinor: '250000', scale: 2 },
+    });
     const audit = await auditRows(
       'billing',
-      `SELECT action, actor_subject::text AS actor, outcome, correlation_id::text AS correlation_id FROM app.billing_audit_event WHERE correlation_id = '${reconciled}'`,
+      `SELECT action, actor_subject::text AS actor, outcome FROM app.billing_audit_event WHERE correlation_id = '${reconciled}' ORDER BY action`,
     );
-    assert.equal(audit.length, 1, JSON.stringify(audit));
-    assert.equal(audit[0].action, 'billing.attempt.reconciled');
-    assert.equal(audit[0].actor, finance.subject);
-    assert.equal(audit[0].outcome, 'MATCHED');
-    report.audit.billing = [
-      {
-        action: audit[0].action,
-        actorIsFinance: true,
-        outcome: audit[0].outcome,
-        correlationId: reconciled,
-      },
-    ];
+    assert.deepEqual(audit, [
+      { action: 'billing.credit.allocated', actor: finance.subject, outcome: 'MATCHED' },
+      { action: 'billing.credit.approved', actor: finance.subject, outcome: 'ALLOCATED' },
+    ]);
+    report.audit.billing = audit.map((row) => ({
+      action: row.action,
+      actorIsFinance: row.actor === finance.subject,
+      outcome: row.outcome,
+      correlationId: reconciled,
+    }));
 
     // Denied by the Gateway even when hand-made with a valid CSRF token.
     assert.equal(
@@ -950,11 +1051,108 @@ test('F1: finance — cash KPIs equal Reporting; reconcile through Billing with 
   }
 });
 
+test('F2: finance — missing statements never settle; a lost allocation answer retries the same reviewed command once', async () => {
+  const due = await obligationUnderReview(principals.customer, '150000');
+  const { page, browserContext, errors } = await asUser(principals.finance);
+  try {
+    await page.waitForURL(/#\/payments$/);
+    await page.locator('#obligationRef').fill(due.obligationId);
+    await page.locator('#obligationLookup button[type="submit"]').click();
+    const dialog = page.getByRole('dialog');
+    await dialog.locator(`#reconcile-${due.attemptId}`).click();
+    await dialog.locator('#reconcileOutcome').selectOption('MATCHED');
+    await dialog.locator('#statementCreditStatus [data-state]').waitFor();
+    await dialog.locator('#reconcileObserved').fill('1500');
+    const commands = [];
+    page.on('request', (request) => {
+      if (
+        request.method() === 'POST' &&
+        request.url().includes(`/payment-attempts/${due.attemptId}/`)
+      )
+        commands.push({
+          key: request.headers()['idempotency-key'],
+          body: request.postDataJSON(),
+          url: request.url(),
+        });
+    });
+    await dialog.locator('#reconcileSubmit').click();
+    await dialog
+      .locator('#reconcileProblem')
+      .getByText('اختر قيد الكشف المستقل بعد مراجعة تفاصيله.')
+      .waitFor();
+    assert.equal(
+      commands.length,
+      0,
+      'a manual MATCHED selection never bypasses statement evidence',
+    );
+    const before = await ownerCall(
+      stack.services.billing.origin,
+      '/internal/v1/billing',
+      principals.finance,
+      `/obligations/${due.obligationId}`,
+    );
+    assert.equal(before.body.financialStatus, 'UNDER_REVIEW');
+
+    const credit = await pendingStatementFor(due);
+    await dialog.getByRole('button', { name: 'تحديث قيد الكشف' }).click();
+    await dialog
+      .locator(`#statementCredit option[value="${credit.creditId}"]`)
+      .waitFor({ state: 'attached' });
+    await dialog.locator('#statementCredit').selectOption(credit.creditId);
+    let droppedStatus = null;
+    await page.route(
+      `**/payment-attempts/${due.attemptId}/statement-credit-allocation`,
+      async (route) => {
+        if (droppedStatus !== null) return route.continue();
+        const response = await route.fetch();
+        droppedStatus = response.status();
+        await route.abort('connectionreset');
+      },
+    );
+    await dialog.locator('#reconcileSubmit').click();
+    await dialog
+      .getByText(
+        'لم نتمكن من تأكيد تسجيل المطابقة. لا تغيّر النتيجة؛ أعد إرسال المطابقة نفسها للتحقق.',
+      )
+      .waitFor();
+    assert.equal(droppedStatus, 200, 'the first command committed before the response was lost');
+    for (const selector of ['#reconcileOutcome', '#reconcileObserved', '#statementCredit'])
+      assert.equal(await dialog.locator(selector).isDisabled(), true, selector);
+    assert.equal(commands.length, 1);
+    await dialog.locator('#reconcileSubmit').click();
+    await dialog.locator('[data-financial-status="PAID"]').waitFor();
+    assert.equal(commands.length, 2);
+    assert.deepEqual(
+      commands[1],
+      commands[0],
+      'same route, idempotency key, selected record and revisions',
+    );
+    const audit = await auditRows(
+      'billing',
+      `SELECT action, count(*)::int AS n FROM app.billing_audit_event WHERE credit_id = '${credit.creditId}' AND action IN ('billing.credit.allocated', 'billing.credit.approved') GROUP BY action ORDER BY action`,
+    );
+    assert.deepEqual(audit, [
+      { action: 'billing.credit.allocated', n: 1 },
+      { action: 'billing.credit.approved', n: 1 },
+    ]);
+    const journals = await auditRows(
+      'billing',
+      `SELECT count(*)::int AS n FROM app.ledger_journal WHERE credit_id = '${credit.creditId}'`,
+    );
+    assert.deepEqual(journals, [{ n: 2 }], 'one received journal and one allocation journal');
+    assert.deepEqual(errors, []);
+    report.journeys.F2 = 'PASSED';
+  } finally {
+    await browserContext.close();
+  }
+});
+
 test('S1: super-admin — every screen; reconcile MISMATCHED; may not reconcile its own payment', async () => {
   const superAdmin = principals.superAdmin;
   const customer = principals.customer;
   const due = await obligationUnderReview(customer, '120000');
   const own = await obligationUnderReview(superAdmin, '50000');
+  await pendingStatementFor(own);
   const { page, browserContext, errors } = await asUser(superAdmin);
   try {
     await page.waitForURL(/#\/dashboard$/);
@@ -992,7 +1190,7 @@ test('S1: super-admin — every screen; reconcile MISMATCHED; may not reconcile 
     await dialog.locator('#reconcileOutcome').selectOption('MATCHED');
     await dialog.locator('#reconcileObserved').fill('500');
     await dialog.locator('#reconcileSubmit').click();
-    await dialog.locator('#reconcileStatus [data-state="FORBIDDEN"]').waitFor();
+    await dialog.locator('#statementCreditStatus [data-state="FORBIDDEN"]').waitFor();
     assert.deepEqual(errors, []);
     report.journeys.S1 = 'PASSED';
   } finally {

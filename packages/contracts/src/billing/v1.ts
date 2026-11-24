@@ -16,6 +16,7 @@ import { parseCashReceiptV1, type CashReceiptV1 } from './custody';
 
 export * from './custody';
 export * from './refunds';
+export * from './statement-credit';
 
 /**
  * billing.v1 — owner: Billing service (Lane B).
@@ -29,8 +30,8 @@ export * from './refunds';
  *
  * Money truth:
  *  - choosing a method or reporting a transaction reference NEVER means money
- *    was received; only a MATCHED reconciliation (or an authorised cash
- *    receipt) settles an obligation;
+ *    was received; only allocation of an independently confirmed provider
+ *    credit (or an authorised cash receipt) settles an obligation;
  *  - an outcome that cannot be known is OUTCOME_UNKNOWN, never success;
  *  - a refund is a separate fact with its own outcome; REQUESTED or
  *    OUTCOME_UNKNOWN never means the money went back.
@@ -80,12 +81,38 @@ export const BILLING_V1 = {
       access: 'permission:billing.reconcile',
       idempotent: true,
     },
+    /** One eligible, masked merchant-statement record for explicit Finance review. */
+    getStatementCreditReview: {
+      method: 'GET',
+      path: '/payment-attempts/:attemptId/statement-credit',
+      access: 'permission:billing.reconcile',
+    },
+    /** Approves one selected pending statement credit and atomically binds it to this claim. */
+    allocateStatementCredit: {
+      method: 'POST',
+      path: '/payment-attempts/:attemptId/statement-credit-allocation',
+      access: 'permission:billing.reconcile',
+      idempotent: true,
+    },
     /** Booking saga (CR-B-03.2): create for the booking's beneficiary. */
     createBookingObligation: {
       method: 'POST',
       path: '/booking-obligations',
       access: 'service:billing.obligation.write',
       idempotent: true,
+    },
+    /** An unknown create is fenced by booking identity, without guessing a missing debt. */
+    compensateBookingObligation: {
+      method: 'POST',
+      path: '/booking-obligations/compensations',
+      access: 'service:billing.obligation.write',
+      idempotent: true,
+    },
+    /** The customer's existing receivable for its booking; foreign/missing ids are concealed. */
+    getBookingObligation: {
+      method: 'GET',
+      path: '/bookings/:bookingId/obligation',
+      access: 'principal',
     },
     /** Booking saga compensation: void when the booking could not be confirmed or was cancelled unpaid. */
     voidBookingObligation: {
@@ -95,6 +122,11 @@ export const BILLING_V1 = {
       idempotent: true,
     },
     // Cash collection, custody and settlement (CR-B-08, conforms to P03-B1).
+    getCashCollectionTarget: {
+      method: 'GET',
+      path: '/bookings/:bookingId/cash-collection-target',
+      access: 'permission:billing.cash.collect',
+    },
     recordCashCollection: {
       method: 'POST',
       path: '/obligations/:obligationId/cash-collections',
@@ -177,6 +209,7 @@ export const BILLING_V1 = {
   reasons: [
     'QUOTE_NOT_USABLE',
     'OBLIGATION_ALREADY_EXISTS',
+    'BOOKING_COMPENSATED',
     'AMOUNT_INVALID',
     'CURRENCY_UNSUPPORTED',
     'CURRENCY_MISMATCH',
@@ -194,6 +227,10 @@ export const BILLING_V1 = {
     'AMOUNT_NOT_EQUAL_OUTSTANDING',
     'OBSERVED_AMOUNT_REQUIRED',
     'OBSERVED_AMOUNT_NOT_ALLOWED',
+    'PROVIDER_CREDIT_REQUIRED',
+    'PROVIDER_CREDIT_CONFLICT',
+    'CREDIT_NOT_PENDING',
+    'MERCHANT_ACCOUNT_UNKNOWN',
     // Cash custody (P03-B1).
     'COLLECTION_ALREADY_RECORDED',
     'TREASURY_REFERENCE_TAKEN',
@@ -335,6 +372,21 @@ export interface CreateBookingObligationRequestV1 {
   readonly bookingId: string;
 }
 
+export interface CompensateBookingObligationRequestV1 extends CreateBookingObligationRequestV1 {
+  readonly reason: 'BOOKING_FAILED';
+}
+
+/** ABSENT_FENCED is a creation barrier, never an invoice, void journal or payment fact. */
+export interface BookingCompensationV1 {
+  readonly bookingId: string;
+  readonly beneficiary: PrincipalRef;
+  readonly quoteId: string;
+  readonly outcome: 'ABSENT_FENCED' | 'VOIDED';
+  readonly obligationId: string | null;
+  readonly obligationRevision: number | null;
+  readonly compensatedAt: UtcTimestamp;
+}
+
 export interface InitializePaymentRequestV1 {
   readonly expectedRevision: number;
   readonly method: PaymentMethod;
@@ -350,6 +402,14 @@ export interface ReconcileAttemptRequestV1 {
   readonly outcome: ReconciliationOutcome;
   /** Required for MATCHED/MISMATCHED (what the statement shows); null for UNKNOWN. */
   readonly observedAmount: Money | null;
+}
+
+/** The selected record supplies authority; observedAmount is only a checked reviewer input. */
+export interface AllocateStatementCreditRequestV1 {
+  readonly creditId: string;
+  readonly expectedCreditRevision: number;
+  readonly expectedRevision: number;
+  readonly observedAmount: Money;
 }
 
 export interface VoidObligationRequestV1 {
@@ -589,6 +649,51 @@ export function parseCreateBookingObligationRequestV1(
   };
 }
 
+export function parseCompensateBookingObligationRequestV1(
+  value: unknown,
+): CompensateBookingObligationRequestV1 {
+  const v = closed(value, '$', ['beneficiary', 'quoteId', 'bookingId', 'reason']);
+  return {
+    beneficiary: parsePrincipalRef(v.beneficiary, '$.beneficiary'),
+    quoteId: uuid(v.quoteId, '$.quoteId'),
+    bookingId: uuid(v.bookingId, '$.bookingId'),
+    reason: oneOf(v.reason, '$.reason', ['BOOKING_FAILED'] as const),
+  };
+}
+
+export function parseBookingCompensationV1(value: unknown, path = '$'): BookingCompensationV1 {
+  const v = closed(value, path, [
+    'bookingId',
+    'beneficiary',
+    'quoteId',
+    'outcome',
+    'obligationId',
+    'obligationRevision',
+    'compensatedAt',
+  ]);
+  const outcome = oneOf(v.outcome, `${path}.outcome`, ['ABSENT_FENCED', 'VOIDED'] as const);
+  const obligationId =
+    v.obligationId === null ? null : uuid(v.obligationId, `${path}.obligationId`);
+  const obligationRevision =
+    v.obligationRevision === null
+      ? null
+      : parseRevision(v.obligationRevision, `${path}.obligationRevision`);
+  if (
+    (outcome === 'ABSENT_FENCED' && (obligationId !== null || obligationRevision !== null)) ||
+    (outcome === 'VOIDED' && (obligationId === null || obligationRevision === null))
+  )
+    throw new ContractViolation('INCONSISTENT_COMPENSATION', `${path}.outcome`);
+  return {
+    bookingId: uuid(v.bookingId, `${path}.bookingId`),
+    beneficiary: parsePrincipalRef(v.beneficiary, `${path}.beneficiary`),
+    quoteId: uuid(v.quoteId, `${path}.quoteId`),
+    outcome,
+    obligationId,
+    obligationRevision,
+    compensatedAt: parseUtc(v.compensatedAt, `${path}.compensatedAt`),
+  };
+}
+
 export function parseInitializePaymentRequestV1(value: unknown): InitializePaymentRequestV1 {
   const v = closed(value, '$', ['expectedRevision', 'method']);
   return {
@@ -631,6 +736,23 @@ export function parseReconcileAttemptRequestV1(value: unknown): ReconcileAttempt
 export function parseVoidObligationRequestV1(value: unknown): VoidObligationRequestV1 {
   const v = closed(value, '$', ['expectedRevision']);
   return { expectedRevision: parseRevision(v.expectedRevision, '$.expectedRevision') };
+}
+
+export function parseAllocateStatementCreditRequestV1(
+  value: unknown,
+): AllocateStatementCreditRequestV1 {
+  const v = closed(value, '$', [
+    'creditId',
+    'expectedCreditRevision',
+    'expectedRevision',
+    'observedAmount',
+  ]);
+  return {
+    creditId: uuid(v.creditId, '$.creditId'),
+    expectedCreditRevision: parseRevision(v.expectedCreditRevision, '$.expectedCreditRevision'),
+    expectedRevision: parseRevision(v.expectedRevision, '$.expectedRevision'),
+    observedAmount: parseNonNegativeMoney(v.observedAmount, '$.observedAmount'),
+  };
 }
 
 /** Response of recordCashCollection and reverseCashCollection. */

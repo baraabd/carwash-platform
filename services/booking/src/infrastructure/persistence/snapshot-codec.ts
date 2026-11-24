@@ -35,6 +35,17 @@ export function quoteToJson(quote: QuoteSnapshot): Record<string, unknown> {
 
 export function quoteFromJson(value: unknown): QuoteSnapshot {
   const v = value as Record<string, unknown> & { lines: Record<string, unknown>[] };
+  const duration = v.durationMinutes;
+  if (
+    duration !== undefined &&
+    duration !== null &&
+    (typeof duration !== 'number' ||
+      !Number.isSafeInteger(duration) ||
+      duration < 5 ||
+      duration > 96_000)
+  ) {
+    throw new Error('STORED_QUOTE_DURATION_INVALID');
+  }
   return {
     quoteId: v.quoteId as string,
     revision: v.revision as number,
@@ -51,6 +62,7 @@ export function quoteFromJson(value: unknown): QuoteSnapshot {
       amount: moneyFromWire(line.amount, 'amount'),
     })),
     total: moneyFromWire(v.total, 'total'),
+    durationMinutes: duration ?? null,
     catalogRevision: v.catalogRevision as number,
     priceBookRevision: v.priceBookRevision as number,
     issuedAt: v.issuedAt as string,

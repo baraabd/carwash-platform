@@ -13,11 +13,27 @@ an append-only balanced ledger, idempotent commands, audit, and a transactional
 outbox (relay not started until Lane E registers the events).
 
 P03-B1 (see `docs/production/B/P03-B1-CASH-CUSTODY.md`): cash collection
-receipts by the assigned technician after the work owner reports completion,
+receipts by the assigned technician after Dispatch reports a CLOSED task,
 linked reversals, technician custody as a ledger balance per holder, handover to
 the company, independent treasury count with explicit shortage/overage, and
 settlement reconciliation, with separation of duties enforced in the database.
-Collection fails closed (503) until lane C publishes work completion.
+The production work adapter reads Dispatch's
+`GET /internal/v1/dispatch/me/bookings/:bookingId/work` using the technician's
+current bearer credential, with bounded responses, timeout and no redirects.
+FINISHED alone cannot authorise cash: that task can still be reassigned.
+The obligation must have an immutable local `BookingObligation` link created
+by the authenticated booking saga. A client-created obligation is never adopted
+from a supplied booking or an asserted quote.
+
+`GET /internal/v1/billing/bookings/:bookingId/cash-collection-target` requires
+an account with `billing.cash.collect` and current assigned-work authority.
+It returns only `bookingId`, `obligationId`, `revision`, `amountDue` and `receipt`.
+The revision is the collection command's `expectedRevision`, checked again under
+the obligation lock. An existing receipt restores to the same collector after
+current Identity authorization without requiring another Dispatch request;
+this supports a lost collection response. The same idempotency key also replays
+the committed command across replicas. Neither path permits another collector
+to read the receipt or bypasses current Identity authorization.
 
 P04-B1 (see `docs/production/B/P04-B1-PROVIDER-RECONCILIATION-REFUNDS.md`): a
 `PaymentProvider` port with explicit capabilities; provider credits (received
@@ -35,7 +51,10 @@ transaction number never marks money as received; collecting cash shows
 CASH_COLLECTED, never PAID.
 
 Configuration: `DATABASE_URL` (runtime role), `IDENTITY_SESSION_ORIGIN`,
-`PRICING_ORIGIN` (+ `*_TIMEOUT_MS`). Unset origins fail closed with 503.
+`PRICING_ORIGIN` (+ `*_TIMEOUT_MS`), `BILLING_DISPATCH_ORIGIN` and
+`BILLING_DISPATCH_TIMEOUT_MS` (100–10000 ms; default 2000 ms).
+Origins require HTTPS except local loopback tests, with no credentials, path,
+query or fragment. Unset origins fail closed with 503 for dependent operations.
 `BILLING_SHAM_CASH_MERCHANT_ACCOUNTS`, `BILLING_SYRIATEL_CASH_MERCHANT_ACCOUNTS`
 (unset: no merchant account accepted). Provider automation settings fail startup
 until an official adapter exists; secrets are read from mounted `*_FILE` paths only.

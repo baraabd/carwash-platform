@@ -63,7 +63,7 @@ jobs:
           set -euo pipefail
           image="cw-f007-${GITHUB_RUN_ID}"
           container="cw-f007-${GITHUB_RUN_ID}-boot"
-          node_image="public.ecr.aws/docker/library/node:$(cat .nvmrc)-bookworm-slim"
+          node_image="$(node scripts/ci/resolve-node-image.mjs)"
           trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
           docker build --build-arg "NODE_IMAGE=$node_image" -f apps/api-gateway/Dockerfile -t "$image" .
           test "$(docker run --rm "$image" node -p 'process.getuid()')" = 1000

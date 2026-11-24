@@ -26,6 +26,27 @@ export type Result<T> =
     }
   | { readonly kind: 'unknown'; readonly cause: 'timeout' | 'network' | 'shape' };
 
+/** A Gateway failure after forwarding cannot prove that a mutation was rejected. */
+export function unknownGatewayOutcome(
+  status: number,
+  code: string,
+): Extract<Result<never>, { kind: 'unknown' }> | null {
+  if (
+    status < 500 ||
+    !['UPSTREAM_TIMEOUT', 'UPSTREAM_INVALID', 'OUTCOME_UNKNOWN', 'INTERNAL_ERROR'].includes(code)
+  )
+    return null;
+  return {
+    kind: 'unknown',
+    cause:
+      code === 'UPSTREAM_TIMEOUT' || code === 'OUTCOME_UNKNOWN'
+        ? 'timeout'
+        : code === 'UPSTREAM_INVALID'
+          ? 'shape'
+          : 'network',
+  };
+}
+
 export interface Request<T> {
   readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   readonly path: string;
@@ -110,10 +131,13 @@ export async function call<T>(request: Request<T>): Promise<Result<T>> {
     }
   }
   const envelope = parseError(json);
+  const code = envelope?.code ?? `HTTP_${response.status}`;
+  const unknown = unsafe ? unknownGatewayOutcome(response.status, code) : null;
+  if (unknown) return unknown;
   return {
     kind: 'error',
     status: response.status,
-    code: envelope?.code ?? `HTTP_${response.status}`,
+    code,
     reason: envelope?.reason ?? null,
     retryable: envelope?.retryable ?? response.status >= 500,
   };

@@ -146,6 +146,33 @@ test('dispatch rebind / confirm / revert mapping', async () => {
   assert.equal((await dispatch.revert(BOOKING, CHANGE, CORRELATION)).kind, 'UNKNOWN');
 });
 
+test('Dispatch responses must identify this change, including every replay outcome', async () => {
+  const dispatch = new DispatchChangesAdapter(http('dispatch'));
+  const operations = [
+    {
+      outcomes: ['CANCELLED', 'NOT_OPENED'],
+      run: () => dispatch.cancel(BOOKING, CHANGE, CORRELATION),
+    },
+    {
+      outcomes: ['REBOUND', 'CONFIRMED'],
+      run: () => dispatch.rebind(BOOKING, CHANGE, slot, CORRELATION),
+    },
+    { outcomes: ['CONFIRMED'], run: () => dispatch.confirm(BOOKING, CHANGE, CORRELATION) },
+    {
+      outcomes: ['REVERTED', 'NOTHING_TO_REVERT'],
+      run: () => dispatch.revert(BOOKING, CHANGE, CORRELATION),
+    },
+  ];
+  for (const operation of operations) {
+    for (const outcome of operation.outcomes) {
+      for (const changeId of [randomUUID(), null, undefined]) {
+        handler = json(200, { ...view(outcome), changeId });
+        assert.deepEqual(await operation.run(), { kind: 'UNKNOWN', error: 'UPSTREAM_INVALID' });
+      }
+    }
+  }
+});
+
 test('scheduling release / replace mapping, validated against the published hold shape', async () => {
   const scheduling = new SchedulingCommitmentsAdapter(http('scheduling'));
   const who = principal();
@@ -178,6 +205,15 @@ test('scheduling release / replace mapping, validated against the published hold
   const replaced = await scheduling.replace(input, CORRELATION);
   assert.equal(replaced.kind, 'REPLACED');
   if (replaced.kind === 'REPLACED') assert.equal(replaced.slot.holdId, to.holdId);
+  handler = json(200, {
+    bookingId: randomUUID(),
+    released: { ...from, state: 'RELEASED', revision: 3, bookingId: null },
+    committed: { ...to, state: 'COMMITTED', revision: 2, bookingId: BOOKING },
+  });
+  assert.deepEqual(await scheduling.replace(input, CORRELATION), {
+    kind: 'UNKNOWN',
+    error: 'UPSTREAM_INVALID',
+  });
   handler = json(200, {
     bookingId: BOOKING,
     released: { ...from, state: 'RELEASED', revision: 3, bookingId: null },

@@ -19,7 +19,7 @@ const {
   FOUNDATION_TRANSIENT_DELIVERY_LIMIT,
 } = messaging;
 
-const { parseFoundationProbeCreatedV1 } = contracts;
+const { parseFoundationProbeCreatedV1, BILLING_CASH_COLLECTED_V1 } = contracts;
 
 /* ------------------------------------------------------------------ *
  * Test doubles. These exercise the ADAPTER LOGIC only. They are not a
@@ -129,6 +129,22 @@ test('publisher: a confirmed publish resolves and is persistent + mandatory', as
   assert.equal(sent.options.messageId, uuid(1));
 });
 
+test('publisher: durable owner retry counters survive the confirmed publication', async () => {
+  const channel = new FakeConfirmChannel();
+  await new ConfirmingPublisher(channel).publish({
+    exchange: 'wallet.billing-custody.retry',
+    routingKey: BILLING_CASH_COLLECTED_V1.eventType,
+    body: '{}',
+    messageId: uuid(1),
+    eventType: BILLING_CASH_COLLECTED_V1.eventType,
+    correlationId: uuid(2),
+    headers: { 'x-wallet-custody-attempt': 3 },
+  });
+  assert.equal(channel.published[0].options.headers['x-wallet-custody-attempt'], 3);
+  assert.equal(channel.published[0].options.persistent, true);
+  assert.equal(channel.published[0].options.mandatory, true);
+});
+
 test('publisher: a broker nack is surfaced as a failure, never as success', async () => {
   const channel = new FakeConfirmChannel();
   channel.behaviour = 'nack';
@@ -229,7 +245,7 @@ function record(id) {
     routingKey: 'foundation.probe.created.v1',
     payload: '{}',
     correlationId: uuid(2),
-    attempts: 0,
+    attempts: 1,
   };
 }
 
@@ -238,6 +254,7 @@ class FakeOutboxStore {
     this.records = records;
     this.ownsOnWrite = ownsOnWrite;
     this.published = [];
+    this.publishedInputs = [];
     this.failed = [];
     this.leases = [];
   }
@@ -247,6 +264,7 @@ class FakeOutboxStore {
   }
   async markPublished(input) {
     this.published.push(input.id);
+    this.publishedInputs.push(input);
     return this.ownsOnWrite;
   }
   async markFailed(input) {
@@ -267,6 +285,7 @@ test('relay: publishes then marks published, in that order', async () => {
   assert.deepEqual(pass, { leased: 1, published: 1, failed: 0, leaseLost: 0 });
   assert.equal(channel.published.length, 1);
   assert.deepEqual(store.published, [uuid(1)]);
+  assert.deepEqual(store.publishedInputs, [{ id: uuid(1), workerId: 'w1', leaseAttempt: 1 }]);
 });
 
 test('relay: a failed publish is never marked published', async () => {
@@ -283,6 +302,24 @@ test('relay: a failed publish is never marked published', async () => {
   assert.equal(pass.failed, 1);
   assert.deepEqual(store.published, []);
   assert.equal(store.failed[0].error, 'NACK');
+  assert.equal(store.failed[0].leaseAttempt, 1);
+});
+
+test('relay: owner validation failure is fenced as failed before any publication', async () => {
+  const store = new FakeOutboxStore([record(1)]);
+  const channel = new FakeConfirmChannel();
+  const relay = new OutboxRelay({
+    workerId: 'w1',
+    store,
+    publisher: new ConfirmingPublisher(channel),
+    validate: () => {
+      throw new Error('INVALID_OWNER_ENVELOPE');
+    },
+  });
+  assert.deepEqual(await relay.runOnce(), { leased: 1, published: 0, failed: 1, leaseLost: 0 });
+  assert.equal(channel.published.length, 0);
+  assert.equal(store.failed.length, 1);
+  assert.deepEqual(store.published, []);
 });
 
 test('relay: an unroutable publication leaves the row pending', async () => {

@@ -8,6 +8,9 @@ export interface UpstreamReply {
   readonly status: number;
   readonly body: unknown;
   readonly cookies: readonly string[];
+  /** Validated strong owner revision only; arbitrary owner headers are not relayed. */
+  readonly etag?: string;
+  readonly idempotentReplayed?: boolean;
 }
 export interface HttpPort {
   request(

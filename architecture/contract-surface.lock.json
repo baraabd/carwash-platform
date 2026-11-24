@@ -81,7 +81,9 @@
       "reasons": [
         "ADDRESS_ARCHIVED",
         "ADDRESS_LIMIT_REACHED",
-        "PROFILE_NOT_FOUND"
+        "PROFILE_NOT_FOUND",
+        "PROFILE_CONTACT_MIGRATION_REQUIRED",
+        "ADDRESS_MIGRATION_REQUIRED"
       ]
     },
     "vehicle.v1": {
@@ -325,7 +327,10 @@
         "SLOT_UNAVAILABLE",
         "HOLD_EXPIRED",
         "HOLD_NOT_ACTIVE",
-        "OUTSIDE_HORIZON"
+        "OUTSIDE_HORIZON",
+        "QUOTE_NOT_USABLE",
+        "QUOTE_MISMATCH",
+        "PRICING_UNAVAILABLE"
       ]
     },
     "workforce.v1": {
@@ -460,6 +465,24 @@
           "safe": false,
           "paged": false
         },
+        "getStatementCreditReview": {
+          "method": "GET",
+          "path": "/payment-attempts/:attemptId/statement-credit",
+          "access": "permission:billing.reconcile",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "allocateStatementCredit": {
+          "method": "POST",
+          "path": "/payment-attempts/:attemptId/statement-credit-allocation",
+          "access": "permission:billing.reconcile",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
         "createBookingObligation": {
           "method": "POST",
           "path": "/booking-obligations",
@@ -469,11 +492,38 @@
           "safe": false,
           "paged": false
         },
+        "compensateBookingObligation": {
+          "method": "POST",
+          "path": "/booking-obligations/compensations",
+          "access": "service:billing.obligation.write",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getBookingObligation": {
+          "method": "GET",
+          "path": "/bookings/:bookingId/obligation",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
         "voidBookingObligation": {
           "method": "POST",
           "path": "/booking-obligations/:obligationId/void",
           "access": "service:billing.obligation.write",
           "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getCashCollectionTarget": {
+          "method": "GET",
+          "path": "/bookings/:bookingId/cash-collection-target",
+          "access": "permission:billing.cash.collect",
+          "idempotent": false,
           "revisioned": false,
           "safe": false,
           "paged": false
@@ -626,6 +676,7 @@
       "reasons": [
         "QUOTE_NOT_USABLE",
         "OBLIGATION_ALREADY_EXISTS",
+        "BOOKING_COMPENSATED",
         "AMOUNT_INVALID",
         "CURRENCY_UNSUPPORTED",
         "CURRENCY_MISMATCH",
@@ -643,6 +694,10 @@
         "AMOUNT_NOT_EQUAL_OUTSTANDING",
         "OBSERVED_AMOUNT_REQUIRED",
         "OBSERVED_AMOUNT_NOT_ALLOWED",
+        "PROVIDER_CREDIT_REQUIRED",
+        "PROVIDER_CREDIT_CONFLICT",
+        "CREDIT_NOT_PENDING",
+        "MERCHANT_ACCOUNT_UNKNOWN",
         "COLLECTION_ALREADY_RECORDED",
         "TREASURY_REFERENCE_TAKEN",
         "INTENT_NOT_CASH",
@@ -921,6 +976,8 @@
         "REASON_NOT_ALLOWED_FOR_KIND",
         "REASON_NOTE_REQUIRED",
         "EVIDENCE_REQUIRED",
+        "STATEMENT_CREDIT_REQUIRED",
+        "INVALID_STATEMENT_CREDIT",
         "AMOUNT_REQUIRED",
         "WINDOW_REQUIRED",
         "NOTHING_TO_EXECUTE"

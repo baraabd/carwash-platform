@@ -1,3 +1,4 @@
+import { billingV1 } from '@carwash/contracts';
 import {
   sameMoney,
   type AddressSnapshot,
@@ -296,15 +297,11 @@ export class AddressSnapshotAdapter implements AddressSnapshots {
   }
 }
 
-const OBLIGATION_ID = /^[A-Za-z0-9_-]{8,128}$/;
-
 /**
- * Billing obligations over the REQUESTED saga-scoped billing.v1 routes
- * (CR-P02-C2 §3, aligned with Lane B's CR-B-01 ObligationV1 and CR-B-03 §2
- * `{ beneficiary, quoteId, bookingId }`). There is no published Billing
- * contract yet: when BILLING_URL is not set the client is NOT_CONFIGURED, every
- * call is UNAVAILABLE, and every booking is rejected with DEADLINE_EXCEEDED
- * before its pivot. Nothing is ever confirmed without an obligation.
+ * Published workload-scoped billing.v1 create and by-booking compensation.
+ * Unknown create/compensation outcomes retry the exact stable command. A 404
+ * never proves financial absence; only a validated immutable compensation
+ * receipt proves a real void or an absent-create fence.
  *
  * Billing prices the obligation from the quote itself; an obligation whose
  * amount differs from the booking's snapshot is never accepted as created (it
@@ -318,7 +315,7 @@ export class BillingObligationsAdapter implements BillingObligations {
   async create(request: ObligationRequest, correlationId: string): Promise<ObligationResult> {
     const outcome = await this.http.call({
       method: 'POST',
-      path: '/internal/v1/billing/obligations',
+      path: '/internal/v1/billing/booking-obligations',
       correlationId,
       idempotencyKey: `booking-obligation-${request.bookingId}`,
       body: {
@@ -329,35 +326,58 @@ export class BillingObligationsAdapter implements BillingObligations {
     });
     if (outcome.kind !== 'RESPONSE') return unavailable(outcome);
     if (outcome.status === 200 || outcome.status === 201) {
-      const body = (outcome.body ?? {}) as {
-        obligationId?: unknown;
-        quoteId?: unknown;
-        amount?: unknown;
-      };
-      const amount = parsed(() => moneyFromWireStrict(body.amount));
-      const valid =
-        typeof body.obligationId === 'string' &&
-        OBLIGATION_ID.test(body.obligationId) &&
-        body.quoteId === request.quoteId &&
-        !(amount instanceof ContractViolation) &&
-        sameMoney(amount, request.amount);
-      return valid && typeof body.obligationId === 'string'
-        ? { kind: 'CREATED', obligationId: body.obligationId }
-        : { kind: 'UNAVAILABLE', error: 'UPSTREAM_INVALID' };
+      try {
+        const body = billingV1.parseObligationV1(outcome.body);
+        if (
+          body.quoteId !== request.quoteId ||
+          !sameMoney(moneyFromWireStrict(body.amount), request.amount)
+        )
+          return { kind: 'UNAVAILABLE', error: 'UPSTREAM_INVALID' };
+        return body.status === 'VOIDED'
+          ? { kind: 'REJECTED' }
+          : { kind: 'CREATED', obligationId: body.obligationId };
+      } catch {
+        return { kind: 'UNAVAILABLE', error: 'UPSTREAM_INVALID' };
+      }
     }
+    if (outcome.status === 409 && errorOf(outcome.body)?.code === 'BOOKING_COMPENSATED')
+      return { kind: 'REJECTED' };
     if (outcome.status === 422) return { kind: 'REJECTED' };
     return unavailable(outcome);
   }
 
-  async voidForBooking(bookingId: string, correlationId: string): Promise<VoidResult> {
+  async voidForBooking(
+    request: Pick<ObligationRequest, 'bookingId' | 'beneficiary' | 'quoteId'>,
+    correlationId: string,
+  ): Promise<VoidResult> {
     const outcome = await this.http.call({
       method: 'POST',
-      path: '/internal/v1/billing/obligations/void-for-booking',
+      path: '/internal/v1/billing/booking-obligations/compensations',
       correlationId,
-      idempotencyKey: `booking-void-${bookingId}`,
-      body: { bookingId, reason: 'BOOKING_FAILED' },
+      idempotencyKey: `booking-void-${request.bookingId}`,
+      body: {
+        bookingId: request.bookingId,
+        beneficiary: request.beneficiary,
+        quoteId: request.quoteId,
+        reason: 'BOOKING_FAILED',
+      },
     });
-    if (outcome.kind === 'RESPONSE' && outcome.status === 200) return { kind: 'VOIDED' };
+    if (outcome.kind === 'RESPONSE' && outcome.status === 200) {
+      try {
+        const receipt = billingV1.parseBookingCompensationV1(outcome.body);
+        if (
+          receipt.bookingId !== request.bookingId ||
+          receipt.quoteId !== request.quoteId ||
+          receipt.beneficiary.kind !== request.beneficiary.kind ||
+          receipt.beneficiary.subjectId !== request.beneficiary.subjectId
+        )
+          return { kind: 'UNAVAILABLE', error: 'UPSTREAM_INVALID' };
+        // This saga result means compensation completed, not that absent money existed.
+        return { kind: 'VOIDED' };
+      } catch {
+        return { kind: 'UNAVAILABLE', error: 'UPSTREAM_INVALID' };
+      }
+    }
     return unavailable(outcome);
   }
 }

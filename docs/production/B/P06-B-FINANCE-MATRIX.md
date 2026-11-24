@@ -35,6 +35,35 @@ JSON against the exact tree it runs on:
 on this tree. It also proves that each class of drift above is detected when
 introduced.
 
+## Cash route reconciliation — 2026-11-22 candidate
+
+The current correction keeps all function statuses and production gates
+unchanged. It updates the affected source crosswalk rather than treating the
+historical table below as current acceptance:
+
+- `FIN-CASH-01` now includes the published `getCashCollectionTarget` read and
+  the `operator.cash.target`, `operator.cash.receipt` and
+  `operator.cash.collect` Gateway aliases. They are claimed by the same cash
+  collection function, not by a new duplicate financial capability.
+- The row references `dispatch-work.authority.ts` and its HTTP-adapter tests,
+  replacing the deleted deny-all `unpublished-work.authority.ts`. Billing
+  validates actual assigned Dispatch work facts, and the current cash rule
+  requires a closed task. A Dispatch cash declaration is not a Billing receipt.
+- `FIN-CUST-04` claims `operator.custody`, which reads Billing's own custody
+  position. It does not introduce a second Wallet ledger.
+- Identity now grants `billing.cash.collect` to technicians. That resolved
+  grant no longer blocks collection, handover declaration or own-custody reads.
+  `B-P03-01` records the remaining configured, exact-candidate integrated cash
+  acceptance requirement; `B-07` still records the custody/treasury policy
+  required for handover and holder-view production closure. Cash correction,
+  treasury receipt and price publication retain the separate missing grants
+  recorded in `B-P06-08`.
+
+The matrix checker and its existing adversarial tests still require every
+published finance route and Gateway alias to be claimed exactly once. This
+crosswalk repair does not claim live-money acceptance, a completed production
+journey or a release authorization.
+
 ## Summary at base `3e1ab23` (main after the P04-B merge, before the P06-B children merge)
 
 | Area | IMPLEMENTED on main | IN_REVIEW | BLOCKED |

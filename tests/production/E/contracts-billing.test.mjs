@@ -39,6 +39,36 @@ const T0 = '2026-10-10T08:00:00.000Z';
 const T1 = '2026-10-10T08:05:00.000Z';
 const id = () => randomUUID();
 
+test('statement credit review is masked, immutable review data and cannot claim settlement', () => {
+  const candidate = {
+    attemptId: id(),
+    obligationId: id(),
+    obligationRevision: 3,
+    creditId: id(),
+    creditRevision: 1,
+    provider: 'SHAM_CASH',
+    status: 'PENDING_APPROVAL',
+    amount: SYP(150000),
+    merchantAccount: '…0001',
+    reference: '…5678',
+    evidenceFingerprint: 'a1b2c3d4e5f6',
+    occurredAt: T0,
+    recordedAt: T1,
+  };
+  assert.deepEqual(b.parseStatementCreditReviewV1(candidate), candidate);
+  for (const patch of [
+    { status: 'ALLOCATED' },
+    { amount: SYP(0) },
+    { obligationRevision: 0 },
+    { merchantAccount: 'full-account' },
+    { reference: 'TX12345678' },
+    { evidenceFingerprint: 'a'.repeat(64) },
+    { recordedBy: id() },
+    { recordedAt: '2026-10-09T08:00:00.000Z' },
+  ])
+    assert.throws(() => b.parseStatementCreditReviewV1({ ...candidate, ...patch }));
+});
+
 // ---------------------------------------------------------------- descriptor
 
 test('billing.v1 descriptor passes the shared contract lint and is registered', () => {
@@ -50,6 +80,8 @@ test('billing.v1 descriptor passes the shared contract lint and is registered', 
   assert.equal(r.requestRefund.access, 'permission:billing.refund');
   assert.equal(r.recordRefundOutcome.access, 'permission:billing.reconcile');
   assert.equal(r.createBookingObligation.access, 'service:billing.obligation.write');
+  assert.equal(r.getCashCollectionTarget.access, 'permission:billing.cash.collect');
+  assert.equal(r.getCashCollectionTarget.path, '/bookings/:bookingId/cash-collection-target');
   assert.equal(r.receiveProviderNotification.access, 'provider-signed');
   for (const [name, route] of Object.entries(r)) {
     if (route.method === 'GET' || route.access === 'provider-signed') continue;
@@ -71,6 +103,114 @@ test('provider-signed access is a plain POST de-duplicated by the owner', () => 
 });
 
 // ---------------------------------------------------------------- consumer rules
+
+test('booking compensation is an immutable binding, and absent fencing never claims a financial void', () => {
+  const binding = {
+    bookingId: id(),
+    quoteId: id(),
+    beneficiary: { kind: 'guest', subjectId: id() },
+  };
+  const request = { ...binding, reason: 'BOOKING_FAILED' };
+  assert.deepEqual(b.parseCompensateBookingObligationRequestV1(request), request);
+  const absent = {
+    ...binding,
+    outcome: 'ABSENT_FENCED',
+    obligationId: null,
+    obligationRevision: null,
+    compensatedAt: T1,
+  };
+  assert.deepEqual(b.parseBookingCompensationV1(absent), absent);
+  const voided = { ...absent, outcome: 'VOIDED', obligationId: id(), obligationRevision: 2 };
+  assert.deepEqual(b.parseBookingCompensationV1(voided), voided);
+  for (const value of [
+    { ...absent, obligationId: id() },
+    { ...absent, obligationRevision: 2 },
+    { ...voided, obligationId: null },
+    { ...voided, obligationRevision: null },
+    { ...voided, obligationRevision: 0 },
+    { ...voided, compensatedAt: '2026-10-10T08:05:00Z' },
+    { ...absent, amount: SYP(0) },
+    { ...absent, outcome: 'NOT_FOUND' },
+    { ...absent, beneficiary: { kind: 'account', subjectId: 'invented' } },
+  ])
+    assert.throws(() => b.parseBookingCompensationV1(value));
+  assert.throws(() => b.parseCompensateBookingObligationRequestV1({ ...request, amount: SYP(1) }));
+  assert.throws(() =>
+    b.parseCompensateBookingObligationRequestV1({ ...request, reason: 'REFUND' }),
+  );
+  assert.equal(
+    b.BILLING_V1.routes.compensateBookingObligation.access,
+    'service:billing.obligation.write',
+  );
+  assert.equal(b.BILLING_V1.routes.getBookingObligation.access, 'principal');
+});
+
+test('cash target contract binds restored receipts and refuses invented collection success or extra owner data', () => {
+  const pending = {
+    bookingId: id(),
+    obligationId: id(),
+    revision: 2,
+    amountDue: SYP(150000),
+    receipt: null,
+  };
+  assert.deepEqual(b.parseCashCollectionTargetV1(pending), pending);
+  assert.throws(
+    () => b.parseCashCollectionTargetV1({ ...pending, amountDue: SYP(0) }),
+    /AMOUNT_REQUIRED/,
+  );
+  assert.throws(
+    () => b.parseCashCollectionTargetV1({ ...pending, owner: id() }),
+    /UNEXPECTED_FIELD/,
+  );
+  assert.throws(() => b.parseCashCollectionTargetV1({ ...pending, revision: 0 }));
+  const receipt = {
+    receiptId: id(),
+    revision: 1,
+    obligationId: pending.obligationId,
+    bookingId: pending.bookingId,
+    assignmentId: id(),
+    assignmentRevision: 3,
+    collector: id(),
+    amount: SYP(150000),
+    custodyStatus: 'HELD',
+    handoverId: null,
+    collectedAt: T1,
+    updatedAt: T1,
+    reversal: null,
+  };
+  const collected = { ...pending, revision: 3, amountDue: SYP(0), receipt };
+  assert.deepEqual(b.parseCashCollectionTargetV1(collected), collected);
+  assert.throws(
+    () => b.parseCashCollectionTargetV1({ ...collected, amountDue: SYP(1) }),
+    /INCONSISTENT_RECEIPT/,
+  );
+  for (const change of [{ bookingId: id() }, { obligationId: id() }]) {
+    assert.throws(
+      () => b.parseCashCollectionTargetV1({ ...collected, receipt: { ...receipt, ...change } }),
+      /FOREIGN_RECEIPT/,
+    );
+  }
+  assert.throws(
+    () =>
+      b.parseCashCollectionTargetV1({
+        ...collected,
+        receipt: { ...receipt, amount: { currency: 'USD', amountMinor: '150000', scale: 2 } },
+      }),
+    /INCONSISTENT_RECEIPT/,
+  );
+  assert.throws(
+    () =>
+      b.parseCashCollectionTargetV1({
+        ...collected,
+        receipt: {
+          ...receipt,
+          custodyStatus: 'REVERSED',
+          reversal: { reversalId: id(), reason: 'WRONG_BOOKING', reversedBy: id(), reversedAt: T1 },
+        },
+      }),
+    /INCONSISTENT_RECEIPT/,
+  );
+});
 
 function obligation(overrides = {}) {
   return {
@@ -369,7 +509,14 @@ after(() => {
 
 const at = (iso) => new Date(iso);
 
-function snapshot({ status = 'OPEN', verified = 0n, intent = null, attempts = [], cash = null }) {
+function snapshot({
+  status = 'OPEN',
+  verified = 0n,
+  intent = null,
+  attempts = [],
+  cash = null,
+  refunded = null,
+}) {
   const { Money } = provider.domain;
   const obligationId = id();
   return {
@@ -393,6 +540,7 @@ function snapshot({ status = 'OPEN', verified = 0n, intent = null, attempts = []
       createdAt: at(T0),
       updatedAt: at(T1),
     },
+    refunded: refunded === null ? null : Money.of('SYP', refunded),
     attempts: attempts.map((s, i) => ({
       id: id(),
       intentId: id(),
@@ -462,6 +610,30 @@ test('provider conformance: every financial state the merged provider renders pa
     assert.equal(b.parseFinancialStatusViewV1(lean).financialStatus, expected, expected);
     // The full provider reference never appears on the wire.
     assert.doesNotMatch(JSON.stringify(view), /TX9\d{3}ABCD/);
+  }
+});
+
+test('provider conformance: completed refunds preserve PAID in public v1 and retain internal refund extent', () => {
+  for (const [refunded, internal] of [
+    [50000n, 'PARTIALLY_REFUNDED'],
+    [150000n, 'REFUNDED'],
+  ]) {
+    const state = snapshot({
+      status: 'SETTLED',
+      verified: 150000n,
+      intent: { method: 'SHAM_CASH', status: 'SUCCEEDED' },
+      attempts: ['MATCHED'],
+      refunded,
+    });
+    assert.equal(provider.views.snapshotFinancialStatus(state), internal);
+    const full = b.parseObligationV1(provider.views.obligationView(state));
+    const lean = b.parseFinancialStatusViewV1(provider.views.financialStatusView(state));
+    assert.equal(full.financialStatus, 'PAID');
+    assert.equal(lean.financialStatus, 'PAID');
+    assert.equal(full.status, 'SETTLED');
+    assert.deepEqual(full.verified, SYP(150000));
+    assert.deepEqual(lean.outstanding, SYP(0));
+    assert.equal(lean.revision, full.revision);
   }
 });
 

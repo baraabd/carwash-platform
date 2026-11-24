@@ -15,13 +15,23 @@ import type { CreditStatus } from './provider';
  *    the reservation stays until the provider's answer resolves it.
  *  - Only SUCCEEDED posts a journal; the original credit is never edited.
  */
-export const REFUND_REASONS = [
+export const LEGACY_REFUND_REASONS = [
   'SERVICE_NOT_DELIVERED',
   'BOOKING_CANCELLED',
   'DUPLICATE_PAYMENT',
   'UNALLOCATABLE_CREDIT',
 ] as const;
+export const REFUND_REASONS = [
+  ...LEGACY_REFUND_REASONS,
+  'SERVICE_QUALITY',
+  'PRICE_CORRECTION',
+] as const;
 export type RefundReason = (typeof REFUND_REASONS)[number];
+
+/** Immutable protocol discriminator; legacy approval/evidence rules remain intact. */
+export const REFUND_WORKFLOWS = ['CREDIT_V1', 'OBLIGATION_V1'] as const;
+export type RefundWorkflow = (typeof REFUND_WORKFLOWS)[number];
+export const MAX_REFUNDS_PER_OBLIGATION = 20;
 
 export const REFUND_STATUSES = [
   'REQUESTED',

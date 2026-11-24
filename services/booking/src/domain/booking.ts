@@ -113,6 +113,20 @@ export function createBooking(input: NewBooking): Booking {
   if (requestedSlot.endsAt.getTime() <= requestedSlot.startsAt.getTime()) {
     throw new BookingError('INVALID_INPUT', 'The selected slot is empty.');
   }
+  if (
+    quote.durationMinutes === null ||
+    !Number.isSafeInteger(quote.durationMinutes) ||
+    quote.durationMinutes < 5 ||
+    quote.durationMinutes > 96_000 ||
+    requestedSlot.endsAt.getTime() - requestedSlot.startsAt.getTime() !==
+      quote.durationMinutes * 60_000
+  ) {
+    throw new BookingError(
+      'QUOTE_MISMATCH',
+      'The held interval differs from the quoted duration.',
+      'DURATION_MISMATCH',
+    );
+  }
   if (requestedSlot.startsAt.getTime() <= input.now.getTime()) {
     throw new BookingError(
       'INVALID_INPUT',

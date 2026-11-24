@@ -1,4 +1,5 @@
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { signProviderNotification, verifyProviderSignature } from '@carwash/service-kit';
 import { Money, normalizeProviderReference, type ProviderId } from '../../src/domain';
 import {
   NotificationRejected,
@@ -56,12 +57,14 @@ export class FakeSignedProvider implements PaymentProviderAdapter {
   readonly paidOut = new Map<string, Money>();
   readonly submissions: string[] = [];
   readonly statusChecks: string[] = [];
+  readonly notificationHeaderNames: string[][] = [];
   private readonly accounts: ReadonlySet<string>;
 
   constructor(
     readonly provider: ProviderId,
     private readonly merchantAccounts: readonly string[],
     private readonly secret: SecretValue,
+    private readonly notificationProtocol: 'FAKE' | 'WASHGO_TEST' = 'FAKE',
   ) {
     this.accounts = new Set(merchantAccounts);
   }
@@ -77,6 +80,16 @@ export class FakeSignedProvider implements PaymentProviderAdapter {
     secret: SecretValue = this.secret,
   ): { readonly raw: string; readonly headers: Record<string, string> } {
     const raw = JSON.stringify(body);
+    if (this.notificationProtocol === 'WASHGO_TEST')
+      return {
+        raw,
+        headers: signProviderNotification({
+          rawBody: Buffer.from(raw),
+          notificationId: randomUUID(),
+          secret: Buffer.from(secret.reveal()),
+          at,
+        }),
+      };
     const timestamp = String(at.getTime());
     const signature = createHmac('sha256', secret.reveal())
       .update(`${timestamp}.${raw}`)
@@ -103,29 +116,45 @@ export class FakeSignedProvider implements PaymentProviderAdapter {
   ): Promise<AuthenticatedNotification> {
     try {
       return Promise.resolve(this.authenticate(notification, now));
-    } catch {
-      return Promise.reject(new NotificationRejected());
+    } catch (error: unknown) {
+      return Promise.reject(
+        error instanceof NotificationRejected ? error : new NotificationRejected(),
+      );
     }
   }
 
   private authenticate(notification: InboundNotification, now: Date): AuthenticatedNotification {
     const { rawBody, headers } = notification;
+    this.notificationHeaderNames.push(Object.keys(headers).sort());
     if (rawBody.byteLength === 0 || rawBody.byteLength > MAX_BODY) throw new Error('BODY');
-    const timestamp = headers[FAKE_TIMESTAMP_HEADER];
-    const signature = headers[FAKE_SIGNATURE_HEADER];
-    if (
-      !timestamp ||
-      !/^\d{1,16}$/.test(timestamp) ||
-      !signature ||
-      !/^[0-9a-f]{64}$/.test(signature)
-    )
-      throw new Error('HEADERS');
-    if (Math.abs(now.getTime() - Number(timestamp)) > WINDOW_MS) throw new Error('REPLAY_WINDOW');
     const raw = Buffer.from(rawBody).toString('utf8');
-    const expected = createHmac('sha256', this.secret.reveal())
-      .update(`${timestamp}.${raw}`)
-      .digest();
-    if (!timingSafeEqual(expected, Buffer.from(signature, 'hex'))) throw new Error('SIGNATURE');
+    if (this.notificationProtocol === 'WASHGO_TEST') {
+      const result = verifyProviderSignature({
+        rawBody: Buffer.from(rawBody),
+        signature: headers['x-provider-signature'],
+        timestamp: headers['x-provider-timestamp'],
+        notificationId: headers['x-provider-notification-id'],
+        secrets: [Buffer.from(this.secret.reveal())],
+        now,
+      });
+      if (!result.ok)
+        throw new NotificationRejected(result.reason === 'STALE' ? 'STALE' : 'SIGNATURE_INVALID');
+    } else {
+      const timestamp = headers[FAKE_TIMESTAMP_HEADER];
+      const signature = headers[FAKE_SIGNATURE_HEADER];
+      if (
+        !timestamp ||
+        !/^\d{1,16}$/.test(timestamp) ||
+        !signature ||
+        !/^[0-9a-f]{64}$/.test(signature)
+      )
+        throw new Error('HEADERS');
+      if (Math.abs(now.getTime() - Number(timestamp)) > WINDOW_MS) throw new Error('REPLAY_WINDOW');
+      const expected = createHmac('sha256', this.secret.reveal())
+        .update(`${timestamp}.${raw}`)
+        .digest();
+      if (!timingSafeEqual(expected, Buffer.from(signature, 'hex'))) throw new Error('SIGNATURE');
+    }
     const body = JSON.parse(raw) as Record<string, unknown>;
     if (body.type === 'credit.pending') return { kind: 'IGNORED' };
     if (body.type !== 'credit.final') throw new Error('TYPE');

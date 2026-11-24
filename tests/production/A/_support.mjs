@@ -52,7 +52,7 @@ export async function sqlState(url, statement, values = []) {
   }
 }
 
-export async function startIdentity() {
+export async function startIdentity({ origins = [ORIGIN], cookieSecure = true } = {}) {
   const key = generateKeyPairSync('rsa', { modulusLength: 3072 });
   const passwords = await ArgonPasswords.create({ memoryCost: 19456, timeCost: 2, parallelism: 1 });
   const delivered = new Map();
@@ -72,8 +72,8 @@ export async function startIdentity() {
       otpPepper: randomBytes(32),
       csrfKey: randomBytes(32),
       rateKey: randomBytes(32),
-      origins: [ORIGIN],
-      cookieSecure: true,
+      origins,
+      cookieSecure,
       deliveryUrl: 'https://unused.test.invalid',
       deliveryToken: 'test-port-injected',
     },

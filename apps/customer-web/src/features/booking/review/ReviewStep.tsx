@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { currentInstant } from '../../../shared/clock';
 import { Icon } from '../../../shared/Icon';
 import { ReferenceArtSprite } from '../../../shared/art/ReferenceArt';
-import { confirmBooking, draftFingerprint } from '../../../state/bookingConfirmation';
+import {
+  CONFIRMATION_UNAVAILABLE_TEXT,
+  confirmBooking,
+  draftFingerprint,
+} from '../../../state/bookingConfirmation';
 import { useCustomerSession } from '../../../state/CustomerSessionProvider';
 import { pathForIntent } from '../../../state/navigationPath';
 import { REVIEW_STEP_INDEX, openReviewEdit } from '../../../state/reviewStep';
@@ -39,6 +43,7 @@ export function ReviewStep() {
   const reviewed = { key: state.draftGeneration, fingerprint: draftFingerprint(state.draft) };
 
   const confirm = () => {
+    if (state.runtimeMode !== 'parity') return;
     const now = currentInstant();
     const result = run((current) =>
       confirmBooking(current, { ...reviewed, now, catalog: confirmationCatalog }),
@@ -105,7 +110,11 @@ export function ReviewStep() {
       <p className="review-note">
         {view.paymentNote}
         <br />
-        <span id={CONFIRMATION_DISCLOSURE_ID}>{CONFIRMATION_DISCLOSURE_TEXT}</span>
+        <span id={CONFIRMATION_DISCLOSURE_ID}>
+          {state.runtimeMode === 'parity'
+            ? CONFIRMATION_DISCLOSURE_TEXT
+            : CONFIRMATION_UNAVAILABLE_TEXT}
+        </span>
       </p>
 
       <BookingFooter
@@ -115,8 +124,9 @@ export function ReviewStep() {
         totalCaption="إجمالي التجربة"
         nextIcon="check"
         breakdown={view.breakdown}
-        describedBy={CONFIRMATION_DISCLOSURE_ID}
-        onNext={confirm}
+        {...(state.runtimeMode === 'parity'
+          ? { describedBy: CONFIRMATION_DISCLOSURE_ID, onNext: confirm }
+          : { unavailableReasonId: CONFIRMATION_DISCLOSURE_ID })}
       />
     </div>
   );

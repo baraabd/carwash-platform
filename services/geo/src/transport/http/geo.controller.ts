@@ -37,8 +37,8 @@ function single(value: unknown): string | undefined {
  * - POST /serviceability            principal: a CURRENT account or guest
  *   session with bookings.create:self. Rate limited per originating address
  *   (explicitly trusted proxies only) BEFORE Identity is contacted.
- * - POST /serviceability/validate   service:geo.serviceability.validate. Closed
- *   until workload identity (P01-E5) exists: every caller is refused.
+ * - POST /serviceability/validate   service:geo.serviceability.validate. Only
+ *   configured digest-authenticated workloads; mixed session credentials denied.
  *
  * Zone writes have no HTTP route (operator CLI only).
  */

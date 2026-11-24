@@ -105,7 +105,9 @@ async function drain(
 test('cancellation: Dispatch gate, booking CANCELLED + one event, capacity freed, obligation voided', async () => {
   const w = world();
   const { who, booking } = await confirmed(w);
-  const result = await w.x.service.cancel(who.meta(), booking.id, key(), {
+  // A legitimate correlation id may contain the contact's numeric digits.
+  const meta = { ...who.meta(), correlationId: '5c1d9a7e-2222-4a2b-8c3d-000912345678' };
+  const result = await w.x.service.cancel(meta, booking.id, key(), {
     expectedRevision: booking.version,
     reason: 'CUSTOMER_REQUEST',
   });
@@ -121,13 +123,50 @@ test('cancellation: Dispatch gate, booking CANCELLED + one event, capacity freed
   assert.deepEqual(w.c.dispatch.effects.cancelled, 1);
   assert.equal(w.c.commitments.effects.released, 1);
   assert.equal(w.o.scheduling.holds.get(booking.slot!.holdId)!.wire.state, 'RELEASED');
-  const [payload] = await w.h.prisma.client.$queryRawUnsafe<{ payload: string }[]>(
-    `SELECT payload FROM app.outbox_message WHERE event_type = 'booking.cancelled.v1'
+  const [event] = await w.h.prisma.client.$queryRawUnsafe<
+    { event_id: string; correlation_id: string; payload: string }[]
+  >(
+    `SELECT event_id::text, correlation_id::text, payload
+      FROM app.outbox_message WHERE event_type = 'booking.cancelled.v1'
       AND payload::jsonb #>> '{aggregate,id}' = $1`,
     booking.id,
   );
-  for (const secret of ['سارة', '0912345678', '+963912345678']) {
-    assert.equal(payload!.payload.includes(secret), false, `event leaks ${secret}`);
+  assert.ok(event);
+  assert.equal(event.correlation_id, meta.correlationId);
+  const rawPayload: unknown = JSON.parse(event.payload);
+  assert.deepEqual(
+    rawPayload,
+    {
+      eventId: event.event_id,
+      eventType: 'booking.cancelled.v1',
+      envelopeVersion: 2,
+      producer: 'booking',
+      occurredAt: record.booking.updatedAt.toISOString(),
+      correlationId: meta.correlationId,
+      causationId: null,
+      traceparent: null,
+      aggregate: { type: 'booking', id: booking.id, version: record.booking.version },
+      actor: { kind: who.principal.kind, id: who.principal.subjectId },
+      data: {
+        status: 'CANCELLED',
+        changeId: result.change.changeId,
+        reason: 'CUSTOMER_REQUEST',
+        holdId: booking.slot!.holdId,
+        zoneId: booking.slot!.zoneId,
+        startsAt: booking.slot!.startsAt.toISOString(),
+        endsAt: booking.slot!.endsAt.toISOString(),
+        paymentMethod: booking.paymentMethod,
+        total: {
+          currency: booking.total.currency,
+          amountMinor: booking.total.amountMinor.toString(),
+          scale: booking.total.scale,
+        },
+      },
+    },
+    'the raw cancellation event contains only its approved references, slot and money',
+  );
+  for (const secret of ['سارة', '+963912345678']) {
+    assert.equal(event.payload.includes(secret), false, `event leaks ${secret}`);
   }
   // History: newest first, nothing open.
   const history = await w.x.service.list(who.meta(), booking.id);
@@ -365,6 +404,45 @@ test('replace applied but its response lost: replayed by booking, one effect, co
   assert.equal(w.c.commitments.effects.replaced, 1);
   assert.equal(w.c.dispatch.effects.confirmed, 1);
   assert.equal(await events(w, booking.id, 'booking.rescheduled.v1'), 1);
+});
+
+test('a mismatched committed slot remains pending with attention until exact-owner replay recovers', async () => {
+  const w = world();
+  const { who, booking } = await confirmed(w);
+  const target = newHold(w.o, who.principal, booking.slot!.zoneId);
+  const replace = w.c.commitments.replace.bind(w.c.commitments);
+  let mismatch = true;
+  w.c.commitments.replace = async (input) => {
+    const result = await replace(input);
+    return mismatch && result.kind === 'REPLACED'
+      ? { ...result, slot: { ...result.slot, zoneId: randomUUID() } }
+      : result;
+  };
+  const requested = await w.x.service.reschedule(who.meta(), booking.id, key(), {
+    expectedRevision: booking.version,
+    holdId: target.holdId,
+    holdRevision: target.revision,
+  });
+  await drain(w, requested.change.changeId, w.x, CHANGE_POLICY.attentionAfterAttempts);
+  const pending = (await w.x.store.findChange(requested.change.changeId))!.change;
+  assert.equal(pending.step, 'REPLACE_COMMITMENT');
+  assert.equal(pending.lastError, 'COMMITTED_SLOT_MISMATCH');
+  assert.equal(pending.attention, true);
+  assert.equal(pending.outcome, null);
+  assert.equal((await w.h.store.find(booking.id))!.booking.scheduleRevision, 1);
+  assert.equal(await events(w, booking.id, 'booking.rescheduled.v1'), 0);
+  assert.equal(w.c.dispatch.effects.confirmed, 0);
+  assert.equal(w.c.dispatch.effects.reverted, 0);
+  assert.equal(w.c.commitments.effects.replaced, 1, 'the owner committed exactly once');
+
+  mismatch = false;
+  await drain(w, requested.change.changeId, w.x, 1);
+  const completed = (await w.x.store.findChange(requested.change.changeId))!.change;
+  assert.equal(completed.outcome, 'COMPLETED');
+  assert.equal((await w.h.store.find(booking.id))!.booking.rescheduledSlot?.holdId, target.holdId);
+  assert.equal(await events(w, booking.id, 'booking.rescheduled.v1'), 1);
+  assert.equal(w.c.dispatch.effects.confirmed, 1);
+  assert.equal(w.c.commitments.effects.replaced, 1);
 });
 
 test('a worker that stalls after the pivot is fenced; another replica finishes the change', async () => {

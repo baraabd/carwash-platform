@@ -1,5 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import { databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
+import { databasePoolConfig, databaseSchemaFromUrl, serviceTelemetry } from '@carwash/service-kit';
 import { Pool } from 'pg';
 import { isIdentityPrincipalKind, isIdentityRole } from '@carwash/contracts';
 import {
@@ -156,7 +156,7 @@ export class PrismaIdentityStore implements IdentityStore {
   readonly client: PrismaClient;
   constructor(url: string) {
     if (databaseSchemaFromUrl(url) !== 'app') throw new Error('IDENTITY_APP_SCHEMA_REQUIRED');
-    const pool = new Pool({ connectionString: url, max: 10, connectionTimeoutMillis: 3_000 });
+    const pool = new Pool({ ...databasePoolConfig(url), max: 10, connectionTimeoutMillis: 3_000 });
     serviceTelemetry('identity').metrics.observePool(() => pool);
     this.client = new PrismaClient({
       adapter: new PrismaPg(pool, { schema: 'app', disposeExternalPool: true }),

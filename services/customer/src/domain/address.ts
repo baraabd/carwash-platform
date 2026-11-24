@@ -22,7 +22,8 @@ export type AddressLocation =
   | { readonly kind: 'manual' }
   | {
       readonly kind: 'coordinates';
-      readonly source: LocationSource;
+      /** Null when the canonical caller supplied no provenance claim. */
+      readonly source: LocationSource | null;
       readonly coordinates: Coordinates;
     };
 
@@ -30,7 +31,8 @@ export type AddressStatus = 'ACTIVE' | 'ARCHIVED';
 
 export interface AddressDetails {
   readonly label: string;
-  readonly line: string;
+  /** Canonical coordinate locations may omit a text description. */
+  readonly line: string | null;
   readonly accessNote: string | null;
   readonly location: AddressLocation;
 }

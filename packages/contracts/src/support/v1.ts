@@ -80,6 +80,8 @@ export const SUPPORT_V1 = {
     'REASON_NOT_ALLOWED_FOR_KIND',
     'REASON_NOTE_REQUIRED',
     'EVIDENCE_REQUIRED',
+    'STATEMENT_CREDIT_REQUIRED',
+    'INVALID_STATEMENT_CREDIT',
     'AMOUNT_REQUIRED',
     'WINDOW_REQUIRED',
     'NOTHING_TO_EXECUTE',
@@ -262,12 +264,23 @@ export interface DecideCaseRequestV1 {
   readonly evidence?: readonly EvidenceV1[];
   readonly amount?: Money;
   readonly window?: ServiceWindowV1;
+  /** Required by the owner for APPROVE_MATCH / ACCEPT_LATE_PAYMENT. */
+  readonly statementCredit?: { readonly creditId: string; readonly revision: number };
 }
 
 /** Per-kind action/reason/amount/window applicability is the owner's rule set. */
 export function parseDecideCaseRequestV1(value: unknown): DecideCaseRequestV1 {
-  const v = closed(value, '$', ['action', 'reason'], ['evidence', 'amount', 'window']);
+  const v = closed(
+    value,
+    '$',
+    ['action', 'reason'],
+    ['evidence', 'amount', 'window', 'statementCredit'],
+  );
   const reason = closed(v.reason, '$.reason', ['code', 'note']);
+  const statementCredit =
+    v.statementCredit === undefined
+      ? null
+      : closed(v.statementCredit, '$.statementCredit', ['creditId', 'revision']);
   return {
     action: oneOf(v.action, '$.action', CASE_ACTIONS),
     reason: {
@@ -277,6 +290,14 @@ export function parseDecideCaseRequestV1(value: unknown): DecideCaseRequestV1 {
     ...(v.evidence === undefined ? {} : { evidence: parseEvidence(v.evidence, '$.evidence') }),
     ...(v.amount === undefined ? {} : { amount: parsePositiveMoney(v.amount, '$.amount') }),
     ...(v.window === undefined ? {} : { window: parseWindow(v.window, '$.window') }),
+    ...(statementCredit === null
+      ? {}
+      : {
+          statementCredit: {
+            creditId: uuid(statementCredit.creditId, '$.statementCredit.creditId'),
+            revision: parseRevision(statementCredit.revision, '$.statementCredit.revision'),
+          },
+        }),
   };
 }
 

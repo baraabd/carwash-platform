@@ -47,6 +47,34 @@ export type Actor =
 export interface RequestMeta {
   readonly actor: Actor;
   readonly correlationId: string;
+  /** Validated user bearer, for the Pricing read only; never part of actor/audit/event data. */
+  readonly credential?: string;
+}
+
+export interface SchedulingQuote {
+  readonly quoteId: string;
+  readonly revision: number;
+  readonly status: 'USABLE' | 'EXPIRED' | 'REVOKED';
+  readonly beneficiary: { readonly kind: PrincipalKind; readonly subjectId: string };
+  readonly zoneId: string | null;
+  readonly durationMinutes: number;
+  readonly expiresAt: Date;
+}
+
+export interface SchedulingQuoteReader {
+  /** Owner-authenticated, bounded read outside every local database transaction. */
+  read(
+    quoteId: string,
+    credential: string | undefined,
+    correlationId: string,
+  ): Promise<SchedulingQuote | null>;
+}
+
+export class PricingUnavailable extends Error {
+  constructor() {
+    super('PRICING_UNAVAILABLE');
+    this.name = 'PricingUnavailable';
+  }
 }
 
 export interface OutboxAppend {
@@ -137,6 +165,12 @@ export interface AvailabilityRow {
 }
 
 export interface SchedulingReadModel {
+  /** Read only: a successful receipt can replay even when Pricing is unavailable or expired. */
+  findIdempotency(
+    scope: string,
+    key: string,
+    fingerprint: string,
+  ): Promise<IdempotencyClaim | null>;
   findWindow(id: string): Promise<CapacityWindowState | null>;
   findWindowByStart(zoneId: string, startsAt: Date): Promise<CapacityWindowState | null>;
   findHold(id: string): Promise<HoldState | null>;

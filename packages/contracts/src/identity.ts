@@ -31,6 +31,10 @@ export const IDENTITY_PERMISSIONS = [
   'billing.reconcile',
   // Additive, P05-E1: review moderation (reviews.v1).
   'reviews.moderate',
+  // Technician financial authority is limited further by Billing's closed assignment fence.
+  'billing.cash.collect',
+  // Plan administration stays super-admin-only until a narrower staff mapping is approved.
+  'subscription.manage',
 ] as const;
 export type IdentityPermission = (typeof IDENTITY_PERMISSIONS)[number];
 export type AccountStatus = 'ACTIVE' | 'SUSPENDED';

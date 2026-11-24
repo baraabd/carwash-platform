@@ -89,7 +89,7 @@ test('route table: Pricing serves exactly the pricing.v1 routes and access rules
     })
     .sort();
   const published = Object.values(PRICING_V1.routes)
-    .map((r) => `${r.method} ${r.path.replace(/^\//, '/')}`)
+    .map((r) => `${r.method} ${r.path}`)
     .sort();
   assert.deepEqual(served, published);
   assert.equal(

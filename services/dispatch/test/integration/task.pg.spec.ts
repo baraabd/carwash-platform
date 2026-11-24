@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { TaskDetail } from '../../src/application';
 import { positiveMoneyFromWire } from '../../src/domain';
+import { PrismaEvidenceFenceStore } from '../../src/infrastructure/persistence/prisma-evidence-fence.store';
 import {
   OPS,
   TestClock,
@@ -362,6 +363,71 @@ test('reassignment fences the previous technician mid-job and the new one starts
   const { value } = await b.service.acceptOffer(meta(second), newOffer.offer.id, key());
   assert.equal(value.task?.stage, 'ACCEPTED');
   assert.notEqual(value.task?.id, job.taskId);
+});
+
+test('evidence fence completion and retry reject expired or reclaimed leases with a reused worker id', async () => {
+  const tech = technician();
+  const job = await accepted(tech);
+  let detail = await a.tasks.getMyTask(meta(tech), job.taskId);
+  detail = await step(tech, detail, 'depart');
+  detail = await step(tech, detail, 'arrive');
+  detail = await attach(tech, detail, 'BEFORE');
+  const evidenceId = detail.evidence[0]!.id;
+  const assignment = (await a.store.findAssignment(job.assignmentId))!;
+  await a.service.reassign(
+    meta(OPS),
+    assignment.id,
+    {
+      expectedRevision: assignment.version,
+      resourceId: randomUUID(),
+      technicianSubject: technician().subject,
+    },
+    key(),
+  );
+  const first = new PrismaEvidenceFenceStore(a.prisma);
+  const second = new PrismaEvidenceFenceStore(b.prisma);
+  const workerId = `reused-fence-${randomUUID()}`;
+  const makeDue = () =>
+    q(
+      `UPDATE app.evidence_fence SET next_attempt_at = '2000-01-01T00:00:00Z'
+      WHERE evidence_id = $1::uuid`,
+      evidenceId,
+    );
+  const expire = () =>
+    q(
+      `UPDATE app.evidence_fence SET locked_until = now() - interval '1 second'
+      WHERE evidence_id = $1::uuid`,
+      evidenceId,
+    );
+  await makeDue();
+  const [leased] = await first.leaseDue(workerId, 30_000, 1);
+  assert.equal(leased?.evidenceId, evidenceId);
+  assert.equal(leased.attempts, 1);
+  await expire();
+  assert.equal(await first.markFenced(evidenceId, workerId, leased.attempts), false);
+  assert.equal(await first.markRetry(evidenceId, workerId, leased.attempts, 'STALE', 1), false);
+
+  const [reclaimed] = await second.leaseDue(workerId, 30_000, 1);
+  assert.equal(reclaimed?.evidenceId, evidenceId);
+  assert.equal(reclaimed.attempts, 2);
+  assert.equal(await first.markFenced(evidenceId, workerId, leased.attempts), false);
+  assert.equal(await first.markRetry(evidenceId, workerId, leased.attempts, 'STALE', 1), false);
+  assert.equal(
+    await second.markRetry(evidenceId, workerId, reclaimed.attempts, 'MEDIA_DOWN', 60_000),
+    true,
+  );
+  const [waiting] = await q<{ attempts: number; last_error: string; fenced_at: Date | null }>(
+    `SELECT attempts, last_error, fenced_at FROM app.evidence_fence WHERE evidence_id = $1::uuid`,
+    evidenceId,
+  );
+  assert.deepEqual(waiting, { attempts: 2, last_error: 'MEDIA_DOWN', fenced_at: null });
+
+  await makeDue();
+  const [current] = await second.leaseDue(workerId, 30_000, 1);
+  assert.equal(current?.attempts, 3);
+  assert.equal(await first.markFenced(evidenceId, workerId, reclaimed.attempts), false);
+  assert.equal(await second.markFenced(evidenceId, workerId, current.attempts), true);
+  assert.equal(await second.markFenced(evidenceId, workerId, current.attempts), false);
 });
 
 test('stale eligibility: an offer is refused for an ineligible resource and re-checked at acceptance', async () => {

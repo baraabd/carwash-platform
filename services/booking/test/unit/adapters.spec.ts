@@ -334,9 +334,8 @@ test('vehicle: the snapshot must be the requested saved vehicle revision', async
   });
 });
 
-test('billing: requested contract mapping; unconfigured Billing is unavailable, never created', async () => {
-  const adapter = new BillingObligationsAdapter(client());
-  const request = {
+function billingRequest() {
+  return {
     bookingId: randomUUID(),
     beneficiary: principal(),
     quoteId: randomUUID(),
@@ -344,39 +343,124 @@ test('billing: requested contract mapping; unconfigured Billing is unavailable, 
     amount: money('SYP', 9_000_000n),
     paymentMethod: 'SHAM_CASH' as const,
   };
+}
+
+function obligationWire(quoteId: string) {
   const amount = { currency: 'SYP', amountMinor: '9000000', scale: 2 };
-  handler = json(201, { obligationId: 'obl_0123456789', quoteId: request.quoteId, amount });
+  return {
+    obligationId: randomUUID(),
+    revision: 1,
+    status: 'OPEN',
+    financialStatus: 'UNPAID',
+    quoteId,
+    amount,
+    verified: { ...amount, amountMinor: '0' },
+    outstanding: amount,
+    activeIntent: null,
+    attempts: [],
+    cashReceipt: null,
+    createdAt: NOW.toISOString(),
+    updatedAt: NOW.toISOString(),
+  };
+}
+
+test('billing: the published create route binds exact quote and money and rejects incomplete success', async () => {
+  const adapter = new BillingObligationsAdapter(client());
+  const request = billingRequest();
+  const wire = obligationWire(request.quoteId);
+  handler = json(201, wire);
   assert.deepEqual(await adapter.create(request, randomUUID()), {
     kind: 'CREATED',
-    obligationId: 'obl_0123456789',
+    obligationId: wire.obligationId,
   });
-  const body = JSON.parse(seen[seen.length - 1]?.body ?? '{}') as Record<string, unknown>;
-  assert.deepEqual(Object.keys(body).sort(), ['beneficiary', 'bookingId', 'quoteId']);
-  // An obligation priced differently from the booking snapshot is never accepted.
-  handler = json(201, {
-    obligationId: 'obl_0123456789',
+  const call = seen.at(-1);
+  assert.equal(call?.url, '/internal/v1/billing/booking-obligations');
+  assert.equal(call?.headers['idempotency-key'], `booking-obligation-${request.bookingId}`);
+  assert.equal(call?.headers['x-service-client'], 'booking');
+  assert.equal(call?.headers.authorization, undefined);
+  assert.deepEqual(JSON.parse(call?.body ?? '{}'), {
+    beneficiary: request.beneficiary,
+    bookingId: request.bookingId,
     quoteId: request.quoteId,
-    amount: { ...amount, amountMinor: '1' },
   });
-  assert.deepEqual(await adapter.create(request, randomUUID()), {
-    kind: 'UNAVAILABLE',
-    error: 'UPSTREAM_INVALID',
-  });
-  handler = json(201, { obligationId: 'obl_0123456789', quoteId: randomUUID(), amount });
-  assert.equal((await adapter.create(request, randomUUID())).kind, 'UNAVAILABLE');
-  handler = json(201, { obligationId: '<script>', quoteId: request.quoteId, amount });
+  for (const invalid of [
+    { ...wire, amount: { ...wire.amount, amountMinor: '1' } },
+    { ...wire, quoteId: randomUUID() },
+    { ...wire, obligationId: '<script>' },
+    { obligationId: wire.obligationId, quoteId: request.quoteId, amount: wire.amount },
+    { ...wire, financialStatus: 'PAID' },
+  ]) {
+    handler = json(201, invalid);
+    assert.deepEqual(await adapter.create(request, randomUUID()), {
+      kind: 'UNAVAILABLE',
+      error: 'UPSTREAM_INVALID',
+    });
+  }
+  handler = json(409, envelope('BOOKING_COMPENSATED', null));
+  assert.deepEqual(await adapter.create(request, randomUUID()), { kind: 'REJECTED' });
+  handler = json(409, envelope('QUOTE_NOT_USABLE', null));
   assert.equal((await adapter.create(request, randomUUID())).kind, 'UNAVAILABLE');
   handler = json(422, envelope('BUSINESS_RULE_VIOLATION', null));
   assert.deepEqual(await adapter.create(request, randomUUID()), { kind: 'REJECTED' });
-  handler = json(200, { state: 'VOIDED' });
-  assert.deepEqual(await adapter.voidForBooking(request.bookingId, randomUUID()), {
-    kind: 'VOIDED',
-  });
   const unconfigured = new BillingObligationsAdapter(client({ baseUrl: undefined }));
   assert.deepEqual(await unconfigured.create(request, randomUUID()), {
     kind: 'UNAVAILABLE',
     error: 'NOT_CONFIGURED',
   });
+});
+
+test('billing: compensation requires a closed owner-bound durable receipt; 404 never proves absence', async () => {
+  const adapter = new BillingObligationsAdapter(client());
+  const request = billingRequest();
+  const receipt = {
+    bookingId: request.bookingId,
+    beneficiary: request.beneficiary,
+    quoteId: request.quoteId,
+    outcome: 'ABSENT_FENCED',
+    obligationId: null,
+    obligationRevision: null,
+    compensatedAt: NOW.toISOString(),
+  };
+  for (const valid of [
+    receipt,
+    {
+      ...receipt,
+      outcome: 'VOIDED',
+      obligationId: randomUUID(),
+      obligationRevision: 2,
+    },
+  ]) {
+    handler = json(200, valid);
+    assert.deepEqual(await adapter.voidForBooking(request, randomUUID()), { kind: 'VOIDED' });
+  }
+  const call = seen.at(-1);
+  assert.equal(call?.url, '/internal/v1/billing/booking-obligations/compensations');
+  assert.equal(call?.headers['idempotency-key'], `booking-void-${request.bookingId}`);
+  assert.deepEqual(JSON.parse(call?.body ?? '{}'), {
+    bookingId: request.bookingId,
+    beneficiary: request.beneficiary,
+    quoteId: request.quoteId,
+    reason: 'BOOKING_FAILED',
+  });
+  for (const invalid of [
+    { state: 'VOIDED' },
+    { ...receipt, bookingId: randomUUID() },
+    { ...receipt, quoteId: randomUUID() },
+    { ...receipt, beneficiary: principal() },
+    { ...receipt, outcome: 'VOIDED' },
+    { ...receipt, obligationId: randomUUID() },
+    { ...receipt, amount: '0' },
+  ]) {
+    handler = json(200, invalid);
+    assert.deepEqual(await adapter.voidForBooking(request, randomUUID()), {
+      kind: 'UNAVAILABLE',
+      error: 'UPSTREAM_INVALID',
+    });
+  }
+  for (const status of [404, 409, 503]) {
+    handler = json(status, envelope('NOT_FOUND', null));
+    assert.equal((await adapter.voidForBooking(request, randomUUID())).kind, 'UNAVAILABLE');
+  }
 });
 
 test('acl: closed shapes, exact arithmetic and canonical instants are enforced', () => {

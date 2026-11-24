@@ -36,6 +36,11 @@ export class CustodyController {
 
   constructor(@Inject(CASH_CUSTODY_SERVICE) private readonly custody: CashCustodyService) {}
 
+  @Get('bookings/:bookingId/cash-collection-target')
+  target(@Headers() headers: RequestHeaders, @Param('bookingId') bookingId: string) {
+    return run(() => this.custody.cashCollectionTarget(contextOf(headers), bookingId));
+  }
+
   @Post('obligations/:id/cash-collections')
   async collect(
     @Headers() headers: RequestHeaders,

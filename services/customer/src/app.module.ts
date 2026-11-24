@@ -11,6 +11,7 @@ import {
   UnconfiguredIdentityAuthorizer,
 } from './infrastructure/identity/http-identity-authorizer';
 import { PrismaCustomerStore } from './infrastructure/persistence/prisma-customer.store';
+import { ServiceWorkloadAuthenticator } from './infrastructure/identity/service-workload-authenticator';
 import {
   DATABASE_URL,
   PrismaService,
@@ -84,6 +85,7 @@ export function customerApplicationFactory(
         'INVALID_MAX_ACTIVE_ADDRESSES',
       ),
     },
+    new ServiceWorkloadAuthenticator(env.CUSTOMER_SERVICE_CLIENTS),
   );
 }
 

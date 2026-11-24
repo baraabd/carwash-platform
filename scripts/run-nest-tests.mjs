@@ -6,20 +6,11 @@
  * skips a package because its script or its output is missing looks identical to
  * a pass, and that is exactly how an untested service slips through.
  */
-import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { ROOT, SERVICES } from './acceptance/lib/context.mjs';
 import { run } from './acceptance/lib/exec.mjs';
-
-async function specsFor(service) {
-  const dir = path.join(ROOT, 'services', service, 'dist-tests', 'test');
-  try {
-    const entries = await readdir(dir);
-    return entries.filter((f) => f.endsWith('.spec.js')).map((f) => path.join(dir, f));
-  } catch {
-    return [];
-  }
-}
+import { discoverServiceSpecs } from './lib/test-discovery.mjs';
+import { testResults } from './lib/test-results.mjs';
 
 const skipBuild = process.argv.includes('--no-build');
 
@@ -40,31 +31,9 @@ if (!skipBuild) {
   }
 }
 
-const files = [];
-const missing = [];
-for (const service of SERVICES) {
-  const found = await specsFor(service);
-  if (found.length === 0) missing.push(service);
-  files.push(...found);
-}
-
-if (missing.length > 0) {
-  process.stderr.write(
-    `NEST_TESTS_MISSING for: ${missing.join(', ')}\n` +
-      'Every service must have at least one compiled Nest spec. A silently skipped\n' +
-      'service is not a passing service.\n',
-  );
-  process.exit(1);
-}
-
-for (const file of files) {
-  // Guard against a stale or empty artifact being counted as a test run.
-  const info = await stat(file);
-  if (info.size === 0) {
-    process.stderr.write(`EMPTY_SPEC_ARTIFACT: ${file}\n`);
-    process.exit(1);
-  }
-}
+const files = SERVICES.flatMap((service) =>
+  discoverServiceSpecs(path.join(ROOT, 'services', service)),
+);
 
 const result = await run(process.execPath, ['--test', '--test-reporter=spec', ...files], {
   cwd: ROOT,
@@ -72,4 +41,6 @@ const result = await run(process.execPath, ['--test', '--test-reporter=spec', ..
 });
 process.stdout.write(result.stdout);
 process.stderr.write(result.stderr);
-process.exit(result.code ?? 1);
+const summary = testResults(result.stdout, result.code, result.signal);
+if (!summary.accepted) process.stderr.write(`NEST_TESTS_INCOMPLETE: ${JSON.stringify(summary)}\n`);
+process.exit(summary.accepted && result.outcome === 'exited' ? 0 : 1);

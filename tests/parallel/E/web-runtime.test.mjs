@@ -135,6 +135,11 @@ for (const [app, createRuntime] of runtimes) {
       assert.equal(await page.text(), builtHtml);
       assert.equal(page.headers.get('x-content-type-options'), 'nosniff');
       assert.match(page.headers.get('content-security-policy'), /frame-ancestors 'none'/);
+      assert.match(
+        page.headers.get('content-security-policy'),
+        /connect-src 'self'(?:;| )/,
+        'same-origin Gateway calls must be possible from the actual served document',
+      );
       for (const forbidden of [
         '/assets/../index.html',
         '/assets/%2e%2e%2fpackage.json',

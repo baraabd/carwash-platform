@@ -245,7 +245,11 @@ test('relay crash after publish, before marking: redelivered with the SAME event
     'duplicates share one event id for inbox dedupe',
   );
   assert.equal(
-    await store.markPublished({ id: record.id, workerId: 'crashed-relay' }),
+    await store.markPublished({
+      id: record.id,
+      workerId: 'crashed-relay',
+      leaseAttempt: record.attempts,
+    }),
     false,
     'the crashed relay is fenced off',
   );

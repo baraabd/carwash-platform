@@ -19,22 +19,47 @@ export class SmokeInputError extends Error {}
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const nonEmpty = (v) => typeof v === 'string' && v.trim().length > 0;
 
-export function validateTarget(target) {
+function endpoint(value, label, { allowLoopbackHttpForFixtures = false, gateway = false } = {}) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new SmokeInputError(`${label} must be an absolute URL`);
+  }
+  const localFixture =
+    allowLoopbackHttpForFixtures &&
+    !gateway &&
+    url.protocol === 'http:' &&
+    ['127.0.0.1', '[::1]'].includes(url.hostname);
+  if (url.protocol !== 'https:' && !localFixture)
+    throw new SmokeInputError(
+      `${label} must be https (HTTP is only allowed for explicit loopback fixtures)`,
+    );
+  if (url.username || url.password || url.search || url.hash)
+    throw new SmokeInputError(`${label} must not contain credentials, query or fragment`);
+  return url;
+}
+
+function gatewayPath(value, label, base) {
+  if (!nonEmpty(value) || !value.startsWith('/') || value.startsWith('//') || value.includes('\\'))
+    throw new SmokeInputError(`${label} must be a root-relative gateway path`);
+  const url = new URL(value, base);
+  if (url.origin !== base.origin || url.username || url.password || url.hash)
+    throw new SmokeInputError(`${label} must stay on the gateway origin`);
+}
+
+export function validateTarget(target, { allowLoopbackHttpForFixtures = false } = {}) {
   if (!isObject(target) || target.schema !== TARGET_SCHEMA)
     throw new SmokeInputError(`target must declare schema ${TARGET_SCHEMA}`);
-  let base;
-  try {
-    base = new URL(target.gatewayUrl);
-  } catch {
-    throw new SmokeInputError('gatewayUrl must be an absolute URL');
-  }
-  if (base.protocol !== 'https:') throw new SmokeInputError('gatewayUrl must be https');
+  const base = endpoint(target.gatewayUrl, 'gatewayUrl', { gateway: true });
   if (
     !Array.isArray(target.hostnames) ||
     target.hostnames.length === 0 ||
     !target.hostnames.every(nonEmpty)
   )
     throw new SmokeInputError('hostnames must list every public hostname');
+  if (!target.hostnames.some((host) => host.toLowerCase() === base.hostname.toLowerCase()))
+    throw new SmokeInputError('hostnames must include the gateway hostname');
   if (!Number.isInteger(target.tls?.minValidDays) || target.tls.minValidDays < 1)
     throw new SmokeInputError('tls.minValidDays must be supplied by the owner (no default)');
   if (!Number.isInteger(target.timeoutMs) || target.timeoutMs < 100 || target.timeoutMs > 30000)
@@ -43,10 +68,8 @@ export function validateTarget(target) {
     throw new SmokeInputError(
       'owners must list every owner service expected ready behind the gateway',
     );
-  if (!nonEmpty(target.identity?.sessionPath))
-    throw new SmokeInputError('identity.sessionPath is required');
-  if (!nonEmpty(target.media?.privateObjectPath))
-    throw new SmokeInputError('media.privateObjectPath is required');
+  gatewayPath(target.identity?.sessionPath, 'identity.sessionPath', base);
+  gatewayPath(target.media?.privateObjectPath, 'media.privateObjectPath', base);
   if (!nonEmpty(target.payments?.owner)) throw new SmokeInputError('payments.owner is required');
   if (!Array.isArray(target.alerts?.requiredAlerts) || target.alerts.requiredAlerts.length === 0)
     throw new SmokeInputError('alerts.requiredAlerts must name the alerts that must be loaded');
@@ -57,12 +80,22 @@ export function validateTarget(target) {
     ['alerts.alertmanagerUrl', target.alerts.alertmanagerUrl],
     ['dashboards.grafanaUrl', target.dashboards.grafanaUrl],
   ])
-    try {
-      new URL(v);
-    } catch {
-      throw new SmokeInputError(`${k} must be an absolute URL`);
-    }
+    endpoint(v, k, { allowLoopbackHttpForFixtures });
   return target;
+}
+
+async function withDeadline(operation, timeoutMs) {
+  let timer;
+  try {
+    return await Promise.race([
+      Promise.resolve().then(operation),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('timeout')), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** GET without redirects; resolves {status, headers, body} or rejects with a reason. */
@@ -70,6 +103,15 @@ export function httpGet(url, { timeoutMs, ca, headers = {} }) {
   const u = new URL(url);
   const client = u.protocol === 'https:' ? https : http;
   return new Promise((resolve, reject) => {
+    let settled = false;
+    let timer;
+    const finish = (error, result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) reject(error);
+      else resolve(result);
+    };
     const req = client.request(
       u,
       {
@@ -87,18 +129,25 @@ export function httpGet(url, { timeoutMs, ca, headers = {} }) {
           if (size > 1_000_000) req.destroy(new Error('response too large'));
           else chunks.push(c);
         });
-        res.on('end', () =>
-          resolve({
+        res.once('end', () =>
+          finish(null, {
             status: res.statusCode,
             headers: res.headers,
             body: Buffer.concat(chunks).toString('utf8'),
           }),
         );
-        res.on('error', reject);
+        res.once('error', (error) => finish(error));
+        res.once('aborted', () => finish(new Error('response aborted')));
       },
     );
-    req.setTimeout(timeoutMs, () => req.destroy(new Error('timeout')));
-    req.on('error', reject);
+    // An inactivity timeout permits endless slow-drip responses. This is a
+    // wall-clock deadline covering DNS, connection, TLS, headers and body.
+    timer = setTimeout(() => {
+      const error = new Error('timeout');
+      finish(error);
+      req.destroy(error);
+    }, timeoutMs);
+    req.once('error', (error) => finish(error));
     req.end();
   });
 }
@@ -113,6 +162,8 @@ function json(body) {
 
 export function tlsProbe(host, port, { timeoutMs, ca, minValidDays, now }) {
   return new Promise((resolve) => {
+    let settled = false;
+    let timer;
     const socket = tls.connect({
       host,
       port,
@@ -121,10 +172,13 @@ export function tlsProbe(host, port, { timeoutMs, ca, minValidDays, now }) {
       rejectUnauthorized: true,
     });
     const done = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       socket.destroy();
       resolve(result);
     };
-    socket.setTimeout(timeoutMs, () => done({ status: 'FAILED', reason: 'timeout' }));
+    timer = setTimeout(() => done({ status: 'FAILED', reason: 'timeout' }), timeoutMs);
     socket.once('error', (e) => done({ status: 'FAILED', reason: e.code ?? e.message }));
     socket.once('secureConnect', () => {
       const cert = socket.getPeerCertificate();
@@ -164,17 +218,19 @@ async function check(name, fn) {
  * @param {object} io { lookup, httpGet, tlsProbe, now(): epoch ms, readSecretRef(ref): string|null, ca?: Buffer }
  */
 export async function runSmoke(target, io) {
-  validateTarget(target);
+  const allowLoopbackHttpForFixtures = io.allowLoopbackHttpForFixtures === true;
+  validateTarget(target, { allowLoopbackHttpForFixtures });
   const timeoutMs = target.timeoutMs;
   const base = new URL(target.gatewayUrl);
-  const get = (url, headers) => io.httpGet(url, { timeoutMs, ca: io.ca, headers });
+  const get = (url, headers) =>
+    withDeadline(() => io.httpGet(url, { timeoutMs, ca: io.ca, headers }), timeoutMs);
   const at = (p) => new URL(p, base).toString();
   const results = [];
 
   for (const host of target.hostnames)
     results.push(
       await check(`dns ${host}`, async () => {
-        const addresses = await io.lookup(host, { all: true });
+        const addresses = await withDeadline(() => io.lookup(host, { all: true }), timeoutMs);
         return addresses.length
           ? { status: 'PASSED', addresses: addresses.length }
           : { status: 'FAILED', reason: 'no address' };
@@ -183,12 +239,16 @@ export async function runSmoke(target, io) {
   for (const host of target.hostnames)
     results.push(
       await check(`tls ${host}`, () =>
-        io.tlsProbe(host, Number(base.port || 443), {
+        withDeadline(
+          () =>
+            io.tlsProbe(host, Number(base.port || 443), {
+              timeoutMs,
+              ca: io.ca,
+              minValidDays: target.tls.minValidDays,
+              now: io.now(),
+            }),
           timeoutMs,
-          ca: io.ca,
-          minValidDays: target.tls.minValidDays,
-          now: io.now(),
-        }),
+        ),
       ),
     );
 
@@ -296,18 +356,19 @@ export async function runSmoke(target, io) {
             authorization: `Bearer ${token}`,
           },
         );
-        return r.status === 200
+        return r.status === 200 && json(r.body)?.dashboard?.uid === uid
           ? { status: 'PASSED' }
-          : { status: 'FAILED', reason: `HTTP ${r.status}` };
+          : { status: 'FAILED', reason: `HTTP ${r.status}; expected dashboard uid ${uid}` };
       }),
     );
 
   const passed = results.every((r) => r.status === 'PASSED');
   return {
     schema: 'carwash.production-smoke-report/v1',
+    fixtureOnly: allowLoopbackHttpForFixtures,
     target: base.origin,
     ranAt: new Date(io.now()).toISOString(),
-    verdict: passed ? 'PASSED' : 'FAILED',
+    verdict: passed ? (allowLoopbackHttpForFixtures ? 'PASSED_FIXTURE_ONLY' : 'PASSED') : 'FAILED',
     results,
     // Not covered by this read-only smoke; each needs its own owner-approved receipt.
     pendingSeparately: [
@@ -316,13 +377,14 @@ export async function runSmoke(target, io) {
   };
 }
 
-export function defaultIo({ ca, readSecretRef } = {}) {
+export function defaultIo({ ca, readSecretRef, allowLoopbackHttpForFixtures = false } = {}) {
   return {
     lookup,
     httpGet,
     tlsProbe,
     now: () => Date.now(),
     ca,
+    allowLoopbackHttpForFixtures,
     readSecretRef: readSecretRef ?? (() => null),
   };
 }

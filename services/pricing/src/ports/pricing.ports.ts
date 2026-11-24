@@ -46,6 +46,7 @@ export interface StoredQuote {
   readonly policyRevision: string;
   readonly lines: readonly StoredLine[];
   readonly totalMinor: bigint;
+  readonly durationMinutes: number;
   readonly issuedAt: Date;
   readonly expiresAt: Date;
   readonly correlationId: string;

@@ -5,7 +5,7 @@ import {
   HttpIdentityAuthorizer,
   UnconfiguredIdentityAuthorizer,
 } from './infrastructure/identity/http-identity-authorizer';
-import { NoWorkloadIdentity } from './infrastructure/identity/no-workload-identity';
+import { ServiceWorkloadIdentity } from './infrastructure/identity/service-workload-identity';
 import { PrismaVehicleStore } from './infrastructure/persistence/prisma-vehicle.store';
 import {
   DATABASE_URL,
@@ -69,8 +69,7 @@ export function vehicleApplicationFactory(
   return new VehicleApplication(
     new PrismaVehicleStore(prisma.client),
     identityAuthorizerFromEnv(env),
-    // Workload identity is P01-E5 (Lane E); service routes stay deny-by-default.
-    new NoWorkloadIdentity(),
+    new ServiceWorkloadIdentity(env.VEHICLE_SERVICE_CLIENTS),
     systemClock,
     randomIds,
   );

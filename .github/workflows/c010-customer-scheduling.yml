@@ -77,7 +77,7 @@ jobs:
           pnpm format:check
           pnpm lint
           pnpm --filter @carwash/customer-web typecheck
-          pnpm --filter @carwash/customer-web build
+          pnpm --filter @carwash/customer-web build --mode parity
           node scripts/c002/check-feature-boundaries.mjs
           node --test --test-reporter=spec \
             tests/unit/c001-customer-behavior-manifest.test.mjs \

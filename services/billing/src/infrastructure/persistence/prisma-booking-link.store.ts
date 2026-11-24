@@ -1,5 +1,6 @@
 import {
   BookingAlreadyLinked,
+  type BookingCompensation,
   type BookingLink,
   type BookingLinkReader,
   type BookingLinkStore,
@@ -8,6 +9,32 @@ import { Prisma, type PrismaClient } from '../../generated/prisma/client';
 
 type Db = Prisma.TransactionClient | PrismaClient;
 type LinkRow = Prisma.BookingObligationGetPayload<object>;
+
+async function compensationForBooking(
+  db: Db,
+  bookingId: string,
+): Promise<BookingCompensation | null> {
+  const row = await db.bookingCompensation.findUnique({ where: { bookingId } });
+  if (!row) return null;
+  if (
+    (row.beneficiaryKind !== 'account' && row.beneficiaryKind !== 'guest') ||
+    (row.outcome !== 'ABSENT_FENCED' && row.outcome !== 'VOIDED') ||
+    row.reason !== 'BOOKING_FAILED'
+  )
+    throw new Error('STORED_BOOKING_COMPENSATION_INVALID');
+  return {
+    bookingId: row.bookingId,
+    clientId: row.clientId,
+    beneficiary: { kind: row.beneficiaryKind, subjectId: row.beneficiarySubject },
+    quoteId: row.quoteId,
+    reason: row.reason,
+    outcome: row.outcome,
+    obligationId: row.obligationId,
+    obligationRevision: row.obligationRevision,
+    compensatedAt: row.compensatedAt,
+    correlationId: row.correlationId,
+  };
+}
 
 function toLink(row: LinkRow): BookingLink {
   return {
@@ -33,12 +60,39 @@ async function forObligation(db: Db, obligationId: string): Promise<BookingLink 
 export class PrismaBookingLinkStore implements BookingLinkStore {
   constructor(private readonly tx: Prisma.TransactionClient) {}
 
+  async lockBooking(bookingId: string): Promise<void> {
+    await this.tx
+      .$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${'billing-booking:' + bookingId}, 0))::text`;
+  }
+
   forBooking(bookingId: string) {
     return forBooking(this.tx, bookingId);
   }
 
   forObligation(obligationId: string) {
     return forObligation(this.tx, obligationId);
+  }
+
+  compensationForBooking(bookingId: string) {
+    return compensationForBooking(this.tx, bookingId);
+  }
+
+  async insertCompensation(record: BookingCompensation): Promise<void> {
+    await this.tx.bookingCompensation.create({
+      data: {
+        bookingId: record.bookingId,
+        clientId: record.clientId,
+        beneficiaryKind: record.beneficiary.kind,
+        beneficiarySubject: record.beneficiary.subjectId,
+        quoteId: record.quoteId,
+        reason: record.reason,
+        outcome: record.outcome,
+        obligationId: record.obligationId,
+        obligationRevision: record.obligationRevision,
+        compensatedAt: record.compensatedAt,
+        correlationId: record.correlationId,
+      },
+    });
   }
 
   async insert(link: BookingLink, correlationId: string): Promise<void> {
@@ -77,5 +131,9 @@ export class PrismaBookingLinkReader implements BookingLinkReader {
 
   forObligation(obligationId: string) {
     return forObligation(this.client, obligationId);
+  }
+
+  compensationForBooking(bookingId: string) {
+    return compensationForBooking(this.client, bookingId);
   }
 }

@@ -9,6 +9,7 @@ import type {
 } from './bookingDraft';
 import type { SavedAddress } from './savedAddresses';
 import type { SavedVehicle } from './savedVehicles';
+import type { CatalogV1 } from '@carwash/contracts/catalog-v1';
 
 /** -1 cancelled, 0–3 in progress, 4 completed — the approved tracking stages. */
 export type OrderStage = -1 | 0 | 1 | 2 | 3 | 4;
@@ -88,6 +89,14 @@ export interface ConfirmationReceipt {
 export type BookingMode = 'standard' | 'repeat';
 
 export interface CustomerSessionState {
+  /** Set by the build entry point. A URL never grants simulation capabilities. */
+  readonly runtimeMode: 'production' | 'parity';
+  /** Validated owner reads, never set by a parity scenario or URL parameter. */
+  readonly productionData?: {
+    readonly catalog: CatalogV1 | null;
+    readonly catalogStatus: 'available' | 'unavailable';
+    readonly profileStatus: 'available' | 'anonymous' | 'unavailable';
+  };
   readonly profile: { readonly name: string; readonly phone: string };
   readonly orders: readonly CustomerOrderSnapshot[];
   /** The customer's garage. Saved cars are descriptions, never bookings. */

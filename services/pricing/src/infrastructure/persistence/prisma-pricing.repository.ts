@@ -4,6 +4,7 @@ import {
   DEFINITION_STATUSES,
   PRINCIPAL_KINDS,
   VEHICLE_TYPES,
+  selectionDuration,
   type CatalogView,
   type PriceBookEntry,
   type VehicleType,
@@ -23,7 +24,7 @@ import { PrismaService } from './prisma.service';
 
 type Tx = Prisma.TransactionClient;
 type BookRow = Prisma.PriceBookGetPayload<{ include: { entries: true } }>;
-type QuoteRow = Prisma.PricingQuoteGetPayload<{ include: { lines: true } }>;
+type QuoteRow = Prisma.PricingQuoteGetPayload<{ include: { lines: true; book: true } }>;
 
 /** Stored values were written by this adapter under database CHECKs; a mismatch is corruption. */
 function oneOf<T extends string>(values: readonly T[], value: string, what: string): T {
@@ -140,6 +141,7 @@ function toQuote(row: QuoteRow): StoredQuote {
         amountMinor: l.amountMinor,
       })),
     totalMinor: row.totalMinor,
+    durationMinutes: selectionDuration(row.lines, catalogFromJson(row.book.catalogView)),
     issuedAt: row.issuedAt,
     expiresAt: row.expiresAt,
     correlationId: row.correlationId,
@@ -314,7 +316,7 @@ export class PrismaPricingRepository implements PricingRepository {
   async quote(id: string): Promise<StoredQuote | null> {
     const row = await this.client.pricingQuote.findUnique({
       where: { id },
-      include: { lines: true },
+      include: { lines: true, book: true },
     });
     return row ? toQuote(row) : null;
   }

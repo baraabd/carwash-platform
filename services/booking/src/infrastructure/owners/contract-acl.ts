@@ -198,6 +198,7 @@ export function parseQuote(value: unknown, path = '$'): QuoteRead {
     'currency',
     'lines',
     'total',
+    'durationMinutes',
     'catalogRevision',
     'priceBookRevision',
     'issuedAt',
@@ -236,6 +237,7 @@ export function parseQuote(value: unknown, path = '$'): QuoteRead {
     currency,
     lines,
     total,
+    durationMinutes: integer(v.durationMinutes, `${path}.durationMinutes`, 5, 96_000),
     catalogRevision: revision(v.catalogRevision, `${path}.catalogRevision`),
     priceBookRevision: revision(v.priceBookRevision, `${path}.priceBookRevision`),
     issuedAt,
@@ -276,6 +278,7 @@ export function parseHold(value: unknown, path = '$'): HoldView {
     'holdId',
     'revision',
     'state',
+    'quoteRef',
     'beneficiary',
     'zoneId',
     'startsAt',
@@ -291,6 +294,7 @@ export function parseHold(value: unknown, path = '$'): HoldView {
     'RELEASED',
     'EXPIRED',
   ] as const);
+  const quote = closed(v.quoteRef, `${path}.quoteRef`, ['quoteId', 'revision']);
   const bookingId = optionalUuid(v.bookingId, `${path}.bookingId`);
   if ((state === 'COMMITTED') !== (bookingId !== null))
     throw new ContractViolation(`${path}.bookingId`);
@@ -304,6 +308,10 @@ export function parseHold(value: unknown, path = '$'): HoldView {
     holdId: uuid(v.holdId, `${path}.holdId`),
     revision: revision(v.revision, `${path}.revision`),
     state,
+    quoteRef: {
+      quoteId: uuid(quote.quoteId, `${path}.quoteRef.quoteId`),
+      revision: revision(quote.revision, `${path}.quoteRef.revision`),
+    },
     beneficiary: principal(v.beneficiary, `${path}.beneficiary`),
     zoneId: uuid(v.zoneId, `${path}.zoneId`),
     startsAt: new Date(startsAt),

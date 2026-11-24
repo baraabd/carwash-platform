@@ -132,7 +132,15 @@ export async function mediaDouble(
       const set = claims.get(match[1]) ?? new Set<string>();
       set.add(claimRef);
       claims.set(match[1], set);
-      return json(res, 200, { claimed: true });
+      return json(res, 200, {
+        objectId: match[1],
+        claimed: true,
+        claim: {
+          claimRef,
+          holder: 'dispatch.task-evidence',
+          claimedAt: new Date().toISOString(),
+        },
+      });
     }
     return json(res, 200, {
       objectId: match[1],

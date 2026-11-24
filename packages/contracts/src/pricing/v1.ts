@@ -83,6 +83,9 @@ export interface QuoteLineV1 {
   readonly amount: Money;
 }
 
+/** Technical bound from 20 selections × quantity 10 × Catalog duration 480, not a booking policy. */
+export const MAX_QUOTE_DURATION_MINUTES = 96_000;
+
 export interface QuoteV1 {
   readonly quoteId: string;
   readonly revision: number;
@@ -93,6 +96,8 @@ export interface QuoteV1 {
   readonly currency: Currency;
   readonly lines: readonly QuoteLineV1[];
   readonly total: Money;
+  /** Sum of the selected immutable Catalog definition durations × quantity. */
+  readonly durationMinutes: number;
   readonly catalogRevision: number;
   readonly priceBookRevision: number;
   readonly issuedAt: UtcTimestamp;
@@ -207,6 +212,7 @@ export function parseQuoteV1(value: unknown, path = '$'): QuoteV1 {
     'currency',
     'lines',
     'total',
+    'durationMinutes',
     'catalogRevision',
     'priceBookRevision',
     'issuedAt',
@@ -246,6 +252,12 @@ export function parseQuoteV1(value: unknown, path = '$'): QuoteV1 {
     currency,
     lines,
     total,
+    durationMinutes: integer(
+      v.durationMinutes,
+      `${path}.durationMinutes`,
+      5,
+      MAX_QUOTE_DURATION_MINUTES,
+    ),
     catalogRevision: parseRevision(v.catalogRevision, `${path}.catalogRevision`),
     priceBookRevision: parseRevision(v.priceBookRevision, `${path}.priceBookRevision`),
     issuedAt,

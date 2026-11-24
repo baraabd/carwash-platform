@@ -42,6 +42,7 @@ function balances(repository: InMemoryWalletRepository, holder = HOLDER) {
 
 test('domain: collection, reversal and handover lifecycle move exact buckets', () => {
   const receipt = cashCollected({
+    receipt: null,
     receiptId: randomUUID(),
     version: 1,
     holder: HOLDER,
@@ -212,4 +213,30 @@ test('handler: deferred is a retryable 503 for the broker; rejected is acked', a
       (e as { code?: string }).code === 'PROJECTION_DEFERRED',
   );
   await handler.handle({ id: 'm2', type: 'x', payload: { nonsense: true } });
+});
+
+test('projector: a newer collection envelope cannot recollect or resurrect an existing receipt', async () => {
+  const { repository, projector } = setup();
+  const receiptId = randomUUID();
+  assert.equal(
+    (await projector.project(collected({ receiptId, amount: syp(1_000) }))).outcome,
+    'APPLIED',
+  );
+  for (const sourceStatus of ['HELD', 'REVERSED'] as const) {
+    if (sourceStatus === 'REVERSED')
+      assert.equal(
+        (await projector.project(reversed({ receiptId, amount: syp(1_000), version: 3 }))).outcome,
+        'APPLIED',
+      );
+    const invalid = collected({ receiptId, amount: syp(1_000), version: 4 });
+    assert.deepEqual(await projector.project(invalid), {
+      outcome: 'REJECTED',
+      eventId: invalid.eventId,
+      reason: 'EVENT_INVALID',
+    });
+    assert.equal((await projector.project(invalid)).outcome, 'DUPLICATE');
+    assert.equal(repository.sources.get(`RECEIPT:${receiptId}`)?.status, sourceStatus);
+    assert.equal(balances(repository)?.held, sourceStatus === 'HELD' ? 1_000 : 0);
+  }
+  assert.equal(repository.movements.length, 2);
 });

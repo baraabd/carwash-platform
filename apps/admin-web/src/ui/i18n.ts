@@ -285,6 +285,21 @@ const AR = {
   unknownReconcile:
     'لم نتمكن من تأكيد تسجيل المطابقة. لا تغيّر النتيجة؛ أعد إرسال المطابقة نفسها للتحقق.',
   recordReconciliation: 'تسجيل المطابقة',
+  allocateStatement: 'اعتماد القيد وتخصيصه',
+  statementCredit: 'قيد كشف الحساب المستقل',
+  chooseStatement: 'اختر القيد بعد مراجعته',
+  reloadStatement: 'تحديث قيد الكشف',
+  statementMerchant: 'حساب التاجر',
+  statementEvidence: 'بصمة دليل الكشف',
+  statementOccurredAt: 'تاريخ الحركة',
+  statementRecordedAt: 'تاريخ التسجيل',
+  statementStatus: 'حالة القيد',
+  statementPending: 'بانتظار موافقة مراجع آخر',
+  statementMissing: 'لا يوجد قيد كشف مستقل قابل للمراجعة لهذه المحاولة.',
+  statementReviewNotice:
+    'سجّل هذا القيد موظف آخر. راجع تفاصيله قبل اعتماده وتخصيصه لهذه المحاولة. اختيار النتيجة وحده لا يثبت وصول المال.',
+  statementRequired: 'اختر قيد الكشف المستقل بعد مراجعة تفاصيله.',
+  statementAmountMismatch: 'المبلغ المدخل لا يطابق مبلغ قيد الكشف المحدد.',
   reconcileProblems: {
     OUTCOME_REQUIRED: 'اختر نتيجة المطابقة.',
     AMOUNT_REQUIRED: 'أدخل المبلغ الظاهر في كشف المزوّد.',
@@ -523,6 +538,21 @@ const EN: Copy = {
   unknownReconcile:
     'The reconciliation could not be confirmed. Do not change the outcome; resend the same one to check.',
   recordReconciliation: 'Record reconciliation',
+  allocateStatement: 'Approve and allocate statement credit',
+  statementCredit: 'Independent statement credit',
+  chooseStatement: 'Select the credit after reviewing it',
+  reloadStatement: 'Refresh statement credit',
+  statementMerchant: 'Merchant account',
+  statementEvidence: 'Statement evidence fingerprint',
+  statementOccurredAt: 'Transaction date',
+  statementRecordedAt: 'Recorded at',
+  statementStatus: 'Credit status',
+  statementPending: 'Awaiting a second reviewer',
+  statementMissing: 'No independent statement credit is available for this attempt.',
+  statementReviewNotice:
+    'Another staff member recorded this credit. Review its details before approving and allocating it to this attempt. Selecting an outcome alone does not prove payment.',
+  statementRequired: 'Select the independent statement credit after reviewing its details.',
+  statementAmountMismatch: 'The entered amount does not match the selected statement credit.',
   reconcileProblems: {
     OUTCOME_REQUIRED: 'Choose the reconciliation outcome.',
     AMOUNT_REQUIRED: 'Enter the amount shown on the provider statement.',

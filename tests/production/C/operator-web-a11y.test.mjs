@@ -3,8 +3,7 @@
  * P03-C5 operator-web accessibility evidence (fixture doubles through the
  * gateway harness, production CSP enforced):
  * - axe-core (WCAG 2.0/2.1/2.2 A/AA tags, same set as F010) on every view at
- *   390 and 1440 px; serious/critical findings fail unless they are the
- *   registered reference debt (docs/design/f010-reference-debt-baseline.json);
+ *   390 and 1440 px; every serious/critical candidate finding fails;
  * - keyboard: bottom navigation order, sheet focus trap and focus return,
  *   checklist focus restore;
  * - comparison reveal in reduced and natural motion.
@@ -12,7 +11,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { startReferenceServer } from '../../../scripts/f010/reference-server.mjs';
 import {
@@ -29,10 +28,6 @@ import {
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const OUT = `${ROOT}.acceptance/production-C/operator-web/a11y`;
-const DEBT = JSON.parse(
-  readFileSync(`${ROOT}docs/design/f010-reference-debt-baseline.json`, 'utf8'),
-);
-const REGISTERED = DEBT.accessibility.filter((d) => d.app === 'technician');
 
 let stack;
 let browser;
@@ -106,6 +101,7 @@ async function axe(page) {
       const d = n.any?.[0]?.data ?? {};
       return [d.fgColor, d.bgColor, d.fontSize, d.fontWeight].join('|');
     }),
+    contrastRatios: v.nodes.map((n) => n.any?.[0]?.data?.contrastRatio ?? null),
   }));
 }
 
@@ -167,38 +163,6 @@ async function openReferenceView(context, go) {
   return page;
 }
 
-/** Tag, class, text colour, effective background colour, size, weight and opacity of one element. */
-function styleOf(page, selector) {
-  return page.evaluate((sel) => {
-    const el = document.querySelector(sel);
-    if (!el) return null;
-    const cs = getComputedStyle(el);
-    let bg = null;
-    for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
-      const c = getComputedStyle(n).backgroundColor;
-      if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') {
-        bg = c;
-        break;
-      }
-    }
-    return [el.tagName, el.className, cs.color, bg, cs.fontSize, cs.fontWeight, cs.opacity].join(
-      '|',
-    );
-  }, selector);
-}
-
-/** Candidate booking short ids -> reference seed ids inside axe selectors. */
-const toReferenceSelector = (selector) =>
-  selector
-    .replace('20410000', 'WG-2041')
-    .replace('20420000', 'WG-2042')
-    .replace('20430000', 'WG-2043');
-
-const registered = (violation) =>
-  REGISTERED.some(
-    (d) => d.id === violation.id && JSON.stringify(d.targets) === JSON.stringify(violation.targets),
-  );
-
 const VIEWS = [
   ['home', async () => {}],
   ['tasks', async (p, _ids) => p.locator('.nav-item[data-action="tasks"]').click()],
@@ -247,13 +211,13 @@ const VIEWS = [
   ],
 ];
 
-const inherited = [];
+const candidateFindings = [];
+let measuredViews = 0;
 
-test('axe on every view at 390 and 1440: the port introduces no serious/critical finding', async () => {
+test('axe measures every operator view at 390 and 1440 against the unchanged reference', async () => {
   await seedAll();
   const ids = Object.fromEntries(['WG-2041', 'WG-2042', 'WG-2043'].map((k) => [k, id(k)]));
   const report = [];
-  const blocking = [];
   for (const width of [390, 1440]) {
     const refContext = await browser.newContext({
       viewport: { width, height: RENDERING.height },
@@ -275,30 +239,23 @@ test('axe on every view at 390 and 1440: the port introduces no serious/critical
           const violations = await axe(page);
           const refPage = await openReferenceView(refContext, go);
           const referenceViolations = await axe(refPage);
-          report.push({ width, view: name, violations, referenceViolations });
-          for (const v of violations) {
-            if (!['serious', 'critical'].includes(v.impact) || registered(v)) continue;
-            // A node is inherited when the same element in the same reference view renders
-            // with the same text colour, background, size, weight and opacity (CSS is byte-identical;
-            // axe's own heuristics differ between documents), or, for other rules, when the
-            // reference reports the same rule on the same element.
-            const nodes = [];
-            for (const target of v.targets) {
-              const selector = target[0];
-              const refSelector = toReferenceSelector(selector);
-              const candidateStyle = await styleOf(page, selector);
-              const referenceStyle = await styleOf(refPage, refSelector);
-              const sameRule = referenceViolations.some(
-                (r) => r.id === v.id && r.targets.some((t) => t[0] === refSelector),
-              );
-              const inheritedNode =
-                v.id === 'color-contrast'
-                  ? referenceStyle !== null && referenceStyle === candidateStyle
-                  : sameRule;
-              nodes.push({ selector, candidateStyle, referenceStyle, inherited: inheritedNode });
-            }
-            const entry = { width, view: name, id: v.id, impact: v.impact, nodes };
-            (nodes.every((n) => n.inherited) ? inherited : blocking).push(entry);
+          const viewReport = { width, view: name, violations, referenceViolations };
+          report.push(viewReport);
+          measuredViews += 1;
+          candidateFindings.push(
+            ...violations
+              .filter((v) => ['serious', 'critical'].includes(v.impact))
+              .map((v) => ({ width, view: name, ...v })),
+          );
+          // Keep the immutable reference and corrected production rendering
+          // separately. Reference debt never waives a candidate finding.
+          if (referenceViolations.some((v) => v.id === 'color-contrast')) {
+            const options = { fullPage: true, animations: 'disabled', caret: 'hide' };
+            writeFileSync(
+              `${OUT}/${name}-${width}-reference-raw.png`,
+              await refPage.screenshot(options),
+            );
+            writeFileSync(`${OUT}/${name}-${width}-candidate.png`, await page.screenshot(options));
           }
           await refPage.close();
           assert.deepEqual(
@@ -318,32 +275,22 @@ test('axe on every view at 390 and 1440: the port introduces no serious/critical
     OUT + '/axe-summary.json',
     JSON.stringify(
       {
-        registeredDebt: REGISTERED,
-        portIntroduced: blocking,
-        inheritedUnregistered: inherited,
+        browserVersion: browser.version(),
+        scope: 'PR #147 colour-only accessibility repair; original references retained',
+        candidateFindings,
         report,
       },
       null,
       2,
     ) + '\n',
   );
-  assert.deepEqual(blocking, [], 'serious/critical accessibility findings introduced by the port');
+  assert.equal(measuredViews, VIEWS.length * 2, 'every declared view and width was measured');
 });
 
-test(
-  'reference-inherited findings are limited to registered debt',
-  {
-    todo: 'BLOCKER (owner decision, TI-D13 extension): the byte-identical reference CSS fails color-contrast on more elements than the registered .design-footer debt; fixing it is a visible change.',
-  },
-  () => {
-    assert.deepEqual(
-      inherited.map(
-        (v) => v.view + '@' + v.width + ': ' + v.nodes.map((n) => n.selector).join(', '),
-      ),
-      [],
-    );
-  },
-);
+test('all measured candidate views have zero serious or critical accessibility findings', () => {
+  assert.equal(measuredViews, VIEWS.length * 2);
+  assert.deepEqual(candidateFindings, [], 'reference findings never exempt the production app');
+});
 
 test('keyboard: bottom navigation order, sheet focus trap and return, checklist focus restore', async () => {
   await seedAll();

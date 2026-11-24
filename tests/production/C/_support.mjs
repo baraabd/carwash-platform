@@ -180,6 +180,7 @@ export function publishedContracts() {
   };
   return {
     scheduling: load('contracts', path.join('scheduling', 'v1.js')),
+    pricing: load('contracts', path.join('pricing', 'v1.js')),
     errors: load('contracts', path.join('common', 'errors.js')),
     events: load('event-contracts', 'business-v1.js'),
   };

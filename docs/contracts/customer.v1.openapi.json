@@ -9,7 +9,9 @@
   "x-error-reasons": [
     "ADDRESS_ARCHIVED",
     "ADDRESS_LIMIT_REACHED",
-    "PROFILE_NOT_FOUND"
+    "PROFILE_NOT_FOUND",
+    "PROFILE_CONTACT_MIGRATION_REQUIRED",
+    "ADDRESS_MIGRATION_REQUIRED"
   ],
   "paths": {
     "/internal/v1/customer/me": {

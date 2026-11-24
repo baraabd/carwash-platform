@@ -5,3 +5,4 @@ export * from './outbox-relay';
 export * from './publisher';
 export * from './topology';
 export * from './types';
+export type { ConfirmChannel, ConsumeMessage } from 'amqplib';

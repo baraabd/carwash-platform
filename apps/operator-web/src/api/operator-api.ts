@@ -1,4 +1,5 @@
 import { call, type Request, type Result } from './client';
+import { collectCash } from './cash-api';
 import {
   parseAvailability,
   parseBooking,
@@ -47,13 +48,30 @@ export interface MutationRequest {
   readonly method: 'POST' | 'PUT' | 'DELETE';
   readonly path: string;
   readonly body: Readonly<Record<string, unknown>>;
+  readonly cashReceipt?: {
+    readonly bookingId: string;
+    readonly amount: Money;
+    /** A current CLOSED Dispatch task already carries this declaration. */
+    readonly alreadyDeclared?: boolean;
+  };
 }
 
-export const sendMutation = (
+export const sendMutation = async (
   request: MutationRequest,
   idempotencyKey: string,
-): Promise<Result<unknown>> =>
-  call({ ...request, idempotencyKey, parse: null } satisfies Request<unknown>);
+): Promise<Result<unknown>> => {
+  if (!request.cashReceipt?.alreadyDeclared) {
+    const declared = await call({
+      ...request,
+      idempotencyKey,
+      parse: null,
+    } satisfies Request<unknown>);
+    if (declared.kind !== 'ok' || !request.cashReceipt) return declared;
+  }
+  const cash = request.cashReceipt;
+  if (!cash) throw new Error('CASH_DECLARATION_REQUIRED');
+  return collectCash(cash.bookingId, cash.amount, `${idempotencyKey}_billing`);
+};
 
 export const putAvailability = (
   status: AvailabilityView['status'],
@@ -137,6 +155,7 @@ export const M = {
     method: 'POST',
     path: task(t.taskId, '/close'),
     body: { expectedRevision: t.revision, collection: { outcome: 'CASH_COLLECTED', amount } },
+    cashReceipt: { bookingId: t.bookingId, amount },
   }),
   closeNotCollected: (t: TaskView, reason: string): MutationRequest => ({
     method: 'POST',
@@ -152,6 +171,13 @@ export const M = {
     method: 'POST',
     path: task(t.taskId, '/cash-collection'),
     body: { expectedRevision: t.revision, amount },
+    cashReceipt: {
+      bookingId: t.bookingId,
+      amount,
+      alreadyDeclared:
+        t.stage === 'CLOSED' &&
+        (t.collection?.outcome === 'CASH_COLLECTED' || t.collection?.lateAmount != null),
+    },
   }),
   release: (t: TaskView, reason: string): MutationRequest => ({
     method: 'POST',

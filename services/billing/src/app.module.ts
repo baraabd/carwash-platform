@@ -9,6 +9,7 @@ import {
   BillingService,
   BookingObligationService,
   CashCustodyService,
+  CanonicalRefundService,
   FinanceQueryService,
   ProviderPaymentsService,
   RefundService,
@@ -30,7 +31,10 @@ import {
 } from './infrastructure/pricing/pricing-quote.validator';
 import { ServiceClientCallerAuthority } from './infrastructure/security/service-callers';
 import { RandomIds, Sha256Hasher, SystemClock } from './infrastructure/system/system.adapters';
-import { UnpublishedWorkAuthority } from './infrastructure/work/unpublished-work.authority';
+import {
+  DispatchWorkAuthority,
+  dispatchWorkConfigFromEnv,
+} from './infrastructure/work/dispatch-work.authority';
 import { productionProviderRegistry } from './infrastructure/providers/merchant-providers';
 import { BILLING_SERVICE, BillingController } from './transport/http/billing.controller';
 import {
@@ -39,6 +43,11 @@ import {
 } from './transport/http/booking-obligation.controller';
 import { CASH_CUSTODY_SERVICE, CustodyController } from './transport/http/custody.controller';
 import { FINANCE_QUERY_SERVICE, FinanceController } from './transport/http/finance.controller';
+import { ProviderNotificationController } from './transport/http/provider-notification.controller';
+import {
+  CANONICAL_REFUND_SERVICE,
+  CanonicalRefundController,
+} from './transport/http/canonical-refund.controller';
 import {
   PROVIDER_PAYMENTS_SERVICE,
   ProviderController,
@@ -49,11 +58,11 @@ import {
  *
  * Nest belongs here at the outside edge. Domain/application/ports do not import
  * it. BUSINESS_READY stays false: the owner API exists, but readiness promotion
- * is an E-owned gate that also needs the published billing.v1 contract, the
- * reconciliation grant, broker topology and merchant setup. Cash collection
- * additionally waits for lane C's work-completion contract and the CR-B-08
- * grants (it fails closed until then). The outbox relay is
- * deliberately not started (billing event contracts are not registered yet).
+ * still needs complete contract conformance, environment deployment and merchant
+ * acceptance. Cash uses Dispatch's current assigned CLOSED work and Identity's
+ * collection grant. Its registered custody events have a standalone cash-relay
+ * worker, kept separate from API replicas; obligation and legacy provider/refund
+ * outbox rows remain pending until their subscribers/contracts are wired.
  * Payment providers run with the capabilities possible without an official
  * merchant API (statement evidence + manual refunds); provider notifications
  * and verified queries stay unavailable until LIVE_PROVIDER_ACCEPTANCE.
@@ -84,6 +93,8 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
     BillingController,
     CustodyController,
     ProviderController,
+    ProviderNotificationController,
+    CanonicalRefundController,
     FinanceController,
     BookingObligationController,
   ],
@@ -119,7 +130,7 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
           authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),
           // No published work-completion contract exists yet (lane C): every
           // cash collection fails closed with 503 until it does.
-          work: new UnpublishedWorkAuthority(),
+          work: new DispatchWorkAuthority(dispatchWorkConfigFromEnv(process.env)),
           clock: new SystemClock(),
           ids: new RandomIds(),
           hasher: new Sha256Hasher(),
@@ -133,6 +144,18 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
           repository,
           authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),
           providers,
+          clock: new SystemClock(),
+          ids: new RandomIds(),
+          hasher: new Sha256Hasher(),
+        }),
+    },
+    {
+      provide: CANONICAL_REFUND_SERVICE,
+      inject: [PrismaBillingRepository],
+      useFactory: (repository: PrismaBillingRepository) =>
+        new CanonicalRefundService({
+          repository,
+          authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),
           clock: new SystemClock(),
           ids: new RandomIds(),
           hasher: new Sha256Hasher(),

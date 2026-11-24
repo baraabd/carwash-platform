@@ -1,5 +1,12 @@
 import { newCommandKey } from '../api/live';
-import { readObligation, reconcileAttempt, type Attempt, type Obligation } from '../api/finance';
+import {
+  allocateStatementCredit,
+  readObligation,
+  reconcileAttempt,
+  type Attempt,
+  type Obligation,
+} from '../api/finance';
+import type { StatementCreditReview } from '../api/statement-credit';
 import { cashKpis, type CashKpis, type CashState } from '../api/kpis';
 import { isUuid } from '../domain/bookings';
 import {
@@ -8,11 +15,13 @@ import {
   validateReconciliation,
   formatMoney,
   type MoneyWire,
+  type ReconcileDraft,
 } from '../domain/finance';
 import { append, byId, h, replace } from './dom';
 import { copy } from './i18n';
 import { closeModal, openModal, toast } from './shell';
 import { failureMessage, formatInstant, freshnessStrip } from './states';
+import { statementCreditPicker } from './statement-credit';
 
 /**
  * The approved "المدفوعات" screen. Cards and the state table come from
@@ -227,8 +236,10 @@ export async function openObligation(obligationId: string): Promise<void> {
 
 interface PendingReconciliation {
   readonly key: string;
-  readonly outcome: string;
+  readonly draft: ReconcileDraft;
   readonly observed: string;
+  readonly expectedRevision: number;
+  readonly credit: StatementCreditReview | null;
 }
 
 function reconcileForm(o: Obligation, a: Attempt, pending: PendingReconciliation | null): void {
@@ -238,7 +249,7 @@ function reconcileForm(o: Obligation, a: Attempt, pending: PendingReconciliation
     { id: 'reconcileOutcome', disabled: pending !== null },
     h('option', { value: '' }, c.chooseOutcome),
     ...RECONCILIATION_OUTCOMES.map((value) =>
-      h('option', { value, selected: pending?.outcome === value }, c.outcomes[value]),
+      h('option', { value, selected: pending?.draft.outcome === value }, c.outcomes[value]),
     ),
   );
   const observed = h('input', {
@@ -248,6 +259,12 @@ function reconcileForm(o: Obligation, a: Attempt, pending: PendingReconciliation
     autocomplete: 'off',
     value: pending?.observed ?? '',
     disabled: pending !== null,
+  });
+  const statement = statementCreditPicker({
+    obligation: o,
+    attempt: a,
+    frozen: pending?.credit ?? null,
+    unauthenticated: hooks.unauthenticated,
   });
   const problem = h('p', { class: 'field-error', id: 'reconcileProblem', role: 'alert' });
   const status = h(
@@ -262,32 +279,77 @@ function reconcileForm(o: Obligation, a: Attempt, pending: PendingReconciliation
     { class: 'primary', type: 'button', id: 'reconcileSubmit' },
     pending ? c.retrySameCommand : c.recordReconciliation,
   );
+  const refreshOutcome = (): void => {
+    const matched = outcome.value === 'MATCHED';
+    statement.show(matched);
+    if (!pending) submit.textContent = matched ? c.allocateStatement : c.recordReconciliation;
+  };
+  outcome.addEventListener('change', refreshOutcome);
   submit.addEventListener('click', () => {
-    const checked = validateReconciliation({
-      outcome: outcome.value,
-      observed: observed.value,
-      currency: a.claimed.currency,
-      scale: a.claimed.scale,
-    });
+    if (submit.disabled) return;
+    const checked = pending
+      ? { ok: true as const, value: pending.draft }
+      : validateReconciliation({
+          outcome: outcome.value,
+          observed: observed.value,
+          currency: a.claimed.currency,
+          scale: a.claimed.scale,
+        });
     if (!checked.ok) {
       replace(problem, c.reconcileProblems[checked.problem]);
       return;
     }
+    const credit =
+      pending?.credit ?? (checked.value.outcome === 'MATCHED' ? statement.selected() : null);
+    if (checked.value.outcome === 'MATCHED') {
+      if (!credit) {
+        replace(problem, c.statementRequired);
+        return;
+      }
+      const amount = checked.value.observedAmount;
+      if (
+        !amount ||
+        amount.currency !== credit.amount.currency ||
+        amount.scale !== credit.amount.scale ||
+        amount.amountMinor !== credit.amount.amountMinor
+      ) {
+        replace(problem, c.statementAmountMismatch);
+        return;
+      }
+    }
     replace(problem);
     const attempt = pending ?? {
       key: newCommandKey(),
-      outcome: outcome.value,
+      draft: checked.value,
       observed: observed.value,
+      expectedRevision: o.revision,
+      credit,
     };
     submit.disabled = true;
     cancel.disabled = true;
+    outcome.disabled = true;
+    observed.disabled = true;
+    statement.freeze(true);
     replace(status, c.submitting);
-    void reconcileAttempt({
-      attemptId: a.attemptId,
-      expectedRevision: o.revision,
-      draft: checked.value,
-      key: attempt.key,
-    }).then((result) => {
+    const command =
+      attempt.credit && attempt.draft.observedAmount
+        ? allocateStatementCredit({
+            attemptId: a.attemptId,
+            creditId: attempt.credit.creditId,
+            expectedCreditRevision: attempt.credit.creditRevision,
+            expectedRevision: attempt.expectedRevision,
+            observedAmount: attempt.draft.observedAmount,
+            key: attempt.key,
+          })
+        : reconcileAttempt({
+            attemptId: a.attemptId,
+            expectedRevision: attempt.expectedRevision,
+            draft: attempt.draft,
+            key: attempt.key,
+          });
+    void command.then((result) => {
+      // Closing/navigating must not overwrite a different modal with a late answer.
+      if (!submit.isConnected) return;
       if (result.ok) {
         replace(
           byId('modalBody'),
@@ -310,6 +372,9 @@ function reconcileForm(o: Obligation, a: Attempt, pending: PendingReconciliation
       }
       submit.disabled = false;
       cancel.disabled = false;
+      outcome.disabled = pending !== null;
+      observed.disabled = pending !== null;
+      statement.freeze(pending !== null);
       replace(
         status,
         h(
@@ -338,11 +403,13 @@ function reconcileForm(o: Obligation, a: Attempt, pending: PendingReconciliation
         `${c.observedAmount} (${a.claimed.currency})`,
         observed,
       ),
+      statement.node,
       problem,
       status,
     ],
     foot: [cancel, submit],
   });
+  refreshOutcome();
 }
 
 function cancelToClose(): HTMLElement {

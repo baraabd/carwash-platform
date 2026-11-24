@@ -60,6 +60,8 @@ export interface ValidateStub {
     body: Record<string, unknown>;
   }[];
   mode: 'normal' | 'error-500' | 'refuse-401' | 'hang' | 'garbage' | 'status-422';
+  /** Test-only barrier before a validated response leaves the Pricing double. */
+  beforeRespond: ((quoteId: string) => Promise<void>) | null;
   close(): Promise<void>;
 }
 
@@ -79,7 +81,10 @@ async function readBody(request: IncomingMessage): Promise<Record<string, unknow
 export async function startValidateStub(): Promise<ValidateStub> {
   const quotes = new Map<string, ValidateQuote>();
   const calls: ValidateStub['calls'] = [];
-  const state = { mode: 'normal' as ValidateStub['mode'] };
+  const state = {
+    mode: 'normal' as ValidateStub['mode'],
+    beforeRespond: null as ValidateStub['beforeRespond'],
+  };
   const hanging = new Set<ServerResponse>();
   const server: Server = createServer((request, response) => {
     void (async () => {
@@ -117,6 +122,7 @@ export async function startValidateStub(): Promise<ValidateStub> {
       const quote = quotes.get(quoteId);
       if (!quote || body.purpose !== 'booking-create')
         return json(404, { error: { code: 'NOT_FOUND' } });
+      await state.beforeRespond?.(quoteId);
       const beneficiary = body.beneficiary as { kind?: unknown; subjectId?: unknown } | undefined;
       const reason =
         beneficiary?.kind !== quote.beneficiary.kind ||
@@ -150,6 +156,12 @@ export async function startValidateStub(): Promise<ValidateStub> {
     set mode(value) {
       state.mode = value;
     },
+    get beforeRespond() {
+      return state.beforeRespond;
+    },
+    set beforeRespond(value) {
+      state.beforeRespond = value;
+    },
     async close() {
       for (const response of hanging) response.destroy();
       server.closeAllConnections();
@@ -159,12 +171,14 @@ export async function startValidateStub(): Promise<ValidateStub> {
 }
 
 export interface BookingSagaHttp {
+  readonly origin: string;
   request(
     method: 'GET' | 'POST',
     path: string,
     options?: {
       workload?: { clientId: string; token: string };
       token?: string;
+      cookie?: string;
       key?: string;
       body?: unknown;
     },
@@ -216,6 +230,7 @@ export async function startBookingSagaHttp(input: {
   await app.listen(0, '127.0.0.1');
   const url = await app.getUrl();
   return {
+    origin: url,
     async request(method, path, options = {}) {
       const headers: Record<string, string> = { accept: 'application/json' };
       if (options.workload) {
@@ -223,6 +238,7 @@ export async function startBookingSagaHttp(input: {
         headers['x-service-token'] = options.workload.token;
       }
       if (options.token) headers.authorization = `Bearer ${options.token}`;
+      if (options.cookie !== undefined) headers.cookie = options.cookie;
       if (options.key) headers['idempotency-key'] = options.key;
       if (options.body !== undefined) headers['content-type'] = 'application/json';
       const response = await fetch(url + path, {

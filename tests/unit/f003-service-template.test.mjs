@@ -61,20 +61,20 @@ test('F003 renderer snapshot and structure are deterministic', () => {
       'Dockerfile',
     ],
   );
-  // F009 deliberately changes only the generated Docker runtime: reviewed
-  // distroless digest, exact Node copy, numeric UID and shell-free healthcheck.
+  // The template includes the reviewed Docker runtime and the UTC database
+  // transport invariant, so newly generated owners cannot reintroduce clock drift.
   // These service-template hashes are not approved HTML or visual snapshots.
   assert.equal(
     snapshot('identity'),
-    'f7bb7bf38b6839238babd8e85ef874ef70c8d3eac3e3cc420c9d1abea5cd7c7a',
+    '6240819d7e58622e46fabe4321b8ee88cd09ef512c6ea0af0908c6df51e09ff0',
   );
   assert.equal(
     snapshot('catalog'),
-    '84c87ed30fb68b9bd29ba90954a51e0a1ae45e5bc7950e1b0685f24dde7134cc',
+    '0ad6388b1118c7daef8cdd01b2e1bd3ae9984138bf7963983e821fca82264bd8',
   );
   assert.equal(
     snapshot('communications'),
-    '155c074ea3a14564c206afb2abaca3ed034bb8e6f30b81ac525264a8fe6ae8b6',
+    '12adb96ee94f5bf0e2e2ed9b500ab908f48fb8c83f0204af3ba91d23c4460ac5',
   );
 });
 
@@ -85,7 +85,7 @@ test('F008 generated adapters bind only their owner-local pool and dispose it', 
     assert.ok(adapter.includes("serviceTelemetry('" + owner + "')"));
     assert.ok(adapter.includes('metrics.observePool(() => pool)'));
     assert.ok(adapter.includes('disposeExternalPool: true'));
-    assert.ok(adapter.includes('new Pool({ connectionString: url })'));
+    assert.ok(adapter.includes('new Pool(databasePoolConfig(url))'));
   }
 });
 
@@ -292,6 +292,70 @@ test('shared bootstrap bounds a hanging shutdown', async () => {
     env: { STARTUP_TIMEOUT_MS: '1000', SHUTDOWN_TIMEOUT_MS: '100', LOG_LEVEL: 'error' },
   });
   await assert.rejects(runtime.shutdown('TEST'), /SHUTDOWN_TIMEOUT/);
+});
+
+test('shared bootstrap installs the owner transport filter with its runtime logger', async () => {
+  const filters = [];
+  let logger;
+  let closed = false;
+  const ownerFilter = { catch() {} };
+  const fakeApp = {
+    use() {
+      return fakeApp;
+    },
+    useGlobalFilters(filter) {
+      filters.push(filter);
+      return fakeApp;
+    },
+    async listen() {},
+    async close() {
+      closed = true;
+    },
+  };
+  const runtime = await serviceKit.bootstrapService({
+    service: 'fixture-owner',
+    businessReady: false,
+    createApplication: async () => fakeApp,
+    createExceptionFilter: (value) => {
+      logger = value;
+      return ownerFilter;
+    },
+    installSignalHandlers: false,
+    env: { LOG_LEVEL: 'error' },
+  });
+  assert.deepEqual(filters, [ownerFilter]);
+  assert.equal(logger, runtime.logger);
+  await runtime.shutdown('TEST');
+  assert.equal(closed, true);
+});
+
+test('shared bootstrap closes the owner application if transport setup fails', async () => {
+  let closed = false;
+  const fakeApp = {
+    use() {
+      return fakeApp;
+    },
+    useGlobalFilters() {
+      throw new Error('TRANSPORT_SETUP_FAILED');
+    },
+    async listen() {
+      assert.fail('invalid transport must not listen');
+    },
+    async close() {
+      closed = true;
+    },
+  };
+  await assert.rejects(
+    serviceKit.bootstrapService({
+      service: 'fixture-owner',
+      businessReady: false,
+      createApplication: async () => fakeApp,
+      installSignalHandlers: false,
+      env: { LOG_LEVEL: 'error' },
+    }),
+    /TRANSPORT_SETUP_FAILED/,
+  );
+  assert.equal(closed, true);
 });
 
 // The deployed distroless runtime has no named node user. Numeric UID/GID must

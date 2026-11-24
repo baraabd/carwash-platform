@@ -25,6 +25,7 @@ import {
   waitForRabbitReady,
 } from '../../scripts/acceptance/lib/infra.mjs';
 import { recoveryScope } from '../../scripts/acceptance/lib/recovery.mjs';
+import { assertOutboxLeaseFencing } from './support/outbox-lease.mjs';
 
 /**
  * Outbox/Inbox failure behaviour against real PostgreSQL and real RabbitMQ.
@@ -588,12 +589,17 @@ test('Case D: a stale worker cannot overwrite the state of the worker that took 
   });
   assert.equal(leasedBySecond.length, 1, 'the expired lease must be reclaimable');
 
-  const staleWrite = await store.markPublished({ id: leasedByFirst[0].id, workerId: 'worker-one' });
+  const staleWrite = await store.markPublished({
+    id: leasedByFirst[0].id,
+    workerId: 'worker-one',
+    leaseAttempt: leasedByFirst[0].attempts,
+  });
   assert.equal(staleWrite, false, 'the stale worker must not be able to mark the row published');
 
   const staleFailure = await store.markFailed({
     id: leasedByFirst[0].id,
     workerId: 'worker-one',
+    leaseAttempt: leasedByFirst[0].attempts,
     error: 'STALE',
     maxAttempts: 5,
   });
@@ -602,12 +608,26 @@ test('Case D: a stale worker cannot overwrite the state of the worker that took 
   const ownerWrite = await store.markPublished({
     id: leasedBySecond[0].id,
     workerId: 'worker-two',
+    leaseAttempt: leasedBySecond[0].attempts,
   });
   assert.equal(ownerWrite, true, 'the current owner must still be able to finalise the row');
 
   const row = await outboxRow(created.eventId);
   assert.notEqual(row.publishedAt, null);
   assert.equal(row.lastError, null, 'the stale failure must not have been recorded');
+});
+
+test('Case D: reused worker IDs, expired leases and crashed final attempts are fenced', async () => {
+  const catalogRequire = (await import('node:module')).createRequire(
+    `${context.root}/services/catalog/package.json`,
+  );
+  const { PrismaOutboxStore } = catalogRequire(
+    `${context.root}/services/catalog/dist/outbox/prisma-outbox.store.js`,
+  );
+  await assertOutboxLeaseFencing({
+    store: new PrismaOutboxStore({ client: clients.catalog }),
+    client: clients.catalog,
+  });
 });
 
 test('competing relay workers publish each row exactly once', async () => {

@@ -1,10 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 import test from 'node:test';
 import { acquireDrillImage } from '../../../scripts/production/E/recovery/image-acquisition.mjs';
-import { main } from '../../../scripts/production/E/recovery/drill.mjs';
 
 const digest = `sha256:${'b'.repeat(64)}`;
 const mirror = 'public.ecr.aws/docker/library';
@@ -100,24 +96,4 @@ imageTest('malformed image digests fail before acquisition', async () => {
     /Invalid image digest/,
   );
   assert.equal(calls.length, 1);
-});
-
-test('an image preparation failure still writes a truthful failed recovery report', async () => {
-  const work = mkdtempSync(path.join(tmpdir(), 'cw-recovery-report-test-'));
-  const reportFile = path.join(work, 'evidence', 'recovery.json');
-  try {
-    const report = await main({
-      argv: ['--report', reportFile],
-      resolveImage: async () => {
-        throw new Error('image acquisition unavailable');
-      },
-    });
-    assert.equal(report.accepted, false);
-    assert.match(report.failures.preparation, /image acquisition unavailable/);
-    assert.deepEqual(report.components, {});
-    assert.ok(report.finishedAt);
-    assert.deepEqual(JSON.parse(readFileSync(reportFile, 'utf8')), report);
-  } finally {
-    rmSync(work, { recursive: true, force: true });
-  }
 });

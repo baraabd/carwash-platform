@@ -199,6 +199,7 @@ test('createQuote: issues the pricing.v1 QuoteV1 for the caller only', async () 
     'beneficiary',
     'catalogRevision',
     'currency',
+    'durationMinutes',
     'expiresAt',
     'issuedAt',
     'lines',
@@ -211,6 +212,11 @@ test('createQuote: issues the pricing.v1 QuoteV1 for the caller only', async () 
     'zoneId',
   ]);
   assert.equal(r.body.status, 'USABLE');
+  assert.equal(
+    r.body.durationMinutes,
+    90,
+    '30-minute package plus two independent 30-minute extras',
+  );
   assert.equal(r.body.revision, 1);
   assert.deepEqual(r.body.beneficiary, CUSTOMER);
   assert.deepEqual(r.body.total, { currency: 'SYP', amountMinor: '800000', scale: 2 });

@@ -39,6 +39,9 @@ export async function createGatewayApplication(config: GatewayConfig): Promise<I
     rawBody: true,
     abortOnError: false,
   });
+  // A response content hash is not an owner revision. Only a validated owner
+  // ETag is forwarded by the transport adapter.
+  app.set('etag', false);
   observation.runtime = instrumentApplication(app, 'api-gateway');
   app.use((request: GatewayRequest, response: GatewayResponse, next: () => void) => {
     const context = contextFor(request.headers);

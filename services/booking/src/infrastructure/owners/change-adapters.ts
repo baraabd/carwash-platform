@@ -42,9 +42,13 @@ function key(operation: string, changeId: string): string {
 }
 
 /** The change view Dispatch answers with: it must be about this booking and change. */
-function changeOutcome(outcome: HttpOutcome, bookingId: string): string | null {
+function changeOutcome(outcome: HttpOutcome, bookingId: string, changeId: string): string | null {
   if (outcome.kind !== 'RESPONSE' || outcome.status !== 200) return null;
-  if (field(outcome.body, 'bookingId') !== bookingId) return null;
+  if (
+    field(outcome.body, 'bookingId') !== bookingId ||
+    field(outcome.body, 'changeId') !== changeId
+  )
+    return null;
   const value = field(outcome.body, 'outcome');
   return typeof value === 'string' ? value : null;
 }
@@ -82,7 +86,7 @@ export class DispatchChangesAdapter implements DispatchChanges {
       { changeId },
       correlationId,
     );
-    const answered = changeOutcome(outcome, bookingId);
+    const answered = changeOutcome(outcome, bookingId, changeId);
     if (answered === 'CANCELLED') return { kind: 'CANCELLED' };
     if (answered === 'NOT_OPENED') return { kind: 'NOT_OPENED' };
     if (outcome.kind === 'RESPONSE' && outcome.status === 422) {
@@ -114,7 +118,7 @@ export class DispatchChangesAdapter implements DispatchChanges {
       },
       correlationId,
     );
-    const answered = changeOutcome(outcome, bookingId);
+    const answered = changeOutcome(outcome, bookingId, changeId);
     // A replay after confirmation answers CONFIRMED: the rebind certainly happened.
     if (answered === 'REBOUND' || answered === 'CONFIRMED') return { kind: 'REBOUND' };
     if (outcome.kind === 'RESPONSE' && outcome.status === 422) {
@@ -150,7 +154,7 @@ export class DispatchChangesAdapter implements DispatchChanges {
       { changeId },
       correlationId,
     );
-    if (changeOutcome(outcome, bookingId) === 'CONFIRMED') return { kind: 'CONFIRMED' };
+    if (changeOutcome(outcome, bookingId, changeId) === 'CONFIRMED') return { kind: 'CONFIRMED' };
     return unknown(outcome, 'UPSTREAM_INVALID');
   }
 
@@ -163,7 +167,7 @@ export class DispatchChangesAdapter implements DispatchChanges {
       { changeId },
       correlationId,
     );
-    const answered = changeOutcome(outcome, bookingId);
+    const answered = changeOutcome(outcome, bookingId, changeId);
     if (answered === 'REVERTED' || answered === 'NOTHING_TO_REVERT') return { kind: 'REVERTED' };
     return unknown(outcome);
   }
@@ -225,6 +229,7 @@ export class SchedulingCommitmentsAdapter implements CommitmentChanges {
       const committed = parsedHold(field(outcome.body, 'committed'));
       const released = parsedHold(field(outcome.body, 'released'));
       if (
+        field(outcome.body, 'bookingId') !== input.bookingId ||
         committed === null ||
         released === null ||
         committed.holdId !== input.toHoldId ||
