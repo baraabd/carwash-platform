@@ -98,6 +98,7 @@ test('subscription covered delivery closes real UI work with NOT_CASH and never 
   const key = 'WG-2042'; // One package, no extras in this declared fixture.
   stack.fixture.control.setFinancialSource(key, 'SUBSCRIPTION');
   const task = stack.fixture.control.seedTask(key, { stage: 'FINISHED' });
+  const expectedRevision = task.revision;
   const { context, page, problems } = await session();
   try {
     await openJob(page, key);
@@ -127,10 +128,14 @@ test('subscription covered delivery closes real UI work with NOT_CASH and never 
     const writes = mutationsOf(/\/tasks\/[^/]+\/close$/);
     assert.equal(writes.length, 1);
     assert.equal(writes[0].body.collection.outcome, 'NOT_CASH');
-    assert.equal(writes[0].body.expectedRevision, task.revision);
+    assert.equal(writes[0].body.expectedRevision, expectedRevision);
     assert.equal(
       stack.fixture.requests.filter((r) =>
-        /cash-collection-target|cash-collections|cash-collection$/.test(r.path),
+        r.path
+          .split('/')
+          .some((segment) =>
+            ['cash-collection-target', 'cash-collections', 'cash-collection'].includes(segment),
+          ),
       ).length,
       0,
       'covered work neither reads a cash target nor posts a financial collection',
@@ -709,6 +714,34 @@ test('reassignment: a withdrawn task disappears on reconnect and on a refused mu
       .filter((e) => /\/depart$/.test(e.path))
       .map((e) => e.status);
     assert.deepEqual(refused, [409], '409 CONFLICT reason TASK_CLOSED');
+    assertNoProblems(problems);
+  } finally {
+    await context.close();
+  }
+});
+
+test('authentication loss removes an open private sheet and its contents from the DOM', async () => {
+  stack.fixture.control.reset();
+  stack.fixture.control.seedTask('WG-2041', { stage: 'ACCEPTED' });
+  const { context, page, problems } = await session();
+  try {
+    await openJob(page, 'WG-2041');
+    await page.locator('[data-action="contact"]').click();
+    const customer = await page.locator('#sheet-body h3').textContent();
+    assert.ok(customer?.trim(), 'a real rendered fixture contact is present before revocation');
+    assert.equal(await page.locator('#sheet[open]').count(), 1);
+
+    // Simulate loss of Identity credentials, then use the normal reconnect read path.
+    await context.clearCookies();
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.locator('#operatorSignIn').waitFor({ state: 'visible' });
+
+    assert.equal(await page.locator('#sheet[open]').count(), 0);
+    assert.equal(await page.locator('#sheet-title').textContent(), '');
+    assert.equal(await page.locator('#sheet-body').innerHTML(), '');
+    assert.equal(await page.locator('#toast').textContent(), '');
+    assert.equal(await page.locator('input[type="file"]').count(), 0);
+    assert.equal((await page.locator('body').textContent()).includes(customer), false);
     assertNoProblems(problems);
   } finally {
     await context.close();

@@ -1236,6 +1236,44 @@ test('S08 subscription browse strips identity and commands preserve the owner bo
     428,
   );
   assert.equal(subscription.calls.length, before);
+  const renewalId = randomUUID();
+  const renewalPath = `/api/v1/customer/subscriptions/${renewalId}/renewals`;
+  const headers = {
+    authorization: `Bearer ${token}`,
+    origin: ORIGIN,
+    'content-type': 'application/json',
+  };
+  assert.equal(
+    (await request(app.base, renewalPath, { method: 'POST', headers, body: '{}' })).status,
+    428,
+  );
+  assert.equal(subscription.calls.length, before, 'unkeyed renewal never reaches the owner');
+  const renewalKey = randomUUID();
+  const renewal = await request(app.base, renewalPath, {
+    method: 'POST',
+    headers: { ...headers, 'idempotency-key': renewalKey },
+    body: JSON.stringify({ expectedRevision: 7 }),
+  });
+  assert.equal(renewal.status, 200);
+  assert.equal(
+    subscription.calls.at(-1).path,
+    `/internal/v1/subscription/subscriptions/${renewalId}/renewals`,
+  );
+  assert.equal(subscription.calls.at(-1).headers['idempotency-key'], renewalKey);
+  assert.equal(
+    (await request(app.base, '/api/v1/admin/subscription-funding-recovery', { headers })).status,
+    403,
+  );
+  assert.equal(
+    (
+      await request(app.base, `/api/v1/admin/subscription-funding-recovery/${renewalId}/retry`, {
+        method: 'POST',
+        headers: { ...headers, 'idempotency-key': randomUUID() },
+        body: '{}',
+      })
+    ).status,
+    403,
+  );
   for (const bad of ['short', 'a'.repeat(129), 'x.y.z.1234567890'])
     assert.throws(() =>
       gateway.routeMatch('GET', `/api/v1/customer/subscription-purchases/by-request/${bad}`),

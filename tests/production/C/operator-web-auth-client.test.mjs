@@ -208,3 +208,38 @@ test('permanent 401 cannot recurse and malformed cookie cannot crash an auth req
   );
   assert.equal(calls[1].options.headers['x-csrf-token'], undefined);
 });
+
+test('operator identity replacement discards a late read and never replays an old write after refresh', async () => {
+  globalThis.document = { cookie: 'wg_csrf=valid' };
+  client.sessionRequests.invalidate();
+  let finish;
+  globalThis.fetch = () =>
+    new Promise((resolve) => {
+      finish = resolve;
+    });
+  const read = client.call({ method: 'GET', path: '/api/operator/tasks', parse: (value) => value });
+  client.sessionRequests.invalidate();
+  finish(json({ privateValue: 'old-operator' }));
+  assert.equal((await read).code, 'SESSION_CHANGED');
+  const calls = [];
+  let refresh;
+  globalThis.fetch = async (url) => {
+    calls.push(url);
+    if (url.endsWith('/refresh'))
+      return new Promise((resolve) => {
+        refresh = resolve;
+      });
+    return json({}, 401);
+  };
+  const pending = client.call({
+    method: 'POST',
+    path: '/api/operator/tasks',
+    body: { expectedRevision: 4 },
+    parse: null,
+  });
+  while (!refresh) await new Promise((resolve) => setImmediate(resolve));
+  client.sessionRequests.invalidate();
+  refresh(json({}));
+  assert.equal((await pending).code, 'SESSION_CHANGED');
+  assert.deepEqual(calls, ['/api/operator/tasks', '/api/operator/auth/refresh']);
+});

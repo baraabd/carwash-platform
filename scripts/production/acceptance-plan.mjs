@@ -40,10 +40,12 @@ export const BUSINESS_SUITES = Object.freeze({
       `b-${service}`,
       {
         lane: 'B',
-        services: [service],
+        services: service === 'subscription' ? ['subscription', 'billing'] : [service],
         browser: false,
         scope:
-          'Real owner PostgreSQL migrations, upgrades, least-privilege persistence and HTTP contracts; declared upstream doubles. No live payment provider.',
+          service === 'subscription'
+            ? 'Real Subscription and Billing HTTP with isolated runtime-role PostgreSQL databases, durable funding and refund exclusion, compiled funding worker restart after a lost committed reply; owner upgrade checks; explicit Identity/Pricing/provider evidence fixtures. No live payment provider.'
+            : 'Real owner PostgreSQL migrations, upgrades, least-privilege persistence and HTTP contracts; declared upstream doubles. No live payment provider.',
       },
     ]),
   ),
@@ -82,10 +84,10 @@ export const BUSINESS_SUITES = Object.freeze({
   },
   'c-runtime-workers': {
     lane: 'C',
-    services: cOwners,
+    services: [...cOwners, 'reporting', 'communications'],
     browser: false,
     scope:
-      'Standalone Booking/Dispatch/Scheduling/Workforce workers against real PostgreSQL and RabbitMQ: restart, automatic assignment, task close and Booking projection. Shared disposable broker identity and explicit financial/media fixtures; no production ACL or payment-provider approval.',
+      'Six standalone Booking/Dispatch/Scheduling/Workforce/Reporting/Communications workers against real PostgreSQL and RabbitMQ: restart, automatic assignment, task close, native owner projections and durable notification intent. Shared disposable broker identity and explicit financial/media fixtures; no production ACL, message delivery or payment-provider approval.',
   },
   'c-operator-fixtures': {
     lane: 'C',

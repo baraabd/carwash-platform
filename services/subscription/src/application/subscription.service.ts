@@ -369,13 +369,15 @@ export class SubscriptionService {
     paymentReference: string,
     correlationId: string,
   ): Promise<PeriodRecord> {
-    const verified = await this.deps.funding.verify({
+    const verified = await this.deps.funding.claim({
       obligationId: paymentReference,
+      subscriptionId: subscription.id,
+      periodNo: period.periodNo,
       customerSubject: subscription.customerSubject,
       amount: subscription.terms.price,
       correlationId,
     });
-    if (verified !== 'VERIFIED')
+    if (verified !== 'CLAIMED')
       throw new SubscriptionApplicationError(
         verified === 'UNAVAILABLE' ? 'FUNDING_UNAVAILABLE' : 'PAYMENT_NOT_VERIFIED',
       );

@@ -54,3 +54,49 @@ test('Lane E production tests run in the static CI job', () => {
     'node --test --test-reporter=spec "tests/production/E/*.test.mjs"',
   );
 });
+
+test('desired process inventory covers every standalone owner worker without asserting deployment', () => {
+  const inventory = JSON.parse(read('infra/runtime-processes.json'));
+  assert.equal(inventory.schemaVersion, 1);
+  assert.equal(inventory.state, 'desired-not-deployed');
+  const walk = (dir) =>
+    readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((entry) => {
+      const file = `${dir}/${entry.name}`;
+      return entry.isDirectory() ? walk(file) : [file];
+    });
+  const actual = catalog.services
+    .flatMap(({ id }) => walk(`services/${id}/src`))
+    .filter((file) => /(?:\.runner|\.main)\.ts$/.test(file));
+  const listed = inventory.processes.map((entry) => entry.entrypoint);
+  assert.deepEqual([...listed].sort(), actual.sort());
+  assert.equal(new Set(inventory.processes.map((entry) => entry.id)).size, listed.length);
+  for (const entry of inventory.processes) {
+    assert.ok(
+      catalog.services.some(({ id }) => id === entry.owner),
+      entry.id,
+    );
+    assert.equal(entry.ownerImage, `${entry.owner}/runtime`);
+    assert.equal(entry.repositoryWorkingDirectory, `services/${entry.owner}`);
+    assert.equal(entry.runtimeWorkingDirectory, '/app');
+    assert.equal(entry.healthcheck.disableInheritedImageHttpProbe, true);
+    assert.equal(entry.healthcheck.liveness, 'platform-process-supervision');
+    assert.equal(entry.healthcheck.progressMonitoringRequired, true);
+    assert.ok(entry.progressSignals.length > 0);
+    assert.deepEqual(entry.command, [
+      'node',
+      entry.entrypoint.replace(`services/${entry.owner}/src/`, 'dist/').replace(/\.ts$/, '.js'),
+    ]);
+    assert.deepEqual(entry.ingress, { public: false, private: false });
+    assert.ok(entry.requiredEnv.includes('DATABASE_URL'), entry.id);
+    assert.equal(new Set(entry.requiredEnv).size, entry.requiredEnv.length);
+    assert.ok(
+      ['required', 'legacy-capability', 'specialized-alternative'].includes(entry.deploymentMode),
+    );
+    if (entry.deploymentMode === 'specialized-alternative')
+      assert.ok(
+        inventory.processes.some(
+          (other) => other.id === entry.alternativeTo && other.owner === entry.owner,
+        ),
+      );
+  }
+});

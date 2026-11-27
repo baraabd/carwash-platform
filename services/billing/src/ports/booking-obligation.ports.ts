@@ -13,6 +13,8 @@ import type { PrincipalRef } from './billing.ports';
 export const BILLING_SERVICE_SCOPES = [
   'billing.obligation.write',
   'billing.subscription-funding.read',
+  'billing.subscription-funding.claim',
+  'billing.subscription-funding.release',
 ] as const;
 export type BillingServiceScope = (typeof BILLING_SERVICE_SCOPES)[number];
 

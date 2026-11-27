@@ -16,7 +16,9 @@ COPY apps/admin-web ./apps/admin-web
 COPY design/reference/approved/washgo-admin-prototype.html ./design/reference/approved/washgo-admin-prototype.html
 RUN corepack enable && corepack prepare --activate
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter "@carwash/${APP}" run build
+RUN pnpm --filter @carwash/contracts run build \
+ && pnpm --filter @carwash/api-clients run build \
+ && pnpm --filter "@carwash/${APP}" run build
 RUN mkdir -p /deploy/dist \
  && cp -r apps/${APP}/dist/. /deploy/dist/ \
  && cp apps/${APP}/server.mjs /deploy/server.mjs

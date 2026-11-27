@@ -10,9 +10,9 @@ import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { chromium, expect } from '@playwright/test';
-import { build } from 'vite';
+import { createRequire } from 'node:module';
 import { createWebRuntime } from '../../../infra/web-runtime.mjs';
-import { apiError } from '@carwash/contracts/common';
+import { apiError } from '../../../packages/contracts/dist/common.js';
 import {
   harness,
   id,
@@ -22,10 +22,12 @@ import {
   booking,
   money,
   response,
-} from '../test/support/journey-fixture.mjs';
-import { harness as membershipHarness } from '../test/support/membership-fixture.mjs';
+} from '../../../apps/customer-web/test/support/journey-fixture.mjs';
+import { harness as membershipHarness } from '../../../apps/customer-web/test/support/membership-fixture.mjs';
 
-const appRoot = resolve(import.meta.dirname, '..');
+const appRoot = resolve(import.meta.dirname, '../../../apps/customer-web');
+const appRequire = createRequire(resolve(appRoot, 'package.json'));
+const { build } = await import(appRequire.resolve('vite'));
 const buildRoot = mkdtempSync(resolve(tmpdir(), 'customer-journey-build-'));
 const evidence =
   process.env.CUSTOMER_JOURNEY_EVIDENCE_DIR ??

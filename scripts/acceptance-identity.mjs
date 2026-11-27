@@ -323,6 +323,7 @@ try {
         '--test-concurrency=1',
         '--test-timeout=180000',
         '--test-reporter=tap',
+        'tests/identity/00-initial-administrator.pg.test.mjs',
         'tests/identity/api.test.mjs',
         'tests/identity/guest.test.mjs',
         'tests/identity/browser.test.mjs',

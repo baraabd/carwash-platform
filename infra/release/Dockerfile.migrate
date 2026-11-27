@@ -13,10 +13,12 @@
 #   docker buildx build -f infra/release/Dockerfile.migrate \
 #     --build-arg SERVICE=booking --build-arg NODE_IMAGE=node@sha256:... .
 #
-# The schema engine is a native binary linked against the system OpenSSL, so
-# this job runs on the pinned Node bookworm-slim base (by digest) rather than the
-# distroless runtime base used for long-running replicas.
+# Keep build tooling out of the job. Prisma's schema engine needs OpenSSL 3;
+# copy only its Debian 13 ABI libraries and original package inventory from the
+# pinned donor, rather than shipping Bookworm's shell, apt, PAM, Perl and dpkg.
 ARG NODE_IMAGE=node:24.21.0-bookworm-slim
+ARG MIGRATION_RUNTIME_IMAGE=gcr.io/distroless/base-nossl-debian13@sha256:89815d620ac01d8de13cdaf04d19ed874447ca2296d4985b14b818f6e5e47854
+ARG MIGRATION_NATIVE_IMAGE=gcr.io/distroless/cc-debian13@sha256:cb87acc574abe719b6e5c547384defa2f7b1f24af9605d3f618cf852495d8be2
 
 # ---------------------------------------------------------------- builder ----
 FROM ${NODE_IMAGE} AS builder
@@ -44,14 +46,34 @@ RUN test -n "${SERVICE}" \
 RUN pnpm --filter "@carwash/${SERVICE}" deploy --legacy /deploy
 
 # ------------------------------------------------------------------- job ----
-FROM ${NODE_IMAGE} AS job
+FROM ${MIGRATION_NATIVE_IMAGE} AS native_libraries
+
+FROM ${MIGRATION_RUNTIME_IMAGE} AS job
 ARG SERVICE
 
-# Package managers are not needed to apply migrations; removing them keeps the
-# job's tool surface to node + the pinned Prisma CLI.
-RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
-      /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
-      /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg
+COPY --from=builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
+COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libssl.so.3 /usr/lib/x86_64-linux-gnu/libssl.so.3
+COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libcrypto.so.3 /usr/lib/x86_64-linux-gnu/libcrypto.so.3
+COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libz.so.1 /usr/lib/x86_64-linux-gnu/libz.so.1
+COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libzstd.so.1 /usr/lib/x86_64-linux-gnu/libzstd.so.1
+COPY --from=native_libraries /var/lib/dpkg/status.d/libstdc++6* /var/lib/dpkg/status.d/
+COPY --from=native_libraries /var/lib/dpkg/status.d/libgcc-s1* /var/lib/dpkg/status.d/
+COPY --from=native_libraries /var/lib/dpkg/status.d/libssl3t64* /var/lib/dpkg/status.d/
+COPY --from=native_libraries /var/lib/dpkg/status.d/zlib1g* /var/lib/dpkg/status.d/
+COPY --from=native_libraries /var/lib/dpkg/status.d/libzstd1* /var/lib/dpkg/status.d/
+COPY --from=native_libraries /usr/share/doc/libstdc++6 /usr/share/doc/libstdc++6
+COPY --from=native_libraries /usr/share/doc/libgcc-s1 /usr/share/doc/libgcc-s1
+COPY --from=native_libraries /usr/share/doc/libssl3t64 /usr/share/doc/libssl3t64
+COPY --from=native_libraries /usr/share/doc/zlib1g /usr/share/doc/zlib1g
+COPY --from=native_libraries /usr/share/doc/libzstd1 /usr/share/doc/libzstd1
+
+# Physical removal, preserving original libc inventory/checksums/licenses.
+# The migration scanner proves this again in the final immutable job image and
+# executes the actual Prisma schema engine before assessing these exact CVEs.
+USER 0
+RUN ["/usr/local/bin/node","-e","const fs=require('node:fs');for(const name of [\"UHC.so\",\"ISO-2022-CN-EXT.so\",\"IBM1390.so\",\"IBM1399.so\"]){const file='/usr/lib/x86_64-linux-gnu/gconv/'+name;if(!fs.lstatSync(file).isFile())throw Error('UNEXPECTED_CONVERTER_FILE');fs.unlinkSync(file);}"]
 
 ENV NODE_ENV=production
 ENV CW_SERVICE=${SERVICE}

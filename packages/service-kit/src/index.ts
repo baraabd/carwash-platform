@@ -10,6 +10,7 @@ export * from './logging';
 export * from './provider-signature';
 export * from './secrets';
 export * from './service-clients';
+export { isServiceOriginAllowed } from '@carwash/security-kit';
 export {
   instrumentApplication,
   serviceTelemetry,

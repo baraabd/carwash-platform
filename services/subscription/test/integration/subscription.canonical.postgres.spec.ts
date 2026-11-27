@@ -12,6 +12,8 @@ import type {
 } from '../../src/ports';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma.service';
 import { PrismaSubscriptionRepository } from '../../src/infrastructure/persistence/prisma-subscription.repository';
+import { PrismaFundingReleaseQueue } from '../../src/infrastructure/persistence/prisma-funding-release.queue';
+import { FundingRecoveryService } from '../../src/application/funding-recovery.service';
 import { CUSTOMER_SUBJECT, FixedClock, DAY } from '../support/subscription-fixtures';
 import {
   BOOKING,
@@ -34,6 +36,7 @@ const obligations = new Map<string, PurchaseObligation>();
 const createKeys = new Map<string, string>();
 const verified = new Set<string>();
 const loseAnswer = new Set<string>();
+const loseClaimAnswer = new Set<string>();
 const amount = Money.parse({ currency: 'SYP', amountMinor: '600000', scale: 2 });
 const owners: PurchaseOwners = {
   quote: (id) => Promise.resolve(quotes.get(id) ?? null),
@@ -63,6 +66,15 @@ const owners: PurchaseOwners = {
   },
 };
 const funding: FundingAuthority = {
+  claim: (input) =>
+    Promise.resolve(
+      loseClaimAnswer.delete(input.obligationId)
+        ? 'UNAVAILABLE'
+        : verified.has(input.obligationId)
+          ? 'CLAIMED'
+          : 'NOT_VERIFIED',
+    ),
+  release: () => Promise.resolve('RELEASED'),
   verify: (input) =>
     Promise.resolve(verified.has(input.obligationId) ? 'VERIFIED' : 'NOT_VERIFIED'),
 };
@@ -561,5 +573,392 @@ test('customer change stays pending until real management authority decides, wit
       "UPDATE app.subscription_change_request SET status='PENDING_REVIEW',decided_by=NULL,decided_at=NULL WHERE id=$1",
       [pending.body.changeId],
     ),
+  );
+});
+
+async function renewalPurchase(
+  p: Awaited<ReturnType<typeof activate>>,
+  options: { changedPlan?: boolean } = {},
+) {
+  const old = subscriptionV1.parseSubscriptionV1(
+    (await call('GET', `/subscriptions/${p.subscriptionId}`, { token: TOKENS.customer })).body,
+  );
+  clock.advance(31 * DAY);
+  let planVersion = 1;
+  let renewalAmount = amount;
+  if (options.changedPlan) {
+    renewalAmount = Money.of('SYP', 650000n);
+    const publish = await call('POST', `/plans/${p.planId}/versions`, {
+      token: TOKENS.admin,
+      key: key(),
+      body: { ...p.request, expectedRevision: 1, units: 3, price: renewalAmount.toWire() },
+    });
+    assert.equal(publish.status, 201, JSON.stringify(publish.body));
+    planVersion = 2;
+  }
+  const quoteId = randomUUID();
+  quotes.set(quoteId, {
+    quoteId,
+    planId: p.planId,
+    planVersion,
+    customerSubject: CUSTOMER_SUBJECT,
+    amount: renewalAmount,
+    expiresAt: new Date(clock.now().getTime() + 900000),
+  });
+  const body = {
+    ...p.purchaseBody,
+    quoteId,
+    planVersion,
+    total: renewalAmount.toWire(),
+    expectedRevision: old.revision,
+  };
+  const requestKey = key();
+  const created = await call('POST', `/subscriptions/${p.subscriptionId}/renewals`, {
+    token: TOKENS.customer,
+    key: requestKey,
+    body,
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  assert.notEqual(created.body.purchaseId, p.purchaseId);
+  assert.notEqual(created.body.obligationId, p.obligationId);
+  assert.deepEqual(created.body.renewalOf, { subscriptionId: p.subscriptionId, periodNo: 2 });
+  return { old, body, requestKey, created, quoteId, planVersion, renewalAmount };
+}
+
+async function fundPurchase(purchaseId: string, obligationId: string) {
+  obligations.set(obligationId, {
+    ...obligations.get(obligationId)!,
+    status: 'SETTLED',
+    financialStatus: 'PAID',
+  });
+  verified.add(obligationId);
+  return call('GET', `/purchases/${purchaseId}`, { token: TOKENS.customer });
+}
+
+test('canonical manual renewal owns a fresh quote, purchase and obligation; lost claim replies cannot duplicate grants', async () => {
+  const p = await activate(2);
+  const before = subscriptionV1.parseSubscriptionV1(
+    (await call('GET', `/subscriptions/${p.subscriptionId}`, { token: TOKENS.customer })).body,
+  );
+  const premature = await call('POST', `/subscriptions/${p.subscriptionId}/renewals`, {
+    token: TOKENS.customer,
+    key: key(),
+    body: { ...p.purchaseBody, quoteId: randomUUID(), expectedRevision: before.revision },
+  });
+  assert.equal(premature.status, 409);
+  assert.equal(code(premature.body), 'PERIOD_NOT_ENDED');
+  const r = await renewalPurchase(p, { changedPlan: true });
+  const recovery = await call(
+    'GET',
+    `/purchases/by-request/${r.requestKey}`,
+    { token: TOKENS.customer },
+    b,
+  );
+  assert.equal(recovery.body.purchaseId, r.created.body.purchaseId);
+  const replay = await call(
+    'POST',
+    `/subscriptions/${p.subscriptionId}/renewals`,
+    { token: TOKENS.customer, key: r.requestKey, body: r.body },
+    b,
+  );
+  assert.equal(replay.body.purchaseId, r.created.body.purchaseId);
+  assert.equal(
+    (
+      await call('POST', `/subscriptions/${p.subscriptionId}/renewals`, {
+        token: TOKENS.otherCustomer,
+        key: key(),
+        body: r.body,
+      })
+    ).status,
+    404,
+  );
+  const purchaseId = String(r.created.body.purchaseId);
+  const obligationId = String(r.created.body.obligationId);
+  loseClaimAnswer.add(obligationId);
+  assert.equal((await fundPurchase(purchaseId, obligationId)).status, 503);
+  const activated = await call('GET', `/purchases/${purchaseId}`, { token: TOKENS.customer }, b);
+  assert.equal(activated.status, 200, JSON.stringify(activated.body));
+  assert.equal(activated.body.status, 'ACTIVATED');
+  const current = subscriptionV1.parseSubscriptionV1(
+    (await call('GET', `/subscriptions/${p.subscriptionId}`, { token: TOKENS.customer })).body,
+  );
+  assert.equal(current.purchaseId, purchaseId);
+  assert.equal(current.planVersion, 2);
+  assert.equal(current.units.total, 3);
+  assert.equal(current.periodNo, 2);
+  assert.equal(current.renewalAvailable, false);
+  assert.equal(
+    current.units.available,
+    3,
+    'expired unused units do not roll into the new purchase',
+  );
+  const periods = await sql.query(
+    'SELECT period_no,payment_reference FROM app.subscription_period WHERE subscription_id=$1 ORDER BY period_no',
+    [p.subscriptionId],
+  );
+  assert.deepEqual(
+    periods.rows.map((row) => row.period_no),
+    [1, 2],
+  );
+  assert.deepEqual(
+    periods.rows.map((row) => row.payment_reference),
+    [p.obligationId, obligationId],
+  );
+  const grants = await sql.query(
+    "SELECT count(*)::int AS n FROM app.entitlement_movement WHERE subscription_id=$1 AND kind='GRANT'",
+    [p.subscriptionId],
+  );
+  assert.equal(grants.rows[0].n, 2);
+  await assert.rejects(
+    sql.query('UPDATE app.subscription_purchase SET period_no=3,revision=revision+1 WHERE id=$1', [
+      purchaseId,
+    ]),
+  );
+});
+
+test('cancellation release waits for reservations in every period and safely retries a lost Billing answer', async () => {
+  const p = await activate();
+  const current = subscriptionV1.parseSubscriptionV1(
+    (await call('GET', `/subscriptions/${p.subscriptionId}`, { token: TOKENS.customer })).body,
+  );
+  const bookingId = randomUUID();
+  const reserve = await call('POST', '/entitlement-reservations', {
+    service: BOOKING,
+    key: key(),
+    body: {
+      subscriptionId: p.subscriptionId,
+      expectedRevision: current.revision,
+      beneficiary: { kind: 'account', subjectId: CUSTOMER_SUBJECT },
+      bookingId,
+      packageId: p.packageId,
+      scheduledFor: new Date(clock.now().getTime() + 3600000).toISOString(),
+      vehicleType: 'sedan',
+    },
+  });
+  assert.equal(reserve.status, 201, JSON.stringify(reserve.body));
+  const r = await renewalPurchase(p);
+  assert.equal(
+    (await fundPurchase(String(r.created.body.purchaseId), String(r.created.body.obligationId)))
+      .status,
+    200,
+  );
+  const latest = subscriptionV1.parseSubscriptionV1(
+    (await call('GET', `/subscriptions/${p.subscriptionId}`, { token: TOKENS.customer })).body,
+  );
+  const requested = await call('POST', `/subscriptions/${p.subscriptionId}/changes`, {
+    token: TOKENS.customer,
+    key: key(),
+    body: { expectedRevision: latest.revision, action: 'CANCEL', reason: 'CUSTOMER_REQUEST' },
+  });
+  assert.equal(requested.status, 201, JSON.stringify(requested.body));
+  const cancelled = await call(
+    'POST',
+    `/subscriptions/${p.subscriptionId}/changes/${String(requested.body.changeId)}/decision`,
+    { token: TOKENS.admin, key: key(), body: { approve: true } },
+  );
+  assert.equal(cancelled.status, 200, JSON.stringify(cancelled.body));
+  const calls: string[] = [];
+  let lose = true;
+  const recoveryFunding: FundingAuthority = {
+    ...funding,
+    release: (input) => {
+      calls.push(input.subscriptionId);
+      if (input.subscriptionId === p.subscriptionId && lose) {
+        lose = false;
+        return Promise.resolve('UNAVAILABLE');
+      }
+      return Promise.resolve('RELEASED');
+    },
+  };
+  const worker = new FundingRecoveryService({
+    queue: new PrismaFundingReleaseQueue(prismaA.client),
+    funding: recoveryFunding,
+    clock,
+    workerId: randomUUID(),
+  });
+  await worker.runBatch();
+  assert.ok(
+    !calls.includes(p.subscriptionId),
+    'the current period has no reserves but the previous period still does',
+  );
+  const waiting = await call('GET', '/administration/funding-recovery', { token: TOKENS.admin });
+  assert.equal(waiting.status, 200, JSON.stringify(waiting.body));
+  assert.equal(
+    (waiting.body.items as Array<Record<string, unknown>>).find(
+      (row) => row.subscriptionId === p.subscriptionId,
+    )?.status,
+    'WAITING_RESERVATIONS',
+  );
+  assert.equal(
+    (await call('GET', '/administration/funding-recovery', { token: TOKENS.customer })).status,
+    403,
+  );
+  const released = await call(
+    'POST',
+    `/entitlement-reservations/${String(reserve.body.reservationId)}/resolution`,
+    {
+      service: BOOKING,
+      key: key(),
+      body: { bookingId, action: 'RELEASE' },
+    },
+  );
+  assert.equal(released.status, 200, JSON.stringify(released.body));
+  await sql.query(
+    'UPDATE app.subscription_funding_release SET attempt_limit=1 WHERE subscription_id=$1',
+    [p.subscriptionId],
+  );
+  await worker.runBatch();
+  assert.equal(calls.filter((id) => id === p.subscriptionId).length, 1);
+  assert.equal(
+    (
+      await sql.query(
+        'SELECT released_at FROM app.subscription_funding_release WHERE subscription_id=$1',
+        [p.subscriptionId],
+      )
+    ).rows[0].released_at,
+    null,
+  );
+  const exhausted = await call('GET', '/administration/funding-recovery', { token: TOKENS.admin });
+  assert.equal(
+    (exhausted.body.items as Array<Record<string, unknown>>).find(
+      (row) => row.subscriptionId === p.subscriptionId,
+    )?.status,
+    'ATTENTION_REQUIRED',
+  );
+  const retryPath = `/administration/funding-recovery/${p.subscriptionId}/retry`;
+  assert.equal(
+    (await call('POST', retryPath, { key: key(), body: { expectedAttempts: 1 } })).status,
+    401,
+  );
+  assert.equal(
+    (
+      await call('POST', retryPath, {
+        token: TOKENS.customer,
+        key: key(),
+        body: { expectedAttempts: 1 },
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await call('POST', retryPath, {
+        token: TOKENS.admin,
+        key: key(),
+        body: { expectedAttempts: 2 },
+      })
+    ).status,
+    409,
+  );
+  const retryKey = key();
+  const retried = await Promise.all(
+    [a, b].map((replica) =>
+      call(
+        'POST',
+        retryPath,
+        { token: TOKENS.admin, key: retryKey, body: { expectedAttempts: 1 } },
+        replica,
+      ),
+    ),
+  );
+  assert.ok(
+    retried.every((reply) => reply.status === 200),
+    JSON.stringify(retried),
+  );
+  assert.equal(retried[0]!.body.attempts, 1, 'redrive must not reset the acquisition fence');
+  assert.equal(retried[0]!.body.attemptLimit, 101);
+  assert.equal(
+    (
+      await sql.query(
+        "SELECT count(*)::int AS n FROM app.subscription_audit_event WHERE subscription_id=$1 AND action='subscription.funding-release-retried'",
+        [p.subscriptionId],
+      )
+    ).rows[0].n,
+    1,
+  );
+  await worker.runBatch();
+  assert.equal(calls.filter((id) => id === p.subscriptionId).length, 2);
+  assert.ok(
+    (
+      await sql.query(
+        'SELECT released_at FROM app.subscription_funding_release WHERE subscription_id=$1',
+        [p.subscriptionId],
+      )
+    ).rows[0].released_at,
+  );
+  await worker.runBatch();
+  assert.equal(calls.filter((id) => id === p.subscriptionId).length, 2);
+});
+
+test('persisted entitlement periods fail closed until Billing re-establishes the funding claim; release remains available', async () => {
+  const p = await activate();
+  const current = subscriptionV1.parseSubscriptionV1(
+    (await call('GET', `/subscriptions/${p.subscriptionId}`, { token: TOKENS.customer })).body,
+  );
+  const eligibility = {
+    packageId: p.packageId,
+    vehicleType: 'sedan',
+    scheduledFor: new Date(clock.now().getTime() + 3600000).toISOString(),
+  };
+  const bookingId = randomUUID();
+  const body = {
+    ...eligibility,
+    subscriptionId: p.subscriptionId,
+    expectedRevision: current.revision,
+    beneficiary: { kind: 'account', subjectId: CUSTOMER_SUBJECT },
+    bookingId,
+  };
+  verified.delete(p.obligationId);
+  assert.equal(
+    (
+      await call('POST', `/subscriptions/${p.subscriptionId}/eligibility`, {
+        token: TOKENS.customer,
+        body: eligibility,
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (await call('POST', '/entitlement-reservations', { service: BOOKING, key: key(), body }))
+      .status,
+    409,
+  );
+  assert.equal(
+    (
+      await sql.query(
+        'SELECT count(*)::int AS n FROM app.entitlement_reservation WHERE subscription_id=$1',
+        [p.subscriptionId],
+      )
+    ).rows[0].n,
+    0,
+  );
+  verified.add(p.obligationId);
+  const held = await call('POST', '/entitlement-reservations', {
+    service: BOOKING,
+    key: key(),
+    body,
+  });
+  assert.equal(held.status, 201, JSON.stringify(held.body));
+  verified.delete(p.obligationId);
+  const resolution = `/entitlement-reservations/${String(held.body.reservationId)}/resolution`;
+  assert.equal(
+    (
+      await call('POST', resolution, {
+        service: BOOKING,
+        key: key(),
+        body: { bookingId, action: 'CONSUME' },
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await call('POST', resolution, {
+        service: BOOKING,
+        key: key(),
+        body: { bookingId, action: 'RELEASE' },
+      })
+    ).status,
+    200,
   );
 });

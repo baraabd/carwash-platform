@@ -1,3 +1,4 @@
+import { sessionRequests, sessionChanged } from './client';
 import { call, type Request, type Result } from './client';
 import { collectCash, sameAmount } from './cash-api';
 import {
@@ -82,12 +83,14 @@ export const sendMutation = async (
   request: MutationRequest,
   idempotencyKey: string,
 ): Promise<Result<unknown>> => {
+  const epoch = sessionRequests.capture();
   if (!request.cashReceipt?.alreadyDeclared) {
     const declared = await call({
       ...request,
       idempotencyKey,
       parse: null,
     } satisfies Request<unknown>);
+    if (!sessionRequests.current(epoch)) return sessionChanged();
     if (declared.kind !== 'ok' || !request.cashReceipt) return declared;
   }
   const cash = request.cashReceipt;

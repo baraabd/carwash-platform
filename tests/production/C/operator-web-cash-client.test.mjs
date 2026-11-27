@@ -181,6 +181,42 @@ function network(t, handler) {
   return requests;
 }
 
+test('identity replacement between Dispatch and Billing cannot create a financial continuation', async (t) => {
+  const task = job();
+  let complete;
+  const response = new Promise((resolve) => {
+    complete = resolve;
+  });
+  const requests = network(t, () => response);
+  const pending = api.sendMutation(api.M.closeCollected(task, amount, funding(task)), randomUUID());
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(requests.length, 1);
+  client.sessionRequests.invalidate();
+  complete(json({}));
+  const result = await pending;
+  assert.equal(result.kind, 'error');
+  assert.equal(result.code, 'SESSION_CHANGED');
+  assert.equal(requests.length, 1, 'old session must never start the Billing request');
+});
+
+test('identity replacement during Billing target read cannot collect cash under the next session', async (t) => {
+  const task = job();
+  let complete;
+  const response = new Promise((resolve) => {
+    complete = resolve;
+  });
+  const requests = network(t, (_, number) => (number === 1 ? json({}) : response));
+  const pending = api.sendMutation(api.M.closeCollected(task, amount, funding(task)), randomUUID());
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(requests.length, 2);
+  client.sessionRequests.invalidate();
+  complete(json(target(task)));
+  const result = await pending;
+  assert.equal(result.kind, 'error');
+  assert.equal(result.code, 'SESSION_CHANGED');
+  assert.equal(requests.length, 2, 'no financial POST after a different session becomes current');
+});
+
 test('cash close requires Dispatch declaration, separate Billing command and a fresh bound receipt', async (t) => {
   const task = job();
   const pending = target(task);

@@ -224,7 +224,7 @@ test('not configured: every call is UNAVAILABLE, nothing is sent', async () => {
 test('config: absent is null; partial or malformed values refuse to start', () => {
   assert.equal(dispatchAssignmentConfig({}), null);
   const good = {
-    BOOKING_DISPATCH_URL: 'http://dispatch:3000',
+    BOOKING_DISPATCH_URL: 'https://dispatch:3000',
     BOOKING_DISPATCH_CLIENT_TOKEN: TOKEN,
   };
   const parsed = dispatchAssignmentConfig(good);
@@ -232,7 +232,7 @@ test('config: absent is null; partial or malformed values refuse to start', () =
   assert.equal(parsed?.timeoutMs, 1_000);
   assert.equal(parsed?.budgetMs, 2_150);
   const bad: [Record<string, string>, string][] = [
-    [{ BOOKING_DISPATCH_URL: 'http://dispatch:3000' }, 'BOOKING_DISPATCH_INCOMPLETE'],
+    [{ BOOKING_DISPATCH_URL: 'https://dispatch:3000' }, 'BOOKING_DISPATCH_INCOMPLETE'],
     [{ BOOKING_DISPATCH_CLIENT_TOKEN: TOKEN }, 'BOOKING_DISPATCH_INCOMPLETE'],
     [{ BOOKING_DISPATCH_TIMEOUT_MS: '500' }, 'BOOKING_DISPATCH_INCOMPLETE'],
     [{ ...good, BOOKING_DISPATCH_URL: 'not a url' }, 'INVALID_BOOKING_DISPATCH_URL'],

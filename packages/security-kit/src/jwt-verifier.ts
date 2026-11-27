@@ -1,4 +1,9 @@
 import { createLocalJWKSet, createRemoteJWKSet, jwtVerify, type JSONWebKeySet } from 'jose';
+import {
+  isServiceUrlAllowed,
+  privateServiceNetworkFromEnv,
+  type PrivateServiceNetwork,
+} from './service-origin';
 
 export interface VerifiedIdentity {
   readonly subject: string;
@@ -16,15 +21,11 @@ export class AccessTokenVerifier {
   constructor(
     private readonly policy: TokenPolicy,
     source: JSONWebKeySet | URL,
+    network: PrivateServiceNetwork | undefined = privateServiceNetworkFromEnv(),
   ) {
     if (!policy.issuer || !policy.audience) throw new Error('JWT_POLICY_REQUIRED');
     if (source instanceof URL) {
-      const local =
-        source.hostname === '127.0.0.1' ||
-        source.hostname === 'localhost' ||
-        source.hostname === '[::1]';
-      if (source.protocol !== 'https:' && !(source.protocol === 'http:' && local))
-        throw new Error('JWKS_HTTPS_REQUIRED');
+      if (!isServiceUrlAllowed(source, network)) throw new Error('JWKS_HTTPS_REQUIRED');
       if (source.username || source.password || source.hash) throw new Error('INVALID_JWKS_URL');
       this.resolve = createRemoteJWKSet(source, {
         timeoutDuration: 3_000,

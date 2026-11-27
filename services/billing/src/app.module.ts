@@ -116,6 +116,8 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
         new SubscriptionFundingService({
           repository,
           callers: ServiceClientCallerAuthority.fromEnv(process.env),
+          clock: new SystemClock(),
+          hasher: new Sha256Hasher(),
         }),
     },
     // Fails startup on invalid merchant-account config or on automation

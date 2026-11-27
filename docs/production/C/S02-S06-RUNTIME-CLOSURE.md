@@ -3,7 +3,8 @@
 ## Scope and acceptance boundary
 
 This change implements persistent runtime composition for Booking, Dispatch,
-Scheduling and Workforce. It does not set `BUSINESS_READY=true`, certify a hosted
+Scheduling and Workforce, with native owner publications consumed by Reporting
+and Communications. It does not set `BUSINESS_READY=true`, certify a hosted
 Staging environment, or authorize production traffic. Release acceptance must
 bind the committed source, migrated owner databases, scoped credentials, broker
 topology and actual deployed processes to the test evidence.
@@ -19,6 +20,12 @@ compete for service-owned queues and fenced owner database leases.
 | Workforce | Publish eligibility changes and legacy shift updates without rewriting existing payloads. |
 | Dispatch | Consume Scheduling holds and Workforce eligibility; publish assignment/task/cash events; expire offers; deliver evidence fences; run bounded automatic offers. |
 | Booking | Advance creation/change sagas; publish booking events; consume authoritative Dispatch execution; consume reserved subscription units after actual completion. |
+| Reporting | Consume native booking, assignment, cash-declaration, hold, eligibility and shift events; commit source-versioned projections with each inbox receipt. |
+| Communications | Consume native booking confirmation/cancellation; persist a namespaced notification intent or cancellation fence with each inbox receipt. No provider submission occurs in this consumer. |
+
+Reporting runs `node dist/inbox/operations-consumer.runner.js`; Communications
+runs `node dist/inbox/event-notifications-consumer.runner.js`. Their provider
+delivery process remains separate from event intake.
 
 `SIGTERM` / `SIGINT` abort the group, stop consumers, drain in-flight effects,
 close broker sessions, then disconnect the database and telemetry. An unexpected
@@ -32,6 +39,8 @@ before projection transactions. No cross-owner SQL or source imports are used.
 | `dispatch.scheduling.hold-changed` | Dispatch | `scheduling.events` / `scheduling.hold-changed.v1` | 30 |
 | `dispatch.workforce.eligibility-changed` | Dispatch | `workforce.events` / `workforce.eligibility-changed.v1` | 30 |
 | `booking.dispatch.execution` | Booking | `dispatch.events` / `dispatch.assignment-changed.v1`, `dispatch.task-progressed.v1` | 120 |
+| `reporting.operations` | Reporting | Exact bindings on Booking, Dispatch, Scheduling and Workforce exchanges, declared by `OPERATIONS_SUBSCRIPTIONS` | 3 |
+| `communications.event-notifications` | Communications | `booking.events` / `booking.created.v1`, `booking.cancelled.v1`, legacy `booking.confirmed.v1` | 3 |
 
 Subscriber processes configure only their own queues and `<owner>.dlx` /
 `<owner>.dlq`. They bind to producer exchanges; they do not declare or publish to
@@ -73,6 +82,34 @@ owners converge. Terminal cancellation/rejection is not reopened.
 completion timestamp projects `COMPLETED`. Released, withdrawn or cancelled
 tasks do not complete a booking. Dispatch forbids taking back a closed task.
 Payment verification and work completion remain separate facts.
+
+## Native Reporting and Communications effects
+
+Reporting accepts the published native Booking confirmation and Dispatch
+assignment contracts into its existing operation rows. Cancellation, reschedule,
+execution progression, shift changes and technician cash declarations have a
+separate `ops_owner_observation` projection keyed by event type and aggregate.
+Source versions advance monotonically; contradictory same-version projected
+facts fail with an integrity error. A cash declaration never creates or changes
+a Billing obligation or a paid state. These observations remain derived owner
+facts; they do not grant Reporting command authority.
+
+Communications retains `CUSTOMER` as the namespace of historical intents.
+Native Booking beneficiaries are explicitly `IDENTITY_ACCOUNT` or
+`IDENTITY_GUEST`, so an Identity subject cannot be silently treated as a Customer
+record id. The provider adapter defaults to the historical namespace. An adapter
+which actually resolves Identity recipients must explicitly declare the supported
+namespaces in `NOTIFICATION_PROVIDER_RECIPIENT_NAMESPACES`; unsupported namespaces
+return `NOT_SUBMITTED` before any network call. Persisted intake is not evidence
+of provider acceptance or delivery.
+
+Cancellation is stored in the immutable owner-local
+`booking_notification_cancellation` table. A per-booking transaction lock orders
+cancellation, intake, claims and retry completion. Cancellation-before-confirmation
+suppresses delayed intake; already queued, never attempted intents become
+`CANCELLED`; attempted work keeps its uncertainty and cannot be retried after
+cancellation. Actual accepted provider outcomes remain provider evidence, not
+fabricated cancellation or delivery. A provider HTTP 408 remains ambiguous.
 
 ## Automatic assignment policy
 
@@ -191,6 +228,9 @@ Migrations are appended, not changes to historical migration files:
 
 - Booking `20261127010000_s02_execution_projection` and `20261127030000_s06_entitlement_funding`.
 - Dispatch `20261127020000_s06_automatic_assignment`.
+- Booking `20261127120000_s02_change_outcome_constraints` allows definitive refused/failed cancellations to retain their absent settlement and persists the already authorized staff requester kind.
+- Reporting `20261127121000_s02_owner_event_observations` adds the source-versioned owner observation table.
+- Communications `20261127122000_s02_recipient_namespace_cancellation` adds recipient namespaces and irreversible cancellation fences; trigger functions deny public execution.
 
 Focused unit tests exercise source-generation fencing, FINISHED/CLOSED
 distinction, retry ordering, authoritative reads outside transactions, failed
@@ -199,12 +239,24 @@ exhaustion, subscription ambiguity and unsupported coverage. Existing owner
 unit and contract parity tests remain required.
 
 `tests/production/C/runtime-closure-processes.test.mjs` must run against the real
-lane-C PostgreSQL/RabbitMQ stack after release and test builds for all four
-services. It boots actual worker entrypoints and real Workforce/Dispatch HTTP
+lane-C PostgreSQL/RabbitMQ stack, including Reporting and Communications databases,
+after release and test builds for all six services. It boots actual worker entrypoints and real Workforce/Dispatch HTTP
 APIs, generates Workforce and Scheduling facts through their applications, kills
 and restarts workers, and drives real Dispatch task rules to Booking completion.
+It checks durable Reporting/Communications effects through their actual consumer
+processes, then restarts those consumers and verifies duplicate event handling.
+There is no wildcard observer standing in for a business consumer. Resource cleanup
+is registered before setup, and worker exits immediately reject pending waits.
 Pricing/Billing snapshot ports and Media evidence are declared fixtures; the
 test does not substitute for hosted Staging acceptance, provider verification,
-object-store acceptance, or customer-to-technician browser E2E. At authoring time
-the local environment had no PostgreSQL/RabbitMQ stack, so its real-infrastructure
-result is pending CI and must not be reported as passed.
+object-store acceptance, or customer-to-technician browser E2E.
+
+The companion `native-owner-effects.pg.test.mjs` uses real owner PostgreSQL roles
+to prove native namespace isolation, cancellation ordering/races, in-flight retry
+fencing, immutable cancellation records, monotonic source projections and the
+separation of technician cash declarations from Billing payments. On the current
+uncommitted candidate, local PostgreSQL 16.16 diagnostics passed Booking 57/57,
+Scheduling 44/44 and the six new native-effect tests; Reporting/Communications
+unit/HTTP tests passed 80/80, all without skipped tests. These local diagnostics
+do not approve a release SHA. Real RabbitMQ process proof and source-bound CI
+acceptance are still required.

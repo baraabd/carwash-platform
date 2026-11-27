@@ -37,18 +37,18 @@ model ServiceMarker {
 /// What one customer owes for one priced quote. Never "paid" until a
 /// reconciled payment is posted to the ledger.
 model BillingObligation {
-  id                  String                @id @db.Uuid
-  ownerKind           String                @map("owner_kind") @db.VarChar(8)
-  ownerSubject        String                @map("owner_subject") @db.Uuid
-  quoteId             String                @unique @map("quote_id") @db.Uuid
-  currency            String                @db.Char(3)
-  amountMinor         BigInt                @map("amount_minor")
-  verifiedMinor       BigInt                @map("verified_minor")
-  status              String                @db.VarChar(8)
+  id                  String                    @id @db.Uuid
+  ownerKind           String                    @map("owner_kind") @db.VarChar(8)
+  ownerSubject        String                    @map("owner_subject") @db.Uuid
+  quoteId             String                    @unique @map("quote_id") @db.Uuid
+  currency            String                    @db.Char(3)
+  amountMinor         BigInt                    @map("amount_minor")
+  verifiedMinor       BigInt                    @map("verified_minor")
+  status              String                    @db.VarChar(8)
   revision            Int
-  createdAt           DateTime              @map("created_at") @db.Timestamptz(3)
-  updatedAt           DateTime              @map("updated_at") @db.Timestamptz(3)
-  correlationId       String                @map("correlation_id") @db.Uuid
+  createdAt           DateTime                  @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime                  @map("updated_at") @db.Timestamptz(3)
+  correlationId       String                    @map("correlation_id") @db.Uuid
   intents             PaymentIntent[]
   attempts            PaymentAttempt[]
   journals            LedgerJournal[]
@@ -58,6 +58,7 @@ model BillingObligation {
   credits             ProviderCredit[]
   bookingLink         BookingObligation?
   bookingCompensation BookingCompensation?
+  subscriptionFunding SubscriptionFundingClaim?
 
   @@index([ownerKind, ownerSubject, createdAt], map: "billing_obligation_owner_idx")
   @@map("billing_obligation")
@@ -330,40 +331,84 @@ model CustodyHandoverItem {
 
 /// A received-money fact. activeSlot = 1 unless a statement entry was rejected.
 model ProviderCredit {
-  id                String              @id @db.Uuid
-  provider          String              @db.VarChar(24)
-  merchantAccount   String              @map("merchant_account") @db.VarChar(64)
-  providerReference String              @map("provider_reference") @db.VarChar(64)
-  currency          String              @db.Char(3)
-  amountMinor       BigInt              @map("amount_minor")
-  occurredAt        DateTime            @map("occurred_at") @db.Timestamptz(3)
-  source            String              @db.VarChar(24)
-  evidenceDigest    String              @map("evidence_digest") @db.Char(64)
-  status            String              @db.VarChar(16)
-  unallocatedReason String?             @map("unallocated_reason") @db.VarChar(24)
-  attemptId         String?             @unique @map("attempt_id") @db.Uuid
-  obligationId      String?             @map("obligation_id") @db.Uuid
-  activeSlot        Int?                @map("active_slot") @db.SmallInt
-  recordedBySubject String?             @map("recorded_by_subject") @db.Uuid
-  decidedBySubject  String?             @map("decided_by_subject") @db.Uuid
-  decidedAt         DateTime?           @map("decided_at") @db.Timestamptz(3)
-  rejectionReason   String?             @map("rejection_reason") @db.VarChar(24)
-  revision          Int
-  createdAt         DateTime            @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime            @map("updated_at") @db.Timestamptz(3)
-  correlationId     String              @map("correlation_id") @db.Uuid
-  attempt           PaymentAttempt?     @relation("CreditAllocatedAttempt", fields: [attemptId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  obligation        BillingObligation?  @relation(fields: [obligationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  matchedAttempt    PaymentAttempt?     @relation("AttemptMatchedCredit")
-  refunds           PaymentRefund[]
-  journals          LedgerJournal[]
-  auditEvents       BillingAuditEvent[]
+  subscriptionFunding SubscriptionFundingClaim?
+  id                  String                    @id @db.Uuid
+  provider            String                    @db.VarChar(24)
+  merchantAccount     String                    @map("merchant_account") @db.VarChar(64)
+  providerReference   String                    @map("provider_reference") @db.VarChar(64)
+  currency            String                    @db.Char(3)
+  amountMinor         BigInt                    @map("amount_minor")
+  occurredAt          DateTime                  @map("occurred_at") @db.Timestamptz(3)
+  source              String                    @db.VarChar(24)
+  evidenceDigest      String                    @map("evidence_digest") @db.Char(64)
+  status              String                    @db.VarChar(16)
+  unallocatedReason   String?                   @map("unallocated_reason") @db.VarChar(24)
+  attemptId           String?                   @unique @map("attempt_id") @db.Uuid
+  obligationId        String?                   @map("obligation_id") @db.Uuid
+  activeSlot          Int?                      @map("active_slot") @db.SmallInt
+  recordedBySubject   String?                   @map("recorded_by_subject") @db.Uuid
+  decidedBySubject    String?                   @map("decided_by_subject") @db.Uuid
+  decidedAt           DateTime?                 @map("decided_at") @db.Timestamptz(3)
+  rejectionReason     String?                   @map("rejection_reason") @db.VarChar(24)
+  revision            Int
+  createdAt           DateTime                  @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime                  @map("updated_at") @db.Timestamptz(3)
+  correlationId       String                    @map("correlation_id") @db.Uuid
+  attempt             PaymentAttempt?           @relation("CreditAllocatedAttempt", fields: [attemptId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  obligation          BillingObligation?        @relation(fields: [obligationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  matchedAttempt      PaymentAttempt?           @relation("AttemptMatchedCredit")
+  refunds             PaymentRefund[]
+  journals            LedgerJournal[]
+  auditEvents         BillingAuditEvent[]
 
   @@unique([provider, merchantAccount, providerReference, activeSlot], map: "provider_credit_key")
   @@index([provider, providerReference], map: "provider_credit_reference_idx")
   @@index([status, createdAt], map: "provider_credit_status_idx")
   @@index([obligationId])
   @@map("provider_credit")
+}
+
+model SubscriptionFundingCommand {
+  clientId       String   @map("client_id") @db.VarChar(64)
+  operation      String   @db.VarChar(8)
+  idempotencyKey String   @map("idempotency_key") @db.VarChar(128)
+  fingerprint    String   @db.Char(64)
+  recordedAt     DateTime @map("recorded_at") @db.Timestamptz(3)
+  correlationId  String   @map("correlation_id") @db.Uuid
+
+  @@id([clientId, operation, idempotencyKey])
+  @@map("subscription_funding_command")
+}
+
+model SubscriptionFundingNamespace {
+  subscriptionId  String                     @id @map("subscription_id") @db.Uuid
+  clientId        String                     @map("client_id") @db.VarChar(64)
+  customerSubject String                     @map("customer_subject") @db.Uuid
+  createdAt       DateTime                   @map("created_at") @db.Timestamptz(3)
+  releasedAt      DateTime?                  @map("released_at") @db.Timestamptz(3)
+  correlationId   String                     @map("correlation_id") @db.Uuid
+  claims          SubscriptionFundingClaim[]
+
+  @@map("subscription_funding_namespace")
+}
+
+model SubscriptionFundingClaim {
+  obligationId   String                       @id @map("obligation_id") @db.Uuid
+  creditId       String                       @unique(map: "subscription_funding_claim_credit_id_key") @map("credit_id") @db.Uuid
+  subscriptionId String                       @map("subscription_id") @db.Uuid
+  periodNo       Int                          @map("period_no")
+  quoteId        String                       @map("quote_id") @db.Uuid
+  currency       String                       @db.Char(3)
+  amountMinor    BigInt                       @map("amount_minor")
+  claimedAt      DateTime                     @map("claimed_at") @db.Timestamptz(3)
+  releasedAt     DateTime?                    @map("released_at") @db.Timestamptz(3)
+  correlationId  String                       @map("correlation_id") @db.Uuid
+  namespace      SubscriptionFundingNamespace @relation(fields: [subscriptionId], references: [subscriptionId], onDelete: Restrict, onUpdate: Restrict, map: "subscription_funding_claim_namespace_fkey")
+  obligation     BillingObligation            @relation(fields: [obligationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "subscription_funding_claim_obligation_fkey")
+  credit         ProviderCredit               @relation(fields: [creditId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "subscription_funding_claim_credit_fkey")
+
+  @@unique([subscriptionId, periodNo], map: "subscription_funding_claim_period_key")
+  @@map("subscription_funding_claim")
 }
 
 /// A refund of (part of) one provider credit; reserving statuses hold its amount.

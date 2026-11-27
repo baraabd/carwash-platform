@@ -1,5 +1,5 @@
 import type { ChallengeReceipt } from '@carwash/contracts';
-import { call, type Result } from './client';
+import { call, sessionChanged, sessionRequests, type Result } from './client';
 import { ShapeError, parseSession } from './parse';
 import type { SessionView } from './types';
 
@@ -32,7 +32,9 @@ export async function startLogin(
   email: string,
   password: string,
 ): Promise<Result<ChallengeReceipt>> {
+  const epoch = sessionRequests.capture();
   const csrf = await call({ method: 'GET', path: '/api/operator/auth/csrf', parse: null });
+  if (!sessionRequests.current(epoch)) return sessionChanged();
   if (csrf.kind !== 'ok') return csrf;
   return call({
     method: 'POST',

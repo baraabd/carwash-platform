@@ -265,3 +265,12 @@ export function refreshBookings(): Promise<void> {
 export function showBookings(): Promise<void> {
   return load(false);
 }
+
+export function invalidateBookings(clearPrivate = false): void {
+  state.generation += 1;
+  state.cursor = null;
+  if (clearPrivate) {
+    for (const id of ['bookingRows', 'bookingMore', 'bookingFreshness'])
+      document.getElementById(id)?.replaceChildren();
+  }
+}

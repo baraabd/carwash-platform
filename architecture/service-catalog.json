@@ -22,7 +22,7 @@
       "runtimeRole": "cw_identity_app",
       "migrationRole": "cw_identity_migrate",
       "dataStatus": "reserved-not-provisioned-by-F001",
-      "owns": ["users", "credentials", "sessions", "roles", "permissions"],
+      "owns": ["users", "credentials", "sessions", "roles", "permissions", "initial_administrator_receipt"],
       "api": {
         "version": 1,
         "prefix": "/internal/v1/identity",
@@ -536,7 +536,15 @@
       "runtimeRole": "cw_billing_app",
       "migrationRole": "cw_billing_migrate",
       "dataStatus": "reserved-not-provisioned-by-F001",
-      "owns": ["payments", "cash_receipts", "refunds", "ledger"],
+      "owns": [
+        "payments",
+        "cash_receipts",
+        "refunds",
+        "ledger",
+        "subscription_funding_command",
+        "subscription_funding_namespace",
+        "subscription_funding_claim"
+      ],
       "api": {
         "version": 1,
         "prefix": "/internal/v1/billing",
@@ -650,7 +658,15 @@
       "runtimeRole": "cw_subscription_app",
       "migrationRole": "cw_subscription_migrate",
       "dataStatus": "reserved-not-provisioned-by-F001",
-      "owns": ["subscriptions", "entitlement_reservations", "entitlements"],
+      "owns": [
+        "subscriptions",
+        "entitlement_reservations",
+        "entitlements",
+        "subscription_workload_receipt",
+        "subscription_purchase",
+        "subscription_change_request",
+        "subscription_funding_release"
+      ],
       "api": {
         "version": 1,
         "prefix": "/internal/v1/subscription",
@@ -764,7 +780,13 @@
       "runtimeRole": "cw_communications_app",
       "migrationRole": "cw_communications_migrate",
       "dataStatus": "reserved-not-provisioned-by-F001",
-      "owns": ["notifications", "delivery_attempts", "conversations", "messages"],
+      "owns": [
+        "notifications",
+        "delivery_attempts",
+        "conversations",
+        "messages",
+        "booking_notification_cancellations"
+      ],
       "api": {
         "version": 1,
         "prefix": "/internal/v1/communications",
@@ -992,7 +1014,7 @@
       "runtimeRole": "cw_reporting_app",
       "migrationRole": "cw_reporting_migrate",
       "dataStatus": "reserved-not-provisioned-by-F001",
-      "owns": ["projections", "consumer_checkpoints", "audit_projections"],
+      "owns": ["projections", "consumer_checkpoints", "audit_projections", "owner_observations"],
       "api": {
         "version": 1,
         "prefix": "/internal/v1/reporting",

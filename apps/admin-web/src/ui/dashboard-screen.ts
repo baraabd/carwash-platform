@@ -144,3 +144,17 @@ export async function showDashboard(): Promise<void> {
   }
   render(result.value);
 }
+
+export function invalidateDashboard(clearPrivate = false): void {
+  generation += 1;
+  if (clearPrivate) {
+    for (const id of [
+      'dashboardKpis',
+      'dashboardStatus',
+      'dashboardAssignments',
+      'dashboardTiming',
+      'dashboardFreshness',
+    ])
+      document.getElementById(id)?.replaceChildren();
+  }
+}

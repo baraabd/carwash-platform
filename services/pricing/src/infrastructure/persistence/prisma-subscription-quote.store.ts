@@ -57,7 +57,7 @@ export class PrismaSubscriptionQuoteStore implements SubscriptionQuoteStore {
   ) {
     return this.client.$transaction(async (tx) => {
       const lock = JSON.stringify([OPERATION, actor, key]);
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lock},0))`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lock},0))::text`;
       const prior = await receipt(tx, actor, key);
       if (prior) return { ...prior, replayed: true };
       await tx.pricingSubscriptionQuote.create({

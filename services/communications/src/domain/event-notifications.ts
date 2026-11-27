@@ -6,7 +6,7 @@
  * is resolved by an authorized adapter at send time. Communications does not
  * become the source of truth for the booking it notifies about.
  */
-import { NotificationRuleError, type Channel } from './notification';
+import { NotificationRuleError, type Channel, type RecipientNamespace } from './notification';
 
 /** One booking confirmation from the published `booking.confirmed.v1`. */
 export interface BookingConfirmedTrigger {
@@ -15,9 +15,17 @@ export interface BookingConfirmedTrigger {
   readonly occurredAt: Date;
   readonly bookingId: string;
   readonly customerId: string;
+  readonly recipientNamespace?: RecipientNamespace;
 }
 
-export type NotificationTrigger = BookingConfirmedTrigger;
+export interface BookingCancelledTrigger {
+  readonly kind: 'BOOKING_CANCELLED';
+  readonly eventId: string;
+  readonly occurredAt: Date;
+  readonly bookingId: string;
+  readonly version: number;
+}
+export type NotificationTrigger = BookingConfirmedTrigger | BookingCancelledTrigger;
 
 /**
  * Per-trigger policy. The channel is fixed to SMS until the Customer owner
@@ -46,6 +54,7 @@ export type TriggerDecision =
         readonly sourceService: string;
         readonly idempotencyKey: string;
         readonly recipientRef: string;
+        readonly recipientNamespace?: RecipientNamespace;
         readonly channel: Channel;
         readonly templateKey: string;
         readonly templateVersion: number;
@@ -55,6 +64,7 @@ export type TriggerDecision =
       };
     }
   /** The source fact is older than its notification window: record, never send. */
+  | { readonly kind: 'CANCEL'; readonly trigger: BookingCancelledTrigger }
   | { readonly kind: 'SKIP'; readonly reason: 'TOO_LATE' };
 
 /** A short customer-facing booking reference; never a name, phone or address. */
@@ -74,6 +84,7 @@ export function decideTrigger(
 ): TriggerDecision {
   if (!Number.isFinite(trigger.occurredAt.getTime()))
     throw new NotificationRuleError('INVALID_TRIGGER_TIME');
+  if (trigger.kind === 'BOOKING_CANCELLED') return { kind: 'CANCEL', trigger };
   const expiresAt = new Date(trigger.occurredAt.getTime() + policy.ttlMs);
   if (expiresAt.getTime() <= now.getTime()) return { kind: 'SKIP', reason: 'TOO_LATE' };
   return {
@@ -83,6 +94,7 @@ export function decideTrigger(
       // One confirmation message per booking, whatever event id carried it.
       idempotencyKey: `booking-confirmed:${trigger.bookingId}`,
       recipientRef: trigger.customerId,
+      ...(trigger.recipientNamespace ? { recipientNamespace: trigger.recipientNamespace } : {}),
       channel: policy.channel,
       templateKey: policy.templateKey,
       templateVersion: policy.templateVersion,

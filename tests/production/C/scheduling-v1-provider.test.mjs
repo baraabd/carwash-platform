@@ -163,6 +163,7 @@ test('the published route table is exactly the surface exercised below', () => {
     'POST /holds',
     'POST /holds/:holdId/commit',
     'POST /holds/:holdId/release',
+    'POST /staff/holds',
   ]);
   assert.equal(SCHEDULING_V1.prefix, '/internal/v1/scheduling');
 });

@@ -234,6 +234,16 @@ function MembershipBody({ onSignIn }: { readonly onSignIn: () => void }) {
                 تُحدّد الباقات المشمولة وفق الخطة التي اشتريتها. يتحقق النظام من أهليتها عند اختيار
                 الموعد.
               </p>
+              {client.canRenew(subscription) ? (
+                <button
+                  className="text-btn"
+                  type="button"
+                  disabled={blocked || snapshot.subscriptionsStatus !== 'available'}
+                  onClick={() => void client.chooseRenewal(subscription.subscriptionId)}
+                >
+                  مراجعة شراء فترة جديدة
+                </button>
+              ) : null}
               {(['FREEZE', 'RESUME', 'CANCEL'] as const)
                 .filter((action) =>
                   action === 'RESUME'
@@ -329,6 +339,12 @@ function MembershipBody({ onSignIn }: { readonly onSignIn: () => void }) {
           <p className="input-note">
             {formatMoney(purchase.total)} · {PAYMENT_LABELS[purchase.paymentMethod]}
           </p>
+          {purchase.renewalOf ? (
+            <p className="input-note">
+              تجديد الاشتراك للفترة {purchase.renewalOf.periodNo}. لا تتاح غسلات الفترة الجديدة قبل
+              اعتماد الدفع والتفعيل من الخدمة.
+            </p>
+          ) : null}
           {snapshot.purchaseStatus === 'unavailable' ? (
             <p className="error" role="status">
               تعذّر تحديث الشراء. هذه آخر حالة معروفة.
@@ -437,7 +453,9 @@ function MembershipBody({ onSignIn }: { readonly onSignIn: () => void }) {
             </select>
           </label>
           <p className="input-note">
-            هذا الطلب يبدأ شراء اشتراك مدفوع مسبقًا. لن يُفعّل قبل توثيق التحويل.
+            {snapshot.renewalTarget
+              ? 'هذا الطلب يشتري فترة جديدة للاشتراك المنتهي بدفعة مستقلة. لا تُرحّل الغسلات القديمة ولا يحدث خصم تلقائي. يبدأ الرصيد الجديد بعد توثيق الدفع والتفعيل.'
+              : 'هذا الطلب يبدأ شراء اشتراك مدفوع مسبقًا. لن يُفعّل قبل توثيق التحويل.'}
           </p>
           <button
             className="btn full"
@@ -445,13 +463,17 @@ function MembershipBody({ onSignIn }: { readonly onSignIn: () => void }) {
             disabled={blocked}
             onClick={() => void client.purchase(method)}
           >
-            تأكيد طلب شراء الاشتراك
+            {snapshot.renewalTarget ? 'تأكيد شراء فترة جديدة' : 'تأكيد طلب شراء الاشتراك'}
           </button>
           <button
             className="btn secondary full"
             type="button"
             disabled={blocked}
-            onClick={() => void client.choosePlan(selectedPlan.planId)}
+            onClick={() =>
+              void (snapshot.renewalTarget
+                ? client.chooseRenewal(snapshot.renewalTarget.subscriptionId)
+                : client.choosePlan(selectedPlan.planId))
+            }
           >
             تحديث عرض السعر
           </button>

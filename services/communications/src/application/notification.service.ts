@@ -22,6 +22,7 @@ export interface EnqueueCommand {
   readonly sourceService: unknown;
   readonly idempotencyKey: unknown;
   readonly recipientRef: unknown;
+  readonly recipientNamespace?: unknown;
   readonly channel: unknown;
   readonly templateKey: unknown;
   readonly templateVersion: unknown;

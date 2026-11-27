@@ -2,6 +2,11 @@ import './reference.css';
 import './production.css';
 import './accessibility.css';
 import { currentSession, signOut } from './api/session';
+import { sessionRequests } from './api/http';
+import { invalidateDashboard } from './ui/dashboard-screen';
+import { invalidateBookings } from './ui/bookings-screen';
+import { invalidatePayments } from './ui/payments-screen';
+import { invalidateTechnicians } from './ui/technicians-screen';
 import {
   SCREENS,
   canOpen,
@@ -25,7 +30,6 @@ import {
   markActive,
   showConsoleState,
   storedLanguage,
-  toast,
   wireShell,
 } from './ui/shell';
 import { signIn } from './ui/sign-in';
@@ -112,6 +116,7 @@ function gateNavigation(): void {
 }
 
 async function render(): Promise<void> {
+  closeModal();
   invalidatePrivateScreens(false);
   const current = ++renderGeneration;
   const renderingSession = session;
@@ -173,6 +178,21 @@ async function render(): Promise<void> {
 }
 
 function invalidatePrivateScreens(clearPrivate: boolean): void {
+  invalidateDashboard(clearPrivate);
+  invalidateBookings(clearPrivate);
+  invalidatePayments(clearPrivate);
+  invalidateTechnicians(clearPrivate);
+  if (clearPrivate) {
+    closeModal();
+    for (const id of ['globalSearch', 'bookingSearch', 'obligationRef']) {
+      const input = document.getElementById(id) as HTMLInputElement | null;
+      if (input) input.value = '';
+    }
+    for (const id of ['kpiEligible', 'joinCount', 'toast']) {
+      const element = document.getElementById(id);
+      if (element) element.textContent = '';
+    }
+  }
   invalidateReviewNotifications(clearPrivate);
   invalidateDomainScreens(clearPrivate);
   invalidateSupportScreens(clearPrivate);
@@ -180,7 +200,8 @@ function invalidatePrivateScreens(clearPrivate: boolean): void {
   invalidateSubscriptionScreens(clearPrivate);
 }
 
-function unauthenticated(): void {
+function unauthenticated(showLogin = true): void {
+  sessionRequests.invalidate();
   invalidatePrivateScreens(true);
   renderGeneration += 1;
   session = null;
@@ -188,11 +209,12 @@ function unauthenticated(): void {
   renderProfile();
   gateNavigation();
   showConsoleState(copy().unauthenticated);
-  signIn(signedIn);
+  if (showLogin) signIn(signedIn);
 }
 
 function signedIn(next: StaffSession): void {
-  if (session?.subject !== next.subject) invalidatePrivateScreens(true);
+  sessionRequests.invalidate();
+  invalidatePrivateScreens(true);
   session = next;
   caps = capabilities(next);
   closeModal();
@@ -202,9 +224,16 @@ function signedIn(next: StaffSession): void {
 }
 
 async function leave(): Promise<void> {
+  unauthenticated(false);
+  const epoch = sessionRequests.capture();
   const result = await signOut();
-  if (result.ok) unauthenticated();
-  else toast(failureMessage(result.failure));
+  if (!sessionRequests.current(epoch)) return;
+  if (result.ok) signIn(signedIn);
+  else
+    showConsoleState(failureMessage(result.failure), {
+      label: copy().retry,
+      run: () => void leave(),
+    });
 }
 
 async function boot(): Promise<void> {
@@ -241,7 +270,9 @@ async function boot(): Promise<void> {
     if (session) void leave();
   });
   window.addEventListener('hashchange', () => void render());
+  const epoch = sessionRequests.capture();
   const current = await currentSession();
+  if (!sessionRequests.current(epoch)) return;
   byId('appRoot').setAttribute('aria-busy', 'false');
   if (current.ok) signedIn(current.value);
   else if (current.failure === 'UNAUTHENTICATED') unauthenticated();

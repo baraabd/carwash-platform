@@ -91,6 +91,8 @@ export const AUDIT_ACTIONS = [
   'subscription.requested',
   'subscription.activated',
   'subscription.renewed',
+  'subscription.renewal-requested',
+  'subscription.funding-release-retried',
   'subscription.frozen',
   'subscription.unfrozen',
   'subscription.cancelled',
@@ -179,11 +181,17 @@ export interface LockedSubscription {
 }
 
 export interface SubscriptionUnitOfWork {
+  retryFundingRelease(
+    subscriptionId: string,
+    expectedAttempts: number,
+    at: Date,
+  ): Promise<{ attempts: number; attemptLimit: number } | null>;
   insertChange(record: SubscriptionChangeRecord): Promise<void>;
   lockChange(id: string): Promise<SubscriptionChangeRecord | null>;
   updateChange(record: SubscriptionChangeRecord): Promise<void>;
   lockPurchase(id: string): Promise<PurchaseRecord | null>;
   purchaseForQuote(quoteId: string): Promise<PurchaseRecord | null>;
+  purchaseForPeriod(subscriptionId: string, periodNo: number): Promise<PurchaseRecord | null>;
   insertPurchase(record: PurchaseRecord): Promise<void>;
   updatePurchase(record: PurchaseRecord): Promise<void>;
   /** Serializes one workload command even before a reservation exists. */
@@ -225,6 +233,7 @@ export interface LedgerView {
 }
 
 export interface SubscriptionRepository {
+  fundingRecoveries(limit: number): Promise<Record<string, unknown>[]>;
   pendingChanges(limit: number): Promise<SubscriptionChangeRecord[]>;
   canonicalPlanCodes(after: string | null, limit: number): Promise<string[]>;
   canonicalSubscriptionsOf(
@@ -281,6 +290,12 @@ export interface AccessAuthority {
 
 /** Billing alone verifies settled, unrefunded funding owned by this account. */
 export interface FundingAuthority {
+  claim(input: FundingClaimInput): Promise<'CLAIMED' | 'NOT_VERIFIED' | 'UNAVAILABLE'>;
+  release(input: {
+    readonly subscriptionId: string;
+    readonly customerSubject: string;
+    readonly correlationId: string;
+  }): Promise<'RELEASED' | 'UNAVAILABLE'>;
   verify(input: {
     readonly obligationId: string;
     readonly customerSubject: string;
@@ -290,10 +305,21 @@ export interface FundingAuthority {
   }): Promise<'VERIFIED' | 'NOT_VERIFIED' | 'UNAVAILABLE'>;
 }
 
+export interface FundingClaimInput {
+  readonly obligationId: string;
+  readonly customerSubject: string;
+  readonly subscriptionId: string;
+  readonly periodNo: number;
+  readonly amount: import('../domain').Money;
+  readonly correlationId: string;
+  readonly quoteId?: string;
+}
+
 export interface PurchaseRecord {
   readonly id: string;
   readonly customerSubject: string;
   readonly subscriptionId: string;
+  readonly periodNo: number;
   readonly planId: string;
   readonly planVersion: number;
   readonly quoteId: string;

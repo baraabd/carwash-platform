@@ -216,7 +216,7 @@ test(
     await expect(page.locator('.garage-card .plate-mini')).toHaveText('AB 12');
     await expect(
       page.getByRole('button', { name: 'احجز لهذه السيارة', exact: true }),
-    ).toBeDisabled();
+    ).toBeEnabled();
     const vehicleId = await page.locator('.garage-card').getAttribute('data-vehicle-id');
     assert.equal(
       /^[0-9a-f-]{36}$/.test(vehicleId ?? ''),

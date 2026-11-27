@@ -97,6 +97,7 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
       useFactory: (repository: PrismaSubscriptionRepository) =>
         new EntitlementService({
           repository,
+          funding: new BillingFundingAuthority(billingFundingConfigFromEnv(process.env)),
           authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),
           // No configured client means every entitlement route is refused.
           callers: ConfiguredServiceCallers.fromEnv(process.env),

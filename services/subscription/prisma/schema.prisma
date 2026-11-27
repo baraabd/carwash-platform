@@ -65,29 +65,30 @@ model SubscriptionPlanRevision {
 }
 
 model CustomerSubscription {
-  id                String                   @id @db.Uuid
-  customerSubject   String                   @map("customer_subject") @db.Uuid
-  planCode          String                   @map("plan_code")
-  planRevision      Int                      @map("plan_revision")
+  fundingRelease    SubscriptionFundingRelease?
+  id                String                      @id @db.Uuid
+  customerSubject   String                      @map("customer_subject") @db.Uuid
+  planCode          String                      @map("plan_code")
+  planRevision      Int                         @map("plan_revision")
   status            String
   version           Int
-  displayName       String                   @map("display_name")
-  priceCurrency     String                   @map("price_currency")
-  priceMinor        BigInt                   @map("price_minor")
-  washUnits         Int                      @map("wash_units")
-  periodDays        Int                      @map("period_days")
-  coveredPackageIds String[]                 @map("covered_package_ids")
-  vehicleTypes      String[]                 @default([]) @map("vehicle_types")
+  displayName       String                      @map("display_name")
+  priceCurrency     String                      @map("price_currency")
+  priceMinor        BigInt                      @map("price_minor")
+  washUnits         Int                         @map("wash_units")
+  periodDays        Int                         @map("period_days")
+  coveredPackageIds String[]                    @map("covered_package_ids")
+  vehicleTypes      String[]                    @default([]) @map("vehicle_types")
   available         Boolean
-  currentPeriodNo   Int?                     @map("current_period_no")
-  requestedAt       DateTime                 @map("requested_at") @db.Timestamptz(3)
-  updatedAt         DateTime                 @map("updated_at") @db.Timestamptz(3)
-  freezeReason      String?                  @map("freeze_reason")
-  cancelReason      String?                  @map("cancel_reason")
-  openSlot          Int?                     @map("open_slot") @db.SmallInt
-  revision          SubscriptionPlanRevision @relation(fields: [planCode, planRevision], references: [planCode, revision], onDelete: Restrict, onUpdate: Restrict, map: "customer_subscription_revision_fkey")
+  currentPeriodNo   Int?                        @map("current_period_no")
+  requestedAt       DateTime                    @map("requested_at") @db.Timestamptz(3)
+  updatedAt         DateTime                    @map("updated_at") @db.Timestamptz(3)
+  freezeReason      String?                     @map("freeze_reason")
+  cancelReason      String?                     @map("cancel_reason")
+  openSlot          Int?                        @map("open_slot") @db.SmallInt
+  revision          SubscriptionPlanRevision    @relation(fields: [planCode, planRevision], references: [planCode, revision], onDelete: Restrict, onUpdate: Restrict, map: "customer_subscription_revision_fkey")
   periods           SubscriptionPeriod[]
-  purchase          SubscriptionPurchase?
+  purchases         SubscriptionPurchase[]
   changes           SubscriptionChangeRequest[]
 
   @@unique([customerSubject, planCode, openSlot], map: "customer_subscription_open_key")
@@ -95,38 +96,59 @@ model CustomerSubscription {
   @@map("customer_subscription")
 }
 
+model SubscriptionFundingRelease {
+  subscriptionId String               @id @map("subscription_id") @db.Uuid
+  correlationId  String               @map("correlation_id") @db.Uuid
+  createdAt      DateTime             @map("created_at") @db.Timestamptz(3)
+  nextAttemptAt  DateTime             @map("next_attempt_at") @db.Timestamptz(3)
+  attempts       Int                  @default(0)
+  attemptLimit   Int                  @default(100) @map("attempt_limit")
+  lockedBy       String?              @map("locked_by") @db.Uuid
+  lockedUntil    DateTime?            @map("locked_until") @db.Timestamptz(3)
+  releasedAt     DateTime?            @map("released_at") @db.Timestamptz(3)
+  deadAt         DateTime?            @map("dead_at") @db.Timestamptz(3)
+  subscription   CustomerSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "subscription_funding_release_subscription_fkey")
+
+  @@index([releasedAt, deadAt, nextAttemptAt], map: "subscription_funding_release_pending_idx")
+  @@map("subscription_funding_release")
+}
+
 model SubscriptionPurchase {
-  id              String   @id @db.Uuid
-  customerSubject String   @map("customer_subject") @db.Uuid
-  subscriptionId  String   @unique @map("subscription_id") @db.Uuid
-  planId          String   @map("plan_id") @db.Uuid
-  planVersion     Int      @map("plan_version")
-  quoteId         String   @unique @map("quote_id") @db.Uuid
-  priceCurrency   String   @map("price_currency")
-  priceMinor      BigInt   @map("price_minor")
-  paymentMethod   String   @map("payment_method")
+  id              String               @id @db.Uuid
+  customerSubject String               @map("customer_subject") @db.Uuid
+  subscriptionId  String               @map("subscription_id") @db.Uuid
+  periodNo        Int                  @default(1) @map("period_no")
+  planId          String               @map("plan_id") @db.Uuid
+  planVersion     Int                  @map("plan_version")
+  quoteId         String               @unique @map("quote_id") @db.Uuid
+  priceCurrency   String               @map("price_currency")
+  priceMinor      BigInt               @map("price_minor")
+  paymentMethod   String               @map("payment_method")
   status          String
   revision        Int
-  obligationId    String?  @unique @map("obligation_id") @db.Uuid
-  createdAt       DateTime @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime @map("updated_at") @db.Timestamptz(3)
+  obligationId    String?              @unique @map("obligation_id") @db.Uuid
+  createdAt       DateTime             @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime             @map("updated_at") @db.Timestamptz(3)
   subscription    CustomerSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([subscriptionId, periodNo], map: "subscription_purchase_period_key")
   @@map("subscription_purchase")
 }
 
 model SubscriptionChangeRequest {
-  id               String @id @db.Uuid
-  subscriptionId   String @map("subscription_id") @db.Uuid
-  expectedRevision Int @map("expected_revision")
+  id               String               @id @db.Uuid
+  subscriptionId   String               @map("subscription_id") @db.Uuid
+  expectedRevision Int                  @map("expected_revision")
   action           String
   reason           String
-  requestedBy      String @map("requested_by") @db.Uuid
-  requestedAt      DateTime @map("requested_at") @db.Timestamptz(3)
+  requestedBy      String               @map("requested_by") @db.Uuid
+  requestedAt      DateTime             @map("requested_at") @db.Timestamptz(3)
   status           String
-  decidedBy        String? @map("decided_by") @db.Uuid
-  decidedAt        DateTime? @map("decided_at") @db.Timestamptz(3)
-  subscription     CustomerSubscription @relation(fields:[subscriptionId],references:[id],onDelete:Restrict,onUpdate:Restrict)
-  @@index([status,requestedAt],map:"subscription_change_pending_idx")
+  decidedBy        String?              @map("decided_by") @db.Uuid
+  decidedAt        DateTime?            @map("decided_at") @db.Timestamptz(3)
+  subscription     CustomerSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([status, requestedAt], map: "subscription_change_pending_idx")
   @@map("subscription_change_request")
 }
 
@@ -227,13 +249,14 @@ model SubscriptionAuditEvent {
 
 /// Workload receipts are distinct from human Identity subjects.
 model SubscriptionWorkloadReceipt {
-  clientId     String   @map("client_id")
-  operation    String
-  key          String   @map("idempotency_key")
-  fingerprint  String   @db.Char(64)
-  outcomeStatus Int     @map("outcome_status")
-  outcomeBody  Json     @map("outcome_body")
-  recordedAt   DateTime @map("recorded_at") @db.Timestamptz(3)
+  clientId      String   @map("client_id")
+  operation     String
+  key           String   @map("idempotency_key")
+  fingerprint   String   @db.Char(64)
+  outcomeStatus Int      @map("outcome_status")
+  outcomeBody   Json     @map("outcome_body")
+  recordedAt    DateTime @map("recorded_at") @db.Timestamptz(3)
+
   @@id([clientId, operation, key], map: "subscription_workload_receipt_pkey")
   @@map("subscription_workload_receipt")
 }

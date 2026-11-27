@@ -32,6 +32,8 @@ const REFUND_MESSAGES: Readonly<Record<string, string>> = {
   REFUND_NOT_OPEN: 'This refund is not open for this outcome operation.',
   REFUND_REFERENCE_TAKEN: 'This refund reference was already recorded.',
   REFUND_LIMIT_REACHED: 'The obligation has reached the supported refund count.',
+  SUBSCRIPTION_FUNDING_COMMITTED:
+    'Cancel the funded subscription and settle its outstanding reservations before requesting a refund.',
 };
 
 /** Canonical errors use the published closed envelope, including normative retry flags. */

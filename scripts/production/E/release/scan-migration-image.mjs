@@ -7,8 +7,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { command, tool, toolLock, git } from '../../../ci/runtime.mjs';
 import { trivyFindings } from '../../../ci/policy.mjs';
+import { assessUnfilteredImageScan } from '../../../ci/image-security.mjs';
+import { MIGRATION_RUNTIME_PROBE, assertMigrationRuntimeProof } from './migration-runtime.mjs';
 
-export function assessMigrationScan(report, imageId) {
+export function assessMigrationScan(report, imageId, migrationProof) {
   assert.match(imageId, /^sha256:[0-9a-f]{64}$/);
   assert.equal(
     report?.ArtifactType,
@@ -23,7 +25,13 @@ export function assessMigrationScan(report, imageId) {
     assert.ok(result.Secrets === undefined || Array.isArray(result.Secrets));
     secretCount += result.Secrets?.length ?? 0;
   }
-  // Runtime-only VEX and removed-iconv proofs do not apply to migration jobs.
+  // Without fresh proof from THIS migration image, every finding is blocking.
+  // A runtime-only receipt cannot establish native Prisma/OS compatibility.
+  if (migrationProof !== undefined) {
+    assertMigrationRuntimeProof(migrationProof, imageId);
+    const assessment = assessUnfilteredImageScan(report, 'amd64', migrationProof);
+    return { findings, secretCount, blocking: assessment.unreviewedBlocking };
+  }
   return { findings, secretCount, blocking: findings.filter((finding) => finding.blocking) };
 }
 
@@ -59,6 +67,31 @@ async function run(partFile, reportFile) {
     assert.equal(image.Config.Labels['io.washgo.release.role'], 'migration');
     assert.equal(image.Config.Labels['io.washgo.release.target'], artifact.id);
     evidence.imageId = image.Id;
+    assert.equal(image.Architecture, 'amd64', 'Migration ABI proof requires linux/amd64');
+    const probe = await command(
+      'docker',
+      [
+        'run',
+        '--rm',
+        '--network',
+        'none',
+        '--read-only',
+        '--cap-drop=ALL',
+        '--security-opt=no-new-privileges',
+        '--user',
+        '1000:1000',
+        '--entrypoint',
+        '/usr/local/bin/node',
+        artifact.reference,
+        '-e',
+        MIGRATION_RUNTIME_PROBE,
+      ],
+      { capture: true, timeoutMs: 30000 },
+    );
+    assert.equal(probe.code, 0, 'Migration native runtime/metadata proof failed');
+    const migrationProof = { ...JSON.parse(probe.stdout.trim()), imageId: image.Id };
+    assertMigrationRuntimeProof(migrationProof, image.Id);
+    evidence.migrationRuntime = migrationProof;
     const output = path.join(directory, 'raw.json');
     const scanned = await command(
       tool('trivy'),
@@ -85,7 +118,11 @@ async function run(partFile, reportFile) {
       0,
       'Migration image scanner failed; incomplete scanning is not acceptance',
     );
-    const assessment = assessMigrationScan(JSON.parse(readFileSync(output, 'utf8')), image.Id);
+    const assessment = assessMigrationScan(
+      JSON.parse(readFileSync(output, 'utf8')),
+      image.Id,
+      migrationProof,
+    );
     Object.assign(evidence, assessment);
     assert.equal(assessment.secretCount, 0, 'Migration image contains a secret finding');
     assert.deepEqual(assessment.blocking, [], 'Migration image has blocking vulnerabilities');

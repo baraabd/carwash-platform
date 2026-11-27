@@ -818,7 +818,7 @@ test('service authorization: deny by default, explicit scopes, owner-bound reser
   assert.equal(wrongScope.status, 401, 'settle-only client cannot reserve');
   assert.equal(
     (await call('POST', '/reservations', { body, token: TOKENS.admin })).status,
-    401,
+    403,
     'a user token is not a service credential',
   );
   const foreign = await reserve({ ...body, customerSubject: OTHER_CUSTOMER_SUBJECT });
@@ -943,7 +943,19 @@ test('trigger functions are not executable by the runtime role or PUBLIC', async
        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = 'app'`,
   );
-  assert.equal(rows.rowCount, 7);
+  assert.deepEqual(rows.rows.map((row) => String(row.proname)).sort(), [
+    'subscription_change_guard',
+    'subscription_check_period',
+    'subscription_check_reservation',
+    'subscription_enqueue_funding_release',
+    'subscription_guard_period',
+    'subscription_guard_reservation',
+    'subscription_guard_revision_insert',
+    'subscription_guard_terms',
+    'subscription_guard_vehicle_terms',
+    'subscription_purchase_guard',
+    'subscription_reject_mutation',
+  ]);
   for (const row of rows.rows as { proname: string; runtime: boolean; acl: string }[]) {
     assert.equal(row.runtime, false, row.proname);
     assert.doesNotMatch(row.acl, /(^|,)=X/, `${row.proname} must not grant EXECUTE to PUBLIC`);

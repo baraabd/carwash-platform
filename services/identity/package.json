@@ -9,7 +9,8 @@
     "build:tests": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "migrate:deploy": "prisma migrate deploy",
-    "start": "node dist/main.js"
+    "start": "node dist/main.js",
+    "bootstrap:admin": "node dist/transport/cli/bootstrap-initial-administrator.js"
   },
   "dependencies": {
     "@carwash/contracts": "workspace:*",

@@ -137,6 +137,7 @@ function toPurchase(row: Prisma.SubscriptionPurchaseGetPayload<object>): Purchas
     id: row.id,
     customerSubject: row.customerSubject,
     subscriptionId: row.subscriptionId,
+    periodNo: row.periodNo,
     planId: row.planId,
     planVersion: row.planVersion,
     quoteId: row.quoteId,
@@ -269,6 +270,19 @@ async function revisionsOf(db: Db, planCode: string): Promise<PlanRevisionRecord
 class PrismaSubscriptionUnitOfWork implements SubscriptionUnitOfWork {
   constructor(private readonly tx: Tx) {}
 
+  async retryFundingRelease(
+    subscriptionId: string,
+    expectedAttempts: number,
+    at: Date,
+  ): Promise<{ attempts: number; attemptLimit: number } | null> {
+    const rows = await this.tx.$queryRaw<Array<{ attempts: number; attemptLimit: number }>>`
+      UPDATE app.subscription_funding_release SET dead_at=NULL,next_attempt_at=${at},attempt_limit=attempts+100
+      WHERE subscription_id=${subscriptionId}::uuid AND attempts=${expectedAttempts}
+        AND attempts<2147483547 AND released_at IS NULL AND dead_at IS NOT NULL AND locked_until IS NULL
+      RETURNING attempts,attempt_limit AS "attemptLimit"`;
+    return rows[0] ?? null;
+  }
+
   async insertChange(record: SubscriptionChangeRecord): Promise<void> {
     await this.tx.subscriptionChangeRequest.create({ data: record });
   }
@@ -294,8 +308,18 @@ class PrismaSubscriptionUnitOfWork implements SubscriptionUnitOfWork {
 
   async purchaseForQuote(quoteId: string): Promise<PurchaseRecord | null> {
     await this.tx
-      .$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`purchase-quote:${quoteId}`},0))`;
+      .$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`purchase-quote:${quoteId}`},0))::text`;
     const row = await this.tx.subscriptionPurchase.findUnique({ where: { quoteId } });
+    return row ? toPurchase(row) : null;
+  }
+
+  async purchaseForPeriod(
+    subscriptionId: string,
+    periodNo: number,
+  ): Promise<PurchaseRecord | null> {
+    const row = await this.tx.subscriptionPurchase.findUnique({
+      where: { subscriptionId_periodNo: { subscriptionId, periodNo } },
+    });
     return row ? toPurchase(row) : null;
   }
 
@@ -324,7 +348,7 @@ class PrismaSubscriptionUnitOfWork implements SubscriptionUnitOfWork {
     key: string,
   ): Promise<WorkloadReceipt | null> {
     const lock = JSON.stringify(['subscription-command', clientId, operation, key]);
-    await this.tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lock}, 0))`;
+    await this.tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lock}, 0))::text`;
     const row = await this.tx.subscriptionWorkloadReceipt.findUnique({
       where: { clientId_operation_key: { clientId, operation, key } },
     });
@@ -641,6 +665,43 @@ export class PrismaSubscriptionRepository implements SubscriptionRepository {
   constructor(prisma: PrismaService) {
     this.client = prisma.client;
   }
+  async fundingRecoveries(limit: number): Promise<Record<string, unknown>[]> {
+    const rows = await this.client.$queryRaw<
+      Array<{
+        subscriptionId: string;
+        attempts: number;
+        attemptLimit: number;
+        reservedUnits: bigint;
+        createdAt: Date;
+        nextAttemptAt: Date;
+        releasedAt: Date | null;
+        deadAt: Date | null;
+      }>
+    >`
+      SELECT q.subscription_id AS "subscriptionId",q.attempts,q.attempt_limit AS "attemptLimit",
+        q.created_at AS "createdAt",q.next_attempt_at AS "nextAttemptAt",q.released_at AS "releasedAt",q.dead_at AS "deadAt",
+        COALESCE((SELECT sum(p.reserved) FROM app.subscription_period p WHERE p.subscription_id=q.subscription_id),0)::bigint AS "reservedUnits"
+      FROM app.subscription_funding_release q
+      ORDER BY (q.released_at IS NULL) DESC,(q.dead_at IS NOT NULL) DESC,q.created_at,q.subscription_id LIMIT ${limit}`;
+    return rows.map((row) => ({
+      subscriptionId: row.subscriptionId,
+      attempts: row.attempts,
+      attemptLimit: row.attemptLimit,
+      reservedUnits: Number(row.reservedUnits),
+      status: row.releasedAt
+        ? 'RELEASED'
+        : row.deadAt
+          ? 'ATTENTION_REQUIRED'
+          : row.reservedUnits > 0n
+            ? 'WAITING_RESERVATIONS'
+            : row.attempts
+              ? 'RETRYING'
+              : 'PENDING',
+      requestedAt: row.createdAt.toISOString(),
+      nextAttemptAt: row.nextAttemptAt.toISOString(),
+      releasedAt: row.releasedAt?.toISOString() ?? null,
+    }));
+  }
   async pendingChanges(limit: number): Promise<SubscriptionChangeRecord[]> {
     const rows = await this.client.subscriptionChangeRequest.findMany({
       where: { status: 'PENDING_REVIEW' },
@@ -656,7 +717,16 @@ export class PrismaSubscriptionRepository implements SubscriptionRepository {
   }
 
   async purchaseForSubscription(subscriptionId: string): Promise<PurchaseRecord | null> {
-    const row = await this.client.subscriptionPurchase.findUnique({ where: { subscriptionId } });
+    const subscription = await this.client.customerSubscription.findUnique({
+      where: { id: subscriptionId },
+      select: { currentPeriodNo: true },
+    });
+    if (!subscription) return null;
+    const row = await this.client.subscriptionPurchase.findUnique({
+      where: {
+        subscriptionId_periodNo: { subscriptionId, periodNo: subscription.currentPeriodNo ?? 1 },
+      },
+    });
     return row ? toPurchase(row) : null;
   }
 
@@ -701,7 +771,7 @@ export class PrismaSubscriptionRepository implements SubscriptionRepository {
     const rows = await this.client.customerSubscription.findMany({
       where: {
         customerSubject: subject,
-        purchase: { status: 'ACTIVATED' },
+        purchases: { some: { status: 'ACTIVATED' } },
         ...(after ? { id: { gt: after } } : {}),
       },
       orderBy: { id: 'asc' },

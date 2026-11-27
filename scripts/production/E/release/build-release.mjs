@@ -170,6 +170,8 @@ async function buildOne({ target, role, registry, source, nodeBase, toolLock, ou
     buildArgs.push('--build-arg', `RUNTIME_IMAGE=${toolLock.runtime.image}`);
     buildArgs.push('--build-arg', `NATIVE_RUNTIME_IMAGE=${toolLock.nativeLibraries.image}`);
   } else {
+    buildArgs.push('--build-arg', `MIGRATION_RUNTIME_IMAGE=${toolLock.runtime.image}`);
+    buildArgs.push('--build-arg', `MIGRATION_NATIVE_IMAGE=${toolLock.nativeLibraries.image}`);
     buildArgs.push('--build-arg', `SERVICE=${target.id}`);
   }
   const epoch = String(Math.floor(Date.parse(source.committedAt) / 1000));

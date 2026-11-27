@@ -1,5 +1,6 @@
 import type {
   Channel,
+  RecipientNamespace,
   NotificationSubject,
   DeliveryState,
   NotificationRequest,
@@ -13,6 +14,7 @@ export interface Clock {
 
 /** What the provider receives. The recipient is still an opaque reference. */
 export interface ProviderSubmission {
+  readonly recipientNamespace?: RecipientNamespace;
   readonly idempotencyKey: string;
   readonly channel: Channel;
   readonly recipientRef: string;
@@ -36,7 +38,8 @@ export interface NotificationProvider {
 export type EnqueueResult =
   | { readonly kind: 'CREATED'; readonly notificationId: string }
   | { readonly kind: 'REPLAYED'; readonly notificationId: string }
-  | { readonly kind: 'CONFLICT' };
+  | { readonly kind: 'CONFLICT' }
+  | { readonly kind: 'SUPPRESSED'; readonly reason: 'BOOKING_CANCELLED' };
 
 /** A claimed unit of work. `fence` proves which claim owns the attempt. */
 export interface ClaimedDelivery {
@@ -63,6 +66,13 @@ export interface NotificationView {
 
 /** Writes that may run inside a caller's transaction (for example an inbox effect). */
 export interface NotificationIntake {
+  cancelBooking(input: {
+    bookingId: string;
+    eventId: string;
+    version: number;
+    occurredAt: Date;
+    now: Date;
+  }): Promise<void>;
   enqueue(input: {
     request: NotificationRequest;
     requestHash: string;

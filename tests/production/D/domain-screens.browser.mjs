@@ -6,13 +6,15 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { chromium, expect } from '@playwright/test';
-import { build } from 'vite';
+import { createRequire } from 'node:module';
 import { createWebRuntime } from '../../../infra/web-runtime.mjs';
 
 const id = (n) => `${String(n).padStart(8, '0')}-1234-4123-8123-123456789012`;
 const instant = '2026-11-27T08:00:00.000Z';
 const money = (amountMinor = '10000') => ({ currency: 'SYP', amountMinor, scale: 2 });
-const appRoot = resolve(import.meta.dirname, '..');
+const appRoot = resolve(import.meta.dirname, '../../../apps/admin-web');
+const appRequire = createRequire(resolve(appRoot, 'package.json'));
+const { build } = await import(appRequire.resolve('vite'));
 const buildRoot = mkdtempSync(resolve(tmpdir(), 'admin-domains-build-'));
 const evidence =
   process.env.ADMIN_DOMAINS_EVIDENCE_DIR ??
@@ -348,6 +350,7 @@ try {
         asOf: instant,
       });
     if (path === '/admin/subscription-changes') return reply({ items: changes });
+    if (path === '/admin/subscription-funding-recovery') return reply({ items: [], asOf: instant });
     if (path === `/admin/subscriptions/${id(40)}`) return reply(subscription);
     if (path === `/admin/subscriptions/${id(40)}/changes/${id(44)}/decision`) {
       subscription.revision = 4;
@@ -431,7 +434,9 @@ try {
   await page.getByLabel('المبلغ المعدود فعليًا').fill('99');
   await page.getByLabel('مرجع إيصال الخزينة').fill('TR-1234');
   await page.getByRole('button', { name: 'تأكيد التسجيل', exact: true }).click();
-  await expect(page.getByText('استلمتها الخزينة — بانتظار التسوية', { exact: true })).toBeVisible();
+  await expect(
+    page.locator('#modalBody').getByText('استلمتها الخزينة — بانتظار التسوية', { exact: true }),
+  ).toBeVisible();
   assert.equal(handover.status, 'RECEIVED');
   assert.equal(handover.reconciledAt, null);
   await capture('admin-custody-received-not-settled');

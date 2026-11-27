@@ -62,8 +62,8 @@ function challengeModel(row: IdentityChallenge | null): Challenge | null {
     throw new Error('INVALID_STORED_CHALLENGE');
   return { ...row, purpose: row.purpose, state: row.state };
 }
-class Transaction implements IdentityTransaction {
-  constructor(private readonly tx: Prisma.TransactionClient) {}
+export class Transaction implements IdentityTransaction {
+  constructor(protected readonly tx: Prisma.TransactionClient) {}
   async lockEmail(email: string): Promise<void> {
     await this.tx
       .$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${email}, 0))`;

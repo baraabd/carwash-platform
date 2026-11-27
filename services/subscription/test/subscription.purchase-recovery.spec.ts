@@ -20,6 +20,7 @@ function fixture() {
     id: randomUUID(),
     customerSubject: CUSTOMER_SUBJECT,
     subscriptionId: randomUUID(),
+    periodNo: 1,
     planId: randomUUID(),
     planVersion: 1,
     quoteId: randomUUID(),

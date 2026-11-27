@@ -204,7 +204,7 @@ test.before(async () => {
   await assertBillingLedgerHelpersPrivate();
   const identity = (stack.identity = await startIdentity());
   const quotes = (stack.quotes = await startQuoteDouble());
-  const { startOwnerDoubles, bookingEnv } = owned('booking')(
+  const { startOwnerDoubles, bookingEnv, dispatchEnv } = owned('booking')(
     path.join(ROOT, 'services', 'booking', 'dist-tests', 'test', 'support', 'owner-doubles.js'),
   );
   const doubles = (stack.doubles = await startOwnerDoubles());
@@ -216,6 +216,7 @@ test.before(async () => {
   }));
   const booking = (stack.booking = await nestService('booking', {
     ...bookingEnv(doubles, appDsn(context, 'booking')),
+    ...dispatchEnv(doubles),
     IDENTITY_URL: identity.base,
     BOOKING_USER_REQUESTS_PER_MINUTE: '600',
     BOOKING_INLINE_SAGA_BUDGET_MS: '15000',

@@ -1,5 +1,6 @@
 import {
   parseCreatePurchaseRequestV1,
+  parseCreateRenewalPurchaseRequestV1,
   parseRequestSubscriptionChangeV1,
 } from '@carwash/contracts/subscription-v1';
 import { parseCreateSubscriptionQuoteV1 } from '@carwash/contracts/pricing-v1';
@@ -55,6 +56,7 @@ const purchase = () => ({
   paymentMethod: 'SHAM_CASH',
   obligationId: id(70),
   subscriptionId: null,
+  renewalOf: null,
   createdAt: instant,
   updatedAt: instant,
 });
@@ -66,6 +68,8 @@ const subscription = () => ({
   planId: id(90),
   planVersion: 2,
   purchaseId: id(93),
+  periodNo: 1,
+  renewalAvailable: false,
   units: { total: 4, reserved: 1, consumed: 0, available: 3 },
   startsAt: instant,
   expiresAt: '2026-12-27T08:00:00.000Z',
@@ -122,6 +126,19 @@ function harness() {
       if (request.path.endsWith('/subscription-purchases') && request.method === 'POST') {
         parseCreatePurchaseRequestV1(request.body);
         state.purchase = { ...state.purchase, paymentMethod: request.body.paymentMethod };
+        state.byRequest.set(request.headers['idempotency-key'], structuredClone(state.purchase));
+        return response(state.purchase, 201);
+      }
+      if (
+        request.path === `/api/v1/customer/subscriptions/${id(94)}/renewals` &&
+        request.method === 'POST'
+      ) {
+        parseCreateRenewalPurchaseRequestV1(request.body);
+        state.purchase = {
+          ...state.purchase,
+          paymentMethod: request.body.paymentMethod,
+          renewalOf: { subscriptionId: id(94), periodNo: state.subscription.periodNo + 1 },
+        };
         state.byRequest.set(request.headers['idempotency-key'], structuredClone(state.purchase));
         return response(state.purchase, 201);
       }

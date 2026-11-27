@@ -431,7 +431,10 @@ test('migration image: no app code, install shared across owners, non-root, no p
       dockerfile.indexOf('ARG SERVICE\nRUN test'),
   );
   assert.match(dockerfile, /^USER 1000:1000$/m);
-  assert.match(dockerfile, /rm -rf \/usr\/local\/lib\/node_modules\/npm/);
+  assert.match(dockerfile, /FROM \$\{MIGRATION_RUNTIME_IMAGE\} AS job/);
+  assert.doesNotMatch(dockerfile, /FROM \$\{NODE_IMAGE\} AS job/);
+  assert.match(dockerfile, /COPY --from=builder \/usr\/local\/bin\/node/);
+  assert.match(dockerfile, /\/var\/lib\/dpkg\/status\.d\/libssl3t64/);
   assert.match(dockerfile, /ENTRYPOINT \["node", "\/migrate\/migrate-job\.mjs"\]/);
   assert.doesNotMatch(dockerfile, /COPY[^\n]*\/deploy\/dist/);
   assert.doesNotMatch(dockerfile, /:latest/);
@@ -472,6 +475,8 @@ test('the build pins every image build arg by digest and records only the pushed
   assert.match(source, /NODE_IMAGE=\$\{nodeBase\.pullReference\}/);
   assert.match(source, /reference: canonicalOfficialReference\(tag, digest\)/);
   assert.match(source, /RUNTIME_IMAGE=\$\{toolLock\.runtime\.image\}/);
+  assert.match(source, /MIGRATION_RUNTIME_IMAGE=\$\{toolLock\.runtime\.image\}/);
+  assert.match(source, /MIGRATION_NATIVE_IMAGE=\$\{toolLock\.nativeLibraries\.image\}/);
   assert.match(source, /containerimage\.digest/);
   assert.match(source, /assertCleanSource\(\)/);
 });

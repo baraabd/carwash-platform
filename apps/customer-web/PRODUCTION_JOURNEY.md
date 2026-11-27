@@ -55,13 +55,13 @@ On the implementation working tree, using Node **24.22.3** and pnpm **10.32.1**:
 ```sh
 node --test --test-reporter=tap tests/unit/c0*.test.mjs apps/customer-web/test/*.test.mjs
 pnpm --filter @carwash/customer-web typecheck
-pnpm exec eslint apps/customer-web/test apps/customer-web/browser tests/unit/c008-customer-location.test.mjs
+pnpm exec eslint apps/customer-web/test tests/production/A/production-journey.browser.mjs tests/unit/c008-customer-location.test.mjs
 node scripts/check-design-reference.mjs
 ```
 
 The combined customer/reference unit and transport suite passed **374/374**, with no skipped tests. TypeScript and the focused JavaScript lint passed. The design guard verified all **10** canonical artifacts unchanged. Transport tests cover price/beneficiary corruption, manual-address rejection, expired holds, same-key retries, lost-create recovery, foreign records, payment review, session changes, subscription quote/purchase/recovery/change states, owner eligibility revisions, global earliest selection, and mismatched booking/hold receipts. These are not database, broker or live owner integration evidence.
 
-`browser/production-journey.browser.mjs` builds the actual production bundle into a temporary directory and exercises it in Chromium with explicit HTTP transport doubles. It records the browser version, source SHA, flow results and screenshots. It covers the seven screens, owner pending/confirmed transitions, persisted reload/orders, wallet review/owner settlement, ambiguous-create reload recovery, account OTP entry, membership purchase/payment review/owner activation, pending freeze, and eligibility-backed Booking creation. It is wired into `.github/workflows/c014-booking-confirmation.yml`, alongside the unchanged parity reference acceptance. This production browser suite has not run locally: the available Chromium launcher has no executable, and browser download access is blocked. CI must provide the browser evidence before approval.
+`tests/production/A/production-journey.browser.mjs` builds the actual production bundle into a temporary directory and exercises it in Chromium with explicit HTTP transport doubles. It records the browser version, source SHA, flow results and screenshots. It covers the seven screens, owner pending/confirmed transitions, persisted reload/orders, wallet review/owner settlement, ambiguous-create reload recovery, account OTP entry, membership purchase/payment review/owner activation, pending freeze, and eligibility-backed Booking creation. It is wired into `.github/workflows/c014-booking-confirmation.yml`, alongside the unchanged parity reference acceptance. This production browser suite has not run locally: the available Chromium launcher has no executable, and browser download access is blocked. CI must provide the browser evidence before approval.
 
 ## Remaining acceptance and external dependencies
 

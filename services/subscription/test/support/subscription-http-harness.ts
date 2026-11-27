@@ -145,18 +145,24 @@ export async function startSubscriptionHttp(input: {
     ids: new RandomIds(),
     hasher: new Sha256Hasher(),
   };
+  const funding: FundingAuthority = input.funding ?? {
+    verify: () => Promise.resolve('VERIFIED'),
+    claim: () => Promise.resolve('CLAIMED'),
+    release: () => Promise.resolve('RELEASED'),
+  };
   const subscriptions = new SubscriptionService({
     ...common,
-    funding: input.funding ?? { verify: () => Promise.resolve('VERIFIED') },
+    funding,
   });
   const canonical = new CanonicalSubscriptionService({
     ...common,
     legacy: subscriptions,
-    funding: input.funding ?? { verify: () => Promise.resolve('VERIFIED') },
+    funding,
     owners:
       input.owners ?? new PurchaseOwnersClient({ billing: null, pricing: null, timeoutMs: 1000 }),
   });
   const entitlements = new EntitlementService({
+    funding,
     ...common,
     callers: new ConfiguredServiceCallers(serviceClientsConfig()),
   });

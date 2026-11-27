@@ -1,9 +1,10 @@
 /**
- * Real PostgreSQL/RabbitMQ and the four COMPILED production worker entrypoints.
+ * Real PostgreSQL/RabbitMQ and six COMPILED production worker entrypoints.
  * Real Workforce HTTP facts and real Dispatch HTTP execution projection.
  * Pricing/Billing snapshot ports and Media evidence are declared fixtures;
  * this proves process wiring/restarts/fences, not S11 hosted end-to-end acceptance.
- * Requires the lane-C Docker stack and build:tests for all four owner services.
+ * Reporting and Communications consume the real native owner publications.
+ * Requires lane-C plus Reporting/Communications owner DBs, and built services.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -44,6 +45,11 @@ const { WorkforceCapacityClient } = serviceDist(
 const { ServiceHttp } = serviceDist('dispatch', 'infrastructure/http/service-http.js');
 const ids = { next: randomUUID };
 const clock = { now: () => new Date() };
+const { serviceTelemetry } = require(path.join(ROOT, 'packages/service-kit/dist/index.js'));
+const { PrismaService: ReportingPrisma } = serviceDist('reporting', 'prisma.service.js');
+const { PrismaService: CommunicationsPrisma } = serviceDist('communications', 'prisma.service.js');
+const intentionalCrashes = new WeakSet();
+const gracefulStops = new WeakSet();
 
 async function eventually(read, predicate, label, timeoutMs = 30_000) {
   const deadline = Date.now() + timeoutMs;
@@ -56,22 +62,69 @@ async function eventually(read, predicate, label, timeoutMs = 30_000) {
   throw new Error(`Timed out: ${label}`);
 }
 async function stop(proc, force = false) {
-  if (!proc || proc.child.exitCode !== null || proc.child.signalCode !== null) return;
+  if (!proc) return;
   if (force) {
+    assert.equal(proc.child.exitCode, null, 'crash seam requires a running worker');
+    assert.equal(proc.child.signalCode, null, 'crash seam requires an unsignalled worker');
+    intentionalCrashes.add(proc);
     await proc.kill();
     return;
+  }
+  if (intentionalCrashes.has(proc) || gracefulStops.has(proc)) return;
+  if (proc.child.exitCode !== null || proc.child.signalCode !== null) {
+    assert.fail(
+      `worker exited before requested shutdown (${proc.child.exitCode ?? proc.child.signalCode}): ${proc.stderr().slice(-500)}`,
+    );
   }
   proc.child.kill('SIGTERM');
   const timer = setTimeout(() => proc.child.kill('SIGKILL'), 20_000);
   const exit = await proc.exited;
   clearTimeout(timer);
   assert.equal(exit.code, 0, `worker graceful shutdown: ${proc.stderr().slice(-500)}`);
+  gracefulStops.add(proc);
 }
 
 test(
-  'production runtime: committed hold → durable automatic fallback after crash → genuine work completion → Booking projection',
+  'six production workers: hold → durable assignment fallback → work completion → Booking, Reporting and Communications effects',
   { timeout: 180_000 },
-  async () => {
+  async (t) => {
+    const processes = [];
+    const databases = [];
+    let connection, channel;
+    // Register before opening any resource: setup failures must not leak pools or children.
+    t.after(
+      async () => {
+        const shutdowns = await Promise.allSettled(
+          processes.reverse().map(async (process) => {
+            try {
+              await stop(process);
+            } catch (error) {
+              await process.kill();
+              throw error;
+            }
+          }),
+        );
+        await channel?.close().catch(() => {});
+        await connection?.close().catch(() => {});
+        const disconnected = await Promise.allSettled(
+          databases.map((db) => db.client.$disconnect()),
+        );
+        const telemetry = await Promise.allSettled(
+          ['scheduling', 'dispatch', 'workforce', 'booking', 'reporting', 'communications'].map(
+            (owner) => serviceTelemetry(owner).shutdown(),
+          ),
+        );
+        const failed = [...shutdowns, ...disconnected, ...telemetry].filter(
+          (result) => result.status === 'rejected',
+        );
+        if (failed.length)
+          throw new AggregateError(
+            failed.map((result) => result.reason),
+            'Worker shutdown failed',
+          );
+      },
+      { timeout: 30_000 },
+    );
     const context = await readContext();
     const S = support('scheduling'),
       D = support('dispatch'),
@@ -79,27 +132,25 @@ test(
     const scheduling = S.replica(clock),
       dispatch = D.replica(clock),
       workforce = W.replica(clock);
+    databases.push(scheduling.prisma, dispatch.prisma, workforce.prisma);
     const bookingPrisma = new BookingPrisma(context.databases.booking.appUrl);
+    databases.push(bookingPrisma);
+    const reporting = new ReportingPrisma(context.databases.reporting.appUrl);
+    databases.push(reporting);
+    const communications = new CommunicationsPrisma(context.databases.communications.appUrl);
+    databases.push(communications);
     const bookingStore = new PrismaBookingStore(bookingPrisma, { sagaLeaseMs: 30_000 });
-    const processes = [];
-    const connection = await amqplib().connect(context.brokerUrl);
-    const channel = await connection.createConfirmChannel();
-    const observed = [];
+    connection = await amqplib().connect(context.brokerUrl);
+    channel = await connection.createConfirmChannel();
     try {
       // Infra identity bootstraps producer exchanges. Workers themselves declare only owned topology.
-      const spy = await channel.assertQueue('', { exclusive: true });
       for (const owner of ['booking', 'dispatch', 'scheduling', 'workforce']) {
         await channel.assertExchange(`${owner}.events`, 'topic', { durable: true });
-        await channel.bindQueue(spy.queue, `${owner}.events`, '#');
       }
       await messaging().assertTopology(
         channel,
         serviceDist('booking', 'workers/runtime.js').executionTopology,
       );
-      await channel.consume(spy.queue, (message) => {
-        observed.push(JSON.parse(message.content));
-        channel.ack(message);
-      });
       const window = await S.defineWindow(scheduling.capacity, clock, 2);
       const technicians = [];
       for (let i = 0; i < 2; i++) {
@@ -168,13 +219,23 @@ test(
         LOG_LEVEL: 'info',
       });
       const startWorker = (name) => {
-        const p = startProcess(
-          path.join(ROOT, 'services', name, 'dist/workers/runtime.main.js'),
-          workerEnv(name),
-        );
+        const entry =
+          name === 'reporting'
+            ? 'inbox/operations-consumer.runner.js'
+            : name === 'communications'
+              ? 'inbox/event-notifications-consumer.runner.js'
+              : 'workers/runtime.main.js';
+        const p = startProcess(path.join(ROOT, 'services', name, 'dist', entry), workerEnv(name));
         processes.push(p);
         return p;
       };
+      let reportingWorker = startWorker('reporting');
+      let communicationsWorker = startWorker('communications');
+      await Promise.all(
+        [reportingWorker, communicationsWorker].map((p) =>
+          p.waitFor((line) => line.event === 'consumer_started'),
+        ),
+      );
       let dWorker = startWorker('dispatch');
       let bWorker;
       startWorker('scheduling');
@@ -193,6 +254,9 @@ test(
       await eventually(
         async () => {
           const probe = await connection.createChannel();
+          // checkQueue closes a channel when startup has not declared the queue yet.
+          // Consume its expected error event as well as handling the rejected RPC.
+          probe.on('error', () => {});
           try {
             return await probe.checkQueue('dispatch.scheduling.hold-changed');
           } catch {
@@ -298,6 +362,14 @@ test(
       assert.equal((await bookingStore.find(booking.id)).booking.status, 'CONFIRMED');
       assert.equal(debts, 1);
       bWorker = startWorker('booking');
+      const intent = await eventually(
+        () => communications.client.notification.findFirst({ where: { subjectRef: booking.id } }),
+        (row) => row?.state === 'QUEUED',
+        'native Booking publication persisted one Communications intent',
+      );
+      assert.equal(intent.recipientNamespace, 'IDENTITY_ACCOUNT');
+      assert.equal(intent.recipientRef, beneficiary.subjectId);
+      assert.equal(intent.attemptCount, 0, 'no provider delivery is claimed by this suite');
       const assignment = await eventually(
         () => dispatch.store.findAssignmentByBooking(booking.id),
         (x) => x?.status === 'OFFERED',
@@ -404,21 +476,61 @@ test(
         'Booking completion from production consumer',
       );
       assert.equal(debts, 1, 'completion never creates a second financial obligation');
-      assert.ok(observed.some((e) => e.eventType === 'workforce.eligibility-changed.v1'));
-      assert.ok(
-        observed.some((e) => e.eventType === 'workforce.shift-updated.v1' && e.schemaVersion === 1),
+      const projection = await eventually(
+        () =>
+          reporting.client.opsOwnerObservation.findUnique({
+            where: {
+              eventType_aggregateId: {
+                eventType: 'booking.lifecycle-progressed.v1',
+                aggregateId: booking.id,
+              },
+            },
+          }),
+        (row) => row?.state.status === 'COMPLETED',
+        'native Booking completion applied by Reporting consumer',
+      );
+      assert.equal(projection.version, completed.booking.version);
+      const projectedBooking = await reporting.client.opsBooking.findUnique({
+        where: { bookingId: booking.id },
+      });
+      assert.equal(projectedBooking.customerRef, beneficiary.subjectId);
+      assert.equal(projectedBooking.slotHoldId, hold.holdId);
+      const projectedAssignment = await eventually(
+        () => reporting.client.opsAssignment.findUnique({ where: { assignmentId: assignment.id } }),
+        (row) => row?.status === 'ASSIGNED',
+        'Dispatch assignment applied by Reporting consumer',
+      );
+      assert.equal(projectedAssignment.resourceId, nextOffer.resourceId);
+      for (const person of technicians)
+        await eventually(
+          () =>
+            reporting.client.opsResourceEligibility.findUnique({
+              where: { resourceId: person.operatorId },
+            }),
+          Boolean,
+          'Workforce eligibility applied by Reporting consumer',
+        );
+      await eventually(
+        () =>
+          reporting.client.opsOwnerObservation.count({
+            where: { eventType: 'workforce.shift-updated.v1' },
+          }),
+        (n) => n >= 2,
+        'Workforce shifts applied by Reporting consumer',
       );
       await eventually(
-        async () =>
-          observed.some(
-            (e) =>
-              e.eventType === 'booking.lifecycle-progressed.v1' &&
-              e.aggregate.id === booking.id &&
-              e.data.status === 'COMPLETED',
+        () =>
+          reporting.client.opsOwnerObservation.findMany({
+            where: { eventType: 'dispatch.cash-declared.v1' },
+          }),
+        (rows) =>
+          rows.some(
+            (row) =>
+              row.state.bookingId === booking.id && row.state.outcome === 'CASH_NOT_COLLECTED',
           ),
-        Boolean,
-        'Booking completion outbox relay',
+        'Dispatch declaration persisted without inventing Billing payment',
       );
+      assert.equal(await reporting.client.opsObligation.count(), 0);
 
       // Redelivery across a real consumer process restart preserves the same booking revision.
       const [source] = await dispatch.prisma.client.$queryRawUnsafe(
@@ -451,19 +563,45 @@ test(
         (await bookingStore.find(booking.id)).booking.version,
         completed.booking.version,
       );
-    } finally {
-      for (const process of processes.reverse())
-        await stop(process).catch(async () => {
-          await process.kill();
-        });
-      await channel.close().catch(() => {});
-      await connection.close().catch(() => {});
-      await Promise.all([
-        scheduling.prisma.client.$disconnect(),
-        dispatch.prisma.client.$disconnect(),
-        workforce.prisma.client.$disconnect(),
-        bookingPrisma.client.$disconnect(),
-      ]);
+      const [created] = await bookingPrisma.client.$queryRawUnsafe(
+        `SELECT payload FROM app.outbox_message WHERE event_type='booking.created.v1'
+         AND payload::jsonb#>>'{aggregate,id}'=$1`,
+        booking.id,
+      );
+      const createdEvent = JSON.parse(created.payload);
+      await Promise.all([stop(reportingWorker, true), stop(communicationsWorker, true)]);
+      channel.publish('booking.events', createdEvent.eventType, Buffer.from(created.payload), {
+        persistent: true,
+        messageId: createdEvent.eventId,
+      });
+      await channel.waitForConfirms();
+      reportingWorker = startWorker('reporting');
+      communicationsWorker = startWorker('communications');
+      await Promise.all(
+        [reportingWorker, communicationsWorker].map((p) =>
+          p.waitFor(
+            (line) =>
+              line.event === 'consumer_committed' &&
+              line.eventId === createdEvent.eventId &&
+              line.outcome === 'DUPLICATE',
+          ),
+        ),
+      );
+      assert.equal(
+        await communications.client.notification.count({ where: { subjectRef: booking.id } }),
+        1,
+      );
+      assert.equal(
+        (await reporting.client.opsBooking.findUnique({ where: { bookingId: booking.id } }))
+          .confirmationVersion,
+        projectedBooking.confirmationVersion,
+      );
+      for (const queue of ['reporting.operations.dlq', 'communications.event-notifications.dlq'])
+        assert.equal((await channel.checkQueue(queue)).messageCount, 0, `${queue} remains empty`);
+    } catch (error) {
+      t.diagnostic(error instanceof Error ? error.stack : String(error));
+      for (const proc of processes) if (proc.stderr()) t.diagnostic(proc.stderr().slice(-1_000));
+      throw error;
     }
   },
 );

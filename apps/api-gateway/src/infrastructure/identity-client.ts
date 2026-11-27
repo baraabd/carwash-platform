@@ -20,6 +20,14 @@ export class PublicIdentityClient implements AuthPort {
     this.verifier = new AccessTokenVerifier(
       { issuer: config.issuer, audience: config.audience },
       new URL(`${config.origins.identity}${IDENTITY_V1}/.well-known/jwks.json`),
+      config.privateNetwork === 'railway'
+        ? {
+            kind: 'railway',
+            hosts:
+              config.privateHttpHosts ??
+              Object.values(config.origins).map((origin) => new URL(origin).hostname),
+          }
+        : undefined,
     );
   }
   async authenticate(

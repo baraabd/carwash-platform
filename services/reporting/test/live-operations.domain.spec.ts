@@ -196,6 +196,7 @@ test('projector routes dispatch and billing facts and moves their freshness', as
     applyBookingConfirmed: () => Promise.reject(new Error('unexpected')),
     applyHoldChanged: () => Promise.reject(new Error('unexpected')),
     applyEligibilityChanged: () => Promise.reject(new Error('unexpected')),
+    applyOwnerObservation: () => Promise.reject(new Error('unexpected')),
     applyAssignmentChanged: (fact): Promise<FactOutcome> => {
       seen.push(`assignment:${fact.status}`);
       return Promise.resolve('APPLIED');

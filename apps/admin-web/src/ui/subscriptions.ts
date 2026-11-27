@@ -13,6 +13,8 @@ import {
   subscriptionById,
   pendingSubscriptionChanges,
   decideSubscriptionChange,
+  subscriptionFundingRecovery,
+  retrySubscriptionFunding,
 } from '../api/subscriptions';
 import { UUID, idempotencyKey } from '../api/http';
 import { formatMoney, parseAmount } from '../domain/finance';
@@ -52,6 +54,7 @@ const pendingDecisions = new Map<
   string,
   { subscriptionId: string; approve: boolean; key: string }
 >();
+const pendingRecoveries = new Map<string, { expectedAttempts: number; key: string }>();
 const canManage = (): boolean => wiring.permissions().includes('subscription.manage');
 export function wireSubscriptionScreens(value: Wiring): void {
   wiring = value;
@@ -62,6 +65,7 @@ export function invalidateSubscriptionScreens(clearPrivate = false): void {
   if (clearPrivate) {
     pendingPlan = null;
     pendingDecisions.clear();
+    pendingRecoveries.clear();
     document.getElementById('subscriptions')?.replaceChildren();
   }
 }
@@ -100,6 +104,68 @@ function subscriptionDetails(value: SubscriptionV1): HTMLElement {
     h('dt', {}, tr('انتهاء الفترة', 'Expires')),
     h('dd', {}, formatInstant(value.expiresAt)),
   );
+}
+
+function retryRecovery(item: { subscriptionId: string; attempts: number }): void {
+  const current = generation;
+  let active = true,
+    busy = false;
+  const problem = h('p', { role: 'alert', class: 'field-error' });
+  const submit = h(
+    'button',
+    { class: 'primary', type: 'button' },
+    tr('تأكيد إعادة المحاولة', 'Confirm retry'),
+  );
+  submit.addEventListener('click', () => {
+    if (busy || !active || current !== generation || !canManage()) return;
+    const intent = pendingRecoveries.get(item.subscriptionId) ?? {
+      expectedAttempts: item.attempts,
+      key: idempotencyKey(),
+    };
+    pendingRecoveries.set(item.subscriptionId, intent);
+    busy = true;
+    submit.disabled = true;
+    void retrySubscriptionFunding(item.subscriptionId, intent.expectedAttempts, intent.key).then(
+      (result) => {
+        if (!active || current !== generation) return;
+        busy = false;
+        submit.disabled = false;
+        if (!result.ok) {
+          if (result.failure === 'UNAUTHENTICATED') {
+            wiring.unauthenticated();
+            return;
+          }
+          if (result.failure !== 'UNKNOWN_OUTCOME') pendingRecoveries.delete(item.subscriptionId);
+          problem.textContent = failureMessage(result.failure);
+          submit.textContent = copy().retry;
+          if (result.failure === 'CONFLICT') submit.disabled = true;
+          return;
+        }
+        pendingRecoveries.delete(item.subscriptionId);
+        closeModal();
+        toast(tr('جُدولت محاولة التسوية.', 'Settlement retry scheduled.'));
+        void showSubscriptions();
+      },
+    );
+  });
+  openModal({
+    title: tr('إعادة محاولة تسوية الاشتراك', 'Retry subscription settlement'),
+    body: [
+      h(
+        'p',
+        {},
+        tr(
+          'يعيد هذا الإجراء جدولة المحاولة للاشتراك الملغى. تبقى الحجوزات القائمة وقواعد التمويل قيد التحقق ولا يُنفذ استرداد مالي.',
+          'This reschedules the cancelled subscription release. Existing reservations and funding rules are rechecked; no refund is issued.',
+        ),
+      ),
+      problem,
+    ],
+    foot: [submit],
+    onClose: () => {
+      active = false;
+    },
+  });
 }
 function publishDialog(planId: string, body: PublishPlanRequestV1): void {
   const current = generation;
@@ -433,10 +499,11 @@ export async function showSubscriptions(): Promise<void> {
   );
   view.refresh.addEventListener('click', () => void showSubscriptions());
   status(view.content, copy().loading);
-  const [plans, catalog, changes] = await Promise.all([
+  const [plans, catalog, changes, recoveries] = await Promise.all([
     subscriptionPlans(),
     publishedCatalog(),
     pendingSubscriptionChanges(),
+    subscriptionFundingRecovery(),
   ]);
   if (current !== generation) return;
   if (readFailure(view.content, plans, wiring.unauthenticated) || !plans.ok) return;
@@ -554,6 +621,61 @@ export async function showSubscriptions(): Promise<void> {
     wiring.unauthenticated();
     return;
   } else queue.append(h('p', { role: 'alert' }, failureMessage(changes.failure)));
+  const recovery = h(
+    'section',
+    { class: 'card panel lookup-panel' },
+    h('h2', {}, tr('متابعة تسوية الاشتراكات الملغاة', 'Cancelled subscription settlement')),
+    h(
+      'p',
+      { class: 'muted' },
+      tr(
+        'ينتظر تحرير التمويل تسوية الحجوزات القائمة. اكتمال التحرير لا يعني تنفيذ استرداد مالي.',
+        'Funding release waits for existing bookings to settle. A completed release is not a refund.',
+      ),
+    ),
+  );
+  view.content.append(recovery);
+  if (recoveries.ok) {
+    if (!recoveries.value.items.length)
+      recovery.append(
+        h('p', {}, tr('لا توجد محاولات تسوية مسجلة.', 'No settlement attempts are recorded.')),
+      );
+    const labels = {
+      PENDING: tr('بانتظار المحاولة', 'Pending'),
+      RETRYING: tr('إعادة المحاولة مجدولة', 'Retry scheduled'),
+      WAITING_RESERVATIONS: tr('بانتظار تسوية الحجوزات', 'Waiting for reservations'),
+      ATTENTION_REQUIRED: tr('يحتاج إلى متابعة', 'Needs attention'),
+      RELEASED: tr('حُرّر التمويل', 'Funding released'),
+    };
+    for (const item of recoveries.value.items) {
+      const row = h(
+        'div',
+        { class: 'toolbar' },
+        h('span', {}, `${shortRef(item.subscriptionId)} · ${labels[item.status]}`),
+        h(
+          'span',
+          { class: 'muted' },
+          `${tr('المحاولات', 'Attempts')}: ${item.attempts}/${item.attemptLimit} · ${tr('المحجوز', 'Reserved')}: ${item.reservedUnits}`,
+        ),
+      );
+      if (
+        canManage() &&
+        (item.status === 'ATTENTION_REQUIRED' || pendingRecoveries.has(item.subscriptionId))
+      ) {
+        const retry = h(
+          'button',
+          { class: 'ghost', type: 'button' },
+          tr('مراجعة إعادة المحاولة', 'Review retry'),
+        );
+        retry.addEventListener('click', () => retryRecovery(item));
+        row.append(retry);
+      }
+      recovery.append(row);
+    }
+  } else if (recoveries.failure === 'UNAUTHENTICATED') {
+    wiring.unauthenticated();
+    return;
+  } else recovery.append(h('p', { role: 'alert' }, failureMessage(recoveries.failure)));
   const id = input();
   id.dir = 'ltr';
   id.placeholder = tr('رقم الاشتراك الكامل', 'Full subscription reference');

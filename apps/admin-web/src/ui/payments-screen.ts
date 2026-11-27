@@ -214,15 +214,21 @@ function obligationBody(o: Obligation): Node[] {
 }
 
 export async function openObligation(obligationId: string): Promise<void> {
+  const current = generation;
+  let active = true;
   const c = copy();
   const close = h('button', { class: 'ghost', type: 'button' }, c.close);
   close.addEventListener('click', closeModal);
   openModal({
     title: c.obligationTitle,
+    onClose: () => {
+      active = false;
+    },
     body: [h('p', { 'aria-busy': 'true' }, c.loading)],
     foot: [close],
   });
   const result = await readObligation(obligationId);
+  if (!active || current !== generation) return;
   if (!result.ok) {
     if (result.failure === 'UNAUTHENTICATED') hooks.unauthenticated();
     replace(
@@ -243,6 +249,7 @@ interface PendingReconciliation {
 }
 
 function reconcileForm(o: Obligation, a: Attempt, pending: PendingReconciliation | null): void {
+  const current = generation;
   const c = copy();
   const outcome = h(
     'select',
@@ -349,7 +356,7 @@ function reconcileForm(o: Obligation, a: Attempt, pending: PendingReconciliation
           });
     void command.then((result) => {
       // Closing/navigating must not overwrite a different modal with a late answer.
-      if (!submit.isConnected) return;
+      if (current !== generation || !submit.isConnected) return;
       if (result.ok) {
         replace(
           byId('modalBody'),
@@ -421,4 +428,12 @@ function cancelToClose(): HTMLElement {
 /** "مطابقة اليوم": opens the obligation lookup, the only discovery path until Billing lists attempts (CR-D-P03-04). */
 export function focusLookup(): void {
   byId<HTMLInputElement>('obligationRef').focus();
+}
+
+export function invalidatePayments(clearPrivate = false): void {
+  generation += 1;
+  if (clearPrivate) {
+    for (const id of ['paymentCards', 'paymentRows', 'paymentFreshness', 'obligationProblem'])
+      document.getElementById(id)?.replaceChildren();
+  }
 }

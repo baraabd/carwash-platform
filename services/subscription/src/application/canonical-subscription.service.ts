@@ -8,6 +8,7 @@ import {
   planCancel,
   planFreeze,
   planReservation,
+  planRenewal,
   planUnfreeze,
   revisionInForce,
   viewStatus,
@@ -15,6 +16,7 @@ import {
 import {
   PurchaseOwnerRefusal,
   type PeriodRecord,
+  type LockedSubscription,
   type PlanRevisionRecord,
   type PurchaseOwners,
   type PurchaseRecord,
@@ -28,6 +30,7 @@ import { subscriptionChangedEvent } from './events';
 import {
   CUSTOMER_PERMISSION,
   MANAGE_PERMISSION,
+  boundedInt,
   idempotencyKey,
   objectWithKeys,
   pathId,
@@ -36,6 +39,7 @@ import {
 } from './request-support';
 import { SubscriptionApplicationError } from './subscription-errors';
 import type { SubscriptionService, SubscriptionDeps } from './subscription.service';
+import { requirePeriodFunding } from './period-funding';
 
 const PURCHASE_CREATE_OPERATION = 'subscription.purchase.create.v1';
 
@@ -148,6 +152,10 @@ export class CanonicalSubscriptionService {
         paymentMethod: purchase.paymentMethod,
         obligationId: purchase.obligationId,
         subscriptionId: purchase.status === 'ACTIVATED' ? purchase.subscriptionId : null,
+        renewalOf:
+          purchase.periodNo > 1
+            ? { subscriptionId: purchase.subscriptionId, periodNo: purchase.periodNo }
+            : null,
         createdAt: purchase.createdAt.toISOString(),
         updatedAt: purchase.updatedAt.toISOString(),
       }),
@@ -163,6 +171,7 @@ export class CanonicalSubscriptionService {
     action:
       | 'subscription.requested'
       | 'subscription.activated'
+      | 'subscription.renewed'
       | 'subscription.frozen'
       | 'subscription.unfrozen'
       | 'subscription.cancelled',
@@ -207,6 +216,30 @@ export class CanonicalSubscriptionService {
     rawKey: unknown,
     body: unknown,
   ): Promise<CommandResult> {
+    return this.createPurchaseForPeriod(context, rawKey, body);
+  }
+
+  /** Explicit customer purchase of the next period; never an automatic debit or staff settlement. */
+  async createRenewal(
+    context: RequestContext,
+    rawKey: unknown,
+    id: string,
+    body: unknown,
+  ): Promise<CommandResult> {
+    const input = this.parse(subscriptionV1.parseCreateRenewalPurchaseRequestV1, body);
+    const { expectedRevision, ...purchase } = input;
+    return this.createPurchaseForPeriod(context, rawKey, purchase, {
+      subscriptionId: pathId(id),
+      expectedRevision: boundedInt(expectedRevision, 1, 'expectedRevision'),
+    });
+  }
+
+  private async createPurchaseForPeriod(
+    context: RequestContext,
+    rawKey: unknown,
+    body: unknown,
+    renewal?: { readonly subscriptionId: string; readonly expectedRevision: number },
+  ): Promise<CommandResult> {
     const actor = await verifiedPrincipal(this.deps.authority, context, CUSTOMER_PERMISSION);
     if (actor.principalKind !== 'account') throw new SubscriptionApplicationError('AUTH_FORBIDDEN');
     const key = idempotencyKey(rawKey);
@@ -214,7 +247,9 @@ export class CanonicalSubscriptionService {
     // Units are prepaid. Cash collection for a future wash cannot prove a plan purchase.
     if (input.paymentMethod === 'CASH_ON_COMPLETION')
       throw new SubscriptionApplicationError('REQUEST_INVALID', { field: 'paymentMethod' });
-    const fingerprint = this.deps.hasher.sha256Hex(canonicalJson(input));
+    const fingerprint = this.deps.hasher.sha256Hex(
+      canonicalJson(renewal ? { ...input, renewal } : input),
+    );
     const result = await receiptCommand({
       repository: this.deps.repository,
       clock: this.deps.clock,
@@ -223,6 +258,17 @@ export class CanonicalSubscriptionService {
       key,
       fingerprint,
       work: async (uow, now) => {
+        const renewing: LockedSubscription | null = renewal
+          ? await uow.lockSubscription(renewal.subscriptionId)
+          : null;
+        if (
+          renewal &&
+          (!renewing ||
+            renewing.subscription.customerSubject !== actor.subject ||
+            renewing.subscription.planCode !== this.code(input.planId) ||
+            (await uow.purchaseForPeriod(renewal.subscriptionId, 1))?.status !== 'ACTIVATED')
+        )
+          throw new SubscriptionApplicationError('NOT_FOUND');
         const prior = await uow.purchaseForQuote(input.quoteId);
         if (prior) {
           if (
@@ -230,6 +276,9 @@ export class CanonicalSubscriptionService {
             prior.planId !== input.planId ||
             prior.planVersion !== input.planVersion ||
             prior.paymentMethod !== input.paymentMethod ||
+            (renewal
+              ? prior.subscriptionId !== renewal.subscriptionId || prior.periodNo < 2
+              : prior.periodNo !== 1) ||
             !prior.amount.equals(Money.parse(input.total))
           )
             throw new SubscriptionApplicationError('IDEMPOTENCY_CONFLICT');
@@ -240,6 +289,21 @@ export class CanonicalSubscriptionService {
           throw new SubscriptionApplicationError('PLAN_NOT_OFFERED');
         if (current.revision !== input.planVersion)
           throw new SubscriptionApplicationError('REVISION_CONFLICT');
+        if (renewal && renewing) {
+          const next = planRenewal(
+            {
+              status: renewing.subscription.status,
+              version: renewing.subscription.version,
+              terms: renewing.subscription.terms,
+              currentPeriod: renewing.period,
+            },
+            renewal.expectedRevision,
+            current.terms,
+            now,
+          );
+          if (await uow.purchaseForPeriod(renewal.subscriptionId, next.periodNo))
+            throw new SubscriptionApplicationError('PURCHASE_NOT_ACTIVATABLE');
+        }
         let quote;
         try {
           quote = await this.deps.owners.quote(
@@ -263,7 +327,7 @@ export class CanonicalSubscriptionService {
           !quote.amount.equals(Money.parse(input.total))
         )
           throw new SubscriptionApplicationError('QUOTE_MISMATCH');
-        const subscription: SubscriptionRecord = {
+        const subscription: SubscriptionRecord = renewing?.subscription ?? {
           id: this.deps.ids.uuid(),
           customerSubject: actor.subject,
           planCode: current.planCode,
@@ -281,6 +345,7 @@ export class CanonicalSubscriptionService {
           id: this.deps.ids.uuid(),
           customerSubject: actor.subject,
           subscriptionId: subscription.id,
+          periodNo: renewing ? (renewing.subscription.currentPeriodNo ?? 0) + 1 : 1,
           planId: input.planId,
           planVersion: input.planVersion,
           quoteId: input.quoteId,
@@ -292,17 +357,30 @@ export class CanonicalSubscriptionService {
           createdAt: now,
           updatedAt: now,
         };
-        await uow.insertSubscription(subscription);
+        if (!renewing) await uow.insertSubscription(subscription);
         await uow.insertPurchase(purchase);
-        await this.changed(
-          uow,
-          subscription,
-          null,
-          null,
-          actor.subject,
-          context.correlationId,
-          'subscription.requested',
-        );
+        if (renewing)
+          await uow.appendAudit({
+            id: this.deps.ids.uuid(),
+            occurredAt: now,
+            actor: { kind: 'account', id: actor.subject },
+            action: 'subscription.renewal-requested',
+            planCode: subscription.planCode,
+            subscriptionId: subscription.id,
+            reservationId: null,
+            outcome: `PERIOD_${purchase.periodNo}`,
+            correlationId: context.correlationId,
+          });
+        else
+          await this.changed(
+            uow,
+            subscription,
+            null,
+            null,
+            actor.subject,
+            context.correlationId,
+            'subscription.requested',
+          );
         return { status: 201, body: this.purchaseView(purchase) };
       },
     });
@@ -370,8 +448,10 @@ export class CanonicalSubscriptionService {
       throw new SubscriptionApplicationError('FUNDING_UNAVAILABLE');
     const funding =
       obligation.status === 'SETTLED'
-        ? await this.deps.funding.verify({
+        ? await this.deps.funding.claim({
             obligationId: obligation.obligationId,
+            subscriptionId: purchase.subscriptionId,
+            periodNo: purchase.periodNo,
             customerSubject: purchase.customerSubject,
             amount: purchase.amount,
             quoteId: purchase.quoteId,
@@ -387,26 +467,44 @@ export class CanonicalSubscriptionService {
       if (current.obligationId !== null && current.obligationId !== obligation.obligationId)
         throw new SubscriptionApplicationError('FUNDING_UNAVAILABLE');
       const now = this.deps.clock.now();
+      const locked = await uow.lockSubscription(current.subscriptionId);
+      if (!locked || locked.subscription.customerSubject !== actor.subject)
+        throw new SubscriptionApplicationError('NOT_FOUND');
+      if (locked.subscription.status === 'CANCELLED') {
+        const rejected: PurchaseRecord = {
+          ...current,
+          status: 'REJECTED',
+          obligationId: obligation.obligationId,
+          revision: current.revision + 1,
+          updatedAt: now,
+        };
+        await uow.updatePurchase(rejected);
+        return this.purchaseView(rejected);
+      }
       let status: PurchaseRecord['status'] =
         obligation.financialStatus === 'UNDER_REVIEW'
           ? 'PAYMENT_UNDER_REVIEW'
           : obligation.financialStatus === 'OUTCOME_UNKNOWN'
             ? 'PAYMENT_UNKNOWN'
             : 'PENDING_PAYMENT';
-      if (funding === 'VERIFIED') {
-        const locked = await uow.lockSubscription(current.subscriptionId);
-        if (!locked || locked.subscription.customerSubject !== actor.subject)
-          throw new SubscriptionApplicationError('NOT_FOUND');
-        const periodState = planActivation(
-          {
-            status: locked.subscription.status,
-            version: locked.subscription.version,
-            terms: locked.subscription.terms,
-            currentPeriod: locked.period,
-          },
-          locked.subscription.version,
-          now,
+      if (funding === 'CLAIMED') {
+        const plan = (await uow.revisionsOf(locked.subscription.planCode)).find(
+          (r) => r.revision === current.planVersion,
         );
+        if (!plan || !plan.terms.price.equals(current.amount))
+          throw new SubscriptionApplicationError('FUNDING_UNAVAILABLE');
+        const state = {
+          status: locked.subscription.status,
+          version: locked.subscription.version,
+          terms: locked.subscription.terms,
+          currentPeriod: locked.period,
+        };
+        const periodState =
+          current.periodNo === 1
+            ? planActivation(state, locked.subscription.version, now)
+            : planRenewal(state, locked.subscription.version, plan.terms, now);
+        if (periodState.periodNo !== current.periodNo)
+          throw new SubscriptionApplicationError('REVISION_CONFLICT');
         const period: PeriodRecord = {
           ...periodState,
           subscriptionId: current.subscriptionId,
@@ -435,6 +533,8 @@ export class CanonicalSubscriptionService {
           status: 'ACTIVE',
           version: locked.subscription.version + 1,
           currentPeriodNo: period.periodNo,
+          planRevision: current.planVersion,
+          terms: plan.terms,
           updatedAt: now,
         };
         await uow.updateSubscription(active);
@@ -445,7 +545,7 @@ export class CanonicalSubscriptionService {
           locked.subscription.status,
           actor.subject,
           context.correlationId,
-          'subscription.activated',
+          current.periodNo === 1 ? 'subscription.activated' : 'subscription.renewed',
         );
         status = 'ACTIVATED';
       }
@@ -485,6 +585,9 @@ export class CanonicalSubscriptionService {
         planId: purchase.planId,
         planVersion: record.planRevision,
         purchaseId: purchase.id,
+        periodNo: period.periodNo,
+        renewalAvailable:
+          record.status === 'ACTIVE' && this.deps.clock.now().getTime() >= period.endsAt.getTime(),
         units: {
           total: period.granted,
           reserved: period.reserved,
@@ -501,16 +604,17 @@ export class CanonicalSubscriptionService {
   }
   async getSubscription(context: RequestContext, id: string) {
     const actor = await verifiedPrincipal(this.deps.authority, context);
-    const purchase = await this.deps.repository.purchaseForSubscription(pathId(id));
-    if (
-      !purchase ||
-      purchase.status !== 'ACTIVATED' ||
-      (actor.subject !== purchase.customerSubject && !actor.permissions.includes(MANAGE_PERMISSION))
-    )
-      throw new SubscriptionApplicationError('NOT_FOUND');
+    const subscriptionId = pathId(id);
     return this.deps.repository.transaction(async (uow) => {
-      const locked = await uow.lockSubscription(id);
-      if (!locked?.period) throw new SubscriptionApplicationError('NOT_FOUND');
+      const locked = await uow.lockSubscription(subscriptionId);
+      if (
+        !locked?.period ||
+        (actor.subject !== locked.subscription.customerSubject &&
+          !actor.permissions.includes(MANAGE_PERMISSION))
+      )
+        throw new SubscriptionApplicationError('NOT_FOUND');
+      const purchase = await uow.purchaseForPeriod(subscriptionId, locked.period.periodNo);
+      if (purchase?.status !== 'ACTIVATED') throw new SubscriptionApplicationError('NOT_FOUND');
       return this.subscriptionView(locked.subscription, locked.period, purchase);
     });
   }
@@ -570,6 +674,14 @@ export class CanonicalSubscriptionService {
         if (!allowed) throw error;
         reason = allowed;
       }
+      if (reason === null)
+        await requirePeriodFunding(
+          this.deps.funding,
+          uow,
+          locked.subscription,
+          locked.period,
+          context.correlationId,
+        );
       return subscriptionV1.parseEligibilityV1({
         subscriptionId,
         revision: locked.subscription.version,
@@ -608,6 +720,9 @@ export class CanonicalSubscriptionService {
       work: async (uow, now) => {
         const locked = await uow.lockSubscription(subscriptionId);
         if (!locked?.period) throw new SubscriptionApplicationError('NOT_FOUND');
+        const currentPurchase = await uow.purchaseForPeriod(subscriptionId, locked.period.periodNo);
+        if (currentPurchase?.status !== 'ACTIVATED')
+          throw new SubscriptionApplicationError('NOT_FOUND');
         if (locked.subscription.version !== input.expectedRevision)
           throw new SubscriptionApplicationError('VERSION_CONFLICT');
         if (locked.subscription.status === 'CANCELLED')
@@ -643,7 +758,11 @@ export class CanonicalSubscriptionService {
             action: change.action,
             status: change.status,
             effectiveAt: null,
-            subscription: this.subscriptionView(locked.subscription, locked.period, purchase),
+            subscription: this.subscriptionView(
+              locked.subscription,
+              locked.period,
+              currentPurchase,
+            ),
           },
         };
       },
@@ -663,6 +782,56 @@ export class CanonicalSubscriptionService {
         status: row.status,
       })),
     };
+  }
+
+  async fundingRecoveries(context: RequestContext) {
+    await verifiedPrincipal(this.deps.authority, context, MANAGE_PERMISSION);
+    return {
+      items: await this.deps.repository.fundingRecoveries(100),
+      asOf: this.deps.clock.now().toISOString(),
+    };
+  }
+
+  async retryFundingRelease(
+    context: RequestContext,
+    rawKey: unknown,
+    id: string,
+    body: unknown,
+  ): Promise<CommandResult> {
+    const actor = await verifiedPrincipal(this.deps.authority, context, MANAGE_PERMISSION);
+    const subscriptionId = pathId(id);
+    const { expectedAttempts } = this.parse(
+      subscriptionV1.parseFundingRecoveryRetryRequestV1,
+      body,
+    );
+    return receiptCommand({
+      repository: this.deps.repository,
+      clock: this.deps.clock,
+      actor: actor.subject,
+      operation: 'subscription.funding-release.retry.v1',
+      key: idempotencyKey(rawKey),
+      fingerprint: this.deps.hasher.sha256Hex(canonicalJson({ subscriptionId, expectedAttempts })),
+      work: async (uow, now) => {
+        const locked = await uow.lockSubscription(subscriptionId);
+        if (!locked) throw new SubscriptionApplicationError('NOT_FOUND');
+        if (locked.subscription.status !== 'CANCELLED')
+          throw new SubscriptionApplicationError('REVISION_CONFLICT');
+        const queued = await uow.retryFundingRelease(subscriptionId, expectedAttempts, now);
+        if (!queued) throw new SubscriptionApplicationError('REVISION_CONFLICT');
+        await uow.appendAudit({
+          id: this.deps.ids.uuid(),
+          occurredAt: now,
+          actor: { kind: 'account', id: actor.subject },
+          action: 'subscription.funding-release-retried',
+          planCode: locked.subscription.planCode,
+          subscriptionId,
+          reservationId: null,
+          outcome: `ATTEMPT_${expectedAttempts}`,
+          correlationId: context.correlationId,
+        });
+        return { status: 200, body: { subscriptionId, ...queued, status: 'PENDING' } };
+      },
+    });
   }
 
   async decideChange(
@@ -701,6 +870,9 @@ export class CanonicalSubscriptionService {
           throw new SubscriptionApplicationError('REVISION_CONFLICT');
         const locked = await uow.lockSubscription(subscriptionId);
         if (!locked?.period) throw new SubscriptionApplicationError('NOT_FOUND');
+        const currentPurchase = await uow.purchaseForPeriod(subscriptionId, locked.period.periodNo);
+        if (currentPurchase?.status !== 'ACTIVATED')
+          throw new SubscriptionApplicationError('NOT_FOUND');
         let subscription = locked.subscription;
         if (input.approve) {
           const state = {
@@ -760,7 +932,7 @@ export class CanonicalSubscriptionService {
             action: request.action,
             status,
             effectiveAt: input.approve ? now.toISOString() : null,
-            subscription: this.subscriptionView(subscription, locked.period, purchase),
+            subscription: this.subscriptionView(subscription, locked.period, currentPurchase),
           },
         };
       },

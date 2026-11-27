@@ -6,6 +6,9 @@
  * Every failure is a typed outcome. A mutation that times out or loses its
  * connection is UNKNOWN_OUTCOME, never success and never a silent retry.
  */
+import { RequestEpoch, type RequestEpochToken } from '@carwash/api-clients';
+
+export const sessionRequests = new RequestEpoch();
 export const API_BASE = '/api/v1';
 const READ_TIMEOUT_MS = 8_000;
 const WRITE_TIMEOUT_MS = 10_000;
@@ -87,14 +90,18 @@ export interface RequestOptions<T> {
   readonly read: Reader<T>;
 }
 
-let refreshing: Promise<Result<null>> | null = null;
+let refreshing: {
+  readonly epoch: RequestEpochToken;
+  readonly promise: Promise<Result<null>>;
+} | null = null;
 export function request<T>(path: string, options: RequestOptions<T>): Promise<Result<T>> {
-  return performRequest(path, options, true);
+  return performRequest(path, options, true, sessionRequests.capture());
 }
 async function performRequest<T>(
   path: string,
   options: RequestOptions<T>,
   mayRefresh: boolean,
+  epoch: RequestEpochToken,
 ): Promise<Result<T>> {
   const method = options.method ?? 'GET';
   const correlationId = crypto.randomUUID();
@@ -117,6 +124,8 @@ async function performRequest<T>(
     code,
     correlationId,
   });
+  const stale = (): Result<T> => fail('UNAUTHENTICATED', 'SESSION_CHANGED');
+  if (!sessionRequests.current(epoch)) return stale();
 
   let response: Response;
   try {
@@ -126,28 +135,40 @@ async function performRequest<T>(
       credentials: 'same-origin',
       cache: 'no-store',
       redirect: 'error',
-      signal: AbortSignal.timeout(method === 'GET' ? READ_TIMEOUT_MS : WRITE_TIMEOUT_MS),
+      signal: AbortSignal.any([
+        epoch.signal,
+        AbortSignal.timeout(method === 'GET' ? READ_TIMEOUT_MS : WRITE_TIMEOUT_MS),
+      ]),
       ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
     });
   } catch {
+    if (!sessionRequests.current(epoch)) return stale();
     // A read can simply be repeated; a write may or may not have happened.
     return fail(method === 'GET' ? 'UNAVAILABLE' : 'UNKNOWN_OUTCOME');
   }
+  if (!sessionRequests.current(epoch)) return stale();
 
   if (
     response.status === 401 &&
     mayRefresh &&
     (!path.startsWith('/auth/') || path === '/auth/session')
   ) {
-    refreshing ??= performRequest(
-      '/auth/refresh',
-      { method: 'POST', body: {}, read: () => null },
-      false,
-    ).finally(() => {
-      refreshing = null;
-    });
-    const refreshed = await refreshing;
-    if (refreshed.ok) return performRequest(path, options, false);
+    if (!refreshing || !sessionRequests.current(refreshing.epoch)) {
+      const promise = performRequest(
+        '/auth/refresh',
+        { method: 'POST', body: {}, read: () => null },
+        false,
+        epoch,
+      );
+      const operation = { epoch, promise };
+      refreshing = operation;
+      void promise.finally(() => {
+        if (refreshing === operation) refreshing = null;
+      });
+    }
+    const refreshed = await refreshing.promise;
+    if (!sessionRequests.current(epoch)) return stale();
+    if (refreshed.ok) return performRequest(path, options, false, epoch);
   }
 
   let body: unknown = null;
@@ -155,8 +176,10 @@ async function performRequest<T>(
     const text = await response.text();
     body = text ? (JSON.parse(text) as unknown) : null;
   } catch {
+    if (!sessionRequests.current(epoch)) return stale();
     if (response.ok) return fail(method === 'GET' ? 'MALFORMED' : 'UNKNOWN_OUTCOME');
   }
+  if (!sessionRequests.current(epoch)) return stale();
   if (!response.ok) {
     const failure = STATUS[response.status];
     if (failure) return fail(failure, errorCode(body));

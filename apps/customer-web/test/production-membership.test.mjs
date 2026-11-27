@@ -26,6 +26,114 @@ const select = async (h) => {
   assert.equal(await h.client.choosePlan(id(90)), true);
 };
 
+const expired = () => ({
+  ...subscription(),
+  status: 'EXPIRED',
+  startsAt: '2026-10-01T08:00:00.000Z',
+  expiresAt: '2026-11-01T08:00:00.000Z',
+  periodNo: 2,
+  renewalAvailable: true,
+});
+
+const selectRenewal = async (h) => {
+  h.state.subscription = expired();
+  await h.client.loadPlans();
+  await h.client.loadSubscriptions();
+  assert.equal(await h.client.chooseRenewal(id(94)), true);
+};
+
+test('renewal quotes a new purchase bound to the owned expired subscription and exact next period', async () => {
+  const h = harness();
+  await selectRenewal(h);
+  const before = h.client.getSnapshot().subscriptions[0];
+  assert.equal(await h.client.purchase('SYRIATEL_CASH'), true);
+  const command = h.requests.find((r) => r.path.endsWith('/renewals'));
+  assert.equal(command.path, `/api/v1/customer/subscriptions/${id(94)}/renewals`);
+  assert.equal(command.body.expectedRevision, before.revision);
+  assert.equal(command.body.planVersion, plan().version);
+  assert.equal(command.body.quoteId, quote().quoteId);
+  assert.deepEqual(h.client.getSnapshot().purchase.renewalOf, {
+    subscriptionId: id(94),
+    periodNo: 3,
+  });
+  assert.equal(h.client.getSnapshot().purchase.status, 'PENDING_PAYMENT');
+  assert.deepEqual(
+    h.client.getSnapshot().subscriptions[0],
+    before,
+    'purchase cannot extend expiry or grant units locally',
+  );
+  assert.equal(
+    h.requests.some((r) => r.path.endsWith('/subscription-purchases')),
+    false,
+  );
+});
+
+test('renewal requires the current owner eligibility and cannot renew an active or foreign subscription', async () => {
+  for (const candidate of [subscription(), { ...expired(), renewalAvailable: false }]) {
+    const h = harness();
+    h.state.subscription = candidate;
+    await h.client.loadPlans();
+    await h.client.loadSubscriptions();
+    assert.equal(await h.client.chooseRenewal(id(94)), false);
+    assert.equal(await h.client.chooseRenewal(id(99)), false);
+    assert.equal(
+      h.requests.some((r) => r.method === 'POST'),
+      false,
+    );
+  }
+});
+
+test('wrong renewal target or period remains unresolved and retries the identical renewal command', async () => {
+  for (const renewalOf of [
+    null,
+    { subscriptionId: id(99), periodNo: 3 },
+    { subscriptionId: id(94), periodNo: 2 },
+  ]) {
+    const h = harness();
+    await selectRenewal(h);
+    h.state.override = (r) =>
+      r.path.endsWith('/renewals') ? response({ ...purchase(), renewalOf }, 201) : null;
+    assert.equal(await h.client.purchase('SHAM_CASH'), false);
+    assert.equal(h.client.getSnapshot().pending, 'purchase');
+    assert.equal(h.client.getSnapshot().purchase, null);
+    h.state.override = null;
+    await h.client.retryPending();
+    assert.equal(h.client.getSnapshot().pending, null);
+    assert.deepEqual(h.client.getSnapshot().purchase.renewalOf, {
+      subscriptionId: id(94),
+      periodNo: 3,
+    });
+    const commands = h.requests.filter((r) => r.path.endsWith('/renewals'));
+    assert.deepEqual(commands[0].body, commands[1].body);
+    assert.equal(commands[0].headers['idempotency-key'], commands[1].headers['idempotency-key']);
+  }
+});
+
+test('lost renewal response recovers the owner period by opaque request without another purchase', async () => {
+  const h = harness();
+  await selectRenewal(h);
+  h.state.override = (r) => {
+    if (r.path.endsWith('/renewals')) {
+      h.state.byRequest.set(r.headers['idempotency-key'], {
+        ...purchase(),
+        renewalOf: { subscriptionId: id(94), periodNo: 3 },
+      });
+      throw new Error('lost renewal receipt');
+    }
+    return null;
+  };
+  assert.equal(await h.client.purchase('SHAM_CASH'), false);
+  const reloaded = new ProductionMembership(h.options);
+  reloaded.bindSession(session);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(reloaded.getSnapshot().purchase.renewalOf, {
+    subscriptionId: id(94),
+    periodNo: 3,
+  });
+  assert.equal(reloaded.getSnapshot().unknownPurchaseKey, null);
+  assert.equal(h.requests.filter((r) => r.path.endsWith('/renewals')).length, 1);
+});
+
 test('membership plans are anonymous owner data; guests cannot quote, buy or see subscriptions', async () => {
   const h = harness();
   h.client.bindSession(guestSession);
@@ -56,7 +164,9 @@ test('subscription purchase binds immutable plan and Pricing total, not advertis
   assert.equal(h.client.getSnapshot().purchase.status, 'PENDING_PAYMENT');
   assert.equal(h.client.getSnapshot().purchase.subscriptionId, null);
   assert.equal(
-    h.requests.some((r) => /entitlement|\/payments$/.test(r.path)),
+    h.requests.some((r) =>
+      r.path.split('/').some((segment) => ['entitlements', 'payments'].includes(segment)),
+    ),
     false,
   );
   assert.deepEqual(h.storage.get(session.subject), { pendingKey: null, purchaseId: id(93) });

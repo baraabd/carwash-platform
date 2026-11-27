@@ -110,7 +110,7 @@ const SERVICES = {
       ...IDENTITY_STUB,
       pricing: 'NAMED TEST DOUBLE for immutable canonical purchase quotes',
       billing:
-        'NAMED TEST DOUBLE for durable obligation recovery and verified funding; real Billing PostgreSQL funding/refund invariants run in the billing family',
+        'REAL Billing HTTP and separate runtime-role PostgreSQL database in the funding process acceptance; named doubles remain explicit in isolated owner specs',
       serviceCallers:
         'REAL shared ServiceClientAuthenticator with test credentials (Booking is not running)',
       broker:
@@ -130,6 +130,8 @@ if (!service || !(service in SERVICES)) {
 }
 const record = process.argv.includes('--record');
 const spec = SERVICES[service];
+const fundingPeer = service === 'subscription';
+const fundingTest = 'tests/production/B/subscription-funding-http.pg.test.mjs';
 const serviceDir = path.join(ROOT, 'services', service);
 const { Client } = createRequire(path.join(serviceDir, 'package.json'))('pg');
 const REFUND_UPGRADE_SENTINEL = refundUpgradeSentinel({ query, transaction });
@@ -141,6 +143,12 @@ const credentials = {
   bootstrap: randomBytes(32).toString('base64url'),
   app: randomBytes(32).toString('base64url'),
   migration: randomBytes(32).toString('base64url'),
+  ...(fundingPeer
+    ? {
+        billingApp: randomBytes(32).toString('base64url'),
+        billingMigration: randomBytes(32).toString('base64url'),
+      }
+    : {}),
 };
 Object.values(credentials).forEach(registerSecret);
 
@@ -535,12 +543,12 @@ const BILLING_SENTINEL = (() => {
  * (server not reachable) on a loaded host is retried up to twice after a pause;
  * any other failure is final.
  */
-async function prisma(args, databaseUrl) {
+async function prisma(args, databaseUrl, owner = service) {
   const url = databaseUrl.includes('connect_timeout=')
     ? databaseUrl
     : `${databaseUrl}&connect_timeout=30`;
   const invoke = () =>
-    checked('pnpm', ['--filter', `@carwash/${service}`, 'exec', 'prisma', ...args], {
+    checked('pnpm', ['--filter', `@carwash/${owner}`, 'exec', 'prisma', ...args], {
       env: { ...process.env, DATABASE_URL: url },
     });
   for (let attempt = 1; ; attempt += 1) {
@@ -570,6 +578,11 @@ try {
   await phase('build service and integration specs from this source', async () => {
     await checked('pnpm', ['--filter', `@carwash/${service}`, 'run', 'generate']);
     await checked('pnpm', ['--filter', `@carwash/${service}`, 'run', 'build:tests']);
+    if (fundingPeer) {
+      await checked('pnpm', ['--filter', '@carwash/subscription', 'run', 'build']);
+      await checked('pnpm', ['--filter', '@carwash/billing', 'run', 'generate']);
+      await checked('pnpm', ['--filter', '@carwash/billing', 'run', 'build:tests']);
+    }
   });
 
   await phase('pull pinned PostgreSQL image', async () => {
@@ -595,11 +608,19 @@ try {
       '-e',
       `POSTGRES_PASSWORD=${credentials.bootstrap}`,
       '-e',
-      `CW_SERVICES=${service}`,
+      `CW_SERVICES=${fundingPeer ? 'subscription billing' : service}`,
       '-e',
       `${prefix}_DB_PASSWORD=${credentials.app}`,
       '-e',
       `${prefix}_MIGRATION_PASSWORD=${credentials.migration}`,
+      ...(fundingPeer
+        ? [
+            '-e',
+            `BILLING_DB_PASSWORD=${credentials.billingApp}`,
+            '-e',
+            `BILLING_MIGRATION_PASSWORD=${credentials.billingMigration}`,
+          ]
+        : []),
       '-v',
       `${path.join(ROOT, 'infra/postgres/provision.sh')}:/docker-entrypoint-initdb.d/01-provision.sh:ro`,
       '-p',
@@ -615,6 +636,13 @@ try {
   const db = `cw_${service}`;
   const appUrl = `postgresql://${db}_app:${credentials.app}@127.0.0.1:${port}/${db}?schema=app`;
   const migrateUrl = `postgresql://${db}_migrate:${credentials.migration}@127.0.0.1:${port}/${db}?schema=app`;
+
+  const billingAppUrl = fundingPeer
+    ? `postgresql://cw_billing_app:${credentials.billingApp}@127.0.0.1:${port}/cw_billing?schema=app`
+    : null;
+  const billingMigrationUrl = fundingPeer
+    ? `postgresql://cw_billing_migrate:${credentials.billingMigration}@127.0.0.1:${port}/cw_billing?schema=app`
+    : null;
 
   await phase('runtime identity can connect after provisioning', async () => {
     const deadline = Date.now() + 180_000;
@@ -684,6 +712,11 @@ try {
     await prisma(['migrate', 'deploy'], migrateUrl);
   });
 
+  if (fundingPeer)
+    await phase('migrate isolated Billing funding peer', async () => {
+      await prisma(['migrate', 'deploy'], billingMigrationUrl, 'billing');
+    });
+
   await phase('re-provision restricts migration history from the runtime role', async () => {
     await checked('docker', [
       'exec',
@@ -696,6 +729,13 @@ try {
       "SELECT has_table_privilege(current_user, 'app._prisma_migrations', 'SELECT') AS allowed",
     );
     if (allowed.rows[0].allowed !== false) throw new Error('RUNTIME_CAN_READ_MIGRATIONS');
+    if (fundingPeer) {
+      const peer = await query(
+        billingAppUrl,
+        "SELECT has_table_privilege(current_user, 'app._prisma_migrations', 'SELECT') AS allowed",
+      );
+      if (peer.rows[0].allowed !== false) throw new Error('BILLING_RUNTIME_CAN_READ_MIGRATIONS');
+    }
   });
 
   await phase('committed Prisma schema mirror has no drift from migrated database', async () => {
@@ -734,17 +774,23 @@ try {
     const batches = [
       all.filter((file) => !isolated.includes(file)),
       ...isolated.map((file) => [file]),
+      ...(fundingPeer ? [[path.join(ROOT, fundingTest)]] : []),
     ].filter((batch) => batch.length > 0);
     const summary = { tests: 0, pass: 0, fail: 0, cancelled: 0, skipped: 0, todo: 0 };
     const names = [];
     let output = '';
     let failed = null;
     for (const batch of batches) {
-      const files = batch.map((file) => path.join(dir, file));
+      const files = batch.map((file) => (path.isAbsolute(file) ? file : path.join(dir, file)));
       const result = await run(process.execPath, ['--test', '--test-reporter=spec', ...files], {
         cwd: ROOT,
         timeoutMs: 600_000,
-        env: { ...process.env, [spec.env]: appUrl, LOG_LEVEL: 'error' },
+        env: {
+          ...process.env,
+          [spec.env]: appUrl,
+          ...(fundingPeer ? { BILLING_TEST_DATABASE_URL: billingAppUrl } : {}),
+          LOG_LEVEL: 'error',
+        },
       });
       const out = redact(result.stdout);
       output += out + redact(result.stderr);
@@ -768,7 +814,10 @@ try {
     // Full redacted output next to the report, so a failure is diagnosable.
     await writeFile(path.join(work, 'integration-output.txt'), output);
     report.tests = {
-      files: all.map((file) => path.relative(ROOT, path.join(dir, file))),
+      files: [
+        ...all.map((file) => path.relative(ROOT, path.join(dir, file))),
+        ...(fundingPeer ? [fundingTest] : []),
+      ],
       isolated,
       summary,
       names,

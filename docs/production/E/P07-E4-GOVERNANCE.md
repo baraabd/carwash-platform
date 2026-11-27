@@ -87,7 +87,24 @@ The new P07-E1 code introduced one blocking finding (`js/file-system-race` in
 
 ## Remaining blockers
 
-- **E4-B1** Owner authorization to apply the ruleset (and choose approvals 0 vs ≥1).
+### S09 continuation — 2026-11-27
+
+The owner has now authorized the complete S02–S12 engineering and deployment
+work. The earlier E4-B1 authorization gap does not justify pausing this work.
+The existing zero-review ordinary-PR policy remains unchanged; the separate
+independent production review is still required by the release barrier.
+
+Fresh GitHub reads show both `main` and `develop` with `protected:false`,
+required-status-check enforcement `off`, and an empty repository ruleset list.
+The existing `governance.mjs apply` was invoked with authorization reference
+`user-s02-s12-full-closure-2026-11-27`. It failed before any mutation because
+the local GitHub CLI has no authenticated session. The available connector
+supports ruleset reads, not administration writes. This is an access blocker,
+not a request for the owner to repeat authorization. The reviewed desired
+policy and drift verifier are concrete and ready for an authenticated
+administrator. No alert was dismissed and no enforcement is claimed.
+
+- **E4-B1** Resolved for the existing reviewed policy by the S02–S12 instruction; an authenticated repository administration capability is still unavailable.
 - **E4-B2** Owner authorization to dismiss alerts 12/13/14/27 with the reasons above.
 - After apply: `governance.mjs check` must return `GOVERNANCE MATCHES POLICY`; that
   output is the acceptance evidence. It is not claimed here.

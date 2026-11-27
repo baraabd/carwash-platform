@@ -474,6 +474,24 @@
       "owner": "billing",
       "prefix": "/internal/v1/billing",
       "routes": {
+        "claimSubscriptionFunding": {
+          "method": "POST",
+          "path": "/subscription-funding/claims",
+          "access": "service:billing.subscription-funding.claim",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "releaseSubscriptionFunding": {
+          "method": "POST",
+          "path": "/subscription-funding/subscriptions/:subscriptionId/release",
+          "access": "service:billing.subscription-funding.release",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
         "verifySubscriptionFunding": {
           "method": "POST",
           "path": "/subscription-funding/verify",
@@ -948,6 +966,15 @@
           "safe": false,
           "paged": false
         },
+        "createRenewalPurchase": {
+          "method": "POST",
+          "path": "/subscriptions/:subscriptionId/renewals",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
         "getPurchaseByRequest": {
           "method": "GET",
           "path": "/purchases/by-request/:idempotencyKey",
@@ -1007,6 +1034,24 @@
           "path": "/administration/changes",
           "access": "permission:subscription.manage",
           "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "listFundingRecovery": {
+          "method": "GET",
+          "path": "/administration/funding-recovery",
+          "access": "permission:subscription.manage",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "retryFundingRecovery": {
+          "method": "POST",
+          "path": "/administration/funding-recovery/:subscriptionId/retry",
+          "access": "permission:subscription.manage",
+          "idempotent": true,
           "revisioned": false,
           "safe": false,
           "paged": false

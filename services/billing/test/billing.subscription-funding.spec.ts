@@ -7,6 +7,7 @@ import { Money } from '../src/domain';
 import type { BillingRepository, BillingUnitOfWork, ObligationRecord } from '../src/ports';
 import { SubscriptionFundingService } from '../src/application/subscription-funding.service';
 import { ServiceClientCallerAuthority } from '../src/infrastructure/security/service-callers';
+import { Sha256Hasher } from '../src/infrastructure/system/system.adapters';
 import {
   SUBSCRIPTION_FUNDING_SERVICE,
   SubscriptionFundingController,
@@ -78,7 +79,11 @@ function fixture() {
   } as unknown as BillingRepository;
   return {
     state,
-    service: new SubscriptionFundingService({ repository, callers: caller }),
+    service: new SubscriptionFundingService({
+      repository,
+      callers: caller,
+      hasher: new Sha256Hasher(),
+    }),
     body: { obligationId: obligation.id, beneficiary: obligation.owner, amount: amount.toWire() },
   };
 }

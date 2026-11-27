@@ -1,7 +1,7 @@
-import { newKey, type Result } from './api/client';
+import { newKey, sessionRequests, type Result } from './api/client';
 import { signOut } from './api/auth-api';
 import { mountSignIn } from './views/sign-in';
-import { readCashTarget, type CashReceipt } from './api/cash-api';
+import { readCashTarget, clearCashAttempts, type CashReceipt } from './api/cash-api';
 import {
   M,
   acceptOffer,
@@ -105,6 +105,8 @@ let sheetReturn: Element | null = null;
 let sheetContext: { id: string | null; phase?: PhotoPhase; index?: number } | null = null;
 let lock = false;
 let inFlight = false;
+let logoutPending = false;
+let logoutBusy = false;
 let disposeSignIn: (() => void) | null = null;
 const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 const reduced = (): boolean => !S.motion || reducedQuery.matches;
@@ -176,6 +178,15 @@ function render({ animate = false, back = false, scroll = false } = {}): void {
     setHtml(header, renderHeader());
     setHtml(dock, '');
     main.className = 'main';
+    if (logoutPending) {
+      disposeSignIn?.();
+      disposeSignIn = null;
+      setHtml(
+        main,
+        `<section class="card"><p>${logoutBusy ? 'جارٍ إنهاء الجلسة…' : 'تعذر تأكيد تسجيل الخروج. أعد المحاولة.'}</p><button class="btn outline mt" data-action="sign-out" ${logoutBusy ? 'disabled' : ''}>إعادة المحاولة</button></section>`,
+      );
+      return;
+    }
     if (!disposeSignIn)
       disposeSignIn = mountSignIn(main, async () => {
         disposeSignIn?.();
@@ -263,6 +274,8 @@ function closeSheet(): void {
   sheetContext = null;
   profileSheet = null;
   stopReveal();
+  must('#sheet-title').textContent = '';
+  must('#sheet-body').replaceChildren();
 }
 
 const ctxJob = (): Job | undefined => S.jobs.find((x) => x.id === sheetContext?.id);
@@ -288,7 +301,21 @@ function connectionFrom(result: Result<unknown>): typeof S.connection {
 
 /** A revoked or changed identity must not retain task/media facts or pending commands. */
 function clearPrivateSession(): void {
+  sessionRequests.invalidate();
   readSeq += 1;
+  inFlight = false;
+  S.photoRevision += 1;
+  S.photoBusy = false;
+  uploads.clear();
+  clearCashAttempts();
+  closeSheet();
+  sheetReturn = null;
+  clearTimeout(toastTimer);
+  toastTimer = undefined;
+  const message = must('#toast');
+  message.textContent = '';
+  message.classList.remove('show');
+  for (const input of $$<HTMLInputElement>('input[type="file"]')) input.value = '';
   clearTimeout(backgroundTimer);
   clearTimeout(resolveTimer);
   S.session = null;
@@ -309,14 +336,17 @@ function clearPrivateSession(): void {
 }
 
 async function leaveSession(): Promise<void> {
-  const result = await signOut();
-  if (result.kind !== 'ok') {
-    toast('تعذر تأكيد تسجيل الخروج. تحقق من الاتصال وحاول مجددًا.');
-    return;
-  }
+  if (logoutBusy) return;
+  logoutPending = true;
+  logoutBusy = true;
   clearPrivateSession();
   S.connection = 'auth';
-  closeSheet();
+  refresh();
+  const epoch = sessionRequests.capture();
+  const result = await signOut();
+  if (!sessionRequests.current(epoch)) return;
+  logoutBusy = false;
+  logoutPending = result.kind !== 'ok';
   refresh();
 }
 
@@ -325,6 +355,8 @@ let readSeq = 0;
 
 /** Re-read every server fact the screens use. Nothing is guessed when a read fails. */
 async function reload(): Promise<boolean> {
+  if (!S.session) return false;
+  const epoch = sessionRequests.capture();
   const seq = (readSeq += 1);
   const [jobs, availability, profile, custody] = await Promise.all([
     readJobs(),
@@ -332,7 +364,7 @@ async function reload(): Promise<boolean> {
     readProfile(),
     readCustody(),
   ]);
-  if (seq !== readSeq) return false;
+  if (seq !== readSeq || !sessionRequests.current(epoch)) return false;
   if (jobs.kind !== 'ok') {
     S.connection = connectionFrom(jobs);
     if (S.connection === 'auth' || S.connection === 'forbidden') forgetProfile();
@@ -355,6 +387,7 @@ async function reload(): Promise<boolean> {
       return known && known.revision === summary.revision ? known : null;
     }),
   );
+  if (!sessionRequests.current(epoch) || seq !== readSeq) return false;
   const tasks: TaskView[] = details.filter((t): t is TaskView => t !== null);
   const ids = new Set([
     ...jobs.value.offers.map((o) => o.job.bookingId),
@@ -363,6 +396,7 @@ async function reload(): Promise<boolean> {
   await Promise.all(
     [...ids].map(async (bookingId) => {
       const result = await readBooking(bookingId);
+      if (!sessionRequests.current(epoch) || seq !== readSeq) return;
       if (result.kind === 'ok') bookings.set(bookingId, result.value);
       else if (
         result.kind === 'error' &&
@@ -374,6 +408,7 @@ async function reload(): Promise<boolean> {
       // 503 ASSIGNMENT_UNVERIFIED keeps the last view of this session (memory only) and is never treated as allow-by-default for new bookings.
     }),
   );
+  if (!sessionRequests.current(epoch) || seq !== readSeq) return false;
   for (const id of [...bookings.keys()]) if (!ids.has(id)) bookings.delete(id);
   const receipts = new Map<string, CashReceipt>();
   await Promise.all(
@@ -392,12 +427,13 @@ async function reload(): Promise<boolean> {
         // Dispatch declaration or an old confirmed read.
       }),
   );
+  if (!sessionRequests.current(epoch) || seq !== readSeq) return false;
   await ensureReadUrls(
     tasks.flatMap((t) =>
       [...t.evidence.BEFORE, ...t.evidence.AFTER].flatMap((e) => (e ? [e.mediaObjectId] : [])),
     ),
   );
-  if (seq !== readSeq) return false;
+  if (seq !== readSeq || !sessionRequests.current(epoch)) return false;
   const hadSelected = S.view === 'task' && S.jobs.some((j) => j.id === S.selectedId);
   S.jobs = buildJobs(jobs.value.offers, tasks, bookings, receipts);
   S.loaded = true;
@@ -490,6 +526,8 @@ function taskGone(result: Extract<Result<unknown>, { kind: 'error' }>): boolean 
 }
 
 async function handleError(result: Extract<Result<unknown>, { kind: 'error' }>): Promise<void> {
+  if (result.code === 'SESSION_CHANGED') return;
+  const epoch = sessionRequests.capture();
   if (result.code === 'AUTH_REQUIRED' || result.status === 401) {
     S.connection = 'auth';
     forgetProfile();
@@ -497,6 +535,7 @@ async function handleError(result: Extract<Result<unknown>, { kind: 'error' }>):
     return;
   }
   await reload();
+  if (!sessionRequests.current(epoch)) return;
   refresh();
   if (result.code === 'REVISION_CONFLICT' || result.reason === 'REVISION_CONFLICT')
     toast(PENDING.conflict);
@@ -508,10 +547,13 @@ async function handleError(result: Extract<Result<unknown>, { kind: 'error' }>):
 }
 
 async function send(intent: Intent): Promise<'ok' | 'error' | 'unknown'> {
+  const epoch = sessionRequests.capture();
   const result = await sendMutation(intent.request, intent.key);
+  if (!sessionRequests.current(epoch)) return 'error';
   if (result.kind === 'ok') {
     pending.delete(intent.id);
     await reload();
+    if (!sessionRequests.current(epoch)) return 'error';
     intent.done();
     return 'ok';
   }
@@ -522,6 +564,7 @@ async function send(intent: Intent): Promise<'ok' | 'error' | 'unknown'> {
     S.connection = 'unknown';
     toast(PENDING.unknownToast);
     await reload();
+    if (!sessionRequests.current(epoch)) return 'error';
     S.connection = 'unknown';
     refresh();
     scheduleResolve();
@@ -542,6 +585,8 @@ async function mutate(
   build: () => MutationRequest,
   done: () => void,
 ): Promise<'ok' | 'error' | 'unknown' | 'busy'> {
+  if (!S.session) return 'busy';
+  const epoch = sessionRequests.capture();
   if (inFlight) {
     toast(PENDING.busy);
     return 'busy';
@@ -552,17 +597,19 @@ async function mutate(
   try {
     return await send(intent);
   } finally {
-    inFlight = false;
+    if (sessionRequests.current(epoch)) inFlight = false;
   }
 }
 
 async function resolvePending(): Promise<void> {
+  const epoch = sessionRequests.capture();
   if (inFlight || (!pending.size && !stalled.size)) return;
   inFlight = true;
   let unresolved = false;
   try {
     for (const intent of [...pending.values()]) {
       const result = await sendMutation(intent.request, intent.key);
+      if (!sessionRequests.current(epoch)) return;
       if (result.kind === 'ok') {
         pending.delete(intent.id);
         intent.done();
@@ -574,11 +621,14 @@ async function resolvePending(): Promise<void> {
       }
     }
   } finally {
-    inFlight = false;
+    if (sessionRequests.current(epoch)) inFlight = false;
   }
+  if (!sessionRequests.current(epoch)) return;
   if (await resumeUploads()) unresolved = true;
+  if (!sessionRequests.current(epoch)) return;
   if (!unresolved) resolveAttempt = 0;
   await reload();
+  if (!sessionRequests.current(epoch)) return;
   refresh();
   if (unresolved) scheduleResolve();
 }
@@ -640,6 +690,7 @@ function primary(): void {
 
 /** Accepting creates the task server-side (existing dispatch route). */
 async function acceptJob(offerId: string): Promise<void> {
+  const epoch = sessionRequests.capture();
   const id = `offer:${offerId}:accept`;
   if (inFlight) {
     toast(PENDING.busy);
@@ -650,6 +701,7 @@ async function acceptJob(offerId: string): Promise<void> {
   inFlight = true;
   try {
     const result = await acceptOffer(offerId, key);
+    if (!sessionRequests.current(epoch)) return;
     const done = (): void => {
       advanced();
       toast('استلمت المهمة. ابدأ التوجّه عندما تكون جاهزًا.');
@@ -657,6 +709,7 @@ async function acceptJob(offerId: string): Promise<void> {
     if (result.kind === 'ok') {
       pending.delete(id);
       await reload();
+      if (!sessionRequests.current(epoch)) return;
       done();
     } else if (result.kind === 'unknown') {
       pending.set(id, {
@@ -671,6 +724,7 @@ async function acceptJob(offerId: string): Promise<void> {
       });
       toast(PENDING.unknownToast);
       await reload();
+      if (!sessionRequests.current(epoch)) return;
       S.connection = 'unknown';
       refresh();
       scheduleResolve();
@@ -679,7 +733,7 @@ async function acceptJob(offerId: string): Promise<void> {
       await handleError(result);
     }
   } finally {
-    inFlight = false;
+    if (sessionRequests.current(epoch)) inFlight = false;
   }
 }
 
@@ -827,6 +881,7 @@ async function loadLocalPhoto(
   index: number,
   jid: string,
 ): Promise<void> {
+  const epoch = sessionRequests.capture();
   const j = S.jobs.find((x) => x.id === jid);
   if (!file || S.photoBusy || !j || j.stage !== phase || !j.task) return;
   const problem = checkFile(file);
@@ -841,11 +896,14 @@ async function loadLocalPhoto(
     let bytes: Uint8Array<ArrayBuffer>;
     try {
       bytes = await processPhoto(file);
+      if (!sessionRequests.current(epoch)) return;
     } catch {
+      if (!sessionRequests.current(epoch)) return;
       toast('تعذر قراءة الصورة. جرّب صورة JPEG أو PNG أصغر.');
       return;
     }
     const sha256 = await sha256Hex(bytes);
+    if (!sessionRequests.current(epoch)) return;
     const uploadId = `${j.task.taskId}:${phase}:${index}:${sha256}`;
     const intent: UploadIntent = uploads.get(uploadId) ?? {
       bytes,
@@ -859,8 +917,8 @@ async function loadLocalPhoto(
     uploads.set(uploadId, intent);
     await uploadAndAttach({ uploadId, phase, index, jid, rev }, false);
   } finally {
-    S.photoBusy = false;
-    if (S.view === 'task' && S.selectedId === jid) refresh();
+    if (sessionRequests.current(epoch)) S.photoBusy = false;
+    if (sessionRequests.current(epoch) && S.view === 'task' && S.selectedId === jid) refresh();
   }
 }
 
@@ -881,9 +939,11 @@ interface PhotoUpload {
 const stalled = new Map<string, PhotoUpload>();
 
 async function uploadAndAttach(p: PhotoUpload, resumed: boolean): Promise<'unknown' | 'settled'> {
+  const epoch = sessionRequests.capture();
   const intent = uploads.get(p.uploadId);
   if (!intent) return 'settled';
   const outcome = await runUpload(intent);
+  if (!sessionRequests.current(epoch)) return 'settled';
   if (outcome.kind === 'unknown') {
     stalled.set(p.uploadId, p);
     S.connection = 'unknown';
@@ -924,14 +984,16 @@ async function uploadAndAttach(p: PhotoUpload, resumed: boolean): Promise<'unkno
 
 /** Resume stalled uploads one at a time; true while any outcome is still UNKNOWN. */
 async function resumeUploads(): Promise<boolean> {
+  const epoch = sessionRequests.capture();
   if (S.photoBusy) return stalled.size > 0;
   let unresolved = false;
   for (const p of [...stalled.values()]) {
+    if (!sessionRequests.current(epoch)) return false;
     S.photoBusy = true;
     try {
       if ((await uploadAndAttach(p, true)) === 'unknown') unresolved = true;
     } finally {
-      S.photoBusy = false;
+      if (sessionRequests.current(epoch)) S.photoBusy = false;
     }
   }
   return unresolved;
@@ -1160,6 +1222,12 @@ function onClick(e: MouseEvent): void {
   const j = job();
   const c = ctxJob();
   switch (action) {
+    case 'session-menu':
+      showSheet({
+        title: 'إدارة الجلسة',
+        body: '<button class="btn outline" data-action="sign-out">تسجيل الخروج</button>',
+      });
+      break;
     case 'sign-out':
       void leaveSession();
       break;
@@ -1517,7 +1585,9 @@ async function backgroundRead(): Promise<void> {
 }
 
 async function boot(): Promise<void> {
+  const epoch = sessionRequests.capture();
   const session = await readSession();
+  if (!sessionRequests.current(epoch)) return;
   if (session.kind !== 'ok') {
     S.connection = connectionFrom(session);
     if (S.connection === 'offline') showCachedProfile(null);
@@ -1538,7 +1608,9 @@ async function boot(): Promise<void> {
     S.profileCachedAt = null;
   }
   loadCache(S.session.subject, Date.now());
-  if (!(await reload())) showCachedProfile(S.session.subject);
+  const loaded = await reload();
+  if (!sessionRequests.current(epoch)) return;
+  if (!loaded) showCachedProfile(S.session.subject);
   refresh();
   scheduleBackgroundRead();
 }

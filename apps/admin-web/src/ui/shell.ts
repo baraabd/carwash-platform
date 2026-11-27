@@ -112,7 +112,6 @@ export function openModal(content: ModalContent): void {
 
 export function closeModal(): void {
   const backdrop = byId('modalBackdrop');
-  if (!backdrop.classList.contains('open')) return;
   backdrop.classList.remove('open');
   replace(byId('modalBody'));
   replace(byId('modalFoot'));

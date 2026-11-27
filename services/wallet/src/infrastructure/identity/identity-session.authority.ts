@@ -1,3 +1,4 @@
+import { isServiceOriginAllowed } from '@carwash/service-kit';
 import { AccessDenied, type AccessAuthority, type VerifiedPrincipal } from '../../ports';
 
 /**
@@ -30,8 +31,7 @@ export function identityAuthorityConfigFromEnv(env: NodeJS.ProcessEnv): Identity
   const raw = env.IDENTITY_SESSION_ORIGIN;
   if (raw === undefined || raw === '') return { origin: null, timeoutMs };
   const origin = new URL(raw);
-  const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(origin.hostname);
-  if (origin.protocol !== 'https:' && !(origin.protocol === 'http:' && loopback))
+  if (!isServiceOriginAllowed(origin, env))
     throw new Error('IDENTITY_SESSION_ORIGIN_HTTPS_REQUIRED');
   if (origin.username || origin.password || origin.search || origin.hash || origin.pathname !== '/')
     throw new Error('IDENTITY_SESSION_ORIGIN_INVALID');

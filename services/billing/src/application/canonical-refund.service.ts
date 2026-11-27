@@ -28,6 +28,7 @@ import {
 import { canonicalRefundChangedEvent } from './canonical-refund.events';
 import { canonicalRefundView, obligationRefundsView } from './canonical-refund.views';
 import { REFUND_PERMISSION } from './refund.service';
+import { assertSubscriptionFundingReleased } from './subscription-refund-fence';
 
 export const CANONICAL_REFUND_OPERATIONS = {
   request: 'billing.obligation-refund.request.v1',
@@ -168,6 +169,7 @@ export class CanonicalRefundService {
     if (!known) throw new BillingApplicationError('SERVICE_NOT_READY');
     return this.commands.execute(command, async (uow, now) => {
       const { credit, obligation } = await this.bound(uow, known.id, id);
+      await assertSubscriptionFundingReleased(uow, credit);
       this.distinctOwner(principal, obligation);
       if (obligation.revision !== input.expectedRevision)
         throw new BillingApplicationError('REVISION_CONFLICT');
@@ -229,6 +231,7 @@ export class CanonicalRefundService {
     try {
       return await this.commands.execute(command, async (uow, now) => {
         const { credit, obligation } = await this.bound(uow, known.creditId, obligationId);
+        await assertSubscriptionFundingReleased(uow, credit);
         const refund = await uow.providers.lockRefund(id);
         if (!refund || refund.creditId !== credit.id || refund.workflow !== 'OBLIGATION_V1')
           throw new BillingApplicationError('NOT_FOUND');

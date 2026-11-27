@@ -155,6 +155,102 @@ const purchase = (over = {}) => ({
   ...over,
 });
 
+test('subscription: renewal has its own immutable owner period and revisioned quoted request', () => {
+  const target = id();
+  const pending = purchase({ renewalOf: { subscriptionId: target, periodNo: 2 } });
+  assert.deepEqual(sub.parsePurchaseV1(pending).renewalOf, pending.renewalOf);
+  assert.equal(
+    sub.parsePurchaseV1(purchase()).renewalOf,
+    null,
+    'legacy initial purchases remain readable',
+  );
+  throwsCode(
+    () => sub.parsePurchaseV1({ ...pending, renewalOf: { subscriptionId: target, periodNo: 1 } }),
+    'INVALID_INTEGER',
+  );
+  throwsCode(
+    () =>
+      sub.parsePurchaseV1({
+        ...pending,
+        status: 'ACTIVATED',
+        obligationId: id(),
+        subscriptionId: id(),
+      }),
+    'INCONSISTENT_RENEWAL',
+  );
+  const command = {
+    expectedRevision: 7,
+    planId: id(),
+    planVersion: 3,
+    quoteId: id(),
+    total: SYP(12000000),
+    paymentMethod: 'SHAM_CASH',
+  };
+  assert.deepEqual(sub.parseCreateRenewalPurchaseRequestV1(command), command);
+  throwsCode(
+    () => sub.parseCreateRenewalPurchaseRequestV1({ ...command, beneficiary: SUBJECT }),
+    'UNEXPECTED_FIELD',
+  );
+  throwsCode(
+    () => sub.parseCreateRenewalPurchaseRequestV1({ ...command, total: SYP(0) }),
+    'ZERO_PURCHASE',
+  );
+  assert.equal(sub.parseSubscriptionV1(subscription()).renewalAvailable, false);
+  const ended = subscription({ status: 'EXPIRED', periodNo: 2, renewalAvailable: true });
+  assert.equal(sub.parseSubscriptionV1(ended).periodNo, 2);
+  throwsCode(
+    () => sub.parseSubscriptionV1(subscription({ renewalAvailable: true })),
+    'INCONSISTENT_RENEWAL',
+  );
+});
+
+test('subscription: funding release visibility never certifies a refund and retry preserves the attempt counter', () => {
+  const item = {
+    subscriptionId: id(),
+    attempts: 100,
+    attemptLimit: 100,
+    reservedUnits: 0,
+    status: 'ATTENTION_REQUIRED',
+    requestedAt: T0,
+    nextAttemptAt: T1,
+    releasedAt: null,
+  };
+  assert.equal(
+    sub.parseFundingRecoveryListV1({ items: [item], asOf: T1 }).items[0].status,
+    'ATTENTION_REQUIRED',
+  );
+  throwsCode(
+    () => sub.parseFundingRecoveryListV1({ items: [{ ...item, status: 'RELEASED' }], asOf: T1 }),
+    'INCONSISTENT_RELEASE',
+  );
+  throwsCode(
+    () => sub.parseFundingRecoveryListV1({ items: [item, item], asOf: T1 }),
+    'DUPLICATE_SUBSCRIPTION',
+  );
+  assert.deepEqual(sub.parseFundingRecoveryRetryRequestV1({ expectedAttempts: 100 }), {
+    expectedAttempts: 100,
+  });
+  assert.equal(
+    sub.parseFundingRecoveryRetryV1({
+      subscriptionId: item.subscriptionId,
+      attempts: 100,
+      attemptLimit: 200,
+      status: 'PENDING',
+    }).attempts,
+    100,
+  );
+  throwsCode(
+    () =>
+      sub.parseFundingRecoveryRetryV1({
+        subscriptionId: item.subscriptionId,
+        attempts: 100,
+        attemptLimit: 100,
+        status: 'PENDING',
+      }),
+    'RETRY_BUDGET_REQUIRED',
+  );
+});
+
 test('subscription: plans are owner data with closed shape and no free plan', () => {
   assert.equal(sub.parsePlanV1(plan()).units, 4);
   throwsCode(() => sub.parsePlanV1({ ...plan(), price: SYP(0) }), 'ZERO_PLAN_PRICE');

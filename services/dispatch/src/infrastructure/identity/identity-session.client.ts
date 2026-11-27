@@ -1,3 +1,4 @@
+import { isServiceOriginAllowed } from '@carwash/service-kit';
 /**
  * Resolves a bearer token to Identity's own session view.
  *
@@ -36,6 +37,8 @@ export class IdentitySessionClient {
   private readonly fetchImpl: typeof fetch;
 
   constructor(options: IdentitySessionClientOptions) {
+    if (options.baseUrl && !isServiceOriginAllowed(new URL(options.baseUrl)))
+      throw new Error('INVALID_IDENTITY_ORIGIN');
     this.url = options.baseUrl
       ? new URL('/internal/v1/identity/session', options.baseUrl)
       : undefined;

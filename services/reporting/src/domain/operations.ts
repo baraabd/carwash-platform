@@ -143,7 +143,18 @@ export interface ObligationStatusFact extends SourceFact {
   readonly outstanding: ExactAmount;
 }
 
+/** Latest observed fact per published event family and source aggregate.
+ * Kept separately from cash state: Dispatch declarations never mean Billing payment.
+ */
+export interface OwnerObservationFact extends SourceFact {
+  readonly kind: 'OWNER_OBSERVATION';
+  readonly eventType: string;
+  readonly aggregateId: string;
+  readonly state: Readonly<Record<string, string | number | null>>;
+}
+
 export type OperationsFact =
+  | OwnerObservationFact
   | BookingConfirmedFact
   | HoldChangedFact
   | EligibilityChangedFact
@@ -156,6 +167,15 @@ export type OperationsFact =
  */
 export function factFingerprint(fact: OperationsFact): string {
   switch (fact.kind) {
+    case 'OWNER_OBSERVATION':
+      return JSON.stringify([
+        fact.kind,
+        fact.source,
+        fact.eventType,
+        fact.aggregateId,
+        fact.version,
+        Object.entries(fact.state).sort(([a], [b]) => a.localeCompare(b)),
+      ]);
     case 'BOOKING_CONFIRMED':
       return JSON.stringify([fact.kind, fact.bookingId, fact.version, fact.customerRef]);
     case 'HOLD_CHANGED':

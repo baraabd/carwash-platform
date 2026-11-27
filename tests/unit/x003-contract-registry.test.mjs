@@ -86,6 +86,13 @@ test('X003 HTTP registry is versioned, bounded and source-linked', () => {
         status: 'published-provider-pending',
       },
       {
+        id: 'dispatch.v1',
+        domain: 'dispatch',
+        version: 1,
+        prefix: '/internal/v1/dispatch',
+        status: 'published-provider-pending',
+      },
+      {
         id: 'configuration.v1',
         domain: 'configuration',
         version: 1,
@@ -97,6 +104,13 @@ test('X003 HTTP registry is versioned, bounded and source-linked', () => {
         domain: 'billing',
         version: 1,
         prefix: '/internal/v1/billing',
+        status: 'published-provider-pending',
+      },
+      {
+        id: 'booking.v1',
+        domain: 'booking',
+        version: 1,
+        prefix: '/internal/v1/booking',
         status: 'published-provider-pending',
       },
       {
@@ -137,7 +151,7 @@ test('X003 HTTP registry is versioned, bounded and source-linked', () => {
     ],
   );
   // Unpublished domains stay unknown; publication is explicit, never inferred.
-  assert.throws(() => httpRegistry.httpContract('booking.v1'), /UNKNOWN_HTTP_CONTRACT/);
+  assert.throws(() => httpRegistry.httpContract('booking.v2'), /UNKNOWN_HTTP_CONTRACT/);
 
   const docs = JSON.parse(readFileSync(path.join(root, 'docs/api/contract-registry.json'), 'utf8'));
   assert.equal(docs.schemaVersion, 1);
@@ -381,6 +395,30 @@ test('X003 event registry matches public code and AsyncAPI documents', () => {
         envelopeVersion: 2,
         status: 'published-producer-pending',
         asyncApi: 'docs/asyncapi/product-events-v1.yaml',
+      },
+      ...[
+        ['dispatch.assignment-changed.v1', 'dispatch'],
+        ['dispatch.task-progressed.v1', 'dispatch'],
+        ['dispatch.cash-declared.v1', 'dispatch'],
+        ['booking.created.v1', 'booking'],
+        ['booking.cancelled.v1', 'booking'],
+        ['booking.rescheduled.v1', 'booking'],
+        ['booking.lifecycle-progressed.v1', 'booking'],
+      ].map(([id, producer]) => ({
+        id,
+        producer,
+        schemaVersion: 1,
+        envelopeVersion: 2,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/operations-events-v1.yaml',
+      })),
+      {
+        id: 'workforce.shift-updated.v1',
+        producer: 'workforce',
+        schemaVersion: 1,
+        envelopeVersion: 1,
+        status: 'published-producer-pending',
+        asyncApi: 'docs/asyncapi/operations-events-v1.yaml',
       },
     ],
   );

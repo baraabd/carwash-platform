@@ -187,6 +187,7 @@ test('assigned technician: 200 with the exact purpose-limited view, audited in t
     'address',
     'bookingId',
     'contact',
+    'financialSource',
     'lines',
     'paymentMethod',
     'revision',
@@ -198,6 +199,7 @@ test('assigned technician: 200 with the exact purpose-limited view, audited in t
   assert.equal(ok.json.bookingId, bookingId);
   assert.equal(ok.json.status, 'CONFIRMED');
   assert.equal(ok.json.paymentMethod, 'SHAM_CASH');
+  assert.equal(ok.json.financialSource, 'DIRECT');
   assert.deepEqual(ok.json.total, { currency: 'SYP', amountMinor: '9000000', scale: 2 });
   assert.deepEqual(ok.json.vehicle, {
     type: 'sedan',

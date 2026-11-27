@@ -114,3 +114,92 @@ test('funding configuration rejects origins containing credentials/paths and inv
     '1234',
   );
 });
+
+test('funding claim validates the durable period binding and uses one deterministic key across recovery', async () => {
+  const claim = { ...input, subscriptionId: randomUUID(), periodNo: 2 };
+  const valid = {
+    claimed: true,
+    obligationId: claim.obligationId,
+    subscriptionId: claim.subscriptionId,
+    periodNo: 2,
+    beneficiary: { kind: 'account', subjectId: input.customerSubject },
+    amount: input.amount.toWire(),
+    quoteId: input.quoteId,
+  };
+  let answer: unknown = valid;
+  const requests: RequestInit[] = [];
+  const authority = new BillingFundingAuthority(config, (url, request) => {
+    assert.ok(url instanceof URL);
+    assert.equal(
+      url.href,
+      'https://billing.example.test/internal/v1/billing/subscription-funding/claims',
+    );
+    requests.push(request!);
+    return Promise.resolve(new Response(JSON.stringify(answer)));
+  });
+  assert.equal(await authority.claim(claim), 'CLAIMED');
+  assert.equal(await authority.claim({ ...claim, correlationId: randomUUID() }), 'CLAIMED');
+  const headers = requests.map((request) => new Headers(request.headers));
+  assert.equal(headers[0]!.get('idempotency-key'), headers[1]!.get('idempotency-key'));
+  assert.match(headers[0]!.get('idempotency-key')!, /^[A-Za-z0-9_-]{16,128}$/);
+  assert.equal(headers[0]!.get('authorization'), null);
+  assert.equal(headers[0]!.get('cookie'), null);
+  assert.equal(headers[0]!.get('x-service-client'), 'subscription');
+  for (const bad of [
+    { ...valid, subscriptionId: randomUUID() },
+    { ...valid, periodNo: 1 },
+    { ...valid, obligationId: randomUUID() },
+    { ...valid, quoteId: randomUUID() },
+    { ...valid, amount: { currency: 'USD', amountMinor: '500000', scale: 2 } },
+    { ...valid, beneficiary: { kind: 'account', subjectId: randomUUID() } },
+    { claimed: true },
+  ]) {
+    answer = bad;
+    assert.equal(await authority.claim(claim), 'UNAVAILABLE');
+  }
+  for (const reason of [
+    'PAYMENT_NOT_VERIFIED',
+    'FUNDING_ALREADY_CLAIMED',
+    'SUBSCRIPTION_CANCELLED',
+  ]) {
+    answer = { claimed: false, reason };
+    assert.equal(await authority.claim(claim), 'NOT_VERIFIED');
+  }
+});
+
+test('funding release requires an exact owner tombstone acknowledgement and stable command identity', async () => {
+  const release = {
+    subscriptionId: randomUUID(),
+    customerSubject: input.customerSubject,
+    correlationId: randomUUID(),
+  };
+  const valid = {
+    released: true,
+    subscriptionId: release.subscriptionId,
+    beneficiary: { kind: 'account', subjectId: release.customerSubject },
+  };
+  let answer: unknown = valid;
+  const keys: string[] = [];
+  const authority = new BillingFundingAuthority(config, (url, request) => {
+    assert.ok(url instanceof URL);
+    assert.equal(
+      url.href,
+      `https://billing.example.test/internal/v1/billing/subscription-funding/subscriptions/${release.subscriptionId}/release`,
+    );
+    const headers = new Headers(request!.headers);
+    keys.push(headers.get('idempotency-key')!);
+    assert.equal(headers.get('authorization'), null);
+    return Promise.resolve(new Response(JSON.stringify(answer)));
+  });
+  assert.equal(await authority.release(release), 'RELEASED');
+  assert.equal(await authority.release({ ...release, correlationId: randomUUID() }), 'RELEASED');
+  assert.equal(keys[0], keys[1]);
+  for (const invalid of [
+    { ...valid, subscriptionId: randomUUID() },
+    { ...valid, beneficiary: { kind: 'account', subjectId: randomUUID() } },
+    { released: true },
+  ]) {
+    answer = invalid;
+    assert.equal(await authority.release(release), 'UNAVAILABLE');
+  }
+});

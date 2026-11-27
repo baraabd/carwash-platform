@@ -180,6 +180,50 @@
         }
       }
     },
+    "/internal/v1/subscription/subscriptions/{subscriptionId}/renewals": {
+      "post": {
+        "operationId": "subscription.createRenewalPurchase",
+        "x-access": "principal",
+        "x-idempotent": true,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts subscriptionV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "subscriptionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/internal/v1/subscription/purchases/by-request/{idempotencyKey}": {
       "get": {
         "operationId": "subscription.getPurchaseByRequest",
@@ -418,6 +462,76 @@
         "x-safe-post": false,
         "x-wire-parsers": "@carwash/contracts subscriptionV1 (closed objects; unknown fields refused)",
         "parameters": [],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/subscription/administration/funding-recovery": {
+      "get": {
+        "operationId": "subscription.listFundingRecovery",
+        "x-access": "permission:subscription.manage",
+        "x-idempotent": false,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts subscriptionV1 (closed objects; unknown fields refused)",
+        "parameters": [],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/subscription/administration/funding-recovery/{subscriptionId}/retry": {
+      "post": {
+        "operationId": "subscription.retryFundingRecovery",
+        "x-access": "permission:subscription.manage",
+        "x-idempotent": true,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts subscriptionV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "subscriptionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
         "responses": {
           "2XX": {
             "description": "Owner response validated by the published parser."

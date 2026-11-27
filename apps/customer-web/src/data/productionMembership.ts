@@ -11,6 +11,7 @@ import {
   parsePurchaseV1,
   parseSubscriptionV1,
   parseCreatePurchaseRequestV1,
+  parseCreateRenewalPurchaseRequestV1,
   parseRequestSubscriptionChangeV1,
   parseSubscriptionChangeV1,
   type PlanV1,
@@ -36,6 +37,11 @@ export interface MembershipSnapshot {
   readonly subscriptionsStatus: 'idle' | 'loading' | 'available' | 'unavailable';
   readonly subscriptionsCursor: string | null;
   readonly selectedPlan: PlanV1 | null;
+  readonly renewalTarget: {
+    readonly subscriptionId: string;
+    readonly expectedRevision: number;
+    readonly periodNo: number;
+  } | null;
   readonly quote: SubscriptionQuoteV1 | null;
   readonly purchase: PurchaseV1 | null;
   readonly purchaseStatus: 'idle' | 'loading' | 'available' | 'unavailable';
@@ -73,6 +79,7 @@ const empty = (): MembershipSnapshot => ({
   subscriptionsStatus: 'idle',
   subscriptionsCursor: null,
   selectedPlan: null,
+  renewalTarget: null,
   quote: null,
   purchase: null,
   purchaseStatus: 'idle',
@@ -290,12 +297,39 @@ export class ProductionMembership {
     });
   }
   async choosePlan(planId: string): Promise<boolean> {
+    return this.quotePlan(planId, null);
+  }
+  canRenew(subscription: SubscriptionV1): boolean {
+    return (
+      this.snapshot.principal !== null &&
+      sameOwner(subscription.beneficiary, this.snapshot.principal) &&
+      subscription.renewalAvailable &&
+      subscription.status === 'EXPIRED' &&
+      Date.parse(subscription.expiresAt) <= this.now()
+    );
+  }
+  async chooseRenewal(subscriptionId: string): Promise<boolean> {
+    if (!this.canWrite() || this.snapshot.subscriptionsStatus !== 'available') return false;
+    const subscription = this.snapshot.subscriptions.find(
+      (item) => item.subscriptionId === subscriptionId,
+    );
+    if (!subscription || !this.canRenew(subscription)) return false;
+    return this.quotePlan(subscription.planId, {
+      subscriptionId,
+      expectedRevision: subscription.revision,
+      periodNo: subscription.periodNo + 1,
+    });
+  }
+  private async quotePlan(
+    planId: string,
+    renewalTarget: MembershipSnapshot['renewalTarget'],
+  ): Promise<boolean> {
     if (!this.canWrite()) return false;
     const plan = this.snapshot.plans.find(
       (item) => item.planId === planId && item.status === 'PUBLISHED',
     );
     if (!plan) return false;
-    this.patch({ selectedPlan: plan, quote: null });
+    this.patch({ selectedPlan: plan, renewalTarget, quote: null });
     const body = parseCreateSubscriptionQuoteV1({ planId: plan.planId, planVersion: plan.version });
     const result = await this.mutate(
       'quote',
@@ -321,7 +355,7 @@ export class ProductionMembership {
     return result.ok;
   }
   async purchase(method: 'SHAM_CASH' | 'SYRIATEL_CASH'): Promise<boolean> {
-    const { quote, selectedPlan } = this.snapshot;
+    const { quote, selectedPlan, renewalTarget } = this.snapshot;
     if (
       !this.canWrite() ||
       !quote ||
@@ -332,20 +366,28 @@ export class ProductionMembership {
       this.patch({ problem: 'انتهت صلاحية السعر أو لم تُحسم عملية سابقة. اطلب عرض سعر حديثًا.' });
       return false;
     }
-    const body = parseCreatePurchaseRequestV1({
+    const purchaseBody = parseCreatePurchaseRequestV1({
       planId: quote.planId,
       planVersion: quote.planVersion,
       quoteId: quote.quoteId,
       total: quote.total,
       paymentMethod: method,
     });
+    const body = renewalTarget
+      ? parseCreateRenewalPurchaseRequestV1({
+          ...purchaseBody,
+          expectedRevision: renewalTarget.expectedRevision,
+        })
+      : purchaseBody;
     const key = this.options.newKey();
     this.persist(key, this.snapshot.purchase?.purchaseId ?? null);
     const result = await this.mutate(
       'purchase',
       {
         method: 'POST',
-        path: '/customer/subscription-purchases',
+        path: renewalTarget
+          ? `/customer/subscriptions/${renewalTarget.subscriptionId}/renewals`
+          : '/customer/subscription-purchases',
         body,
         idempotencyKey: key,
         parse: (value) => {
@@ -357,7 +399,11 @@ export class ProductionMembership {
             purchase.total.amountMinor !== quote.total.amountMinor ||
             purchase.total.currency !== quote.total.currency ||
             purchase.total.scale !== quote.total.scale ||
-            purchase.paymentMethod !== method
+            purchase.paymentMethod !== method ||
+            (renewalTarget
+              ? purchase.renewalOf?.subscriptionId !== renewalTarget.subscriptionId ||
+                purchase.renewalOf.periodNo !== renewalTarget.periodNo
+              : purchase.renewalOf !== null)
           )
             throw new Error('subscription purchase context');
           return purchase;
@@ -377,6 +423,7 @@ export class ProductionMembership {
       obligation: null,
       unknownPurchaseKey: null,
       selectedPlan: null,
+      renewalTarget: null,
       quote: null,
       problem: null,
     });

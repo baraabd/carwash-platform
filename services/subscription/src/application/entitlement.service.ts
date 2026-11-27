@@ -16,6 +16,7 @@ import type {
   ActorRef,
   AuditAction,
   Clock,
+  FundingAuthority,
   Hasher,
   IdGenerator,
   ReservationRecord,
@@ -42,6 +43,7 @@ import {
 } from './request-support';
 import { SubscriptionApplicationError } from './subscription-errors';
 import { ledgerView, reservationView } from './views';
+import { requirePeriodFunding } from './period-funding';
 
 export const REVERSE_OPERATION = 'subscription.entitlement.reverse.v1';
 
@@ -71,6 +73,7 @@ export class EntitlementService {
   constructor(
     private readonly deps: {
       readonly repository: SubscriptionRepository;
+      readonly funding: FundingAuthority;
       readonly authority: AccessAuthority;
       readonly callers: ServiceCallerAuthority;
       readonly clock: Clock;
@@ -210,6 +213,14 @@ export class EntitlementService {
           reason: null,
           correlationId: context.correlationId,
         };
+        if (!locked.period) throw new SubscriptionApplicationError('SUBSCRIPTION_NOT_ACTIVE');
+        await requirePeriodFunding(
+          this.deps.funding,
+          uow,
+          locked.subscription,
+          locked.period,
+          context.correlationId,
+        );
         await uow.insertReservation(reservation);
         await uow.updatePeriodCounters({ ...next, subscriptionId: input.subscriptionId });
         await this.record(
@@ -426,6 +437,14 @@ export class EntitlementService {
           reason: null,
           correlationId: context.correlationId,
         };
+        if (!locked.period) throw new SubscriptionApplicationError('SUBSCRIPTION_NOT_ACTIVE');
+        await requirePeriodFunding(
+          this.deps.funding,
+          uow,
+          locked.subscription,
+          locked.period,
+          context.correlationId,
+        );
         await uow.insertReservation(reservation);
         await uow.updatePeriodCounters({ ...next, subscriptionId });
         await this.record(uow, now, actor, 'RESERVE', reservation, null, context.correlationId);
@@ -459,6 +478,11 @@ export class EntitlementService {
     const status = nextReservationStatus(reservation.status, kind);
     const period = await uow.lockPeriod(reservation.subscriptionId, reservation.periodNo);
     if (!period) throw new Error('RESERVATION_PERIOD_MISSING');
+    if (kind === 'COMMIT') {
+      const subscription = await this.deps.repository.subscription(reservation.subscriptionId);
+      if (!subscription) throw new SubscriptionApplicationError('NOT_FOUND');
+      await requirePeriodFunding(this.deps.funding, uow, subscription, period, correlationId);
+    }
     const next = applyMovement(period, kind);
     const updated: ReservationRecord = {
       ...reservation,

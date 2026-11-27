@@ -180,6 +180,17 @@ export class SubscriptionController {
       this.canonical.createPurchase(context, headers['idempotency-key'], body),
     );
   }
+  @Post('subscriptions/:id/renewals')
+  createRenewal(
+    @Headers() headers: Headers_,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Res() response: HttpResponse,
+  ) {
+    return this.send('subscription_renewal_purchase', headers, response, (context) =>
+      this.canonical.createRenewal(context, headers['idempotency-key'], id, body),
+    );
+  }
   @Get('purchases/by-request/:idempotencyKey')
   purchaseByRequest(@Headers() headers: Headers_, @Param('idempotencyKey') key: string) {
     return this.run(() => this.canonical.getPurchaseByRequest(this.context(headers), key));
@@ -237,6 +248,21 @@ export class SubscriptionController {
   @Get('administration/changes')
   pendingChanges(@Headers() headers: Headers_) {
     return this.run(() => this.canonical.pendingChanges(this.context(headers)));
+  }
+  @Get('administration/funding-recovery')
+  fundingRecoveries(@Headers() headers: Headers_) {
+    return this.run(() => this.canonical.fundingRecoveries(this.context(headers)));
+  }
+  @Post('administration/funding-recovery/:id/retry')
+  retryFundingRelease(
+    @Headers() headers: Headers_,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Res() response: HttpResponse,
+  ) {
+    return this.send('subscription_funding_release_retried', headers, response, (context) =>
+      this.canonical.retryFundingRelease(context, headers['idempotency-key'], id, body),
+    );
   }
   @Post('subscriptions/:id/changes/:changeId/decision')
   decideChange(

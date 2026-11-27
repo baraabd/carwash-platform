@@ -250,7 +250,7 @@ async function acceptance(suite) {
       env.ADMIN_DOMAINS_EVIDENCE_DIR = path.join(out, 'admin-domains');
       env.ADMIN_SOURCE_SHA = report.source.sha;
       await command('admin-domain-browser-fixtures', node, [
-        'apps/admin-web/browser/domain-screens.browser.mjs',
+        'tests/production/D/domain-screens.browser.mjs',
       ]);
       await childEvidence(
         'admin-domain-browser-fixtures',
@@ -349,6 +349,7 @@ async function acceptance(suite) {
     } else if (plan.lane === 'C') {
       infrastructureUsed = true;
       if (suite === 'c-quote-hold') env.CW_PROD_C_EXTRA_SERVICES = 'catalog,pricing';
+      if (suite === 'c-runtime-workers') env.CW_PROD_C_EXTRA_SERVICES = 'reporting,communications';
       await command('lane-stack-up', node, ['scripts/production/C/stack.mjs', 'up']);
       if (suite === 'c-quote-hold')
         await tests('quote-hold-real-owners', [
@@ -358,6 +359,7 @@ async function acceptance(suite) {
         await tests('technician-real-services', ['tests/production/C/p06c-real-services.test.mjs']);
       else if (suite === 'c-runtime-workers')
         await tests('standalone-worker-processes', [
+          'tests/production/C/native-owner-effects.pg.test.mjs',
           'tests/production/C/runtime-closure-processes.test.mjs',
         ]);
       else {

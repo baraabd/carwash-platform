@@ -12,6 +12,9 @@ import {
   parsePublishPlanRequestV1,
   parseSubscriptionV1,
   parseSubscriptionChangeV1,
+  parseFundingRecoveryListV1,
+  parseFundingRecoveryRetryRequestV1,
+  parseFundingRecoveryRetryV1,
   SUBSCRIPTION_CHANGE_ACTIONS,
   SUBSCRIPTION_CHANGE_REASONS,
   type PublishPlanRequestV1,
@@ -88,6 +91,32 @@ export function pendingSubscriptionChanges() {
       });
     },
   });
+}
+
+export function subscriptionFundingRecovery() {
+  return request('/admin/subscription-funding-recovery', { read: parseFundingRecoveryListV1 });
+}
+
+export function retrySubscriptionFunding(
+  subscriptionId: string,
+  expectedAttempts: number,
+  key: string,
+) {
+  const body = parseFundingRecoveryRetryRequestV1({ expectedAttempts });
+  return request(
+    `/admin/subscription-funding-recovery/${encodeURIComponent(subscriptionId)}/retry`,
+    {
+      method: 'POST',
+      body,
+      idempotencyKey: key,
+      read: (raw) => {
+        const value = parseFundingRecoveryRetryV1(raw);
+        if (value.subscriptionId !== subscriptionId || value.attempts !== expectedAttempts)
+          throw new Error('funding recovery context');
+        return value;
+      },
+    },
+  );
 }
 export function decideSubscriptionChange(
   subscriptionId: string,

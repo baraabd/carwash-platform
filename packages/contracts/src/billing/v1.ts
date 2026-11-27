@@ -45,6 +45,18 @@ export const BILLING_V1 = {
   owner: 'billing',
   prefix: '/internal/v1/billing',
   routes: {
+    claimSubscriptionFunding: {
+      method: 'POST',
+      path: '/subscription-funding/claims',
+      access: 'service:billing.subscription-funding.claim',
+      idempotent: true,
+    },
+    releaseSubscriptionFunding: {
+      method: 'POST',
+      path: '/subscription-funding/subscriptions/:subscriptionId/release',
+      access: 'service:billing.subscription-funding.release',
+      idempotent: true,
+    },
     verifySubscriptionFunding: {
       method: 'POST',
       path: '/subscription-funding/verify',

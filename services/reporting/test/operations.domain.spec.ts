@@ -311,6 +311,7 @@ test('operations projector: every applied, stale or repeated fact moves freshnes
     applyEligibilityChanged: () => Promise.resolve('APPLIED'),
     applyAssignmentChanged: () => Promise.resolve('APPLIED'),
     applyObligationStatus: () => Promise.resolve('APPLIED'),
+    applyOwnerObservation: () => Promise.resolve('APPLIED'),
     touchFreshness: (source) => {
       calls.push(source);
       return Promise.resolve();
