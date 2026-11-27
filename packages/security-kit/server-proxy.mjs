@@ -3,7 +3,7 @@ import process from 'node:process';
 import { URL } from 'node:url';
 import { setTimeout, clearTimeout } from 'node:timers';
 import { randomUUID } from 'node:crypto';
-import { isServiceOriginAllowed } from './dist/service-origin.js';
+import { isServiceOriginAllowed } from '@carwash/security-kit/service-origin';
 import { apiError, API_ERROR_STATUS } from '@carwash/contracts/common';
 
 const REQUEST_HEADERS = [

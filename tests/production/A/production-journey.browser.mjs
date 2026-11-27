@@ -12,7 +12,6 @@ import { resolve } from 'node:path';
 import { chromium, expect } from '@playwright/test';
 import { createRequire } from 'node:module';
 import { createWebRuntime } from '../../../infra/web-runtime.mjs';
-import { apiError } from '../../../packages/contracts/dist/common.js';
 import {
   harness,
   id,
@@ -27,6 +26,7 @@ import { harness as membershipHarness } from '../../../apps/customer-web/test/su
 
 const appRoot = resolve(import.meta.dirname, '../../../apps/customer-web');
 const appRequire = createRequire(resolve(appRoot, 'package.json'));
+const { apiError } = appRequire('@carwash/contracts/common');
 const { build } = await import(appRequire.resolve('vite'));
 const buildRoot = mkdtempSync(resolve(tmpdir(), 'customer-journey-build-'));
 const evidence =

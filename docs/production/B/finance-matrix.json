@@ -776,12 +776,26 @@
     {
       "id": "FIN-EVT-01",
       "area": "ledger",
-      "function": "Billing outbox relay of published billing.v1 events to RabbitMQ",
+      "function": "Durable Billing relay publishes only allowlisted cash-custody and canonical obligation-created/status-changed events for Wallet and Reporting; unpublished legacy and proposal outbox rows remain untouched",
       "owner": "billing",
-      "status": "BLOCKED",
+      "status": "IMPLEMENTED",
       "productionGate": "FAIL_CLOSED",
       "blockers": [
         "B-P06-04"
+      ],
+      "files": [
+        "services/billing/src/outbox/relay.runner.ts",
+        "services/billing/src/outbox/prisma-outbox.store.ts",
+        "services/billing/src/outbox/custody-events.ts",
+        "services/billing/src/outbox/obligation-events.ts"
+      ],
+      "tables": [
+        "outbox_message"
+      ],
+      "tests": [
+        "services/billing/test/billing.outbox.spec.ts",
+        "tests/production/B/wallet-broker.test.mjs",
+        "tests/production/B/reporting-broker.test.mjs"
       ]
     },
     {
@@ -922,11 +936,13 @@
     {
       "id": "FIN-FUND-01",
       "area": "subscription",
-      "function": "Workload-only point-in-time funding proof: exact beneficiary and amount, allocated settled credit, no Booking binding or reserved refund; this is not a durable funding claim",
+      "function": "Workload-only durable Subscription funding claims bind the exact beneficiary, obligation, allocated settled credit and period; serialized refund fences and cancellation tombstones protect grants, while the older verify route remains diagnostic only",
       "owner": "billing",
       "status": "IMPLEMENTED",
       "contractRoutes": [
-        "verifySubscriptionFunding"
+        "verifySubscriptionFunding",
+        "claimSubscriptionFunding",
+        "releaseSubscriptionFunding"
       ],
       "files": [
         "services/billing/src/application/subscription-funding.service.ts",
@@ -935,11 +951,15 @@
       "tables": [
         "billing_obligation",
         "provider_credit",
-        "payment_refund"
+        "payment_refund",
+        "subscription_funding_command",
+        "subscription_funding_namespace",
+        "subscription_funding_claim"
       ],
       "tests": [
         "services/billing/test/billing.subscription-funding.spec.ts",
-        "services/billing/test/integration/billing.refunds-v1.postgres.spec.ts"
+        "services/billing/test/integration/billing.refunds-v1.postgres.spec.ts",
+        "tests/production/B/subscription-funding-http.pg.test.mjs"
       ],
       "productionGate": "FAIL_CLOSED",
       "blockers": [
@@ -950,7 +970,7 @@
     {
       "id": "FIN-SUB-02",
       "area": "subscription",
-      "function": "Canonical immutable plan publication, recoverable prepaid purchases, verified activation, covered Booking entitlement reserve/consume/release, owner eligibility and pending human-reviewed changes; canonical renewal and post-activation refund revocation remain outside this tranche",
+      "function": "Canonical immutable plan publication, recoverable prepaid and renewal purchases with separate funding per period, funded Booking entitlement reserve/consume/release, human-reviewed changes and durable cancellation release with bounded audited recovery",
       "owner": "subscription",
       "status": "IMPLEMENTED",
       "ownerRoutes": [
@@ -969,13 +989,17 @@
         "POST /internal/v1/subscription/entitlement-reservations/:id/resolution",
         "GET /internal/v1/subscription/entitlement-reservations/:id",
         "GET /internal/v1/subscription/entitlement-reservations",
-        "GET /internal/v1/subscription/purchases/by-request/:idempotencyKey"
+        "GET /internal/v1/subscription/purchases/by-request/:idempotencyKey",
+        "POST /internal/v1/subscription/subscriptions/:id/renewals",
+        "GET /internal/v1/subscription/administration/funding-recovery",
+        "POST /internal/v1/subscription/administration/funding-recovery/:id/retry"
       ],
       "files": [
         "services/subscription/src/application/canonical-subscription.service.ts",
         "services/subscription/src/application/entitlement.service.ts",
         "services/subscription/src/infrastructure/billing/billing-funding.authority.ts",
-        "services/subscription/src/infrastructure/billing/purchase-owners.client.ts"
+        "services/subscription/src/infrastructure/billing/purchase-owners.client.ts",
+        "services/subscription/src/workers/funding.main.ts"
       ],
       "tables": [
         "subscription_purchase",
@@ -983,12 +1007,14 @@
         "entitlement_reservation",
         "subscription_period",
         "entitlement_movement",
-        "subscription_workload_receipt"
+        "subscription_workload_receipt",
+        "subscription_funding_release"
       ],
       "tests": [
         "services/subscription/test/subscription.funding.spec.ts",
         "services/subscription/test/integration/subscription.canonical.postgres.spec.ts",
-        "services/subscription/test/subscription.purchase-recovery.spec.ts"
+        "services/subscription/test/subscription.purchase-recovery.spec.ts",
+        "tests/production/B/subscription-funding-http.pg.test.mjs"
       ],
       "productionGate": "FAIL_CLOSED",
       "blockers": [
@@ -1010,7 +1036,10 @@
         "admin.subscription-plan.publish",
         "admin.subscription.read",
         "admin.subscription-changes",
-        "admin.subscription-change.decision"
+        "admin.subscription-change.decision",
+        "customer.subscription.renewal",
+        "admin.subscription-funding-recovery",
+        "admin.subscription-funding-recovery.retry"
       ]
     }
   ],
@@ -1204,8 +1233,8 @@
       "id": "B-P06-04",
       "external": false,
       "lane": "E",
-      "tracking": "docs/production/B/CONTRACT_REQUEST_E_P06.md",
-      "summary": "Billing and Wallet do not depend on @carwash/platform-messaging; adding it changes the E-owned lockfile, so no relay/consumer binds to RabbitMQ."
+      "tracking": "docs/production/B/S07-BILLING-REPORTING-CASH-2026-11-27.md",
+      "summary": "Billing, Wallet and Reporting include messaging dependencies and bounded relay/consumer source. Exact-candidate real PostgreSQL/RabbitMQ acceptance, hosted least-privilege topology, deployed worker supervision and recovery evidence remain required; source implementation does not prove broker delivery or staging operation."
     },
     {
       "id": "B-P06-05",
@@ -1240,7 +1269,7 @@
       "external": false,
       "lane": "B",
       "tracking": "docs/production/B/S02-S08-FINANCE-CLOSURE-2026-11-27.md",
-      "summary": "Finance closure source and local runtime checks are implemented; exact-candidate real PostgreSQL, owner connectivity, browser/staging financial journeys and release evidence remain required. Funding verification is point-in-time and canonical renewal or post-activation refund revocation is not inferred."
+      "summary": "Durable funding claims, refund fences, canonical renewal purchases and cancellation release recovery are implemented in source with local diagnostics. Exact-candidate PostgreSQL and owner-HTTP acceptance, deployed recovery-worker operation, browser/staging financial journeys and release evidence remain required; no merchant settlement or production approval is inferred."
     }
   ]
 }

@@ -16,7 +16,11 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./server-proxy": "./server-proxy.mjs"
+    "./server-proxy": "./server-proxy.mjs",
+    "./service-origin": {
+      "types": "./dist/service-origin.d.ts",
+      "default": "./dist/service-origin.js"
+    }
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
