@@ -359,10 +359,59 @@ test('Reviews persists Arabic and decomposed Latin comments as NFC in a UTF-8 da
   assert.equal(persisted.comment, comment.normalize('NFC'));
 });
 
-test('Reviews readiness remains fail-closed after implementation', async () => {
+test('Reviews HTTP readiness requires configured owner capabilities and actual database probes', async () => {
   const ready = await fetch(`${stack.reviews.origin}/health/ready`);
+  assert.equal(ready.status, 200);
+  const body = await ready.json();
+  assert.equal(body.service, 'reviews');
+  assert.equal(body.scope, 'http-api');
+  assert.equal(body.businessReady, true);
+  assert.equal(body.dependenciesReady, true);
+  assert.equal(body.ready, true);
+  assert.equal(body.code, 'READY');
+  assert.deepEqual(
+    body.dependencies.map(({ name, status }) => ({ name, status })),
+    [
+      { name: 'postgres', status: 'UP' },
+      { name: 'postgres-schema', status: 'UP' },
+    ],
+  );
+  assert.equal(body.capabilities.length, 2);
+  assert.ok(body.capabilities.every((capability) => capability.required && capability.available));
+});
+
+test('Reviews stays unready without Identity configuration even with its real database available', async () => {
+  const overrides = {
+    DATABASE_URL: appDsn(context, 'reviews'),
+    IDENTITY_SESSION_ORIGIN: '',
+    REVIEWS_BOOKING_ORIGIN: stack.bookingProxy.origin,
+    REVIEWS_BOOKING_TIMEOUT_MS: '500',
+  };
+  const previous = Object.fromEntries(
+    Object.keys(overrides).map((name) => [name, process.env[name]]),
+  );
+  let unconfigured;
+  try {
+    unconfigured = await owner('reviews', overrides);
+  } finally {
+    for (const [name, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
+  const ready = await fetch(`${unconfigured.origin}/health/ready`);
   assert.equal(ready.status, 503);
-  assert.equal((await ready.json()).businessReady, false);
+  const body = await ready.json();
+  assert.equal(body.service, 'reviews');
+  assert.equal(body.scope, 'http-api');
+  assert.equal(body.businessReady, false);
+  assert.equal(body.dependenciesReady, true);
+  assert.equal(body.ready, false);
+  assert.equal(body.code, 'FOUNDATION_NOT_READY');
+  assert.equal(
+    body.capabilities.find((capability) => capability.name === 'identity-authority').available,
+    false,
+  );
 });
 
 test('real Identity rejects absent/forged credentials and service impersonation', async () => {

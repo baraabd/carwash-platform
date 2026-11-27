@@ -5,7 +5,7 @@ const STATE_TEMPLATE =
 
 /** Inspect only a named, owned acceptance container; never read Config.Env. */
 export async function ownedBrokerContainer(docker, name, owner) {
-  assert.match(name, /^cw-p05b-wallet-(pg|mq)-[a-f0-9]{12}$/);
+  assert.match(name, /^cw-p05b-(wallet|reporting)-(pg|mq)-[a-f0-9]{12}$/);
   assert.equal(typeof owner, 'string');
   assert.ok(owner.length > 0);
   const result = await docker(['inspect', '--format', STATE_TEMPLATE, name]);

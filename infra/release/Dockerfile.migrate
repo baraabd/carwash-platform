@@ -13,15 +13,15 @@
 #   docker buildx build -f infra/release/Dockerfile.migrate \
 #     --build-arg SERVICE=booking --build-arg NODE_IMAGE=node@sha256:... .
 #
-# Keep build tooling out of the job. Prisma's schema engine needs OpenSSL 3;
-# copy only its Debian 13 ABI libraries and original package inventory from the
-# pinned donor, rather than shipping Bookworm's shell, apt, PAM, Perl and dpkg.
-ARG NODE_IMAGE=node:24.21.0-bookworm-slim
-ARG MIGRATION_RUNTIME_IMAGE=gcr.io/distroless/base-nossl-debian13@sha256:89815d620ac01d8de13cdaf04d19ed874447ca2296d4985b14b818f6e5e47854
-ARG MIGRATION_NATIVE_IMAGE=gcr.io/distroless/cc-debian13@sha256:cb87acc574abe719b6e5c547384defa2f7b1f24af9605d3f618cf852495d8be2
+# The job uses supported Bookworm OpenSSL 3.0, which is unaffected by the
+# observed OpenSSL 3.5 QUIC findings. Its libraries and CA data come only from
+# checksum-pinned Debian packages. A native closure proof rejects any builder
+# library fallback. Original package records, checksums and licences remain.
+ARG NODE_IMAGE=docker.io/library/node@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
 
 # ---------------------------------------------------------------- builder ----
 FROM ${NODE_IMAGE} AS builder
+ARG NODE_IMAGE
 ENV CI=true
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 # The build image has no system OpenSSL. The pinned @prisma/engines 7.10
@@ -52,37 +52,22 @@ RUN pnpm --filter "@carwash/${SERVICE}" deploy --legacy /deploy
 # omitted the final-platform engine. Its real ABI execution is proved below.
 RUN node -e "const fs=require('node:fs');const path=require('node:path');const {createRequire}=require('node:module');const owner=createRequire('/deploy/package.json');if(owner('prisma/package.json').version!=='7.10.0')throw Error('UNEXPECTED_PRISMA_VERSION');const prisma=createRequire(owner.resolve('prisma/package.json'));const engines=prisma('@prisma/engines');fs.accessSync(path.join(engines.getEnginesPath(),'schema-engine-debian-openssl-3.0.x'),fs.constants.R_OK|fs.constants.X_OK);"
 
+COPY scripts/production/E/release/migration-rootfs.mjs scripts/production/E/release/migration-runtime.lock.json ./scripts/production/E/release/
+RUN node scripts/production/E/release/migration-rootfs.mjs \
+    --root /migration-rootfs --deploy /deploy \
+    --lock scripts/production/E/release/migration-runtime.lock.json \
+    --node-image "${NODE_IMAGE}"
+
 # ------------------------------------------------------------------- job ----
-FROM ${MIGRATION_NATIVE_IMAGE} AS native_libraries
-
-FROM ${MIGRATION_RUNTIME_IMAGE} AS job
+FROM scratch AS job
 ARG SERVICE
-
-COPY --from=builder /usr/local/bin/node /usr/local/bin/node
-COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so.6
-COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1
-COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libssl.so.3 /usr/lib/x86_64-linux-gnu/libssl.so.3
-COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libcrypto.so.3 /usr/lib/x86_64-linux-gnu/libcrypto.so.3
-COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libz.so.1 /usr/lib/x86_64-linux-gnu/libz.so.1
-COPY --from=native_libraries /usr/lib/x86_64-linux-gnu/libzstd.so.1 /usr/lib/x86_64-linux-gnu/libzstd.so.1
-COPY --from=native_libraries /var/lib/dpkg/status.d/libstdc++6* /var/lib/dpkg/status.d/
-COPY --from=native_libraries /var/lib/dpkg/status.d/libgcc-s1* /var/lib/dpkg/status.d/
-COPY --from=native_libraries /var/lib/dpkg/status.d/libssl3t64* /var/lib/dpkg/status.d/
-COPY --from=native_libraries /var/lib/dpkg/status.d/zlib1g* /var/lib/dpkg/status.d/
-COPY --from=native_libraries /var/lib/dpkg/status.d/libzstd1* /var/lib/dpkg/status.d/
-COPY --from=native_libraries /usr/share/doc/libstdc++6 /usr/share/doc/libstdc++6
-COPY --from=native_libraries /usr/share/doc/libgcc-s1 /usr/share/doc/libgcc-s1
-COPY --from=native_libraries /usr/share/doc/libssl3t64 /usr/share/doc/libssl3t64
-COPY --from=native_libraries /usr/share/doc/zlib1g /usr/share/doc/zlib1g
-COPY --from=native_libraries /usr/share/doc/libzstd1 /usr/share/doc/libzstd1
-
-# Physical removal, preserving original libc inventory/checksums/licenses.
-# The migration scanner proves this again in the final immutable job image and
-# executes the actual Prisma schema engine before assessing these exact CVEs.
-USER 0
-RUN ["/usr/local/bin/node","-e","const fs=require('node:fs');for(const name of [\"UHC.so\",\"ISO-2022-CN-EXT.so\",\"IBM1390.so\",\"IBM1399.so\"]){const file='/usr/lib/x86_64-linux-gnu/gconv/'+name;if(!fs.lstatSync(file).isFile())throw Error('UNEXPECTED_CONVERTER_FILE');fs.unlinkSync(file);}"]
+COPY --from=builder --chown=0:0 /migration-rootfs/ /
 
 ENV NODE_ENV=production
+ENV PATH=/usr/local/bin
+ENV LANG=C.UTF-8
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_DIR=/etc/ssl/certs
 ENV CW_SERVICE=${SERVICE}
 WORKDIR /migrate
 
@@ -92,8 +77,7 @@ COPY --from=builder --chown=0:0 /deploy/prisma.config.ts ./prisma.config.ts
 COPY --from=builder --chown=0:0 /deploy/prisma ./prisma
 COPY --chown=0:0 infra/release/migrate-job.mjs ./migrate-job.mjs
 
-# Files are root-owned and read-only to the job identity: the job can read its
-# migrations but cannot rewrite them at run time.
+# Root-owned inputs remain read-only to the one-shot migration identity.
 USER 1000:1000
-ENTRYPOINT ["node", "/migrate/migrate-job.mjs"]
+ENTRYPOINT ["/usr/local/bin/node", "/migrate/migrate-job.mjs"]
 CMD ["deploy"]

@@ -7,8 +7,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { command, tool, toolLock, git } from '../../../ci/runtime.mjs';
 import { trivyFindings } from '../../../ci/policy.mjs';
-import { assessUnfilteredImageScan } from '../../../ci/image-security.mjs';
-import { MIGRATION_RUNTIME_PROBE, assertMigrationRuntimeProof } from './migration-runtime.mjs';
+import {
+  MIGRATION_RUNTIME_LOCK,
+  MIGRATION_RUNTIME_PROBE,
+  assertMigrationRuntimeProof,
+} from './migration-runtime.mjs';
 
 export function assessMigrationScan(report, imageId, migrationProof) {
   assert.match(imageId, /^sha256:[0-9a-f]{64}$/);
@@ -25,13 +28,13 @@ export function assessMigrationScan(report, imageId, migrationProof) {
     assert.ok(result.Secrets === undefined || Array.isArray(result.Secrets));
     secretCount += result.Secrets?.length ?? 0;
   }
-  // Without fresh proof from THIS migration image, every finding is blocking.
-  // A runtime-only receipt cannot establish native Prisma/OS compatibility.
   if (migrationProof !== undefined) {
     assertMigrationRuntimeProof(migrationProof, imageId);
-    const assessment = assessUnfilteredImageScan(report, 'amd64', migrationProof);
-    return { findings, secretCount, blocking: assessment.unreviewedBlocking };
+    assert.equal(report.Metadata.OS.Family, MIGRATION_RUNTIME_LOCK.distribution.id);
+    assert.match(report.Metadata.OS.Name ?? '', /^12(?:\.\d+)?$/);
   }
+  // Native provenance never exempts a vulnerability. The migration rootfs has
+  // its own packages; ordinary runtime VEX cannot authorize this image.
   return { findings, secretCount, blocking: findings.filter((finding) => finding.blocking) };
 }
 
@@ -40,6 +43,7 @@ async function run(partFile, reportFile) {
   const part = JSON.parse(readFileSync(partFile, 'utf8'));
   assert.equal(part.source.sha, git('rev-parse', 'HEAD'));
   assert.equal(part.source.tree, git('rev-parse', 'HEAD^{tree}'));
+  assert.equal(part.baseImages?.migrationNode, MIGRATION_RUNTIME_LOCK.nodeImage);
   const artifacts = part.artifacts.filter((artifact) => artifact.role === 'migration');
   assert.equal(artifacts.length, 1, 'This gate requires exactly one owner migration artifact');
   const artifact = artifacts[0];

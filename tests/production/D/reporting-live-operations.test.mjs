@@ -653,6 +653,7 @@ test('H1: three staff roles over real Identity — each sees only its KPIs', asy
       'UNDER_REVIEW',
       'OUTCOME_UNKNOWN',
       'PAID',
+      'CASH_COLLECTED',
       'VOIDED',
     ],
   );

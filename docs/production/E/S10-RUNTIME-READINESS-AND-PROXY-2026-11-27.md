@@ -51,7 +51,7 @@ Use `architecture/service-catalog.json` and `infra/runtime-processes.json` as th
 
 1. Establish the scoped staging infrastructure and inspect provider-side apply results. Postgres, Redis, RabbitMQ and object storage need real health/identity/ACL evidence; a staged configuration patch is not a running service.
 2. Build and verify the exact source with the existing release scripts/workflows. Preserve runtime and migration image security gates, provenance, SBOM and digest binding. PR rehearsal images in the ephemeral local registry are not deployable published artifacts. Use the actual released immutable images, or a separately verified exact-source provider build; do not silently substitute an unverified image.
-3. Apply all 19 migrations as one-shot jobs with each owner's migration role. `migrate-job.mjs` consumes `MIGRATION_DATABASE_URL_FILE` and rejects `DATABASE_URL`; it must not receive an API runtime DSN. A host-side file delivery bridge remains a concrete setup prerequisite if the provider supplies only environment variables. The same issue applies to Identity's existing secret-file inputs. Do not weaken those file/role checks to make deployment convenient.
+3. Apply all 19 migrations as one-shot jobs with each owner's migration role. `migrate-job.mjs` consumes `MIGRATION_DATABASE_URL_FILE` and rejects `DATABASE_URL`; it must not receive an API runtime DSN. Deliver each file through a verified provider file mechanism with access for the existing non-root UID 1000 process. Railway documents volume file upload; those volumes exist only at service start, not in pre-deploy containers. Keep these as dedicated one-shot owner jobs. The same file delivery prerequisite applies to Identity. Do not replace mounted files with raw-secret environment variables or weaken file/role checks.
 4. Configure and start owner APIs, Gateway, the three static hosts and all 13 required worker roles. Use each worker's command, owner image, required variables and inherited-healthcheck policy from `runtime-processes.json`. Worker liveness is process supervision; progress requires queue/inbox/outbox/lease/DLQ evidence. Keep owners and worker endpoints private. The web hosts route browser API calls only through Gateway.
 5. Run the full deployed journey and failure/restart/compensation proofs against that exact revision: actual Identity session and CSRF, customer/vehicle ownership, published Catalog/Pricing/Geo/capacity data, booking, assignment, evidence storage, supported payment/refund path, notifications and Billing/Wallet/Reporting effects. Use clearly scoped staging data. Readiness alone is not this proof.
 6. Produce the existing source-bound release receipt, barrier, production smoke, recovery and operating-window evidence. Confirm the previous immutable runtime artifacts and database compatibility before rollout. A failed migration, health check, consumer progress check or journey must stop promotion; use the verified rollback/recovery procedures and retain the failed evidence.
@@ -69,3 +69,45 @@ No additional launch framework is introduced. Existing entry points include `scr
 ## Verification scope
 
 `tests/production/E/web-gateway.test.mjs` exercises real local HTTP listeners for all three production static handlers, cookie/CSRF/session-binding forwarding, rejected spoofed context, redirects, traversal, streaming budgets, timeouts, readiness and standalone package/export/dependency loading. Accepted POST requests followed by timeout, oversized/malformed response, redirect or invalid cookies are exercised through the actual Operator and shared clients, and strict contract parsing verifies both ambiguous 5xx outcomes and pre-forward 4xx refusals. `gateway-readiness.test.mjs` uses the actual compiled Nest Gateway with real local owner listeners. `owner-readiness.test.mjs` checks all 18 owner policies and exact model-table coverage with explicit SQL doubles, including missing scopes/policies/schema and privileged/wrong-role refusal. The Catalog integration suite additionally uses real PostgreSQL 16, migrated by a distinct role, and the actual Nest HTTP composition. These are source/runtime tests, not hosted or provider acceptance.
+
+## Secure platform preparation observed on 2026-11-27
+
+A fresh read of the existing staging project still showed the same 13-change
+RabbitMQ/volume/object-storage patch as `STAGED`. The connector exposed variable
+names with values redacted. All 38 original owner app/migration password names
+remain present on the completed database provisioner. Reuse those securely held
+values or perform an explicit audited rotation: the provisioner creates missing
+roles but does not reset passwords on existing roles. Never inject the bootstrap
+Postgres identity into an owner API or worker.
+
+[Railway's volume CLI](https://docs.railway.com/cli/volume.md) provides
+`railway volume files --volume <volume-id> upload <protected-local-file> <remote-path>`.
+Scope the command to the actual project, environment and service. Provision
+file ownership and permissions for UID 1000 through controlled platform access;
+do not change application execution to root. The documented
+[volume mount lifecycle](https://docs.railway.com/volumes.md) and
+[pre-deploy isolation](https://docs.railway.com/deployments/pre-deploy-command)
+mean a migration that needs its secret volume must execute as the dedicated
+job's start process. No file upload or permission change has been performed.
+
+Migration DSNs must still use the correct owner migration role/database/schema
+and a required TLS mode. Identity needs an authenticated `rediss://` endpoint
+and trusted TLS, plus its five existing signing/OTP/CSRF/rate/delivery secret
+files. Available variable names and the absence of a visible Redis TLS override
+do not prove the actual endpoint protocol. Verify live encrypted connections
+and scoped ACLs before starting Identity; private HTTP policy is unrelated.
+
+The separate RabbitMQ acceptance bootstrap scripts are fresh, overlapping test
+profiles. Do not concatenate them on a hosted vhost. A reviewed union of native
+exchanges, queue bindings and resource/topic permissions, installed through
+trusted broker-local provisioning, remains required. Management-plugin support
+has not been established for the staged image and must not be assumed.
+
+Billing's supported merchant mode requires actual receiving accounts in both
+`BILLING_SHAM_CASH_MERCHANT_ACCOUNTS` and
+`BILLING_SYRIATEL_CASH_MERCHANT_ACCOUNTS`, independent finance principals and
+real statement/refund evidence. Automated-provider API settings fail startup
+because that adapter is unimplemented. Identity/notification connectors likewise
+need actual delivery credentials and the provider's real idempotency and recipient
+namespace support. These inputs cannot be replaced by fixtures or inferred from
+healthy infrastructure.
