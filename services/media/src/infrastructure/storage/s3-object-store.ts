@@ -155,6 +155,14 @@ export class S3ObjectStore implements ObjectStore {
     });
   }
 
+  /** Authenticated read-only bucket probe; never creates a bucket or a test object. */
+  async ping(): Promise<void> {
+    const signal = AbortSignal.timeout(this.config.requestTimeoutMs);
+    const response = await this.send('HEAD', this.url(null), {}, EMPTY_SHA256, null, signal);
+    await discard(response);
+    if (response.status !== 200) throw storageUnavailable();
+  }
+
   async write(key: string, bytes: Uint8Array, contentType: ContentType): Promise<void> {
     const signal = AbortSignal.timeout(this.config.requestTimeoutMs);
     const digest = payloadHash(bytes);

@@ -38,7 +38,7 @@ const digest = (value: string) => createHash('sha256').update(value).digest('hex
 
 function identityReturning(status: number, body: unknown): IdentitySessionClient {
   return new IdentitySessionClient({
-    baseUrl: 'http://identity.internal:3000',
+    baseUrl: 'https://identity.internal:3000',
     fetchImpl: () => Promise.resolve(new Response(JSON.stringify(body), { status })),
   });
 }
@@ -178,7 +178,7 @@ test('identity client requires the principal kind and fails closed', async () =>
   );
   assert.equal(await reason(good.resolve('Basic abc', SUBJECT)), 'UNAUTHENTICATED');
   const hanging = new IdentitySessionClient({
-    baseUrl: 'http://identity.internal:3000',
+    baseUrl: 'https://identity.internal:3000',
     timeoutMs: 50,
     fetchImpl: (_url, init) =>
       new Promise((_resolve, reject) =>

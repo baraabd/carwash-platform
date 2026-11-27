@@ -24,9 +24,12 @@ export function upstreamConfigFromEnv(
   const raw = env[originKey];
   if (raw === undefined || raw === '') return { origin: null, timeoutMs };
   const origin = new URL(raw);
-  if (!isServiceOriginAllowed(origin, env)) throw new Error(`${originKey}_HTTPS_REQUIRED`);
+  // Structural configuration errors stay distinct from an unapproved transport.
+  // The shared policy rejects both, so check structure first to preserve the
+  // existing safe error code without rendering a credential-bearing URL.
   if (origin.username || origin.password || origin.search || origin.hash || origin.pathname !== '/')
     throw new Error(`${originKey}_INVALID`);
+  if (!isServiceOriginAllowed(origin, env)) throw new Error(`${originKey}_HTTPS_REQUIRED`);
   return { origin, timeoutMs };
 }
 

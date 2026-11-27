@@ -1,4 +1,4 @@
-import type { GatewayOwner } from '@carwash/contracts';
+import { GATEWAY_ROUTES, type GatewayOwner } from '@carwash/contracts';
 import {
   isRailwayPrivateHost,
   isServiceUrlAllowed,
@@ -25,6 +25,16 @@ const OWNERS: readonly GatewayOwner[] = [
   'communications',
   'media',
 ];
+/** Readiness covers every owner in the shipped route contract, never just the configured subset. */
+export const REQUIRED_GATEWAY_OWNERS = Object.freeze([
+  ...new Set(GATEWAY_ROUTES.map((route) => route.owner)),
+]);
+export function gatewayRoutingConfigured(config: GatewayConfig): boolean {
+  return (
+    REQUIRED_GATEWAY_OWNERS.length > 0 &&
+    REQUIRED_GATEWAY_OWNERS.every((owner) => !!config.origins[owner])
+  );
+}
 export function validateGatewayConfig(config: GatewayConfig): GatewayConfig {
   if (config.privateNetwork !== undefined && config.privateNetwork !== 'railway')
     throw new Error('INVALID_GATEWAY_PRIVATE_NETWORK');

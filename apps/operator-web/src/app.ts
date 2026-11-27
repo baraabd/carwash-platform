@@ -1,4 +1,4 @@
-import { newKey, sessionRequests, type Result } from './api/client';
+import { newKey, sessionRequests, bindSessionRequests, type Result } from './api/client';
 import { signOut } from './api/auth-api';
 import { mountSignIn } from './views/sign-in';
 import { readCashTarget, clearCashAttempts, type CashReceipt } from './api/cash-api';
@@ -302,6 +302,7 @@ function connectionFrom(result: Result<unknown>): typeof S.connection {
 /** A revoked or changed identity must not retain task/media facts or pending commands. */
 function clearPrivateSession(): void {
   sessionRequests.invalidate();
+  bindSessionRequests(null);
   readSeq += 1;
   inFlight = false;
   S.photoRevision += 1;
@@ -358,6 +359,18 @@ async function reload(): Promise<boolean> {
   if (!S.session) return false;
   const epoch = sessionRequests.capture();
   const seq = (readSeq += 1);
+  // A dependent read can reject the session after /jobs succeeded. Clear its
+  // private state immediately, while a late refusal from an old read is inert.
+  const rejectReadSession = (result: Result<unknown>): boolean => {
+    if (result.kind !== 'error' || (result.status !== 401 && result.code !== 'AUTH_REQUIRED'))
+      return false;
+    if (sessionRequests.current(epoch) && seq === readSeq) {
+      S.connection = 'auth';
+      clearPrivateSession();
+      refresh();
+    }
+    return true;
+  };
   const [jobs, availability, profile, custody] = await Promise.all([
     readJobs(),
     readAvailability(),
@@ -365,6 +378,7 @@ async function reload(): Promise<boolean> {
     readCustody(),
   ]);
   if (seq !== readSeq || !sessionRequests.current(epoch)) return false;
+  if ([jobs, availability, profile, custody].some(rejectReadSession)) return false;
   if (jobs.kind !== 'ok') {
     S.connection = connectionFrom(jobs);
     if (S.connection === 'auth' || S.connection === 'forbidden') forgetProfile();
@@ -380,6 +394,8 @@ async function reload(): Promise<boolean> {
   const details = await Promise.all(
     jobs.value.tasks.map(async (summary): Promise<TaskView | null> => {
       const fresh = await readTask(summary.taskId);
+      if (!sessionRequests.current(epoch) || seq !== readSeq || rejectReadSession(fresh))
+        return null;
       if (fresh.kind === 'ok') return fresh.value;
       if (fresh.kind === 'error' && taskGone(fresh)) return null;
       // Transient failure: keep the last confirmed detail only if it is not older than the summary.
@@ -397,6 +413,7 @@ async function reload(): Promise<boolean> {
     [...ids].map(async (bookingId) => {
       const result = await readBooking(bookingId);
       if (!sessionRequests.current(epoch) || seq !== readSeq) return;
+      if (rejectReadSession(result)) return;
       if (result.kind === 'ok') bookings.set(bookingId, result.value);
       else if (
         result.kind === 'error' &&
@@ -421,6 +438,7 @@ async function reload(): Promise<boolean> {
       )
       .map(async (t) => {
         const target = await readCashTarget(t.bookingId);
+        if (!sessionRequests.current(epoch) || seq !== readSeq || rejectReadSession(target)) return;
         if (target.kind === 'ok' && target.value.receipt)
           receipts.set(t.bookingId, target.value.receipt);
         // An unavailable or absent financial receipt never falls back to the
@@ -432,6 +450,7 @@ async function reload(): Promise<boolean> {
     tasks.flatMap((t) =>
       [...t.evidence.BEFORE, ...t.evidence.AFTER].flatMap((e) => (e ? [e.mediaObjectId] : [])),
     ),
+    rejectReadSession,
   );
   if (seq !== readSeq || !sessionRequests.current(epoch)) return false;
   const hadSelected = S.view === 'task' && S.jobs.some((j) => j.id === S.selectedId);
@@ -1601,6 +1620,7 @@ async function boot(): Promise<void> {
     return;
   }
   S.session = session.value;
+  bindSessionRequests(S.session);
   // A cache written for another subject is discarded here; an offline-shown one is replaced.
   if (S.profileCachedAt !== null) {
     S.profile = null;

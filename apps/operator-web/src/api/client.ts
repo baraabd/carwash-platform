@@ -1,7 +1,16 @@
 import { ShapeError, parseError } from './parse';
 import { RequestEpoch, type RequestEpochToken } from '@carwash/api-clients';
+import {
+  SESSION_BINDING_HEADER,
+  formatSessionBinding,
+  type BrowserSessionBinding,
+} from '@carwash/contracts/common';
 
 export const sessionRequests = new RequestEpoch();
+let sessionBinding: string | null = null;
+export function bindSessionRequests(session: BrowserSessionBinding | null): void {
+  sessionBinding = session ? formatSessionBinding(session) : null;
+}
 
 /**
  * Same-origin fetch wrapper for the gateway paths `/api/operator/*`.
@@ -91,12 +100,16 @@ let refreshing: {
 } | null = null;
 
 /** Concurrent reads share one refresh. A rejected request is retried at most once. */
-async function refreshSession(epoch: RequestEpochToken): Promise<Result<unknown>> {
+async function refreshSession(
+  epoch: RequestEpochToken,
+  expectedSession: string | null,
+): Promise<Result<unknown>> {
   if (!refreshing || !sessionRequests.current(refreshing.epoch)) {
     const promise = performCall(
       { method: 'POST', path: '/api/operator/auth/refresh', body: {}, parse: null },
       false,
       epoch,
+      expectedSession,
     );
     const operation = { epoch, promise };
     refreshing = operation;
@@ -108,13 +121,14 @@ async function refreshSession(epoch: RequestEpochToken): Promise<Result<unknown>
 }
 
 export function call<T>(request: Request<T>): Promise<Result<T>> {
-  return performCall(request, true, sessionRequests.capture());
+  return performCall(request, true, sessionRequests.capture(), sessionBinding);
 }
 
 async function performCall<T>(
   request: Request<T>,
   mayRefresh: boolean,
   epoch: RequestEpochToken,
+  expectedSession: string | null,
 ): Promise<Result<T>> {
   const stale = (): Result<T> => sessionChanged();
   if (!sessionRequests.current(epoch)) return stale();
@@ -132,6 +146,8 @@ async function performCall<T>(
     if (csrf) headers['x-csrf-token'] = csrf;
   }
   if (request.idempotencyKey) headers['idempotency-key'] = request.idempotencyKey;
+  if (expectedSession && !request.path.startsWith('/api/operator/auth/'))
+    headers[SESSION_BINDING_HEADER] = expectedSession;
   const controller = new AbortController();
   const timeout = request.timeoutMs ?? (unsafe ? WRITE_TIMEOUT_MS : READ_TIMEOUT_MS);
   let timedOut = false;
@@ -162,9 +178,9 @@ async function performCall<T>(
   // A 401 is an explicit rejection, unlike a timeout or lost write response.
   // Preserve the original body/key; never retry an UNKNOWN mutation here.
   if (response.status === 401 && mayRefresh && !request.path.startsWith('/api/operator/auth/')) {
-    const refreshed = await refreshSession(epoch);
+    const refreshed = await refreshSession(epoch, expectedSession);
     if (!sessionRequests.current(epoch)) return stale();
-    if (refreshed.kind === 'ok') return performCall(request, false, epoch);
+    if (refreshed.kind === 'ok') return performCall(request, false, epoch, expectedSession);
   }
   let json: unknown = null;
   if (text) {

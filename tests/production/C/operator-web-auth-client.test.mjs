@@ -54,12 +54,49 @@ before(() => {
   client = require(path.join(temporary, 'client.js'));
 });
 afterEach(() => {
+  client.bindSessionRequests(null);
   globalThis.fetch = originalFetch;
   globalThis.document = originalDocument;
 });
 after(() => rmSync(temporary, { recursive: true, force: true }));
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+
+test('refresh retains the prepared technician session binding even when cookies belong to another session', async () => {
+  const previous = {
+    subject: randomUUID(),
+    sessionId: randomUUID(),
+    authVersion: 1,
+    principalKind: 'account',
+  };
+  const replacement = { ...previous, subject: randomUUID(), sessionId: randomUUID() };
+  const expected = `account:${previous.subject}:${previous.sessionId}:1`;
+  const calls = [];
+  globalThis.document = { cookie: 'wg_csrf=replacement-cookie' };
+  client.bindSessionRequests(previous);
+  globalThis.fetch = async (url, options) => {
+    if (url === '/api/operator/auth/refresh') {
+      client.bindSessionRequests(replacement);
+      return json(replacement);
+    }
+    calls.push(options);
+    return json({ error: { code: 'AUTH_REQUIRED' } }, 401);
+  };
+  const result = await client.call({
+    method: 'POST',
+    path: '/api/operator/me/availability',
+    body: { status: 'AVAILABLE' },
+    idempotencyKey: 'technician_command_1234567890',
+    parse: null,
+  });
+  assert.equal(result.kind, 'error');
+  assert.equal(result.status, 401);
+  assert.equal(calls.length, 2);
+  for (const attempt of calls) {
+    assert.equal(attempt.headers['x-wg-session-binding'], expected);
+    assert.equal(attempt.headers['idempotency-key'], 'technician_command_1234567890');
+  }
+});
 
 test('operator login prepares CSRF and sends credentials only to same-origin Identity transport', async () => {
   const challenge = { challengeId: randomUUID(), expiresIn: 300, resendAfter: 30 };

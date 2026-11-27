@@ -6,8 +6,8 @@
  * ApiErrorEnvelope and the route table; and the Catalog stub Pricing is tested
  * against serves a body the published catalog.v1 parser accepts.
  *
- * Pricing cannot depend on @carwash/contracts yet (the lockfile is Lane E's),
- * so its local restatement is kept honest here: drift fails this suite.
+ * Pricing's local domain vocabularies and composed canonical controller routes
+ * must agree with the published contracts: drift fails this suite.
  * Persistence is the in-memory test double; PostgreSQL behaviour is proven by
  * scripts/production/B/postgres-acceptance.mjs --service pricing.
  *
@@ -53,6 +53,13 @@ const fixtures = pricingTests('test', 'support', 'pricing-fixtures.js');
 const domain = pricingTests('src', 'domain', 'index.js');
 const service = pricingTests('src', 'application', 'pricing.service.js');
 const controller = pricingTests('src', 'transport', 'http', 'pricing.controller.js');
+const { SubscriptionQuoteController } = pricingTests(
+  'src',
+  'transport',
+  'http',
+  'subscription-quote.controller.js',
+);
+const { AppModule } = pricingTests('src', 'app.module.js');
 
 const PATH = pricingContract.PRICING_V1.prefix;
 let http;
@@ -78,14 +85,26 @@ test('route table: Pricing serves exactly the pricing.v1 routes and access rules
   assert.deepEqual(contractProblems(PRICING_V1), []);
   assert.equal(`/${controller.PRICING_V1_PREFIX}`, PRICING_V1.prefix);
   const { Reflect: R } = globalThis;
-  const proto = controller.PricingController.prototype;
-  const served = Object.getOwnPropertyNames(proto)
-    .filter((name) => name !== 'constructor' && R.getMetadata('path', proto[name]) !== undefined)
-    .map((name) => {
-      const method = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'][
-        R.getMetadata('method', proto[name])
-      ];
-      return `${method} /${R.getMetadata('path', proto[name])}`;
+  const mounted = R.getMetadata('controllers', AppModule);
+  const served = [controller.PricingController, SubscriptionQuoteController]
+    .flatMap((ownerController) => {
+      assert.ok(mounted.includes(ownerController), `${ownerController.name} must be mounted`);
+      const proto = ownerController.prototype;
+      const prefix = `/${R.getMetadata('path', ownerController)}`;
+      assert.ok(prefix === PRICING_V1.prefix || prefix.startsWith(`${PRICING_V1.prefix}/`));
+      return Object.getOwnPropertyNames(proto)
+        .filter(
+          (name) => name !== 'constructor' && R.getMetadata('path', proto[name]) !== undefined,
+        )
+        .map((name) => {
+          const method = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'][
+            R.getMetadata('method', proto[name])
+          ];
+          const route = `${prefix}/${R.getMetadata('path', proto[name])}`
+            .replace(/\/+/g, '/')
+            .replace(/\/$/, '');
+          return `${method} ${route.slice(PRICING_V1.prefix.length) || '/'}`;
+        });
     })
     .sort();
   const published = Object.values(PRICING_V1.routes)
@@ -97,6 +116,9 @@ test('route table: Pricing serves exactly the pricing.v1 routes and access rules
     `permission:${service.PRICE_BOOK_PERMISSION}`,
   );
   assert.equal(PRICING_V1.routes.validateQuote.access, 'service:pricing.quote.validate');
+  assert.equal(PRICING_V1.routes.createSubscriptionQuote.access, 'principal');
+  assert.equal(PRICING_V1.routes.createSubscriptionQuote.idempotent, true);
+  assert.equal(PRICING_V1.routes.getSubscriptionQuote.access, 'principal');
 });
 
 test('local mirrors equal the published vocabularies', () => {

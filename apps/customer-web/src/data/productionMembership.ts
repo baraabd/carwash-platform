@@ -1,5 +1,11 @@
 import { HttpClient, type ApiResult, type FetchLike, type RequestSpec } from '@carwash/api-clients';
-import { apiError, parsePage, type PrincipalRef } from '@carwash/contracts/common';
+import {
+  apiError,
+  parsePage,
+  SESSION_BINDING_HEADER,
+  formatSessionBinding,
+  type PrincipalRef,
+} from '@carwash/contracts/common';
 import type { IdentitySessionView } from '@carwash/contracts/identity-v1';
 import {
   parseCreateSubscriptionQuoteV1,
@@ -147,7 +153,10 @@ export class ProductionMembership {
       fetch: options.fetch,
       credentials: 'same-origin',
       timeoutMs: 10000,
-      headers: () => ({ 'x-csrf-token': options.csrf() }),
+      headers: () => ({
+        'x-csrf-token': options.csrf(),
+        ...(this.identity ? { [SESSION_BINDING_HEADER]: this.identity } : {}),
+      }),
     });
     this.publicClient = new HttpClient({
       baseUrl,
@@ -167,10 +176,7 @@ export class ProductionMembership {
     for (const listener of this.listeners) listener();
   }
   bindSession(session: IdentitySessionView | null): void {
-    const identity =
-      session?.principalKind === 'account'
-        ? `${session.subject}:${session.sessionId}:${session.authVersion}`
-        : null;
+    const identity = session?.principalKind === 'account' ? formatSessionBinding(session) : null;
     if (identity === this.identity) return;
     this.identity = identity;
     this.epoch++;
@@ -355,6 +361,7 @@ export class ProductionMembership {
     return result.ok;
   }
   async purchase(method: 'SHAM_CASH' | 'SYRIATEL_CASH'): Promise<boolean> {
+    const epoch = this.epoch;
     const { quote, selectedPlan, renewalTarget } = this.snapshot;
     if (
       !this.canWrite() ||
@@ -411,6 +418,7 @@ export class ProductionMembership {
       },
       (purchase) => this.acceptPurchase(purchase),
     );
+    if (epoch !== this.epoch) return false;
     if (!result.ok && result.error.code !== 'OUTCOME_UNKNOWN')
       this.persist(null, this.snapshot.purchase?.purchaseId ?? null);
     return result.ok;

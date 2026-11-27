@@ -1,17 +1,13 @@
+import { FINANCIAL_STATUSES } from '@carwash/contracts/billing-v1';
+import {
+  parseCashKpisV1,
+  type CashKpisV1,
+  type CashStateV1,
+} from '@carwash/contracts/reporting-v1';
 import { ASSIGNMENT_STATUSES, type AssignmentStatus } from '../domain/assignment';
 import { DERIVED_STATUSES, type DerivedStatus } from '../domain/bookings';
 import type { MoneyWire } from '../domain/finance';
-import {
-  INSTANT,
-  integer,
-  list,
-  nullableText,
-  object,
-  oneOf,
-  request,
-  text,
-  type Result,
-} from './http';
+import { integer, list, object, request, text, type Result } from './http';
 import { projection, type Projection } from './operations';
 
 /**
@@ -38,29 +34,12 @@ export interface OperationsKpis extends Projection {
   readonly fieldStagesAvailable: boolean;
 }
 
-export const CASH_STATES = [
-  'UNPAID',
-  'AWAITING_CASH',
-  'AWAITING_PAYMENT',
-  'UNDER_REVIEW',
-  'OUTCOME_UNKNOWN',
-  'PAID',
-  'VOIDED',
-] as const;
+/** Same closed state vocabulary as Billing; cash collection is not treasury receipt. */
+export const CASH_STATES = FINANCIAL_STATUSES;
 export type CashState = (typeof CASH_STATES)[number];
 
-export interface CashStateRow {
-  readonly cashState: CashState;
-  readonly count: number;
-  readonly outstanding: readonly MoneyWire[];
-  readonly oldestSince: string | null;
-}
-
-export interface CashKpis extends Projection {
-  readonly incompleteSources: readonly string[];
-  readonly asOf: string;
-  readonly states: readonly CashStateRow[];
-}
+export type CashStateRow = CashStateV1;
+export type CashKpis = CashKpisV1;
 
 const nullableMs = (v: unknown, p: string): number | null => (v === null ? null : integer(v, p));
 
@@ -127,22 +106,6 @@ export function operationsKpis(input: {
 
 export function cashKpis(): Promise<Result<CashKpis>> {
   return request('/admin/finance/cash', {
-    read: (raw) => {
-      const body = object(raw, '$');
-      return {
-        ...projection(body),
-        incompleteSources: sources(body.incompleteSources),
-        asOf: text(body.asOf, 'asOf', INSTANT),
-        states: list(body.states, 'states', (v, p) => {
-          const s = object(v, p);
-          return {
-            cashState: oneOf(s.cashState, CASH_STATES, `${p}.cashState`),
-            count: integer(s.count, `${p}.count`),
-            outstanding: list(s.outstanding, `${p}.outstanding`, money),
-            oldestSince: nullableText(s.oldestSince, `${p}.oldestSince`, INSTANT),
-          };
-        }),
-      };
-    },
+    read: parseCashKpisV1,
   });
 }

@@ -310,3 +310,9 @@ real provider integration, never fabricated by local tests.
 This tranche does not add a customer stored-value wallet or claim that every finance
 outbox has a running publisher. Existing cash custody remains its own Wallet domain;
 the runtime and release closure record must prove the deployed consumers separately.
+
+The additional Billing obligation-to-Reporting implementation and its independent
+PostgreSQL/broker acceptance are described in
+`S07-BILLING-REPORTING-CASH-2026-11-27.md`. It publishes only the two canonical
+obligation event types to the existing cash KPI projection. Actual deployment
+and current-source broker acceptance must still be recorded separately.

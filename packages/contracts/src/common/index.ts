@@ -8,3 +8,4 @@ export * from './coordinates';
 export * from './vehicle-type';
 export * from './route';
 export * from './payment-method';
+export * from './session-binding';

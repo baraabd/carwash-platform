@@ -21,6 +21,7 @@ import {
   type TaskSummary,
   type TaskView,
 } from './types';
+import { formatSessionBinding } from '@carwash/contracts/common';
 
 /**
  * Closed response parsing: every object must carry exactly the documented
@@ -100,7 +101,7 @@ export function parseSession(v: unknown): SessionView {
     'roles',
     'permissions',
   ]);
-  return {
+  const result = {
     subject: id(s.subject, 'session.subject'),
     sessionId: id(s.sessionId, 'session.sessionId'),
     authVersion: int(s.authVersion, 'session.authVersion'),
@@ -110,6 +111,12 @@ export function parseSession(v: unknown): SessionView {
       str(r, `session.permissions[${i}]`, 64),
     ),
   };
+  try {
+    formatSessionBinding(result);
+  } catch {
+    throw new ShapeError('session');
+  }
+  return result;
 }
 
 export function parseAvailability(v: unknown): AvailabilityView {

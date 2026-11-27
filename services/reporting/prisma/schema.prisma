@@ -221,6 +221,8 @@ model OpsAssignmentResource {
 
 /// Latest observed financial state of one Billing obligation. Amounts are
 /// exact integer minor units with explicit currency and scale.
+/// SQL checks allow Billing's eight published financial states; PAID,
+/// CASH_COLLECTED and VOIDED require zero outstanding. Cash custody is separate.
 model OpsObligation {
   obligationId     String   @id @map("obligation_id") @db.Uuid
   version          Int

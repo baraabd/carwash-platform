@@ -9,6 +9,9 @@ import {
   DISPATCH_ASSIGNMENT_CHANGED_V1,
   DISPATCH_CASH_DECLARED_V1,
   WORKFORCE_SHIFT_UPDATED_V1,
+  BILLING_EVENTS_EXCHANGE,
+  BILLING_OBLIGATION_CREATED_V1,
+  BILLING_OBLIGATION_STATUS_CHANGED_V1,
 } from '@carwash/event-contracts';
 import {
   DERIVED_STATUSES,
@@ -27,7 +30,12 @@ import {
   type OperationsFact,
   type OperationsSource,
 } from '../domain/operations';
-import { incompleteSources, type DurationSummary } from '../domain/live-operations';
+import {
+  exactAmount,
+  incompleteSources,
+  obligationFact,
+  type DurationSummary,
+} from '../domain/live-operations';
 import type { Hasher } from '../ports/projection.ports';
 import type {
   AssignmentRow,
@@ -54,6 +62,8 @@ export const OPERATIONS_SUBSCRIPTIONS = [
   { exchange: 'workforce.events', eventType: WORKFORCE_SHIFT_UPDATED_V1.eventType },
   { exchange: 'scheduling.events', eventType: SCHEDULING_HOLD_CHANGED_V1.eventType },
   { exchange: 'workforce.events', eventType: WORKFORCE_ELIGIBILITY_CHANGED_V1.eventType },
+  { exchange: BILLING_EVENTS_EXCHANGE, eventType: BILLING_OBLIGATION_CREATED_V1.eventType },
+  { exchange: BILLING_EVENTS_EXCHANGE, eventType: BILLING_OBLIGATION_STATUS_CHANGED_V1.eventType },
 ] as const;
 
 /** A delivered event, normalised: the inbox identity plus one domain fact. */
@@ -75,6 +85,26 @@ export function parseOperationsEvent(raw: unknown): OperationsEvent {
       ? (raw as { eventType?: unknown }).eventType
       : undefined;
   switch (eventType) {
+    case BILLING_OBLIGATION_CREATED_V1.eventType:
+    case BILLING_OBLIGATION_STATUS_CHANGED_V1.eventType: {
+      const e =
+        eventType === BILLING_OBLIGATION_CREATED_V1.eventType
+          ? BILLING_OBLIGATION_CREATED_V1.parse(raw)
+          : BILLING_OBLIGATION_STATUS_CHANGED_V1.parse(raw);
+      return {
+        eventId: e.eventId.toLowerCase(),
+        eventType: e.eventType,
+        correlationId: e.correlationId,
+        fact: obligationFact({
+          eventId: e.eventId,
+          occurredAt: new Date(e.occurredAt),
+          version: e.aggregate.version,
+          obligationId: e.aggregate.id,
+          cashState: e.data.financialStatus,
+          outstanding: exactAmount('amount' in e.data ? e.data.amount : e.data.outstanding),
+        }),
+      };
+    }
     case BOOKING_CREATED_V1.eventType: {
       const e = BOOKING_CREATED_V1.parse(raw);
       return {

@@ -3,6 +3,7 @@ import {
   GATEWAY_ROUTES,
   GATEWAY_COMPOSITIONS,
   API_ERROR_CODES,
+  SESSION_BINDING_HEADER,
   type GatewayErrorCode,
 } from '@carwash/contracts';
 
@@ -14,6 +15,14 @@ const ERROR_RESPONSES = Object.fromEntries(
   ]),
 );
 const SECURITY = [{ bearer: [] }, { session: [] }];
+const SESSION_BINDING_PARAMETER = {
+  in: 'header',
+  name: SESSION_BINDING_HEADER,
+  required: false,
+  description:
+    'Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.',
+  schema: { type: 'string', maxLength: 128 },
+};
 const CORRELATION_PARAMETERS = [
   {
     in: 'header',
@@ -76,6 +85,9 @@ export function gatewayOpenApi() {
         : {}),
       parameters: [
         ...CORRELATION_PARAMETERS,
+        ...(!route.public && !route.authTransport && !route.providerIngress
+          ? [SESSION_BINDING_PARAMETER]
+          : []),
         ...[...route.path.matchAll(/:([A-Za-z][A-Za-z0-9]*)/g)].map((match) => ({
           in: 'path',
           name: match[1],
@@ -161,7 +173,7 @@ export function gatewayOpenApi() {
         // All groups must be satisfied; any permission within a group suffices.
         'x-required-permission-groups': permissionGroups,
         security: SECURITY,
-        parameters: CORRELATION_PARAMETERS,
+        parameters: [...CORRELATION_PARAMETERS, SESSION_BINDING_PARAMETER],
         responses: {
           '200': {
             description: 'Read-only composition of owner responses',

@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createWebGateway } from './web-gateway.mjs';
 
 export const WEB_RUNTIME = Object.freeze({
   app: 'customer-web',
@@ -9,11 +10,15 @@ export const WEB_RUNTIME = Object.freeze({
   businessReady: false,
 });
 
-/** Stateless technical boot only; no authenticated application or business API. */
-export function createWebRuntime({ documentRoot = new URL('./dist/', import.meta.url) } = {}) {
+/** Static application delivery and a bounded same-origin Gateway transport. */
+export function createWebRuntime({
+  documentRoot = new URL('./dist/', import.meta.url),
+  env = process.env,
+} = {}) {
   const root = path.resolve(
     documentRoot instanceof URL ? fileURLToPath(documentRoot) : documentRoot,
   );
+  const gateway = createWebGateway({ env });
   return createServer(async (request, response) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Cache-Control', 'no-store');
@@ -25,6 +30,7 @@ export function createWebRuntime({ documentRoot = new URL('./dist/', import.meta
       response.writeHead(code, { 'Content-Type': type });
       response.end(request.method === 'HEAD' ? undefined : content);
     };
+    if (await gateway.handle(request, response)) return;
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       response.setHeader('Allow', 'GET, HEAD');
       send(405, 'application/json', JSON.stringify({ code: 'METHOD_NOT_ALLOWED' }));
@@ -42,6 +48,32 @@ export function createWebRuntime({ documentRoot = new URL('./dist/', import.meta
       return;
     }
     if (pathname === '/health/ready') {
+      if (gateway.configured) {
+        let artifactReady = false;
+        try {
+          artifactReady = (await readFile(path.join(root, 'index.html'))).length > 0;
+        } catch {}
+        const gatewayReady = await gateway.ready();
+        const ready = artifactReady && gatewayReady;
+        send(
+          ready ? 200 : 503,
+          'application/json',
+          JSON.stringify({
+            app: WEB_RUNTIME.app,
+            stage: 'application-host',
+            scope: 'http-runtime',
+            businessReady: ready,
+            ready,
+            code: !artifactReady
+              ? 'BOOT_ARTIFACT_UNAVAILABLE'
+              : ready
+                ? 'READY'
+                : 'GATEWAY_NOT_READY',
+            dependencies: { artifact: artifactReady, gateway: gatewayReady },
+          }),
+        );
+        return;
+      }
       send(
         503,
         'application/json',

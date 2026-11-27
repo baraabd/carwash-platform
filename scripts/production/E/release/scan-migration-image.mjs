@@ -88,7 +88,17 @@ async function run(partFile, reportFile) {
       ],
       { capture: true, timeoutMs: 30000 },
     );
-    assert.equal(probe.code, 0, 'Migration native runtime/metadata proof failed');
+    if (probe.code !== 0) {
+      // This isolated probe has no secret mounts, database credentials or
+      // network. Keep its bounded diagnostic, never a raw Trivy secret log.
+      evidence.nativeProbeFailure = {
+        exitCode: probe.code,
+        diagnostic: probe.stderr.trim().slice(-6000),
+      };
+      assert.fail(
+        `Migration native runtime/metadata proof failed (exit ${probe.code}): ${evidence.nativeProbeFailure.diagnostic}`,
+      );
+    }
     const migrationProof = { ...JSON.parse(probe.stdout.trim()), imageId: image.Id };
     assertMigrationRuntimeProof(migrationProof, image.Id);
     evidence.migrationRuntime = migrationProof;

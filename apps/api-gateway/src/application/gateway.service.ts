@@ -4,6 +4,8 @@ import {
   PROVIDER_INGRESS_MAX_BYTES,
   formatIfMatch,
   parseIfMatch,
+  SESSION_BINDING_HEADER,
+  formatSessionBinding,
   type GatewayRoute,
 } from '@carwash/contracts';
 import {
@@ -60,6 +62,16 @@ export class GatewayService {
     const identity = requiresAuth
       ? await this.auth.authenticate(input.headers, unsafe, input.context)
       : undefined;
+    // HttpOnly cookies can change in another tab while this tab still holds an
+    // old form. Verify its expected identity before ANY owner read or command.
+    // This optional assertion grants no authority and never reaches an owner.
+    const expectedSession = input.headers[SESSION_BINDING_HEADER];
+    if (
+      identity &&
+      expectedSession !== undefined &&
+      expectedSession !== formatSessionBinding(identity.session)
+    )
+      throw new GatewayFault(401, 'AUTH_REQUIRED');
     for (const { route } of list)
       if (
         (route.permission && !identity?.session.permissions.includes(route.permission)) ||
@@ -178,7 +190,19 @@ export class GatewayService {
             'GET',
             {},
           );
-          return [owner, result.status === 200] as const;
+          const body = result.body;
+          return [
+            owner,
+            result.status === 200 &&
+              typeof body === 'object' &&
+              body !== null &&
+              'service' in body &&
+              body.service === owner &&
+              'ready' in body &&
+              body.ready === true &&
+              'businessReady' in body &&
+              body.businessReady === true,
+          ] as const;
         } catch {
           return [owner, false] as const;
         }

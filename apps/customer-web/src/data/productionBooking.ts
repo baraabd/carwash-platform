@@ -3,6 +3,8 @@ import {
   apiError,
   parseCoordinates,
   parsePage,
+  SESSION_BINDING_HEADER,
+  formatSessionBinding,
   type PrincipalRef,
   type PaymentMethod,
   type VehicleType,
@@ -225,7 +227,10 @@ export class ProductionBookingClient {
       fetch: options.fetch,
       credentials: 'same-origin',
       timeoutMs: 10000,
-      headers: () => ({ 'x-csrf-token': options.csrf() }),
+      headers: () => ({
+        'x-csrf-token': options.csrf(),
+        ...(this.identityKey ? { [SESSION_BINDING_HEADER]: this.identityKey } : {}),
+      }),
     });
     this.publicClient = new HttpClient({
       baseUrl,
@@ -245,9 +250,7 @@ export class ProductionBookingClient {
     for (const listener of this.listeners) listener();
   }
   bindSession(session: IdentitySessionView | null): void {
-    const identity = session
-      ? `${session.principalKind}:${session.subject}:${session.sessionId}:${session.authVersion}`
-      : null;
+    const identity = session ? formatSessionBinding(session) : null;
     if (identity === this.identityKey) return;
     ++this.epoch;
     this.pending = null;
@@ -306,8 +309,10 @@ export class ProductionBookingClient {
       });
   }
   async selectVehicle(vehicle: VehicleSelection): Promise<boolean> {
+    const epoch = this.epoch;
     if (JSON.stringify(vehicle) === JSON.stringify(this.snapshot.draft.vehicle)) return true;
-    if (!this.canEdit() || !(await this.releaseHold()) || !this.canEdit()) return false;
+    if (!this.canEdit() || !(await this.releaseHold()) || epoch !== this.epoch || !this.canEdit())
+      return false;
     try {
       parseVehicleInputV1({
         type: vehicle.type,
@@ -341,7 +346,9 @@ export class ProductionBookingClient {
     });
   }
   async selectCare(packageId: string, extras: readonly string[] = []): Promise<boolean> {
-    if (!this.canEdit() || !(await this.releaseHold()) || !this.canEdit()) return false;
+    const epoch = this.epoch;
+    if (!this.canEdit() || !(await this.releaseHold()) || epoch !== this.epoch || !this.canEdit())
+      return false;
     const items = this.snapshot.catalog?.items ?? [];
     const type = this.snapshot.draft.vehicle.type;
     const available = (id: string, kind: 'PACKAGE' | 'EXTRA') =>
@@ -364,10 +371,13 @@ export class ProductionBookingClient {
       availability: null,
       problem: null,
     });
-    return (await this.quote()) !== null;
+    const quote = await this.quote();
+    return epoch === this.epoch && quote !== null;
   }
   async selectAddress(address: AddressV1): Promise<boolean> {
-    if (!this.canEdit() || !(await this.releaseHold()) || !this.canEdit()) return false;
+    const epoch = this.epoch;
+    if (!this.canEdit() || !(await this.releaseHold()) || epoch !== this.epoch || !this.canEdit())
+      return false;
     this.patch({
       draft: { ...this.snapshot.draft, address, subscription: null },
       quote: null,
@@ -382,7 +392,6 @@ export class ProductionBookingClient {
       });
       return false;
     }
-    const epoch = this.epoch;
     const point = parseCoordinates(address.location.point, '$.point');
     this.patch({ loading: true });
     const result = await this.client.request({
@@ -417,7 +426,8 @@ export class ProductionBookingClient {
       });
       return false;
     }
-    return (await this.quote()) !== null;
+    const quote = await this.quote();
+    return epoch === this.epoch && quote !== null;
   }
   async quote(): Promise<QuoteV1 | null> {
     const { principal, draft, serviceability } = this.snapshot;
@@ -562,7 +572,9 @@ export class ProductionBookingClient {
     return this.chooseSlot(earliestAvailability.earliest.startsAt);
   }
   async chooseSlot(startsAt: string): Promise<HoldV1 | null> {
-    if (!this.canEdit() || !(await this.releaseHold()) || !this.canEdit()) return null;
+    const epoch = this.epoch;
+    if (!this.canEdit() || !(await this.releaseHold()) || epoch !== this.epoch || !this.canEdit())
+      return null;
     const { principal, quote, availability, serviceability } = this.snapshot;
     if (
       !principal ||
@@ -612,7 +624,7 @@ export class ProductionBookingClient {
       },
       (hold) => this.patch({ hold, draft: { ...this.snapshot.draft, subscription: null } }),
     );
-    return result.ok ? result.value : null;
+    return epoch === this.epoch && result.ok ? result.value : null;
   }
   async releaseHold(): Promise<boolean> {
     const hold = this.snapshot.hold;
@@ -781,6 +793,7 @@ export class ProductionBookingClient {
     return 6;
   }
   async confirm(): Promise<ProductionBooking | null> {
+    const epoch = this.epoch;
     const { principal, draft, quote, hold } = this.snapshot;
     if (!this.canEdit() || !principal || !quote || !hold || this.prerequisites() !== 6) {
       this.patch({ problem: 'راجع صلاحية السعر والموعد وبيانات الحجز قبل التأكيد.' });
@@ -854,6 +867,7 @@ export class ProductionBookingClient {
       },
       (booking) => this.acceptBooking(booking),
     );
+    if (epoch !== this.epoch) return null;
     if (!result.ok && result.error.code !== 'OUTCOME_UNKNOWN') this.clearCreate();
     return result.ok ? result.value : null;
   }
@@ -1107,6 +1121,7 @@ export class ProductionBookingClient {
     return result.ok;
   }
   async cancelBooking(): Promise<boolean> {
+    const epoch = this.epoch;
     const booking = this.snapshot.selectedBooking;
     if (!booking || this.snapshot.detailStatus !== 'available') return false;
     const result = await this.mutate(
@@ -1130,8 +1145,9 @@ export class ProductionBookingClient {
           ],
         }),
     );
+    if (epoch !== this.epoch) return false;
     if (result.ok) await this.loadBooking(booking.bookingId);
-    return result.ok;
+    return epoch === this.epoch && result.ok;
   }
   async loadChanges(bookingId: string): Promise<void> {
     if (!this.snapshot.principal || !validId(bookingId)) return;
@@ -1150,7 +1166,16 @@ export class ProductionBookingClient {
       this.patch({ changes: result.value });
   }
   async repeat(booking: ProductionBooking): Promise<boolean> {
-    if (!this.canEdit() || !(await this.releaseHold()) || !this.canEdit()) return false;
+    const epoch = this.epoch;
+    if (
+      !this.snapshot.principal ||
+      !samePrincipal(booking.beneficiary, this.snapshot.principal) ||
+      !this.canEdit() ||
+      !(await this.releaseHold()) ||
+      epoch !== this.epoch ||
+      !this.canEdit()
+    )
+      return false;
     const packageLine = booking.quote.lines.find((line) => line.kind === 'PACKAGE');
     const available = this.snapshot.catalog?.items ?? [];
     const packageId =

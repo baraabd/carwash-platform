@@ -106,6 +106,7 @@ export type CashState =
   | 'UNDER_REVIEW'
   | 'OUTCOME_UNKNOWN'
   | 'PAID'
+  | 'CASH_COLLECTED'
   | 'VOIDED';
 export const CASH_STATES: readonly CashState[] = [
   'UNPAID',
@@ -114,6 +115,7 @@ export const CASH_STATES: readonly CashState[] = [
   'UNDER_REVIEW',
   'OUTCOME_UNKNOWN',
   'PAID',
+  'CASH_COLLECTED',
   'VOIDED',
 ];
 /** States in which money is still expected or its outcome is unresolved. */

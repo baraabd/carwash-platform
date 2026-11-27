@@ -290,7 +290,7 @@ test('actor resolution: exactly one credential kind; Identity outage fails close
       );
   const resolver = (fetchImpl: typeof fetch) =>
     new ActorResolver(
-      new IdentitySessionClient({ baseUrl: 'http://identity.invalid', fetchImpl }),
+      new IdentitySessionClient({ baseUrl: 'https://identity.invalid', fetchImpl }),
       new ServiceClientAuthenticator(
         parseServiceClients(
           JSON.stringify([

@@ -36,6 +36,8 @@ const save = () =>
 save();
 const staff = {
   subject: id(90),
+  sessionId: id(91),
+  authVersion: 1,
   principalKind: 'account',
   roles: ['super-admin'],
   permissions: [

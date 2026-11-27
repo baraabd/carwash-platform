@@ -24,6 +24,10 @@ ARG MIGRATION_NATIVE_IMAGE=gcr.io/distroless/cc-debian13@sha256:cb87acc574abe719
 FROM ${NODE_IMAGE} AS builder
 ENV CI=true
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+# The build image has no system OpenSSL. The pinned @prisma/engines 7.10
+# installer otherwise guesses 1.1, while the final job intentionally uses 3.0.
+# Select the final ABI at download time; never fetch an engine at job runtime.
+ENV PRISMA_CLI_BINARY_TARGETS=debian-openssl-3.0.x
 WORKDIR /app
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc tsconfig.base.json ./
@@ -44,6 +48,9 @@ RUN test -n "${SERVICE}" \
 # CLI is a devDependency of every service. Only node_modules and the owner's
 # prisma directory are copied into the job below; no application source is.
 RUN pnpm --filter "@carwash/${SERVICE}" deploy --legacy /deploy
+# Fail the build if Prisma's optional postinstall download failed or deploy
+# omitted the final-platform engine. Its real ABI execution is proved below.
+RUN node -e "const fs=require('node:fs');const path=require('node:path');const {createRequire}=require('node:module');const owner=createRequire('/deploy/package.json');if(owner('prisma/package.json').version!=='7.10.0')throw Error('UNEXPECTED_PRISMA_VERSION');const prisma=createRequire(owner.resolve('prisma/package.json'));const engines=prisma('@prisma/engines');fs.accessSync(path.join(engines.getEnginesPath(),'schema-engine-debian-openssl-3.0.x'),fs.constants.R_OK|fs.constants.X_OK);"
 
 # ------------------------------------------------------------------- job ----
 FROM ${MIGRATION_NATIVE_IMAGE} AS native_libraries

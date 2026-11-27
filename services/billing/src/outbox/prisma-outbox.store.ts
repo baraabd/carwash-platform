@@ -17,7 +17,10 @@ interface Row {
 
 /** Billing's own transactional outbox. Legacy unpublished events stay untouched. */
 export class PrismaCustodyOutboxStore implements OutboxStore {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventTypes: readonly string[] = CUSTODY_EVENT_TYPES,
+  ) {}
 
   async leaseBatch(input: {
     workerId: string;
@@ -34,7 +37,7 @@ export class PrismaCustodyOutboxStore implements OutboxStore {
           AND (locked_until IS NULL OR locked_until < now())
           AND event_type = ANY($2::text[])`,
       input.maxAttempts,
-      [...CUSTODY_EVENT_TYPES],
+      [...this.eventTypes],
     );
     const rows = await this.prisma.client.$queryRawUnsafe<Row[]>(
       `UPDATE app.outbox_message AS o
@@ -53,7 +56,7 @@ export class PrismaCustodyOutboxStore implements OutboxStore {
       input.leaseMs,
       input.maxAttempts,
       input.limit,
-      [...CUSTODY_EVENT_TYPES],
+      [...this.eventTypes],
     );
     return rows.map((row) => ({
       id: row.id,

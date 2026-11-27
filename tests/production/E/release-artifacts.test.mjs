@@ -434,6 +434,12 @@ test('migration image: no app code, install shared across owners, non-root, no p
   assert.match(dockerfile, /FROM \$\{MIGRATION_RUNTIME_IMAGE\} AS job/);
   assert.doesNotMatch(dockerfile, /FROM \$\{NODE_IMAGE\} AS job/);
   assert.match(dockerfile, /COPY --from=builder \/usr\/local\/bin\/node/);
+  const engineTarget = 'ENV PRISMA_CLI_BINARY_TARGETS=debian-openssl-3.0.x';
+  assert.ok(dockerfile.includes(engineTarget));
+  assert.ok(
+    dockerfile.indexOf(engineTarget) < dockerfile.indexOf('pnpm install --frozen-lockfile'),
+  );
+  assert.match(dockerfile, /schema-engine-debian-openssl-3\.0\.x.*fs\.constants\.X_OK/);
   assert.match(dockerfile, /\/var\/lib\/dpkg\/status\.d\/libssl3t64/);
   assert.match(dockerfile, /ENTRYPOINT \["node", "\/migrate\/migrate-job\.mjs"\]/);
   assert.doesNotMatch(dockerfile, /COPY[^\n]*\/deploy\/dist/);

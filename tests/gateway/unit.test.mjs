@@ -5,7 +5,8 @@ import { readFile, readdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { ROOT, own, gateway, stub, config, start, request, ORIGIN } from './_helpers.mjs';
-const { GATEWAY_ROUTES, GATEWAY_COMPOSITIONS } = own('@carwash/contracts');
+const { GATEWAY_ROUTES, GATEWAY_COMPOSITIONS, SESSION_BINDING_HEADER, formatSessionBinding } =
+  own('@carwash/contracts');
 const { validateGatewayConfig } = own('./dist/infrastructure/config.js');
 const security = createRequire(path.join(ROOT, 'packages/security-kit/package.json'));
 const { SignJWT } = security('jose');
@@ -88,6 +89,58 @@ test('Reviews principal-only routes authenticate without inventing a role grant'
   });
   assert.equal(denied.status, 403);
   assert.equal(reviews.calls.length, 1);
+});
+test('browser session binding rejects a different cookie identity before every owner effect', async (t) => {
+  const { identity, token, session } = await signedSession(t);
+  const customer = await stub('customer');
+  const app = await start(config(identity.base, { customer: customer.base }));
+  t.after(async () => {
+    await app.close();
+    await customer.close();
+  });
+  const headers = {
+    cookie: `__Host-wg_access=${token}`,
+    'x-csrf-token': 'identity-http-boundary-double',
+    'idempotency-key': 'profile_command_1234567890',
+    'content-type': 'application/json',
+    origin: ORIGIN,
+  };
+  const expected = formatSessionBinding(session);
+  for (const stale of [
+    formatSessionBinding({ ...session, subject: randomUUID() }),
+    formatSessionBinding({ ...session, sessionId: randomUUID() }),
+    formatSessionBinding({ ...session, authVersion: session.authVersion + 1 }),
+    formatSessionBinding({ ...session, principalKind: 'guest' }),
+    '',
+    'malformed',
+  ]) {
+    for (const method of ['GET', 'PUT']) {
+      const response = await request(app.base, '/api/v1/customer/profile', {
+        method,
+        headers: { ...headers, [SESSION_BINDING_HEADER]: stale },
+        ...(method === 'PUT'
+          ? { body: JSON.stringify({ displayName: 'prepared in another session' }) }
+          : {}),
+      });
+      assert.equal(response.status, 401);
+      assert.equal(response.body.error.code, 'AUTH_REQUIRED');
+      assert.equal(customer.calls.length, 0, 'No owner read or write may precede the check');
+    }
+  }
+  const allowed = await request(app.base, '/api/v1/customer/profile', {
+    method: 'PUT',
+    headers: { ...headers, [SESSION_BINDING_HEADER]: expected },
+    body: JSON.stringify({ displayName: 'same authenticated session' }),
+  });
+  assert.equal(allowed.status, 200);
+  assert.equal(customer.calls.length, 1);
+  assert.equal(customer.calls[0].headers[SESSION_BINDING_HEADER], undefined);
+  assert.equal(customer.calls[0].headers.authorization, `Bearer ${token}`);
+  const unauthenticated = await request(app.base, '/api/v1/customer/profile', {
+    headers: { [SESSION_BINDING_HEADER]: expected },
+  });
+  assert.equal(unauthenticated.status, 401, 'A binding is never a credential');
+  assert.equal(customer.calls.length, 1);
 });
 test('F007 route matcher rejects arbitrary origins, traversal, query injection and unsafe methods', () => {
   for (const p of [

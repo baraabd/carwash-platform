@@ -147,6 +147,7 @@ test(
       for (const owner of ['booking', 'dispatch', 'scheduling', 'workforce']) {
         await channel.assertExchange(`${owner}.events`, 'topic', { durable: true });
       }
+      await channel.assertExchange('washgo.billing.events', 'topic', { durable: true });
       await messaging().assertTopology(
         channel,
         serviceDist('booking', 'workers/runtime.js').executionTopology,

@@ -52,6 +52,10 @@ test('renewal quotes a new purchase bound to the owned expired subscription and 
   assert.equal(command.body.expectedRevision, before.revision);
   assert.equal(command.body.planVersion, plan().version);
   assert.equal(command.body.quoteId, quote().quoteId);
+  assert.equal(
+    command.headers['x-wg-session-binding'],
+    `account:${session.subject}:${session.sessionId}:${session.authVersion}`,
+  );
   assert.deepEqual(h.client.getSnapshot().purchase.renewalOf, {
     subscriptionId: id(94),
     periodNo: 3,
@@ -314,6 +318,52 @@ test('identity replacement drops delayed private results and cannot recover anot
   assert.equal(h.client.getSnapshot().quote, null);
   assert.equal(h.client.getSnapshot().purchase, null);
   assert.equal(h.client.getSnapshot().principal.subjectId, id(99));
+});
+
+test('late membership purchase preserves a replacement session pending recovery key across reload', async () => {
+  for (const sameAccount of [false, true]) {
+    for (const receipt of [() => response(purchase(), 201), () => error(409, 'CONFLICT')]) {
+      const h = harness();
+      await select(h);
+      const deferred = Promise.withResolvers();
+      const entered = Promise.withResolvers();
+      h.state.override = (request) => {
+        if (request.path.endsWith('/subscription-purchases') && request.method === 'POST') {
+          entered.resolve();
+          return deferred.promise;
+        }
+        return null;
+      };
+      const pending = h.client.purchase('SHAM_CASH');
+      await entered.promise;
+      const replacement = {
+        ...session,
+        subject: sameAccount ? session.subject : id(99),
+        sessionId: id(98),
+      };
+      const saved = { pendingKey: 'replacement_membership_request_1234', purchaseId: null };
+      h.storage.set(replacement.subject, saved);
+      h.client.bindSession(replacement);
+      await h.client.recoverPurchase();
+      deferred.resolve(receipt());
+      assert.equal(await pending, false);
+      assert.deepEqual(h.storage.get(replacement.subject), saved);
+      assert.equal(h.client.getSnapshot().unknownPurchaseKey, saved.pendingKey);
+      assert.equal(h.client.getSnapshot().purchase, null);
+      assert.equal(h.client.getSnapshot().principal.subjectId, replacement.subject);
+      assert.equal(
+        h.requests.filter(
+          (request) =>
+            request.method === 'POST' && request.path.endsWith('/subscription-purchases'),
+        ).length,
+        1,
+      );
+      const reloaded = new ProductionMembership(h.options);
+      reloaded.bindSession(replacement);
+      await reloaded.recoverPurchase();
+      assert.equal(reloaded.getSnapshot().unknownPurchaseKey, saved.pendingKey);
+    }
+  }
 });
 
 test('private subscription and financial reads reject foreign or inconsistent owner context', async () => {

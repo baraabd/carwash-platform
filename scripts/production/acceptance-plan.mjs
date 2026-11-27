@@ -56,6 +56,13 @@ export const BUSINESS_SUITES = Object.freeze({
     scope:
       'Real PostgreSQL/RabbitMQ delivery from Billing custody outbox through the production relay and Wallet consumer, with scoped broker identities, restart/redelivery and permission denial checks. No live payment provider.',
   },
+  'b-reporting-broker': {
+    lane: 'B',
+    services: ['billing', 'reporting'],
+    browser: false,
+    scope:
+      'Real Billing HTTP and transactional obligation outbox through compiled relay/RabbitMQ/Reporting consumer into isolated PostgreSQL and the published cash KPI HTTP contract. Exact cash states, restart/redelivery, ordering, poison and topic/resource permission denials. Identity/Pricing/Dispatch are explicit fixtures; no live provider or browser approval.',
+  },
   ...Object.fromEntries(
     cOwners.map((service) => [
       `c-${service}`,
@@ -139,6 +146,23 @@ export function assertBusinessEvidence(reports, { sha, tree, runId, attempt }) {
     assert.equal(report.scope, businessSuite(report.suite).scope);
     assert.ok(report.steps.length > 0 && report.steps.every((s) => s.status === 'PASSED'));
     assert.ok(report.evidence.length > 0, `${report.suite} has no test evidence`);
+    if (report.suite === 'a-customer-browser') {
+      const family = 'customer-client-offline';
+      assert.equal(report.steps.filter((step) => step.name === family).length, 1);
+      const records = report.evidence.filter((entry) => entry.name === family);
+      assert.equal(records.length, 1, 'Customer client acceptance evidence is required');
+      const proof = records[0];
+      const counts = proof.counts;
+      assert.ok(counts?.accepted && Number.isSafeInteger(counts.tests) && counts.tests > 0);
+      assert.equal(counts.pass, counts.tests);
+      for (const name of ['fail', 'cancelled', 'skipped', 'todo']) assert.equal(counts[name], 0);
+      assert.ok(Array.isArray(proof.files));
+      for (const name of ['production-booking', 'production-customer', 'production-membership'])
+        assert.ok(
+          proof.files.includes(`apps/customer-web/test/${name}.test.mjs`),
+          `Customer client acceptance is missing ${name}`,
+        );
+    }
     assert.equal(report.cleanup, 'PASSED');
   }
 }

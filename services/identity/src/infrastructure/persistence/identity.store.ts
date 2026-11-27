@@ -180,7 +180,35 @@ export class PrismaIdentityStore implements IdentityStore {
     return this.client.identityRefresh.findUnique({ where: { digest } });
   }
   async ping(): Promise<void> {
-    await this.client.$queryRaw`SELECT 1`;
+    const rows = await this.client.$queryRaw<
+      Array<{ table_name: string; role_name: string; session_role: string; database_name: string }>
+    >`
+      SELECT table_name, current_user::text AS role_name, session_user::text AS session_role,
+        current_database()::text AS database_name FROM information_schema.tables
+      WHERE table_schema = 'app' AND table_type = 'BASE TABLE'
+    `;
+    if (
+      rows.some(
+        (row) =>
+          row.role_name !== 'cw_identity_app' ||
+          row.session_role !== 'cw_identity_app' ||
+          row.database_name !== 'cw_identity',
+      )
+    )
+      throw new Error('IDENTITY_DATABASE_IDENTITY_MISMATCH');
+    const present = new Set(rows.map((row) => row.table_name));
+    if (
+      ![
+        'service_marker',
+        'identity_account',
+        'identity_challenge',
+        'identity_session',
+        'identity_refresh',
+        'identity_audit',
+        'identity_initial_administrator',
+      ].every((name) => present.has(name))
+    )
+      throw new Error('IDENTITY_SCHEMA_NOT_MIGRATED');
   }
   close(): Promise<void> {
     return this.client.$disconnect();

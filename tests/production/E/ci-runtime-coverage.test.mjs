@@ -68,7 +68,8 @@ test('desired process inventory covers every standalone owner worker without ass
     .flatMap(({ id }) => walk(`services/${id}/src`))
     .filter((file) => /(?:\.runner|\.main)\.ts$/.test(file));
   const listed = inventory.processes.map((entry) => entry.entrypoint);
-  assert.deepEqual([...listed].sort(), actual.sort());
+  // One executable may expose explicit independent, allowlisted worker roles.
+  assert.deepEqual([...new Set(listed)].sort(), actual.sort());
   assert.equal(new Set(inventory.processes.map((entry) => entry.id)).size, listed.length);
   for (const entry of inventory.processes) {
     assert.ok(
@@ -82,10 +83,19 @@ test('desired process inventory covers every standalone owner worker without ass
     assert.equal(entry.healthcheck.liveness, 'platform-process-supervision');
     assert.equal(entry.healthcheck.progressMonitoringRequired, true);
     assert.ok(entry.progressSignals.length > 0);
-    assert.deepEqual(entry.command, [
+    assert.deepEqual(entry.command.slice(0, 2), [
       'node',
       entry.entrypoint.replace(`services/${entry.owner}/src/`, 'dist/').replace(/\.ts$/, '.js'),
     ]);
+    if (entry.command.length > 2) {
+      const scripts = JSON.parse(read(`services/${entry.owner}/package.json`)).scripts;
+      assert.ok(
+        Object.entries(scripts).some(
+          ([name, command]) => name.startsWith('start:') && command === entry.command.join(' '),
+        ),
+        `${entry.id} parameterized worker must have an exact published start command`,
+      );
+    }
     assert.deepEqual(entry.ingress, { public: false, private: false });
     assert.ok(entry.requiredEnv.includes('DATABASE_URL'), entry.id);
     assert.equal(new Set(entry.requiredEnv).size, entry.requiredEnv.length);
@@ -99,4 +109,8 @@ test('desired process inventory covers every standalone owner worker without ass
         ),
       );
   }
+  assert.deepEqual(
+    inventory.processes.find((entry) => entry.id === 'billing-obligation-relay')?.command,
+    ['node', 'dist/outbox/relay.runner.js', '--family', 'obligations'],
+  );
 });

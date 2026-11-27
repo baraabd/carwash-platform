@@ -1014,7 +1014,13 @@
       "runtimeRole": "cw_reporting_app",
       "migrationRole": "cw_reporting_migrate",
       "dataStatus": "reserved-not-provisioned-by-F001",
-      "owns": ["projections", "consumer_checkpoints", "audit_projections", "owner_observations"],
+      "owns": [
+        "projections",
+        "consumer_checkpoints",
+        "audit_projections",
+        "owner_observations",
+        "ops_obligation"
+      ],
       "api": {
         "version": 1,
         "prefix": "/internal/v1/reporting",

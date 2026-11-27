@@ -36,6 +36,38 @@
       ]
     },
     {
+      "id": "billing-obligation-relay",
+      "owner": "billing",
+      "role": "outbox-relay",
+      "entrypoint": "services/billing/src/outbox/relay.runner.ts",
+      "ownerImage": "billing/runtime",
+      "command": ["node", "dist/outbox/relay.runner.js", "--family", "obligations"],
+      "requiredEnv": ["DATABASE_URL", "BROKER_URL"],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "required",
+      "repositoryWorkingDirectory": "services/billing",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "oldest unpublished billing obligation event age",
+        "expired obligation lease and retry/dead row counts",
+        "publisher confirmation or unroutable failures",
+        "Reporting billing freshness and inbox convergence"
+      ],
+      "requiresBeforeStart": [
+        "Reporting operations queue bound to the two published Billing obligation routing keys",
+        "Reporting cash-state migration applied"
+      ]
+    },
+    {
       "id": "booking-runtime",
       "owner": "booking",
       "role": "combined-worker",

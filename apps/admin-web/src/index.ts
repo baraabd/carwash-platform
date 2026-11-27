@@ -2,7 +2,7 @@ import './reference.css';
 import './production.css';
 import './accessibility.css';
 import { currentSession, signOut } from './api/session';
-import { sessionRequests } from './api/http';
+import { sessionRequests, bindSessionRequests } from './api/http';
 import { invalidateDashboard } from './ui/dashboard-screen';
 import { invalidateBookings } from './ui/bookings-screen';
 import { invalidatePayments } from './ui/payments-screen';
@@ -202,6 +202,7 @@ function invalidatePrivateScreens(clearPrivate: boolean): void {
 
 function unauthenticated(showLogin = true): void {
   sessionRequests.invalidate();
+  bindSessionRequests(null);
   invalidatePrivateScreens(true);
   renderGeneration += 1;
   session = null;
@@ -214,6 +215,7 @@ function unauthenticated(showLogin = true): void {
 
 function signedIn(next: StaffSession): void {
   sessionRequests.invalidate();
+  bindSessionRequests(next);
   invalidatePrivateScreens(true);
   session = next;
   caps = capabilities(next);

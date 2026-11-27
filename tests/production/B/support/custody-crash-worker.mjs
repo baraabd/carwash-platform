@@ -30,16 +30,18 @@ const crash = async (code) => {
   process.exit(code);
 };
 if (service === 'billing') {
+  const obligations = process.argv[3] === 'obligations';
   const { PrismaCustodyOutboxStore } = load('outbox/prisma-outbox.store.js');
   const { billingCustodyProducerTopology, validateCustodyOutbox } = load(
     'outbox/custody-events.js',
   );
+  const { OBLIGATION_EVENT_TYPES, validateObligationOutbox } = load('outbox/obligation-events.js');
   await assertTopology(connection.channel, billingCustodyProducerTopology);
   await new OutboxRelay({
     workerId: 'acceptance-crashed-billing',
-    store: new PrismaCustodyOutboxStore(prisma),
+    store: new PrismaCustodyOutboxStore(prisma, obligations ? OBLIGATION_EVENT_TYPES : undefined),
     publisher: new ConfirmingPublisher(connection.channel, logger),
-    validate: validateCustodyOutbox,
+    validate: obligations ? validateObligationOutbox : validateCustodyOutbox,
     leaseMs: 200,
     batchSize: 20,
     onLeased: async (rows) => {

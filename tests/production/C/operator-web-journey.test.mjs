@@ -9,7 +9,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -747,6 +747,65 @@ test('authentication loss removes an open private sheet and its contents from th
     await context.close();
   }
 });
+
+for (const [name, path] of [
+  ['task detail', /\/api\/operator\/tasks\/[^/]+$/],
+  ['booking view', /\/api\/operator\/bookings\/[^/]+$/],
+]) {
+  test(`terminal 401 during dependent ${name} read clears private state after jobs succeeded`, async () => {
+    stack.fixture.control.reset();
+    stack.fixture.control.seedTask('WG-2041', { stage: 'ACCEPTED' });
+    const { context, page, problems } = await session();
+    try {
+      await openJob(page, 'WG-2041');
+      await page.locator('[data-action="contact"]').click();
+      const customer = await page.locator('#sheet-body h3').textContent();
+      assert.ok(customer?.trim());
+      let refused = 0;
+      await page.route(
+        path,
+        async (route) => {
+          refused += 1;
+          // A declared HTTP fault at the dependent read, after the parent read
+          // succeeded. This proves the browser's refusal handling, not Identity.
+          await context.clearCookies();
+          await route.fulfill({
+            status: 401,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              error: {
+                code: 'AUTH_REQUIRED',
+                reason: null,
+                message: 'fixture',
+                requestId: randomUUID(),
+                correlationId: randomUUID(),
+                retryable: false,
+                retryAfterMs: null,
+                issues: [],
+              },
+            }),
+          });
+        },
+        { times: 1 },
+      );
+      logMark = stack.gateway.log.length;
+      await page.evaluate(() => window.dispatchEvent(new Event('online')));
+      await page.locator('#operatorSignIn').waitFor({ state: 'visible' });
+      assert.ok(refused > 0, 'the rejection happened on a dependent read');
+      assert.ok(
+        gatewayLog().some((entry) => entry.path === '/api/operator/jobs' && entry.status === 200),
+        'the initial jobs read succeeded before the dependent refusal',
+      );
+      assert.equal(await page.locator('#sheet[open]').count(), 0);
+      assert.equal(await page.locator('#sheet-body').innerHTML(), '');
+      assert.equal(await page.locator('.job-card').count(), 0);
+      assert.equal((await page.locator('body').textContent()).includes(customer), false);
+      assertNoProblems(problems);
+    } finally {
+      await context.close();
+    }
+  });
+}
 
 test('unauthenticated session shows the pending state and never renders jobs', async () => {
   stack.fixture.control.reset();

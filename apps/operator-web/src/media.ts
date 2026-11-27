@@ -1,4 +1,4 @@
-import { putBytes, sessionRequests } from './api/client';
+import { putBytes, sessionRequests, type Result } from './api/client';
 import type { RequestEpochToken } from '@carwash/api-clients';
 import { finalizeUpload, freshUploadUrl, readUrl, reserveUpload } from './api/operator-api';
 import type { PresignedUpload } from './api/types';
@@ -154,7 +154,10 @@ export async function runUpload(intent: UploadIntent): Promise<UploadOutcome> {
 }
 
 /** Refresh short-lived read URLs (memory only) for the given objects. */
-export async function ensureReadUrls(objectIds: readonly string[]): Promise<void> {
+export async function ensureReadUrls(
+  objectIds: readonly string[],
+  onRejected: (result: Extract<Result<unknown>, { kind: 'error' }>) => void,
+): Promise<void> {
   const epoch = sessionRequests.capture();
   const now = Date.now();
   await Promise.all(
@@ -170,6 +173,7 @@ export async function ensureReadUrls(objectIds: readonly string[]): Promise<void
         });
       } else {
         S.mediaUrls.delete(objectId);
+        if (result.kind === 'error') onRejected(result);
       }
     }),
   );

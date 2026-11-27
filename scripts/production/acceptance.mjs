@@ -215,6 +215,11 @@ async function acceptance(suite) {
     );
     await command('design-before', node, ['scripts/check-design-reference.mjs']);
     await command('shared-build', 'pnpm', ['build:packages']);
+    if (suite === 'a-customer-browser')
+      await tests(
+        'customer-client-offline',
+        globSync('apps/customer-web/test/*.test.mjs', { cwd: ROOT }),
+      );
     for (const service of plan.services) {
       for (const task of ['generate', 'build', 'build:tests'])
         await command(`${service}-${task.replace(':', '-')}`, 'pnpm', [
@@ -320,7 +325,9 @@ async function acceptance(suite) {
         node,
         suite === 'b-wallet-broker'
           ? ['scripts/production/B/wallet-broker-acceptance.mjs']
-          : ['scripts/production/B/postgres-acceptance.mjs', '--service', service],
+          : suite === 'b-reporting-broker'
+            ? ['scripts/production/B/wallet-broker-acceptance.mjs', '--reporting']
+            : ['scripts/production/B/postgres-acceptance.mjs', '--service', service],
       );
       await childEvidence('owner-persistence', freshReport(before, pattern), (value) => {
         assert.equal(value.accepted, true);

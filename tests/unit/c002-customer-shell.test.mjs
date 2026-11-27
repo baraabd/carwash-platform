@@ -49,6 +49,8 @@ test('C002 uses the pinned stable React/Vite stack', () => {
   assert.deepEqual(pkg.dependencies, {
     '@carwash/api-clients': 'workspace:*',
     '@carwash/contracts': 'workspace:*',
+    // The Node static host uses the public same-origin proxy subpath.
+    '@carwash/security-kit': 'workspace:*',
     react: '19.3.0',
     'react-dom': '19.3.0',
     'react-router-dom': '7.18.4',

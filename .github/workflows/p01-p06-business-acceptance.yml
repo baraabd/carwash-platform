@@ -48,6 +48,8 @@ jobs:
             browser: false
           - suite: b-wallet-broker
             browser: false
+          - suite: b-reporting-broker
+            browser: false
           - suite: c-scheduling
             browser: false
           - suite: c-workforce

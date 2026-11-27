@@ -1,5 +1,12 @@
 import { HttpClient, type ApiResult, type FetchLike, type RequestSpec } from '@carwash/api-clients';
-import { apiError, parsePage, parseUtc, type Coordinates } from '@carwash/contracts/common';
+import {
+  apiError,
+  parsePage,
+  parseUtc,
+  SESSION_BINDING_HEADER,
+  formatSessionBinding,
+  type Coordinates,
+} from '@carwash/contracts/common';
 import {
   isAccessPrincipal,
   isIdentityPermission,
@@ -208,7 +215,12 @@ export class ProductionCustomer {
       baseUrl: this.base,
       fetch: options.fetch,
       credentials: 'same-origin',
-      headers: () => ({ 'x-csrf-token': options.csrf() }),
+      headers: () => ({
+        'x-csrf-token': options.csrf(),
+        ...(this.snapshot.session
+          ? { [SESSION_BINDING_HEADER]: formatSessionBinding(this.snapshot.session) }
+          : {}),
+      }),
     });
   }
 
@@ -346,8 +358,8 @@ export class ProductionCustomer {
         path: '/customer/profile',
         parse: parseCustomerProfileV1,
       }),
-      this.readVehicles(),
-      this.readAddresses(),
+      this.readVehicles(current),
+      this.readAddresses(current),
     ]);
     if (!current()) return;
     const ownProfile =
@@ -370,17 +382,19 @@ export class ProductionCustomer {
     });
   }
 
-  private async readVehicles(): Promise<ApiResult<readonly VehicleV1[]>> {
+  private async readVehicles(current: () => boolean): Promise<ApiResult<readonly VehicleV1[]>> {
     const items: VehicleV1[] = [];
     const cursors = new Set<string>();
     let cursor: string | undefined;
     for (let page = 0; page < 10; page++) {
+      if (!current()) return failure(401, 'AUTH_REQUIRED');
       const result = await this.client.request({
         method: 'GET',
         path: '/customer/vehicles',
         query: { limit: 100, cursor },
         parse: (value) => parsePage(value, '$', parseVehicleV1),
       });
+      if (!current()) return failure(401, 'AUTH_REQUIRED');
       if (!result.ok) return result;
       for (const vehicle of result.value.items) {
         if (vehicle.archived || items.some((item) => item.vehicleId === vehicle.vehicleId))
@@ -395,17 +409,19 @@ export class ProductionCustomer {
     return failure(502, 'UPSTREAM_INVALID');
   }
 
-  private async readAddresses(): Promise<ApiResult<readonly AddressV1[]>> {
+  private async readAddresses(current: () => boolean): Promise<ApiResult<readonly AddressV1[]>> {
     const items: AddressV1[] = [];
     const cursors = new Set<string>();
     let cursor: string | undefined;
     for (let page = 0; page < 10; page++) {
+      if (!current()) return failure(401, 'AUTH_REQUIRED');
       const result = await this.client.request({
         method: 'GET',
         path: '/customer/addresses',
         query: { limit: 100, cursor },
         parse: (value) => parsePage(value, '$', parseAddressV1),
       });
+      if (!current()) return failure(401, 'AUTH_REQUIRED');
       if (!result.ok) {
         if (result.status === 404 && result.error.reason === 'PROFILE_NOT_FOUND')
           return { ok: true, status: 200, value: [], revision: null };

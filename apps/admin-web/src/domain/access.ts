@@ -8,6 +8,8 @@
  */
 export interface StaffSession {
   readonly subject: string;
+  readonly sessionId: string;
+  readonly authVersion: number;
   readonly principalKind: 'account' | 'guest';
   readonly roles: readonly string[];
   readonly permissions: readonly string[];

@@ -17,11 +17,17 @@ COPY design/reference/approved/washgo-admin-prototype.html ./design/reference/ap
 RUN corepack enable && corepack prepare --activate
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @carwash/contracts run build \
+ && pnpm --filter @carwash/security-kit run build \
  && pnpm --filter @carwash/api-clients run build \
  && pnpm --filter "@carwash/${APP}" run build
-RUN mkdir -p /deploy/dist \
+RUN mkdir -p /deploy/dist /deploy/node_modules/@carwash/security-kit/dist /deploy/node_modules/@carwash/contracts \
  && cp -r apps/${APP}/dist/. /deploy/dist/ \
- && cp apps/${APP}/server.mjs /deploy/server.mjs
+ && cp apps/${APP}/server.mjs /deploy/server.mjs \
+ && cp packages/security-kit/server-proxy.mjs packages/security-kit/package.json /deploy/node_modules/@carwash/security-kit/ \
+ && cp packages/security-kit/dist/service-origin.js /deploy/node_modules/@carwash/security-kit/dist/ \
+ && cp packages/contracts/package.json /deploy/node_modules/@carwash/contracts/ \
+ && cp -r packages/contracts/dist /deploy/node_modules/@carwash/contracts/ \
+ && node -e "require('node:fs').writeFileSync('/deploy/web-gateway.mjs', 'export { createWebGateway, loadWebGatewayConfig } from \'@carwash/security-kit/server-proxy\';')"
 
 FROM ${NATIVE_RUNTIME_IMAGE} AS native_libraries
 

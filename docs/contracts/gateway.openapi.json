@@ -40,6 +40,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "idempotencyKey",
             "required": true,
@@ -149,6 +159,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -334,6 +354,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -443,6 +473,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -638,6 +678,16 @@
           },
           {
             "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "description": "Forwarded unchanged. A timeout is an unknown outcome, not rollback; never retry with a new key.",
@@ -819,6 +869,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "quoteId",
             "required": true,
@@ -929,6 +989,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           }
         ],
@@ -1657,6 +1727,16 @@
           },
           {
             "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "description": "Forwarded unchanged. A timeout is an unknown outcome, not rollback; never retry with a new key.",
@@ -1838,6 +1918,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -1947,6 +2037,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -2132,6 +2232,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -2244,6 +2354,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "idempotencyKey",
             "required": true,
@@ -2353,6 +2473,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -2477,6 +2607,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -2587,6 +2727,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -2768,6 +2918,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -2962,6 +3122,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -3153,6 +3323,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "query",
             "name": "limit",
             "required": false,
@@ -3271,6 +3451,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -3465,6 +3655,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -3575,6 +3775,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -3678,6 +3888,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -3780,6 +4000,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -3971,6 +4201,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -4175,6 +4415,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -4281,6 +4531,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -4383,6 +4643,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -4566,6 +4836,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -4669,6 +4949,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           }
         ],
@@ -4844,6 +5134,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "query",
             "name": "zoneId",
             "required": false,
@@ -4972,6 +5272,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -5074,6 +5384,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -5264,6 +5584,16 @@
           },
           {
             "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "description": "Forwarded unchanged. A timeout is an unknown outcome, not rollback; never retry with a new key.",
@@ -5447,6 +5777,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "query",
             "name": "limit",
             "required": false,
@@ -5590,6 +5930,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -5706,6 +6056,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -5819,6 +6179,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -6010,6 +6380,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -6217,6 +6597,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -6415,6 +6805,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -6517,6 +6917,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -6632,6 +7042,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -6741,6 +7161,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -6932,6 +7362,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -8885,6 +9325,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -8985,6 +9435,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -9174,6 +9634,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -9455,6 +9925,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "query",
             "name": "limit",
             "required": false,
@@ -9571,6 +10051,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -9753,6 +10243,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -9956,6 +10456,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "addressId",
             "required": true,
@@ -10156,6 +10666,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "query",
             "name": "limit",
             "required": false,
@@ -10272,6 +10792,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -10454,6 +10984,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -10657,6 +11197,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "vehicleId",
             "required": true,
@@ -10857,6 +11407,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "query",
             "name": "limit",
             "required": false,
@@ -10973,6 +11533,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -11158,6 +11728,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -11267,6 +11847,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -11382,6 +11972,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -11491,6 +12091,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -11682,6 +12292,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -11877,6 +12497,16 @@
           },
           {
             "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "description": "Forwarded unchanged. A timeout is an unknown outcome, not rollback; never retry with a new key.",
@@ -12058,6 +12688,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -12170,6 +12810,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -12279,6 +12929,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -12473,6 +13133,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -12661,6 +13331,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -13106,6 +13786,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -13208,6 +13898,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -13400,6 +14100,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -13502,6 +14212,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -13694,6 +14414,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -13796,6 +14526,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -13908,6 +14648,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -14102,6 +14852,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -14211,6 +14971,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -14405,6 +15175,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -14512,6 +15292,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -14706,6 +15496,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -14815,6 +15615,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -15009,6 +15819,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -15200,6 +16020,16 @@
           },
           {
             "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "description": "Forwarded unchanged. A timeout is an unknown outcome, not rollback; never retry with a new key.",
@@ -15380,6 +16210,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -15489,6 +16329,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -15610,6 +16460,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -17185,6 +18045,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -17287,6 +18157,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -17402,6 +18282,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -17512,6 +18402,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -17612,6 +18512,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -17795,6 +18705,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -17898,6 +18818,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -18000,6 +18930,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -18115,6 +19055,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -18224,6 +19174,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -18418,6 +19378,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -18606,6 +19576,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -18800,6 +19780,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -18988,6 +19978,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -19182,6 +20182,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -19370,6 +20380,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -19564,6 +20584,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -19752,6 +20782,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -19946,6 +20986,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -20134,6 +21184,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -20328,6 +21388,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -20519,6 +21589,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -20707,6 +21787,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -20912,6 +22002,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -21125,6 +22225,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -21344,6 +22454,16 @@
           },
           {
             "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "description": "Forwarded unchanged. A timeout is an unknown outcome, not rollback; never retry with a new key.",
@@ -21522,6 +22642,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -21708,6 +22838,16 @@
           },
           {
             "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "description": "Forwarded unchanged. A timeout is an unknown outcome, not rollback; never retry with a new key.",
@@ -21886,6 +23026,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -22077,6 +23227,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -22279,6 +23439,16 @@
           },
           {
             "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
             "name": "Idempotency-Key",
             "required": true,
             "description": "Forwarded unchanged. A timeout is an unknown outcome, not rollback; never retry with a new key.",
@@ -22457,6 +23627,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -22651,6 +23831,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -22761,6 +23951,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -22946,6 +24146,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -23127,6 +24337,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -23236,6 +24456,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -23396,6 +24626,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -23508,6 +24748,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -23643,6 +24893,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -23745,6 +25005,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -23876,6 +25146,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -23978,6 +25258,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -24090,6 +25380,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -24232,6 +25532,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -24344,6 +25654,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -24453,6 +25773,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -24647,6 +25977,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -24835,6 +26175,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           },
           {
@@ -25029,6 +26379,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "query",
             "name": "subjectType",
             "required": false,
@@ -25177,6 +26537,16 @@
             }
           },
           {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,
@@ -25298,6 +26668,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ],
         "responses": {
@@ -25414,6 +26794,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           }
         ],
@@ -25533,6 +26923,16 @@
             "description": "Valid W3C version-00 trace context preserves the trace ID with a new span ID.",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-wg-session-binding",
+            "required": false,
+            "description": "Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
             }
           }
         ],

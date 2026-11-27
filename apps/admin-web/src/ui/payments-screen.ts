@@ -60,6 +60,7 @@ const TONE: Readonly<Record<CashState, string>> = {
   UNDER_REVIEW: 's-blue',
   OUTCOME_UNKNOWN: 's-red',
   PAID: 's-green',
+  CASH_COLLECTED: 's-blue',
   VOIDED: 's-red',
 };
 

@@ -31,11 +31,23 @@ test('published catalog uses anonymous credentials; owner failure has no fixture
   const h = harness();
   await h.client.loadCatalog();
   assert.equal(h.requests[0].credentials, 'omit');
+  assert.equal(h.requests[0].headers['x-wg-session-binding'], undefined);
   assert.equal(h.client.getSnapshot().catalog.items[0].definitionId, id(20));
   h.state.override = () => error(503, 'DEPENDENCY_UNAVAILABLE');
   await h.client.loadCatalog();
   assert.equal(h.client.getSnapshot().catalog, null);
   assert.equal(h.client.getSnapshot().catalogStatus, 'unavailable');
+});
+
+test('private booking reads stay bound to the session shown by the customer UI', async () => {
+  const h = harness();
+  await h.client.loadBookings();
+  const read = h.requests.find((entry) => entry.path.endsWith('/bookings'));
+  assert.ok(read);
+  assert.equal(
+    read.headers['x-wg-session-binding'],
+    `${session.principalKind}:${session.subject}:${session.sessionId}:${session.authVersion}`,
+  );
 });
 
 function accountHarness() {
@@ -467,6 +479,104 @@ test('logout or identity replacement discards an in-flight response and private 
   assert.equal(h.client.getSnapshot().principal, null);
   assert.equal(h.client.getSnapshot().quote, null);
   assert.equal(h.client.getSnapshot().draft.packageId, null);
+});
+
+test('booking selections cannot continue under a replacement session after releasing no hold', async () => {
+  const selections = [
+    (client) =>
+      client.selectVehicle({
+        source: 'inline',
+        type: 'suv',
+        model: 'Private model',
+        color: null,
+        plate: '',
+      }),
+    (client) => client.selectCare(id(20)),
+    (client) => client.selectAddress(address),
+    (client) => client.chooseSlot(startsAt),
+    (client) => client.repeat(booking()),
+  ];
+  for (const select of selections) {
+    const h = harness();
+    await ready(h);
+    await h.client.releaseHold();
+    const before = h.requests.length;
+    const pending = select(h.client);
+    h.client.bindSession({ ...session, subject: id(99), sessionId: id(98) });
+    const replacement = h.client.getSnapshot();
+    assert.ok(!(await pending));
+    assert.deepEqual(
+      h.client.getSnapshot(),
+      replacement,
+      'old selection cannot alter the new draft',
+    );
+    assert.equal(
+      h.requests.length,
+      before,
+      'old selection cannot issue a request with new credentials',
+    );
+  }
+});
+
+test('late booking confirmation preserves a replacement session pending recovery key', async () => {
+  for (const sameAccount of [false, true]) {
+    for (const receipt of [() => response(booking(), 201), () => error(409, 'CONFLICT')]) {
+      const h = harness();
+      await ready(h);
+      const deferred = Promise.withResolvers();
+      const entered = Promise.withResolvers();
+      h.state.override = (request) => {
+        if (request.path.endsWith('/bookings') && request.method === 'POST') {
+          entered.resolve();
+          return deferred.promise;
+        }
+        return null;
+      };
+      const pending = h.client.confirm();
+      await entered.promise;
+      const replacement = {
+        ...session,
+        subject: sameAccount ? session.subject : id(99),
+        sessionId: id(98),
+      };
+      const recoveryKey = 'replacement_booking_request_1234';
+      const storageKey = `${replacement.principalKind}:${replacement.subject}`;
+      h.storage.set(storageKey, recoveryKey);
+      h.client.bindSession(replacement);
+      await h.client.recoverCreate();
+      deferred.resolve(receipt());
+      assert.equal(await pending, null);
+      assert.equal(h.storage.get(storageKey), recoveryKey);
+      assert.equal(h.client.getSnapshot().unknownCreateKey, recoveryKey);
+      assert.equal(h.client.getSnapshot().selectedBooking, null);
+      assert.equal(h.client.getSnapshot().principal.subjectId, replacement.subject);
+      assert.equal(
+        h.requests.filter(
+          (request) => request.method === 'POST' && request.path.endsWith('/bookings'),
+        ).length,
+        1,
+      );
+      const reloaded = new ProductionBookingClient(h.options);
+      reloaded.bindSession(replacement);
+      await reloaded.recoverCreate();
+      assert.equal(
+        reloaded.getSnapshot().unknownCreateKey,
+        recoveryKey,
+        'reload preserves the replacement operation fence',
+      );
+    }
+  }
+});
+
+test('repeat rejects a saved booking owned by a different customer', async () => {
+  const h = harness();
+  await h.client.loadCatalog();
+  const before = h.client.getSnapshot();
+  assert.equal(
+    await h.client.repeat({ ...booking(), beneficiary: { ...principal, subjectId: id(99) } }),
+    false,
+  );
+  assert.deepEqual(h.client.getSnapshot(), before);
 });
 
 test('exact money and contact presentation never round through floating-point or require a plate', () => {

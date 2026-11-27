@@ -25,13 +25,55 @@ import {
   oneOf,
   request,
   text,
+  bindSessionRequests,
 } from '../src/api/http.ts';
 
 const session = (permissions, principalKind = 'account') => ({
   subject: crypto.randomUUID(),
+  sessionId: crypto.randomUUID(),
+  authVersion: 1,
   principalKind,
   roles: [],
   permissions,
+});
+
+test('refresh never rebinds an old console command to a replacement cookie session', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalDocument = globalThis.document;
+  const original = session(['billing.reconcile']);
+  const replacement = session(['billing.reconcile']);
+  const expected = `account:${original.subject}:${original.sessionId}:${original.authVersion}`;
+  const seen = [];
+  globalThis.document = { cookie: 'wg_csrf=current-cookie' };
+  bindSessionRequests(original);
+  globalThis.fetch = async (url, options) => {
+    if (url === '/api/v1/auth/refresh') {
+      // A different tab/session may have refreshed while the old command was in flight.
+      bindSessionRequests(replacement);
+      return new Response(JSON.stringify(replacement), { status: 200 });
+    }
+    seen.push(options);
+    return new Response(JSON.stringify({ error: { code: 'AUTH_REQUIRED' } }), { status: 401 });
+  };
+  try {
+    const result = await request('/admin/billing/obligations', {
+      method: 'POST',
+      body: { prepared: 'original session' },
+      idempotencyKey: 'session_command_1234567890',
+      read: (value) => value,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.failure, 'UNAUTHENTICATED');
+    assert.equal(seen.length, 2);
+    for (const attempt of seen) {
+      assert.equal(attempt.headers['x-wg-session-binding'], expected);
+      assert.equal(attempt.headers['idempotency-key'], 'session_command_1234567890');
+    }
+  } finally {
+    bindSessionRequests(null);
+    globalThis.fetch = originalFetch;
+    globalThis.document = originalDocument;
+  }
 });
 
 test('access: each role sees only its screens; customers, technicians and guests see none', () => {

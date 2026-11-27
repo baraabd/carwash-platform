@@ -6,11 +6,10 @@ import { OPERATIONS_SUBSCRIPTIONS } from '../../application/operations.service';
  *
  * Reporting declares ONLY its own queue, dead-letter exchange and DLQ, and
  * binds to the producers' exchanges (binding needs `read` on the source
- * exchange, never `configure`). The producer exchanges (`booking.events`,
- * `scheduling.events`, `workforce.events`) belong to their owners and to the
- * infrastructure bootstrap; they are not declared here. Until Lane E adds them
- * to the shared bootstrap and grants this identity `read` (CR-D-P02-03), this
- * worker cannot start on the accepted broker and says so by failing to bind.
+ * exchange, never `configure`). All producer exchanges in OPERATIONS_SUBSCRIPTIONS
+ * belong to their owners and the infrastructure bootstrap, never this consumer.
+ * Missing producer topology or grants fail closed at binding; installation must
+ * establish every listed dependency before starting the worker.
  */
 export const OPERATIONS_QUEUE = 'reporting.operations';
 export const OPERATIONS_DLX = 'reporting.operations.dlx';

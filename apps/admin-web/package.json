@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@carwash/contracts": "workspace:*",
-    "@carwash/api-clients": "workspace:*"
+    "@carwash/api-clients": "workspace:*",
+    "@carwash/security-kit": "workspace:*"
   }
 }

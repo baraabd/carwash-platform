@@ -348,6 +348,39 @@ test('anonymous loading is read-only and never creates a guest or fixture profil
   );
 });
 
+test('private pagination stops before using an old cursor with a replacement session', async (t) => {
+  for (const resource of ['vehicles', 'addresses']) {
+    const { client, state, requests } = await gateway(t);
+    await client.load();
+    const page = deferred();
+    const entered = deferred();
+    let captured = false;
+    state.override = (request) => {
+      if (!captured && request.path.startsWith(`/api/v1/customer/${resource}?`)) {
+        captured = true;
+        entered.resolve();
+        return page.promise;
+      }
+      return null;
+    };
+    const stale = client.load();
+    await entered.promise;
+    assert.equal((await client.signOut()).ok, true);
+    state.session = identity(2);
+    state.profiles.set(state.session.subject, profile(state.session));
+    await client.load();
+    const replacement = client.getSnapshot();
+    page.resolve({ body: { items: [], nextCursor: 'old_account_cursor', asOf: instant } });
+    await stale;
+    assert.deepEqual(client.getSnapshot(), replacement);
+    assert.equal(
+      requests.some((request) => request.path.includes('cursor=old_account_cursor')),
+      false,
+    );
+    assert.equal(client.getSnapshot().session.subject, identity(2).subject);
+  }
+});
+
 test('explicit guest entry displays the actual one-time receipt and bootstraps canonical contact', async (t) => {
   const { client, requests } = await gateway(t, { authenticated: false, hasProfile: false });
   await client.load();
@@ -366,6 +399,11 @@ test('explicit guest entry displays the actual one-time receipt and bootstraps c
   assert.deepEqual(writes[0].body, contact);
   assert.equal(writes[0].headers['if-match'], undefined);
   assert.ok(writes[0].headers['idempotency-key']);
+  const binding = client.getSnapshot().session;
+  assert.equal(
+    writes[0].headers['x-wg-session-binding'],
+    `guest:${binding.subject}:${binding.sessionId}:${binding.authVersion}`,
+  );
   assert.equal(client.getSnapshot().session.principalKind, 'guest');
 });
 

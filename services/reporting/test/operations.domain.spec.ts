@@ -200,6 +200,46 @@ test('operations domain: query inputs are strict and bounded', () => {
 
 /* ---------------------------- contract parsing ---------------------------- */
 
+test('Billing obligation contracts become exact financial facts; cash receipt never becomes treasury settlement', () => {
+  const obligationId = randomUUID();
+  const amount = { currency: 'SYP', amountMinor: '123456789012345678', scale: 2 };
+  const created = envelope(
+    'billing.obligation-created.v1',
+    'billing',
+    { type: 'billing-obligation', id: obligationId, version: 1 },
+    { quoteId: randomUUID(), financialStatus: 'UNPAID', amount },
+  );
+  const creation = parseOperationsEvent(created).fact;
+  assert.equal(creation.kind, 'OBLIGATION_STATUS');
+  if (creation.kind !== 'OBLIGATION_STATUS') throw new Error('WRONG_FACT');
+  assert.equal(creation.source, 'billing');
+  assert.equal(creation.outstanding.amountMinor, 123456789012345678n);
+  const changedData = {
+    previousFinancialStatus: 'AWAITING_CASH',
+    financialStatus: 'CASH_COLLECTED',
+    verified: amount,
+    outstanding: { ...amount, amountMinor: '0' },
+  };
+  const changed = envelope(
+    'billing.obligation-status-changed.v1',
+    'billing',
+    { type: 'billing-obligation', id: obligationId, version: 3 },
+    changedData,
+  );
+  const collection = parseOperationsEvent(changed).fact;
+  assert.equal(collection.kind, 'OBLIGATION_STATUS');
+  if (collection.kind !== 'OBLIGATION_STATUS') throw new Error('WRONG_FACT');
+  assert.equal(collection.cashState, 'CASH_COLLECTED');
+  assert.equal(collection.outstanding.amountMinor, 0n);
+  assert.throws(() => parseOperationsEvent({ ...changed, producer: 'dispatch' }));
+  assert.throws(() =>
+    parseOperationsEvent({ ...changed, data: { ...changedData, providerReference: 'PRIVATE' } }),
+  );
+  assert.throws(() =>
+    parseOperationsEvent({ ...changed, data: { ...changedData, outstanding: amount } }),
+  );
+});
+
 test('operations events: published contracts parse to facts; anything else is refused', () => {
   const holdId = randomUUID();
   const parsed = parseOperationsEvent(

@@ -15,6 +15,7 @@ on:
       - 'tests/unit/c013-*.test.mjs'
       - 'tests/unit/c014-*.test.mjs'
       - 'tests/unit/customer-production-boundary.test.mjs'
+      - 'tests/production/A/production-journey.browser.mjs'
       - 'design/reference/approved/washgo-payments-interactive.html'
       - 'docs/design/**'
       - 'package.json'
@@ -29,6 +30,7 @@ on:
       - 'scripts/c014/**'
       - 'tests/unit/c014-*.test.mjs'
       - 'tests/unit/customer-production-boundary.test.mjs'
+      - 'tests/production/A/production-journey.browser.mjs'
       - '.github/workflows/c014-booking-confirmation.yml'
   workflow_dispatch:
 permissions:
@@ -96,7 +98,7 @@ jobs:
         run: |
           set -euo pipefail
           pnpm exec playwright install --with-deps chromium
-          node apps/customer-web/browser/production-journey.browser.mjs
+          node tests/production/A/production-journey.browser.mjs
           pnpm --filter @carwash/customer-web preview --host 127.0.0.1 --port 4174 --strictPort > "$RUNNER_TEMP/c014-vite.log" 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT

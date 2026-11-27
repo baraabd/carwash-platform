@@ -7,8 +7,17 @@
  * connection is UNKNOWN_OUTCOME, never success and never a silent retry.
  */
 import { RequestEpoch, type RequestEpochToken } from '@carwash/api-clients';
+import {
+  SESSION_BINDING_HEADER,
+  formatSessionBinding,
+  type BrowserSessionBinding,
+} from '@carwash/contracts/common';
 
 export const sessionRequests = new RequestEpoch();
+let sessionBinding: string | null = null;
+export function bindSessionRequests(session: BrowserSessionBinding | null): void {
+  sessionBinding = session ? formatSessionBinding(session) : null;
+}
 export const API_BASE = '/api/v1';
 const READ_TIMEOUT_MS = 8_000;
 const WRITE_TIMEOUT_MS = 10_000;
@@ -95,13 +104,14 @@ let refreshing: {
   readonly promise: Promise<Result<null>>;
 } | null = null;
 export function request<T>(path: string, options: RequestOptions<T>): Promise<Result<T>> {
-  return performRequest(path, options, true, sessionRequests.capture());
+  return performRequest(path, options, true, sessionRequests.capture(), sessionBinding);
 }
 async function performRequest<T>(
   path: string,
   options: RequestOptions<T>,
   mayRefresh: boolean,
   epoch: RequestEpochToken,
+  expectedSession: string | null,
 ): Promise<Result<T>> {
   const method = options.method ?? 'GET';
   const correlationId = crypto.randomUUID();
@@ -118,6 +128,8 @@ async function performRequest<T>(
     headers['x-csrf-token'] = csrfToken();
   }
   if (options.idempotencyKey) headers['idempotency-key'] = options.idempotencyKey;
+  if (expectedSession && !path.startsWith('/auth/'))
+    headers[SESSION_BINDING_HEADER] = expectedSession;
   const fail = (failure: Failure, code: string | null = null): Result<T> => ({
     ok: false,
     failure,
@@ -159,6 +171,7 @@ async function performRequest<T>(
         { method: 'POST', body: {}, read: () => null },
         false,
         epoch,
+        expectedSession,
       );
       const operation = { epoch, promise };
       refreshing = operation;
@@ -168,7 +181,7 @@ async function performRequest<T>(
     }
     const refreshed = await refreshing.promise;
     if (!sessionRequests.current(epoch)) return stale();
-    if (refreshed.ok) return performRequest(path, options, false, epoch);
+    if (refreshed.ok) return performRequest(path, options, false, epoch, expectedSession);
   }
 
   let body: unknown = null;
