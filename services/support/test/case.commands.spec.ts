@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import {
   CaseRuleError,
+  KIND_POLICIES,
   decisionInput,
   ownerCommandKey,
   planApproval,
@@ -171,7 +172,7 @@ class FakeBilling implements BillingOwner {
   private answer(auth: OnBehalfOf, request: OwnerRequest): OwnerOutcome {
     this.sent.push({ request, credential: auth.credential });
     if (request.operation === 'billing.refund')
-      return { kind: 'UNAVAILABLE', code: 'OWNER_CAPABILITY_UNPUBLISHED' };
+      return this.script.shift() ?? { kind: 'UNAVAILABLE', code: 'OWNER_NOT_CONFIGURED' };
     const next = this.script.shift();
     const outcome = request.body.outcome as string;
     // The owner really applies the first command it receives with a key.
@@ -202,7 +203,7 @@ class FakeBooking implements BookingOwner {
   }
 
   execute(): Promise<OwnerOutcome> {
-    return settled({ kind: 'UNAVAILABLE', code: 'OWNER_CAPABILITY_UNPUBLISHED' });
+    return settled({ kind: 'UNAVAILABLE', code: 'OWNER_NOT_CONFIGURED' });
   }
 }
 
@@ -423,6 +424,29 @@ test('domain: transitions, four-eyes and the owner command key', () => {
   assert.match(ownerCommandKey(caseId, 2), /^[A-Za-z0-9_-]{16,128}$/);
 });
 
+test('late-payment refund decisions accept explicit canonical reasons while retaining four-eyes approval', () => {
+  for (const code of [
+    'BOOKING_CANCELLED',
+    'SERVICE_NOT_DELIVERED',
+    'DUPLICATE_PAYMENT',
+    'SERVICE_QUALITY',
+    'PRICE_CORRECTION',
+  ]) {
+    const input = decisionInput(
+      'LATE_PAYMENT',
+      {
+        action: 'REFUND',
+        reason: { code, note: 'Verified reason from the owner case' },
+        evidence,
+        amount: SYP('150000'),
+      },
+      new Date(),
+    );
+    assert.equal(input.reason.code, code);
+    assert.equal(KIND_POLICIES.LATE_PAYMENT.actions.REFUND?.approval, 'FOUR_EYES');
+  }
+});
+
 test('events: data carries ids and statuses only and is self-validated', () => {
   const event = caseStatusChangedEvent(
     {
@@ -603,7 +627,7 @@ test('an unrelated MATCHED owner state is not proof that a selected-credit comma
   assert.deepEqual(h.billing.sent[1]!.request, h.billing.sent[0]!.request);
 });
 
-test('refund: four-eyes approval by a different finance reviewer; the unpublished owner command blocks', async () => {
+test('refund: four-eyes approval by a different finance reviewer; an unavailable owner blocks', async () => {
   const h = harness();
   const proposer = session(FINANCE);
   const approver = session(FINANCE);
@@ -643,7 +667,7 @@ test('refund: four-eyes approval by a different finance reviewer; the unpublishe
     note: 'Checked both statement lines',
   });
   assert.equal(approved.record.status, 'BLOCKED_ON_OWNER');
-  assert.equal(approved.decisions[0]!.ownerCode, 'OWNER_CAPABILITY_UNPUBLISHED');
+  assert.equal(approved.decisions[0]!.ownerCode, 'OWNER_NOT_CONFIGURED');
   assert.equal(approved.decisions[0]!.approvedBy, approver.subject);
   // Nothing was sent, so a different decision may replace the blocked one.
   const dismissed = await h.commands.decide(approver, auth, caseId, key(), {
@@ -690,7 +714,54 @@ test('desk separation: operations cannot see or decide finance cases; finance ca
   assert.deepEqual(readableKinds(session([])), []);
 });
 
-test('operations cancel/reschedule: authoritative booking state recorded, owner command blocked', async () => {
+test('refund pending outcome stays executing and only the original approving actor can recover success', async () => {
+  const h = harness();
+  const proposer = session(FINANCE);
+  const approver = session(FINANCE);
+  const { obligationId } = seedAttempt(h.billing);
+  const obligation = h.billing.obligations.get(obligationId)!;
+  h.billing.obligations.set(obligationId, {
+    ...obligation,
+    verified: SYP('150000'),
+    outstanding: SYP('0'),
+  });
+  const opened = await h.commands.open(proposer, auth, key(), {
+    kind: 'REFUND',
+    subject: { type: 'billing.obligation', id: obligationId },
+    summary: 'Return a duplicate transfer',
+  });
+  const caseId = opened.detail.record.id;
+  await h.commands.decide(proposer, auth, caseId, key(), {
+    action: 'REFUND',
+    reason: { code: 'DUPLICATE_PAYMENT', note: 'Two independent statement transfers' },
+    evidence,
+    amount: SYP('150000'),
+  });
+  h.billing.script.push({
+    kind: 'PENDING',
+    ownerStatus: 200,
+    ownerState: 'REQUESTED',
+    code: 'REFUND_PENDING',
+  });
+  const pending = await h.commands.approve(approver, auth, caseId, '1', key(), {
+    approve: true,
+    note: 'Independent statement review complete',
+  });
+  assert.equal(pending.record.status, 'EXECUTING');
+  assert.equal(pending.decisions[0]!.ownerState, 'REQUESTED');
+  h.advance(20000);
+  await assert.rejects(
+    h.commands.resend(proposer, auth, caseId, '1'),
+    (error: unknown) => error instanceof AccessFault && error.code === 'AUTH_FORBIDDEN',
+  );
+  h.billing.script.push({ kind: 'APPLIED', ownerStatus: 200, ownerState: 'SUCCEEDED' });
+  const completed = await h.commands.resend(approver, auth, caseId, '1');
+  assert.equal(completed.record.status, 'RESOLVED');
+  assert.equal(completed.decisions[0]!.ownerState, 'SUCCEEDED');
+  assert.deepEqual(h.billing.sent[1]!.request, h.billing.sent[0]!.request);
+});
+
+test('reschedule: frozen owner revision and Scheduling hold are retained when owner is unavailable', async () => {
   const h = harness();
   const operations = session(OPERATIONS);
   const bookingId = randomUUID();
@@ -710,6 +781,7 @@ test('operations cancel/reschedule: authoritative booking state recorded, owner 
   );
   const decided = await h.commands.decide(operations, auth, opened.detail.record.id, key(), {
     action: 'RESCHEDULE_BOOKING',
+    bookingHold: { holdId: randomUUID(), revision: 2 },
     reason: { code: 'TECHNICIAN_UNAVAILABLE', note: 'Assigned technician is sick today' },
     window: { startsAt: '2026-10-13T08:00:00.000Z', endsAt: '2026-10-13T09:00:00.000Z' },
   });

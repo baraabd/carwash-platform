@@ -215,7 +215,8 @@ export class BillingService {
         throw new BillingApplicationError('UPSTREAM_UNAVAILABLE');
       throw error;
     }
-    if (!quote || quote.quoteId !== quoteId) throw new BillingApplicationError('NOT_FOUND');
+    if (!quote || quote.quoteId !== quoteId || !sameRef(quote.beneficiary, refOf(principal)))
+      throw new BillingApplicationError('NOT_FOUND');
     if (!quote.usable) throw new BillingApplicationError('QUOTE_NOT_USABLE');
     if (quote.total.isZero()) throw new BillingApplicationError('AMOUNT_INVALID');
     const total = quote.total;

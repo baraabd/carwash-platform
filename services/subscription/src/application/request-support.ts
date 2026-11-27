@@ -21,6 +21,7 @@ export interface RequestContext {
   readonly correlationId: string;
   readonly serviceClient?: string | undefined;
   readonly serviceToken?: string | undefined;
+  readonly bearerPresent?: boolean;
 }
 
 export async function verifiedPrincipal(
@@ -46,6 +47,8 @@ export function serviceCaller(
   context: RequestContext,
   scope: ServiceScope,
 ): string {
+  if (context.credential !== undefined || context.bearerPresent)
+    throw new SubscriptionApplicationError('AUTH_FORBIDDEN');
   const client = callers.authorize(context.serviceClient, context.serviceToken, scope);
   if (!client) throw new SubscriptionApplicationError('SERVICE_AUTH_REQUIRED');
   return client;

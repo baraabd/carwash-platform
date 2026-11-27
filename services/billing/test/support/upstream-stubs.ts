@@ -20,6 +20,7 @@ export interface StubSession {
 
 export interface StubQuote {
   readonly ownerToken: string;
+  readonly beneficiary?: { readonly kind: 'account' | 'guest'; readonly subjectId: string };
   readonly status: 'USABLE' | 'EXPIRED' | 'REVOKED';
   readonly currency: 'SYP' | 'USD';
   readonly totalMinor: string;
@@ -158,7 +159,17 @@ export async function startPricingStub(): Promise<PricingStub> {
         quoteId,
         revision: 1,
         status: quote.status,
-        beneficiary: { kind: 'account', subjectId: '00000000-0000-4000-8000-000000000000' },
+        beneficiary:
+          quote.beneficiary ??
+          (quote.ownerToken === 'guest'
+            ? { kind: 'guest', subjectId: '7a2b3c4d-5e6f-4a7b-9c8d-1e2f3a4b5c6d' }
+            : {
+                kind: 'account',
+                subjectId:
+                  quote.ownerToken === 'other-customer'
+                    ? '8b3c4d5e-6f7a-4b8c-ad9e-2f3a4b5c6d7e'
+                    : '6f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f',
+              }),
         vehicleType: 'sedan',
         zoneId: null,
         currency: quote.currency,

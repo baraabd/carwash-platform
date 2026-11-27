@@ -15,6 +15,7 @@ export function termsView(terms: PlanTerms): Record<string, unknown> {
     periodDays: terms.periodDays,
     coveredPackageIds: [...terms.coveredPackageIds],
     available: terms.available,
+    ...(terms.vehicleTypes ? { vehicleTypes: [...terms.vehicleTypes] } : {}),
   };
 }
 

@@ -14,7 +14,17 @@ import {
 import { ConfiguredServiceCallers } from './infrastructure/security/service-callers';
 import { RandomIds, Sha256Hasher, SystemClock } from './infrastructure/system/system.adapters';
 import {
+  BillingFundingAuthority,
+  billingFundingConfigFromEnv,
+} from './infrastructure/billing/billing-funding.authority';
+import {
+  PurchaseOwnersClient,
+  purchaseOwnersConfigFromEnv,
+} from './infrastructure/billing/purchase-owners.client';
+import { CanonicalSubscriptionService } from './application/canonical-subscription.service';
+import {
   ENTITLEMENT_SERVICE,
+  CANONICAL_SUBSCRIPTION_SERVICE,
   SUBSCRIPTION_SERVICE,
   SubscriptionController,
 } from './transport/http/subscription.controller';
@@ -52,11 +62,27 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
     PrismaService,
     PrismaSubscriptionRepository,
     {
+      provide: CANONICAL_SUBSCRIPTION_SERVICE,
+      inject: [PrismaSubscriptionRepository, SUBSCRIPTION_SERVICE],
+      useFactory: (repository: PrismaSubscriptionRepository, legacy: SubscriptionService) =>
+        new CanonicalSubscriptionService({
+          repository,
+          legacy,
+          authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),
+          funding: new BillingFundingAuthority(billingFundingConfigFromEnv(process.env)),
+          owners: new PurchaseOwnersClient(purchaseOwnersConfigFromEnv(process.env)),
+          clock: new SystemClock(),
+          ids: new RandomIds(),
+          hasher: new Sha256Hasher(),
+        }),
+    },
+    {
       provide: SUBSCRIPTION_SERVICE,
       inject: [PrismaSubscriptionRepository],
       useFactory: (repository: PrismaSubscriptionRepository) =>
         new SubscriptionService({
           repository,
+          funding: new BillingFundingAuthority(billingFundingConfigFromEnv(process.env)),
           // An unset Identity origin keeps the foundation image bootable; every
           // protected command then fails closed with 503.
           authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),

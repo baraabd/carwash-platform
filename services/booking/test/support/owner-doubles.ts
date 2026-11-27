@@ -197,7 +197,11 @@ export async function startOwnerDoubles(): Promise<OwnerDoubles> {
           const who = session(req);
           const hold = state.holds.get(m[1] ?? '');
           if (!who) return err(res, 401, 'AUTH_REQUIRED');
-          if (!hold || hold.owner !== who.subject) return err(res, 404, 'NOT_FOUND');
+          if (
+            !hold ||
+            (hold.owner !== who.subject && !who.permissions.includes('operations.dispatch'))
+          )
+            return err(res, 404, 'NOT_FOUND');
           return send(res, 200, strip(hold));
         }
         m = /^\/internal\/v1\/scheduling\/holds\/([^/]+)\/commit$/.exec(path);

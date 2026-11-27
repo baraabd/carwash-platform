@@ -1,3 +1,4 @@
+import { parsePrincipalRef } from '@carwash/contracts';
 import { Money } from '../../domain';
 import { QuoteUnavailable, type QuoteReader, type VerifiedQuote } from '../../ports';
 import {
@@ -38,13 +39,15 @@ function parseQuote(value: unknown, quoteId: string): VerifiedQuote | null {
   const status = STATUSES.find((candidate) => candidate === body.status);
   if (!status) return null;
   let total: Money;
+  let beneficiary;
   try {
     total = Money.parse(body.total);
+    beneficiary = parsePrincipalRef(body.beneficiary, '$.beneficiary');
   } catch {
     return null;
   }
   if (body.currency !== total.currency) return null;
-  return { quoteId, total, usable: status === 'USABLE' };
+  return { quoteId, beneficiary, total, usable: status === 'USABLE' };
 }
 
 export class PricingQuoteReader implements QuoteReader {
@@ -77,7 +80,29 @@ export class PricingQuoteReader implements QuoteReader {
     }
     if (response.status === 404) {
       await response.body?.cancel();
-      return null;
+      // Subscription purchases have a distinct Pricing owner surface. These
+      // quotes cannot pass Booking's wash-quote validation or reserve capacity.
+      try {
+        response = await this.fetcher(
+          new URL(`/internal/v1/pricing/subscription-quotes/${quoteId}`, this.config.origin),
+          {
+            method: 'GET',
+            headers: {
+              accept: 'application/json',
+              authorization: credential,
+              'x-correlation-id': correlationId,
+            },
+            redirect: 'error',
+            signal: AbortSignal.timeout(this.config.timeoutMs),
+          },
+        );
+      } catch {
+        throw new QuoteUnavailable();
+      }
+      if (response.status === 404) {
+        await response.body?.cancel();
+        return null;
+      }
     }
     if (response.status !== 200) {
       await response.body?.cancel();

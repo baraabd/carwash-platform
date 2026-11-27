@@ -84,9 +84,11 @@ test('billing.v1 descriptor passes the shared contract lint and is registered', 
   assert.equal(r.getCashCollectionTarget.path, '/bookings/:bookingId/cash-collection-target');
   assert.equal(r.receiveProviderNotification.access, 'provider-signed');
   for (const [name, route] of Object.entries(r)) {
-    if (route.method === 'GET' || route.access === 'provider-signed') continue;
+    if (route.method === 'GET' || route.access === 'provider-signed' || route.safe) continue;
     assert.equal(route.idempotent, true, `${name} must require an Idempotency-Key`);
   }
+  assert.equal(r.verifySubscriptionFunding.safe, true);
+  assert.equal(r.verifySubscriptionFunding.access, 'service:billing.subscription-funding.read');
 });
 
 test('provider-signed access is a plain POST de-duplicated by the owner', () => {

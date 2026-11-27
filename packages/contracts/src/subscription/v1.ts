@@ -33,7 +33,18 @@ export const SUBSCRIPTION_V1 = {
   routes: {
     listPlans: { method: 'GET', path: '/plans', access: 'public', paged: true },
     getPlan: { method: 'GET', path: '/plans/:planId', access: 'public' },
+    publishPlan: {
+      method: 'POST',
+      path: '/plans/:planId/versions',
+      access: 'permission:subscription.manage',
+      idempotent: true,
+    },
     createPurchase: { method: 'POST', path: '/purchases', access: 'principal', idempotent: true },
+    getPurchaseByRequest: {
+      method: 'GET',
+      path: '/purchases/by-request/:idempotencyKey',
+      access: 'principal',
+    },
     getPurchase: { method: 'GET', path: '/purchases/:purchaseId', access: 'principal' },
     listSubscriptions: { method: 'GET', path: '/subscriptions', access: 'principal', paged: true },
     getSubscription: {
@@ -41,10 +52,27 @@ export const SUBSCRIPTION_V1 = {
       path: '/subscriptions/:subscriptionId',
       access: 'principal',
     },
+    checkEligibility: {
+      method: 'POST',
+      path: '/subscriptions/:subscriptionId/eligibility',
+      access: 'principal',
+      safe: true,
+    },
     requestChange: {
       method: 'POST',
       path: '/subscriptions/:subscriptionId/changes',
       access: 'principal',
+      idempotent: true,
+    },
+    listPendingChanges: {
+      method: 'GET',
+      path: '/administration/changes',
+      access: 'permission:subscription.manage',
+    },
+    decideChange: {
+      method: 'POST',
+      path: '/subscriptions/:subscriptionId/changes/:changeId/decision',
+      access: 'permission:subscription.manage',
       idempotent: true,
     },
     reserveEntitlement: {
@@ -62,6 +90,11 @@ export const SUBSCRIPTION_V1 = {
     getEntitlementReservation: {
       method: 'GET',
       path: '/entitlement-reservations/:reservationId',
+      access: 'service:subscription.entitlement.read',
+    },
+    findBookingEntitlements: {
+      method: 'GET',
+      path: '/entitlement-reservations',
       access: 'service:subscription.entitlement.read',
     },
   },
@@ -87,6 +120,54 @@ export const MAX_PLAN_UNITS = 1000;
 
 export const PLAN_STATUSES = ['PUBLISHED', 'RETIRED'] as const;
 export type PlanStatus = (typeof PLAN_STATUSES)[number];
+
+export interface PublishPlanRequestV1 {
+  readonly expectedRevision: number;
+  readonly status: PlanStatus;
+  readonly name: string;
+  readonly units: number;
+  readonly validityDays: number;
+  readonly price: Money;
+  readonly packageIds: readonly string[];
+  readonly vehicleTypes: readonly VehicleType[];
+}
+export function parsePublishPlanRequestV1(value: unknown): PublishPlanRequestV1 {
+  const v = closed(value, '$', [
+    'expectedRevision',
+    'status',
+    'name',
+    'units',
+    'validityDays',
+    'price',
+    'packageIds',
+    'vehicleTypes',
+  ]);
+  const expectedRevision = integer(v.expectedRevision, '$.expectedRevision', 0, 2147483646);
+  // Reuse the same plan validation without allowing clients to choose timestamps or hashes.
+  const plan = parsePlanV1({
+    planId: '00000000-0000-4000-8000-000000000001',
+    version: expectedRevision + 1,
+    status: v.status,
+    name: v.name,
+    units: v.units,
+    validityDays: v.validityDays,
+    price: v.price,
+    packageIds: v.packageIds,
+    vehicleTypes: v.vehicleTypes,
+    publishedAt: '2000-01-01T00:00:00.000Z',
+    contentHash: '0'.repeat(64),
+  });
+  return {
+    expectedRevision,
+    status: plan.status,
+    name: plan.name,
+    units: plan.units,
+    validityDays: plan.validityDays,
+    price: plan.price,
+    packageIds: plan.packageIds,
+    vehicleTypes: plan.vehicleTypes,
+  };
+}
 
 export interface PlanV1 {
   readonly planId: string;
@@ -340,7 +421,10 @@ export function parseSubscriptionV1(value: unknown, path = '$'): SubscriptionV1 
   if ((status === 'CANCELLED') !== (cancelledAt !== null))
     throw new ContractViolation('INCONSISTENT_CANCELLATION', `${path}.cancelledAt`);
   // EXHAUSTED means every unit was consumed; a reserved unit can still be released.
-  if ((status === 'EXHAUSTED') !== (units.consumed === units.total))
+  if (
+    (status === 'EXHAUSTED') !== (units.consumed === units.total) &&
+    !(units.consumed === units.total && ['FROZEN', 'CANCELLED', 'EXPIRED'].includes(status))
+  )
     throw new ContractViolation('INCONSISTENT_EXHAUSTION', `${path}.status`);
   return {
     subscriptionId: uuid(v.subscriptionId, `${path}.subscriptionId`),
@@ -392,6 +476,51 @@ export interface RequestSubscriptionChangeV1 {
   readonly expectedRevision: number;
   readonly action: SubscriptionChangeAction;
   readonly reason: SubscriptionChangeReason;
+}
+
+/** Read-only owner decision for a proposed booking; reserve remains authoritative. */
+export interface CheckEligibilityRequestV1 {
+  readonly packageId: string;
+  readonly vehicleType: VehicleType;
+  readonly scheduledFor: UtcTimestamp;
+}
+export const ELIGIBILITY_REASONS = [
+  'SUBSCRIPTION_NOT_ACTIVE',
+  'SUBSCRIPTION_FROZEN',
+  'PERIOD_ENDED',
+  'SCHEDULE_OUTSIDE_PERIOD',
+  'PACKAGE_NOT_COVERED',
+  'ENTITLEMENT_EXHAUSTED',
+] as const;
+export type EligibilityReason = (typeof ELIGIBILITY_REASONS)[number];
+export interface EligibilityV1 {
+  readonly subscriptionId: string;
+  readonly revision: number;
+  readonly eligible: boolean;
+  readonly reason: EligibilityReason | null;
+  readonly checkedAt: UtcTimestamp;
+}
+export function parseCheckEligibilityRequestV1(value: unknown): CheckEligibilityRequestV1 {
+  const v = closed(value, '$', ['packageId', 'vehicleType', 'scheduledFor']);
+  return {
+    packageId: uuid(v.packageId, '$.packageId'),
+    vehicleType: oneOf(v.vehicleType, '$.vehicleType', VEHICLE_TYPES),
+    scheduledFor: parseUtc(v.scheduledFor, '$.scheduledFor'),
+  };
+}
+export function parseEligibilityV1(value: unknown): EligibilityV1 {
+  const v = closed(value, '$', ['subscriptionId', 'revision', 'eligible', 'reason', 'checkedAt']);
+  if (typeof v.eligible !== 'boolean') throw new ContractViolation('INVALID_TYPE', '$.eligible');
+  const reason = v.reason === null ? null : oneOf(v.reason, '$.reason', ELIGIBILITY_REASONS);
+  if (v.eligible !== (reason === null))
+    throw new ContractViolation('INCONSISTENT_ELIGIBILITY', '$.reason');
+  return {
+    subscriptionId: uuid(v.subscriptionId, '$.subscriptionId'),
+    revision: parseRevision(v.revision, '$.revision'),
+    eligible: v.eligible,
+    reason,
+    checkedAt: parseUtc(v.checkedAt, '$.checkedAt'),
+  };
 }
 
 export function parseRequestSubscriptionChangeV1(value: unknown): RequestSubscriptionChangeV1 {
@@ -501,22 +630,31 @@ export interface ReserveEntitlementRequestV1 {
   readonly beneficiary: PrincipalRef;
   readonly bookingId: string;
   readonly packageId: string;
+  /** Required by the provider to verify the actual service time against the period. */
+  readonly scheduledFor?: UtcTimestamp;
+  /** Trusted wash-quote vehicle class, checked against the purchased plan. */
+  readonly vehicleType?: VehicleType;
 }
 
 export function parseReserveEntitlementRequestV1(value: unknown): ReserveEntitlementRequestV1 {
-  const v = closed(value, '$', [
-    'subscriptionId',
-    'expectedRevision',
-    'beneficiary',
-    'bookingId',
-    'packageId',
-  ]);
+  const v = closed(
+    value,
+    '$',
+    ['subscriptionId', 'expectedRevision', 'beneficiary', 'bookingId', 'packageId'],
+    ['scheduledFor', 'vehicleType'],
+  );
   return {
     subscriptionId: uuid(v.subscriptionId, '$.subscriptionId'),
     expectedRevision: parseRevision(v.expectedRevision, '$.expectedRevision'),
     beneficiary: parsePrincipalRef(v.beneficiary, '$.beneficiary'),
     bookingId: uuid(v.bookingId, '$.bookingId'),
     packageId: uuid(v.packageId, '$.packageId'),
+    ...(v.scheduledFor === undefined
+      ? {}
+      : { scheduledFor: parseUtc(v.scheduledFor, '$.scheduledFor') }),
+    ...(v.vehicleType === undefined
+      ? {}
+      : { vehicleType: oneOf(v.vehicleType, '$.vehicleType', VEHICLE_TYPES) }),
   };
 }
 

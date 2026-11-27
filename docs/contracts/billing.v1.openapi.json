@@ -59,6 +59,32 @@
     "NOTIFICATION_PROVIDER_DISABLED"
   ],
   "paths": {
+    "/internal/v1/billing/subscription-funding/verify": {
+      "post": {
+        "operationId": "billing.verifySubscriptionFunding",
+        "x-access": "service:billing.subscription-funding.read",
+        "x-idempotent": false,
+        "x-revisioned": false,
+        "x-safe-post": true,
+        "x-wire-parsers": "@carwash/contracts billingV1 (closed objects; unknown fields refused)",
+        "parameters": [],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/internal/v1/billing/obligations": {
       "post": {
         "operationId": "billing.createObligation",

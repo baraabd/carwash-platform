@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { Module } from '@nestjs/common';
 import { HealthModule, createLogger, type DependencyProbe } from '@carwash/service-kit';
-import { BookingService, ChangeService, TechnicianViewQuery } from './application';
+import {
+  BookingService,
+  BookingHoldsService,
+  ChangeService,
+  TechnicianViewQuery,
+} from './application';
 import { IdentitySessionClient } from './infrastructure/identity/identity-session.client';
 import {
   DATABASE_URL,
@@ -62,6 +67,11 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
     {
       provide: BookingService,
       useFactory: (composition: Composition) => composition.service,
+      inject: [COMPOSITION],
+    },
+    {
+      provide: BookingHoldsService,
+      useFactory: (composition: Composition) => composition.holds,
       inject: [COMPOSITION],
     },
     {

@@ -22,6 +22,7 @@ import {
 
 export const TOKENS = {
   admin: tokenFor('admin'),
+  operations: tokenFor('operations'),
   legacyAdmin: tokenFor('legacy-admin'),
   customer: tokenFor('customer'),
   otherCustomer: tokenFor('other-customer'),
@@ -68,7 +69,8 @@ export async function startPricingHttp(input: {
 }): Promise<PricingHttpHarness> {
   const identity = await startIdentityStub({
     admin: { subject: ADMIN_SUBJECT, permissions: ['pricing.prices.publish'] },
-    // Identity currently issues `pricing.publish`; pricing.v1 requires `pricing.prices.publish`.
+    operations: { subject: ADMIN_SUBJECT, permissions: ['operations.dispatch'] },
+    // A legacy-only caller cannot publish the canonical pricing.v1 price book.
     'legacy-admin': { subject: ADMIN_SUBJECT, permissions: ['pricing.publish'] },
     customer: {
       subject: CUSTOMER_SUBJECT,

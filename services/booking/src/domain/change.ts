@@ -70,7 +70,8 @@ export type ChangeRefusal =
   | 'HOLD_UNAVAILABLE'
   | 'DISPATCH_NOT_READY';
 
-export type Settlement = 'PENDING' | 'VOIDED' | 'REFUND_PENDING' | 'NOTHING_DUE';
+export type Settlement =
+  'PENDING' | 'VOIDED' | 'REFUND_PENDING' | 'NOTHING_DUE' | 'ENTITLEMENT_RELEASED';
 
 export type Requester =
   | { readonly kind: 'account' | 'guest'; readonly subjectId: string }

@@ -42,6 +42,79 @@ test('catalog http: public reads need no credential and never call Identity', as
   }
 });
 
+test('catalog http: current state exposes an unpublished owner without inventing revision zero or writing data', async () => {
+  const { http, repository } = await harness();
+  try {
+    const current = await http.request('GET', `${PATH}/current`);
+    assert.equal(current.status, 200);
+    assert.deepEqual(current.body, {
+      state: 'UNPUBLISHED',
+      catalog: null,
+      expectedCatalogRevision: 0,
+      asOf: T0.toISOString(),
+    });
+    assert.equal(current.headers.get('cache-control'), 'no-store');
+    assert.equal(http.identity.calls.length, 0);
+    assert.equal(repository.publications.length, 0);
+    assert.equal(repository.audit.length, 0);
+    assert.equal(repository.outbox.length, 0);
+    assert.equal(
+      (await http.request('GET', `${PATH}/definitions`)).status,
+      404,
+      'published-only contract stays unchanged',
+    );
+  } finally {
+    await http.close();
+  }
+});
+
+test('catalog http: two publishers using initial owner revision zero have exactly one first publication', async () => {
+  const { http, repository } = await harness();
+  try {
+    const initial = await http.request('GET', `${PATH}/current`);
+    const body = publishBody(initial.body.expectedCatalogRevision as number, definitionsFixture());
+    const results = await Promise.all(
+      [TOKENS.admin, TOKENS.otherAdmin].map((token, n) =>
+        http.request('POST', `${PATH}/publications`, { token, key: KEY(400 + n), body }),
+      ),
+    );
+    assert.deepEqual(results.map((result) => result.status).sort(), [201, 412]);
+    const published = results.find((result) => result.status === 201)!;
+    const current = await http.request('GET', `${PATH}/current`);
+    assert.deepEqual(current.body, {
+      state: 'PUBLISHED',
+      catalog: published.body,
+      expectedCatalogRevision: 1,
+      asOf: T0.toISOString(),
+    });
+    assert.equal(repository.publications.length, 1);
+    assert.equal(repository.outbox.length, 1);
+    assert.equal(
+      repository.audit.filter((item) => item.action === 'catalog.definitions.published').length,
+      1,
+    );
+    assert.equal(
+      errorOf(results.find((result) => result.status === 412)!).code,
+      'REVISION_CONFLICT',
+    );
+  } finally {
+    await http.close();
+  }
+});
+
+test('catalog http: a repository failure is never an unpublished bootstrap state', async () => {
+  const { http, repository } = await harness();
+  repository.current = () => Promise.reject(new Error('TEST_REPOSITORY_UNAVAILABLE'));
+  try {
+    const current = await http.request('GET', `${PATH}/current`);
+    assert.equal(current.status, 500);
+    assert.equal(current.body.state, undefined);
+    assert.equal(current.body.catalog, undefined);
+  } finally {
+    await http.close();
+  }
+});
+
 test('catalog http: publish is deny-by-default (401 / 403 / 503 fail closed)', async () => {
   const { http, repository } = await harness();
   const body = publishBody(0, definitionsFixture());

@@ -12,20 +12,20 @@
     "start": "node dist/main.js"
   },
   "dependencies": {
+    "@carwash/contracts": "workspace:*",
     "@carwash/event-contracts": "workspace:*",
+    "@carwash/security-kit": "workspace:*",
     "@carwash/service-kit": "workspace:*",
     "@nestjs/common": "11.2.5",
     "@nestjs/core": "11.2.5",
     "@nestjs/platform-express": "11.2.5",
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
+    "argon2": "0.45.2",
+    "jose": "6.2.5",
     "pg": "8.23.0",
     "reflect-metadata": "0.2.2",
-    "rxjs": "7.8.2",
-    "@carwash/contracts": "workspace:*",
-    "@carwash/security-kit": "workspace:*",
-    "argon2": "0.45.1",
-    "jose": "6.2.5"
+    "rxjs": "7.8.2"
   },
   "devDependencies": {
     "@nestjs/testing": "11.2.5",

@@ -13,6 +13,7 @@ import { AddressBookSheet, type AddressBookView } from './components/AddressBook
 import { buildAccountViewModel, buildAddressBookItems, type AccountRow } from './accountViewModel';
 import { CustomerProfileSheet } from '../../widgets/customer-access/CustomerProfileSheet';
 import { ProductionNotice } from '../../widgets/customer-access/ProductionNotice';
+import { CustomerSubscriptionSheet } from '../../widgets/customer-access/CustomerSubscriptionSheet';
 import { useCustomerProduction } from '../../data/CustomerProductionProvider';
 import { productionFailure } from '../../data/productionCustomer';
 import './account.css';
@@ -37,6 +38,7 @@ export function AccountRoute() {
   const [book, setBook] = useState<AddressBookView | null>(null);
   const [editorSessions, setEditorSessions] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [subscriptionsOpen, setSubscriptionsOpen] = useState(false);
   const [bookPrincipal, setBookPrincipal] = useState<string | null>(null);
   const [editorRevision, setEditorRevision] = useState<number | null>(null);
   const [deleteRevision, setDeleteRevision] = useState<number | null>(null);
@@ -139,6 +141,7 @@ export function AccountRoute() {
       } else openAddressList();
     }
     if (row.action === 'garage') void navigate('/garage');
+    if (row.action === 'subscriptions') setSubscriptionsOpen(true);
   };
 
   const renderRow = (row: AccountRow) => (
@@ -147,7 +150,11 @@ export function AccountRoute() {
       className={row.danger ? 'settings-row danger' : 'settings-row'}
       type="button"
       data-account-row={row.id}
-      aria-haspopup={row.action === 'addresses' || row.action === 'profile' ? 'dialog' : undefined}
+      aria-haspopup={
+        row.action === 'addresses' || row.action === 'profile' || row.action === 'subscriptions'
+          ? 'dialog'
+          : undefined
+      }
       {...(row.action === 'deferred' ? deferred : {})}
       onClick={() => activate(row)}
     >
@@ -277,6 +284,15 @@ export function AccountRoute() {
         onClose={() => setProfileOpen(false)}
         onSaved={() => {
           if (addressesAfterProfile) openAddressList();
+        }}
+      />
+      <CustomerSubscriptionSheet
+        open={subscriptionsOpen}
+        onClose={() => setSubscriptionsOpen(false)}
+        onSignIn={() => {
+          setSubscriptionsOpen(false);
+          setAddressesAfterProfile(false);
+          setProfileOpen(true);
         }}
       />
     </div>

@@ -236,6 +236,19 @@ model PricingAuditRecord {
   @@map("pricing_audit_record")
 }
 
+model PricingSubscriptionQuote {
+  id              String @id @db.Uuid
+  customerSubject String @map("customer_subject") @db.Uuid
+  planId          String @map("plan_id") @db.Uuid
+  planVersion     Int    @map("plan_version")
+  currency        String @db.Char(3)
+  totalMinor      BigInt @map("total_minor")
+  planContentHash String @map("plan_content_hash") @db.Char(64)
+  issuedAt        DateTime @map("issued_at") @db.Timestamptz(3)
+  expiresAt       DateTime @map("expires_at") @db.Timestamptz(3)
+  @@map("pricing_subscription_quote")
+}
+
 // ---------------------------------------------------------------------------
 // P05-B2. Promotions with immutable revisions, the quote discount component,
 // redemption reservations with caps, promotion audit and the outbox. CHECK

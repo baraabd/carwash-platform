@@ -54,7 +54,9 @@ jobs:
     steps:
       # runner.temp is not available in job-level env, so it is derived here.
       - name: Evidence directory
-        run: echo "RELEASE_OUT=$RUNNER_TEMP/release" >> "$GITHUB_ENV"
+        run: |
+          echo "RELEASE_OUT=$RUNNER_TEMP/release" >> "$GITHUB_ENV"
+          echo "CI_TOOLS_DIR=$RUNNER_TEMP/ci-tools" >> "$GITHUB_ENV"
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
@@ -104,6 +106,12 @@ jobs:
           push-to-registry: true
       - name: Verify from the registry and pull by digest
         run: node scripts/production/E/release/verify-release.mjs --part "$RELEASE_OUT/part-$TARGET.json" --pull true --report "$RELEASE_OUT/verify-$TARGET.json"
+      - name: Install checksum-locked migration image scanner
+        if: ${{ steps.digests.outputs.migration_digest != '' }}
+        run: node scripts/ci/install-tools.mjs trivy
+      - name: Scan the immutable migration job image
+        if: ${{ steps.digests.outputs.migration_digest != '' }}
+        run: node scripts/production/E/release/scan-migration-image.mjs --part "$RELEASE_OUT/part-$TARGET.json" --report "$RELEASE_OUT/migration-security-$TARGET.json"
       - name: Rehearse the published migration job on real PostgreSQL
         if: ${{ steps.digests.outputs.migration_digest != '' }}
         run: node scripts/production/E/release/rehearse-migration-job.mjs --manifest-part "$RELEASE_OUT/part-$TARGET.json" --report "$RELEASE_OUT/migration-job-$TARGET.json"

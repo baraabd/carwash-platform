@@ -18,6 +18,8 @@ import { leaveVehicleStep } from '../state/vehicleStep';
 import { BookingExitNotice } from './BookingExitNotice';
 import { CityNotice } from './CityNotice';
 import { Icon } from './Icon';
+import { useProductionBooking } from '../data/ProductionBookingProvider';
+import { PAYMENT_FOOTER_SLOT_ID } from '../widgets/order-handoff/ProductionOrderDetail';
 
 function NormalHeader() {
   const { state } = useCustomerSession();
@@ -56,6 +58,10 @@ function ContextHeader({ kind, portedStep }: ContextHeaderProps) {
   // On the first step the reference leaves the journey for Home (the draft is kept)
   // instead of walking the browser history.
   const leaveBooking = () => {
+    if (state.runtimeMode !== 'parity') {
+      navigate(portedStep === 0 ? '/' : `/book/${Math.max(0, (portedStep ?? 1) - 1)}`);
+      return;
+    }
     // A step opened from Review's «تعديل» returns to Review (guarded at this instant).
     // Otherwise: first step leaves for Home, later steps go one step back. The draft is kept.
     const { intent } = run((current) =>
@@ -141,7 +147,12 @@ const tabs = [
 
 function BottomNavigation({ tracking }: { readonly tracking: boolean }) {
   const { state } = useCustomerSession();
-  const inProgress = inProgressOrderCount(state);
+  const production = useProductionBooking();
+  const inProgress = production
+    ? production.snapshot.bookings.filter(
+        (item) => !['COMPLETED', 'CANCELLED', 'EXPIRED', 'REJECTED'].includes(item.status),
+      ).length
+    : inProgressOrderCount(state);
   return (
     <nav className="bottom-nav" aria-label="التنقل الرئيسي">
       {tabs.map((tab) => (
@@ -179,6 +190,7 @@ function DeferredFooter({ kind }: { readonly kind: 'booking' | 'payment' }) {
 }
 
 export function CustomerShell() {
+  const production = useProductionBooking();
   const location = useLocation();
   const booking = location.pathname.startsWith('/book/');
   const payment = location.pathname.startsWith('/pay/');
@@ -217,6 +229,9 @@ export function CustomerShell() {
       run((current) => ({ state: clearPendingHandoff(current) }));
     }
   }, [location, run]);
+  useLayoutEffect(() => {
+    if (!booking) production?.client.acknowledgeHandoff();
+  }, [booking, location.pathname, production?.client]);
 
   // After an in-app route change, start the new screen at its top and move focus to
   // its heading, as the reference does. The first page load is left alone so the
@@ -284,7 +299,7 @@ export function CustomerShell() {
       <span className="desktop-number" aria-hidden="true">
         CAR CARE — SIMPLIFIED / 04
       </span>
-      <div className="app" data-c002-shell data-shell-kind={kind}>
+      <div className="app" data-c002-shell data-shell-kind={kind} data-runtime={state.runtimeMode}>
         <header className="app-header">
           {kind === 'normal' ? (
             <NormalHeader />
@@ -298,6 +313,8 @@ export function CustomerShell() {
         {portedStep !== null ? (
           // The ported step renders its own action bar into this slot.
           <div id={BOOKING_FOOTER_SLOT_ID} />
+        ) : payment && state.runtimeMode !== 'parity' ? (
+          <div id={PAYMENT_FOOTER_SLOT_ID} />
         ) : booking || payment ? (
           <DeferredFooter kind={booking ? 'booking' : 'payment'} />
         ) : (

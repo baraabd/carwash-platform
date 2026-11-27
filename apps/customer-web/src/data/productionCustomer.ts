@@ -1,11 +1,12 @@
 import { HttpClient, type ApiResult, type FetchLike, type RequestSpec } from '@carwash/api-clients';
-import { apiError, parsePage, parseUtc } from '@carwash/contracts/common';
+import { apiError, parsePage, parseUtc, type Coordinates } from '@carwash/contracts/common';
 import {
   isAccessPrincipal,
   isIdentityPermission,
   isIdentityRole,
   type GuestSessionReceipt,
   type IdentitySessionView,
+  type ChallengeReceipt,
 } from '@carwash/contracts/identity-v1';
 import {
   parseCustomerProfileV1,
@@ -19,6 +20,7 @@ import {
 import { parseVehicleInputV1, parseVehicleV1, type VehicleV1 } from '@carwash/contracts/vehicle-v1';
 import type { VehicleEditorValues } from '../state/savedVehicles.ts';
 import { FALLBACK_ADDRESS_LABEL, type AddressSheetValues } from '../state/locationStep.ts';
+import { currentInstant } from '../shared/clock.ts';
 
 type OwnerRecord = CustomerProfileV1 | VehicleV1 | AddressV1;
 
@@ -37,6 +39,8 @@ export interface ProductionCustomerSnapshot {
     'profile' | 'vehicle-save' | 'vehicle-archive' | 'address-save' | 'address-archive' | null;
   /** Memory only. Acknowledging this receipt forgets the one-time recovery code. */
   readonly recovery: GuestSessionReceipt | null;
+  /** Authentication challenge only; credentials and OTP are never retained here. */
+  readonly challenge: (ChallengeReceipt & { readonly receivedAt: number }) | null;
   readonly notice: string | null;
 }
 
@@ -66,6 +70,7 @@ const EMPTY: ProductionCustomerSnapshot = {
   busy: false,
   pending: null,
   recovery: null,
+  challenge: null,
   notice: null,
 };
 
@@ -129,6 +134,26 @@ function parseGuest(value: unknown): GuestSessionReceipt {
     recoveryCode: v.recoveryCode,
     guestExpiresAt: parseUtc(v.guestExpiresAt, '$.guestExpiresAt'),
   };
+}
+
+export function parseCustomerChallenge(value: unknown): ChallengeReceipt {
+  const v = object(value, ['challengeId', 'expiresIn', 'resendAfter']);
+  if (
+    typeof v.challengeId !== 'string' ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      v.challengeId,
+    ) ||
+    typeof v.expiresIn !== 'number' ||
+    !Number.isSafeInteger(v.expiresIn) ||
+    v.expiresIn < 1 ||
+    v.expiresIn > 3600 ||
+    typeof v.resendAfter !== 'number' ||
+    !Number.isSafeInteger(v.resendAfter) ||
+    v.resendAfter < 0 ||
+    v.resendAfter > v.expiresIn
+  )
+    throw new Error('challenge');
+  return { challengeId: v.challengeId, expiresIn: v.expiresIn, resendAfter: v.resendAfter };
 }
 
 export function productionFailure(result: ApiResult<unknown>): string | null {
@@ -403,6 +428,7 @@ export class ProductionCustomer {
     addressId: string | null,
     values: AddressSheetValues,
     expectedRevision: number | null,
+    point?: Coordinates,
   ): Promise<ApiResult<OwnerRecord>> {
     if (this.snapshot.addressesStatus !== 'available')
       return failure(503, 'DEPENDENCY_UNAVAILABLE');
@@ -417,8 +443,9 @@ export class ProductionCustomer {
       body = parseAddressInputV1({
         label: values.addressLabel.trim() || FALLBACK_ADDRESS_LABEL,
         details: values.locationNote.trim() || null,
-        location:
-          previous?.location.mode === 'coordinates'
+        location: point
+          ? { mode: 'coordinates', point, description: values.address.trim() || null }
+          : previous?.location.mode === 'coordinates'
             ? { ...previous.location, description: values.address.trim() || null }
             : { mode: 'manual', description: values.address.trim() },
       });
@@ -498,6 +525,85 @@ export class ProductionCustomer {
 
   acknowledgeRecovery(): void {
     this.patch({ recovery: null });
+  }
+
+  async account(
+    mode: 'login' | 'register',
+    email: string,
+    password: string,
+  ): Promise<ApiResult<ChallengeReceipt>> {
+    if (this.snapshot.busy || this.snapshot.loading || this.snapshot.authStatus !== 'anonymous')
+      return failure(409, 'CONFLICT');
+    if (
+      email.length > 254 ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ||
+      password.length < 12 ||
+      password.length > 128
+    )
+      return failure(400, 'REQUEST_INVALID');
+    const epoch = ++this.epoch;
+    this.loadPromise = null;
+    this.patch({ busy: true, notice: null, challenge: null });
+    const csrf = await this.prepareCsrf();
+    if (epoch !== this.epoch) return failure(401, 'AUTH_REQUIRED');
+    const result = csrf.ok
+      ? await this.auth(mode, parseCustomerChallenge, { email: email.trim(), password })
+      : csrf;
+    if (epoch !== this.epoch) return failure(401, 'AUTH_REQUIRED');
+    this.patch({
+      busy: false,
+      challenge: result.ok ? { ...result.value, receivedAt: currentInstant().getTime() } : null,
+    });
+    return result;
+  }
+
+  async resendChallenge(): Promise<ApiResult<ChallengeReceipt>> {
+    const challenge = this.snapshot.challenge;
+    if (!challenge || this.snapshot.busy || this.snapshot.authStatus !== 'anonymous')
+      return failure(409, 'CONFLICT');
+    if (currentInstant().getTime() < challenge.receivedAt + challenge.resendAfter * 1000)
+      return failure(429, 'RATE_LIMITED');
+    const epoch = this.epoch;
+    this.patch({ busy: true, notice: null });
+    const result = await this.auth('challenges/resend', parseCustomerChallenge, {
+      challengeId: challenge.challengeId,
+    });
+    if (epoch !== this.epoch) return failure(401, 'AUTH_REQUIRED');
+    this.patch({
+      busy: false,
+      ...(result.ok
+        ? { challenge: { ...result.value, receivedAt: currentInstant().getTime() } }
+        : {}),
+    });
+    return result;
+  }
+
+  cancelChallenge(): void {
+    if (!this.snapshot.busy) this.patch({ challenge: null });
+  }
+
+  async verifyChallenge(code: string): Promise<ApiResult<IdentitySessionView>> {
+    const challenge = this.snapshot.challenge;
+    if (!challenge || this.snapshot.busy || this.snapshot.authStatus !== 'anonymous')
+      return failure(409, 'CONFLICT');
+    if (!/^\d{6}$/.test(code)) return failure(400, 'REQUEST_INVALID');
+    const epoch = this.epoch;
+    this.patch({ busy: true, notice: null });
+    const result = await this.auth('challenges/verify', parseCustomerIdentity, {
+      challengeId: challenge.challengeId,
+      code,
+    });
+    if (epoch !== this.epoch) return failure(401, 'AUTH_REQUIRED');
+    this.patch({ busy: false });
+    if (result.ok) {
+      this.patch({ ...EMPTY, session: result.value, authStatus: 'authenticated' });
+      await this.load();
+    } else if (result.error.code === 'OUTCOME_UNKNOWN') {
+      // Verification might already have issued a cookie. Read it before offering
+      // another attempt; a lost response never becomes a locally signed-in state.
+      await this.load();
+    }
+    return result;
   }
 
   async signOut(): Promise<ApiResult<null>> {

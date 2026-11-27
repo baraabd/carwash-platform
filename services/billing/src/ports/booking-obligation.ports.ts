@@ -10,7 +10,10 @@ import type { PrincipalRef } from './billing.ports';
  */
 
 /** Billing's service-scope vocabulary. Deny by default: nothing else exists. */
-export const BILLING_SERVICE_SCOPES = ['billing.obligation.write'] as const;
+export const BILLING_SERVICE_SCOPES = [
+  'billing.obligation.write',
+  'billing.subscription-funding.read',
+] as const;
 export type BillingServiceScope = (typeof BILLING_SERVICE_SCOPES)[number];
 
 export type ServiceDenial = 'UNAUTHENTICATED' | 'SCOPE_DENIED';

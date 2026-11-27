@@ -34,6 +34,7 @@ tables.
 
 | Method | Path                         | Authority                                    |
 | ------ | ---------------------------- | -------------------------------------------- |
+| GET    | `/current`                   | public; explicit `UNPUBLISHED` or `PUBLISHED` owner state |
 | GET    | `/definitions`               | public                                       |
 | GET    | `/definitions/:definitionId` | public                                       |
 | POST   | `/publications`              | `catalog.publish` + `Idempotency-Key` header |
@@ -42,6 +43,21 @@ Publishing is authorised by a **current** Identity decision
 (`GET /internal/v1/identity/session`, `IDENTITY_SESSION_ORIGIN`). Missing or
 unreachable Identity fails closed with 503; nothing is cached. Errors use the
 published API error envelope.
+
+The current-state read returns `{state, catalog, expectedCatalogRevision, asOf}`.
+Before the first publication, `catalog` is `null` and the comparison revision is
+`0`. It does not create a fake published snapshot: `/definitions` continues to
+return 404, and the published `CatalogV1` parser still requires revision 1 or later.
+Both the canonical request parser and owner accept `expectedCatalogRevision: 0`
+for that initial command. A concurrent winner changes the head, so another
+publisher with the same initial precondition receives a recorded 412 conflict.
+Repository failure remains an error and never becomes an unpublished state.
+
+S05 bootstrap acceptance adds real HTTP/provider tests for this read, first
+publication and concurrent preconditions, and extends the real PostgreSQL suite
+to consume the explicit current state across two independent replicas. The local
+HTTP tests use the declared in-memory persistence double; PostgreSQL acceptance
+must run through the existing disposable-database runner.
 
 Configuration: `DATABASE_URL` (required), `IDENTITY_SESSION_ORIGIN` (https or
 loopback http; unset ⇒ every publish is 503), `IDENTITY_SESSION_TIMEOUT_MS`

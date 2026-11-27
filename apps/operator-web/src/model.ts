@@ -44,7 +44,7 @@ const TASK_TO_REF: Partial<Record<TaskStage, RefStage>> = {
   RELEASED: 'closed',
 };
 
-export type Method = 'cash' | 'sham' | 'syriatel';
+export type Method = 'cash' | 'sham' | 'syriatel' | 'subscription';
 
 export interface Job {
   /** Stable key across offer -> task: the booking id. */
@@ -187,6 +187,8 @@ export function base(j: Job): Money | null {
 export const zeroOf = (j: Job): Money | null => (j.booking ? zeroLike(j.booking.total) : null);
 
 export function method(j: Job): Method | null {
+  if (j.booking?.financialSource === 'SUBSCRIPTION') return 'subscription';
+  if (j.booking?.financialSource !== 'DIRECT') return null;
   switch (j.booking?.paymentMethod) {
     case 'CASH_ON_COMPLETION':
       return 'cash';
@@ -198,6 +200,9 @@ export function method(j: Job): Method | null {
       return null;
   }
 }
+
+export const subscriptionCovered = (j: Job): boolean => method(j) === 'subscription';
+export const walletMethod = (j: Job): boolean => ['sham', 'syriatel'].includes(method(j) ?? '');
 
 /** Only a current Billing receipt confirms money; Dispatch records work declarations. */
 export const collected = (j: Job): boolean => {
@@ -225,9 +230,10 @@ export const walletVerified = (j: Job): boolean => {
 };
 
 export const outstanding = (j: Job): boolean =>
-  method(j) === 'cash' ? !collected(j) : !walletVerified(j);
+  subscriptionCovered(j) ? false : method(j) === 'cash' ? !collected(j) : !walletVerified(j);
 
 export const cashIssue = (j: Job): string => {
+  if (method(j) !== 'cash') return '';
   const c = j.task?.collection;
   return c && c.outcome === 'CASH_NOT_COLLECTED' && !collected(j) ? (c.reason ?? '') : '';
 };

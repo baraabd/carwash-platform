@@ -18,14 +18,20 @@
       "child": "P06-B1",
       "contractRoutes": [
         "getPublished",
-        "getDefinition"
+        "getDefinition",
+        "getCurrent"
       ],
       "gatewayRoutes": [
-        "customer.catalog"
+        "customer.catalog",
+        "admin.catalog.read",
+        "admin.catalog.current"
       ],
       "productionGate": "FAIL_CLOSED",
       "blockers": [
         "B-P06-05"
+      ],
+      "ownerRoutes": [
+        "GET /internal/v1/catalog/current"
       ]
     },
     {
@@ -42,6 +48,9 @@
       "blockers": [],
       "ownerRoutes": [
         "POST /internal/v1/catalog/publications"
+      ],
+      "gatewayRoutes": [
+        "admin.catalog.publish"
       ]
     },
     {
@@ -66,6 +75,9 @@
         "price_book",
         "price_book_entry",
         "pricing_audit_record"
+      ],
+      "gatewayRoutes": [
+        "admin.price-book.publish"
       ]
     },
     {
@@ -89,6 +101,10 @@
         "pricing_quote_line",
         "pricing_idempotency_receipt",
         "pricing_audit_record"
+      ],
+      "gatewayRoutes": [
+        "customer.quotes.create",
+        "customer.quotes.read"
       ]
     },
     {
@@ -536,6 +552,9 @@
       "productionGate": "FAIL_CLOSED",
       "blockers": [
         "B-07"
+      ],
+      "gatewayRoutes": [
+        "admin.custody.handovers"
       ]
     },
     {
@@ -561,6 +580,9 @@
       "blockers": [
         "B-P06-08",
         "B-07"
+      ],
+      "gatewayRoutes": [
+        "admin.custody.handover.treasury-receipt"
       ]
     },
     {
@@ -585,7 +607,11 @@
         "services/billing/test/integration/billing.custody.postgres.spec.ts"
       ],
       "productionGate": "OPEN",
-      "blockers": []
+      "blockers": [],
+      "gatewayRoutes": [
+        "admin.custody.reconciliation",
+        "admin.custody.handover.reconciliation"
+      ]
     },
     {
       "id": "FIN-CUST-04",
@@ -598,7 +624,8 @@
         "getHolderCustody"
       ],
       "gatewayRoutes": [
-        "operator.custody"
+        "operator.custody",
+        "admin.custody.holders"
       ],
       "files": [
         "services/billing/src/application/custody-views.ts"
@@ -790,7 +817,7 @@
     {
       "id": "FIN-SUB-01",
       "area": "subscription",
-      "function": "Customer wash plans, renewal, entitlement reserve/consume/release",
+      "function": "Historical administration, manually verified funding and renewal; canonical purchases use FIN-SUB-02 and cannot use these legacy activation or entitlement mutation paths",
       "owner": "subscription",
       "status": "BLOCKED",
       "productionGate": "FAIL_CLOSED",
@@ -798,13 +825,9 @@
         "B-09"
       ],
       "ownerRoutes": [
-        "GET /internal/v1/subscription/plans",
-        "GET /internal/v1/subscription/plans/:id",
         "POST /internal/v1/subscription/plans/:id/revisions",
         "GET /internal/v1/subscription/offers",
         "POST /internal/v1/subscription/subscriptions",
-        "GET /internal/v1/subscription/subscriptions",
-        "GET /internal/v1/subscription/subscriptions/:id",
         "GET /internal/v1/subscription/subscriptions/:id/ledger",
         "GET /internal/v1/subscription/customers/:id/subscriptions",
         "POST /internal/v1/subscription/subscriptions/:id/activate",
@@ -816,7 +839,11 @@
         "GET /internal/v1/subscription/reservations",
         "POST /internal/v1/subscription/reservations/:id/commit",
         "POST /internal/v1/subscription/reservations/:id/release",
-        "POST /internal/v1/subscription/reservations/:id/reverse"
+        "POST /internal/v1/subscription/reservations/:id/reverse",
+        "GET /internal/v1/subscription/administration/plans",
+        "GET /internal/v1/subscription/administration/plans/:id",
+        "GET /internal/v1/subscription/legacy/subscriptions",
+        "GET /internal/v1/subscription/legacy/subscriptions/:id"
       ]
     },
     {
@@ -828,6 +855,162 @@
       "productionGate": "FAIL_CLOSED",
       "blockers": [
         "B-12"
+      ]
+    },
+    {
+      "id": "FIN-PRC-06",
+      "area": "pricing",
+      "function": "Permission-protected complete current PriceBook read and explicit unpublished state for revision-safe editing",
+      "owner": "pricing",
+      "status": "IMPLEMENTED",
+      "contractRoutes": [
+        "getCurrentPriceBook"
+      ],
+      "files": [
+        "services/pricing/src/application/pricing.service.ts",
+        "services/pricing/src/transport/http/pricing.controller.ts"
+      ],
+      "tables": [
+        "price_book",
+        "price_book_entry"
+      ],
+      "tests": [
+        "services/pricing/test/pricing.http.spec.ts"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-03",
+        "B-04",
+        "B-S02-01"
+      ],
+      "gatewayRoutes": [
+        "admin.price-book.current"
+      ]
+    },
+    {
+      "id": "FIN-PRC-07",
+      "area": "subscription",
+      "function": "Immutable account-bound Subscription plan quotes from real owner-published plan price and version, separate from wash quote validation",
+      "owner": "pricing",
+      "status": "IMPLEMENTED",
+      "contractRoutes": [
+        "createSubscriptionQuote",
+        "getSubscriptionQuote"
+      ],
+      "files": [
+        "services/pricing/src/application/subscription-quote.service.ts",
+        "services/pricing/src/infrastructure/persistence/prisma-subscription-quote.store.ts",
+        "services/pricing/src/infrastructure/subscription/subscription-plan.reader.ts"
+      ],
+      "tables": [
+        "pricing_subscription_quote"
+      ],
+      "tests": [
+        "services/pricing/test/subscription-quotes.spec.ts",
+        "services/pricing/test/integration/subscription-quotes.postgres.spec.ts"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-09",
+        "B-S02-01"
+      ],
+      "gatewayRoutes": [
+        "customer.subscription-quotes.create",
+        "customer.subscription-quotes.read"
+      ]
+    },
+    {
+      "id": "FIN-FUND-01",
+      "area": "subscription",
+      "function": "Workload-only point-in-time funding proof: exact beneficiary and amount, allocated settled credit, no Booking binding or reserved refund; this is not a durable funding claim",
+      "owner": "billing",
+      "status": "IMPLEMENTED",
+      "contractRoutes": [
+        "verifySubscriptionFunding"
+      ],
+      "files": [
+        "services/billing/src/application/subscription-funding.service.ts",
+        "services/billing/src/transport/http/subscription-funding.controller.ts"
+      ],
+      "tables": [
+        "billing_obligation",
+        "provider_credit",
+        "payment_refund"
+      ],
+      "tests": [
+        "services/billing/test/billing.subscription-funding.spec.ts",
+        "services/billing/test/integration/billing.refunds-v1.postgres.spec.ts"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-11",
+        "B-S02-01"
+      ]
+    },
+    {
+      "id": "FIN-SUB-02",
+      "area": "subscription",
+      "function": "Canonical immutable plan publication, recoverable prepaid purchases, verified activation, covered Booking entitlement reserve/consume/release, owner eligibility and pending human-reviewed changes; canonical renewal and post-activation refund revocation remain outside this tranche",
+      "owner": "subscription",
+      "status": "IMPLEMENTED",
+      "ownerRoutes": [
+        "GET /internal/v1/subscription/plans",
+        "GET /internal/v1/subscription/plans/:id",
+        "GET /internal/v1/subscription/subscriptions",
+        "GET /internal/v1/subscription/subscriptions/:id",
+        "POST /internal/v1/subscription/plans/:id/versions",
+        "POST /internal/v1/subscription/purchases",
+        "GET /internal/v1/subscription/purchases/:id",
+        "POST /internal/v1/subscription/subscriptions/:id/eligibility",
+        "POST /internal/v1/subscription/subscriptions/:id/changes",
+        "GET /internal/v1/subscription/administration/changes",
+        "POST /internal/v1/subscription/subscriptions/:id/changes/:changeId/decision",
+        "POST /internal/v1/subscription/entitlement-reservations",
+        "POST /internal/v1/subscription/entitlement-reservations/:id/resolution",
+        "GET /internal/v1/subscription/entitlement-reservations/:id",
+        "GET /internal/v1/subscription/entitlement-reservations",
+        "GET /internal/v1/subscription/purchases/by-request/:idempotencyKey"
+      ],
+      "files": [
+        "services/subscription/src/application/canonical-subscription.service.ts",
+        "services/subscription/src/application/entitlement.service.ts",
+        "services/subscription/src/infrastructure/billing/billing-funding.authority.ts",
+        "services/subscription/src/infrastructure/billing/purchase-owners.client.ts"
+      ],
+      "tables": [
+        "subscription_purchase",
+        "subscription_change_request",
+        "entitlement_reservation",
+        "subscription_period",
+        "entitlement_movement",
+        "subscription_workload_receipt"
+      ],
+      "tests": [
+        "services/subscription/test/subscription.funding.spec.ts",
+        "services/subscription/test/integration/subscription.canonical.postgres.spec.ts",
+        "services/subscription/test/subscription.purchase-recovery.spec.ts"
+      ],
+      "productionGate": "FAIL_CLOSED",
+      "blockers": [
+        "B-09",
+        "B-11",
+        "B-S02-01"
+      ],
+      "gatewayRoutes": [
+        "customer.subscription-plan",
+        "customer.subscription-plans",
+        "customer.subscription-purchases.create",
+        "customer.subscription-purchases.read",
+        "customer.subscription-purchases.recover",
+        "customer.subscription",
+        "customer.subscriptions",
+        "customer.subscription.eligibility",
+        "customer.subscription.change",
+        "admin.subscription-plans",
+        "admin.subscription-plan.publish",
+        "admin.subscription.read",
+        "admin.subscription-changes",
+        "admin.subscription-change.decision"
       ]
     }
   ],
@@ -1049,8 +1232,15 @@
       "id": "B-P06-08",
       "external": false,
       "lane": "E",
-      "tracking": "docs/production/B/CONTRACT_REQUEST_E_P06.md",
-      "summary": "Identity grants billing.cash.collect to technicians. Contract permissions pricing.prices.publish, billing.cash.correct and billing.treasury.receive remain ungrantable; cash correction and treasury receipt are not enabled by the collection grant."
+      "tracking": "docs/production/B/S02-S08-FINANCE-CLOSURE-2026-11-27.md",
+      "summary": "Identity now grants pricing.prices.publish, billing.cash.correct and billing.treasury.receive to the intended roles. Exact-candidate real-Identity acceptance and configured production authority still require evidence; owner four-eyes and actor separation remain mandatory."
+    },
+    {
+      "id": "B-S02-01",
+      "external": false,
+      "lane": "B",
+      "tracking": "docs/production/B/S02-S08-FINANCE-CLOSURE-2026-11-27.md",
+      "summary": "Finance closure source and local runtime checks are implemented; exact-candidate real PostgreSQL, owner connectivity, browser/staging financial journeys and release evidence remain required. Funding verification is point-in-time and canonical renewal or post-activation refund revocation is not inferred."
     }
   ]
 }

@@ -4,8 +4,7 @@ import { withConflictRetry, type PrismaDispatchStore } from '../persistence/pris
 /**
  * Dispatch inbox storage.
  *
- * Structurally implements `InboxStore` from @carwash/platform-messaging (the
- * package is not yet a declared dependency of this service; see CR-P02-C3):
+ * Structurally implements `InboxStore` from @carwash/platform-messaging:
  * the inbox row and the local effect are written in ONE transaction, and the
  * caller acknowledges the broker message only after that commit.
  *

@@ -340,6 +340,7 @@ export function parseBooking(v: unknown): BookingTechView {
     'lines',
     'total',
     'paymentMethod',
+    'financialSource',
   ]);
   const slot = obj(b.slot, 'booking.slot', ['zoneId', 'startsAt', 'endsAt']);
   const vehicle = obj(b.vehicle, 'booking.vehicle', ['type', 'make', 'model', 'color', 'plate']);
@@ -424,6 +425,10 @@ export function parseBooking(v: unknown): BookingTechView {
       'CASH_ON_COMPLETION',
       'SHAM_CASH',
       'SYRIATEL_CASH',
+    ] as const),
+    financialSource: oneOf(b.financialSource, 'booking.financialSource', [
+      'DIRECT',
+      'SUBSCRIPTION',
     ] as const),
   };
 }

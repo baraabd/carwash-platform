@@ -87,7 +87,15 @@ export interface RequestOptions<T> {
   readonly read: Reader<T>;
 }
 
-export async function request<T>(path: string, options: RequestOptions<T>): Promise<Result<T>> {
+let refreshing: Promise<Result<null>> | null = null;
+export function request<T>(path: string, options: RequestOptions<T>): Promise<Result<T>> {
+  return performRequest(path, options, true);
+}
+async function performRequest<T>(
+  path: string,
+  options: RequestOptions<T>,
+  mayRefresh: boolean,
+): Promise<Result<T>> {
   const method = options.method ?? 'GET';
   const correlationId = crypto.randomUUID();
   const params = new URLSearchParams();
@@ -124,6 +132,22 @@ export async function request<T>(path: string, options: RequestOptions<T>): Prom
   } catch {
     // A read can simply be repeated; a write may or may not have happened.
     return fail(method === 'GET' ? 'UNAVAILABLE' : 'UNKNOWN_OUTCOME');
+  }
+
+  if (
+    response.status === 401 &&
+    mayRefresh &&
+    (!path.startsWith('/auth/') || path === '/auth/session')
+  ) {
+    refreshing ??= performRequest(
+      '/auth/refresh',
+      { method: 'POST', body: {}, read: () => null },
+      false,
+    ).finally(() => {
+      refreshing = null;
+    });
+    const refreshed = await refreshing;
+    if (refreshed.ok) return performRequest(path, options, false);
   }
 
   let body: unknown = null;

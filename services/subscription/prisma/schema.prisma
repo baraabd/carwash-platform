@@ -54,6 +54,7 @@ model SubscriptionPlanRevision {
   washUnits         Int                    @map("wash_units")
   periodDays        Int                    @map("period_days")
   coveredPackageIds String[]               @map("covered_package_ids")
+  vehicleTypes      String[]               @default([]) @map("vehicle_types")
   available         Boolean
   plan              SubscriptionPlan       @relation(fields: [planCode], references: [code], onDelete: Restrict, onUpdate: Restrict, map: "subscription_plan_revision_plan_fkey")
   subscriptions     CustomerSubscription[]
@@ -76,6 +77,7 @@ model CustomerSubscription {
   washUnits         Int                      @map("wash_units")
   periodDays        Int                      @map("period_days")
   coveredPackageIds String[]                 @map("covered_package_ids")
+  vehicleTypes      String[]                 @default([]) @map("vehicle_types")
   available         Boolean
   currentPeriodNo   Int?                     @map("current_period_no")
   requestedAt       DateTime                 @map("requested_at") @db.Timestamptz(3)
@@ -85,10 +87,47 @@ model CustomerSubscription {
   openSlot          Int?                     @map("open_slot") @db.SmallInt
   revision          SubscriptionPlanRevision @relation(fields: [planCode, planRevision], references: [planCode, revision], onDelete: Restrict, onUpdate: Restrict, map: "customer_subscription_revision_fkey")
   periods           SubscriptionPeriod[]
+  purchase          SubscriptionPurchase?
+  changes           SubscriptionChangeRequest[]
 
   @@unique([customerSubject, planCode, openSlot], map: "customer_subscription_open_key")
   @@index([customerSubject, requestedAt], map: "customer_subscription_customer_idx")
   @@map("customer_subscription")
+}
+
+model SubscriptionPurchase {
+  id              String   @id @db.Uuid
+  customerSubject String   @map("customer_subject") @db.Uuid
+  subscriptionId  String   @unique @map("subscription_id") @db.Uuid
+  planId          String   @map("plan_id") @db.Uuid
+  planVersion     Int      @map("plan_version")
+  quoteId         String   @unique @map("quote_id") @db.Uuid
+  priceCurrency   String   @map("price_currency")
+  priceMinor      BigInt   @map("price_minor")
+  paymentMethod   String   @map("payment_method")
+  status          String
+  revision        Int
+  obligationId    String?  @unique @map("obligation_id") @db.Uuid
+  createdAt       DateTime @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @map("updated_at") @db.Timestamptz(3)
+  subscription    CustomerSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  @@map("subscription_purchase")
+}
+
+model SubscriptionChangeRequest {
+  id               String @id @db.Uuid
+  subscriptionId   String @map("subscription_id") @db.Uuid
+  expectedRevision Int @map("expected_revision")
+  action           String
+  reason           String
+  requestedBy      String @map("requested_by") @db.Uuid
+  requestedAt      DateTime @map("requested_at") @db.Timestamptz(3)
+  status           String
+  decidedBy        String? @map("decided_by") @db.Uuid
+  decidedAt        DateTime? @map("decided_at") @db.Timestamptz(3)
+  subscription     CustomerSubscription @relation(fields:[subscriptionId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+  @@index([status,requestedAt],map:"subscription_change_pending_idx")
+  @@map("subscription_change_request")
 }
 
 model SubscriptionPeriod {
@@ -184,6 +223,19 @@ model SubscriptionAuditEvent {
 
   @@index([subscriptionId, occurredAt], map: "subscription_audit_event_subscription_idx")
   @@map("subscription_audit_event")
+}
+
+/// Workload receipts are distinct from human Identity subjects.
+model SubscriptionWorkloadReceipt {
+  clientId     String   @map("client_id")
+  operation    String
+  key          String   @map("idempotency_key")
+  fingerprint  String   @db.Char(64)
+  outcomeStatus Int     @map("outcome_status")
+  outcomeBody  Json     @map("outcome_body")
+  recordedAt   DateTime @map("recorded_at") @db.Timestamptz(3)
+  @@id([clientId, operation, key], map: "subscription_workload_receipt_pkey")
+  @@map("subscription_workload_receipt")
 }
 
 model OutboxMessage {

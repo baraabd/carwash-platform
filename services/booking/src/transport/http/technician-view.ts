@@ -1,4 +1,4 @@
-import { moneyToWire, type AddressLocation, type Booking } from '../../domain';
+import { currentSlot, moneyToWire, type AddressLocation, type Booking } from '../../domain';
 
 /**
  * Wire view for the assigned technician (REQUESTED booking.v1 addition,
@@ -21,7 +21,7 @@ function location(value: AddressLocation) {
 }
 
 export function technicianBookingView(booking: Booking) {
-  const slot = booking.slot ?? booking.requestedSlot;
+  const slot = currentSlot(booking) ?? booking.requestedSlot;
   const plate = booking.vehicle.plate;
   return {
     bookingId: booking.id,
@@ -57,6 +57,7 @@ export function technicianBookingView(booking: Booking) {
     })),
     total: moneyToWire(booking.total),
     paymentMethod: booking.paymentMethod,
+    financialSource: booking.subscription ? ('SUBSCRIPTION' as const) : ('DIRECT' as const),
   };
 }
 

@@ -37,6 +37,12 @@ let hooks: TechniciansHooks = {
     assignmentActions: false,
     payments: false,
     reconcile: false,
+    reviewModeration: false,
+    services: false,
+    coverage: false,
+    support: false,
+    custody: false,
+    subscriptions: false,
   }),
 };
 let cursor: string | null = null;

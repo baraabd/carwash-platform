@@ -7,6 +7,7 @@ import { parseVehicleInputV1 } from '@carwash/contracts/vehicle-v1';
 import {
   browserCsrf,
   parseCustomerIdentity,
+  parseCustomerChallenge,
   ProductionCustomer,
 } from '../src/data/productionCustomer.ts';
 
@@ -878,4 +879,84 @@ test('private addresses are cleared on principal change and a late previous-owne
   const logout = client.signOut();
   assert.deepEqual(client.getSnapshot().addresses, []);
   await logout;
+});
+
+test('account login challenge is not authentication; OTP verifies cookie session and clears credentials from state', async (t) => {
+  const { client, state, requests } = await gateway(t, { authenticated: false, hasProfile: false });
+  await client.load();
+  const challenge = { challengeId: uuid(880), expiresIn: 300, resendAfter: 60 };
+  state.override = (request) => {
+    if (request.path === '/api/v1/auth/login') return { status: 202, body: challenge };
+    if (request.path === '/api/v1/auth/challenges/verify') {
+      assert.deepEqual(request.body, { challengeId: challenge.challengeId, code: '123456' });
+      state.session = { ...identity(8), principalKind: 'account', roles: ['customer'] };
+      return { status: 200, body: state.session };
+    }
+    return null;
+  };
+  const issued = await client.account('login', 'customer@example.test', 'A-long-test-password-42');
+  assert.equal(issued.ok, true);
+  assert.equal(client.getSnapshot().authStatus, 'anonymous');
+  assert.equal(client.getSnapshot().challenge.challengeId, challenge.challengeId);
+  assert.equal(
+    (await client.resendChallenge()).status,
+    429,
+    'server resend interval is respected locally too',
+  );
+  assert.equal((await client.verifyChallenge('12')).status, 400);
+  assert.equal((await client.verifyChallenge('123456')).ok, true);
+  assert.equal(client.getSnapshot().authStatus, 'authenticated');
+  assert.equal(client.getSnapshot().session.principalKind, 'account');
+  assert.equal(client.getSnapshot().challenge, null);
+  assert.doesNotMatch(
+    JSON.stringify(client.getSnapshot()),
+    /A-long-test-password|"123456"|customer@example/,
+  );
+  const login = requests.find((request) => request.path.endsWith('/auth/login'));
+  assert.ok(login.headers['x-csrf-token']);
+});
+
+test('registration rejects malformed challenge and never fabricates an authenticated account', async (t) => {
+  const { client, state, requests } = await gateway(t, { authenticated: false });
+  await client.load();
+  state.override = (request) =>
+    request.path.endsWith('/auth/register')
+      ? { status: 202, body: { challengeId: 'invented', expiresIn: 300, resendAfter: 10 } }
+      : null;
+  const result = await client.account(
+    'register',
+    'customer@example.test',
+    'A-long-test-password-42',
+  );
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, 'OUTCOME_UNKNOWN');
+  assert.equal(client.getSnapshot().authStatus, 'anonymous');
+  assert.equal(client.getSnapshot().challenge, null);
+  assert.equal(
+    requests.some((request) => request.path.endsWith('/challenges/verify')),
+    false,
+  );
+  assert.throws(() =>
+    parseCustomerChallenge({ challengeId: uuid(880), expiresIn: 10, resendAfter: 60 }),
+  );
+});
+
+test('production coordinate address explicitly sends validated point without changing manual-address defaults', async (t) => {
+  const { client, requests } = await gateway(t);
+  await client.load();
+  const point = { latitude: '33.500000', longitude: '36.300000' };
+  const result = await client.saveAddress(null, addressEditor, null, point);
+  assert.equal(result.ok, true);
+  const write = requests.find(
+    (request) => request.path === '/api/v1/customer/addresses' && request.method === 'POST',
+  );
+  assert.deepEqual(write.body.location, {
+    mode: 'coordinates',
+    point,
+    description: addressEditor.address,
+  });
+  assert.equal(
+    (await client.saveAddress(null, addressEditor, null, { ...point, latitude: 'NaN' })).status,
+    400,
+  );
 });

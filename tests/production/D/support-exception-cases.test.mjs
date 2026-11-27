@@ -576,7 +576,7 @@ test('H3: a lost Billing answer is OUTCOME_UNKNOWN; refresh shows it; resend rep
   assert.equal(again.body.error.code, 'NOTHING_TO_EXECUTE');
 });
 
-test('H4: refund needs a second finance reviewer; the unpublished Billing command leaves it BLOCKED_ON_OWNER', async () => {
+test('H4: four-eyes refund remains EXECUTING until Billing records the independent financial outcome', async () => {
   const { finance, reviewer } = stack.people;
   const subject = await attemptUnderReview();
   const statementCredit = await statementFor(subject);
@@ -630,12 +630,38 @@ test('H4: refund needs a second finance reviewer; the unpublished Billing comman
     body: { approve: true, note: 'Checked the booking record' },
   });
   assert.equal(approved.status, 200, JSON.stringify(approved.body));
-  assert.equal(approved.body.case.status, 'BLOCKED_ON_OWNER');
-  assert.equal(approved.body.decisions[0].owner.code, 'OWNER_CAPABILITY_UNPUBLISHED');
+  assert.equal(approved.body.case.status, 'EXECUTING');
+  assert.equal(approved.body.decisions[0].owner.code, 'REFUND_PENDING');
+  assert.equal(approved.body.decisions[0].owner.state, 'REQUESTED');
   assert.equal(approved.body.decisions[0].approval.by, reviewer.subject);
-  // Billing still holds the money as received: nothing was refunded.
+  // A requested refund reserves money but has not returned it.
   const obligation = await billingCall(finance, `/obligations/${subject.obligationId}`);
   assert.equal(obligation.body.verified.amountMinor, '150000');
+  const refunds = await billingCall(finance, `/obligations/${subject.obligationId}/refunds`);
+  assert.equal(refunds.status, 200, JSON.stringify(refunds.body));
+  assert.equal(refunds.body.items.length, 1);
+  const refund = refunds.body.items[0];
+  const returned = await billingCall(finance, `/refunds/${refund.refundId}/outcome`, {
+    method: 'POST',
+    key: commandKey(),
+    body: {
+      expectedRevision: refund.revision,
+      outcome: 'SUCCEEDED',
+      reference: `Support-return-${randomUUID()}`,
+    },
+  });
+  assert.equal(returned.status, 200, JSON.stringify(returned.body));
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  const wrongActor = await support(finance, `/${caseId}/decisions/1/execution`, { method: 'POST' });
+  assert.equal(wrongActor.status, 403, 'a resend preserves the original execution actor');
+  const resolved = await support(reviewer, `/${caseId}/decisions/1/execution`, { method: 'POST' });
+  assert.equal(resolved.status, 200, JSON.stringify(resolved.body));
+  assert.equal(resolved.body.case.status, 'RESOLVED');
+  assert.equal(resolved.body.decisions[0].owner.state, 'SUCCEEDED');
+  assert.equal(
+    (await billingCall(finance, `/obligations/${subject.obligationId}/refunds`)).body.items.length,
+    1,
+  );
   // The database refuses a self-approval even if the application were bypassed.
   const bypass = await sql(
     supportDb(),
@@ -696,7 +722,7 @@ test('H7: Support cannot approve a statement recorded by the same real Finance a
   assert.equal(credit.body.revision, statementCredit.revision);
 });
 
-test('H5: operations cancel and reschedule cases read REAL Booking state; the owner command is BLOCKED, Booking unchanged', async () => {
+test('H5: operations cancel and reschedule cases execute real Booking commands with explicit owner holds', async () => {
   const { operations } = stack.people;
   const booking = await createBooking();
   const cancel = await support(operations, '', {
@@ -726,23 +752,43 @@ test('H5: operations cancel and reschedule cases read REAL Booking state; the ow
       reason: { code: 'CUSTOMER_REQUEST', note: 'Customer called the hotline to cancel' },
     },
   });
-  assert.equal(decided.body.case.status, 'BLOCKED_ON_OWNER');
+  assert.equal(decided.body.case.status, 'RESOLVED', JSON.stringify(decided.body));
   assert.equal(decided.body.decisions[0].owner.operation, 'booking.cancel');
   const after = await call(
     stack.booking.origin,
     stack.people.customer,
     `/internal/v1/booking/bookings/${booking.bookingId}`,
   );
-  assert.equal(after.body.status, booking.status);
+  assert.equal(after.body.status, 'CANCELLED');
 
+  const movable = await createBooking();
+  stack.doubles.sessions.set(operations.token, {
+    subject: operations.subject,
+    principalKind: 'account',
+    permissions: ['operations.dispatch'],
+  });
   const startsAt = new Date(Date.now() + 2 * 86_400_000);
   startsAt.setUTCMinutes(0, 0, 0);
+  const { holdWire } = owned('booking')(
+    path.join(ROOT, 'services', 'booking', 'dist-tests', 'test', 'support', 'fixtures.js'),
+  );
+  const hold = {
+    ...holdWire({
+      beneficiary: { kind: 'account', subjectId: stack.people.customer.subject },
+      zoneId: movable.schedule.zoneId,
+      startsAt,
+      now: new Date(),
+      quoteRef: stack.doubles.holds.get(movable.slot.holdId).quoteRef,
+    }),
+    owner: stack.people.customer.subject,
+  };
+  stack.doubles.holds.set(hold.holdId, hold);
   const reschedule = await support(operations, '', {
     method: 'POST',
     key: commandKey(),
     body: {
       kind: 'BOOKING_RESCHEDULE',
-      subject: { type: 'booking', id: booking.bookingId },
+      subject: { type: 'booking', id: movable.bookingId },
       summary: 'Move to the day after tomorrow',
     },
   });
@@ -752,6 +798,7 @@ test('H5: operations cancel and reschedule cases read REAL Booking state; the ow
     key: commandKey(),
     body: {
       action: 'RESCHEDULE_BOOKING',
+      bookingHold: { holdId: hold.holdId, revision: hold.revision },
       reason: { code: 'TECHNICIAN_UNAVAILABLE', note: 'No technician free in the slot' },
       window: {
         startsAt: startsAt.toISOString(),
@@ -759,8 +806,15 @@ test('H5: operations cancel and reschedule cases read REAL Booking state; the ow
       },
     },
   });
-  assert.equal(moved.body.case.status, 'BLOCKED_ON_OWNER');
+  assert.equal(moved.body.case.status, 'RESOLVED', JSON.stringify(moved.body));
   assert.equal(moved.body.decisions[0].owner.operation, 'booking.reschedule');
+  const movedBooking = await call(
+    stack.booking.origin,
+    stack.people.customer,
+    `/internal/v1/booking/bookings/${movable.bookingId}`,
+  );
+  assert.equal(movedBooking.body.schedule.holdId, hold.holdId);
+  assert.equal(movedBooking.body.schedule.startsAt, startsAt.toISOString());
 });
 
 test('H6: role separation is enforced by Support and by the owners', async () => {

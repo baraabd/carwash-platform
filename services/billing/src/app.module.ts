@@ -30,6 +30,11 @@ import {
   pricingCredentialFromEnv,
 } from './infrastructure/pricing/pricing-quote.validator';
 import { ServiceClientCallerAuthority } from './infrastructure/security/service-callers';
+import { SubscriptionFundingService } from './application/subscription-funding.service';
+import {
+  SUBSCRIPTION_FUNDING_SERVICE,
+  SubscriptionFundingController,
+} from './transport/http/subscription-funding.controller';
 import { RandomIds, Sha256Hasher, SystemClock } from './infrastructure/system/system.adapters';
 import {
   DispatchWorkAuthority,
@@ -97,12 +102,22 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
     CanonicalRefundController,
     FinanceController,
     BookingObligationController,
+    SubscriptionFundingController,
   ],
   providers: [
     { provide: DATABASE_URL, useFactory: () => databaseUrlFromEnv() },
     PrismaService,
     PrismaBillingRepository,
     PrismaFinanceReadModel,
+    {
+      provide: SUBSCRIPTION_FUNDING_SERVICE,
+      inject: [PrismaBillingRepository],
+      useFactory: (repository: PrismaBillingRepository) =>
+        new SubscriptionFundingService({
+          repository,
+          callers: ServiceClientCallerAuthority.fromEnv(process.env),
+        }),
+    },
     // Fails startup on invalid merchant-account config or on automation
     // settings for an adapter that does not exist (never silently ignored).
     { provide: PAYMENT_PROVIDERS, useFactory: () => productionProviderRegistry(process.env) },

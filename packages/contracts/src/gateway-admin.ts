@@ -8,6 +8,14 @@ const LIMIT_QUERY = /^[1-9][0-9]{0,2}$/;
 const CURSOR_QUERY = /^[A-Za-z0-9_-]{8,200}$/;
 export const ADMIN_GATEWAY_ROUTES: readonly GatewayRoute[] = [
   {
+    id: 'admin.customer-reviews.byBooking',
+    method: 'GET',
+    path: '/admin/bookings/:id/customer-review',
+    owner: 'reviews',
+    upstream: '/internal/v1/reviews/bookings/:id/review',
+    permission: 'reviews.moderate',
+  },
+  {
     id: 'admin.operations.bookings',
     method: 'GET',
     path: '/admin/operations/bookings',

@@ -62,6 +62,8 @@ jobs:
             browser: false
           - suite: c-p06
             browser: true
+          - suite: c-runtime-workers
+            browser: false
           - suite: c-operator-fixtures
             browser: true
           - suite: d-services

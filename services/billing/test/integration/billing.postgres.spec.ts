@@ -369,6 +369,13 @@ test('create race: different keys for one quote produce exactly one obligation',
 test('create: Pricing decides existence, ownership, usability and amount (fail closed)', async () => {
   const notMine = await create(quote({ owner: 'other-customer' }));
   assert.equal(notMine.status, 404);
+  const readableForeign = quote();
+  pricing.quotes.set(readableForeign, {
+    ...pricing.quotes.get(readableForeign)!,
+    beneficiary: { kind: 'account', subjectId: SUBJECTS.otherCustomer },
+  });
+  const foreign = await create(readableForeign);
+  assert.equal(foreign.status, 404, 'Pricing read authority does not transfer financial ownership');
   const expired = await create(quote({ status: 'EXPIRED' }));
   assert.equal(expired.status, 409);
   assert.equal(errorCode(expired), 'QUOTE_NOT_USABLE');

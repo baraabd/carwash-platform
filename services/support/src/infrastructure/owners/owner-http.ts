@@ -131,8 +131,17 @@ export async function ownerPost(
   // An unreadable body does not change what the status code already says.
   const parsed = await bounded(response).catch(() => null);
   const status = response.status;
-  if (status >= 200 && status < 300)
-    return { kind: 'APPLIED', ownerStatus: status, ownerState: appliedState(parsed) };
+  if (status >= 200 && status < 300) {
+    let ownerState: string | null = null;
+    try {
+      ownerState = appliedState(parsed);
+    } catch {
+      /* malformed success is not evidence */
+    }
+    return ownerState === null
+      ? { kind: 'UNKNOWN', code: 'OWNER_INVALID_RESPONSE' }
+      : { kind: 'APPLIED', ownerStatus: status, ownerState };
+  }
   if ([400, 401, 403, 404, 409, 412, 422].includes(status))
     return { kind: 'REJECTED', ownerStatus: status, code: errorCode(parsed) ?? `HTTP_${status}` };
   return { kind: 'UNKNOWN', code: errorCode(parsed) ?? `HTTP_${status}` };

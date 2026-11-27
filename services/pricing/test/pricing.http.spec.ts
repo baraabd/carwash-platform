@@ -1,5 +1,6 @@
 import test, { after, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { pricingV1 } from '@carwash/contracts';
 import { InMemoryPricingRepository } from './support/in-memory-pricing.repository';
 import {
   SERVICE,
@@ -63,6 +64,19 @@ beforeEach(() => {
   http.identity.mode = 'normal';
 });
 
+test('current price book: authenticated publisher sees an explicit unpublished state and next revision', async () => {
+  assert.equal((await http.request('GET', `${PATH}/price-books/current`)).status, 401);
+  for (const token of [TOKENS.customer, TOKENS.operations, TOKENS.legacyAdmin])
+    assert.equal((await http.request('GET', `${PATH}/price-books/current`, { token })).status, 403);
+  const reply = await http.request('GET', `${PATH}/price-books/current`, { token: TOKENS.admin });
+  assert.equal(reply.status, 200, JSON.stringify(reply.body));
+  const current = pricingV1.parseCurrentPriceBookV1(reply.body);
+  assert.equal(current.state, 'UNPUBLISHED');
+  assert.equal(current.priceBook, null);
+  assert.equal(current.nextExpectedPriceBookRevision, 1);
+  assert.equal(current.policyCurrency, TEST_POLICY.currency);
+});
+
 test('publishPriceBook: authentication, contract permission and idempotency key are enforced', async () => {
   const body = priceBookRequest(1);
   let r = await http.request('POST', `${PATH}/price-books`, { key: key(), body });
@@ -74,7 +88,7 @@ test('publishPriceBook: authentication, contract permission and idempotency key 
     body,
   });
   assert.equal(r.status, 403);
-  // Identity's current `pricing.publish` grant is not the contract's permission.
+  // A legacy-only grant never authorizes the canonical pricing.v1 command.
   r = await http.request('POST', `${PATH}/price-books`, {
     token: TOKENS.legacyAdmin,
     key: key(),
@@ -153,6 +167,29 @@ test('publishPriceBook: publishes, replays the same key and refuses a stale revi
   assert.equal(first.body.catalogRevision, 1);
   assert.equal(first.body.entryCount, 4);
   assert.equal(first.headers.get('idempotency-replayed'), 'false');
+  assert.equal(pricingV1.parsePriceBookPublicationV1(first.body).priceBookRevision, 1);
+  const read = await http.request('GET', `${PATH}/price-books/current`, { token: TOKENS.admin });
+  assert.equal(read.status, 200, JSON.stringify(read.body));
+  const current = pricingV1.parseCurrentPriceBookV1(read.body);
+  assert.equal(current.state, 'PUBLISHED');
+  assert.equal(current.nextExpectedPriceBookRevision, 2);
+  assert.equal(current.priceBook?.priceBookRevision, 1);
+  assert.equal(current.priceBook?.catalogRevision, 1);
+  assert.equal(current.priceBook?.entriesFingerprint, first.body.entriesFingerprint);
+  const expectedEntries = body.entries as {
+    definitionId: string;
+    vehicleType: string | null;
+    unitPrice: unknown;
+  }[];
+  for (const entry of expectedEntries)
+    assert.deepEqual(
+      current.priceBook?.entries.find(
+        (candidate) =>
+          candidate.definitionId === entry.definitionId &&
+          candidate.vehicleType === entry.vehicleType,
+      ),
+      entry,
+    );
   const replay = await http.request('POST', `${PATH}/price-books`, {
     token: TOKENS.admin,
     key: k,
@@ -298,12 +335,21 @@ test('createQuote: same-key replay returns the original snapshot; concurrent sam
   assert.equal(repository.quotes.size, before + 1);
 });
 
-test('getQuote: only the beneficiary reads it; status follows server time', async () => {
+test('getQuote: beneficiary and explicitly authorized operations read; foreign customers cannot', async () => {
   const created = await quote();
   const id = created.body.quoteId as string;
   let r = await http.request('GET', `${PATH}/quotes/${id}`, { token: TOKENS.customer });
   assert.equal(r.status, 200);
   assert.deepEqual(r.body, created.body);
+  const staff = await http.request('GET', `${PATH}/quotes/${id}`, { token: TOKENS.operations });
+  assert.equal(staff.status, 200);
+  assert.deepEqual(staff.body.beneficiary, CUSTOMER, 'staff read never replaces the beneficiary');
+  const publisher = await http.request('GET', `${PATH}/quotes/${id}`, { token: TOKENS.admin });
+  assert.equal(
+    publisher.status,
+    404,
+    'price publication alone does not grant customer quote access',
+  );
   r = await http.request('GET', `${PATH}/quotes/${id.toUpperCase()}`, { token: TOKENS.customer });
   assert.equal(r.status, 200);
   for (const token of [TOKENS.otherCustomer, TOKENS.guest]) {

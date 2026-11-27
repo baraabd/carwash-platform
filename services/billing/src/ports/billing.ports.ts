@@ -251,6 +251,7 @@ export interface BillingRepository {
 /** A priced quote as confirmed by its owner, Pricing, for the calling principal. */
 export interface VerifiedQuote {
   readonly quoteId: string;
+  readonly beneficiary: PrincipalRef;
   readonly total: Money;
   readonly usable: boolean;
 }

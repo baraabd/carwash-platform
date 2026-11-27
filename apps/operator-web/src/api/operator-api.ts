@@ -1,5 +1,5 @@
 import { call, type Request, type Result } from './client';
-import { collectCash } from './cash-api';
+import { collectCash, sameAmount } from './cash-api';
 import {
   parseAvailability,
   parseBooking,
@@ -10,6 +10,7 @@ import {
   parseReserved,
   parseSession,
   parseTask,
+  ShapeError,
 } from './parse';
 import type {
   AvailabilityView,
@@ -41,7 +42,28 @@ export const readJobs = (): Promise<Result<JobsView>> =>
 export const readTask = (taskId: string): Promise<Result<TaskView>> =>
   call({ method: 'GET', path: task(taskId), parse: parseTask });
 export const readBooking = (bookingId: string): Promise<Result<BookingTechView>> =>
-  call({ method: 'GET', path: `/api/operator/bookings/${enc(bookingId)}`, parse: parseBooking });
+  call({
+    method: 'GET',
+    path: `/api/operator/bookings/${enc(bookingId)}`,
+    parse: (value) => {
+      const booking = parseBooking(value);
+      if (booking.bookingId !== bookingId) throw new ShapeError('booking.bookingId');
+      return booking;
+    },
+  });
+
+type FundingView = Pick<
+  BookingTechView,
+  'bookingId' | 'financialSource' | 'paymentMethod' | 'total'
+>;
+
+/** Client safety gate; Billing still owns authorization and the actual receipt. */
+function requireCashFunding(t: TaskView, booking: FundingView | null, amount?: Money): void {
+  if (!booking || booking.bookingId !== t.bookingId) throw new Error('BOOKING_FUNDING_UNVERIFIED');
+  if (booking.financialSource !== 'DIRECT' || booking.paymentMethod !== 'CASH_ON_COMPLETION')
+    throw new Error('CASH_NOT_APPLICABLE');
+  if (amount && !sameAmount(booking.total, amount)) throw new Error('CASH_AMOUNT_MISMATCH');
+}
 
 /** A mutation is fully described by its request so a retry can resend it byte-for-byte. */
 export interface MutationRequest {
@@ -151,34 +173,59 @@ export const M = {
     path: task(t.taskId, '/finish'),
     body: { expectedRevision: t.revision },
   }),
-  closeCollected: (t: TaskView, amount: Money): MutationRequest => ({
-    method: 'POST',
-    path: task(t.taskId, '/close'),
-    body: { expectedRevision: t.revision, collection: { outcome: 'CASH_COLLECTED', amount } },
-    cashReceipt: { bookingId: t.bookingId, amount },
-  }),
-  closeNotCollected: (t: TaskView, reason: string): MutationRequest => ({
-    method: 'POST',
-    path: task(t.taskId, '/close'),
-    body: { expectedRevision: t.revision, collection: { outcome: 'CASH_NOT_COLLECTED', reason } },
-  }),
-  closeNotCash: (t: TaskView): MutationRequest => ({
-    method: 'POST',
-    path: task(t.taskId, '/close'),
-    body: { expectedRevision: t.revision, collection: { outcome: 'NOT_CASH' } },
-  }),
-  lateCash: (t: TaskView, amount: Money): MutationRequest => ({
-    method: 'POST',
-    path: task(t.taskId, '/cash-collection'),
-    body: { expectedRevision: t.revision, amount },
-    cashReceipt: {
-      bookingId: t.bookingId,
-      amount,
-      alreadyDeclared:
-        t.stage === 'CLOSED' &&
-        (t.collection?.outcome === 'CASH_COLLECTED' || t.collection?.lateAmount != null),
-    },
-  }),
+  closeCollected: (t: TaskView, amount: Money, booking: FundingView | null): MutationRequest => {
+    requireCashFunding(t, booking, amount);
+    return {
+      method: 'POST',
+      path: task(t.taskId, '/close'),
+      body: { expectedRevision: t.revision, collection: { outcome: 'CASH_COLLECTED', amount } },
+      cashReceipt: { bookingId: t.bookingId, amount },
+    };
+  },
+  closeNotCollected: (
+    t: TaskView,
+    reason: string,
+    booking: FundingView | null,
+  ): MutationRequest => {
+    requireCashFunding(t, booking);
+    return {
+      method: 'POST',
+      path: task(t.taskId, '/close'),
+      body: { expectedRevision: t.revision, collection: { outcome: 'CASH_NOT_COLLECTED', reason } },
+    };
+  },
+  closeNotCash: (t: TaskView, booking: FundingView | null): MutationRequest => {
+    if (!booking || booking.bookingId !== t.bookingId)
+      throw new Error('BOOKING_FUNDING_UNVERIFIED');
+    if (
+      booking.financialSource !== 'SUBSCRIPTION' &&
+      !(
+        booking.financialSource === 'DIRECT' &&
+        ['SHAM_CASH', 'SYRIATEL_CASH'].includes(booking.paymentMethod)
+      )
+    )
+      throw new Error('NON_CASH_FUNDING_REQUIRED');
+    return {
+      method: 'POST',
+      path: task(t.taskId, '/close'),
+      body: { expectedRevision: t.revision, collection: { outcome: 'NOT_CASH' } },
+    };
+  },
+  lateCash: (t: TaskView, amount: Money, booking: FundingView | null): MutationRequest => {
+    requireCashFunding(t, booking, amount);
+    return {
+      method: 'POST',
+      path: task(t.taskId, '/cash-collection'),
+      body: { expectedRevision: t.revision, amount },
+      cashReceipt: {
+        bookingId: t.bookingId,
+        amount,
+        alreadyDeclared:
+          t.stage === 'CLOSED' &&
+          (t.collection?.outcome === 'CASH_COLLECTED' || t.collection?.lateAmount != null),
+      },
+    };
+  },
   release: (t: TaskView, reason: string): MutationRequest => ({
     method: 'POST',
     path: task(t.taskId, '/release'),

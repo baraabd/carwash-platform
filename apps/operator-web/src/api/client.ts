@@ -63,12 +63,35 @@ function csrfToken(): string | null {
   // The gateway forwards x-csrf-token; Identity's csrf cookie is readable by design.
   for (const part of document.cookie.split(';')) {
     const [name, ...rest] = part.trim().split('=');
-    if (name === '__Host-wg_csrf' || name === 'wg_csrf') return decodeURIComponent(rest.join('='));
+    if (name === '__Host-wg_csrf' || name === 'wg_csrf') {
+      try {
+        return decodeURIComponent(rest.join('='));
+      } catch {
+        return null;
+      }
+    }
   }
   return null;
 }
 
-export async function call<T>(request: Request<T>): Promise<Result<T>> {
+let refreshing: Promise<Result<unknown>> | null = null;
+
+/** Concurrent reads share one refresh. A rejected request is retried at most once. */
+async function refreshSession(): Promise<Result<unknown>> {
+  refreshing ??= performCall(
+    { method: 'POST', path: '/api/operator/auth/refresh', body: {}, parse: null },
+    false,
+  ).finally(() => {
+    refreshing = null;
+  });
+  return refreshing;
+}
+
+export function call<T>(request: Request<T>): Promise<Result<T>> {
+  return performCall(request, true);
+}
+
+async function performCall<T>(request: Request<T>, mayRefresh: boolean): Promise<Result<T>> {
   if (!request.path.startsWith(API_PREFIX) || request.path.includes('..')) {
     throw new Error('OPERATOR_API_PATH_REFUSED');
   }
@@ -108,6 +131,12 @@ export async function call<T>(request: Request<T>): Promise<Result<T>> {
     return { kind: 'unknown', cause: timedOut ? 'timeout' : 'network' };
   }
   clearTimeout(timer);
+  // A 401 is an explicit rejection, unlike a timeout or lost write response.
+  // Preserve the original body/key; never retry an UNKNOWN mutation here.
+  if (response.status === 401 && mayRefresh && !request.path.startsWith('/api/operator/auth/')) {
+    const refreshed = await refreshSession();
+    if (refreshed.kind === 'ok') return performCall(request, false);
+  }
   let json: unknown = null;
   if (text) {
     try {

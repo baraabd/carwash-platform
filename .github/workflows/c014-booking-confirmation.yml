@@ -92,9 +92,11 @@ jobs:
           C014_ORIGIN: http://127.0.0.1:4174
           C014_EVIDENCE_DIR: ${{ runner.temp }}/c014-evidence
           C014_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CUSTOMER_JOURNEY_EVIDENCE_DIR: ${{ runner.temp }}/customer-production-journey
         run: |
           set -euo pipefail
           pnpm exec playwright install --with-deps chromium
+          node apps/customer-web/browser/production-journey.browser.mjs
           pnpm --filter @carwash/customer-web preview --host 127.0.0.1 --port 4174 --strictPort > "$RUNNER_TEMP/c014-vite.log" 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
@@ -109,6 +111,8 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: c014-booking-confirmation-${{ github.event.pull_request.head.sha || github.sha }}
-          path: ${{ runner.temp }}/c014-evidence
+          path: |
+            ${{ runner.temp }}/c014-evidence
+            ${{ runner.temp }}/customer-production-journey
           if-no-files-found: error
           retention-days: 14

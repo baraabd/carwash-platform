@@ -3,6 +3,7 @@ import { createLogger } from '@carwash/service-kit';
 import {
   CatalogService,
   type CatalogView,
+  type CurrentCatalogView,
   type DefinitionView,
   type RequestContext,
 } from '../../application';
@@ -24,6 +25,7 @@ function single(value: unknown): string | undefined {
 /**
  * catalog.v1 HTTP adapter (prefix /internal/v1/catalog):
  *
+ * - GET  /current                     public: published or explicitly unpublished state.
  * - GET  /definitions                 public: the complete current snapshot.
  * - GET  /definitions/:definitionId   public: one definition, retired included.
  * - POST /publications                permission:catalog.publish, Idempotency-Key,
@@ -40,6 +42,12 @@ export class CatalogController {
   });
 
   constructor(@Inject(CATALOG_SERVICE) private readonly catalog: CatalogService) {}
+
+  @Get('current')
+  current(@Res({ passthrough: true }) response: HttpResponse): Promise<CurrentCatalogView> {
+    response.setHeader('cache-control', 'no-store');
+    return this.catalog.current();
+  }
 
   @Get('definitions')
   published(@Res({ passthrough: true }) response: HttpResponse): Promise<CatalogView> {

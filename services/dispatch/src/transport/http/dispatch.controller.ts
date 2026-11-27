@@ -92,6 +92,11 @@ export class DispatchController {
     return operationsView(await this.dispatch.getAssignmentByBooking(meta, bookingId));
   }
 
+  @Get('bookings/:bookingId/execution')
+  async execution(@Req() req: HeaderBag, @Param('bookingId') bookingId: string) {
+    return this.dispatch.executionByBooking(await this.actors.resolve(req), bookingId);
+  }
+
   @Post('assignments/:id/offers')
   async offer(
     @Req() req: HeaderBag,

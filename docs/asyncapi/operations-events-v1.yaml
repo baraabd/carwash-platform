@@ -1,0 +1,218 @@
+asyncapi: '2.6.0'
+info:
+  title: WashGo operations events V1
+  version: '1.0.0'
+  description: >
+    Booking lifecycle and Dispatch assignment, task and cash declarations.
+    Workforce shift updates retain their original envelope v1 for replay compatibility.
+    Published contracts and implemented workers do not certify hosted release acceptance.
+    Opaque references and exact amounts only; no contact, location, photo URL or plate.
+    The closed parsers in @carwash/event-contracts operations-v1 define payloads.
+defaultContentType: application/json
+channels:
+  dispatch.events/dispatch.assignment-changed.v1:
+    publish:
+      operationId: publish_dispatch_assignment_changed_v1
+      message:
+        name: dispatch.assignment-changed.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: dispatch.assignment-changed.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: dispatch
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: assignment
+            data:
+              type: object
+              additionalProperties: false
+  dispatch.events/dispatch.task-progressed.v1:
+    publish:
+      operationId: publish_dispatch_task_progressed_v1
+      message:
+        name: dispatch.task-progressed.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: dispatch.task-progressed.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: dispatch
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: task
+            data:
+              type: object
+              additionalProperties: false
+  dispatch.events/dispatch.cash-declared.v1:
+    publish:
+      operationId: publish_dispatch_cash_declared_v1
+      message:
+        name: dispatch.cash-declared.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: dispatch.cash-declared.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: dispatch
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: task
+            data:
+              type: object
+              additionalProperties: false
+  booking.events/booking.created.v1:
+    publish:
+      operationId: publish_booking_created_v1
+      message:
+        name: booking.created.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: booking.created.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: booking
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: booking
+            data:
+              type: object
+              additionalProperties: false
+  booking.events/booking.cancelled.v1:
+    publish:
+      operationId: publish_booking_cancelled_v1
+      message:
+        name: booking.cancelled.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: booking.cancelled.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: booking
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: booking
+            data:
+              type: object
+              additionalProperties: false
+  booking.events/booking.rescheduled.v1:
+    publish:
+      operationId: publish_booking_rescheduled_v1
+      message:
+        name: booking.rescheduled.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: booking.rescheduled.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: booking
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: booking
+            data:
+              type: object
+              additionalProperties: false
+  booking.events/booking.lifecycle-progressed.v1:
+    publish:
+      operationId: publish_booking_lifecycle_progressed_v1
+      message:
+        name: booking.lifecycle-progressed.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]
+          properties:
+            eventType:
+              const: booking.lifecycle-progressed.v1
+            envelopeVersion:
+              const: 2
+            producer:
+              const: booking
+            aggregate:
+              type: object
+              properties:
+                type:
+                  const: booking
+            data:
+              type: object
+              additionalProperties: false
+  workforce.events/workforce.shift-updated.v1:
+    publish:
+      operationId: publish_workforce_shift_updated_v1
+      message:
+        name: workforce.shift-updated.v1
+        correlationId:
+          location: $message.payload#/correlationId
+        payload:
+          type: object
+          additionalProperties: false
+          required: [eventId, eventType, schemaVersion, producer, occurredAt, correlationId, aggregateVersion, data]
+          properties:
+            eventType:
+              const: workforce.shift-updated.v1
+            schemaVersion:
+              const: 1
+            producer:
+              const: workforce
+            aggregateVersion:
+              type: integer
+              minimum: 1
+            data:
+              type: object
+              additionalProperties: false

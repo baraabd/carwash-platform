@@ -245,7 +245,22 @@ async function acceptance(suite) {
         'apps/admin-web/test/live-finance.test.mjs',
         'apps/admin-web/test/statement-credit.test.mjs',
         'apps/admin-web/test/runtime.test.mjs',
+        'apps/admin-web/test/domain-owners.test.mjs',
       ]);
+      env.ADMIN_DOMAINS_EVIDENCE_DIR = path.join(out, 'admin-domains');
+      env.ADMIN_SOURCE_SHA = report.source.sha;
+      await command('admin-domain-browser-fixtures', node, [
+        'apps/admin-web/browser/domain-screens.browser.mjs',
+      ]);
+      await childEvidence(
+        'admin-domain-browser-fixtures',
+        path.join(env.ADMIN_DOMAINS_EVIDENCE_DIR, 'admin-domain-screens.json'),
+        (value) => {
+          assert.equal(value.source, report.source.sha);
+          assert.equal(value.failure, undefined);
+          assert.ok(value.browserVersion && value.tests.length >= 5);
+        },
+      );
     }
     if (plan.services.length && !suite.startsWith('c-'))
       await tests(
@@ -256,6 +271,10 @@ async function acceptance(suite) {
     // Written before starting any resources; --cleanup remains usable after cancellation.
     await writeJson(path.join(work, 'owned.json'), owned);
     if (plan.lane === 'A') {
+      if (suite === 'a-owners')
+        await tests('identity-native-password-encoding', [
+          'tests/identity/password-encoding.test.mjs',
+        ]);
       await tests('provider-contract', [
         'tests/production/A/acceptance-plan.test.mjs',
         ...(suite === 'a-booking-billing' ? [] : ['tests/production/A/vehicle.contract.test.mjs']),
@@ -337,6 +356,10 @@ async function acceptance(suite) {
         ]);
       else if (suite === 'c-p06')
         await tests('technician-real-services', ['tests/production/C/p06c-real-services.test.mjs']);
+      else if (suite === 'c-runtime-workers')
+        await tests('standalone-worker-processes', [
+          'tests/production/C/runtime-closure-processes.test.mjs',
+        ]);
       else {
         const owner = suite.slice(2);
         await command('owner-verification', node, ['scripts/production/C/verify.mjs', owner]);

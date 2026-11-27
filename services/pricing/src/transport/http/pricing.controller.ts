@@ -105,6 +105,10 @@ export class PricingController {
   getQuote(@Headers() headers: HeaderBag, @Param('quoteId') quoteId: string) {
     return this.pricing.getQuote(this.context(headers), quoteId);
   }
+  @Get('price-books/current')
+  currentPriceBook(@Headers() headers: HeaderBag) {
+    return this.pricing.getCurrentPriceBook(this.context(headers));
+  }
 
   @Post('quotes/:quoteId/validate')
   @HttpCode(200)

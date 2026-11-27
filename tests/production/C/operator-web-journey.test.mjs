@@ -93,6 +93,54 @@ function assertNoProblems(problems) {
   );
 }
 
+test('subscription covered delivery closes real UI work with NOT_CASH and never requests collection', async () => {
+  stack.fixture.control.reset();
+  const key = 'WG-2042'; // One package, no extras in this declared fixture.
+  stack.fixture.control.setFinancialSource(key, 'SUBSCRIPTION');
+  const task = stack.fixture.control.seedTask(key, { stage: 'FINISHED' });
+  const { context, page, problems } = await session();
+  try {
+    await openJob(page, key);
+    await expectHeading(page, 'الخدمة مكتملة وجاهزة للتسليم.');
+    assert.equal(await page.locator('[data-action="cash-dialog"]').count(), 0);
+    assert.equal(await page.locator('[data-action="cash-issue"]').count(), 0);
+    assert.equal(await page.locator('[data-action="payment-followup"]').count(), 0);
+    assert.match(await page.locator('#main').textContent(), /مغطى بالاشتراك/);
+    await page.locator('[data-action="primary"]').click();
+    assert.match(await page.locator('#sheet[open]').textContent(), /مغطى بالاشتراك/);
+    assert.doesNotMatch(
+      await page.locator('#sheet[open]').textContent(),
+      /المبلغ المستحق|كاش مسجّل|معتمد/,
+    );
+    await page.locator('[data-action="close-job-confirm"]').click();
+    await expectHeading(page, 'لمعة تستحق المشاهدة.');
+    const closed = stack.fixture.control.taskOf(key);
+    assert.equal(closed.stage, 'CLOSED');
+    assert.equal(closed.collection.outcome, 'NOT_CASH');
+    assert.equal(closed.collection.amount, null);
+    assert.equal(stack.fixture.control.cashReceiptOf(key), null);
+    assert.match(await page.locator('#main').textContent(), /مغطى بالاشتراك · لا تحصيل إضافي/);
+    assert.doesNotMatch(
+      await page.locator('#main').textContent(),
+      /تم التحصيل|قيد المراجعة|تسجيل تحصيل لاحق/,
+    );
+    const writes = mutationsOf(/\/tasks\/[^/]+\/close$/);
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0].body.collection.outcome, 'NOT_CASH');
+    assert.equal(writes[0].body.expectedRevision, task.revision);
+    assert.equal(
+      stack.fixture.requests.filter((r) =>
+        /cash-collection-target|cash-collections|cash-collection$/.test(r.path),
+      ).length,
+      0,
+      'covered work neither reads a cash target nor posts a financial collection',
+    );
+    assertNoProblems(problems);
+  } finally {
+    await context.close();
+  }
+});
+
 test('full cash journey: accept, depart, arrive, photos, checklist, finish, exact cash close', async () => {
   stack.fixture.control.reset();
   const { context, page, problems } = await session();

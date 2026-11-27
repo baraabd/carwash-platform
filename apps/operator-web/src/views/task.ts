@@ -24,6 +24,7 @@ import {
   photos as photoSlots,
   plateText,
   requiredDone,
+  subscriptionCovered,
   time,
   total,
   typeLabel,
@@ -139,6 +140,10 @@ export function comparison(j: Job): string {
 
 /** Reference `handoff`. PC-29..PC-31; wallet verification unreachable (D9). */
 export function handoff(j: Job): string {
+  if (subscriptionCovered(j))
+    return `${heading('الخدمة مكتملة وجاهزة للتسليم.', 'الحجز مغطى باستحقاق اشتراك. لا يُطلب تحصيل إضافي.', 'shield')}<section class="cash-hero"><span class="tile-icon lime">${I('shield')}</span><p>مغطى بالاشتراك</p><strong class="amount">${money(j)}</strong><p>قيمة الخدمة المغطاة · ليست مبلغًا مطلوبًا</p><span class="pill">لا تحصيل إضافي</span></section><div class="note mt">${I('info')}<span>أكّد تسليم السيارة لإغلاق المهمة. لا يُسجّل تحصيل نقدي أو اعتماد تحويل.</span></div><button class="text-btn full mt" data-action="result-preview">${I('image')}عرض صور قبل وبعد</button>`;
+  if (method(j) === null)
+    return `${heading('الخدمة مكتملة، والتحقق مطلوب.', 'تعذّر التحقق من تمويل الحجز. أعد تحميل المهمة قبل تأكيد التسليم.', 'shield')}<div class="note amber mt">${I('info')}<span>لا يمكن اختيار مسار التحصيل أو الإغلاق حتى تصل حالة التمويل من الحجز.</span></div>`;
   if (method(j) === 'cash') {
     const c = collected(j);
     const reason = cashIssue(j);
@@ -155,7 +160,19 @@ export function completed(j: Job): string {
   }
   const cash = method(j) === 'cash';
   const c = collected(j);
-  return `<section class="center" ${st('padding:15px 0 17px')}><div class="success-art">${I('check')}</div><span class="pill success">اكتملت المهمة</span><h1 ${st('margin:12px 0 7px')}>لمعة تستحق المشاهدة.</h1><p class="small muted">${escape(carName(j))} · ${SERVICE_LABEL}</p></section>${comparison(j)}<section class="receipt mt"><div class="receipt-row"><span>المهمة</span><strong class="ltr">${escape(j.ref)}</strong></div><div class="receipt-row"><span>قيمة الخدمة</span><strong>${money(j)}</strong></div><div class="receipt-row"><span>حالة الغسيل</span><strong>مكتمل</strong></div><div class="receipt-row"><span>حالة الدفع</span><strong>${cash ? (c ? 'تم التحصيل' : 'لم يُحصّل · للمتابعة') : walletVerified(j) ? 'معتمد' : 'قيد المراجعة'}</strong></div></section>${outstanding(j) ? `<div class="note amber mt">${I('clock')}<span>الخدمة مكتملة لكن الدفع ما زال للمتابعة. لا تُحسب هذه المهمة ضمن الكاش المحصّل.</span></div>` : ''}${cash && !c ? `<button class="btn outline mt" data-action="cash-dialog">${I('banknote')}تسجيل تحصيل لاحق</button>` : ''}<button class="text-btn full mt" data-action="history">${I('history')}عرض سجل المهمة</button>`;
+  const covered = subscriptionCovered(j);
+  const financialStatus = covered
+    ? 'مغطى بالاشتراك · لا تحصيل إضافي'
+    : method(j) === null
+      ? 'تمويل الحجز غير متاح'
+      : cash
+        ? c
+          ? 'تم التحصيل'
+          : 'لم يُحصّل · للمتابعة'
+        : walletVerified(j)
+          ? 'معتمد'
+          : 'قيد المراجعة';
+  return `<section class="center" ${st('padding:15px 0 17px')}><div class="success-art">${I('check')}</div><span class="pill success">اكتملت المهمة</span><h1 ${st('margin:12px 0 7px')}>لمعة تستحق المشاهدة.</h1><p class="small muted">${escape(carName(j))} · ${SERVICE_LABEL}</p></section>${comparison(j)}<section class="receipt mt"><div class="receipt-row"><span>المهمة</span><strong class="ltr">${escape(j.ref)}</strong></div><div class="receipt-row"><span>قيمة الخدمة</span><strong>${money(j)}</strong></div><div class="receipt-row"><span>حالة الغسيل</span><strong>مكتمل</strong></div><div class="receipt-row"><span>${covered ? 'حالة التغطية' : 'حالة الدفع'}</span><strong>${financialStatus}</strong></div></section>${outstanding(j) ? `<div class="note amber mt">${I('clock')}<span>الخدمة مكتملة لكن الدفع ما زال للمتابعة. لا تُحسب هذه المهمة ضمن الكاش المحصّل.</span></div>` : ''}${cash && !c ? `<button class="btn outline mt" data-action="cash-dialog">${I('banknote')}تسجيل تحصيل لاحق</button>` : ''}<button class="text-btn full mt" data-action="history">${I('history')}عرض سجل المهمة</button>`;
 }
 
 /** Reference `renderTask`. */
@@ -235,7 +252,14 @@ export function renderTaskDock(): string {
       hint = disabled ? 'أضف صورة بعد الغسيل أولًا' : 'الدفع يُسجّل بشكل منفصل';
       break;
     case 'handoff':
-      if (method(j) === 'cash' && !collected(j) && !cashIssue(j)) {
+      if (method(j) === null) {
+        label = 'تحديث تمويل الحجز مطلوب';
+        disabled = true;
+        icon = 'shield';
+      } else if (subscriptionCovered(j)) {
+        label = 'تأكيد التسليم وإغلاق المهمة';
+        icon = 'check';
+      } else if (method(j) === 'cash' && !collected(j) && !cashIssue(j)) {
         label = 'تسجيل استلام الكاش';
         action = 'cash-dialog';
         icon = 'banknote';
@@ -247,7 +271,9 @@ export function renderTaskDock(): string {
             : 'تأكيد التسليم وإغلاق المهمة';
         icon = 'check';
       }
-      hint = 'لا يُسجّل التحصيل تلقائيًا';
+      hint = subscriptionCovered(j)
+        ? 'الخدمة مغطاة بالاشتراك · لا تحصيل إضافي'
+        : 'لا يُسجّل التحصيل تلقائيًا';
       break;
     case 'closed':
       label = 'العودة إلى جدولي';
@@ -261,5 +287,5 @@ export function renderTaskDock(): string {
       break;
   }
   const value = total(j);
-  return `<div class="task-dock"><div class="dock-hint"><span>${hint}</span><span>${value ? `${money(j)} قيمة الطلب` : ''}</span></div><button class="btn" data-action="${action}" ${disabled ? 'disabled' : ''}>${label}${I(icon)}</button>${secondary}</div>`;
+  return `<div class="task-dock"><div class="dock-hint"><span>${hint}</span><span>${value ? `${money(j)} ${subscriptionCovered(j) ? 'قيمة الخدمة المغطاة' : 'قيمة الطلب'}` : ''}</span></div><button class="btn" data-action="${action}" ${disabled ? 'disabled' : ''}>${label}${I(icon)}</button>${secondary}</div>`;
 }

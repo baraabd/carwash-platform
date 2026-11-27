@@ -71,6 +71,8 @@ const SERVICES = {
     dependencies: {
       ...IDENTITY_STUB,
       catalog: 'LOCAL HTTP STUB (published catalog.v1 getPublished shape)',
+      subscription:
+        'NAMED TEST DOUBLE for plan quote storage tests; published-plan HTTP adapter is tested in runtime tests',
       serviceCaller: 'TEST workload credential (service-kit x-service-client/x-service-token)',
       serviceCallers:
         'REAL shared ServiceClientAuthenticator with test credentials (Booking is not running)',
@@ -106,6 +108,9 @@ const SERVICES = {
     env: 'SUBSCRIPTION_TEST_DATABASE_URL',
     dependencies: {
       ...IDENTITY_STUB,
+      pricing: 'NAMED TEST DOUBLE for immutable canonical purchase quotes',
+      billing:
+        'NAMED TEST DOUBLE for durable obligation recovery and verified funding; real Billing PostgreSQL funding/refund invariants run in the billing family',
       serviceCallers:
         'REAL shared ServiceClientAuthenticator with test credentials (Booking is not running)',
       broker:

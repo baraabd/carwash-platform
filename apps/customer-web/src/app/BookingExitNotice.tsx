@@ -13,11 +13,15 @@ import { saveDraftAndExit } from '../state/vehicleStep';
  */
 export function BookingExitNotice() {
   const [open, setOpen] = useState(false);
-  const { run } = useCustomerSession();
+  const { state, run } = useCustomerSession();
   const navigate = useNavigate();
 
   const saveAndExit = () => {
     setOpen(false);
+    if (state.runtimeMode !== 'parity') {
+      navigate('/');
+      return;
+    }
     const { intent } = run(saveDraftAndExit);
     if (intent) navigate(pathForIntent(intent));
   };
@@ -35,7 +39,11 @@ export function BookingExitNotice() {
         <Icon name="close" />
       </button>
       <Sheet open={open} title="نكمل الغسلة لاحقًا؟" onClose={() => setOpen(false)}>
-        <p className="sheet-intro">التخزين غير متاح. المسودة تبقى لهذه الجلسة فقط.</p>
+        <p className="sheet-intro">
+          {state.runtimeMode === 'parity'
+            ? 'التخزين غير متاح. المسودة تبقى لهذه الجلسة فقط.'
+            : 'اختياراتك تبقى لهذه الجلسة فقط. الموعد محفوظ مؤقتًا وتنتهي صلاحيته تلقائيًا؛ الحجز المؤكّد تجده في حجوزاتي.'}
+        </p>
         <button
           className="btn full"
           type="button"

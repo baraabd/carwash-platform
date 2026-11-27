@@ -333,3 +333,28 @@ test('identity adapter: kind comes from principalKind; malformed or role-carryin
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test('coverage inspection requires an operational account or the self-booking permission', async () => {
+  const store = new MemoryStore();
+  store.zones = [ZONE];
+  const staff: AuthorizedPrincipal = {
+    ...GUEST,
+    principal: { ...GUEST.principal, kind: 'account' },
+    permissions: ['operations.dispatch'],
+  };
+  const result = await app(store, identity(staff)).checkServiceability(
+    credentials,
+    body('0.500000', '0.500000'),
+  );
+  assert.equal(result.decision, 'SERVICEABLE');
+  for (const rejected of [
+    { ...staff, principal: GUEST.principal },
+    { ...staff, permissions: ['billing.read'] },
+    { ...staff, permissions: [] },
+  ]) {
+    await assert.rejects(
+      app(store, identity(rejected)).checkServiceability(credentials, body('0.500000', '0.500000')),
+      (error: unknown) => error instanceof ApplicationError && error.code === 'AUTH_FORBIDDEN',
+    );
+  }
+});

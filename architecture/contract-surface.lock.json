@@ -183,6 +183,15 @@
       "owner": "catalog",
       "prefix": "/internal/v1/catalog",
       "routes": {
+        "getCurrent": {
+          "method": "GET",
+          "path": "/current",
+          "access": "public",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
         "getPublished": {
           "method": "GET",
           "path": "/definitions",
@@ -220,6 +229,24 @@
       "owner": "pricing",
       "prefix": "/internal/v1/pricing",
       "routes": {
+        "createSubscriptionQuote": {
+          "method": "POST",
+          "path": "/subscription-quotes",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getSubscriptionQuote": {
+          "method": "GET",
+          "path": "/subscription-quotes/:quoteId",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
         "createQuote": {
           "method": "POST",
           "path": "/quotes",
@@ -252,6 +279,15 @@
           "path": "/price-books",
           "access": "permission:pricing.prices.publish",
           "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getCurrentPriceBook": {
+          "method": "GET",
+          "path": "/price-books/current",
+          "access": "permission:pricing.prices.publish",
+          "idempotent": false,
           "revisioned": false,
           "safe": false,
           "paged": false
@@ -290,6 +326,15 @@
           "method": "POST",
           "path": "/holds",
           "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "createStaffHold": {
+          "method": "POST",
+          "path": "/staff/holds",
+          "access": "permission:operations.dispatch",
           "idempotent": true,
           "revisioned": false,
           "safe": false,
@@ -345,10 +390,37 @@
           "revisioned": false,
           "safe": false,
           "paged": true
+        },
+        "listAssignmentCandidates": {
+          "method": "GET",
+          "path": "/assignment-candidates",
+          "access": "service:workforce.capacity.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
         }
       },
       "reasons": [
         "RESOURCE_NOT_FOUND"
+      ]
+    },
+    "dispatch.v1": {
+      "owner": "dispatch",
+      "prefix": "/internal/v1/dispatch",
+      "routes": {
+        "getExecution": {
+          "method": "GET",
+          "path": "/bookings/:bookingId/execution",
+          "access": "service:dispatch.assignment.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "ASSIGNMENT_NOT_FOUND"
       ]
     },
     "configuration.v1": {
@@ -402,6 +474,15 @@
       "owner": "billing",
       "prefix": "/internal/v1/billing",
       "routes": {
+        "verifySubscriptionFunding": {
+          "method": "POST",
+          "path": "/subscription-funding/verify",
+          "access": "service:billing.subscription-funding.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": true,
+          "paged": false
+        },
         "createObligation": {
           "method": "POST",
           "path": "/obligations",
@@ -726,6 +807,107 @@
         "NOTIFICATION_PROVIDER_DISABLED"
       ]
     },
+    "booking.v1": {
+      "owner": "booking",
+      "prefix": "/internal/v1/booking",
+      "routes": {
+        "createBooking": {
+          "method": "POST",
+          "path": "/bookings",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getBooking": {
+          "method": "GET",
+          "path": "/bookings/:bookingId",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getTechnicianView": {
+          "method": "GET",
+          "path": "/bookings/:bookingId/technician-view",
+          "access": "permission:work.read:assigned",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getMine": {
+          "method": "GET",
+          "path": "/mine",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": true
+        },
+        "getByRequest": {
+          "method": "GET",
+          "path": "/bookings/by-request/:idempotencyKey",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "createHold": {
+          "method": "POST",
+          "path": "/booking-holds",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getHold": {
+          "method": "GET",
+          "path": "/booking-holds/:holdId",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "releaseHold": {
+          "method": "POST",
+          "path": "/booking-holds/:holdId/release",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "cancel": {
+          "method": "POST",
+          "path": "/bookings/:bookingId/cancellation",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "reschedule": {
+          "method": "POST",
+          "path": "/bookings/:bookingId/reschedule",
+          "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        }
+      },
+      "reasons": [
+        "SUBSCRIPTION_COVERAGE_UNSUPPORTED",
+        "ENTITLEMENT_REJECTED",
+        "SUBSCRIPTION_RESCHEDULE_UNAVAILABLE"
+      ]
+    },
     "subscription.v1": {
       "owner": "subscription",
       "prefix": "/internal/v1/subscription",
@@ -748,11 +930,29 @@
           "safe": false,
           "paged": false
         },
+        "publishPlan": {
+          "method": "POST",
+          "path": "/plans/:planId/versions",
+          "access": "permission:subscription.manage",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
         "createPurchase": {
           "method": "POST",
           "path": "/purchases",
           "access": "principal",
           "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "getPurchaseByRequest": {
+          "method": "GET",
+          "path": "/purchases/by-request/:idempotencyKey",
+          "access": "principal",
+          "idempotent": false,
           "revisioned": false,
           "safe": false,
           "paged": false
@@ -784,10 +984,37 @@
           "safe": false,
           "paged": false
         },
+        "checkEligibility": {
+          "method": "POST",
+          "path": "/subscriptions/:subscriptionId/eligibility",
+          "access": "principal",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": true,
+          "paged": false
+        },
         "requestChange": {
           "method": "POST",
           "path": "/subscriptions/:subscriptionId/changes",
           "access": "principal",
+          "idempotent": true,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "listPendingChanges": {
+          "method": "GET",
+          "path": "/administration/changes",
+          "access": "permission:subscription.manage",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "decideChange": {
+          "method": "POST",
+          "path": "/subscriptions/:subscriptionId/changes/:changeId/decision",
+          "access": "permission:subscription.manage",
           "idempotent": true,
           "revisioned": false,
           "safe": false,
@@ -814,6 +1041,15 @@
         "getEntitlementReservation": {
           "method": "GET",
           "path": "/entitlement-reservations/:reservationId",
+          "access": "service:subscription.entitlement.read",
+          "idempotent": false,
+          "revisioned": false,
+          "safe": false,
+          "paged": false
+        },
+        "findBookingEntitlements": {
+          "method": "GET",
+          "path": "/entitlement-reservations",
           "access": "service:subscription.entitlement.read",
           "idempotent": false,
           "revisioned": false,
@@ -1239,6 +1475,46 @@
       "producer": "reviews",
       "aggregateType": "review",
       "envelopeVersion": 2
+    },
+    "dispatch.assignment-changed.v1": {
+      "producer": "dispatch",
+      "aggregateType": "assignment",
+      "envelopeVersion": 2
+    },
+    "dispatch.task-progressed.v1": {
+      "producer": "dispatch",
+      "aggregateType": "task",
+      "envelopeVersion": 2
+    },
+    "dispatch.cash-declared.v1": {
+      "producer": "dispatch",
+      "aggregateType": "task",
+      "envelopeVersion": 2
+    },
+    "booking.created.v1": {
+      "producer": "booking",
+      "aggregateType": "booking",
+      "envelopeVersion": 2
+    },
+    "booking.cancelled.v1": {
+      "producer": "booking",
+      "aggregateType": "booking",
+      "envelopeVersion": 2
+    },
+    "booking.rescheduled.v1": {
+      "producer": "booking",
+      "aggregateType": "booking",
+      "envelopeVersion": 2
+    },
+    "booking.lifecycle-progressed.v1": {
+      "producer": "booking",
+      "aggregateType": "booking",
+      "envelopeVersion": 2
+    },
+    "workforce.shift-updated.v1": {
+      "producer": "workforce",
+      "aggregateType": "shift",
+      "envelopeVersion": 1
     }
   }
 }

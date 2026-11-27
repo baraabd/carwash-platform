@@ -117,6 +117,16 @@ export class SchedulingController {
     return this.holds.getHold(meta, uuid(holdId, 'path.holdId'));
   }
 
+  @Post('staff/holds')
+  async createStaffHold(
+    @Req() req: HeaderBag,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: StatusResponse,
+  ): Promise<unknown> {
+    const meta = await this.actors.resolve(req);
+    return send(res, await this.holds.createStaffHold(meta, holdRequest(body), key(req)));
+  }
+
   @Post('holds/:holdId/commit')
   async commitHold(
     @Req() req: HeaderBag,

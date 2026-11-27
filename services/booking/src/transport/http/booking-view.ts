@@ -12,8 +12,11 @@ import { changeView } from './change-view';
  *
  * `confirmation` is what the customer screen needs to know about the saga:
  * PENDING while it runs, CONFIRMED / REJECTED when it finished, and
- * NEEDS_ATTENTION when operations must reconcile it. Internal saga details
- * (obligation id, attempts, errors, fences) are never exposed.
+ * NEEDS_ATTENTION when operations must reconcile it. The financial-source and
+ * opaque obligation/reservation references are explicit; attempts, errors and
+ * lease fences remain internal. A reference alone never proves payment.
+ * For financialSource=SUBSCRIPTION the legacy paymentMethod is inapplicable;
+ * clients must show entitlement coverage, never infer collection or money due.
  */
 export function bookingView(
   booking: Booking,
@@ -40,6 +43,9 @@ export function bookingView(
     rejectionReason: booking.rejectionReason,
     beneficiary: booking.beneficiary,
     paymentMethod: booking.paymentMethod,
+    financialSource: booking.subscription ? 'SUBSCRIPTION' : 'DIRECT',
+    entitlementReservationId: saga.entitlementReservationId ?? null,
+    obligationId: saga.obligationId,
     slot: {
       holdId: slot.holdId,
       zoneId: slot.zoneId,

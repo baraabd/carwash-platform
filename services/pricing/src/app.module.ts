@@ -32,6 +32,16 @@ import {
 } from './infrastructure/service/service-client.authority';
 import { RandomIds, Sha256Hasher, SystemClock } from './infrastructure/system/system.adapters';
 import { PRICING_SERVICE, PricingController } from './transport/http/pricing.controller';
+import { SubscriptionQuoteService } from './application/subscription-quote.service';
+import { PrismaSubscriptionQuoteStore } from './infrastructure/persistence/prisma-subscription-quote.store';
+import {
+  SubscriptionPlanHttpReader,
+  subscriptionPlanConfigFromEnv,
+} from './infrastructure/subscription/subscription-plan.reader';
+import {
+  SUBSCRIPTION_QUOTE_SERVICE,
+  SubscriptionQuoteController,
+} from './transport/http/subscription-quote.controller';
 /**
  * Composition root for the pricing service.
  *
@@ -60,12 +70,27 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
       logger: createLogger({ service: SERVICE_NAME }),
     }),
   ],
-  controllers: [PricingController, LegacyPricingController],
+  controllers: [PricingController, LegacyPricingController, SubscriptionQuoteController],
   providers: [
     { provide: DATABASE_URL, useFactory: () => databaseUrlFromEnv() },
     PrismaService,
     PrismaPricingRepository,
     LegacyPricingRepository,
+    PrismaSubscriptionQuoteStore,
+    {
+      provide: SUBSCRIPTION_QUOTE_SERVICE,
+      inject: [PrismaSubscriptionQuoteStore],
+      useFactory: (store: PrismaSubscriptionQuoteStore) =>
+        new SubscriptionQuoteService({
+          store,
+          authority: new IdentitySessionAuthority(identityAuthorityConfigFromEnv(process.env)),
+          plans: new SubscriptionPlanHttpReader(subscriptionPlanConfigFromEnv(process.env)),
+          clock: new SystemClock(),
+          ids: new RandomIds(),
+          hasher: new Sha256Hasher(),
+          policy: new EnvPolicyProvider(process.env),
+        }),
+    },
     {
       provide: PRICING_SERVICE,
       inject: [PrismaPricingRepository],

@@ -94,6 +94,10 @@ export interface ModalContent {
 
 export function openModal(content: ModalContent): void {
   const backdrop = byId('modalBackdrop');
+  // Replacing a modal also disposes its timers and pending presentation callbacks.
+  const previousClose = onClose;
+  onClose = null;
+  previousClose?.();
   if (!backdrop.classList.contains('open'))
     returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   onClose = content.onClose ?? null;

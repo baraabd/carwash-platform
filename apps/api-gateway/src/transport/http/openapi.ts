@@ -82,7 +82,9 @@ export function gatewayOpenApi() {
           required: true,
           schema: route.pathEnums?.[match[1]!]
             ? { type: 'string', enum: route.pathEnums[match[1]!] }
-            : { type: 'string', format: 'uuid' },
+            : route.pathPatterns?.[match[1]!]
+              ? { type: 'string', pattern: route.pathPatterns[match[1]!]!.source }
+              : { type: 'string', format: 'uuid' },
         })),
         ...(route.query ?? []).map((parameter) => ({
           in: 'query',
@@ -137,10 +139,17 @@ export function gatewayOpenApi() {
     paths[path] = current;
   }
   for (const read of GATEWAY_COMPOSITIONS) {
+    const permissionGroups: string[][] = [];
     const permissions = read.routes.flatMap((id) => {
       const route = GATEWAY_ROUTES.find((candidate) => candidate.id === id);
-      if (!route || route.method !== 'GET' || (!route.permission && !route.public))
+      if (
+        !route ||
+        route.method !== 'GET' ||
+        (!route.permission && !route.anyPermission?.length && !route.public)
+      )
         throw new Error('INVALID_GATEWAY_COMPOSITION_CONTRACT');
+      if (route.permission) permissionGroups.push([route.permission]);
+      if (route.anyPermission) permissionGroups.push([...route.anyPermission].sort());
       return route.permission ? [route.permission] : [];
     });
     paths[GATEWAY_V1 + read.path] = {
@@ -149,6 +158,8 @@ export function gatewayOpenApi() {
         'x-read-only': true,
         'x-composes': read.routes,
         'x-required-permissions': [...new Set(permissions)].sort(),
+        // All groups must be satisfied; any permission within a group suffices.
+        'x-required-permission-groups': permissionGroups,
         security: SECURITY,
         parameters: CORRELATION_PARAMETERS,
         responses: {

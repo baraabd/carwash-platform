@@ -74,6 +74,28 @@ function job() {
     endsAt: at,
   };
 }
+function funding(task, financialSource = 'DIRECT') {
+  return {
+    bookingId: task.bookingId,
+    paymentMethod: 'CASH_ON_COMPLETION',
+    financialSource,
+    total: amount,
+  };
+}
+function bookingView(task, financialSource = 'DIRECT') {
+  return {
+    ...funding(task, financialSource),
+    revision: 1,
+    status: 'CONFIRMED',
+    slot: { zoneId: randomUUID(), startsAt: at, endsAt: '2026-11-22T10:00:00.000Z' },
+    vehicle: { type: 'sedan', make: null, model: null, color: null, plate: null },
+    address: { location: { mode: 'manual', description: 'عنوان اختبار' }, details: null },
+    contact: { name: 'عميل اختبار', phone: '+963900000001', notes: null },
+    lines: [
+      { lineId: randomUUID(), kind: 'PACKAGE', definitionId: randomUUID(), quantity: 1, amount },
+    ],
+  };
+}
 function target(task, overrides = {}) {
   return {
     bookingId: task.bookingId,
@@ -166,7 +188,7 @@ test('cash close requires Dispatch declaration, separate Billing command and a f
   const responses = [{}, pending, recorded(pending, committed), activeTarget(pending, committed)];
   const requests = network(t, (_, n) => json(responses[n - 1], n === 3 ? 201 : 200));
   const key = randomUUID();
-  const result = await api.sendMutation(api.M.closeCollected(task, amount), key);
+  const result = await api.sendMutation(api.M.closeCollected(task, amount, funding(task)), key);
   assert.equal(result.kind, 'ok');
   assert.deepEqual(result.value, committed);
   assert.deepEqual(
@@ -194,7 +216,7 @@ test('a lost financial response restores the current receipt without creating an
     saved = true;
     throw new Error('LOST_AFTER_COMMIT');
   });
-  const request = api.M.closeCollected(task, amount);
+  const request = api.M.closeCollected(task, amount, funding(task));
   const key = randomUUID();
   assert.equal((await api.sendMutation(request, key)).kind, 'unknown');
   assert.equal((await api.sendMutation(request, key)).kind, 'ok');
@@ -213,7 +235,7 @@ test('an unknown financial write retries the exact body and the same financial k
     if (++writes === 1) throw new Error('LOST_BEFORE_COMMIT');
     return json(recorded(pending, committed), 201);
   });
-  const request = api.M.closeCollected(task, amount);
+  const request = api.M.closeCollected(task, amount, funding(task));
   const key = randomUUID();
   assert.equal((await api.sendMutation(request, key)).kind, 'unknown');
   assert.equal((await api.sendMutation(request, key)).kind, 'ok');
@@ -281,7 +303,7 @@ test('a post-commit target timeout keeps the pending financial request until its
     writes++;
     return json(recorded(pending, committed), 201);
   });
-  const request = api.M.closeCollected(task, amount);
+  const request = api.M.closeCollected(task, amount, funding(task));
   const key = randomUUID();
   const uncertain = await api.sendMutation(request, key);
   assert.equal(uncertain.kind, 'unknown');
@@ -305,7 +327,10 @@ test('a historical successful replay followed by reversal is never shown as curr
     writes++;
     return json(recorded(pending, original), 201);
   });
-  const result = await api.sendMutation(api.M.closeCollected(task, amount), randomUUID());
+  const result = await api.sendMutation(
+    api.M.closeCollected(task, amount, funding(task)),
+    randomUUID(),
+  );
   assert.equal(result.kind, 'error');
   assert.equal(result.code, 'CASH_RECEIPT_NOT_ACTIVE');
   assert.equal(result.retryable, false);
@@ -324,7 +349,7 @@ test('a newer revision without a receipt never replaces a pending financial requ
     lost = true;
     throw new Error('LOST_RESPONSE_THEN_REVERSED');
   });
-  const request = api.M.closeCollected(task, amount);
+  const request = api.M.closeCollected(task, amount, funding(task));
   const key = randomUUID();
   assert.equal((await api.sendMutation(request, key)).kind, 'unknown');
   const retry = await api.sendMutation(request, key);
@@ -348,7 +373,10 @@ test('recovery of an already declared CLOSED task skips a duplicate Dispatch lat
     saved = true;
     return json(recorded(pending, committed), 201);
   });
-  assert.equal((await api.sendMutation(api.M.lateCash(task, amount), randomUUID())).kind, 'ok');
+  assert.equal(
+    (await api.sendMutation(api.M.lateCash(task, amount, funding(task)), randomUUID())).kind,
+    'ok',
+  );
   assert.deepEqual(
     requests.map((r) => r.method),
     ['GET', 'POST', 'GET'],
@@ -366,10 +394,10 @@ test('Billing unavailable or a foreign receipt leaves collection unconfirmed des
       ? json({ error: { code: 'UPSTREAM_UNAVAILABLE', reason: null, retryable: true } }, 503)
       : json({}),
   );
-  const result = await api.sendMutation(api.M.lateCash(task, amount), randomUUID());
+  const result = await api.sendMutation(api.M.lateCash(task, amount, funding(task)), randomUUID());
   assert.equal(result.kind, 'error');
   assert.equal(result.status, 503);
-  const booking = { bookingId: task.bookingId, paymentMethod: 'CASH_ON_COMPLETION', total: amount };
+  const booking = funding(task);
   const jobs = model.buildJobs([], [task], new Map([[task.bookingId, booking]]));
   assert.equal(model.collected(jobs[0]), false);
   const pending = target(task);
@@ -386,8 +414,101 @@ test('a malformed target is UNKNOWN and cannot trigger a cash command', async (t
     writes++;
     return json({});
   });
-  const result = await api.sendMutation(api.M.closeCollected(task, amount), randomUUID());
+  const result = await api.sendMutation(
+    api.M.closeCollected(task, amount, funding(task)),
+    randomUUID(),
+  );
   assert.equal(result.kind, 'unknown');
   assert.equal(result.cause, 'shape');
   assert.equal(writes, 0);
+});
+
+test('Booking funding is required and bound to the requested booking before financial choices', async (t) => {
+  const parse = require(path.join(temporary, 'api/parse.js'));
+  const task = job();
+  const covered = bookingView(task, 'SUBSCRIPTION');
+  assert.equal(parse.parseBooking(covered).financialSource, 'SUBSCRIPTION');
+  const missing = { ...covered };
+  delete missing.financialSource;
+  assert.throws(() => parse.parseBooking(missing), /SHAPE/);
+  assert.throws(() => parse.parseBooking({ ...covered, financialSource: 'PAID' }), /SHAPE/);
+  network(t, () => json({ ...covered, bookingId: randomUUID() }));
+  const result = await api.readBooking(task.bookingId);
+  assert.equal(result.kind, 'unknown');
+  assert.equal(result.cause, 'shape');
+});
+
+test('subscription coverage cannot construct cash close, failed collection or late collection commands', () => {
+  const task = job();
+  const covered = funding(task, 'SUBSCRIPTION');
+  assert.throws(() => api.M.closeCollected(task, amount, covered), /CASH_NOT_APPLICABLE/);
+  assert.throws(() => api.M.closeNotCollected(task, 'reason', covered), /CASH_NOT_APPLICABLE/);
+  assert.throws(() => api.M.lateCash(task, amount, covered), /CASH_NOT_APPLICABLE/);
+  assert.throws(() => api.M.closeCollected(task, amount, null), /FUNDING_UNVERIFIED/);
+  assert.throws(() => api.M.closeNotCash(task, null), /FUNDING_UNVERIFIED/);
+  assert.throws(() => api.M.closeNotCash(task, funding(task)), /NON_CASH_FUNDING_REQUIRED/);
+  assert.throws(
+    () => api.M.closeCollected(task, amount, { ...funding(task), bookingId: randomUUID() }),
+    /FUNDING_UNVERIFIED/,
+  );
+});
+
+test('subscription delivery sends only Dispatch NOT_CASH and never requests or writes a Billing receipt', async (t) => {
+  const task = job();
+  const requests = network(t, (request) => {
+    assert.equal(request.path, `/api/operator/tasks/${task.taskId}/close`);
+    return json({});
+  });
+  const request = api.M.closeNotCash(task, funding(task, 'SUBSCRIPTION'));
+  assert.equal(Object.hasOwn(request, 'cashReceipt'), false);
+  assert.equal((await api.sendMutation(request, randomUUID())).kind, 'ok');
+  assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0].body, {
+    expectedRevision: task.revision,
+    collection: { outcome: 'NOT_CASH' },
+  });
+});
+
+test('subscription views show coverage without cash controls, wallet verification or payment completion', () => {
+  const views = require(path.join(temporary, 'views/task.js'));
+  const common = require(path.join(temporary, 'views/common.js'));
+  const sheets = require(path.join(temporary, 'views/sheets.js'));
+  const state = require(path.join(temporary, 'state.js')).S;
+  const task = {
+    ...job(),
+    evidence: { BEFORE: [null, null], AFTER: [null, null] },
+    notes: [],
+    history: [],
+  };
+  const booking = bookingView(task, 'SUBSCRIPTION');
+  const [handoff] = model.buildJobs([], [task], new Map([[task.bookingId, booking]]));
+  assert.equal(model.method(handoff), 'subscription');
+  assert.equal(model.outstanding(handoff), false);
+  assert.equal(model.collected(handoff), false);
+  assert.equal(model.walletVerified(handoff), false);
+  assert.equal(sheets.cashSheet(handoff), null);
+  state.jobs = [handoff];
+  state.selectedId = handoff.id;
+  const markup = [
+    views.handoff(handoff),
+    common.paymentSummary(handoff),
+    common.paymentPill(handoff),
+    sheets.handoffSheet(handoff).body,
+    views.renderTaskDock(),
+  ].join('');
+  assert.match(markup, /مغطى بالاشتراك/);
+  assert.doesNotMatch(
+    markup,
+    /data-action="(?:cash-dialog|cash-issue|cash-confirm|payment-followup)"/,
+  );
+  assert.doesNotMatch(markup, /المبلغ المطلوب|المبلغ المستحق|قيد المراجعة|تم التحصيل|معتمد/);
+  const closedTask = { ...task, stage: 'CLOSED', collection: { outcome: 'NOT_CASH' } };
+  const [closed] = model.buildJobs([], [closedTask], new Map([[task.bookingId, booking]]));
+  assert.equal(model.collected({ ...closed, cashReceipt: receipt(target(task), task) }), false);
+  const completed = views.completed(closed);
+  assert.match(completed, /اكتملت المهمة/);
+  assert.match(completed, /مغطى بالاشتراك · لا تحصيل إضافي/);
+  assert.doesNotMatch(completed, /تم التحصيل|معتمد|قيد المراجعة|تسجيل تحصيل لاحق/);
+  state.jobs = [];
+  state.selectedId = null;
 });

@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { ROOT, own, gateway, stub, config, start, request, ORIGIN } from './_helpers.mjs';
 const { GATEWAY_ROUTES, GATEWAY_COMPOSITIONS } = own('@carwash/contracts');
+const { validateGatewayConfig } = own('./dist/infrastructure/config.js');
 const security = createRequire(path.join(ROOT, 'packages/security-kit/package.json'));
 const { SignJWT } = security('jose');
 const keys = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -54,7 +55,14 @@ test('F007 route manifest has unique method/path and explicit owners, all compos
     if (r.safe) {
       assert.equal(r.method, 'POST');
       assert.ok(r.permission);
-      assert.ok(r.id.startsWith('operator.media.'));
+      assert.ok(
+        r.id.startsWith('operator.media.') ||
+          [
+            'customer.serviceability',
+            'admin.serviceability',
+            'customer.subscription.eligibility',
+          ].includes(r.id),
+      );
     }
   }
   for (const c of GATEWAY_COMPOSITIONS)
@@ -102,6 +110,164 @@ test('F007 invalid idempotency keys cannot reach an upstream', () => {
   for (const key of [undefined, '', 'short', 'x'.repeat(129), 'a'.repeat(16) + '\n'])
     assert.throws(() => gateway.idempotencyKey(key));
   assert.equal(gateway.idempotencyKey('command_1234567890'), 'command_1234567890');
+});
+test('S08 recovery keys and hold writes stay in Booking; malformed opaque keys are refused', () => {
+  const key = 'recover_' + randomUUID();
+  assert.equal(
+    gateway.routeMatch('GET', `/api/v1/customer/bookings/by-request/${key}`).upstream,
+    `/internal/v1/booking/bookings/by-request/${key}`,
+  );
+  for (const bad of ['short', 'a'.repeat(129), 'valid_key_1234567%2fother', 'key.with.dots.123456'])
+    assert.throws(() => gateway.routeMatch('GET', `/api/v1/customer/bookings/by-request/${bad}`));
+  for (const method of ['POST', 'GET']) {
+    const suffix = method === 'GET' ? `/${randomUUID()}` : '';
+    const route = gateway.routeMatch(method, `/api/v1/customer/booking-holds${suffix}`);
+    assert.equal(route.route.owner, 'booking');
+    assert.equal(route.upstream, `/internal/v1/booking/booking-holds${suffix}`);
+  }
+});
+test('S04 operator auth is a closed Identity transport and never grants work permissions itself', () => {
+  for (const action of [
+    'csrf',
+    'login',
+    'challenges/resend',
+    'challenges/verify',
+    'refresh',
+    'logout',
+  ]) {
+    const route = gateway.routeMatch(
+      action === 'csrf' ? 'GET' : 'POST',
+      `/api/operator/auth/${action}`,
+    );
+    assert.equal(route.route.owner, 'identity');
+    assert.equal(route.route.authTransport, true);
+    assert.equal(route.upstream, `/internal/v1/identity/${action}`);
+  }
+  assert.throws(() => gateway.routeMatch('POST', '/api/operator/auth/accounts'));
+});
+test('S10 private HTTP requires explicit Railway deployment scope and an exact internal hostname', () => {
+  const base = config('https://identity.example.invalid');
+  const valid = {
+    ...base,
+    privateNetwork: 'railway',
+    origins: { identity: 'http://identity.railway.internal:3000' },
+  };
+  assert.doesNotThrow(() => validateGatewayConfig(valid));
+  assert.throws(() => validateGatewayConfig({ ...valid, privateNetwork: undefined }));
+  for (const raw of [
+    'http://identity.example.invalid',
+    'http://identity.railway.internal.evil.invalid',
+    'http://railway.internal',
+    'http://user@identity.railway.internal',
+    'http://identity.railway.internal/path',
+  ])
+    assert.throws(() => validateGatewayConfig({ ...valid, origins: { identity: raw } }));
+  const env = {
+    GATEWAY_UPSTREAMS: JSON.stringify(valid.origins),
+    IDENTITY_ISSUER: base.issuer,
+    IDENTITY_AUDIENCE: base.audience,
+    GATEWAY_ALLOWED_ORIGINS: ORIGIN,
+    GATEWAY_PRIVATE_NETWORK: 'railway',
+  };
+  assert.throws(() => gateway.loadGatewayConfig(env), /INVALID_GATEWAY_PRIVATE_NETWORK/);
+  assert.doesNotThrow(() =>
+    gateway.loadGatewayConfig({
+      ...env,
+      RAILWAY_PROJECT_ID: randomUUID(),
+      RAILWAY_ENVIRONMENT_ID: randomUUID(),
+    }),
+  );
+});
+test('S08 checkout reads preserve closed owner queries and strip browser credentials', async (t) => {
+  const identity = await stub('identity');
+  const scheduling = await stub('scheduling');
+  const geo = await stub('geo');
+  const app = await start(config(identity.base, { scheduling: scheduling.base, geo: geo.base }));
+  t.after(async () => {
+    await app.close();
+    await Promise.all([identity.close(), scheduling.close(), geo.close()]);
+  });
+  const zone = randomUUID();
+  const query = `zoneId=${zone}&date=2026-12-01&durationMinutes=45`;
+  const result = await request(app.base, `/api/v1/customer/availability?${query}`, {
+    headers: { authorization: 'Bearer untrusted', cookie: 'wg_access=untrusted' },
+  });
+  assert.equal(result.status, 200);
+  assert.equal(scheduling.calls[0].path, `/internal/v1/scheduling/availability?${query}`);
+  assert.equal(scheduling.calls[0].headers.authorization, undefined);
+  assert.equal(scheduling.calls[0].headers.cookie, undefined);
+  assert.equal(identity.calls.length, 0);
+  assert.equal((await request(app.base, '/api/v1/customer/service-zones')).status, 200);
+  assert.equal(geo.calls[0].path, '/internal/v1/geo/service-zones');
+  for (const suffix of ['&durationMinutes=60', '&origin=https://wrong.invalid', '&cursor=anything'])
+    assert.equal(
+      (await request(app.base, `/api/v1/customer/availability?${query}${suffix}`)).status,
+      400,
+    );
+  assert.equal(scheduling.calls.length, 1);
+  assert.equal(
+    gateway.routeMatch(
+      'GET',
+      `/api/v1/customer/availability/earliest?zoneId=${zone}&durationMinutes=45`,
+    ).upstream,
+    `/internal/v1/scheduling/availability/earliest?zoneId=${zone}&durationMinutes=45`,
+  );
+});
+test('S08 quote writes require a real session and stable key; coverage remains authenticated', async (t) => {
+  const { identity, token, session } = await signedSession(t);
+  const pricing = await stub('pricing');
+  const geo = await stub('geo');
+  const app = await start(config(identity.base, { pricing: pricing.base, geo: geo.base }));
+  t.after(async () => {
+    await app.close();
+    await Promise.all([pricing.close(), geo.close()]);
+  });
+  const headers = {
+    authorization: `Bearer ${token}`,
+    'content-type': 'application/json',
+    origin: ORIGIN,
+  };
+  const body = JSON.stringify({ packageId: randomUUID(), vehicleType: 'sedan', extras: [] });
+  assert.equal(
+    (await request(app.base, '/api/v1/customer/quotes', { method: 'POST', headers, body })).status,
+    428,
+  );
+  const key = randomUUID();
+  assert.equal(
+    (
+      await request(app.base, '/api/v1/customer/quotes', {
+        method: 'POST',
+        headers: { ...headers, 'idempotency-key': key, 'x-auth-subject': randomUUID() },
+        body,
+      })
+    ).status,
+    200,
+  );
+  assert.equal(pricing.calls[0].path, '/internal/v1/pricing/quotes');
+  assert.equal(pricing.calls[0].headers['idempotency-key'], key);
+  assert.equal(pricing.calls[0].headers['x-auth-subject'], session.subject);
+  assert.equal(
+    (
+      await request(app.base, '/api/v1/customer/serviceability', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ latitude: 36.2, longitude: 37.15 }),
+      })
+    ).status,
+    200,
+  );
+  assert.equal(geo.calls[0].path, '/internal/v1/geo/serviceability');
+  assert.equal(
+    (
+      await request(app.base, '/api/v1/customer/serviceability', {
+        method: 'POST',
+        headers: { ...headers, origin: 'https://untrusted.invalid' },
+        body: '{}',
+      })
+    ).status,
+    403,
+  );
+  assert.equal(geo.calls.length, 1);
 });
 test('P03-P06 browser routes use exact owner paths and closed parameter enums', () => {
   const id = randomUUID();
@@ -168,11 +334,8 @@ test('P03-P06 real Gateway HTTP forwards every technician and admin route withou
   const routes = GATEWAY_ROUTES.filter(
     (r) =>
       r.prefix === '/api/operator' ||
-      r.id.startsWith('admin.operations.') ||
-      r.id.startsWith('admin.assignments.') ||
-      r.id.startsWith('admin.notifications.') ||
-      r.id === 'admin.finance.cash' ||
-      r.id === 'admin.booking.get',
+      r.path.startsWith('/admin/') ||
+      (r.path.startsWith('/customer/subscription') && !r.public),
   );
   const owners = new Map();
   for (const name of new Set(routes.map((r) => r.owner).filter((name) => name !== 'identity'))) {
@@ -190,7 +353,10 @@ test('P03-P06 real Gateway HTTP forwards every technician and admin route withou
   const id = randomUUID();
   for (const route of routes) {
     const expand = (path) =>
-      path.replace(/:([A-Za-z][A-Za-z0-9]*)/g, (_, name) => route.pathEnums?.[name]?.[0] ?? id);
+      path.replace(
+        /:([A-Za-z][A-Za-z0-9]*)/g,
+        (_, name) => route.pathEnums?.[name]?.[0] ?? (name === 'no' ? '1' : id),
+      );
     const key = randomUUID();
     const response = await request(app.base, (route.prefix ?? '/api/v1') + expand(route.path), {
       method: route.method,
@@ -768,12 +934,20 @@ test('F007 discovery marks every BFF composition authenticated with every requir
       GATEWAY_ROUTES.find((route) => route.id === id),
     );
     // Every composed route is either permissioned or explicitly public; none is silently open.
-    for (const route of composed) assert.ok(route.permission || route.public, route.id);
+    for (const route of composed)
+      assert.ok(route.permission || route.anyPermission?.length || route.public, route.id);
     const expected = [
       ...new Set(composed.flatMap((route) => (route.permission ? [route.permission] : []))),
     ].sort();
     assert.deepEqual(operation.security, [{ bearer: [] }, { session: [] }]);
     assert.deepEqual(operation['x-required-permissions'], expected);
+    assert.deepEqual(
+      operation['x-required-permission-groups'],
+      composed.flatMap((route) => [
+        ...(route.permission ? [[route.permission]] : []),
+        ...(route.anyPermission ? [[...route.anyPermission].sort()] : []),
+      ]),
+    );
     assert.equal(operation['x-read-only'], true);
   }
 });
@@ -866,7 +1040,7 @@ test('F007 rejects JSON-lookalike upstream media types while allowing JSON with 
 });
 
 test('F007 admin BFF requires the intersection of component permissions before any owner call', async (t) => {
-  const { identity, token, session } = await signedSession(t, ['billing.read']);
+  const { identity, token, session } = await signedSession(t, ['support.cases.read']);
   const billing = await stub('billing');
   const support = await stub('support');
   t.after(() => billing.close());
@@ -877,7 +1051,8 @@ test('F007 admin BFF requires the intersection of component permissions before a
   assert.equal((await request(app.base, '/api/v1/admin/overview', options)).status, 403);
   assert.equal(billing.calls.length, 0);
   assert.equal(support.calls.length, 0);
-  session.permissions = ['billing.read', 'support.cases.read'];
+  // Billing readers may read their finance desk; Support still enforces desk isolation.
+  session.permissions = ['billing.read'];
   const allowed = await request(app.base, '/api/v1/admin/overview', options);
   assert.equal(allowed.status, 200);
   assert.equal(allowed.body['admin.billing'].owner, 'billing');
@@ -1002,4 +1177,111 @@ test('P01-E3 identity session views without a valid principal kind, or guests wi
     await app.close();
     await customer.close();
   }
+});
+
+test('S08 subscription browse strips identity and commands preserve the owner boundary', async (t) => {
+  const { identity, token } = await signedSession(t);
+  const subscription = await stub('subscription');
+  t.after(() => subscription.close());
+  const app = await start(config(identity.base, { subscription: subscription.base }));
+  t.after(() => app.close());
+  const browse = await request(app.base, '/api/v1/customer/subscription-plans?limit=50', {
+    headers: {
+      authorization: `Bearer ${token}`,
+      cookie: 'private=secret',
+      'x-auth-subject': 'forged',
+    },
+  });
+  assert.equal(browse.status, 200);
+  assert.equal(subscription.calls.at(-1).path, '/internal/v1/subscription/plans?limit=50');
+  for (const name of ['authorization', 'cookie', 'x-auth-subject'])
+    assert.equal(subscription.calls.at(-1).headers[name], undefined);
+  assert.equal(
+    (
+      await request(app.base, '/api/v1/admin/subscription-plans', {
+        headers: { authorization: `Bearer ${token}` },
+      })
+    ).status,
+    403,
+  );
+  const eligibility = `/api/v1/customer/subscriptions/${randomUUID()}/eligibility`;
+  assert.equal(
+    (
+      await request(app.base, eligibility, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          origin: ORIGIN,
+          'content-type': 'application/json',
+        },
+        body: '{}',
+      })
+    ).status,
+    200,
+  );
+  assert.equal(subscription.calls.at(-1).headers.authorization, `Bearer ${token}`);
+  const before = subscription.calls.length;
+  assert.equal(
+    (
+      await request(app.base, '/api/v1/customer/subscription-purchases', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          origin: ORIGIN,
+          'content-type': 'application/json',
+        },
+        body: '{}',
+      })
+    ).status,
+    428,
+  );
+  assert.equal(subscription.calls.length, before);
+  for (const bad of ['short', 'a'.repeat(129), 'x.y.z.1234567890'])
+    assert.throws(() =>
+      gateway.routeMatch('GET', `/api/v1/customer/subscription-purchases/by-request/${bad}`),
+    );
+});
+
+test('S05 Support pagination and decision numbers are closed; read-only staff cannot approve refunds', async (t) => {
+  const { identity, token } = await signedSession(t, ['support.cases.read'], {
+    principalKind: 'account',
+    roles: ['support'],
+  });
+  const support = await stub('support');
+  t.after(() => support.close());
+  const app = await start(config(identity.base, { support: support.base }));
+  t.after(() => app.close());
+  assert.equal(
+    (
+      await request(app.base, '/api/v1/admin/support?limit=30&status=EXECUTING&kind=REFUND', {
+        headers: { authorization: `Bearer ${token}` },
+      })
+    ).status,
+    200,
+  );
+  const id = randomUUID();
+  const response = await request(app.base, `/api/v1/admin/support/${id}/decisions/1/approval`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      origin: ORIGIN,
+      'content-type': 'application/json',
+      'idempotency-key': randomUUID(),
+    },
+    body: '{}',
+  });
+  assert.equal(response.status, 403);
+  assert.equal(support.calls.length, 1);
+  for (const no of ['0', '-1', '01', '1e2', randomUUID()])
+    assert.throws(() =>
+      gateway.routeMatch('POST', `/api/v1/admin/support/${id}/decisions/${no}/execution`),
+    );
+  for (const query of [
+    'status=PAID',
+    'kind=IDENTITY_ADMIN',
+    'limit=101',
+    'limit=30&limit=50',
+    'target=identity',
+  ])
+    assert.throws(() => gateway.routeMatch('GET', `/api/v1/admin/support?${query}`));
 });

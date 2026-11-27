@@ -6,9 +6,13 @@ const OWNERS: readonly GatewayOwner[] = [
   'customer',
   'vehicle',
   'catalog',
+  'pricing',
+  'geo',
+  'scheduling',
   'booking',
   'workforce',
   'billing',
+  'subscription',
   'reviews',
   'support',
   'reporting',
@@ -17,6 +21,8 @@ const OWNERS: readonly GatewayOwner[] = [
   'media',
 ];
 export function validateGatewayConfig(config: GatewayConfig): GatewayConfig {
+  if (config.privateNetwork !== undefined && config.privateNetwork !== 'railway')
+    throw new Error('INVALID_GATEWAY_PRIVATE_NETWORK');
   if (
     !config.origins.identity ||
     !config.issuer ||
@@ -36,6 +42,9 @@ export function validateGatewayConfig(config: GatewayConfig): GatewayConfig {
   for (const [owner, raw] of Object.entries(config.origins)) {
     if (!OWNERS.includes(owner as GatewayOwner)) throw new Error('UNKNOWN_GATEWAY_OWNER');
     const url = new URL(raw);
+    const encryptedPrivateOrigin =
+      config.privateNetwork === 'railway' &&
+      /^[a-z][a-z0-9-]{0,62}\.railway\.internal$/.test(url.hostname);
     if (
       url.username ||
       url.password ||
@@ -43,7 +52,10 @@ export function validateGatewayConfig(config: GatewayConfig): GatewayConfig {
       url.search ||
       url.hash ||
       (url.protocol !== 'https:' &&
-        !(url.protocol === 'http:' && ['127.0.0.1', '[::1]'].includes(url.hostname)))
+        !(
+          url.protocol === 'http:' &&
+          (['127.0.0.1', '[::1]'].includes(url.hostname) || encryptedPrivateOrigin)
+        ))
     )
       throw new Error('INVALID_UPSTREAM_ORIGIN');
   }
@@ -59,6 +71,15 @@ export function validateGatewayConfig(config: GatewayConfig): GatewayConfig {
   return config;
 }
 export function loadGatewayConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig {
+  const privateNetwork = env.GATEWAY_PRIVATE_NETWORK;
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (
+    privateNetwork &&
+    (privateNetwork !== 'railway' ||
+      !uuid.test(env.RAILWAY_PROJECT_ID ?? '') ||
+      !uuid.test(env.RAILWAY_ENVIRONMENT_ID ?? ''))
+  )
+    throw new Error('INVALID_GATEWAY_PRIVATE_NETWORK');
   return validateGatewayConfig({
     origins: JSON.parse(env.GATEWAY_UPSTREAMS ?? '{}') as GatewayConfig['origins'],
     issuer: env.IDENTITY_ISSUER ?? '',
@@ -67,5 +88,6 @@ export function loadGatewayConfig(env: NodeJS.ProcessEnv = process.env): Gateway
     timeoutMs: Number(env.GATEWAY_TIMEOUT_MS ?? 3000),
     responseLimit: Number(env.GATEWAY_RESPONSE_LIMIT ?? 262144),
     allowedOrigins: (env.GATEWAY_ALLOWED_ORIGINS ?? '').split(',').filter(Boolean),
+    ...(privateNetwork === 'railway' ? { privateNetwork } : {}),
   });
 }

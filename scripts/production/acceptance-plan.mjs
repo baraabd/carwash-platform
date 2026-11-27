@@ -80,6 +80,13 @@ export const BUSINESS_SUITES = Object.freeze({
     scope:
       'Real Workforce/Dispatch/Booking/Media, PostgreSQL/RabbitMQ/S3 and technician browser. Identity/Booking owner doubles and a Gateway harness; Billing custody is not proved.',
   },
+  'c-runtime-workers': {
+    lane: 'C',
+    services: cOwners,
+    browser: false,
+    scope:
+      'Standalone Booking/Dispatch/Scheduling/Workforce workers against real PostgreSQL and RabbitMQ: restart, automatic assignment, task close and Booking projection. Shared disposable broker identity and explicit financial/media fixtures; no production ACL or payment-provider approval.',
+  },
   'c-operator-fixtures': {
     lane: 'C',
     services: [],

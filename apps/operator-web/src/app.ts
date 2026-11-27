@@ -1,4 +1,6 @@
 import { newKey, type Result } from './api/client';
+import { signOut } from './api/auth-api';
+import { mountSignIn } from './views/sign-in';
 import { readCashTarget, type CashReceipt } from './api/cash-api';
 import {
   M,
@@ -44,7 +46,9 @@ import {
   method,
   photos as photoSlots,
   requiredDone,
+  subscriptionCovered,
   total,
+  walletMethod,
   type Job,
   type PhotoPhase,
 } from './model';
@@ -101,6 +105,7 @@ let sheetReturn: Element | null = null;
 let sheetContext: { id: string | null; phase?: PhotoPhase; index?: number } | null = null;
 let lock = false;
 let inFlight = false;
+let disposeSignIn: (() => void) | null = null;
 const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 const reduced = (): boolean => !S.motion || reducedQuery.matches;
 
@@ -166,6 +171,24 @@ function updateDock(): void {
 
 function render({ animate = false, back = false, scroll = false } = {}): void {
   stopReveal();
+  if (S.connection === 'auth' || S.connection === 'forbidden') {
+    if (S.session) clearPrivateSession();
+    setHtml(header, renderHeader());
+    setHtml(dock, '');
+    main.className = 'main';
+    if (!disposeSignIn)
+      disposeSignIn = mountSignIn(main, async () => {
+        disposeSignIn?.();
+        disposeSignIn = null;
+        clearPrivateSession();
+        S.connection = 'loading';
+        await boot();
+      });
+    updateStatus();
+    return;
+  }
+  disposeSignIn?.();
+  disposeSignIn = null;
   const oldFocus = document.activeElement?.getAttribute('data-focus');
   document.documentElement.dataset.motion = S.motion ? 'on' : 'off';
   document.documentElement.dataset.view = S.view;
@@ -263,6 +286,40 @@ function connectionFrom(result: Result<unknown>): typeof S.connection {
   return 'ok';
 }
 
+/** A revoked or changed identity must not retain task/media facts or pending commands. */
+function clearPrivateSession(): void {
+  readSeq += 1;
+  clearTimeout(backgroundTimer);
+  clearTimeout(resolveTimer);
+  S.session = null;
+  S.jobs = [];
+  S.availability = null;
+  S.profile = null;
+  S.custody = null;
+  S.profileCachedAt = null;
+  S.loaded = false;
+  S.selectedId = null;
+  S.view = 'home';
+  S.mediaUrls.clear();
+  bookings.clear();
+  conditionDrafts.clear();
+  pending.clear();
+  stalled.clear();
+  forgetProfile();
+}
+
+async function leaveSession(): Promise<void> {
+  const result = await signOut();
+  if (result.kind !== 'ok') {
+    toast('تعذر تأكيد تسجيل الخروج. تحقق من الاتصال وحاول مجددًا.');
+    return;
+  }
+  clearPrivateSession();
+  S.connection = 'auth';
+  closeSheet();
+  refresh();
+}
+
 /** Sequence of started reads; only the newest one may replace the screen state. */
 let readSeq = 0;
 
@@ -323,7 +380,9 @@ async function reload(): Promise<boolean> {
     tasks
       .filter(
         (t) =>
-          t.stage === 'CLOSED' && bookings.get(t.bookingId)?.paymentMethod === 'CASH_ON_COMPLETION',
+          t.stage === 'CLOSED' &&
+          bookings.get(t.bookingId)?.financialSource === 'DIRECT' &&
+          bookings.get(t.bookingId)?.paymentMethod === 'CASH_ON_COMPLETION',
       )
       .map(async (t) => {
         const target = await readCashTarget(t.bookingId);
@@ -626,6 +685,10 @@ async function acceptJob(offerId: string): Promise<void> {
 
 function closeTaskSheet(j: Job): void {
   if (j.stage !== 'handoff') return;
+  if (method(j) === null) {
+    toast('تعذّر التحقق من تمويل الحجز. أعد تحميل المهمة قبل تأكيد التسليم.');
+    return;
+  }
   if (method(j) === 'cash' && !collected(j) && !cashIssue(j)) {
     showCash(j);
     return;
@@ -649,7 +712,12 @@ function showCash(j: Job): void {
 function validCash(j: Job): boolean {
   const t = total(j);
   const amount = $<HTMLInputElement>('#cash-amount')?.value ?? '';
-  return !!t && cashMatches(amount, t) && !!$<HTMLInputElement>('#cash-check')?.checked;
+  return (
+    method(j) === 'cash' &&
+    !!t &&
+    cashMatches(amount, t) &&
+    !!$<HTMLInputElement>('#cash-check')?.checked
+  );
 }
 
 function syncCash(): void {
@@ -696,8 +764,12 @@ function saveIssue(mode: string): void {
   } else if (mode === 'defer' && j.stage === 'accepted' && t) {
     void mutate(taskIntent(t, 'release'), () => M.release(t, note), saved);
   } else if (mode === 'cash' && method(j) === 'cash' && j.stage === 'handoff' && t) {
-    void mutate(taskIntent(t, 'close-not-collected'), () => M.closeNotCollected(t, note), saved);
-  } else if ((mode === 'help' || mode === 'payment') && t) {
+    void mutate(
+      taskIntent(t, 'close-not-collected'),
+      () => M.closeNotCollected(t, note, j.booking),
+      saved,
+    );
+  } else if ((mode === 'help' || (mode === 'payment' && walletMethod(j))) && t) {
     void mutate(
       `${t.taskId}:note:${mode}:${note}`,
       () => M.note(t, mode === 'help' ? 'HELP' : 'PAYMENT_FOLLOW_UP', note),
@@ -733,11 +805,15 @@ function cashConfirm(): void {
   if (j.stage === 'handoff') {
     void mutate(
       taskIntent(t, 'close-collected'),
-      () => M.closeCollected(t, declaredCash(amount)),
+      () => M.closeCollected(t, declaredCash(amount), j.booking),
       done,
     );
   } else {
-    void mutate(taskIntent(t, 'cash-collection'), () => M.lateCash(t, declaredCash(amount)), done);
+    void mutate(
+      taskIntent(t, 'cash-collection'),
+      () => M.lateCash(t, declaredCash(amount), j.booking),
+      done,
+    );
   }
 }
 
@@ -1084,6 +1160,9 @@ function onClick(e: MouseEvent): void {
   const j = job();
   const c = ctxJob();
   switch (action) {
+    case 'sign-out':
+      void leaveSession();
+      break;
     case 'home':
     case 'tasks':
     case 'collections':
@@ -1315,8 +1394,8 @@ function onClick(e: MouseEvent): void {
       break;
     case 'close-job-confirm': {
       const t = c?.task;
-      if (c?.stage === 'handoff' && t && (method(c) !== 'cash' || collected(c) || cashIssue(c))) {
-        void mutate(taskIntent(t, 'close'), () => M.closeNotCash(t), advanced);
+      if (c?.stage === 'handoff' && t && (subscriptionCovered(c) || walletMethod(c))) {
+        void mutate(taskIntent(t, 'close'), () => M.closeNotCash(t, c.booking), advanced);
       }
       break;
     }
@@ -1327,7 +1406,7 @@ function onClick(e: MouseEvent): void {
       if (j && method(j) === 'cash' && j.stage === 'handoff' && !collected(j)) showIssue('cash', j);
       break;
     case 'payment-followup':
-      if (j && method(j) !== 'cash' && j.task) showIssue('payment', j);
+      if (j && walletMethod(j) && j.task) showIssue('payment', j);
       break;
     case 'help':
       if (j && j.stage !== 'closed' && j.task) showIssue('help', j);
@@ -1430,8 +1509,11 @@ function userIsBusy(): boolean {
 
 async function backgroundRead(): Promise<void> {
   if (!S.session || document.hidden) return;
-  if (!userIsBusy() && (await reload())) refresh();
-  scheduleBackgroundRead();
+  if (!userIsBusy()) {
+    const loaded = await reload();
+    if (loaded || S.connection === 'auth' || S.connection === 'forbidden') refresh();
+  }
+  if (S.session) scheduleBackgroundRead();
 }
 
 async function boot(): Promise<void> {
@@ -1445,7 +1527,7 @@ async function boot(): Promise<void> {
   }
   if (!session.value.permissions.includes('work.read:assigned')) {
     S.connection = 'forbidden';
-    updateStatus();
+    refresh();
     return;
   }
   S.session = session.value;

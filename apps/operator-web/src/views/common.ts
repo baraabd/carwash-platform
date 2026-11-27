@@ -14,6 +14,7 @@ import {
   outstanding,
   plateText,
   stageIndex,
+  subscriptionCovered,
   time,
   total,
   typeLabel,
@@ -65,12 +66,17 @@ export function status(j: Job): string {
 
 export function paymentLabel(j: Job): string {
   const m = method(j);
+  if (m === 'subscription') return 'مغطى بالاشتراك';
+  if (m === null) return 'تمويل الحجز غير متاح';
   if (m === 'cash') return collected(j) ? 'كاش · تم التحصيل' : 'كاش بعد الغسيل';
   return m === 'sham' ? 'شام كاش' : 'سيريتل كاش';
 }
 
 /** PC-02: «معتمد تجريبيًا» is unreachable (D9: no verification source); pending stays «قيد المراجعة». */
 export function paymentPill(j: Job): string {
+  if (subscriptionCovered(j)) return `<span class="pill">${I('shield')}مغطى بالاشتراك</span>`;
+  if (method(j) === null)
+    return `<span class="pill amber">${I('clock')}تمويل الحجز غير متاح</span>`;
   const cash = method(j) === 'cash';
   return `<span class="pill ${outstanding(j) && !cash ? 'amber' : !outstanding(j) ? 'success' : ''}">${I(cash ? 'banknote' : 'shield')}${paymentLabel(j)}${!cash ? ' · ' + (walletVerified(j) ? 'معتمد' : 'قيد المراجعة') : ''}</span>`;
 }
@@ -105,6 +111,10 @@ export function heading(title: string, desc: string, icon: string): string {
 
 /** PC-03: «محليًا» removed; the verified wallet branch is unreachable (D9). */
 export function paymentSummary(j: Job): string {
+  if (subscriptionCovered(j))
+    return `<section class="card payment-summary row"><span class="tile-icon lime">${I('shield')}</span><div class="grow"><h3>مغطى بالاشتراك</h3><p>لا يوجد تحصيل إضافي لهذه الخدمة</p></div></section>`;
+  if (method(j) === null)
+    return `<section class="card payment-summary row"><span class="tile-icon amber">${I('clock')}</span><div class="grow"><h3>تمويل الحجز غير متاح</h3><p>أعد تحميل المهمة للتحقق من حالة التمويل</p></div></section>`;
   const cash = method(j) === 'cash';
   return `<section class="card payment-summary row"><span class="tile-icon ${outstanding(j) && !cash ? 'amber' : 'lime'}">${I(cash ? 'banknote' : 'shield')}</span><div class="grow"><h3>${paymentLabel(j)}</h3><p>${cash ? (collected(j) ? 'تم تسجيل التحصيل' : 'يُحصّل المبلغ بعد إنهاء الغسيل') : walletVerified(j) ? 'معتمد' : 'التحويل بانتظار مطابقة الإدارة'}</p></div></section>`;
 }

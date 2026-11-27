@@ -25,11 +25,31 @@ import {
   markActive,
   showConsoleState,
   storedLanguage,
+  toast,
   wireShell,
 } from './ui/shell';
 import { signIn } from './ui/sign-in';
 import { failureMessage } from './ui/states';
 import { openReview, showTechnicians, wireTechnicians } from './ui/technicians-screen';
+import {
+  wireReviewNotifications,
+  invalidateReviewNotifications,
+  showCustomerReviews,
+  showNotifications,
+} from './ui/reviews-notifications';
+import {
+  wireDomainScreens,
+  invalidateDomainScreens,
+  showServices,
+  showCoverage,
+} from './ui/catalog-coverage';
+import { wireSupportScreens, invalidateSupportScreens, showSupportCases } from './ui/support-cases';
+import { wireWalletScreens, invalidateWalletScreens, showWallets } from './ui/wallets';
+import {
+  wireSubscriptionScreens,
+  invalidateSubscriptionScreens,
+  showSubscriptions,
+} from './ui/subscriptions';
 
 /**
  * Admin console entry: session, capability gating and hash routing.
@@ -49,6 +69,12 @@ const NO_CAPABILITIES: Capabilities = {
   assignmentActions: false,
   payments: false,
   reconcile: false,
+  reviewModeration: false,
+  services: false,
+  coverage: false,
+  support: false,
+  custody: false,
+  subscriptions: false,
 };
 let session: StaffSession | null = null;
 let caps: Capabilities = NO_CAPABILITIES;
@@ -86,6 +112,7 @@ function gateNavigation(): void {
 }
 
 async function render(): Promise<void> {
+  invalidatePrivateScreens(false);
   const current = ++renderGeneration;
   const renderingSession = session;
   if (!session) return;
@@ -114,6 +141,27 @@ async function render(): Promise<void> {
     case 'payments':
       await showPayments();
       return;
+    case 'reviews':
+      await showCustomerReviews();
+      return;
+    case 'notifications':
+      await showNotifications();
+      return;
+    case 'services':
+      await showServices();
+      return;
+    case 'coverage':
+      await showCoverage();
+      return;
+    case 'disputes':
+      await showSupportCases();
+      return;
+    case 'wallets':
+      await showWallets();
+      return;
+    case 'subscriptions':
+      await showSubscriptions();
+      return;
     case 'technicians':
       await showTechnicians();
       // Hash changes can overtake an outstanding Reporting read. Only the
@@ -124,7 +172,16 @@ async function render(): Promise<void> {
   }
 }
 
+function invalidatePrivateScreens(clearPrivate: boolean): void {
+  invalidateReviewNotifications(clearPrivate);
+  invalidateDomainScreens(clearPrivate);
+  invalidateSupportScreens(clearPrivate);
+  invalidateWalletScreens(clearPrivate);
+  invalidateSubscriptionScreens(clearPrivate);
+}
+
 function unauthenticated(): void {
+  invalidatePrivateScreens(true);
   renderGeneration += 1;
   session = null;
   caps = NO_CAPABILITIES;
@@ -135,6 +192,7 @@ function unauthenticated(): void {
 }
 
 function signedIn(next: StaffSession): void {
+  if (session?.subject !== next.subject) invalidatePrivateScreens(true);
   session = next;
   caps = capabilities(next);
   closeModal();
@@ -144,12 +202,23 @@ function signedIn(next: StaffSession): void {
 }
 
 async function leave(): Promise<void> {
-  await signOut();
-  unauthenticated();
+  const result = await signOut();
+  if (result.ok) unauthenticated();
+  else toast(failureMessage(result.failure));
 }
 
 async function boot(): Promise<void> {
   applyLanguage(storedLanguage());
+  wireReviewNotifications(unauthenticated);
+  const domainWiring = {
+    unauthenticated,
+    permissions: () => [...(session?.permissions ?? [])],
+    subject: () => session?.subject ?? null,
+  };
+  wireDomainScreens(domainWiring);
+  wireSupportScreens(domainWiring);
+  wireWalletScreens(domainWiring);
+  wireSubscriptionScreens(domainWiring);
   wireShell(() => {
     renderFilters();
     renderProfile();

@@ -133,6 +133,14 @@ export class DispatchService {
     return this.current(assignment);
   }
 
+  async executionByBooking(meta: RequestMeta, bookingId: string) {
+    if (!isOperations(meta.actor) && !hasScope(meta.actor, 'dispatch.assignment.read'))
+      throw new DispatchError('FORBIDDEN', 'Permission denied.');
+    const view = await this.read.executionByBooking(uuid(bookingId, 'bookingId'));
+    if (!view) throw notFound();
+    return view;
+  }
+
   async listAssignments(
     meta: RequestMeta,
     query: {
@@ -183,6 +191,7 @@ export class DispatchService {
             throw new DispatchError('ASSIGNMENT_ALREADY_ASSIGNED', 'The job is already assigned.');
           }
           if (!stillEligible(verdict, observed)) throw ineligible();
+          await tx.pauseAutomaticAssignment(current.assignment.id, now);
           return this.placeOffer(tx, current.assignment, normalized, now, meta);
         },
       );
@@ -211,6 +220,7 @@ export class DispatchService {
         meta,
         async (current) => {
           if (!stillEligible(verdict, observed)) throw ineligible();
+          await tx.pauseAutomaticAssignment(current.assignment.id, now);
           const released = await this.releaseCurrent(tx, current, 'REASSIGNED', now, meta);
           return this.placeOffer(tx, released, normalized, now, meta);
         },
@@ -230,6 +240,7 @@ export class DispatchService {
     const body = { expectedRevision: revision(input.expectedRevision) };
     return this.command(meta, 'unassign', id, idempotencyKey, body, (tx, now) =>
       this.withAssignment(tx, id, body.expectedRevision, now, meta, async (current) => {
+        await tx.pauseAutomaticAssignment(current.assignment.id, now);
         await this.releaseCurrent(tx, current, 'UNASSIGNED', now, meta);
         return { kind: 'DONE', result: { resultType: 'ASSIGNMENT', resultId: id } };
       }),

@@ -6,6 +6,9 @@ import { Client } from 'pg';
 import { billingV1, parseApiErrorEnvelope } from '@carwash/contracts';
 import { BILLING_REFUND_STATUS_CHANGED_V1 } from '@carwash/event-contracts';
 import { snapshotFinancialStatus } from '../../src/application';
+import { serviceTokenDigest } from '@carwash/service-kit';
+import { SubscriptionFundingService } from '../../src/application/subscription-funding.service';
+import { ServiceClientCallerAuthority } from '../../src/infrastructure/security/service-callers';
 import type { BillingUnitOfWork } from '../../src/ports';
 import { PrismaBillingRepository } from '../../src/infrastructure/persistence/prisma-billing.repository';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma.service';
@@ -239,6 +242,62 @@ async function requested(p: Paid, amount = p.amount, options: Options = {}) {
   assert.equal(reply.status, 201, JSON.stringify(reply.body));
   return billingV1.parseRefundV1(reply.body);
 }
+
+test('subscription funding uses the real allocated credit and excludes pending, unknown and completed refunds', async () => {
+  const token = 'test-canonical-subscription-funding-token-123456789';
+  const service = new SubscriptionFundingService({
+    repository: new PrismaBillingRepository(prismas[0]!),
+    callers: new ServiceClientCallerAuthority(
+      JSON.stringify([
+        {
+          id: 'subscription',
+          tokenSha256: serviceTokenDigest(token),
+          scopes: ['billing.subscription-funding.read'],
+        },
+      ]),
+    ),
+  });
+  const context = {
+    clientId: 'subscription',
+    token,
+    bearerPresent: false,
+    correlationId: randomUUID(),
+  };
+  const p = await paid('600000');
+  const body = {
+    obligationId: p.obligationId,
+    beneficiary: { kind: 'account', subjectId: SUBJECTS.customer },
+    amount: syp(p.amount),
+  };
+  assert.equal((await service.verify(context, body)).verified, true);
+  assert.equal((await service.verify(context, { ...body, amount: syp('599999') })).verified, false);
+  assert.equal(
+    (
+      await service.verify(context, {
+        ...body,
+        beneficiary: { kind: 'account', subjectId: SUBJECTS.otherCustomer },
+      })
+    ).verified,
+    false,
+  );
+  let refund = await requested(p, '1000');
+  assert.equal(
+    (await service.verify(context, body)).verified,
+    false,
+    'refund REQUESTED already reserves the funding',
+  );
+  const unknown = await outcome(refund, 'UNKNOWN');
+  assert.equal(unknown.status, 200, JSON.stringify(unknown.body));
+  refund = billingV1.parseRefundV1(unknown.body);
+  assert.equal((await service.verify(context, body)).verified, false);
+  const completed = await outcome(refund, 'SUCCEEDED');
+  assert.equal(completed.status, 200, JSON.stringify(completed.body));
+  assert.equal(
+    (await service.verify(context, body)).verified,
+    false,
+    'returned money cannot fund entitlement units',
+  );
+});
 
 async function list(p: Pick<Paid, 'obligationId'>, token = TOKENS.customer) {
   const reply = await get(`/obligations/${p.obligationId}/refunds`, token, replicaB);
