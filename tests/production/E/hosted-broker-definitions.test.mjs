@@ -340,3 +340,22 @@ test('credentials reject ambiguous types, extra owners, shared passwords and inv
     assert.throws(() => buildDefinitions(manifest, input));
   }
 });
+
+test('RabbitMQ 4.2 exported default queue types remain exact without accepting unrelated argument drift', () => {
+  const desired = buildDefinitions(manifest, credentials);
+  const exported = installed(desired);
+  // The real importer augments every omitted queue type before storing/exporting the arguments.
+  for (const queue of exported.definitions.queues) {
+    queue.arguments = { 'x-queue-type': queue.type, ...queue.arguments };
+  }
+  const result = reconcile(manifest, credentials, exported, { verify: true });
+  assert.ok(Object.values(result.counts).every((count) => count === 0));
+  const extra = clone(exported);
+  extra.definitions.queues.find((queue) => queue.type === 'classic').arguments['x-message-ttl'] =
+    1000;
+  assert.throws(() => reconcile(manifest, credentials, extra), /INCOMPATIBLE_QUEUES/);
+  const wrongType = clone(exported);
+  wrongType.definitions.queues.find((queue) => queue.type === 'classic').arguments['x-queue-type'] =
+    'quorum';
+  assert.throws(() => reconcile(manifest, credentials, wrongType), /INCOMPATIBLE_QUEUES/);
+});

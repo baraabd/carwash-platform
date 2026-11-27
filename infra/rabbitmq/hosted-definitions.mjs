@@ -164,7 +164,15 @@ export function buildDefinitions(manifest, credentials) {
   };
   const queue = (owner, name, type, args = {}) => {
     owned(owner, name);
-    add('queues', { name, vhost, type, durable: true, auto_delete: false, arguments: args });
+    // RabbitMQ 4.2 persists the effective type in arguments, including default classic queues.
+    add('queues', {
+      name,
+      vhost,
+      type,
+      durable: true,
+      auto_delete: false,
+      arguments: { 'x-queue-type': type, ...args },
+    });
     grants.get(owner).configure.add(name);
     grants.get(owner).write.add(name);
   };

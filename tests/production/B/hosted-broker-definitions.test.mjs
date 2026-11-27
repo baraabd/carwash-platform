@@ -13,6 +13,36 @@ import {
 } from '../../../infra/rabbitmq/hosted-definitions.mjs';
 import { ownedBrokerContainer } from '../../../scripts/production/B/broker-diagnostics.mjs';
 
+// Only fixed contract codes may enter public failure diagnostics; never echo child text.
+const SAFE_CLI_REFUSALS = new Set([
+  'SNAPSHOT_VERSION_OR_SCOPE',
+  'SNAPSHOT_FIELDS',
+  'INCOMPLETE_CLUSTER_EXPORT',
+  'BUILTIN_INSPECTION_INCOMPLETE',
+  'EXCHANGE_INSPECTION_INVALID',
+  'EXCHANGE_INSPECTION_INCONSISTENT',
+  'QUEUE_INSPECTION_INVALID',
+  'QUEUE_INSPECTION_INCONSISTENT',
+  'HIDDEN_OR_INCONSISTENT_RESOURCES',
+  'ABSENT_VHOST_HAS_RESOURCES',
+  'OPERATOR_POLICIES_PRESENT',
+  'VHOST_LIMITS_PRESENT',
+  'VHOST_PARAMETERS_PRESENT',
+  'RUNTIME_IDENTITY_SHARED_WITH_OTHER_VHOST',
+  'EXISTING_USER_MISMATCH',
+  'INCOMPATIBLE_VHOSTS',
+  'INCOMPATIBLE_PERMISSIONS',
+  'INCOMPATIBLE_TOPIC_PERMISSIONS',
+  'INCOMPATIBLE_POLICIES',
+  'INCOMPATIBLE_QUEUES',
+  'INCOMPATIBLE_EXCHANGES',
+  'INCOMPATIBLE_BINDINGS',
+  'POST_IMPORT_INCOMPLETE',
+  'PRIVATE_DIRECTORY_REQUIRED',
+  'PRIVATE_FILE_REQUIRED',
+  'PRIVATE_JSON_INVALID',
+]);
+
 const parsePrivate = (text) => {
   try {
     return JSON.parse(text);
@@ -146,6 +176,12 @@ test(
         encoding: 'utf8',
         timeout: 20_000,
       });
+      if (result.status !== 0) {
+        const refusal = /^HOSTED_BROKER_DEFINITIONS_REFUSED:([A-Z_]{3,80})$/.exec(
+          String(result.stderr ?? '').trim(),
+        )?.[1];
+        if (SAFE_CLI_REFUSALS.has(refusal)) phase += '_' + refusal;
+      }
       assert.equal(result.status, 0, 'protected-file CLI must succeed without exposing its inputs');
       assert.equal(result.stderr === '', true, 'CLI must not emit private diagnostics');
       assert.equal(
