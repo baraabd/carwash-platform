@@ -14,26 +14,84 @@ blocking OS findings, including apt/PAM, three critical Perl findings, util-linu
 glibc converter findings and zlib. The report contained no secret findings.
 Runtime image evidence does not clear this separate migration artifact.
 
-The migration Dockerfile now uses the already pinned Debian 13 minimal runtime
-and native-library donor. The pinned Node 24.21 binary is copied from the build
-stage. The job includes Prisma 7.10, owner migrations and the ABI libraries
-needed by the schema engine, including OpenSSL 3. It does not ship a shell,
-apt, dpkg executables, Perl or npm. Copied libraries keep their original Debian
-package records, checksum records and licenses; scans must still identify them.
-The donor's OpenSSL, zlib and other findings remain subject to the same gate.
+### Current immutable migration runtime
 
-Four unused legacy iconv modules are physically removed, as for the runtime
-images. A migration image receives no exemption from a runtime receipt. Its
-scanner first executes the final immutable migration image as UID 1000 with a
-read-only filesystem, no network, no capabilities and no privilege escalation.
-That execution must prove the original libc metadata, absence of every affected
-module path, Unicode/Arabic/ICU operation, TLS/crypto, visible native package
-inventory and successful execution of the actual matching Prisma schema engine.
+On source `32a6c08332c296762e31ec58a8454e7c85629e37`,
+[release run 46029940155](https://github.com/baraabd/carwash-platform/actions/runs/46029940155)
+proved native engine execution for all 19 owner migration images, then stopped
+each image on the same three HIGH findings: `CVE-2026-107494`,
+`CVE-2026-124709` and `CVE-2026-124851`. The ordinary runtime jobs and
+Gateway/web rehearsals do not clear that separate migration gate.
 
-Only that fresh, image-ID-bound migration proof can classify the already
-reviewed architecture/converter findings. All other HIGH, CRITICAL and UNKNOWN
-findings remain blocking. The retained report includes the unfiltered inventory,
-proof and blocking result. Missing, foreign, partial or runtime-only proof fails.
+The following repair, first published as
+`bcdaf6c6582d97358dbd3ad4dba93be87bb7741e`, assembles the migration job's
+native runtime from seven checksum-pinned Debian 12 packages and the existing
+immutable Node 24.21.0 donor. The final image starts from `scratch`; it has
+Prisma 7.10, the owner's committed migration inputs, native runtime libraries
+and CA trust data, with no shell or package-manager executable. It runs as
+UID/GID 1000:1000 with root-owned inputs.
+
+The committed input list is
+`scripts/production/E/release/migration-runtime.lock.json`. Downloads must
+come from the specified official HTTPS sources and match their SHA256 before
+extraction. Original package controls, MD5 records, copyright targets, licence
+texts and OS identity are retained. A build receipt binds those inputs, each
+retained regular-file SHA256, the CA bundle and the native dependency closure.
+No package version is rewritten to suppress scanner findings.
+
+The choice of OpenSSL 3.0 follows Debian's status for
+[CVE-2026-107494](https://security-tracker.debian.org/tracker/CVE-2026-107494)
+and [CVE-2026-124709](https://security-tracker.debian.org/tracker/CVE-2026-124709):
+the observed affected package line was Trixie's OpenSSL 3.5, while Bookworm's
+OpenSSL 3.0 is marked unaffected. Debian's
+[Bookworm lifecycle](https://www.debian.org/releases/bookworm/) still covers
+the selected amd64 userland. These source facts explain the candidate choice;
+they do not replace scanning the actual final image.
+
+The assembler executes both Node and the actual deployed Prisma schema engine
+through the extracted native loader. Missing libraries, unresolved dependencies
+or any fallback outside the assembled rootfs stop the build. The scanner then
+runs the immutable final image, without network or writable rootfs and as
+UID 1000, to repeat the package/file/CA/native checks and execute the pinned
+schema engine. UTF-8, Arabic and ICU behavior remain explicit checks.
+
+### Two exact-image converter assessments
+
+On that source,
+[release run 46035455709](https://github.com/baraabd/carwash-platform/actions/runs/46035455709)
+built all 19 owner migration images and passed their actual native-image probes.
+Each security job then stopped on `CVE-2026-121758` and `CVE-2026-124024`
+for `libc6 2.36-9+deb12u14`, severity UNKNOWN. The first Wallet artifact
+`15217780373` retained those findings and `accepted: false`; this failed
+receipt is not rewritten as an accepted scan.
+
+Debian's records for
+[CVE-2026-121758](https://security-tracker.debian.org/tracker/CVE-2026-121758)
+and [CVE-2026-124024](https://security-tracker.debian.org/tracker/CVE-2026-124024),
+together with the
+[upstream glibc advisories](https://www.openwall.com/lists/oss-security/2026/11/17/32),
+identify ISO-2022-CN-EXT and IBM1390/IBM1399 converters respectively. The selected
+Debian package is still unfixed. The build physically removes these three modules
+and the previously excluded UHC module while retaining their original package
+inventory.
+
+The new migration-specific assessment is limited to these two CVE occurrences
+in the exact Debian 12.15 amd64 libc6 package. It requires the current lock hash,
+the actual scanned immutable image ID, a successful final-image probe, pinned
+package/control/MD5/licence and native-library hashes, and proof that every
+affected converter path and alias is absent. A stale or mismatched receipt,
+foreign package/PURL, another CVE or reintroduced converter cannot obtain that
+assessment. Adversarial tests cover these refusals and duplicate findings.
+
+The scan uses no CVE ignore list. The retained redacted finding inventory keeps
+each original severity and blocking flag; raw output that may contain secret
+matches is not uploaded. Only an individually bound `not_affected / vulnerable_code_not_present`
+assessment removes that occurrence from the blocking set. It does not claim
+that the Debian package was patched or that the raw scan was clean. Every other
+HIGH, CRITICAL or UNKNOWN finding and every secret finding remains blocking.
+The ordinary Debian 13 runtime assessment is not imported into this migration
+gate. The final candidate must still pass its own build, native probe, a fresh vulnerability/secret scan at all required blocking
+severities and PostgreSQL migration rehearsal before acceptance.
 
 ## One internal HTTP policy
 
@@ -72,7 +130,10 @@ project/environment mesh:
 The minimal runtime/library composition follows the
 [official distroless base documentation](https://github.com/GoogleContainerTools/distroless/blob/main/base/README.md).
 
-## Local diagnostics
+## Historical local diagnostics
+
+These counts describe the earlier transport implementation checkpoint. They do
+not certify the later migration assessment or final combined candidate.
 
 - Migration security and release artifact suites: 21 passed.
 - Gateway and transport/JWKS policy suites: 48 passed.

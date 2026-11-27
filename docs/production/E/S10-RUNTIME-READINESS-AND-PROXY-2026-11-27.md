@@ -22,16 +22,16 @@ All three existing static servers use the single `@carwash/security-kit/server-p
 
 Each app requires:
 
-| Setting | Meaning |
-| --- | --- |
-| `WEB_PUBLIC_ORIGIN` | Exact HTTPS browser origin for that app; HTTP is accepted only on loopback for development/tests. |
-| `WEB_GATEWAY_ORIGIN` | Exact Gateway origin, with no credentials, path, query or fragment. HTTPS, loopback HTTP, or an explicitly allowlisted Railway private HTTP host only. |
-| `CW_PRIVATE_NETWORK=railway` | Explicit private transport choice when using Railway internal HTTP. |
-| `CW_PRIVATE_HTTP_HOSTS` | Exact comma-separated `<service>.railway.internal` hosts; no wildcard or arbitrary internal address. |
-| `RAILWAY_PROJECT_ID`, `RAILWAY_ENVIRONMENT_ID` | Valid platform scope identifiers required by the private transport policy. |
-| `WEB_GATEWAY_TIMEOUT_MS` | Optional total proxy budget, 100–30000 ms, default 5000 ms. |
-| `WEB_GATEWAY_REQUEST_LIMIT` | Optional request byte limit, 1024–1048576, default 262144. |
-| `WEB_GATEWAY_RESPONSE_LIMIT` | Optional response byte limit, 1024–2097152, default 1048576. |
+| Setting                                        | Meaning                                                                                                                                                |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `WEB_PUBLIC_ORIGIN`                            | Exact HTTPS browser origin for that app; HTTP is accepted only on loopback for development/tests.                                                      |
+| `WEB_GATEWAY_ORIGIN`                           | Exact Gateway origin, with no credentials, path, query or fragment. HTTPS, loopback HTTP, or an explicitly allowlisted Railway private HTTP host only. |
+| `CW_PRIVATE_NETWORK=railway`                   | Explicit private transport choice when using Railway internal HTTP.                                                                                    |
+| `CW_PRIVATE_HTTP_HOSTS`                        | Exact comma-separated `<service>.railway.internal` hosts; no wildcard or arbitrary internal address.                                                   |
+| `RAILWAY_PROJECT_ID`, `RAILWAY_ENVIRONMENT_ID` | Valid platform scope identifiers required by the private transport policy.                                                                             |
+| `WEB_GATEWAY_TIMEOUT_MS`                       | Optional total proxy budget, 100–30000 ms, default 5000 ms.                                                                                            |
+| `WEB_GATEWAY_REQUEST_LIMIT`                    | Optional request byte limit, 1024–1048576, default 262144.                                                                                             |
+| `WEB_GATEWAY_RESPONSE_LIMIT`                   | Optional response byte limit, 1024–2097152, default 1048576.                                                                                           |
 
 Gateway and Identity must both allow the exact three browser origins through their existing allowed-origin configuration. Cookies retain their original multiple `Set-Cookie` headers, `__Host-` names, Secure/HttpOnly/SameSite attributes, and Path. Cookies with a Domain attribute or an invalid security shape are refused. Browser Origin, CSRF, correlation, idempotency, revision and `x-wg-session-binding` headers are preserved. Client-provided Host, Forwarded/X-Forwarded, identity-principal and workload headers are not forwarded. The incoming Host must match the app's configured public origin.
 
@@ -98,10 +98,20 @@ do not prove the actual endpoint protocol. Verify live encrypted connections
 and scoped ACLs before starting Identity; private HTTP policy is unrelated.
 
 The separate RabbitMQ acceptance bootstrap scripts are fresh, overlapping test
-profiles. Do not concatenate them on a hosted vhost. A reviewed union of native
-exchanges, queue bindings and resource/topic permissions, installed through
-trusted broker-local provisioning, remains required. Management-plugin support
-has not been established for the staged image and must not be assumed.
+profiles. Do not concatenate them on a hosted vhost. The reviewed
+[hosted definitions profile](../../../infra/rabbitmq/HOSTED-DEFINITIONS.md)
+now provides the union of native exchanges, queue bindings and exact resource/topic
+permissions for all nine broker owners. It uses private input/output files and
+broker-local export/import, preserves existing matching credentials, refuses
+conflicting or hidden target-vhost state and verifies the result after import.
+Management-plugin support is not assumed.
+
+The required Reporting broker family includes an isolated transport fixture for
+the actual definitions import, all nine identities, owner declarations/bindings,
+authorized publication and forbidden cross-owner operations. The fixture must
+pass on the final source; source tests alone are not broker proof. Applying that
+profile to the actual hosted broker, configuring its real protected credentials
+and observing deployed native worker progress remain separate deployment gates.
 
 Billing's supported merchant mode requires actual receiving accounts in both
 `BILLING_SHAM_CASH_MERCHANT_ACCOUNTS` and

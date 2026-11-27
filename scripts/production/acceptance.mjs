@@ -24,7 +24,12 @@ import {
 import { redact, run } from '../acceptance/lib/exec.mjs';
 import { discoverServiceSpecs } from '../lib/test-discovery.mjs';
 import { testResults } from '../lib/test-results.mjs';
-import { BUSINESS_SUITES, assertBusinessEvidence, businessSuite } from './acceptance-plan.mjs';
+import {
+  BUSINESS_SUITES,
+  assertBusinessEvidence,
+  assertHostedBrokerEvidence,
+  businessSuite,
+} from './acceptance-plan.mjs';
 import { retainBrowserDiagnostics } from './acceptance-diagnostics.mjs';
 
 const node = process.execPath;
@@ -338,6 +343,15 @@ async function acceptance(suite) {
             counts.pass === counts.tests &&
             ['fail', 'skipped', 'todo', 'cancelled'].every((key) => counts[key] === 0),
         );
+        if (suite === 'b-reporting-broker') {
+          const proof = {
+            name: 'hosted-broker-definitions',
+            counts,
+            names: value.tests.names,
+          };
+          assertHostedBrokerEvidence(proof);
+          report.evidence.push(proof);
+        }
       });
     } else if (suite === 'c-operator-fixtures') {
       await command('operator-fixture-acceptance', node, [

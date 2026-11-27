@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { command, tool, toolLock, git } from '../../../ci/runtime.mjs';
 import { trivyFindings } from '../../../ci/policy.mjs';
+import { assessMigrationConverterFindings } from './migration-vulnerability-assessment.mjs';
 import {
   MIGRATION_RUNTIME_LOCK,
   MIGRATION_RUNTIME_PROBE,
@@ -33,9 +34,16 @@ export function assessMigrationScan(report, imageId, migrationProof) {
     assert.equal(report.Metadata.OS.Family, MIGRATION_RUNTIME_LOCK.distribution.id);
     assert.match(report.Metadata.OS.Name ?? '', /^12(?:\.\d+)?$/);
   }
-  // Native provenance never exempts a vulnerability. The migration rootfs has
-  // its own packages; ordinary runtime VEX cannot authorize this image.
-  return { findings, secretCount, blocking: findings.filter((finding) => finding.blocking) };
+  const assessments = assessMigrationConverterFindings(report, imageId, migrationProof);
+  const assessedIndexes = new Set(assessments.map((assessment) => assessment.findingIndex));
+  // Keep every unfiltered finding, including its original blocking flag. Only
+  // exact image/package-bound missing-code assessments affect this gate's list.
+  return {
+    findings,
+    assessments,
+    secretCount,
+    blocking: findings.filter((finding, index) => finding.blocking && !assessedIndexes.has(index)),
+  };
 }
 
 async function run(partFile, reportFile) {

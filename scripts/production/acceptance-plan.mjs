@@ -61,7 +61,7 @@ export const BUSINESS_SUITES = Object.freeze({
     services: ['billing', 'reporting'],
     browser: false,
     scope:
-      'Real Billing HTTP and transactional obligation outbox through compiled relay/RabbitMQ/Reporting consumer into isolated PostgreSQL and the published cash KPI HTTP contract. Exact cash states, restart/redelivery, ordering, poison and topic/resource permission denials. Identity/Pricing/Dispatch are explicit fixtures; no live provider or browser approval.',
+      'Real Billing HTTP and transactional obligation outbox through compiled relay/RabbitMQ/Reporting consumer into isolated PostgreSQL and the published cash KPI HTTP contract. Exact cash states, restart/redelivery, ordering, poison and topic/resource permission denials. A separate hosted-definition transport fixture proves additive import and scoped owner permissions on the disposable broker. Identity/Pricing/Dispatch are explicit fixtures; no hosted apply, live provider or browser approval.',
   },
   ...Object.fromEntries(
     cOwners.map((service) => [
@@ -121,6 +121,23 @@ export const BUSINESS_SUITES = Object.freeze({
   },
 });
 
+export const HOSTED_BROKER_ACCEPTANCE_CASE =
+  'hosted definitions import all native resources, enforce owner ACLs and preserve messages on replay';
+
+/** The required hosted transport case must run exactly once in a complete successful child run. */
+export function assertHostedBrokerEvidence(proof) {
+  const counts = proof?.counts;
+  assert.ok(counts?.accepted && Number.isSafeInteger(counts.tests) && counts.tests > 0);
+  assert.equal(counts.pass, counts.tests);
+  for (const name of ['fail', 'cancelled', 'skipped', 'todo']) assert.equal(counts[name], 0);
+  assert.ok(Array.isArray(proof.names));
+  assert.equal(
+    proof.names.filter((name) => name === HOSTED_BROKER_ACCEPTANCE_CASE).length,
+    1,
+    'Hosted broker definitions require exactly one completed transport case',
+  );
+}
+
 export function businessSuite(id) {
   assert.ok(Object.hasOwn(BUSINESS_SUITES, id), `Unknown business acceptance suite: ${id}`);
   return BUSINESS_SUITES[id];
@@ -162,6 +179,11 @@ export function assertBusinessEvidence(reports, { sha, tree, runId, attempt }) {
           proof.files.includes(`apps/customer-web/test/${name}.test.mjs`),
           `Customer client acceptance is missing ${name}`,
         );
+    }
+    if (report.suite === 'b-reporting-broker') {
+      const records = report.evidence.filter((entry) => entry.name === 'hosted-broker-definitions');
+      assert.equal(records.length, 1, 'Hosted broker definitions acceptance evidence is required');
+      assertHostedBrokerEvidence(records[0]);
     }
     assert.equal(report.cleanup, 'PASSED');
   }

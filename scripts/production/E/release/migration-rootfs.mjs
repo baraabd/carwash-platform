@@ -11,11 +11,15 @@ import { spawnSync } from 'node:child_process';
 import { createHash, X509Certificate } from 'node:crypto';
 import {
   chmodSync,
+  closeSync,
+  constants,
   copyFileSync,
   existsSync,
+  fstatSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readFileSync,
   readdirSync,
   readlinkSync,
@@ -50,7 +54,10 @@ export function validateRuntimeLock(lock) {
   assert.equal(lock.architecture, 'amd64');
   assert.deepEqual(lock.distribution, { id: 'debian', version: '12' });
   assert.match(lock.nodeImage, /^docker\.io\/library\/node@sha256:[a-f0-9]{64}$/);
-  assert.deepEqual(lock.packages.map((item) => item.name), PACKAGE_NAMES);
+  assert.deepEqual(
+    lock.packages.map((item) => item.name),
+    PACKAGE_NAMES,
+  );
   for (const item of lock.packages) {
     assert.equal(typeof item.version, 'string');
     assert.ok(item.version.length > 0 && !/\s/.test(item.version));
@@ -164,18 +171,27 @@ async function download(item) {
   return bytes;
 }
 
-function packageFiles(controlRoot, dataRoot) {
+export function packageFiles(controlRoot, dataRoot) {
   const checksums = readFileSync(path.join(controlRoot, 'md5sums'));
   const entries = checksums.toString('utf8').trimEnd().split('\n');
   assert.ok(entries.length > 0);
   for (const line of entries) {
-    const match = /^([a-f0-9]{32})  (.+)$/.exec(line);
+    const match = /^([a-f0-9]{32}) {2}(.+)$/.exec(line);
     assert.ok(match, 'Malformed original Debian checksum record');
     const relative = match[2];
     assert.ok(!path.isAbsolute(relative) && !relative.split('/').includes('..'));
     const file = path.join(dataRoot, relative);
-    assert.ok(lstatSync(file).isFile(), 'Checksum must identify an original regular file');
-    assert.equal(hash(readFileSync(file), 'md5'), match[1], 'Extracted package checksum mismatch');
+    const descriptor = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+    try {
+      assert.ok(fstatSync(descriptor).isFile(), 'Checksum must identify an original regular file');
+      assert.equal(
+        hash(readFileSync(descriptor), 'md5'),
+        match[1],
+        'Extracted package checksum mismatch',
+      );
+    } finally {
+      closeSync(descriptor);
+    }
   }
   return checksums;
 }
@@ -192,8 +208,7 @@ export function parseNativeDependencies(output, root, resolveFile = realpathSync
     const name = path.posix.basename(match[1] ?? match[2]);
     // The loader prints the ELF interpreter's original /lib64 alias. This
     // process was invoked through the exact rootfs loader below.
-    const selected =
-      name === 'ld-linux-x86-64.so.2' ? inside(root, NATIVE_LOADER) : match[2];
+    const selected = name === 'ld-linux-x86-64.so.2' ? inside(root, NATIVE_LOADER) : match[2];
     assert.ok(selected.startsWith(root + path.sep), 'Native dependency escaped rootfs');
     const real = resolveFile(selected);
     assert.ok(real.startsWith(root + path.sep), 'Native dependency symlink escaped rootfs');

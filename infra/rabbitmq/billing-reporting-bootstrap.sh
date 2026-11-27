@@ -9,8 +9,8 @@ set -eu
 
 rabbitmqctl await_startup
 rabbitmqctl add_vhost "$CW_FINANCE_VHOST"
-rabbitmqctl add_user cw_billing_app "$BILLING_BROKER_PASSWORD"
-rabbitmqctl add_user cw_reporting_app "$REPORTING_BROKER_PASSWORD"
+rabbitmqctl add_user -- cw_billing_app "$BILLING_BROKER_PASSWORD"
+rabbitmqctl add_user -- cw_reporting_app "$REPORTING_BROKER_PASSWORD"
 rabbitmqctl set_user_tags cw_billing_app
 rabbitmqctl set_user_tags cw_reporting_app
 rabbitmqctl set_permissions -p "$CW_FINANCE_VHOST" cw_billing_app \

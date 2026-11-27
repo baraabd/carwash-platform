@@ -113,10 +113,10 @@ export function assertMigrationRuntimeReceipt(receipt, lock, lockSha256) {
     );
   }
   assert.ok(Array.isArray(receipt.nativeDependencies));
-  assert.deepEqual(
-    receipt.nativeDependencies.map((entry) => entry.role).sort(),
-    ['node', 'schema-engine'],
-  );
+  assert.deepEqual(receipt.nativeDependencies.map((entry) => entry.role).sort(), [
+    'node',
+    'schema-engine',
+  ]);
   for (const entry of receipt.nativeDependencies) {
     if (entry.role === 'node') assert.equal(entry.binary, '/usr/local/bin/node');
     else

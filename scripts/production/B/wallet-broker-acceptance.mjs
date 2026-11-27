@@ -37,10 +37,11 @@ const credentials = {
   brokerBootstrap: secret(),
   billingApp: secret(),
   billingMigration: secret(),
-  billingBroker: secret(),
+  // Exercise leading-dash CLI credentials on every real broker run, retaining all 256 random bits.
+  billingBroker: `-${secret()}`,
   [`${consumer}App`]: secret(),
   [`${consumer}Migration`]: secret(),
-  [`${consumer}Broker`]: secret(),
+  [`${consumer}Broker`]: `-${secret()}`,
 };
 Object.values(credentials).forEach(registerSecret);
 const services = ['billing', consumer];
@@ -375,7 +376,12 @@ try {
           '--test',
           '--test-concurrency=1',
           '--test-reporter=spec',
-          ...(reporting ? ['tests/production/B/reporting-cash.pg.test.mjs'] : []),
+          ...(reporting
+            ? [
+                'tests/production/B/hosted-broker-definitions.test.mjs',
+                'tests/production/B/reporting-cash.pg.test.mjs',
+              ]
+            : []),
           `tests/production/B/${consumer}-broker.test.mjs`,
         ],
         {
@@ -389,6 +395,13 @@ try {
             [`${consumerEnv}_TEST_AMQP_URL`]: brokerUrl(consumer),
             CW_WALLET_BROKER_LOG_DIR: path.join(work, 'workers'),
             CW_FINANCE_BROKER_LOG_DIR: path.join(work, 'workers'),
+            ...(reporting
+              ? {
+                  CW_HOSTED_BROKER_CONTAINER: names.mq,
+                  CW_HOSTED_BROKER_RUN: containerOwner,
+                  CW_HOSTED_BROKER_PORT: String(mqPort),
+                }
+              : {}),
             LOG_LEVEL: 'error',
           },
         },

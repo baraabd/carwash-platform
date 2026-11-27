@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { assessMigrationScan } from '../../../scripts/production/E/release/scan-migration-image.mjs';
 import {
+  packageFiles,
   parseControl,
   parseNativeDependencies,
   validateRuntimeLock,
@@ -102,7 +107,7 @@ const migrationProof = () => ({
   absentPaths: [...MIGRATION_REMOVED_CONVERTER_PATHS],
 });
 
-test('migration native proof cannot exempt any blocking finding, including removed converters', () => {
+test('unbound migration native proof cannot exempt blocking findings, including removed converters', () => {
   const value = report();
   for (const [id, name] of [
     ['CVE-2026-121758', 'libc6'],
@@ -289,6 +294,7 @@ test('migration scan retains all findings but only counts secrets in retained ev
     findings: [],
     secretCount: 0,
     blocking: [],
+    assessments: [],
   });
 });
 
@@ -339,5 +345,38 @@ test('rootfs native closure rejects host fallback, unresolved libraries and esca
     assert.throws(() => parseNativeDependencies(invalid, '/rootfs', resolve));
   assert.throws(() =>
     parseNativeDependencies(output, '/rootfs', () => '/builder/lib/x86_64-linux-gnu/libc.so.6'),
+  );
+});
+
+test('package checksums inspect and read one regular file descriptor without following symlinks', (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), 'cw-migration-package-checksums-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const controlRoot = path.join(root, 'control');
+  const dataRoot = path.join(root, 'data');
+  mkdirSync(controlRoot);
+  mkdirSync(dataRoot);
+  const bytes = Buffer.from('original Debian package file\n');
+  const checksum = createHash('md5').update(bytes).digest('hex');
+  writeFileSync(path.join(dataRoot, 'original'), bytes);
+  const checksums = Buffer.from(`${checksum}  original\n`);
+  writeFileSync(path.join(controlRoot, 'md5sums'), checksums);
+  assert.deepEqual(packageFiles(controlRoot, dataRoot), checksums);
+
+  symlinkSync('original', path.join(dataRoot, 'link'));
+  writeFileSync(path.join(controlRoot, 'md5sums'), `${checksum}  link\n`);
+  assert.throws(() => packageFiles(controlRoot, dataRoot), { code: 'ELOOP' });
+
+  mkdirSync(path.join(dataRoot, 'directory'));
+  writeFileSync(path.join(controlRoot, 'md5sums'), `${checksum}  directory\n`);
+  assert.throws(() => packageFiles(controlRoot, dataRoot), /original regular file/);
+
+  writeFileSync(path.join(controlRoot, 'md5sums'), checksums);
+  writeFileSync(path.join(dataRoot, 'original'), 'modified package content');
+  assert.throws(() => packageFiles(controlRoot, dataRoot), /Extracted package checksum mismatch/);
+
+  writeFileSync(path.join(controlRoot, 'md5sums'), `${checksum} original\n`);
+  assert.throws(
+    () => packageFiles(controlRoot, dataRoot),
+    /Malformed original Debian checksum record/,
   );
 });
