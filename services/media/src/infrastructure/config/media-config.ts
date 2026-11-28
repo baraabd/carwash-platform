@@ -2,7 +2,7 @@ import { mediaPolicy, type PolicySeconds } from '../../application/policy';
 import { storageUnavailable } from '../../domain';
 import type { MediaPolicy, ObjectStore } from '../../ports';
 import { parseServiceClients, type ServiceClient } from '../security/service-clients';
-import { S3ObjectStore, type S3Config } from '../storage/s3-object-store';
+import { s3BucketOrigin, S3ObjectStore, type S3Config } from '../storage/s3-object-store';
 
 /**
  * Fail-fast configuration of the media processes (API and purge worker).
@@ -74,18 +74,31 @@ function endpoint(env: Env): string {
 }
 
 export function loadS3Config(env: Env): S3Config {
-  return {
+  const urlStyle = env.MEDIA_S3_URL_STYLE ?? 'path';
+  if (urlStyle !== 'path' && urlStyle !== 'virtual-host') fail('MEDIA_S3_URL_STYLE');
+  const config: S3Config = {
     endpoint: endpoint(env),
+    urlStyle,
     region: required(env, 'MEDIA_S3_REGION', /^[a-z0-9-]{2,32}$/),
     // S3 bucket naming rules (lower-case, 3-63, no leading/trailing dot or dash).
     bucket: required(env, 'MEDIA_S3_BUCKET', /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/),
-    accessKeyId: required(env, 'MEDIA_S3_ACCESS_KEY_ID', /^[A-Za-z0-9]{3,128}$/),
+    accessKeyId: required(env, 'MEDIA_S3_ACCESS_KEY_ID', /^[A-Za-z0-9_]{3,128}$/),
     secretAccessKey: required(env, 'MEDIA_S3_SECRET_ACCESS_KEY', /^[\x21-\x7e]{8,256}$/),
     // ≤ 10 s: the purge worker holds a row lock across one request (see
     // WORKER_IDLE_IN_TRANSACTION_TIMEOUT_MS and the store transaction timeout).
     requestTimeoutMs: integer(env, 'MEDIA_S3_TIMEOUT_MS', 5_000, 100, 10_000),
     maxConcurrentReads: integer(env, 'MEDIA_S3_MAX_CONCURRENT_READS', 4, 1, 32),
   };
+  try {
+    s3BucketOrigin(config);
+  } catch (error: unknown) {
+    fail(
+      error instanceof Error && error.message === 'S3_BUCKET_INVALID'
+        ? 'MEDIA_S3_BUCKET'
+        : 'MEDIA_S3_ENDPOINT',
+    );
+  }
+  return config;
 }
 
 export function loadPolicy(env: Env): MediaPolicy {

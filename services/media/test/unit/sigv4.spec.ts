@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { S3ObjectStore } from '../../src/infrastructure/storage/s3-object-store';
 import {
   EMPTY_SHA256,
   UNSIGNED_PAYLOAD,
@@ -28,6 +29,27 @@ const CREDENTIALS = {
   secretAccessKey: AWS_EXAMPLE_SECRET_ACCESS_KEY,
   region: 'us-east-1',
 };
+
+test('object store virtual-hosted download matches the published AWS presigned signature', () => {
+  const store = new S3ObjectStore({
+    endpoint: 'https://s3.amazonaws.com',
+    urlStyle: 'virtual-host',
+    bucket: 'examplebucket',
+    ...CREDENTIALS,
+    requestTimeoutMs: 200,
+    maxConcurrentReads: 1,
+  });
+  const request = store.presignDownload('test.txt', new Date(AT.getTime() + 86_400_000), AT);
+  const url = new URL(request.url);
+  assert.equal(request.method, 'GET');
+  assert.equal(url.origin, 'https://examplebucket.s3.amazonaws.com');
+  assert.equal(url.pathname, '/test.txt');
+  assert.equal(url.searchParams.get('X-Amz-Credential'), AWS_EXAMPLE_CREDENTIAL);
+  assert.equal(
+    url.searchParams.get('X-Amz-Signature'),
+    'aeeed9bbccd4d02ee5c0109b86d86835f995330da4c265957d157751f604d404',
+  );
+});
 
 test('presigned GET example: canonical request, string to sign and signature', () => {
   const url = presignUrl({
