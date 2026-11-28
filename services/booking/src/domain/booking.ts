@@ -35,6 +35,7 @@ export const REJECTION_REASONS = [
   'HOLD_EXPIRED',
   'HOLD_UNAVAILABLE',
   'DEADLINE_EXCEEDED',
+  'ENTITLEMENT_REJECTED',
 ] as const;
 export type RejectionReason = (typeof REJECTION_REASONS)[number];
 
@@ -48,6 +49,10 @@ export interface RequestedSlot {
 }
 
 export interface Booking {
+  readonly subscription: {
+    readonly subscriptionId: string;
+    readonly expectedRevision: number;
+  } | null;
   readonly id: string;
   readonly beneficiary: PrincipalRef;
   readonly status: BookingStatus;
@@ -76,6 +81,10 @@ export interface Booking {
 }
 
 export interface NewBooking {
+  readonly subscription?: {
+    readonly subscriptionId: string;
+    readonly expectedRevision: number;
+  } | null;
   readonly id: string;
   readonly beneficiary: PrincipalRef;
   readonly paymentMethod: PaymentMethod;
@@ -93,6 +102,20 @@ export interface NewBooking {
  */
 export function createBooking(input: NewBooking): Booking {
   const { quote, vehicle, requestedSlot } = input;
+  if (
+    input.subscription &&
+    (input.beneficiary.kind !== 'account' ||
+      quote.lines.length !== 1 ||
+      quote.lines[0]?.kind !== 'PACKAGE' ||
+      quote.lines[0].quantity !== 1 ||
+      quote.lines[0].definitionId === null)
+  ) {
+    throw new BookingError(
+      'INVALID_INPUT',
+      'Subscription coverage requires one package without extras, surcharges, fees or discounts.',
+      'SUBSCRIPTION_COVERAGE_UNSUPPORTED',
+    );
+  }
   if (!samePrincipal(quote.beneficiary, input.beneficiary)) {
     throw new BookingError('QUOTE_MISMATCH', 'The quote belongs to another principal.');
   }
@@ -135,6 +158,7 @@ export function createBooking(input: NewBooking): Booking {
     );
   }
   return {
+    subscription: input.subscription ?? null,
     id: input.id,
     beneficiary: input.beneficiary,
     status: 'PENDING_CONFIRMATION',
@@ -228,7 +252,7 @@ export function assertChangeable(
     throw new BookingError('BOOKING_CANCELLED', 'The booking is already cancelled.');
   }
   const slot = currentSlot(booking);
-  if (booking.status !== 'CONFIRMED' || slot === null) {
+  if (!['CONFIRMED', 'ASSIGNED', 'EN_ROUTE', 'ARRIVED'].includes(booking.status) || slot === null) {
     throw new BookingError('BOOKING_NOT_CONFIRMED', 'Only a confirmed booking can be changed.');
   }
   if (input.changeOpen) {
@@ -255,13 +279,14 @@ export function cancelBooking(booking: Booking, reason: CancellationReason, now:
   };
 }
 
-/** The commitment moved to `slot`: a new schedule revision, same status. */
+/** Dispatch withdrew the former assignment before the commitment moved. */
 export function rescheduleBooking(booking: Booking, slot: SlotSnapshot, now: Date): Booking {
-  if (booking.status !== 'CONFIRMED') {
+  if (!['CONFIRMED', 'ASSIGNED', 'EN_ROUTE', 'ARRIVED'].includes(booking.status)) {
     throw new BookingError('INVALID_TRANSITION', 'Only a confirmed booking can be rescheduled.');
   }
   return {
     ...booking,
+    status: 'CONFIRMED',
     rescheduledSlot: slot,
     scheduleRevision: booking.scheduleRevision + 1,
     version: booking.version + 1,

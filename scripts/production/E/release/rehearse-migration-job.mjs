@@ -289,7 +289,9 @@ export async function rehearse({ part, reportFile }) {
       '{{.Config.User}}|{{json .Config.Entrypoint}}',
       artifact.reference,
     ]);
-    record('job-sandbox', user === '1000:1000|["node","/migrate/migrate-job.mjs"]', { user });
+    record('job-sandbox', user === '1000:1000|["/usr/local/bin/node","/migrate/migrate-job.mjs"]', {
+      user,
+    });
   } finally {
     await docker(['rm', '-f', pg]);
     await docker(['network', 'rm', network]);

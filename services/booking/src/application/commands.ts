@@ -8,13 +8,17 @@ import {
 } from '../domain';
 
 /**
- * `POST /bookings` body (REQUESTED booking.v1 shape, see CR-P02-C2). It names
+ * Normalized `POST /bookings` command. It names
  * the records the customer selected in the seven approved screens by id and
  * revision; Booking reads the authoritative values from their owners and keeps
  * immutable snapshots. Only the contact (screen 5) and an optional one-time
  * vehicle are typed values.
+ * On the wire, paymentMethod is required for DIRECT and optional for a selected
+ * subscription. For covered bookings it is inapplicable: the normalized legacy
+ * field is only a storage/event compatibility value and never a payment claim.
  */
 export interface CreateBookingCommand {
+  readonly subscription?: { readonly subscriptionId: string; readonly expectedRevision: number };
   readonly quote: { readonly quoteId: string; readonly revision: number };
   readonly hold: { readonly holdId: string; readonly revision: number };
   readonly vehicle:
@@ -29,13 +33,15 @@ function object(
   value: unknown,
   field: string,
   allowed: readonly string[],
+  optional: readonly string[] = [],
 ): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw invalid(`${field} must be an object.`);
   }
   const record = value as Record<string, unknown>;
   for (const key of Object.keys(record)) {
-    if (!allowed.includes(key)) throw invalid(`${field} has unexpected field ${key.slice(0, 40)}.`);
+    if (!allowed.includes(key) && !optional.includes(key))
+      throw invalid(`${field} has unexpected field ${key.slice(0, 40)}.`);
   }
   for (const key of allowed) {
     if (!Object.hasOwn(record, key)) throw invalid(`${field}.${key} is required.`);
@@ -57,19 +63,31 @@ function revision(value: unknown, field: string): number {
 }
 
 export function parseCreateBooking(body: unknown): CreateBookingCommand {
-  const v = object(body, 'body', [
-    'quote',
-    'hold',
-    'vehicle',
-    'address',
-    'contact',
-    'paymentMethod',
-  ]);
+  const v = object(
+    body,
+    'body',
+    ['quote', 'hold', 'vehicle', 'address', 'contact'],
+    ['subscription', 'paymentMethod'],
+  );
   const quote = object(v.quote, 'quote', ['quoteId', 'revision']);
   const hold = object(v.hold, 'hold', ['holdId', 'revision']);
   const address = object(v.address, 'address', ['addressId', 'revision']);
   const contact = object(v.contact, 'contact', ['name', 'phone', 'notes']);
-  if (!isPaymentMethod(v.paymentMethod)) throw invalid('paymentMethod is not supported.');
+  const subscription =
+    v.subscription === undefined
+      ? null
+      : object(v.subscription, 'subscription', ['subscriptionId', 'expectedRevision']);
+  const hasPaymentMethod = Object.hasOwn(v, 'paymentMethod');
+  if (!hasPaymentMethod && subscription === null)
+    throw invalid('body.paymentMethod is required for a direct booking.');
+  if (hasPaymentMethod && !isPaymentMethod(v.paymentMethod))
+    throw invalid('paymentMethod is not supported.');
+  // The existing database and event schema require this legacy column. Only
+  // financialSource controls funding: the subscription path never creates debt
+  // or requests collection from this compatibility value. Normalize all covered
+  // inputs alike so an omitted/ignored method cannot change their request hash.
+  const paymentMethod: PaymentMethod =
+    subscription === null ? (v.paymentMethod as PaymentMethod) : 'CASH_ON_COMPLETION';
 
   const rawVehicle = v.vehicle;
   if (typeof rawVehicle !== 'object' || rawVehicle === null || Array.isArray(rawVehicle)) {
@@ -92,6 +110,17 @@ export function parseCreateBooking(body: unknown): CreateBookingCommand {
   }
 
   return {
+    ...(subscription === null
+      ? {}
+      : {
+          subscription: {
+            subscriptionId: uuidField(subscription.subscriptionId, 'subscription.subscriptionId'),
+            expectedRevision: revision(
+              subscription.expectedRevision,
+              'subscription.expectedRevision',
+            ),
+          },
+        }),
     quote: {
       quoteId: uuidField(quote.quoteId, 'quote.quoteId'),
       revision: revision(quote.revision, 'quote.revision'),
@@ -106,7 +135,7 @@ export function parseCreateBooking(body: unknown): CreateBookingCommand {
       revision: revision(address.revision, 'address.revision'),
     },
     contact: contactSnapshot({ name: contact.name, phone: contact.phone, notes: contact.notes }),
-    paymentMethod: v.paymentMethod,
+    paymentMethod,
   };
 }
 

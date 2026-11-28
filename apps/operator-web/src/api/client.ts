@@ -1,4 +1,16 @@
 import { ShapeError, parseError } from './parse';
+import { RequestEpoch, type RequestEpochToken } from '@carwash/api-clients';
+import {
+  SESSION_BINDING_HEADER,
+  formatSessionBinding,
+  type BrowserSessionBinding,
+} from '@carwash/contracts/common';
+
+export const sessionRequests = new RequestEpoch();
+let sessionBinding: string | null = null;
+export function bindSessionRequests(session: BrowserSessionBinding | null): void {
+  sessionBinding = session ? formatSessionBinding(session) : null;
+}
 
 /**
  * Same-origin fetch wrapper for the gateway paths `/api/operator/*`.
@@ -25,6 +37,14 @@ export type Result<T> =
       readonly retryable: boolean;
     }
   | { readonly kind: 'unknown'; readonly cause: 'timeout' | 'network' | 'shape' };
+
+export const sessionChanged = <T>(): Result<T> => ({
+  kind: 'error',
+  status: 401,
+  code: 'SESSION_CHANGED',
+  reason: null,
+  retryable: false,
+});
 
 /** A Gateway failure after forwarding cannot prove that a mutation was rejected. */
 export function unknownGatewayOutcome(
@@ -63,12 +83,55 @@ function csrfToken(): string | null {
   // The gateway forwards x-csrf-token; Identity's csrf cookie is readable by design.
   for (const part of document.cookie.split(';')) {
     const [name, ...rest] = part.trim().split('=');
-    if (name === '__Host-wg_csrf' || name === 'wg_csrf') return decodeURIComponent(rest.join('='));
+    if (name === '__Host-wg_csrf' || name === 'wg_csrf') {
+      try {
+        return decodeURIComponent(rest.join('='));
+      } catch {
+        return null;
+      }
+    }
   }
   return null;
 }
 
-export async function call<T>(request: Request<T>): Promise<Result<T>> {
+let refreshing: {
+  readonly epoch: RequestEpochToken;
+  readonly promise: Promise<Result<unknown>>;
+} | null = null;
+
+/** Concurrent reads share one refresh. A rejected request is retried at most once. */
+async function refreshSession(
+  epoch: RequestEpochToken,
+  expectedSession: string | null,
+): Promise<Result<unknown>> {
+  if (!refreshing || !sessionRequests.current(refreshing.epoch)) {
+    const promise = performCall(
+      { method: 'POST', path: '/api/operator/auth/refresh', body: {}, parse: null },
+      false,
+      epoch,
+      expectedSession,
+    );
+    const operation = { epoch, promise };
+    refreshing = operation;
+    void promise.finally(() => {
+      if (refreshing === operation) refreshing = null;
+    });
+  }
+  return refreshing.promise;
+}
+
+export function call<T>(request: Request<T>): Promise<Result<T>> {
+  return performCall(request, true, sessionRequests.capture(), sessionBinding);
+}
+
+async function performCall<T>(
+  request: Request<T>,
+  mayRefresh: boolean,
+  epoch: RequestEpochToken,
+  expectedSession: string | null,
+): Promise<Result<T>> {
+  const stale = (): Result<T> => sessionChanged();
+  if (!sessionRequests.current(epoch)) return stale();
   if (!request.path.startsWith(API_PREFIX) || request.path.includes('..')) {
     throw new Error('OPERATOR_API_PATH_REFUSED');
   }
@@ -83,6 +146,8 @@ export async function call<T>(request: Request<T>): Promise<Result<T>> {
     if (csrf) headers['x-csrf-token'] = csrf;
   }
   if (request.idempotencyKey) headers['idempotency-key'] = request.idempotencyKey;
+  if (expectedSession && !request.path.startsWith('/api/operator/auth/'))
+    headers[SESSION_BINDING_HEADER] = expectedSession;
   const controller = new AbortController();
   const timeout = request.timeoutMs ?? (unsafe ? WRITE_TIMEOUT_MS : READ_TIMEOUT_MS);
   let timedOut = false;
@@ -99,15 +164,24 @@ export async function call<T>(request: Request<T>): Promise<Result<T>> {
       credentials: 'same-origin',
       cache: 'no-store',
       redirect: 'error',
-      signal: controller.signal,
+      signal: AbortSignal.any([epoch.signal, controller.signal]),
       ...(unsafe ? { body: JSON.stringify(request.body ?? {}) } : {}),
     });
     text = await response.text();
   } catch {
     clearTimeout(timer);
+    if (!sessionRequests.current(epoch)) return stale();
     return { kind: 'unknown', cause: timedOut ? 'timeout' : 'network' };
   }
   clearTimeout(timer);
+  if (!sessionRequests.current(epoch)) return stale();
+  // A 401 is an explicit rejection, unlike a timeout or lost write response.
+  // Preserve the original body/key; never retry an UNKNOWN mutation here.
+  if (response.status === 401 && mayRefresh && !request.path.startsWith('/api/operator/auth/')) {
+    const refreshed = await refreshSession(epoch, expectedSession);
+    if (!sessionRequests.current(epoch)) return stale();
+    if (refreshed.kind === 'ok') return performCall(request, false, epoch, expectedSession);
+  }
   let json: unknown = null;
   if (text) {
     try {
@@ -150,6 +224,7 @@ export async function putBytes(
   bytes: Blob,
   timeoutMs = 60_000,
 ): Promise<'ok' | 'failed' | 'unknown'> {
+  const epoch = sessionRequests.capture();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -161,9 +236,9 @@ export async function putBytes(
       cache: 'no-store',
       redirect: 'error',
       referrerPolicy: 'no-referrer',
-      signal: controller.signal,
+      signal: AbortSignal.any([epoch.signal, controller.signal]),
     });
-    return response.ok ? 'ok' : 'failed';
+    return sessionRequests.current(epoch) && response.ok ? 'ok' : 'failed';
   } catch {
     return 'unknown';
   } finally {

@@ -19,6 +19,7 @@ import {
 } from '../domain';
 import type {
   AccessAuthority,
+  FundingAuthority,
   ActorRef,
   AuditAction,
   Clock,
@@ -68,6 +69,7 @@ export interface SubscriptionDeps {
   readonly clock: Clock;
   readonly ids: IdGenerator;
   readonly hasher: Hasher;
+  readonly funding: FundingAuthority;
 }
 
 function stateOf(locked: LockedSubscription): SubscriptionState {
@@ -367,6 +369,18 @@ export class SubscriptionService {
     paymentReference: string,
     correlationId: string,
   ): Promise<PeriodRecord> {
+    const verified = await this.deps.funding.claim({
+      obligationId: paymentReference,
+      subscriptionId: subscription.id,
+      periodNo: period.periodNo,
+      customerSubject: subscription.customerSubject,
+      amount: subscription.terms.price,
+      correlationId,
+    });
+    if (verified !== 'CLAIMED')
+      throw new SubscriptionApplicationError(
+        verified === 'UNAVAILABLE' ? 'FUNDING_UNAVAILABLE' : 'PAYMENT_NOT_VERIFIED',
+      );
     const record: PeriodRecord = {
       ...period,
       subscriptionId: subscription.id,
@@ -415,6 +429,10 @@ export class SubscriptionService {
     const idempotency = idempotencyKey(key);
     const subscriptionId = pathId(id);
     const { expectedVersion, paymentReference } = this.fundingInput(body);
+    // A canonical purchase owns its funding link and activation. Historical
+    // staff commands must not replace that link or grant an untracked renewal.
+    if (await this.deps.repository.purchaseForSubscription(subscriptionId))
+      throw new SubscriptionApplicationError('PURCHASE_NOT_ACTIVATABLE');
     const actor: ActorRef = { kind: 'account', id: principal.subject };
     const fingerprint = this.fingerprint({
       operation: OPERATIONS.activate,
@@ -482,6 +500,10 @@ export class SubscriptionService {
     const idempotency = idempotencyKey(key);
     const subscriptionId = pathId(id);
     const { expectedVersion, paymentReference } = this.fundingInput(body);
+    // A canonical purchase owns its funding link and activation. Historical
+    // staff commands must not replace that link or grant an untracked renewal.
+    if (await this.deps.repository.purchaseForSubscription(subscriptionId))
+      throw new SubscriptionApplicationError('PURCHASE_NOT_ACTIVATABLE');
     const actor: ActorRef = { kind: 'account', id: principal.subject };
     const fingerprint = this.fingerprint({
       operation: OPERATIONS.renew,

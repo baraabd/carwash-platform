@@ -19,6 +19,7 @@ import {
 } from '../domain';
 import type {
   BillingCancellation,
+  BookingEntitlements,
   BookingStore,
   ChangeRecord,
   ChangeStore,
@@ -37,6 +38,7 @@ export interface ChangeManagerDeps {
   readonly dispatch: DispatchChanges;
   readonly commitments: CommitmentChanges;
   readonly billing: BillingCancellation;
+  readonly entitlements?: BookingEntitlements;
   readonly clock: Clock;
   readonly ids: IdGenerator;
   readonly random: RandomSource;
@@ -137,7 +139,20 @@ export class ChangeProcessManager {
         break;
       }
       case 'SETTLE_BILLING': {
-        const result = await this.deps.billing.settle(bookingId, changeId, correlationId);
+        const current = await this.deps.bookings.find(bookingId);
+        if (!current) throw new Error('CHANGE_BOOKING_MISSING');
+        const release = current.booking.subscription
+          ? await this.deps.entitlements?.releaseForBooking(
+              bookingId,
+              current.saga.entitlementReservationId,
+              correlationId,
+            )
+          : null;
+        const result = current.booking.subscription
+          ? release?.kind === 'VOIDED'
+            ? ({ kind: 'SETTLED', settlement: 'ENTITLEMENT_RELEASED' } as const)
+            : ({ kind: 'UNKNOWN', error: release?.error ?? 'SUBSCRIPTION_NOT_CONFIGURED' } as const)
+          : await this.deps.billing.settle(bookingId, changeId, correlationId);
         next = onSettled(change, result, this.deps.clock.now(), random);
         break;
       }

@@ -10,7 +10,12 @@ import {
   Res,
   UseFilters,
 } from '@nestjs/common';
-import { BookingService, ChangeService, TechnicianViewQuery } from '../../application';
+import {
+  BookingService,
+  BookingHoldsService,
+  ChangeService,
+  TechnicianViewQuery,
+} from '../../application';
 import { BookingError, isUuid } from '../../domain';
 import { ActorResolver, type HeaderBag } from './actor-resolver';
 import { bookingView } from './booking-view';
@@ -37,7 +42,45 @@ export class BookingController {
     @Inject(ActorResolver) private readonly actors: ActorResolver,
     @Inject(TechnicianViewQuery) private readonly technician: TechnicianViewQuery,
     @Inject(ChangeService) private readonly changes: ChangeService,
+    @Inject(BookingHoldsService) private readonly holds: BookingHoldsService,
   ) {}
+
+  @Post('booking-holds')
+  async createHold(
+    @Req() req: HeaderBag,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: StatusResponse,
+  ) {
+    const result = await this.holds.create(
+      await this.actors.resolve(req),
+      req.headers['idempotency-key'],
+      body,
+    );
+    res.status(result.status);
+    return result.body;
+  }
+
+  @Get('booking-holds/:id')
+  async getHold(@Req() req: HeaderBag, @Param('id') id: string) {
+    return (await this.holds.get(await this.actors.resolve(req), id)).body;
+  }
+
+  @Post('booking-holds/:id/release')
+  async releaseHold(
+    @Req() req: HeaderBag,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: StatusResponse,
+  ) {
+    const result = await this.holds.release(
+      await this.actors.resolve(req),
+      id,
+      req.headers['idempotency-key'],
+      body,
+    );
+    res.status(result.status);
+    return result.body;
+  }
 
   @Get('mine')
   async mine(@Req() req: HeaderBag, @Query() query: Record<string, unknown>) {
@@ -70,6 +113,12 @@ export class BookingController {
     const meta = await this.actors.resolve(req);
     if (!isUuid(bookingId)) throw new BookingError('BOOKING_NOT_FOUND', 'Booking not found.');
     const view = await this.bookings.get(meta, bookingId.toLowerCase());
+    return bookingView(view.booking, view.saga, await this.changes.openChange(view.booking.id));
+  }
+
+  @Get('bookings/by-request/:idempotencyKey')
+  async byRequest(@Req() req: HeaderBag, @Param('idempotencyKey') key: string) {
+    const view = await this.bookings.byRequest(await this.actors.resolve(req), key);
     return bookingView(view.booking, view.saga, await this.changes.openChange(view.booking.id));
   }
 

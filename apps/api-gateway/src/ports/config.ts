@@ -7,4 +7,7 @@ export interface GatewayConfig {
   readonly timeoutMs: number;
   readonly responseLimit: number;
   readonly allowedOrigins: readonly string[];
+  /** Explicit deployment trust boundary; never inferred from an arbitrary hostname. */
+  readonly privateNetwork?: 'railway';
+  readonly privateHttpHosts?: readonly string[];
 }

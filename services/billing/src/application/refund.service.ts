@@ -45,6 +45,7 @@ import {
 } from './command-support';
 import { refundChangedEvent } from './provider-events';
 import { refundView } from './provider-views';
+import { assertSubscriptionFundingReleased } from './subscription-refund-fence';
 
 /** Existing Identity grant (packages/contracts IDENTITY_PERMISSIONS). */
 export const REFUND_PERMISSION = 'billing.refund';
@@ -150,6 +151,7 @@ export class RefundService {
     const refund = await uow.providers.lockRefund(refundId);
     if (!credit || !refund || refund.creditId !== credit.id)
       throw new BillingApplicationError('NOT_FOUND');
+    await assertSubscriptionFundingReleased(uow, credit);
     if (refund.workflow !== 'CREDIT_V1') throw new BillingApplicationError('NOT_FOUND');
     if (refund.revision !== expectedRevision)
       throw new BillingApplicationError('REVISION_CONFLICT');
@@ -222,6 +224,7 @@ export class RefundService {
     return this.commands.execute(command, async (uow, now) => {
       const credit = await uow.providers.lockCredit(id);
       if (!credit) throw new BillingApplicationError('NOT_FOUND');
+      await assertSubscriptionFundingReleased(uow, credit);
       if (credit.revision !== expectedRevision)
         throw new BillingApplicationError('REVISION_CONFLICT');
       if (credit.obligationId) {

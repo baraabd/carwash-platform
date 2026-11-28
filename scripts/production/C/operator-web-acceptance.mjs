@@ -27,6 +27,7 @@ const STEPS = [
   ['build', 'pnpm', ['--filter', '@carwash/operator-web', 'run', 'build']],
   ['runtime', 'node', ['--test', 'apps/operator-web/test/runtime.test.mjs']],
   ['cash-client', 'node', ['--test', 'tests/production/C/operator-web-cash-client.test.mjs']],
+  ['auth-client', 'node', ['--test', 'tests/production/C/operator-web-auth-client.test.mjs']],
   ['design-reference', 'node', ['scripts/check-design-reference.mjs']],
   ['journey', 'node', ['--test', 'tests/production/C/operator-web-journey.test.mjs']],
   ['profile', 'node', ['--test', 'tests/production/C/operator-web-profile.test.mjs']],

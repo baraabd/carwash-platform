@@ -201,6 +201,70 @@
       "envelopeVersion": 2,
       "status": "published-producer-pending",
       "asyncApi": "docs/asyncapi/product-events-v1.yaml"
+    },
+    {
+      "id": "dispatch.assignment-changed.v1",
+      "producer": "dispatch",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/operations-events-v1.yaml"
+    },
+    {
+      "id": "dispatch.task-progressed.v1",
+      "producer": "dispatch",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/operations-events-v1.yaml"
+    },
+    {
+      "id": "dispatch.cash-declared.v1",
+      "producer": "dispatch",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/operations-events-v1.yaml"
+    },
+    {
+      "id": "booking.created.v1",
+      "producer": "booking",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/operations-events-v1.yaml"
+    },
+    {
+      "id": "booking.cancelled.v1",
+      "producer": "booking",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/operations-events-v1.yaml"
+    },
+    {
+      "id": "booking.rescheduled.v1",
+      "producer": "booking",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/operations-events-v1.yaml"
+    },
+    {
+      "id": "booking.lifecycle-progressed.v1",
+      "producer": "booking",
+      "schemaVersion": 1,
+      "envelopeVersion": 2,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/operations-events-v1.yaml"
+    },
+    {
+      "id": "workforce.shift-updated.v1",
+      "producer": "workforce",
+      "schemaVersion": 1,
+      "envelopeVersion": 1,
+      "status": "published-producer-pending",
+      "asyncApi": "docs/asyncapi/operations-events-v1.yaml"
     }
   ]
 }

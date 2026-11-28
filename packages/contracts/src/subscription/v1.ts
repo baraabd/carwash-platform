@@ -33,7 +33,24 @@ export const SUBSCRIPTION_V1 = {
   routes: {
     listPlans: { method: 'GET', path: '/plans', access: 'public', paged: true },
     getPlan: { method: 'GET', path: '/plans/:planId', access: 'public' },
+    publishPlan: {
+      method: 'POST',
+      path: '/plans/:planId/versions',
+      access: 'permission:subscription.manage',
+      idempotent: true,
+    },
     createPurchase: { method: 'POST', path: '/purchases', access: 'principal', idempotent: true },
+    createRenewalPurchase: {
+      method: 'POST',
+      path: '/subscriptions/:subscriptionId/renewals',
+      access: 'principal',
+      idempotent: true,
+    },
+    getPurchaseByRequest: {
+      method: 'GET',
+      path: '/purchases/by-request/:idempotencyKey',
+      access: 'principal',
+    },
     getPurchase: { method: 'GET', path: '/purchases/:purchaseId', access: 'principal' },
     listSubscriptions: { method: 'GET', path: '/subscriptions', access: 'principal', paged: true },
     getSubscription: {
@@ -41,10 +58,38 @@ export const SUBSCRIPTION_V1 = {
       path: '/subscriptions/:subscriptionId',
       access: 'principal',
     },
+    checkEligibility: {
+      method: 'POST',
+      path: '/subscriptions/:subscriptionId/eligibility',
+      access: 'principal',
+      safe: true,
+    },
     requestChange: {
       method: 'POST',
       path: '/subscriptions/:subscriptionId/changes',
       access: 'principal',
+      idempotent: true,
+    },
+    listPendingChanges: {
+      method: 'GET',
+      path: '/administration/changes',
+      access: 'permission:subscription.manage',
+    },
+    listFundingRecovery: {
+      method: 'GET',
+      path: '/administration/funding-recovery',
+      access: 'permission:subscription.manage',
+    },
+    retryFundingRecovery: {
+      method: 'POST',
+      path: '/administration/funding-recovery/:subscriptionId/retry',
+      access: 'permission:subscription.manage',
+      idempotent: true,
+    },
+    decideChange: {
+      method: 'POST',
+      path: '/subscriptions/:subscriptionId/changes/:changeId/decision',
+      access: 'permission:subscription.manage',
       idempotent: true,
     },
     reserveEntitlement: {
@@ -62,6 +107,11 @@ export const SUBSCRIPTION_V1 = {
     getEntitlementReservation: {
       method: 'GET',
       path: '/entitlement-reservations/:reservationId',
+      access: 'service:subscription.entitlement.read',
+    },
+    findBookingEntitlements: {
+      method: 'GET',
+      path: '/entitlement-reservations',
       access: 'service:subscription.entitlement.read',
     },
   },
@@ -87,6 +137,54 @@ export const MAX_PLAN_UNITS = 1000;
 
 export const PLAN_STATUSES = ['PUBLISHED', 'RETIRED'] as const;
 export type PlanStatus = (typeof PLAN_STATUSES)[number];
+
+export interface PublishPlanRequestV1 {
+  readonly expectedRevision: number;
+  readonly status: PlanStatus;
+  readonly name: string;
+  readonly units: number;
+  readonly validityDays: number;
+  readonly price: Money;
+  readonly packageIds: readonly string[];
+  readonly vehicleTypes: readonly VehicleType[];
+}
+export function parsePublishPlanRequestV1(value: unknown): PublishPlanRequestV1 {
+  const v = closed(value, '$', [
+    'expectedRevision',
+    'status',
+    'name',
+    'units',
+    'validityDays',
+    'price',
+    'packageIds',
+    'vehicleTypes',
+  ]);
+  const expectedRevision = integer(v.expectedRevision, '$.expectedRevision', 0, 2147483646);
+  // Reuse the same plan validation without allowing clients to choose timestamps or hashes.
+  const plan = parsePlanV1({
+    planId: '00000000-0000-4000-8000-000000000001',
+    version: expectedRevision + 1,
+    status: v.status,
+    name: v.name,
+    units: v.units,
+    validityDays: v.validityDays,
+    price: v.price,
+    packageIds: v.packageIds,
+    vehicleTypes: v.vehicleTypes,
+    publishedAt: '2000-01-01T00:00:00.000Z',
+    contentHash: '0'.repeat(64),
+  });
+  return {
+    expectedRevision,
+    status: plan.status,
+    name: plan.name,
+    units: plan.units,
+    validityDays: plan.validityDays,
+    price: plan.price,
+    packageIds: plan.packageIds,
+    vehicleTypes: plan.vehicleTypes,
+  };
+}
 
 export interface PlanV1 {
   readonly planId: string;
@@ -184,33 +282,58 @@ export interface PurchaseV1 {
   readonly obligationId: string | null;
   /** Non-null exactly when ACTIVATED. */
   readonly subscriptionId: string | null;
+  /** The owner's immutable target for a separately funded renewal, including while pending. */
+  readonly renewalOf: { readonly subscriptionId: string; readonly periodNo: number } | null;
   readonly createdAt: UtcTimestamp;
   readonly updatedAt: UtcTimestamp;
 }
 
 export function parsePurchaseV1(value: unknown, path = '$'): PurchaseV1 {
-  const v = closed(value, path, [
-    'purchaseId',
-    'revision',
-    'status',
-    'beneficiary',
-    'planId',
-    'planVersion',
-    'quoteId',
-    'total',
-    'paymentMethod',
-    'obligationId',
-    'subscriptionId',
-    'createdAt',
-    'updatedAt',
-  ]);
+  const v = closed(
+    value,
+    path,
+    [
+      'purchaseId',
+      'revision',
+      'status',
+      'beneficiary',
+      'planId',
+      'planVersion',
+      'quoteId',
+      'total',
+      'paymentMethod',
+      'obligationId',
+      'subscriptionId',
+      'createdAt',
+      'updatedAt',
+    ],
+    ['renewalOf'],
+  );
   const status = oneOf(v.status, `${path}.status`, PURCHASE_STATUSES);
   const obligationId =
     v.obligationId === null ? null : uuid(v.obligationId, `${path}.obligationId`);
   const subscriptionId =
     v.subscriptionId === null ? null : uuid(v.subscriptionId, `${path}.subscriptionId`);
+  const renewal =
+    v.renewalOf == null
+      ? null
+      : closed(v.renewalOf, `${path}.renewalOf`, ['subscriptionId', 'periodNo']);
+  const renewalOf =
+    renewal === null
+      ? null
+      : {
+          subscriptionId: uuid(renewal.subscriptionId, `${path}.renewalOf.subscriptionId`),
+          periodNo: integer(
+            renewal.periodNo,
+            `${path}.renewalOf.periodNo`,
+            2,
+            Number.MAX_SAFE_INTEGER,
+          ),
+        };
   if ((status === 'ACTIVATED') !== (subscriptionId !== null))
     throw new ContractViolation('INCONSISTENT_ACTIVATION', `${path}.subscriptionId`);
+  if (subscriptionId !== null && renewalOf !== null && subscriptionId !== renewalOf.subscriptionId)
+    throw new ContractViolation('INCONSISTENT_RENEWAL', `${path}.renewalOf.subscriptionId`);
   // Activation, review and unknown outcomes all presuppose a Billing obligation.
   if (status !== 'REJECTED' && status !== 'PENDING_PAYMENT' && obligationId === null)
     throw new ContractViolation('OBLIGATION_REQUIRED', `${path}.obligationId`);
@@ -231,6 +354,7 @@ export function parsePurchaseV1(value: unknown, path = '$'): PurchaseV1 {
     paymentMethod: oneOf(v.paymentMethod, `${path}.paymentMethod`, PAYMENT_METHODS),
     obligationId,
     subscriptionId,
+    renewalOf,
     createdAt,
     updatedAt,
   };
@@ -258,6 +382,103 @@ export function parseCreatePurchaseRequestV1(value: unknown): CreatePurchaseRequ
     quoteId: uuid(v.quoteId, '$.quoteId'),
     total,
     paymentMethod: oneOf(v.paymentMethod, '$.paymentMethod', PAYMENT_METHODS),
+  };
+}
+
+/** A renewal is a new quoted purchase; no automatic debit or carried-forward units. */
+export interface CreateRenewalPurchaseRequestV1 extends CreatePurchaseRequestV1 {
+  readonly expectedRevision: number;
+}
+
+export function parseCreateRenewalPurchaseRequestV1(
+  value: unknown,
+): CreateRenewalPurchaseRequestV1 {
+  const v = closed(value, '$', [
+    'expectedRevision',
+    'planId',
+    'planVersion',
+    'quoteId',
+    'total',
+    'paymentMethod',
+  ]);
+  return {
+    ...parseCreatePurchaseRequestV1({
+      planId: v.planId,
+      planVersion: v.planVersion,
+      quoteId: v.quoteId,
+      total: v.total,
+      paymentMethod: v.paymentMethod,
+    }),
+    expectedRevision: parseRevision(v.expectedRevision, '$.expectedRevision'),
+  };
+}
+
+export const FUNDING_RECOVERY_STATUSES = [
+  'PENDING',
+  'RETRYING',
+  'WAITING_RESERVATIONS',
+  'ATTENTION_REQUIRED',
+  'RELEASED',
+] as const;
+
+/** Administrative visibility of a cancellation release; never a refund receipt. */
+export function parseFundingRecoveryListV1(value: unknown) {
+  const v = closed(value, '$', ['items', 'asOf']);
+  const items = list(v.items, '$.items', 100, (entry, path) => {
+    const item = closed(entry, path, [
+      'subscriptionId',
+      'attempts',
+      'attemptLimit',
+      'reservedUnits',
+      'status',
+      'requestedAt',
+      'nextAttemptAt',
+      'releasedAt',
+    ]);
+    const status = oneOf(item.status, `${path}.status`, FUNDING_RECOVERY_STATUSES);
+    const releasedAt =
+      item.releasedAt === null ? null : parseUtc(item.releasedAt, `${path}.releasedAt`);
+    if ((status === 'RELEASED') !== (releasedAt !== null))
+      throw new ContractViolation('INCONSISTENT_RELEASE', `${path}.releasedAt`);
+    return {
+      subscriptionId: uuid(item.subscriptionId, `${path}.subscriptionId`),
+      attempts: integer(item.attempts, `${path}.attempts`, 0, Number.MAX_SAFE_INTEGER),
+      attemptLimit: integer(item.attemptLimit, `${path}.attemptLimit`, 1, Number.MAX_SAFE_INTEGER),
+      reservedUnits: integer(
+        item.reservedUnits,
+        `${path}.reservedUnits`,
+        0,
+        Number.MAX_SAFE_INTEGER,
+      ),
+      status,
+      requestedAt: parseUtc(item.requestedAt, `${path}.requestedAt`),
+      nextAttemptAt: parseUtc(item.nextAttemptAt, `${path}.nextAttemptAt`),
+      releasedAt,
+    };
+  });
+  if (new Set(items.map((item) => item.subscriptionId)).size !== items.length)
+    throw new ContractViolation('DUPLICATE_SUBSCRIPTION', '$.items');
+  return { items, asOf: parseUtc(v.asOf, '$.asOf') };
+}
+
+export function parseFundingRecoveryRetryRequestV1(value: unknown) {
+  const v = closed(value, '$', ['expectedAttempts']);
+  return {
+    expectedAttempts: integer(v.expectedAttempts, '$.expectedAttempts', 1, Number.MAX_SAFE_INTEGER),
+  };
+}
+
+export function parseFundingRecoveryRetryV1(value: unknown) {
+  const v = closed(value, '$', ['subscriptionId', 'attempts', 'attemptLimit', 'status']);
+  const attempts = integer(v.attempts, '$.attempts', 1, Number.MAX_SAFE_INTEGER);
+  const attemptLimit = integer(v.attemptLimit, '$.attemptLimit', 1, Number.MAX_SAFE_INTEGER);
+  if (attemptLimit <= attempts)
+    throw new ContractViolation('RETRY_BUDGET_REQUIRED', '$.attemptLimit');
+  return {
+    subscriptionId: uuid(v.subscriptionId, '$.subscriptionId'),
+    attempts,
+    attemptLimit,
+    status: oneOf(v.status, '$.status', ['PENDING'] as const),
   };
 }
 
@@ -290,6 +511,9 @@ export interface SubscriptionV1 {
   readonly planId: string;
   readonly planVersion: number;
   readonly purchaseId: string;
+  readonly periodNo: number;
+  /** Owner-computed eligibility to request a separately funded next period. */
+  readonly renewalAvailable: boolean;
   readonly units: UnitsV1;
   readonly startsAt: UtcTimestamp;
   readonly expiresAt: UtcTimestamp;
@@ -313,21 +537,26 @@ const nullableUtc = (value: unknown, path: string): UtcTimestamp | null =>
   value === null ? null : parseUtc(value, path);
 
 export function parseSubscriptionV1(value: unknown, path = '$'): SubscriptionV1 {
-  const v = closed(value, path, [
-    'subscriptionId',
-    'revision',
-    'status',
-    'beneficiary',
-    'planId',
-    'planVersion',
-    'purchaseId',
-    'units',
-    'startsAt',
-    'expiresAt',
-    'frozenAt',
-    'cancelledAt',
-    'updatedAt',
-  ]);
+  const v = closed(
+    value,
+    path,
+    [
+      'subscriptionId',
+      'revision',
+      'status',
+      'beneficiary',
+      'planId',
+      'planVersion',
+      'purchaseId',
+      'units',
+      'startsAt',
+      'expiresAt',
+      'frozenAt',
+      'cancelledAt',
+      'updatedAt',
+    ],
+    ['periodNo', 'renewalAvailable'],
+  );
   const status = oneOf(v.status, `${path}.status`, SUBSCRIPTION_STATUSES);
   const units = parseUnits(v.units, `${path}.units`);
   const startsAt = parseUtc(v.startsAt, `${path}.startsAt`);
@@ -335,12 +564,24 @@ export function parseSubscriptionV1(value: unknown, path = '$'): SubscriptionV1 
   if (expiresAt <= startsAt) throw new ContractViolation('INVALID_VALIDITY', `${path}.expiresAt`);
   const frozenAt = nullableUtc(v.frozenAt, `${path}.frozenAt`);
   const cancelledAt = nullableUtc(v.cancelledAt, `${path}.cancelledAt`);
+  const periodNo =
+    v.periodNo === undefined
+      ? 1
+      : integer(v.periodNo, `${path}.periodNo`, 1, Number.MAX_SAFE_INTEGER);
+  if (v.renewalAvailable !== undefined && typeof v.renewalAvailable !== 'boolean')
+    throw new ContractViolation('EXPECTED_BOOLEAN', `${path}.renewalAvailable`);
+  const renewalAvailable = v.renewalAvailable === true;
+  if (renewalAvailable && status !== 'EXPIRED')
+    throw new ContractViolation('INCONSISTENT_RENEWAL', `${path}.renewalAvailable`);
   if ((status === 'FROZEN') !== (frozenAt !== null))
     throw new ContractViolation('INCONSISTENT_FREEZE', `${path}.frozenAt`);
   if ((status === 'CANCELLED') !== (cancelledAt !== null))
     throw new ContractViolation('INCONSISTENT_CANCELLATION', `${path}.cancelledAt`);
   // EXHAUSTED means every unit was consumed; a reserved unit can still be released.
-  if ((status === 'EXHAUSTED') !== (units.consumed === units.total))
+  if (
+    (status === 'EXHAUSTED') !== (units.consumed === units.total) &&
+    !(units.consumed === units.total && ['FROZEN', 'CANCELLED', 'EXPIRED'].includes(status))
+  )
     throw new ContractViolation('INCONSISTENT_EXHAUSTION', `${path}.status`);
   return {
     subscriptionId: uuid(v.subscriptionId, `${path}.subscriptionId`),
@@ -350,6 +591,8 @@ export function parseSubscriptionV1(value: unknown, path = '$'): SubscriptionV1 
     planId: uuid(v.planId, `${path}.planId`),
     planVersion: parseRevision(v.planVersion, `${path}.planVersion`),
     purchaseId: uuid(v.purchaseId, `${path}.purchaseId`),
+    periodNo,
+    renewalAvailable,
     units,
     startsAt,
     expiresAt,
@@ -392,6 +635,51 @@ export interface RequestSubscriptionChangeV1 {
   readonly expectedRevision: number;
   readonly action: SubscriptionChangeAction;
   readonly reason: SubscriptionChangeReason;
+}
+
+/** Read-only owner decision for a proposed booking; reserve remains authoritative. */
+export interface CheckEligibilityRequestV1 {
+  readonly packageId: string;
+  readonly vehicleType: VehicleType;
+  readonly scheduledFor: UtcTimestamp;
+}
+export const ELIGIBILITY_REASONS = [
+  'SUBSCRIPTION_NOT_ACTIVE',
+  'SUBSCRIPTION_FROZEN',
+  'PERIOD_ENDED',
+  'SCHEDULE_OUTSIDE_PERIOD',
+  'PACKAGE_NOT_COVERED',
+  'ENTITLEMENT_EXHAUSTED',
+] as const;
+export type EligibilityReason = (typeof ELIGIBILITY_REASONS)[number];
+export interface EligibilityV1 {
+  readonly subscriptionId: string;
+  readonly revision: number;
+  readonly eligible: boolean;
+  readonly reason: EligibilityReason | null;
+  readonly checkedAt: UtcTimestamp;
+}
+export function parseCheckEligibilityRequestV1(value: unknown): CheckEligibilityRequestV1 {
+  const v = closed(value, '$', ['packageId', 'vehicleType', 'scheduledFor']);
+  return {
+    packageId: uuid(v.packageId, '$.packageId'),
+    vehicleType: oneOf(v.vehicleType, '$.vehicleType', VEHICLE_TYPES),
+    scheduledFor: parseUtc(v.scheduledFor, '$.scheduledFor'),
+  };
+}
+export function parseEligibilityV1(value: unknown): EligibilityV1 {
+  const v = closed(value, '$', ['subscriptionId', 'revision', 'eligible', 'reason', 'checkedAt']);
+  if (typeof v.eligible !== 'boolean') throw new ContractViolation('INVALID_TYPE', '$.eligible');
+  const reason = v.reason === null ? null : oneOf(v.reason, '$.reason', ELIGIBILITY_REASONS);
+  if (v.eligible !== (reason === null))
+    throw new ContractViolation('INCONSISTENT_ELIGIBILITY', '$.reason');
+  return {
+    subscriptionId: uuid(v.subscriptionId, '$.subscriptionId'),
+    revision: parseRevision(v.revision, '$.revision'),
+    eligible: v.eligible,
+    reason,
+    checkedAt: parseUtc(v.checkedAt, '$.checkedAt'),
+  };
 }
 
 export function parseRequestSubscriptionChangeV1(value: unknown): RequestSubscriptionChangeV1 {
@@ -501,22 +789,31 @@ export interface ReserveEntitlementRequestV1 {
   readonly beneficiary: PrincipalRef;
   readonly bookingId: string;
   readonly packageId: string;
+  /** Required by the provider to verify the actual service time against the period. */
+  readonly scheduledFor?: UtcTimestamp;
+  /** Trusted wash-quote vehicle class, checked against the purchased plan. */
+  readonly vehicleType?: VehicleType;
 }
 
 export function parseReserveEntitlementRequestV1(value: unknown): ReserveEntitlementRequestV1 {
-  const v = closed(value, '$', [
-    'subscriptionId',
-    'expectedRevision',
-    'beneficiary',
-    'bookingId',
-    'packageId',
-  ]);
+  const v = closed(
+    value,
+    '$',
+    ['subscriptionId', 'expectedRevision', 'beneficiary', 'bookingId', 'packageId'],
+    ['scheduledFor', 'vehicleType'],
+  );
   return {
     subscriptionId: uuid(v.subscriptionId, '$.subscriptionId'),
     expectedRevision: parseRevision(v.expectedRevision, '$.expectedRevision'),
     beneficiary: parsePrincipalRef(v.beneficiary, '$.beneficiary'),
     bookingId: uuid(v.bookingId, '$.bookingId'),
     packageId: uuid(v.packageId, '$.packageId'),
+    ...(v.scheduledFor === undefined
+      ? {}
+      : { scheduledFor: parseUtc(v.scheduledFor, '$.scheduledFor') }),
+    ...(v.vehicleType === undefined
+      ? {}
+      : { vehicleType: oneOf(v.vehicleType, '$.vehicleType', VEHICLE_TYPES) }),
   };
 }
 

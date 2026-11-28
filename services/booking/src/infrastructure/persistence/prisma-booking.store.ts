@@ -46,6 +46,7 @@ interface SagaRow {
   outcome: string | null;
   pending_rejection: string | null;
   obligation_id: string | null;
+  entitlement_reservation_id: string | null;
   pivot_attempted: boolean;
   attempts: number;
   next_attempt_at: Date;
@@ -59,10 +60,11 @@ interface SagaRow {
 
 // Aliased: the booking row has its own version/updated_at in the same SELECT.
 const SAGA_COLUMNS = `s.booking_id::text, s.step, s.outcome, s.pending_rejection, s.obligation_id,
+  s.entitlement_reservation_id::text,
   s.pivot_attempted, s.attempts, s.next_attempt_at, s.deadline_at, s.last_error, s.fence,
   s.correlation_id::text, s.version AS saga_version, s.updated_at AS saga_updated_at`;
 
-const LIVE = `('VALIDATE_QUOTE', 'CREATE_OBLIGATION', 'COMMIT_HOLD', 'VOID_OBLIGATION')`;
+const LIVE = `('VALIDATE_QUOTE', 'CREATE_OBLIGATION', 'RESERVE_ENTITLEMENT', 'COMMIT_HOLD', 'VOID_OBLIGATION', 'RELEASE_ENTITLEMENT')`;
 
 /** The saga lease was taken over; the finishing transaction rolls back. */
 class LeaseLost extends Error {
@@ -106,6 +108,7 @@ function toSaga(row: SagaRow): SagaState {
     outcome: row.outcome as SagaOutcome | null,
     pendingRejection: row.pending_rejection as RejectionReason | null,
     obligationId: row.obligation_id,
+    entitlementReservationId: row.entitlement_reservation_id,
     pivotAttempted: row.pivot_attempted,
     attempts: row.attempts,
     nextAttemptAt: row.next_attempt_at,
@@ -139,6 +142,25 @@ export async function appendAudit(tx: Tx, fact: AuditFact): Promise<void> {
 }
 
 export class PrismaBookingStore implements BookingStore {
+  async findRequest(owner: PrincipalRef, key: string) {
+    const rows = await this.prisma.client.$queryRawUnsafe<
+      Array<{ state: string; booking_id: string }>
+    >(
+      `SELECT state, booking_id::text FROM app.booking_request
+       WHERE principal_kind = $1 AND principal_subject = $2::uuid AND idempotency_key = $3`,
+      owner.kind,
+      owner.subjectId,
+      key,
+    );
+    const row = rows[0];
+    return row
+      ? {
+          state: row.state === 'BOUND' ? ('BOUND' as const) : ('CLAIMED' as const),
+          bookingId: row.booking_id,
+        }
+      : null;
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly options: {
@@ -279,11 +301,12 @@ export class PrismaBookingStore implements BookingStore {
            id, principal_kind, principal_subject, status, rejection_reason, payment_method,
            contact, vehicle_snapshot, address_snapshot, quote_snapshot, quote_id, quote_revision,
            currency, total_minor, total_scale, hold_id, hold_revision, zone_id,
-           requested_starts_at, requested_ends_at, version, created_at, updated_at)
+           requested_starts_at, requested_ends_at, version, created_at, updated_at,
+           subscription_id, subscription_revision)
          VALUES ($1::uuid, $2, $3::uuid, $4, NULL, $5,
            $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, $10::uuid, $11,
            $12, $13::bigint, $14, $15::uuid, $16, $17::uuid,
-           $18, $19, $20, $21, $21)
+           $18, $19, $20, $21, $21, $22::uuid, $23)
          ON CONFLICT DO NOTHING
          RETURNING id::text`,
         booking.id,
@@ -307,6 +330,8 @@ export class PrismaBookingStore implements BookingStore {
         booking.requestedSlot.endsAt,
         booking.version,
         booking.createdAt,
+        booking.subscription?.subscriptionId ?? null,
+        booking.subscription?.expectedRevision ?? null,
       );
       if (inserted.length === 0) {
         const [holdTaken] = await tx.$queryRawUnsafe<{ id: string }[]>(
@@ -454,8 +479,10 @@ export class PrismaBookingStore implements BookingStore {
               pivot_attempted = $7, attempts = $8, next_attempt_at = $9, deadline_at = $10,
               last_error = $11, version = $12, updated_at = $13,
               lease_owner = CASE WHEN $14::boolean THEN NULL ELSE lease_owner END,
-              lease_until = CASE WHEN $14::boolean THEN NULL ELSE $15::timestamptz END
+              lease_until = CASE WHEN $14::boolean THEN NULL ELSE $15::timestamptz END,
+              entitlement_reservation_id = $17::uuid
         WHERE booking_id = $1::uuid AND fence = $2 AND lease_owner = $16
+          AND lease_until > clock_timestamp()
        RETURNING booking_id::text`,
       saga.bookingId,
       lease.fence,
@@ -473,6 +500,7 @@ export class PrismaBookingStore implements BookingStore {
       release,
       new Date(saga.updatedAt.getTime() + this.options.sagaLeaseMs),
       lease.owner,
+      saga.entitlementReservationId,
     );
     return rows.length === 1;
   }

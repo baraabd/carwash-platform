@@ -10,3 +10,4 @@ export * from './process-manager';
 export * from './technician-view';
 export * from './change-manager';
 export * from './change.service';
+export * from './booking-holds.service';

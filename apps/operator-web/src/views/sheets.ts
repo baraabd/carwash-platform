@@ -12,6 +12,7 @@ import {
   method,
   outstanding,
   photos as photoSlots,
+  subscriptionCovered,
   time,
   total,
   type Job,
@@ -141,7 +142,7 @@ export function finishSheet(): SheetContent {
 /** Reference `showCash`. Exact Money (D3). PC-44..PC-47. */
 export function cashSheet(j: Job): SheetContent | null {
   const t = total(j);
-  if (!t) return null;
+  if (!t || method(j) !== 'cash') return null;
   return {
     title: 'تأكيد استلام الكاش',
     body: `<section class="receipt"><div class="receipt-row"><span>رقم المهمة</span><strong class="ltr">${escape(j.ref)}</strong></div><div class="receipt-row total"><span>المبلغ المستحق</span><strong>${moneyHtml(t)}</strong></div></section><label class="field-label" for="cash-amount">المبلغ المستلم <span class="muted">· ل.س</span></label><input id="cash-amount" type="text" inputmode="numeric" autocomplete="off" placeholder="${formatMajor(t)}" maxlength="15" aria-describedby="cash-hint"><p class="field-hint" id="cash-hint">اكتب المبلغ كاملًا. يمكن استخدام الأرقام العربية.</p><label class="confirm-line mt"><input id="cash-check" type="checkbox"><span>أؤكد استلام المبلغ كاملًا، وليس بمجرد انتهاء الغسيل.</span></label><div id="cash-error" class="sheet-error" hidden></div><button class="btn" data-action="cash-confirm" id="cash-confirm" disabled>${I('check')}تسجيل التحصيل</button><p class="tiny muted mt">لا يصدر إيصالًا قانونيًا ولا يُحدّث حسابات فعلية.</p>`,
@@ -177,8 +178,21 @@ export function issueSheet(mode: IssueMode): SheetContent {
 /** Reference `closeTaskSheet` (non-cash or recorded cash outcome). PC-51. */
 export function handoffSheet(j: Job): SheetContent {
   const due = outstanding(j);
+  const covered = subscriptionCovered(j);
+  const status = covered
+    ? 'مغطى بالاشتراك'
+    : due
+      ? 'يبقى للمتابعة'
+      : method(j) === 'cash'
+        ? 'كاش مسجّل'
+        : 'معتمد';
+  const note = covered
+    ? 'تأكيد تسليم خدمة مغطاة بالاشتراك دون تسجيل تحصيل جديد.'
+    : due
+      ? 'إغلاق المهمة لا يعتمد التحويل أو يحوّل المبلغ إلى محصّل. يبقى ظاهرًا للمتابعة.'
+      : 'تأكيد التسليم دون إرسال إشعار للعميل.';
   return {
     title: 'تأكيد التسليم',
-    body: `<div class="success-art" data-style="margin-top:9px;width:76px;height:76px;border-radius:26px">${I('check')}</div><p class="center">هل انتهى الغسيل وتم تسليم السيارة؟</p><section class="receipt mt"><div class="receipt-row"><span>السيارة</span><strong>${escape(carName(j))}</strong></div><div class="receipt-row"><span>حالة الدفع</span><strong>${due ? 'يبقى للمتابعة' : method(j) === 'cash' ? 'كاش مسجّل' : 'معتمد'}</strong></div></section><div class="note ${due ? 'amber' : ''} mt">${I('info')}<span>${due ? 'إغلاق المهمة لا يعتمد التحويل أو يحوّل المبلغ إلى محصّل. يبقى ظاهرًا للمتابعة.' : 'تأكيد التسليم دون إرسال إشعار للعميل.'}</span></div><button class="btn" data-action="close-job-confirm">${I('check')}نعم، تأكيد التسليم</button>`,
+    body: `<div class="success-art" data-style="margin-top:9px;width:76px;height:76px;border-radius:26px">${I('check')}</div><p class="center">هل انتهى الغسيل وتم تسليم السيارة؟</p><section class="receipt mt"><div class="receipt-row"><span>السيارة</span><strong>${escape(carName(j))}</strong></div><div class="receipt-row"><span>${covered ? 'حالة التغطية' : 'حالة الدفع'}</span><strong>${status}</strong></div></section><div class="note ${due ? 'amber' : ''} mt">${I('info')}<span>${note}</span></div><button class="btn" data-action="close-job-confirm">${I('check')}نعم، تأكيد التسليم</button>`,
   };
 }

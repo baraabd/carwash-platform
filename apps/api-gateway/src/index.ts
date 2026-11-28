@@ -7,7 +7,7 @@ import { GatewayService } from './application/gateway.service';
 import { BoundedHttpClient } from './infrastructure/http-client';
 import { PublicIdentityClient } from './infrastructure/identity-client';
 import { validateGatewayConfig, type GatewayConfig } from './infrastructure/config';
-import { GatewayController, GATEWAY_SERVICE } from './transport/http/controller';
+import { GatewayController, GATEWAY_SERVICE, GATEWAY_CONFIG } from './transport/http/controller';
 import { GatewayFilter } from './transport/http/filter';
 import { contextFor, type GatewayRequest, type GatewayResponse } from './transport/http/context';
 export { loadGatewayConfig, type GatewayConfig } from './infrastructure/config';
@@ -28,6 +28,7 @@ export async function createGatewayApplication(config: GatewayConfig): Promise<I
     controllers: [GatewayController],
     providers: [
       { provide: GATEWAY_SERVICE, useValue: gateway },
+      { provide: GATEWAY_CONFIG, useValue: config },
       { provide: 'GATEWAY_TELEMETRY_LIFECYCLE', useValue: lifecycle },
     ],
   })

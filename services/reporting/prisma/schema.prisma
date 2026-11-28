@@ -221,6 +221,8 @@ model OpsAssignmentResource {
 
 /// Latest observed financial state of one Billing obligation. Amounts are
 /// exact integer minor units with explicit currency and scale.
+/// SQL checks allow Billing's eight published financial states; PAID,
+/// CASH_COLLECTED and VOIDED require zero outstanding. Cash custody is separate.
 model OpsObligation {
   obligationId     String   @id @map("obligation_id") @db.Uuid
   version          Int
@@ -235,4 +237,18 @@ model OpsObligation {
 
   @@index([cashState, stateSince])
   @@map("ops_obligation")
+}
+
+/// Latest source fact per event family, separate from financial authority.
+model OpsOwnerObservation {
+  eventType String @map("event_type") @db.VarChar(80)
+  aggregateId String @map("aggregate_id") @db.Uuid
+  source String @db.VarChar(16)
+  version Int
+  fingerprint String @db.Char(64)
+  sourceEventId String @map("source_event_id") @db.Uuid
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  state Json
+  @@id([eventType, aggregateId])
+  @@map("ops_owner_observation")
 }

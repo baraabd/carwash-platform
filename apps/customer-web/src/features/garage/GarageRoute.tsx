@@ -24,6 +24,7 @@ import { productionFailure } from '../../data/productionCustomer';
 import { CustomerProfileSheet } from '../../widgets/customer-access/CustomerProfileSheet';
 import { ProductionNotice } from '../../widgets/customer-access/ProductionNotice';
 import './garage.css';
+import { useProductionBooking } from '../../data/ProductionBookingProvider';
 
 const DOCUMENT_TITLE = 'WashGo Signature — وقتك لك، واللمعة علينا';
 
@@ -37,6 +38,7 @@ type EditorTarget = {
 export function GarageRoute() {
   const { state, run } = useCustomerSession();
   const production = useCustomerProduction();
+  const journey = useProductionBooking();
   const navigate = useNavigate();
   const view = useMemo(() => buildGarageViewModel(state), [state]);
   const [editor, setEditor] = useState<EditorTarget | null>(null);
@@ -96,7 +98,14 @@ export function GarageRoute() {
   };
 
   const book = (vehicleId: string) => {
-    if (production) return;
+    if (production && journey) {
+      const vehicle = production.snapshot.vehicles.find((item) => item.vehicleId === vehicleId);
+      if (vehicle)
+        void journey.client.selectSavedVehicle(vehicle).then((ready) => {
+          if (ready) navigate('/book/0');
+        });
+      return;
+    }
     const { intent } = run((current) => bookSavedVehicle(current, vehicleId, currentInstant()));
     if (intent) void navigate(pathForIntent(intent));
   };
@@ -154,7 +163,15 @@ export function GarageRoute() {
             );
             setDeleteError(null);
           }}
-          bookingAvailable={!production}
+          bookingAvailable={
+            !production ||
+            Boolean(
+              journey &&
+              !journey.snapshot.busy &&
+              !journey.snapshot.pending &&
+              !journey.snapshot.unknownCreateKey,
+            )
+          }
           editingDisabled={disabled}
         />
       )}
@@ -179,7 +196,7 @@ export function GarageRoute() {
       <p className="save-note">
         <Icon name="lock" />{' '}
         {production
-          ? 'الحفظ مرتبط بجلسة المستخدم في الخدمة. ربط الحجز لهذه السيارة قيد الاستكمال.'
+          ? 'الحفظ مرتبط بجلسة المستخدم في الخدمة. يمكنك بدء حجز جديد بهذه السيارة.'
           : 'الحفظ محلي، وليس حسابًا سحابيًا.'}
       </p>
       {production &&

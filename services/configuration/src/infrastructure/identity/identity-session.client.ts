@@ -1,3 +1,4 @@
+import { isServiceOriginAllowed } from '@carwash/service-kit';
 import {
   AccessFault,
   type SessionAuthority,
@@ -25,22 +26,7 @@ export class IdentitySessionClient implements SessionAuthority {
     identityOrigin: URL,
     private readonly timeoutMs = 2_000,
   ) {
-    const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(identityOrigin.hostname);
-    // Inside the private network the origin may be plain HTTP only when it is
-    // loopback or an explicitly internal service name without a dot.
-    const internalName = !identityOrigin.hostname.includes('.');
-    if (
-      identityOrigin.protocol !== 'https:' &&
-      !(identityOrigin.protocol === 'http:' && (loopback || internalName))
-    )
-      throw new Error('IDENTITY_ORIGIN_INVALID');
-    if (
-      identityOrigin.username ||
-      identityOrigin.password ||
-      identityOrigin.hash ||
-      identityOrigin.search
-    )
-      throw new Error('IDENTITY_ORIGIN_INVALID');
+    if (!isServiceOriginAllowed(identityOrigin)) throw new Error('IDENTITY_ORIGIN_INVALID');
     this.url = new URL(SESSION_PATH, identityOrigin);
   }
 

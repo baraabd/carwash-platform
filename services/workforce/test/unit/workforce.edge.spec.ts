@@ -13,7 +13,7 @@ import { ActorResolver, RequestBudget } from '../../src/transport/http/actor-res
 
 test('workforce edge: Identity outage fails closed', async () => {
   const client = new IdentitySessionClient({
-    baseUrl: 'http://identity.invalid',
+    baseUrl: 'https://identity.invalid',
     fetchImpl: () => Promise.reject(new Error('down')),
   });
   await assert.rejects(
@@ -44,7 +44,7 @@ test('workforce edge: presenting user and service credentials together is reject
   const token = 'x'.repeat(48);
   const digest = createHash('sha256').update(token).digest('hex');
   const actors = new ActorResolver(
-    new IdentitySessionClient({ baseUrl: 'http://identity.invalid' }),
+    new IdentitySessionClient({ baseUrl: 'https://identity.invalid' }),
     new ServiceClientAuthenticator(
       parseServiceClients(
         JSON.stringify([

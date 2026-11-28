@@ -14,7 +14,8 @@ import { Money, MoneyError } from './money';
  */
 export const PLAN_CODE = /^[a-z][a-z0-9-]{2,40}$/;
 /** Catalog definition id convention (services/catalog). */
-export const PACKAGE_ID = /^[a-z][a-z0-9-]{1,47}$/;
+export const PACKAGE_ID =
+  /^(?:[a-z][a-z0-9-]{1,47}|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/;
 export const MAX_WASH_UNITS = 100;
 export const MAX_PERIOD_DAYS = 366;
 export const MAX_COVERED_PACKAGES = 20;
@@ -42,6 +43,8 @@ export interface PlanTerms {
   /** Sorted, unique catalog package ids a unit may be spent on. */
   readonly coveredPackageIds: readonly string[];
   readonly available: boolean;
+  /** Canonical plans explicitly publish vehicle coverage; legacy plans have none. */
+  readonly vehicleTypes?: readonly string[];
 }
 
 // Printable text only: no control characters, no leading/trailing whitespace.
@@ -59,7 +62,12 @@ export function normalizePlanTerms(raw: unknown): PlanTerms {
     throw new PlanRuleError('TERMS_MALFORMED', 'terms');
   const input = raw as Record<string, unknown>;
   const keys = 'available,coveredPackageIds,displayName,periodDays,price,washUnits';
-  if (Object.keys(input).sort().join(',') !== keys)
+  if (
+    Object.keys(input)
+      .filter((key) => key !== 'vehicleTypes')
+      .sort()
+      .join(',') !== keys
+  )
     throw new PlanRuleError('TERMS_MALFORMED', 'terms');
   const { displayName, price, washUnits, periodDays, coveredPackageIds, available } = input;
   if (
@@ -91,6 +99,16 @@ export function normalizePlanTerms(raw: unknown): PlanTerms {
       throw new PlanRuleError('TERMS_MALFORMED', `coveredPackageIds[${index}]`);
     covered.add(id);
   }
+  const vehicleTypes = input.vehicleTypes;
+  if (
+    vehicleTypes !== undefined &&
+    (!Array.isArray(vehicleTypes) ||
+      vehicleTypes.length === 0 ||
+      vehicleTypes.length > 4 ||
+      vehicleTypes.some((v) => !['sedan', 'suv', 'large', 'pickup'].includes(v)) ||
+      new Set(vehicleTypes).size !== vehicleTypes.length)
+  )
+    throw new PlanRuleError('TERMS_MALFORMED', 'vehicleTypes');
   return {
     displayName,
     price: money,
@@ -98,6 +116,7 @@ export function normalizePlanTerms(raw: unknown): PlanTerms {
     periodDays: integerIn(periodDays, 1, MAX_PERIOD_DAYS, 'periodDays'),
     coveredPackageIds: [...covered].sort(),
     available,
+    ...(vehicleTypes === undefined ? {} : { vehicleTypes: [...vehicleTypes].sort() }),
   };
 }
 

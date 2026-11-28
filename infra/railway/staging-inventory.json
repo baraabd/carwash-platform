@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-27T07:55:00Z",
+  "project": "carwash-platform",
+  "projectId": "7aa96062-f337-4d69-92c6-2af61c9348db",
+  "environment": "staging",
+  "environmentId": "2bfd91fb-ae06-4c71-a267-913fa123699b",
+  "applicationAccepted": false,
+  "services": [
+    {
+      "name": "Postgres",
+      "serviceId": "36d4389d-d07f-49be-9ff2-cb2fcea5f9f4",
+      "deploymentId": "24ebc0a6-c4fe-47ca-8283-9af41bf92e8a",
+      "observedStatus": "SUCCESS",
+      "template": "postgresql-16-1",
+      "purpose": "19 isolated owner databases and 38 least-privilege app/migration roles provisioned; application migrations pending"
+    },
+    {
+      "name": "Redis",
+      "serviceId": "cd19e7af-9c99-4156-9fe5-357c0be814de",
+      "deploymentId": "daa7698b-2f84-4cb5-8855-48cce54bb680",
+      "observedStatus": "SUCCESS",
+      "template": "redis",
+      "purpose": "Identity rate/session infrastructure; scoped ACL acceptance pending"
+    },
+    {
+      "name": "database-provisioning",
+      "serviceId": "04b846a5-0a1f-49bf-9dff-4b477ab367af",
+      "deploymentId": "6fecf499-df4a-4215-8024-87da7bd98880",
+      "observedStatus": "SUCCESS",
+      "purpose": "One-shot owner database provisioning completed; not a running application service",
+      "evidence": {
+        "kind": "carwash.staging.database-provisioning.v1",
+        "accepted": true,
+        "postgresVersion": "160016",
+        "ownerDatabases": 19,
+        "independentRoles": 38,
+        "databaseIsolationChecks": 361,
+        "migrationsApplied": false,
+        "applicationAccepted": false,
+        "completedAt": "2026-11-27T07:51:53.591Z"
+      }
+    }
+  ],
+  "note": "Provisioned infrastructure only. This inventory is not S10/S11/S12 acceptance, application readiness, a recovery drill, or production evidence. No secrets are stored here."
+}

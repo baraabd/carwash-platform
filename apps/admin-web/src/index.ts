@@ -2,6 +2,11 @@ import './reference.css';
 import './production.css';
 import './accessibility.css';
 import { currentSession, signOut } from './api/session';
+import { sessionRequests, bindSessionRequests } from './api/http';
+import { invalidateDashboard } from './ui/dashboard-screen';
+import { invalidateBookings } from './ui/bookings-screen';
+import { invalidatePayments } from './ui/payments-screen';
+import { invalidateTechnicians } from './ui/technicians-screen';
 import {
   SCREENS,
   canOpen,
@@ -30,6 +35,25 @@ import {
 import { signIn } from './ui/sign-in';
 import { failureMessage } from './ui/states';
 import { openReview, showTechnicians, wireTechnicians } from './ui/technicians-screen';
+import {
+  wireReviewNotifications,
+  invalidateReviewNotifications,
+  showCustomerReviews,
+  showNotifications,
+} from './ui/reviews-notifications';
+import {
+  wireDomainScreens,
+  invalidateDomainScreens,
+  showServices,
+  showCoverage,
+} from './ui/catalog-coverage';
+import { wireSupportScreens, invalidateSupportScreens, showSupportCases } from './ui/support-cases';
+import { wireWalletScreens, invalidateWalletScreens, showWallets } from './ui/wallets';
+import {
+  wireSubscriptionScreens,
+  invalidateSubscriptionScreens,
+  showSubscriptions,
+} from './ui/subscriptions';
 
 /**
  * Admin console entry: session, capability gating and hash routing.
@@ -49,6 +73,12 @@ const NO_CAPABILITIES: Capabilities = {
   assignmentActions: false,
   payments: false,
   reconcile: false,
+  reviewModeration: false,
+  services: false,
+  coverage: false,
+  support: false,
+  custody: false,
+  subscriptions: false,
 };
 let session: StaffSession | null = null;
 let caps: Capabilities = NO_CAPABILITIES;
@@ -86,6 +116,8 @@ function gateNavigation(): void {
 }
 
 async function render(): Promise<void> {
+  closeModal();
+  invalidatePrivateScreens(false);
   const current = ++renderGeneration;
   const renderingSession = session;
   if (!session) return;
@@ -114,6 +146,27 @@ async function render(): Promise<void> {
     case 'payments':
       await showPayments();
       return;
+    case 'reviews':
+      await showCustomerReviews();
+      return;
+    case 'notifications':
+      await showNotifications();
+      return;
+    case 'services':
+      await showServices();
+      return;
+    case 'coverage':
+      await showCoverage();
+      return;
+    case 'disputes':
+      await showSupportCases();
+      return;
+    case 'wallets':
+      await showWallets();
+      return;
+    case 'subscriptions':
+      await showSubscriptions();
+      return;
     case 'technicians':
       await showTechnicians();
       // Hash changes can overtake an outstanding Reporting read. Only the
@@ -124,17 +177,46 @@ async function render(): Promise<void> {
   }
 }
 
-function unauthenticated(): void {
+function invalidatePrivateScreens(clearPrivate: boolean): void {
+  invalidateDashboard(clearPrivate);
+  invalidateBookings(clearPrivate);
+  invalidatePayments(clearPrivate);
+  invalidateTechnicians(clearPrivate);
+  if (clearPrivate) {
+    closeModal();
+    for (const id of ['globalSearch', 'bookingSearch', 'obligationRef']) {
+      const input = document.getElementById(id) as HTMLInputElement | null;
+      if (input) input.value = '';
+    }
+    for (const id of ['kpiEligible', 'joinCount', 'toast']) {
+      const element = document.getElementById(id);
+      if (element) element.textContent = '';
+    }
+  }
+  invalidateReviewNotifications(clearPrivate);
+  invalidateDomainScreens(clearPrivate);
+  invalidateSupportScreens(clearPrivate);
+  invalidateWalletScreens(clearPrivate);
+  invalidateSubscriptionScreens(clearPrivate);
+}
+
+function unauthenticated(showLogin = true): void {
+  sessionRequests.invalidate();
+  bindSessionRequests(null);
+  invalidatePrivateScreens(true);
   renderGeneration += 1;
   session = null;
   caps = NO_CAPABILITIES;
   renderProfile();
   gateNavigation();
   showConsoleState(copy().unauthenticated);
-  signIn(signedIn);
+  if (showLogin) signIn(signedIn);
 }
 
 function signedIn(next: StaffSession): void {
+  sessionRequests.invalidate();
+  bindSessionRequests(next);
+  invalidatePrivateScreens(true);
   session = next;
   caps = capabilities(next);
   closeModal();
@@ -144,12 +226,30 @@ function signedIn(next: StaffSession): void {
 }
 
 async function leave(): Promise<void> {
-  await signOut();
-  unauthenticated();
+  unauthenticated(false);
+  const epoch = sessionRequests.capture();
+  const result = await signOut();
+  if (!sessionRequests.current(epoch)) return;
+  if (result.ok) signIn(signedIn);
+  else
+    showConsoleState(failureMessage(result.failure), {
+      label: copy().retry,
+      run: () => void leave(),
+    });
 }
 
 async function boot(): Promise<void> {
   applyLanguage(storedLanguage());
+  wireReviewNotifications(unauthenticated);
+  const domainWiring = {
+    unauthenticated,
+    permissions: () => [...(session?.permissions ?? [])],
+    subject: () => session?.subject ?? null,
+  };
+  wireDomainScreens(domainWiring);
+  wireSupportScreens(domainWiring);
+  wireWalletScreens(domainWiring);
+  wireSubscriptionScreens(domainWiring);
   wireShell(() => {
     renderFilters();
     renderProfile();
@@ -172,7 +272,9 @@ async function boot(): Promise<void> {
     if (session) void leave();
   });
   window.addEventListener('hashchange', () => void render());
+  const epoch = sessionRequests.capture();
   const current = await currentSession();
+  if (!sessionRequests.current(epoch)) return;
   byId('appRoot').setAttribute('aria-busy', 'false');
   if (current.ok) signedIn(current.value);
   else if (current.failure === 'UNAUTHENTICATED') unauthenticated();

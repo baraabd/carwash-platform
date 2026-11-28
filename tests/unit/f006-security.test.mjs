@@ -248,8 +248,10 @@ for (const role of IDENTITY_ROLES) {
       permissions.includes('billing.reconcile'),
       role === 'finance' || role === 'super-admin',
     );
-    for (const publish of ['catalog.publish', 'pricing.publish'])
+    for (const publish of ['catalog.publish', 'pricing.publish', 'pricing.prices.publish'])
       assert.equal(permissions.includes(publish), role === 'super-admin');
+    for (const cash of ['billing.cash.correct', 'billing.treasury.receive'])
+      assert.equal(permissions.includes(cash), role === 'finance' || role === 'super-admin');
   });
 }
 test('F006 contracts: user input cannot assign roles or supply unknown credential fields', () => {

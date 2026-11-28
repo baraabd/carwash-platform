@@ -199,6 +199,8 @@ export interface BookingTechView {
   }[];
   readonly total: Money;
   readonly paymentMethod: PaymentMethod;
+  /** Subscription coverage makes the legacy payment method inapplicable. */
+  readonly financialSource: 'DIRECT' | 'SUBSCRIPTION';
 }
 
 export const OBJECT_STATUSES = ['RESERVED', 'AVAILABLE', 'REJECTED', 'EXPIRED', 'PURGED'] as const;

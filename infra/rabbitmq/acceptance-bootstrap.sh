@@ -34,7 +34,7 @@ rabbitmqctl add_vhost "$CW_VHOST"
 
 add_user() {
   # $1 user, $2 password
-  rabbitmqctl add_user "$1" "$2"
+  rabbitmqctl add_user -- "$1" "$2"
   # Explicitly empty tags: no administrator, no monitoring, no policymaker.
   rabbitmqctl set_user_tags "$1"
 }

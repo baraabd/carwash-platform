@@ -1,3 +1,4 @@
+import { isServiceOriginAllowed } from '@carwash/service-kit';
 import { ApplicationError } from '../../application/errors';
 import type { AuthorizedPrincipal, IdentityAuthorizer, SessionCredentials } from '../../ports';
 
@@ -16,15 +17,7 @@ export function validateIdentityAuthorizerConfig(
   config: IdentityAuthorizerConfig,
 ): IdentityAuthorizerConfig {
   const url = new URL(config.origin);
-  const loopback = ['127.0.0.1', '[::1]', 'localhost'].includes(url.hostname);
-  if (
-    url.username ||
-    url.password ||
-    url.pathname !== '/' ||
-    url.search ||
-    url.hash ||
-    (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback))
-  ) {
+  if (!isServiceOriginAllowed(url)) {
     throw new Error('INVALID_IDENTITY_ORIGIN');
   }
   if (!Number.isInteger(config.timeoutMs) || config.timeoutMs < 50 || config.timeoutMs > 10_000) {

@@ -15,15 +15,22 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./server-proxy": "./server-proxy.mjs",
+    "./service-origin": {
+      "types": "./dist/service-origin.d.ts",
+      "default": "./dist/service-origin.js"
     }
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "server-proxy.mjs"
   ],
   "dependencies": {
     "@redis/client": "6.1.0",
-    "jose": "6.2.5"
+    "jose": "6.2.5",
+    "@carwash/contracts": "workspace:*"
   }
 }

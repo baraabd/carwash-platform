@@ -1,3 +1,4 @@
+import { isServiceOriginAllowed } from '@carwash/service-kit';
 /**
  * Outbound service-to-service HTTP for Dispatch's adapters.
  *
@@ -42,8 +43,7 @@ export function parseServiceTarget(
   if (baseUrl === undefined && clientId === undefined && token === undefined) return null;
   if (!baseUrl || !clientId || !token) throw new Error(`${prefix}_INCOMPLETE`);
   const url = new URL(baseUrl);
-  if (url.username || url.password || url.search || url.hash)
-    throw new Error(`${prefix}_URL_INVALID`);
+  if (!isServiceOriginAllowed(url, env)) throw new Error(`${prefix}_URL_INVALID`);
   if (!/^[a-z][a-z0-9-]{1,63}$/.test(clientId) || token.length < 32 || token.length > 256) {
     throw new Error(`${prefix}_CREDENTIAL_INVALID`);
   }
@@ -58,6 +58,8 @@ export class ServiceHttp {
   private readonly fetchImpl: typeof fetch;
 
   constructor(private readonly options: ServiceHttpOptions) {
+    if (!isServiceOriginAllowed(new URL(options.baseUrl)))
+      throw new Error('INVALID_SERVICE_ORIGIN');
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 

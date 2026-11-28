@@ -1,4 +1,9 @@
-import { BOOKING_CONFIRMED_V1, parseBookingConfirmedV1 } from '@carwash/event-contracts';
+import {
+  BOOKING_CONFIRMED_V1,
+  BOOKING_CREATED_V1,
+  BOOKING_CANCELLED_V1,
+  parseBookingConfirmedV1,
+} from '@carwash/event-contracts';
 import {
   decideTrigger,
   type NotificationTrigger,
@@ -11,6 +16,8 @@ import type { EnqueueNotification } from './notification.service';
 /** Every published event type that may create an intent, with its producer exchange. */
 export const EVENT_NOTIFICATION_SUBSCRIPTIONS = [
   { exchange: 'booking.events', eventType: BOOKING_CONFIRMED_V1 },
+  { exchange: 'booking.events', eventType: BOOKING_CREATED_V1.eventType },
+  { exchange: 'booking.events', eventType: BOOKING_CANCELLED_V1.eventType },
 ] as const;
 
 /** A delivered event, normalised: the inbox identity plus one trigger. */
@@ -30,6 +37,38 @@ export function parseTriggerEvent(raw: unknown): TriggerEvent {
     raw !== null && typeof raw === 'object'
       ? (raw as { eventType?: unknown }).eventType
       : undefined;
+  if (eventType === BOOKING_CREATED_V1.eventType) {
+    const e = BOOKING_CREATED_V1.parse(raw);
+    return {
+      eventId: e.eventId.toLowerCase(),
+      eventType: e.eventType,
+      correlationId: e.correlationId,
+      trigger: {
+        kind: 'BOOKING_CONFIRMED',
+        eventId: e.eventId.toLowerCase(),
+        occurredAt: new Date(e.occurredAt),
+        bookingId: e.aggregate.id.toLowerCase(),
+        customerId: e.data.beneficiary.subjectId.toLowerCase(),
+        recipientNamespace:
+          e.data.beneficiary.kind === 'account' ? 'IDENTITY_ACCOUNT' : 'IDENTITY_GUEST',
+      },
+    };
+  }
+  if (eventType === BOOKING_CANCELLED_V1.eventType) {
+    const e = BOOKING_CANCELLED_V1.parse(raw);
+    return {
+      eventId: e.eventId.toLowerCase(),
+      eventType: e.eventType,
+      correlationId: e.correlationId,
+      trigger: {
+        kind: 'BOOKING_CANCELLED',
+        eventId: e.eventId.toLowerCase(),
+        occurredAt: new Date(e.occurredAt),
+        bookingId: e.aggregate.id.toLowerCase(),
+        version: e.aggregate.version,
+      },
+    };
+  }
   if (eventType !== BOOKING_CONFIRMED_V1) throw new NotificationRuleError('UNSUPPORTED_EVENT');
   const e = parseBookingConfirmedV1(raw);
   return {
@@ -60,7 +99,7 @@ export class NotificationIntegrityError extends Error {
 
 export type TriggerOutcome =
   | { readonly kind: 'CREATED' | 'REPLAYED'; readonly notificationId: string }
-  | { readonly kind: 'SKIPPED'; readonly reason: 'TOO_LATE' };
+  | { readonly kind: 'SKIPPED'; readonly reason: 'TOO_LATE' | 'BOOKING_CANCELLED' };
 
 /**
  * Turns one trigger into at most one intent, inside the caller's (inbox)
@@ -79,8 +118,13 @@ export class EventNotificationHandler {
   async handle(intake: NotificationIntake, trigger: NotificationTrigger): Promise<TriggerOutcome> {
     const decision = this.decide(trigger);
     if (decision.kind === 'SKIP') return { kind: 'SKIPPED', reason: decision.reason };
+    if (decision.kind === 'CANCEL') {
+      await intake.cancelBooking({ ...decision.trigger, now: this.clock.now() });
+      return { kind: 'SKIPPED', reason: 'BOOKING_CANCELLED' };
+    }
     const result = await this.enqueue.execute(intake, decision.command);
     if (result.kind === 'CONFLICT') throw new NotificationIntegrityError('INTENT_CONFLICT');
+    if (result.kind === 'SUPPRESSED') return { kind: 'SKIPPED', reason: result.reason };
     return result;
   }
 }

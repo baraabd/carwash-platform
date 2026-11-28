@@ -39,9 +39,16 @@ export type IconName =
   | 'download'
   | 'bolt'
   | 'banknote'
+  | 'receipt-pay'
   | 'signal-pay';
 
 const paths: Record<IconName, ReactNode> = {
+  'receipt-pay': (
+    <>
+      <path d="M5 3l2 1 3-1 2 1 3-1 2 1 2-1v18l-2-1-2 1-3-1-2 1-3-1-2 1Z" />
+      <path d="M8 8h8m-8 4h8m-8 4h4" />
+    </>
+  ),
   check: <path d="m5 12 4 4L19 6" />,
   clock: (
     <>

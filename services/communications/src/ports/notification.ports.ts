@@ -1,5 +1,6 @@
 import type {
   Channel,
+  RecipientNamespace,
   NotificationSubject,
   DeliveryState,
   NotificationRequest,
@@ -13,6 +14,7 @@ export interface Clock {
 
 /** What the provider receives. The recipient is still an opaque reference. */
 export interface ProviderSubmission {
+  readonly recipientNamespace?: RecipientNamespace;
   readonly idempotencyKey: string;
   readonly channel: Channel;
   readonly recipientRef: string;
@@ -28,6 +30,8 @@ export interface ProviderSubmission {
  */
 export interface NotificationProvider {
   readonly name: string;
+  /** Deployment identity of the connector/account; never inferred for legacy attempts. */
+  readonly connectorId?: string;
   /** True only if the provider documents deduplication on our idempotency key. */
   readonly idempotentSubmission: boolean;
   submit(submission: ProviderSubmission, signal: AbortSignal): Promise<SubmissionOutcome>;
@@ -36,7 +40,8 @@ export interface NotificationProvider {
 export type EnqueueResult =
   | { readonly kind: 'CREATED'; readonly notificationId: string }
   | { readonly kind: 'REPLAYED'; readonly notificationId: string }
-  | { readonly kind: 'CONFLICT' };
+  | { readonly kind: 'CONFLICT' }
+  | { readonly kind: 'SUPPRESSED'; readonly reason: 'BOOKING_CANCELLED' };
 
 /** A claimed unit of work. `fence` proves which claim owns the attempt. */
 export interface ClaimedDelivery {
@@ -63,6 +68,13 @@ export interface NotificationView {
 
 /** Writes that may run inside a caller's transaction (for example an inbox effect). */
 export interface NotificationIntake {
+  cancelBooking(input: {
+    bookingId: string;
+    eventId: string;
+    version: number;
+    occurredAt: Date;
+    now: Date;
+  }): Promise<void>;
   enqueue(input: {
     request: NotificationRequest;
     requestHash: string;
@@ -83,6 +95,7 @@ export interface NotificationRepository extends NotificationIntake {
     leaseMs: number;
     idempotentProvider: boolean;
     maxAttempts: number;
+    connectorId?: string;
   }): Promise<readonly ClaimedDelivery[]>;
   /** Fenced completion: false when a newer claim or a receipt already moved the intent. */
   complete(input: {
@@ -93,14 +106,24 @@ export interface NotificationRepository extends NotificationIntake {
     transition: Transition;
     now: Date;
   }): Promise<boolean>;
-  applyReceipt(input: {
-    notificationId: string;
-    receipt: 'DELIVERED' | 'FAILED';
-    now: Date;
-  }): Promise<'APPLIED' | 'IGNORED' | 'NOT_FOUND'>;
+  applyReceipt(input: VerifiedNotificationReceipt & { readonly now: Date }): Promise<ReceiptResult>;
   cancel(notificationId: string, now: Date): Promise<'CANCELLED' | 'NOT_CANCELLABLE' | 'NOT_FOUND'>;
   find(notificationId: string): Promise<NotificationView | null>;
 }
+
+/** Authenticated connector fact. Signature verification belongs to its ingress adapter. */
+export interface VerifiedNotificationReceipt {
+  readonly connectorId: string;
+  readonly receiptId: string;
+  readonly notificationId: string;
+  readonly providerMessageId: string;
+  readonly receipt: 'DELIVERED' | 'FAILED';
+  readonly payloadHash: string;
+  readonly signedAt: Date;
+}
+
+export type ReceiptResult =
+  'APPLIED' | 'IGNORED' | 'REPLAYED' | 'NOT_FOUND' | 'CORRELATION_PENDING' | 'CONFLICT';
 
 export type Hasher = (canonical: string) => string;
 export type IdGenerator = () => string;

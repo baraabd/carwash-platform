@@ -13,7 +13,7 @@ export type AccountIcon =
  *   payment codes, payment tour, motion, help, privacy, export and reset belong
  *   to the sprints that own them.
  */
-export type AccountRowAction = 'profile' | 'addresses' | 'garage' | 'deferred';
+export type AccountRowAction = 'profile' | 'addresses' | 'garage' | 'subscriptions' | 'deferred';
 
 export interface AccountRow {
   readonly id: string;
@@ -71,7 +71,16 @@ export function buildAccountViewModel(state: CustomerSessionState): AccountViewM
             row('export', 'download', 'تنزيل بيانات التجربة', 'ملف JSON دون صور'),
             row('reset-prompt', 'trash', 'إعادة ضبط التجربة', 'حذف الحجوزات والسيارات والصور'),
           ]
-        : [row('help', 'help', 'المساعدة', 'معلومات الخدمة والدعم')],
+        : [
+            row(
+              'subscriptions',
+              'wallet',
+              'اشتراكاتي',
+              'الخطط والغسلات المحفوظة في حسابك',
+              'subscriptions',
+            ),
+            row('help', 'help', 'المساعدة', 'معلومات الخدمة والدعم'),
+          ],
   };
 }
 

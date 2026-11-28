@@ -13,15 +13,21 @@
 #   docker buildx build -f infra/release/Dockerfile.migrate \
 #     --build-arg SERVICE=booking --build-arg NODE_IMAGE=node@sha256:... .
 #
-# The schema engine is a native binary linked against the system OpenSSL, so
-# this job runs on the pinned Node bookworm-slim base (by digest) rather than the
-# distroless runtime base used for long-running replicas.
-ARG NODE_IMAGE=node:24.21.0-bookworm-slim
+# The job uses supported Bookworm OpenSSL 3.0, which is unaffected by the
+# observed OpenSSL 3.5 QUIC findings. Its libraries and CA data come only from
+# checksum-pinned Debian packages. A native closure proof rejects any builder
+# library fallback. Original package records, checksums and licences remain.
+ARG NODE_IMAGE=docker.io/library/node@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
 
 # ---------------------------------------------------------------- builder ----
 FROM ${NODE_IMAGE} AS builder
+ARG NODE_IMAGE
 ENV CI=true
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+# The build image has no system OpenSSL. The pinned @prisma/engines 7.10
+# installer otherwise guesses 1.1, while the final job intentionally uses 3.0.
+# Select the final ABI at download time; never fetch an engine at job runtime.
+ENV PRISMA_CLI_BINARY_TARGETS=debian-openssl-3.0.x
 WORKDIR /app
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc tsconfig.base.json ./
@@ -42,18 +48,26 @@ RUN test -n "${SERVICE}" \
 # CLI is a devDependency of every service. Only node_modules and the owner's
 # prisma directory are copied into the job below; no application source is.
 RUN pnpm --filter "@carwash/${SERVICE}" deploy --legacy /deploy
+# Fail the build if Prisma's optional postinstall download failed or deploy
+# omitted the final-platform engine. Its real ABI execution is proved below.
+RUN node -e "const fs=require('node:fs');const path=require('node:path');const {createRequire}=require('node:module');const owner=createRequire('/deploy/package.json');if(owner('prisma/package.json').version!=='7.10.0')throw Error('UNEXPECTED_PRISMA_VERSION');const prisma=createRequire(owner.resolve('prisma/package.json'));const engines=prisma('@prisma/engines');fs.accessSync(path.join(engines.getEnginesPath(),'schema-engine-debian-openssl-3.0.x'),fs.constants.R_OK|fs.constants.X_OK);"
+
+COPY scripts/production/E/release/migration-rootfs.mjs scripts/production/E/release/migration-runtime.lock.json ./scripts/production/E/release/
+RUN node scripts/production/E/release/migration-rootfs.mjs \
+    --root /migration-rootfs --deploy /deploy \
+    --lock scripts/production/E/release/migration-runtime.lock.json \
+    --node-image "${NODE_IMAGE}"
 
 # ------------------------------------------------------------------- job ----
-FROM ${NODE_IMAGE} AS job
+FROM scratch AS job
 ARG SERVICE
-
-# Package managers are not needed to apply migrations; removing them keeps the
-# job's tool surface to node + the pinned Prisma CLI.
-RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
-      /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
-      /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg
+COPY --from=builder --chown=0:0 /migration-rootfs/ /
 
 ENV NODE_ENV=production
+ENV PATH=/usr/local/bin
+ENV LANG=C.UTF-8
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_DIR=/etc/ssl/certs
 ENV CW_SERVICE=${SERVICE}
 WORKDIR /migrate
 
@@ -63,8 +77,7 @@ COPY --from=builder --chown=0:0 /deploy/prisma.config.ts ./prisma.config.ts
 COPY --from=builder --chown=0:0 /deploy/prisma ./prisma
 COPY --chown=0:0 infra/release/migrate-job.mjs ./migrate-job.mjs
 
-# Files are root-owned and read-only to the job identity: the job can read its
-# migrations but cannot rewrite them at run time.
+# Root-owned inputs remain read-only to the one-shot migration identity.
 USER 1000:1000
-ENTRYPOINT ["node", "/migrate/migrate-job.mjs"]
+ENTRYPOINT ["/usr/local/bin/node", "/migrate/migrate-job.mjs"]
 CMD ["deploy"]

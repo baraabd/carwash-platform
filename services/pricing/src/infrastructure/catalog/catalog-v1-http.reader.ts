@@ -1,3 +1,4 @@
+import { isServiceOriginAllowed } from '@carwash/service-kit';
 import {
   DEFINITION_KINDS,
   DEFINITION_STATUSES,
@@ -58,9 +59,7 @@ export function catalogReaderConfigFromEnv(env: NodeJS.ProcessEnv): CatalogReade
   const raw = env.CATALOG_ORIGIN;
   if (raw === undefined || raw === '') return { origin: null, timeoutMs };
   const origin = new URL(raw);
-  const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(origin.hostname);
-  if (origin.protocol !== 'https:' && !(origin.protocol === 'http:' && loopback))
-    throw new Error('CATALOG_ORIGIN_HTTPS_REQUIRED');
+  if (!isServiceOriginAllowed(origin, env)) throw new Error('CATALOG_ORIGIN_HTTPS_REQUIRED');
   if (origin.username || origin.password || origin.search || origin.hash || origin.pathname !== '/')
     throw new Error('CATALOG_ORIGIN_INVALID');
   return { origin, timeoutMs };

@@ -8,3 +8,5 @@ export * from './owner.ports';
 export * from './store.ports';
 export * from './assignment.ports';
 export * from './change.ports';
+export * from './hold-requests.ports';
+export * from './entitlements.ports';

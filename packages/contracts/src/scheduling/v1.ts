@@ -25,6 +25,12 @@ export const SCHEDULING_V1 = {
     getAvailability: { method: 'GET', path: '/availability', access: 'public' },
     getEarliest: { method: 'GET', path: '/availability/earliest', access: 'public' },
     createHold: { method: 'POST', path: '/holds', access: 'principal', idempotent: true },
+    createStaffHold: {
+      method: 'POST',
+      path: '/staff/holds',
+      access: 'permission:operations.dispatch',
+      idempotent: true,
+    },
     getHold: { method: 'GET', path: '/holds/:holdId', access: 'principal' },
     commitHold: {
       method: 'POST',

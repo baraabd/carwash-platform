@@ -2,6 +2,16 @@ import {
   SCHEDULING_HOLD_CHANGED_V1,
   WORKFORCE_ELIGIBILITY_CHANGED_V1,
   parseBookingConfirmedV1,
+  BOOKING_CREATED_V1,
+  BOOKING_CANCELLED_V1,
+  BOOKING_RESCHEDULED_V1,
+  BOOKING_LIFECYCLE_PROGRESSED_V1,
+  DISPATCH_ASSIGNMENT_CHANGED_V1,
+  DISPATCH_CASH_DECLARED_V1,
+  WORKFORCE_SHIFT_UPDATED_V1,
+  BILLING_EVENTS_EXCHANGE,
+  BILLING_OBLIGATION_CREATED_V1,
+  BILLING_OBLIGATION_STATUS_CHANGED_V1,
 } from '@carwash/event-contracts';
 import {
   DERIVED_STATUSES,
@@ -20,7 +30,12 @@ import {
   type OperationsFact,
   type OperationsSource,
 } from '../domain/operations';
-import { incompleteSources, type DurationSummary } from '../domain/live-operations';
+import {
+  exactAmount,
+  incompleteSources,
+  obligationFact,
+  type DurationSummary,
+} from '../domain/live-operations';
 import type { Hasher } from '../ports/projection.ports';
 import type {
   AssignmentRow,
@@ -38,8 +53,17 @@ import type {
 /** Every event type the operations projection consumes, with its producer exchange. */
 export const OPERATIONS_SUBSCRIPTIONS = [
   { exchange: 'booking.events', eventType: 'booking.confirmed.v1' },
+  { exchange: 'booking.events', eventType: BOOKING_CREATED_V1.eventType },
+  { exchange: 'booking.events', eventType: BOOKING_CANCELLED_V1.eventType },
+  { exchange: 'booking.events', eventType: BOOKING_RESCHEDULED_V1.eventType },
+  { exchange: 'booking.events', eventType: BOOKING_LIFECYCLE_PROGRESSED_V1.eventType },
+  { exchange: 'dispatch.events', eventType: DISPATCH_ASSIGNMENT_CHANGED_V1.eventType },
+  { exchange: 'dispatch.events', eventType: DISPATCH_CASH_DECLARED_V1.eventType },
+  { exchange: 'workforce.events', eventType: WORKFORCE_SHIFT_UPDATED_V1.eventType },
   { exchange: 'scheduling.events', eventType: SCHEDULING_HOLD_CHANGED_V1.eventType },
   { exchange: 'workforce.events', eventType: WORKFORCE_ELIGIBILITY_CHANGED_V1.eventType },
+  { exchange: BILLING_EVENTS_EXCHANGE, eventType: BILLING_OBLIGATION_CREATED_V1.eventType },
+  { exchange: BILLING_EVENTS_EXCHANGE, eventType: BILLING_OBLIGATION_STATUS_CHANGED_V1.eventType },
 ] as const;
 
 /** A delivered event, normalised: the inbox identity plus one domain fact. */
@@ -61,6 +85,98 @@ export function parseOperationsEvent(raw: unknown): OperationsEvent {
       ? (raw as { eventType?: unknown }).eventType
       : undefined;
   switch (eventType) {
+    case BILLING_OBLIGATION_CREATED_V1.eventType:
+    case BILLING_OBLIGATION_STATUS_CHANGED_V1.eventType: {
+      const e =
+        eventType === BILLING_OBLIGATION_CREATED_V1.eventType
+          ? BILLING_OBLIGATION_CREATED_V1.parse(raw)
+          : BILLING_OBLIGATION_STATUS_CHANGED_V1.parse(raw);
+      return {
+        eventId: e.eventId.toLowerCase(),
+        eventType: e.eventType,
+        correlationId: e.correlationId,
+        fact: obligationFact({
+          eventId: e.eventId,
+          occurredAt: new Date(e.occurredAt),
+          version: e.aggregate.version,
+          obligationId: e.aggregate.id,
+          cashState: e.data.financialStatus,
+          outstanding: exactAmount('amount' in e.data ? e.data.amount : e.data.outstanding),
+        }),
+      };
+    }
+    case BOOKING_CREATED_V1.eventType: {
+      const e = BOOKING_CREATED_V1.parse(raw);
+      return {
+        eventId: e.eventId.toLowerCase(),
+        eventType: e.eventType,
+        correlationId: e.correlationId,
+        fact: {
+          kind: 'BOOKING_CONFIRMED',
+          source: 'booking',
+          eventId: e.eventId.toLowerCase(),
+          occurredAt: new Date(e.occurredAt),
+          version: e.aggregate.version,
+          bookingId: e.aggregate.id.toLowerCase(),
+          customerRef: e.data.beneficiary.subjectId.toLowerCase(),
+        },
+      };
+    }
+    case DISPATCH_ASSIGNMENT_CHANGED_V1.eventType: {
+      const e = DISPATCH_ASSIGNMENT_CHANGED_V1.parse(raw);
+      return {
+        eventId: e.eventId.toLowerCase(),
+        eventType: e.eventType,
+        correlationId: e.correlationId,
+        fact: {
+          kind: 'ASSIGNMENT_CHANGED',
+          source: 'dispatch',
+          eventId: e.eventId.toLowerCase(),
+          occurredAt: new Date(e.occurredAt),
+          version: e.aggregate.version,
+          assignmentId: e.aggregate.id.toLowerCase(),
+          bookingId: e.data.bookingId.toLowerCase(),
+          status: e.data.status,
+          zoneId: e.data.zoneId.toLowerCase(),
+          startsAt: new Date(e.data.startsAt),
+          endsAt: new Date(e.data.endsAt),
+          resourceId: e.data.resourceId?.toLowerCase() ?? null,
+        },
+      };
+    }
+    case BOOKING_CANCELLED_V1.eventType: {
+      const e = BOOKING_CANCELLED_V1.parse(raw);
+      return observation(e, { status: e.data.status, changeId: e.data.changeId });
+    }
+    case BOOKING_RESCHEDULED_V1.eventType: {
+      const e = BOOKING_RESCHEDULED_V1.parse(raw);
+      return observation(e, {
+        scheduleRevision: e.data.scheduleRevision,
+        holdId: e.data.current.holdId,
+        startsAt: e.data.current.startsAt,
+        endsAt: e.data.current.endsAt,
+      });
+    }
+    case BOOKING_LIFECYCLE_PROGRESSED_V1.eventType: {
+      const e = BOOKING_LIFECYCLE_PROGRESSED_V1.parse(raw);
+      return observation(e, {
+        status: e.data.status,
+        taskId: e.data.taskId,
+        taskRevision: e.data.taskRevision,
+      });
+    }
+    case DISPATCH_CASH_DECLARED_V1.eventType: {
+      const e = DISPATCH_CASH_DECLARED_V1.parse(raw);
+      // A technician declaration is never a Billing receipt or a paid obligation.
+      return observation(e, { bookingId: e.data.bookingId, outcome: e.data.outcome });
+    }
+    case WORKFORCE_SHIFT_UPDATED_V1.eventType: {
+      const e = WORKFORCE_SHIFT_UPDATED_V1.parse(raw);
+      return observation(
+        { ...e, aggregate: { id: e.data.shiftId, version: e.aggregateVersion } },
+        { shiftId: e.data.shiftId, status: e.data.status },
+      );
+    }
     case 'booking.confirmed.v1': {
       const e = parseBookingConfirmedV1(raw);
       return {
@@ -121,6 +237,35 @@ export function parseOperationsEvent(raw: unknown): OperationsEvent {
   }
 }
 
+/** Small, source-labelled observations; never promoted into another owner's authority. */
+function observation(
+  e: {
+    eventId: string;
+    eventType: string;
+    correlationId: string;
+    occurredAt: string;
+    producer: OperationsSource;
+    aggregate: { id: string; version: number };
+  },
+  state: Readonly<Record<string, string | number | null>>,
+): OperationsEvent {
+  return {
+    eventId: e.eventId.toLowerCase(),
+    eventType: e.eventType,
+    correlationId: e.correlationId,
+    fact: {
+      kind: 'OWNER_OBSERVATION',
+      source: e.producer,
+      eventId: e.eventId.toLowerCase(),
+      occurredAt: new Date(e.occurredAt),
+      version: e.aggregate.version,
+      eventType: e.eventType,
+      aggregateId: e.aggregate.id.toLowerCase(),
+      state,
+    },
+  };
+}
+
 export interface OperationsClock {
   now(): Date;
 }
@@ -136,6 +281,9 @@ export class OperationsProjector {
     const fingerprint = this.hash(factFingerprint(fact));
     let outcome: FactOutcome;
     switch (fact.kind) {
+      case 'OWNER_OBSERVATION':
+        outcome = await writer.applyOwnerObservation(fact, fingerprint);
+        break;
       case 'BOOKING_CONFIRMED':
         outcome = await writer.applyBookingConfirmed(fact, fingerprint);
         break;

@@ -154,22 +154,31 @@ test('subject: validated, both parts or none, and fingerprints stay backward com
 
 /* ------------------------------- application ------------------------------ */
 
-test('parser: only the published booking.confirmed.v1 is accepted', () => {
+test('parser: published contracts reject unknown types, extra PII and a renamed legacy envelope', () => {
   const raw = confirmedEvent();
   const parsed = parseTriggerEvent(raw);
   assert.equal(parsed.trigger.bookingId, raw.data.bookingId);
   assert.throws(
-    () => parseTriggerEvent({ ...raw, eventType: 'booking.created.v1' }),
+    () => parseTriggerEvent({ ...raw, eventType: 'booking.unknown.v1' }),
     (e: unknown) => e instanceof NotificationRuleError && e.code === 'UNSUPPORTED_EVENT',
   );
+  assert.throws(() => parseTriggerEvent({ ...raw, eventType: 'booking.created.v1' }));
   assert.throws(() => parseTriggerEvent({ ...raw, data: { ...raw.data, phone: '0999' } }));
   assert.throws(() => parseTriggerEvent(null));
 });
 
 class MemoryIntake implements NotificationIntake {
   readonly rows = new Map<string, { id: string; hash: string }>();
+  readonly cancelled = new Set<string>();
+
+  cancelBooking(input: Parameters<NotificationIntake['cancelBooking']>[0]): Promise<void> {
+    this.cancelled.add(input.bookingId);
+    return Promise.resolve();
+  }
 
   enqueue(input: Parameters<NotificationIntake['enqueue']>[0]): Promise<EnqueueResult> {
+    if (input.request.subject && this.cancelled.has(input.request.subject.ref))
+      return Promise.resolve({ kind: 'SUPPRESSED', reason: 'BOOKING_CANCELLED' });
     const key = `${input.request.sourceService}|${input.request.idempotencyKey}`;
     const existing = this.rows.get(key);
     if (!existing) {

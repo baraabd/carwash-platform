@@ -25,7 +25,12 @@ export type SubscriptionErrorCode =
   | 'SELF_SERVICE_FORBIDDEN'
   | 'RESERVATION_CONFLICT'
   | 'BOOKING_ALREADY_RESERVED'
-  | 'SERVICE_BUSY';
+  | 'SERVICE_BUSY'
+  | 'PAYMENT_NOT_VERIFIED'
+  | 'PURCHASE_NOT_ACTIVATABLE'
+  | 'LEGACY_OPERATION_NOT_ALLOWED'
+  | 'FUNDING_UNAVAILABLE'
+  | 'QUOTE_MISMATCH';
 
 const STATUS: Readonly<Record<SubscriptionErrorCode, number>> = {
   REQUEST_INVALID: 400,
@@ -63,6 +68,11 @@ const STATUS: Readonly<Record<SubscriptionErrorCode, number>> = {
   RESERVATION_PACKAGE_MISMATCH: 409,
   AUTH_UNAVAILABLE: 503,
   SERVICE_BUSY: 503,
+  PAYMENT_NOT_VERIFIED: 409,
+  PURCHASE_NOT_ACTIVATABLE: 409,
+  LEGACY_OPERATION_NOT_ALLOWED: 409,
+  FUNDING_UNAVAILABLE: 503,
+  QUOTE_MISMATCH: 409,
 };
 
 export function statusOf(code: SubscriptionErrorCode): number {
@@ -101,6 +111,8 @@ export const MESSAGES: Readonly<Record<SubscriptionErrorCode, string>> = {
   PLAN_NOT_OFFERED: 'The plan is not offered at this time.',
   SUBSCRIPTION_ALREADY_OPEN: 'An open subscription to this plan already exists.',
   PAYMENT_REFERENCE_USED: 'The payment reference already funded a period.',
+  PURCHASE_NOT_ACTIVATABLE: 'Use the canonical purchase workflow for this subscription.',
+  LEGACY_OPERATION_NOT_ALLOWED: 'Use the canonical entitlement workflow for this subscription.',
   RESERVATION_CONFLICT: 'The booking already holds a different reservation.',
   BOOKING_ALREADY_RESERVED: 'The booking already holds an entitlement.',
   SUBSCRIPTION_NOT_PENDING: 'The subscription is not awaiting activation.',
@@ -118,4 +130,7 @@ export const MESSAGES: Readonly<Record<SubscriptionErrorCode, string>> = {
   RESERVATION_PACKAGE_MISMATCH: 'The reservation was made for a different package.',
   CUSTOMER_MAY_ONLY_CANCEL_PENDING: 'Only a request that was never activated can be withdrawn.',
   SERVICE_BUSY: 'The service is busy; nothing was changed. Retry the same request.',
+  PAYMENT_NOT_VERIFIED: 'Billing has not verified matching, unused subscription funding.',
+  FUNDING_UNAVAILABLE: 'Funding verification is temporarily unavailable.',
+  QUOTE_MISMATCH: 'The plan, beneficiary or amount does not match the Pricing quote.',
 };

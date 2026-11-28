@@ -30,6 +30,7 @@ import { officialImagePullCandidates } from '../../../lib/image-references.mjs';
 import { pullRehearsalImage } from './rehearsal-image.mjs';
 import { configDigest } from './configuration.mjs';
 import { assertExactSource, assertSameSource } from './source-provenance.mjs';
+import { MIGRATION_RUNTIME_LOCK_PATH, assertMigrationRuntimeLock } from './migration-runtime.mjs';
 import {
   MANIFEST_KIND,
   MANIFEST_SCHEMA_VERSION,
@@ -38,6 +39,7 @@ import {
   gitAt,
   manifestDigest,
   ownerMigrationSet,
+  parseDigestReference,
   repositoryFor,
   validateManifest,
 } from './manifest.mjs';
@@ -116,6 +118,27 @@ async function resolveNodeBase(source) {
   throw new Error(`Cannot resolve ${tag} to a digest:\n${failures.join('\n')}`);
 }
 
+/** Resolve only the locked migration donor digest, retaining official mirror fallback. */
+async function resolveMigrationNodeBase(lock) {
+  assertMigrationRuntimeLock(lock);
+  const { digest } = parseDigestReference(lock.nodeImage);
+  const failures = [];
+  for (const candidate of officialImagePullCandidates(`node@${digest}`)) {
+    const result = await command(
+      'docker',
+      ['buildx', 'imagetools', 'inspect', candidate, '--format', '{{json .Manifest}}'],
+      { capture: true, timeoutMs: 300_000 },
+    );
+    if (result.code !== 0) {
+      failures.push(`${candidate}: ${result.stderr.slice(-300)}`);
+      continue;
+    }
+    assert.equal(JSON.parse(result.stdout).digest, digest, 'Migration donor digest changed');
+    return { reference: lock.nodeImage, pullReference: candidate };
+  }
+  throw new Error(`Cannot resolve locked migration donor:\n${failures.join('\n')}`);
+}
+
 function unwrapPlatform(value) {
   if (value && typeof value === 'object' && PLATFORM in value) return value[PLATFORM];
   return value;
@@ -160,18 +183,53 @@ export async function registryAttestations(reference) {
   };
 }
 
-async function buildOne({ target, role, registry, source, nodeBase, toolLock, out, work }) {
+/** Each image role receives only its own immutable runtime inputs. */
+export function imageBuildArguments({ target, role, nodeBase, migrationBase, toolLock }) {
+  assert.ok(['runtime', 'migration'].includes(role));
+  const node = role === 'migration' ? migrationBase : nodeBase;
+  assert.ok(
+    parseDigestReference(node?.pullReference) ||
+      /^node@sha256:[a-f0-9]{64}$/.test(node?.pullReference ?? ''),
+    'Node build input must be immutable',
+  );
+  assert.ok(parseDigestReference(node.reference), 'Canonical Node input must be immutable');
+  assert.equal(
+    node.pullReference.split('@')[1],
+    node.reference.split('@')[1],
+    'Node mirror must preserve the locked digest',
+  );
+  const buildArgs = ['--build-arg', `NODE_IMAGE=${node.pullReference}`];
+  if (role === 'runtime') {
+    assert.ok(parseDigestReference(toolLock.runtime.image), 'Runtime input must be immutable');
+    assert.ok(
+      parseDigestReference(toolLock.nativeLibraries.image),
+      'Native input must be immutable',
+    );
+    buildArgs.push('--build-arg', `RUNTIME_IMAGE=${toolLock.runtime.image}`);
+    buildArgs.push('--build-arg', `NATIVE_RUNTIME_IMAGE=${toolLock.nativeLibraries.image}`);
+  } else {
+    assert.match(target.id, /^[a-z][a-z0-9-]*$/);
+    buildArgs.push('--build-arg', `SERVICE=${target.id}`);
+  }
+  return buildArgs;
+}
+
+async function buildOne({
+  target,
+  role,
+  registry,
+  source,
+  nodeBase,
+  migrationBase,
+  toolLock,
+  out,
+  work,
+}) {
   const repository = repositoryFor(registry, target.id, role);
   const dockerfile =
     role === 'migration' ? 'infra/release/Dockerfile.migrate' : `${target.path}/Dockerfile`;
   const metadataFile = path.join(work, `${target.id}-${role}.metadata.json`);
-  const buildArgs = ['--build-arg', `NODE_IMAGE=${nodeBase.pullReference}`];
-  if (role === 'runtime') {
-    buildArgs.push('--build-arg', `RUNTIME_IMAGE=${toolLock.runtime.image}`);
-    buildArgs.push('--build-arg', `NATIVE_RUNTIME_IMAGE=${toolLock.nativeLibraries.image}`);
-  } else {
-    buildArgs.push('--build-arg', `SERVICE=${target.id}`);
-  }
+  const buildArgs = imageBuildArguments({ target, role, nodeBase, migrationBase, toolLock });
   const epoch = String(Math.floor(Date.parse(source.committedAt) / 1000));
   await docker(
     [
@@ -265,16 +323,30 @@ async function build(options) {
   assert.ok(target, `Unknown catalog target ${id}`);
   const toolLock = JSON.parse(gitAt(ROOT, 'show', `${source.sha}:scripts/ci/tools.lock.json`));
   const nodeBase = await resolveNodeBase(source);
+  const migrationLock = assertMigrationRuntimeLock(
+    JSON.parse(gitAt(ROOT, 'show', `${source.sha}:${MIGRATION_RUNTIME_LOCK_PATH}`)),
+  );
+  const needsMigration = target.kind === 'service' && Boolean(target.database);
+  const migrationBase = needsMigration ? await resolveMigrationNodeBase(migrationLock) : undefined;
   mkdirSync(out, { recursive: true });
   const work = mkdtempSync(path.join(tmpdir(), 'cw-release-'));
   try {
-    const roles =
-      target.kind === 'service' && target.database ? ['runtime', 'migration'] : ['runtime'];
+    const roles = needsMigration ? ['runtime', 'migration'] : ['runtime'];
     const artifacts = [];
     for (const role of roles) {
       assertSameSource(ROOT, source);
       artifacts.push(
-        await buildOne({ target, role, registry, source, nodeBase, toolLock, out, work }),
+        await buildOne({
+          target,
+          role,
+          registry,
+          source,
+          nodeBase,
+          migrationBase,
+          toolLock,
+          out,
+          work,
+        }),
       );
       assertSameSource(ROOT, source);
     }
@@ -285,8 +357,12 @@ async function build(options) {
         node: nodeBase.reference,
         runtime: toolLock.runtime.image,
         nativeLibraries: toolLock.nativeLibraries.image,
+        migrationNode: migrationLock.nodeImage,
       },
-      baseImagePulledFrom: { node: nodeBase.pullReference },
+      baseImagePulledFrom: {
+        node: nodeBase.pullReference,
+        ...(migrationBase ? { migrationNode: migrationBase.pullReference } : {}),
+      },
       artifacts,
     };
     const partPath = path.join(out, `part-${id}.json`);

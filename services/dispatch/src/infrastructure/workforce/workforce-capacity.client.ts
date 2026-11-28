@@ -12,9 +12,8 @@ import type { ServiceHttp } from '../http/service-http';
  * Consumer of the PUBLISHED workforce.v1 `listCapacityResources`
  * (`GET /internal/v1/workforce/capacity-resources`, `service:workforce.capacity.read`).
  *
- * `@carwash/contracts` is not a declared dependency of this service (the
- * lockfile is Lane E's), so the page and item parsers below are local closed
- * mirrors of `parsePage` / `parseCapacityResourceV1`; their parity with the
+ * The historical page and item parsers below are local closed mirrors of
+ * `parsePage` / `parseCapacityResourceV1`; their parity with the
  * published parsers is asserted by tests/production/C/dispatch-workforce-contract.test.mjs.
  * Anything the published parser would reject is treated as UNAVAILABLE.
  */

@@ -1,22 +1,23 @@
 # P07-E1 — Immutable release artifacts, SBOM/provenance and separate migration jobs
 
 Lane E · parent task P07-E (staging, artifacts, migrations, backup/restore, governance).
-Status: **implemented; registry evidence comes from the workflow run on this PR (rehearsal)
-and from the first run on `main` (GHCR publication).** Not a staging deployment and
-not a release candidate.
+Status (2026-11-28): **implemented; the final promotion source still requires its
+own rehearsal and subsequent `main` GHCR publication evidence.** Earlier runs
+do not certify the changed source. Artifact verification is separate from staging
+deployment and release-candidate approval.
 
 ## What this adds
 
-| Path | Purpose |
-| --- | --- |
-| `infra/release/Dockerfile.migrate` | One-shot migration job image per database owner. Contains only the owner's `prisma/` directory, the pinned Prisma CLI and `migrate-job.mjs`; no application code. Install layer is shared across owners (`ARG SERVICE` is declared after it). Runs as uid 1000, npm/corepack/yarn removed. |
-| `infra/release/migrate-job.mjs` | Fail-closed job entry point (see below). |
-| `scripts/production/E/release/manifest.mjs` | Release manifest schema, validation, migration-set digest, canonical manifest digest. |
-| `scripts/production/E/release/build-release.mjs` | `build` one catalog target (runtime + migration image) with BuildKit SPDX SBOM and `mode=max` SLSA provenance, push, read the attestations back **from the registry**; `assemble` all parts into `release-manifest.json`; `local-registry` for PR rehearsal. |
-| `scripts/production/E/release/verify-release.mjs` | Verifies a manifest (or one part) against the registry by digest: digest, platform, revision label, attestation presence and hashes, provenance names the source commit, migration-set digest recomputed from git, `docker pull <repo>@<digest>`. |
-| `scripts/production/E/release/rehearse-migration-job.mjs` | Runs the **published** migration image by digest against a real PostgreSQL 16 provisioned by `infra/postgres/provision.sh`. |
-| `.github/workflows/p07-release-artifacts.yml`, `p07-release-build.yml` | PR: rehearsal against a loopback registry, read-only token. `main`: GHCR publication + `actions/attest-build-provenance` (Sigstore). |
-| `tests/production/E/release-artifacts.test.mjs` | Pure/static tests (18 incl. existing CI coverage guard). |
+| Path                                                                   | Purpose                                                                                                                                                                                                                                                                                    |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `infra/release/Dockerfile.migrate`                                     | One-shot migration job image per database owner. Contains only the owner's `prisma/` directory, the pinned Prisma CLI and `migrate-job.mjs`; no application code. Install layer is shared across owners (`ARG SERVICE` is declared after it). Runs as uid 1000, npm/corepack/yarn removed. |
+| `infra/release/migrate-job.mjs`                                        | Fail-closed job entry point (see below).                                                                                                                                                                                                                                                   |
+| `scripts/production/E/release/manifest.mjs`                            | Release manifest schema, validation, migration-set digest, canonical manifest digest.                                                                                                                                                                                                      |
+| `scripts/production/E/release/build-release.mjs`                       | `build` one catalog target (runtime + migration image) with BuildKit SPDX SBOM and `mode=max` SLSA provenance, push, read the attestations back **from the registry**; `assemble` all parts into `release-manifest.json`; `local-registry` for PR rehearsal.                               |
+| `scripts/production/E/release/verify-release.mjs`                      | Verifies a manifest (or one part) against the registry by digest: digest, platform, revision label, attestation presence and hashes, provenance names the source commit, migration-set digest recomputed from git, `docker pull <repo>@<digest>`.                                          |
+| `scripts/production/E/release/rehearse-migration-job.mjs`              | Runs the **published** migration image by digest against a real PostgreSQL 16 provisioned by `infra/postgres/provision.sh`.                                                                                                                                                                |
+| `.github/workflows/p07-release-artifacts.yml`, `p07-release-build.yml` | PR: rehearsal against a loopback registry, read-only token. `main`: GHCR publication + `actions/attest-build-provenance` (Sigstore).                                                                                                                                                       |
+| `tests/production/E/release-artifacts.test.mjs`                        | Pure/static tests (18 incl. existing CI coverage guard).                                                                                                                                                                                                                                   |
 
 ## Artifact model
 
@@ -43,17 +44,17 @@ incomplete coverage. The build refuses a context that differs from the commit
 
 ## Migration job contract (`migrate-job.mjs`)
 
-| Rule | Failure code |
-| --- | --- |
-| DSN only from `MIGRATION_DATABASE_URL_FILE` (absolute, regular file, one line, ≤4 KiB) | `PLAINTEXT_DATABASE_URL_REFUSED`, `MIGRATION_DATABASE_URL_FILE_REQUIRED`, `SECRET_FILE_*` |
-| User must be `cw_<svc>_migrate`, database `cw_<svc>`, `schema=app`, password present | `NOT_THIS_OWNERS_MIGRATION_IDENTITY`, `NOT_THIS_OWNERS_DATABASE`, `DSN_SCHEMA_MUST_BE_APP` |
-| TLS `sslmode` ∈ require/verify-ca/verify-full unless `MIGRATION_DB_TLS=disabled-rehearsal` (recorded in evidence) | `DSN_TLS_REQUIRED` |
-| Session `current_user`/`current_database()` re-checked after connect | `SESSION_IDENTITY_MISMATCH` |
-| Applied migration checksum must equal the image's file | `APPLIED_MIGRATION_MODIFIED` |
-| Failed/running or rolled-back migration rows stop the job | `FAILED_OR_RUNNING_MIGRATION`, `ROLLED_BACK_MIGRATION_PRESENT` |
-| Database contains a migration this image does not know (older job vs newer schema) | `DATABASE_AHEAD_OF_IMAGE` |
-| After deploy: owner-executed hardening (history table and schema CREATE revoked from runtime role; configuration history append-only) | — |
-| Deployed schema must equal `schema.prisma` (`prisma migrate diff --from-config-datasource --to-schema --exit-code`) | `schemaDrift: DRIFT` |
+| Rule                                                                                                                                  | Failure code                                                                               |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| DSN only from `MIGRATION_DATABASE_URL_FILE` (absolute, regular file, one line, ≤4 KiB)                                                | `PLAINTEXT_DATABASE_URL_REFUSED`, `MIGRATION_DATABASE_URL_FILE_REQUIRED`, `SECRET_FILE_*`  |
+| User must be `cw_<svc>_migrate`, database `cw_<svc>`, `schema=app`, password present                                                  | `NOT_THIS_OWNERS_MIGRATION_IDENTITY`, `NOT_THIS_OWNERS_DATABASE`, `DSN_SCHEMA_MUST_BE_APP` |
+| TLS `sslmode` ∈ require/verify-ca/verify-full unless `MIGRATION_DB_TLS=disabled-rehearsal` (recorded in evidence)                     | `DSN_TLS_REQUIRED`                                                                         |
+| Session `current_user`/`current_database()` re-checked after connect                                                                  | `SESSION_IDENTITY_MISMATCH`                                                                |
+| Applied migration checksum must equal the image's file                                                                                | `APPLIED_MIGRATION_MODIFIED`                                                               |
+| Failed/running or rolled-back migration rows stop the job                                                                             | `FAILED_OR_RUNNING_MIGRATION`, `ROLLED_BACK_MIGRATION_PRESENT`                             |
+| Database contains a migration this image does not know (older job vs newer schema)                                                    | `DATABASE_AHEAD_OF_IMAGE`                                                                  |
+| After deploy: owner-executed hardening (history table and schema CREATE revoked from runtime role; configuration history append-only) | —                                                                                          |
+| Deployed schema must equal `schema.prisma` (`prisma migrate diff --from-config-datasource --to-schema --exit-code`)                   | `schemaDrift: DRIFT`                                                                       |
 
 Exit codes: 0 pass, 1 failed, 3 refused before connecting. Child output is redacted
 (password raw and URL-encoded, any `postgres://` URL). Hardening needs no superuser:
@@ -85,7 +86,16 @@ part, SBOM, provenance, verify report and migration-job report for 90 days.
   wiring: P07-E2. Populated upgrade, backup/restore, broker/Redis/object recovery,
   alerts, RPO/RTO: P07-E3. Governance and CodeQL disposition: P07-E4. RC freeze: P07-E5.
 - Only `linux/amd64` is built (the reviewed CVE VEX applies to amd64 only).
-- The migration job base is Node bookworm-slim by digest (schema engine needs OpenSSL);
-  its Trivy scan is not yet part of the F009 image gate — tracked as P07-E1-B1.
+- The migration job's final stage is `scratch`, assembled from checksum-pinned
+  Debian 12 packages and an immutable Node donor by `infra/release/Dockerfile.migrate`;
+  it contains the native Prisma/OpenSSL runtime without a shell or package manager.
+  See the [migration runtime record](S10-TRANSPORT-AND-MIGRATION-2026-11-27.md).
+- P07-E1-B1's missing migration-scan gate is implemented in
+  `.github/workflows/p07-release-build.yml`: every immutable migration image runs
+  `scan-migration-image.mjs` before its real PostgreSQL rehearsal. The gate retains
+  unfiltered findings and requires native-image proof; only individually bound
+  code-absence assessments can clear their exact occurrences. It uses no CVE
+  ignore list. Final-source scan and rehearsal results remain required; ordinary
+  F009 runtime-image passes cannot substitute for them.
 - BuildKit provenance is unsigned in the PR rehearsal; Sigstore-signed GitHub
   attestations exist only for the GHCR publication.

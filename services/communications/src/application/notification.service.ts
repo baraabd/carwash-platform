@@ -16,12 +16,14 @@ import type {
   NotificationIntake,
   NotificationProvider,
   NotificationRepository,
+  VerifiedNotificationReceipt,
 } from '../ports/notification.ports';
 
 export interface EnqueueCommand {
   readonly sourceService: unknown;
   readonly idempotencyKey: unknown;
   readonly recipientRef: unknown;
+  readonly recipientNamespace?: unknown;
   readonly channel: unknown;
   readonly templateKey: unknown;
   readonly templateVersion: unknown;
@@ -116,6 +118,9 @@ export class DeliveryWorker {
         leaseMs: this.policy.leaseMs,
         idempotentProvider: this.provider.idempotentSubmission,
         maxAttempts: this.policy.maxAttempts,
+        ...(this.provider.connectorId === undefined
+          ? {}
+          : { connectorId: this.provider.connectorId }),
       });
       if (!delivery) break;
       claimed += 1;
@@ -163,8 +168,8 @@ export class NotificationAdministration {
   ) {}
 
   /** A verified provider receipt; adapters own signature verification. */
-  recordReceipt(notificationId: string, receipt: 'DELIVERED' | 'FAILED') {
-    return this.repository.applyReceipt({ notificationId, receipt, now: this.clock.now() });
+  recordReceipt(receipt: VerifiedNotificationReceipt) {
+    return this.repository.applyReceipt({ ...receipt, now: this.clock.now() });
   }
 
   async cancel(notificationId: string) {

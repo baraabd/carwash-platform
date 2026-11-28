@@ -2,12 +2,20 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { serviceTokenDigest } from '@carwash/service-kit';
 import { EntitlementService, SubscriptionService } from '../../src/application';
-import type { Clock, SubscriptionRepository } from '../../src/ports';
+import type {
+  Clock,
+  FundingAuthority,
+  PurchaseOwners,
+  SubscriptionRepository,
+} from '../../src/ports';
+import { CanonicalSubscriptionService } from '../../src/application/canonical-subscription.service';
+import { PurchaseOwnersClient } from '../../src/infrastructure/billing/purchase-owners.client';
 import { IdentitySessionAuthority } from '../../src/infrastructure/identity/identity-session.authority';
 import { ConfiguredServiceCallers } from '../../src/infrastructure/security/service-callers';
 import { RandomIds, Sha256Hasher } from '../../src/infrastructure/system/system.adapters';
 import {
   ENTITLEMENT_SERVICE,
+  CANONICAL_SUBSCRIPTION_SERVICE,
   SUBSCRIPTION_SERVICE,
   SubscriptionController,
 } from '../../src/transport/http/subscription.controller';
@@ -39,7 +47,12 @@ export function serviceClientsConfig(): string {
     {
       id: 'booking',
       tokenSha256: serviceTokenDigest(BOOKING_TOKEN),
-      scopes: ['subscription.entitlement.reserve', 'subscription.entitlement.settle'],
+      scopes: [
+        'subscription.entitlement.reserve',
+        'subscription.entitlement.settle',
+        'subscription.entitlement.resolve',
+        'subscription.entitlement.read',
+      ],
     },
     {
       id: 'dispatch',
@@ -101,6 +114,9 @@ function traced(repository: SubscriptionRepository): SubscriptionRepository {
 export async function startSubscriptionHttp(input: {
   repository: SubscriptionRepository;
   clock: Clock;
+  /** Explicit test double; production always calls Billing's workload endpoint. */
+  funding?: FundingAuthority;
+  owners?: PurchaseOwners;
 }): Promise<SubscriptionHttpHarness> {
   const identity = await startIdentityStub({
     admin: { subject: ADMIN_SUBJECT, permissions: ['subscription.manage', 'bookings.create:self'] },
@@ -129,8 +145,24 @@ export async function startSubscriptionHttp(input: {
     ids: new RandomIds(),
     hasher: new Sha256Hasher(),
   };
-  const subscriptions = new SubscriptionService(common);
+  const funding: FundingAuthority = input.funding ?? {
+    verify: () => Promise.resolve('VERIFIED'),
+    claim: () => Promise.resolve('CLAIMED'),
+    release: () => Promise.resolve('RELEASED'),
+  };
+  const subscriptions = new SubscriptionService({
+    ...common,
+    funding,
+  });
+  const canonical = new CanonicalSubscriptionService({
+    ...common,
+    legacy: subscriptions,
+    funding,
+    owners:
+      input.owners ?? new PurchaseOwnersClient({ billing: null, pricing: null, timeoutMs: 1000 }),
+  });
   const entitlements = new EntitlementService({
+    funding,
     ...common,
     callers: new ConfiguredServiceCallers(serviceClientsConfig()),
   });
@@ -139,6 +171,7 @@ export async function startSubscriptionHttp(input: {
     providers: [
       { provide: SUBSCRIPTION_SERVICE, useValue: subscriptions },
       { provide: ENTITLEMENT_SERVICE, useValue: entitlements },
+      { provide: CANONICAL_SUBSCRIPTION_SERVICE, useValue: canonical },
     ],
   }).compile();
   const app: INestApplication = moduleRef.createNestApplication({ logger: false });

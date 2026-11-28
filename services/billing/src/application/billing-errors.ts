@@ -34,6 +34,7 @@ export type BillingErrorCode =
   | 'REFUND_NOT_OPEN'
   | 'REFUND_REFERENCE_TAKEN'
   | 'REFUND_LIMIT_REACHED'
+  | 'SUBSCRIPTION_FUNDING_COMMITTED'
   | PaymentRuleCode
   | CashRuleCode
   | ProviderRuleCode
@@ -113,6 +114,7 @@ const STATUS: Readonly<Record<BillingErrorCode, number>> = {
   REFUND_NOT_OPEN: 409,
   REFUND_REFERENCE_TAKEN: 409,
   REFUND_LIMIT_REACHED: 422,
+  SUBSCRIPTION_FUNDING_COMMITTED: 409,
 };
 
 export class BillingApplicationError extends Error {

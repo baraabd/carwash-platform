@@ -19,7 +19,10 @@ import {
   repositoryFor,
   validateManifest,
 } from '../../../scripts/production/E/release/manifest.mjs';
-import { assembleParts } from '../../../scripts/production/E/release/build-release.mjs';
+import {
+  assembleParts,
+  imageBuildArguments,
+} from '../../../scripts/production/E/release/build-release.mjs';
 import {
   JobRefused,
   assertMigrationIdentity,
@@ -431,12 +434,27 @@ test('migration image: no app code, install shared across owners, non-root, no p
       dockerfile.indexOf('ARG SERVICE\nRUN test'),
   );
   assert.match(dockerfile, /^USER 1000:1000$/m);
-  assert.match(dockerfile, /rm -rf \/usr\/local\/lib\/node_modules\/npm/);
-  assert.match(dockerfile, /ENTRYPOINT \["node", "\/migrate\/migrate-job\.mjs"\]/);
+  assert.match(dockerfile, /FROM scratch AS job/);
+  assert.doesNotMatch(dockerfile, /FROM \$\{NODE_IMAGE\} AS job/);
+  assert.match(dockerfile, /COPY --from=builder --chown=0:0 \/migration-rootfs\/ \//);
+  const engineTarget = 'ENV PRISMA_CLI_BINARY_TARGETS=debian-openssl-3.0.x';
+  assert.ok(dockerfile.includes(engineTarget));
+  assert.ok(
+    dockerfile.indexOf(engineTarget) < dockerfile.indexOf('pnpm install --frozen-lockfile'),
+  );
+  assert.match(dockerfile, /schema-engine-debian-openssl-3\.0\.x.*fs\.constants\.X_OK/);
+  assert.match(dockerfile, /RUN node scripts\/production\/E\/release\/migration-rootfs\.mjs/);
+  assert.doesNotMatch(dockerfile, /MIGRATION_RUNTIME_IMAGE|MIGRATION_NATIVE_IMAGE/);
+  assert.match(
+    dockerfile,
+    /ENTRYPOINT \["\/usr\/local\/bin\/node", "\/migrate\/migrate-job\.mjs"\]/,
+  );
   assert.doesNotMatch(dockerfile, /COPY[^\n]*\/deploy\/dist/);
   assert.doesNotMatch(dockerfile, /:latest/);
   const ignore = read('infra/release/Dockerfile.migrate.dockerignore');
   assert.match(ignore, /^!infra\/release\/migrate-job\.mjs$/m);
+  assert.match(ignore, /^!scripts\/production\/E\/release\/migration-rootfs\.mjs$/m);
+  assert.match(ignore, /^!scripts\/production\/E\/release\/migration-runtime\.lock\.json$/m);
   assert.match(ignore, /^\.env$/m);
 });
 
@@ -469,9 +487,83 @@ test('the build pins every image build arg by digest and records only the pushed
   const source = read('scripts/production/E/release/build-release.mjs');
   assert.match(source, /'--provenance=mode=max'/);
   assert.match(source, /'--sbom=true'/);
-  assert.match(source, /NODE_IMAGE=\$\{nodeBase\.pullReference\}/);
   assert.match(source, /reference: canonicalOfficialReference\(tag, digest\)/);
-  assert.match(source, /RUNTIME_IMAGE=\$\{toolLock\.runtime\.image\}/);
+  assert.match(source, /migrationNode: migrationLock\.nodeImage/);
   assert.match(source, /containerimage\.digest/);
   assert.match(source, /assertCleanSource\(\)/);
+});
+
+test('runtime and migration builds receive their own immutable image inputs', () => {
+  const inputs = {
+    target: { id: 'booking' },
+    nodeBase: {
+      reference: `docker.io/library/node@${D('a')}`,
+      pullReference: `public.ecr.aws/docker/library/node@${D('a')}`,
+    },
+    migrationBase: {
+      reference: `docker.io/library/node@${D('b')}`,
+      pullReference: `public.ecr.aws/docker/library/node@${D('b')}`,
+    },
+    toolLock: {
+      runtime: { image: `gcr.io/distroless/base-nossl-debian13@${D('c')}` },
+      nativeLibraries: { image: `gcr.io/distroless/cc-debian13@${D('d')}` },
+    },
+  };
+  assert.deepEqual(imageBuildArguments({ ...inputs, role: 'runtime' }), [
+    '--build-arg',
+    `NODE_IMAGE=${inputs.nodeBase.pullReference}`,
+    '--build-arg',
+    `RUNTIME_IMAGE=${inputs.toolLock.runtime.image}`,
+    '--build-arg',
+    `NATIVE_RUNTIME_IMAGE=${inputs.toolLock.nativeLibraries.image}`,
+  ]);
+  assert.deepEqual(imageBuildArguments({ ...inputs, role: 'migration' }), [
+    '--build-arg',
+    `NODE_IMAGE=${inputs.migrationBase.pullReference}`,
+    '--build-arg',
+    'SERVICE=booking',
+  ]);
+  const direct = structuredClone(inputs);
+  direct.migrationBase.pullReference = `node@${D('b')}`;
+  assert.equal(
+    imageBuildArguments({ ...direct, role: 'migration' })[1],
+    `NODE_IMAGE=node@${D('b')}`,
+  );
+  for (const [role, mutate] of [
+    [
+      'runtime',
+      (value) => {
+        value.nodeBase.pullReference = 'node:24';
+      },
+    ],
+    [
+      'migration',
+      (value) => {
+        value.migrationBase.pullReference = 'node:24';
+      },
+    ],
+    [
+      'migration',
+      (value) => {
+        value.migrationBase.pullReference = `node@${D('e')}`;
+      },
+    ],
+    [
+      'runtime',
+      (value) => {
+        value.toolLock.runtime.image = 'runtime:latest';
+      },
+    ],
+    [
+      'runtime',
+      (value) => {
+        value.toolLock.nativeLibraries.image = 'native:latest';
+      },
+    ],
+  ]) {
+    const changed = structuredClone(inputs);
+    mutate(changed);
+    assert.throws(() => imageBuildArguments({ ...changed, role }));
+  }
+  assert.throws(() => imageBuildArguments({ ...inputs, role: 'unrecognized' }));
 });

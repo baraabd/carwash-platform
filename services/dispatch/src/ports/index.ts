@@ -17,6 +17,8 @@ import type {
   ResourceObservation,
   TaskState,
 } from '../domain';
+import type { AutomaticTransaction, AutomaticReadModel } from './automatic-assignment.ports';
+export * from './automatic-assignment.ports';
 
 export interface Clock {
   now(): Date;
@@ -105,7 +107,7 @@ export interface TaskHistoryEntry {
  * in every command, in the event handlers and in the expiry worker, so two
  * transactions cannot deadlock on these rows. Updates are version-guarded.
  */
-export interface DispatchTransaction {
+export interface DispatchTransaction extends AutomaticTransaction {
   /**
    * Insert (scope, key) or wait for a concurrent holder of it to finish, then
    * report NEW, a REPLAY of its committed result, or a fingerprint CONFLICT.
@@ -209,7 +211,11 @@ export interface AssignmentQuery {
   readonly status: AssignmentStatus | null;
 }
 
-export interface DispatchReadModel {
+export interface DispatchReadModel extends AutomaticReadModel {
+  /** One owner SQL snapshot, never a separate assignment read and task read. */
+  executionByBooking(
+    bookingId: string,
+  ): Promise<import('@carwash/contracts').dispatchExecutionV1.ExecutionV1 | null>;
   findAssignment(id: string): Promise<AssignmentState | null>;
   findAssignmentByBooking(bookingId: string): Promise<AssignmentState | null>;
   findBookingChange(changeId: string): Promise<BookingChange | null>;

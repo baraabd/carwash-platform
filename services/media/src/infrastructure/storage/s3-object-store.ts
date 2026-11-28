@@ -1,3 +1,4 @@
+import { isIP } from 'node:net';
 import { storageUnavailable, type ContentType } from '../../domain';
 import type { ObjectStore, PresignedRequest, StoredRead } from '../../ports';
 import {
@@ -9,9 +10,13 @@ import {
   type SigningCredentials,
 } from './sigv4';
 
+export type S3UrlStyle = 'path' | 'virtual-host';
+
 export interface S3Config {
-  /** Origin of the S3 API, e.g. `https://s3.example.internal`; path-style addressing. */
+  /** Base origin of the S3 API; never include a bucket or object path. */
   readonly endpoint: string;
+  /** Existing deployments keep path addressing unless their provider selects virtual-host. */
+  readonly urlStyle?: S3UrlStyle;
   readonly region: string;
   readonly bucket: string;
   readonly accessKeyId: string;
@@ -20,6 +25,47 @@ export interface S3Config {
   readonly requestTimeoutMs: number;
   /** Bound on finalize reads held in memory at once (each ≤ 10 MiB + 1). */
   readonly maxConcurrentReads: number;
+}
+
+const DNS_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+
+/** Validates the address before a bucket host can receive signed credentials. */
+export function s3BucketOrigin(config: Pick<S3Config, 'endpoint' | 'bucket' | 'urlStyle'>): URL {
+  const style = config.urlStyle ?? 'path';
+  if (style !== 'path' && style !== 'virtual-host') throw new Error('S3_URL_STYLE_INVALID');
+  let origin: URL;
+  try {
+    origin = new URL(config.endpoint);
+  } catch {
+    throw new Error('S3_ENDPOINT_INVALID');
+  }
+  if (
+    !['http:', 'https:'].includes(origin.protocol) ||
+    origin.username ||
+    origin.password ||
+    origin.pathname !== '/' ||
+    origin.search ||
+    origin.hash
+  )
+    throw new Error('S3_ENDPOINT_INVALID');
+  if (style === 'path') return origin;
+  if (
+    isIP(origin.hostname) !== 0 ||
+    !origin.hostname.includes('.') ||
+    !origin.hostname.split('.').every((label) => DNS_LABEL.test(label))
+  )
+    throw new Error('S3_ENDPOINT_INVALID');
+  if (
+    config.bucket.length < 3 ||
+    config.bucket.length > 63 ||
+    isIP(config.bucket) !== 0 ||
+    !config.bucket.split('.').every((label) => DNS_LABEL.test(label))
+  )
+    throw new Error('S3_BUCKET_INVALID');
+  const hostname = `${config.bucket}.${origin.hostname}`;
+  if (hostname.length > 253) throw new Error('S3_ENDPOINT_INVALID');
+  origin.hostname = hostname;
+  return origin;
 }
 
 /** Counting semaphore; waiters are served in arrival order. */
@@ -67,13 +113,20 @@ export class S3ObjectStore implements ObjectStore {
       secretAccessKey: config.secretAccessKey,
       region: config.region,
     };
-    this.origin = new URL(config.endpoint);
+    this.origin = s3BucketOrigin(config);
     this.reads = new Gate(config.maxConcurrentReads);
   }
 
   private url(key: string | null): URL {
     const url = new URL(this.origin.origin);
-    url.pathname = key === null ? `/${this.config.bucket}` : `/${this.config.bucket}/${key}`;
+    url.pathname =
+      this.config.urlStyle === 'virtual-host'
+        ? key === null
+          ? '/'
+          : `/${key}`
+        : key === null
+          ? `/${this.config.bucket}`
+          : `/${this.config.bucket}/${key}`;
     return url;
   }
 
@@ -153,6 +206,14 @@ export class S3ObjectStore implements ObjectStore {
       if (truncated) await response.body.cancel().catch(() => undefined);
       return { kind: 'FOUND', bytes: Buffer.concat(chunks, size), truncated };
     });
+  }
+
+  /** Authenticated read-only bucket probe; never creates a bucket or a test object. */
+  async ping(): Promise<void> {
+    const signal = AbortSignal.timeout(this.config.requestTimeoutMs);
+    const response = await this.send('HEAD', this.url(null), {}, EMPTY_SHA256, null, signal);
+    await discard(response);
+    if (response.status !== 200) throw storageUnavailable();
   }
 
   async write(key: string, bytes: Uint8Array, contentType: ContentType): Promise<void> {

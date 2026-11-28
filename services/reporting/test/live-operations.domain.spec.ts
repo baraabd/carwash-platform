@@ -83,7 +83,7 @@ test('exact amount: integer minor units only, never a float, inside BIGINT', () 
   rejects(() => exactAmount({ currency: 'SYP', amountMinor: '1', scale: 5 }), 'INVALID_SCALE');
 });
 
-test('obligation fact: a PAID or VOIDED obligation cannot still owe money', () => {
+test('obligation fact: a PAID, CASH_COLLECTED or VOIDED obligation cannot still owe money', () => {
   const base = {
     eventId: randomUUID(),
     occurredAt: new Date(T0),
@@ -97,6 +97,14 @@ test('obligation fact: a PAID or VOIDED obligation cannot still owe money', () =
     'AWAITING_CASH',
   );
   assert.equal(obligationFact({ ...base, cashState: 'PAID', outstanding: zero }).cashState, 'PAID');
+  assert.equal(
+    obligationFact({ ...base, cashState: 'CASH_COLLECTED', outstanding: zero }).cashState,
+    'CASH_COLLECTED',
+  );
+  rejects(
+    () => obligationFact({ ...base, cashState: 'CASH_COLLECTED', outstanding: owed }),
+    'CLOSED_OBLIGATION_HAS_OUTSTANDING',
+  );
   rejects(
     () => obligationFact({ ...base, cashState: 'PAID', outstanding: owed }),
     'CLOSED_OBLIGATION_HAS_OUTSTANDING',
@@ -196,6 +204,7 @@ test('projector routes dispatch and billing facts and moves their freshness', as
     applyBookingConfirmed: () => Promise.reject(new Error('unexpected')),
     applyHoldChanged: () => Promise.reject(new Error('unexpected')),
     applyEligibilityChanged: () => Promise.reject(new Error('unexpected')),
+    applyOwnerObservation: () => Promise.reject(new Error('unexpected')),
     applyAssignmentChanged: (fact): Promise<FactOutcome> => {
       seen.push(`assignment:${fact.status}`);
       return Promise.resolve('APPLIED');

@@ -41,23 +41,25 @@ model HoldObservation {
 /// One job per booking. The resource CHECK and the exclusion constraint that
 /// forbids overlapping ASSIGNED jobs per resource live in the migration SQL.
 model Assignment {
-  id                String          @id @db.Uuid
-  bookingId         String          @unique @map("booking_id") @db.Uuid
-  holdId            String          @unique @map("hold_id") @db.Uuid
-  zoneId            String          @map("zone_id") @db.Uuid
-  startsAt          DateTime        @map("starts_at") @db.Timestamptz(3)
-  endsAt            DateTime        @map("ends_at") @db.Timestamptz(3)
+  id                String                       @id @db.Uuid
+  bookingId         String                       @unique @map("booking_id") @db.Uuid
+  holdId            String                       @unique @map("hold_id") @db.Uuid
+  zoneId            String                       @map("zone_id") @db.Uuid
+  startsAt          DateTime                     @map("starts_at") @db.Timestamptz(3)
+  endsAt            DateTime                     @map("ends_at") @db.Timestamptz(3)
   status            String
-  resourceId        String?         @map("resource_id") @db.Uuid
-  technicianSubject String?         @map("technician_subject") @db.Uuid
-  cancelReason      String?         @map("cancel_reason")
-  pendingChangeId   String?         @map("pending_change_id") @db.Uuid
-  version           Int             @default(1)
-  createdAt         DateTime        @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime        @map("updated_at") @db.Timestamptz(3)
+  resourceId        String?                      @map("resource_id") @db.Uuid
+  technicianSubject String?                      @map("technician_subject") @db.Uuid
+  cancelReason      String?                      @map("cancel_reason")
+  pendingChangeId   String?                      @map("pending_change_id") @db.Uuid
+  version           Int                          @default(1)
+  createdAt         DateTime                     @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime                     @map("updated_at") @db.Timestamptz(3)
   offers            DispatchOffer[]
   tasks             Task[]
   bookingChanges    BookingChange[]
+  automaticPolicy   AutomaticAssignmentPolicy?
+  automaticAttempts AutomaticAssignmentAttempt[]
 
   @@index([zoneId, startsAt])
   @@map("assignment")
@@ -66,27 +68,56 @@ model Assignment {
 /// Offer of a job to one workforce resource. The partial unique indexes (one
 /// OFFERED and one ACCEPTED offer per assignment) live in the migration SQL.
 model DispatchOffer {
-  id                String     @id @db.Uuid
-  assignmentId      String     @map("assignment_id") @db.Uuid
-  resourceId        String     @map("resource_id") @db.Uuid
-  technicianSubject String     @map("technician_subject") @db.Uuid
+  id                String                      @id @db.Uuid
+  assignmentId      String                      @map("assignment_id") @db.Uuid
+  resourceId        String                      @map("resource_id") @db.Uuid
+  technicianSubject String                      @map("technician_subject") @db.Uuid
   status            String
-  expiresAt         DateTime   @map("expires_at") @db.Timestamptz(3)
-  declineReason     String?    @map("decline_reason")
-  withdrawReason    String?    @map("withdraw_reason")
-  declineNote       String?    @map("decline_note") @db.VarChar(500)
-  createdBy         String     @map("created_by") @db.VarChar(80)
-  version           Int        @default(1)
-  createdAt         DateTime   @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime   @map("updated_at") @db.Timestamptz(3)
-  assignment        Assignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  expiresAt         DateTime                    @map("expires_at") @db.Timestamptz(3)
+  declineReason     String?                     @map("decline_reason")
+  withdrawReason    String?                     @map("withdraw_reason")
+  declineNote       String?                     @map("decline_note") @db.VarChar(500)
+  createdBy         String                      @map("created_by") @db.VarChar(80)
+  version           Int                         @default(1)
+  createdAt         DateTime                    @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime                    @map("updated_at") @db.Timestamptz(3)
+  assignment        Assignment                  @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
   task              Task?
+  automaticAttempt  AutomaticAssignmentAttempt?
 
   @@index([assignmentId])
   @@index([technicianSubject, status])
   @@index([resourceId, status])
   @@index([status, expiresAt])
   @@map("dispatch_offer")
+}
+
+/// Bounded automatic strategy; manual commands pause it atomically.
+model AutomaticAssignmentPolicy {
+  assignmentId  String     @id @map("assignment_id") @db.Uuid
+  state         String
+  offeredCount  Int        @default(0) @map("offered_count")
+  failedPasses  Int        @default(0) @map("failed_passes")
+  nextAttemptAt DateTime   @map("next_attempt_at") @db.Timestamptz(3)
+  reason        String?
+  updatedAt     DateTime   @default(now()) @map("updated_at") @db.Timestamptz(3)
+  assignment    Assignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+
+  @@index([state, nextAttemptAt])
+  @@map("automatic_assignment_policy")
+}
+
+/// One attempt per real resource, preserved after expiry/decline and restarts.
+model AutomaticAssignmentAttempt {
+  assignmentId String        @map("assignment_id") @db.Uuid
+  resourceId   String        @map("resource_id") @db.Uuid
+  offerId      String        @unique @map("offer_id") @db.Uuid
+  createdAt    DateTime      @map("created_at") @db.Timestamptz(3)
+  assignment   Assignment    @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  offer        DispatchOffer @relation(fields: [offerId], references: [id], onDelete: Restrict)
+
+  @@id([assignmentId, resourceId])
+  @@map("automatic_assignment_attempt")
 }
 
 /// Completed idempotent commands, kept for the documented retention window.
@@ -166,41 +197,41 @@ model ResourceObservation {
 /// Execution of an accepted job by its technician. Stage machine, gates, the
 /// partial unique indexes and the immutability triggers live in the migration SQL.
 model Task {
-  id                    String         @id @db.Uuid
-  assignmentId          String         @map("assignment_id") @db.Uuid
-  offerId               String         @unique @map("offer_id") @db.Uuid
-  bookingId             String         @map("booking_id") @db.Uuid
-  resourceId            String         @map("resource_id") @db.Uuid
-  technicianSubject     String         @map("technician_subject") @db.Uuid
+  id                    String          @id @db.Uuid
+  assignmentId          String          @map("assignment_id") @db.Uuid
+  offerId               String          @unique @map("offer_id") @db.Uuid
+  bookingId             String          @map("booking_id") @db.Uuid
+  resourceId            String          @map("resource_id") @db.Uuid
+  technicianSubject     String          @map("technician_subject") @db.Uuid
   stage                 String
-  checklistVersion      String         @map("checklist_version") @db.VarChar(40)
+  checklistVersion      String          @map("checklist_version") @db.VarChar(40)
   checklist             Json
-  conditionNote         String?        @map("condition_note") @db.VarChar(800)
-  acceptedAt            DateTime       @map("accepted_at") @db.Timestamptz(3)
-  departedAt            DateTime?      @map("departed_at") @db.Timestamptz(3)
-  arrivedAt             DateTime?      @map("arrived_at") @db.Timestamptz(3)
-  arrivalMethod         String?        @map("arrival_method")
-  startedAt             DateTime?      @map("started_at") @db.Timestamptz(3)
-  documentedAt          DateTime?      @map("documented_at") @db.Timestamptz(3)
-  finishedAt            DateTime?      @map("finished_at") @db.Timestamptz(3)
-  closedAt              DateTime?      @map("closed_at") @db.Timestamptz(3)
-  endedAt               DateTime?      @map("ended_at") @db.Timestamptz(3)
-  endReason             String?        @map("end_reason")
-  releaseReason         String?        @map("release_reason") @db.VarChar(500)
-  attentionReason       String?        @map("attention_reason")
-  collectionOutcome     String?        @map("collection_outcome")
-  collectionCurrency    String?        @map("collection_currency") @db.Char(3)
-  collectionScale       Int?           @map("collection_scale") @db.SmallInt
-  collectionAmountMinor BigInt?        @map("collection_amount_minor")
-  collectionReason      String?        @map("collection_reason") @db.VarChar(500)
-  collectionDeclaredAt  DateTime?      @map("collection_declared_at") @db.Timestamptz(3)
-  lateAmountMinor       BigInt?        @map("late_amount_minor")
-  lateDeclaredAt        DateTime?      @map("late_declared_at") @db.Timestamptz(3)
-  version               Int            @default(1)
-  createdAt             DateTime       @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime       @map("updated_at") @db.Timestamptz(3)
-  assignment            Assignment     @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
-  offer                 DispatchOffer  @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  conditionNote         String?         @map("condition_note") @db.VarChar(800)
+  acceptedAt            DateTime        @map("accepted_at") @db.Timestamptz(3)
+  departedAt            DateTime?       @map("departed_at") @db.Timestamptz(3)
+  arrivedAt             DateTime?       @map("arrived_at") @db.Timestamptz(3)
+  arrivalMethod         String?         @map("arrival_method")
+  startedAt             DateTime?       @map("started_at") @db.Timestamptz(3)
+  documentedAt          DateTime?       @map("documented_at") @db.Timestamptz(3)
+  finishedAt            DateTime?       @map("finished_at") @db.Timestamptz(3)
+  closedAt              DateTime?       @map("closed_at") @db.Timestamptz(3)
+  endedAt               DateTime?       @map("ended_at") @db.Timestamptz(3)
+  endReason             String?         @map("end_reason")
+  releaseReason         String?         @map("release_reason") @db.VarChar(500)
+  attentionReason       String?         @map("attention_reason")
+  collectionOutcome     String?         @map("collection_outcome")
+  collectionCurrency    String?         @map("collection_currency") @db.Char(3)
+  collectionScale       Int?            @map("collection_scale") @db.SmallInt
+  collectionAmountMinor BigInt?         @map("collection_amount_minor")
+  collectionReason      String?         @map("collection_reason") @db.VarChar(500)
+  collectionDeclaredAt  DateTime?       @map("collection_declared_at") @db.Timestamptz(3)
+  lateAmountMinor       BigInt?         @map("late_amount_minor")
+  lateDeclaredAt        DateTime?       @map("late_declared_at") @db.Timestamptz(3)
+  version               Int             @default(1)
+  createdAt             DateTime        @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime        @map("updated_at") @db.Timestamptz(3)
+  assignment            Assignment      @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  offer                 DispatchOffer   @relation(fields: [offerId], references: [id], onDelete: Restrict)
   evidence              TaskEvidence[]
   evidenceFences        EvidenceFence[]
   notes                 TaskNote[]
@@ -214,14 +245,14 @@ model Task {
 
 /// Link of a Media object to a task photo slot. Append-only except removal.
 model TaskEvidence {
-  id            String    @id @db.Uuid
-  taskId        String    @map("task_id") @db.Uuid
+  id            String         @id @db.Uuid
+  taskId        String         @map("task_id") @db.Uuid
   phase         String
-  slot          Int       @db.SmallInt
-  mediaObjectId String    @unique @map("media_object_id") @db.Uuid
-  attachedAt    DateTime  @map("attached_at") @db.Timestamptz(3)
-  removedAt     DateTime? @map("removed_at") @db.Timestamptz(3)
-  task          Task      @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  slot          Int            @db.SmallInt
+  mediaObjectId String         @unique @map("media_object_id") @db.Uuid
+  attachedAt    DateTime       @map("attached_at") @db.Timestamptz(3)
+  removedAt     DateTime?      @map("removed_at") @db.Timestamptz(3)
+  task          Task           @relation(fields: [taskId], references: [id], onDelete: Restrict)
   fence         EvidenceFence?
 
   @@index([taskId])

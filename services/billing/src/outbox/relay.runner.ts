@@ -11,6 +11,7 @@ import { createLogger, serviceTelemetry } from '@carwash/service-kit';
 import { PrismaService, databaseUrlFromEnv } from '../infrastructure/persistence/prisma.service';
 import { billingCustodyProducerTopology, validateCustodyOutbox } from './custody-events';
 import { PrismaCustodyOutboxStore } from './prisma-outbox.store';
+import { OBLIGATION_EVENT_TYPES, validateObligationOutbox } from './obligation-events';
 
 function numberArg(name: string, fallback: number, maximum: number): number {
   const index = process.argv.indexOf(`--${name}`);
@@ -23,6 +24,9 @@ function numberArg(name: string, fallback: number, maximum: number): number {
 
 /** Separate from the API process: only Billing's runtime DB and broker identities. */
 async function main(): Promise<void> {
+  const familyIndex = process.argv.indexOf('--family');
+  const family = familyIndex < 0 ? 'custody' : process.argv[familyIndex + 1];
+  if (family !== 'custody' && family !== 'obligations') throw new Error('INVALID_RELAY_FAMILY');
   const brokerUrl = process.env.BROKER_URL;
   if (!brokerUrl) throw new Error('BROKER_URL_REQUIRED');
   const prisma = new PrismaService(databaseUrlFromEnv());
@@ -30,12 +34,12 @@ async function main(): Promise<void> {
   const logger = createLogger({
     service: 'billing',
     level: 'info',
-    base: { component: 'cash-relay' },
+    base: { component: family === 'custody' ? 'cash-relay' : 'obligation-relay' },
   });
   const emit = (event: string, fields: Record<string, unknown> = {}): void => {
     logger.info('worker_event', { event, ...fields });
   };
-  const workerId = `billing-cash-${randomUUID()}`;
+  const workerId = `billing-${family}-${randomUUID()}`;
   const once = process.argv.includes('--once');
   // Twenty bounded five-second publishes still fit within the default lease.
   const leaseMs = numberArg('lease-ms', 120_000, 300_000);
@@ -73,11 +77,14 @@ async function main(): Promise<void> {
         if (!current || !publisher) continue;
         const relay = new OutboxRelay({
           workerId,
-          store: new PrismaCustodyOutboxStore(prisma),
+          store: new PrismaCustodyOutboxStore(
+            prisma,
+            family === 'obligations' ? OBLIGATION_EVENT_TYPES : undefined,
+          ),
           publisher,
           logger,
           telemetry,
-          validate: validateCustodyOutbox,
+          validate: family === 'obligations' ? validateObligationOutbox : validateCustodyOutbox,
           leaseMs,
           batchSize,
           maxAttempts,
@@ -122,6 +129,6 @@ async function main(): Promise<void> {
 }
 
 void main().catch(() => {
-  createLogger({ service: 'billing' }).error('cash_relay_failed');
+  createLogger({ service: 'billing' }).error('billing_relay_failed');
   process.exitCode = 1;
 });

@@ -1,6 +1,7 @@
 import { createLogger, traceHeaders } from '@carwash/service-kit';
 import {
   BookingProcessManager,
+  BookingHoldsService,
   BookingService,
   ChangeProcessManager,
   ChangeService,
@@ -30,6 +31,8 @@ import {
 } from '../owners/change-adapters';
 import type { PrismaService } from '../persistence/prisma.service';
 import { systemClock, systemRandom, uuidGenerator } from './system';
+import { SchedulingHoldRequests } from '../owners/hold-requests.adapter';
+import { SubscriptionEntitlementsAdapter } from '../owners/subscription-entitlements.adapter';
 
 /**
  * Builds the application from the environment; shared by the API and the saga
@@ -72,6 +75,8 @@ export interface Composition {
   readonly store: PrismaBookingStore;
   readonly saga: BookingProcessManager;
   readonly service: BookingService;
+  readonly holds: BookingHoldsService;
+  readonly entitlements: SubscriptionEntitlementsAdapter;
   /** Technician read, authorized by Dispatch on every request (P03-C3). */
   readonly technicianView: TechnicianViewQuery;
   /** P04-C3 change saga (cancellation / reschedule). */
@@ -96,10 +101,14 @@ export function compose(
 
   const observer = loggingObserver(options.component);
   const store = new PrismaBookingStore(prisma, { sagaLeaseMs });
+  const entitlements = new SubscriptionEntitlementsAdapter(
+    client('subscription', env.SUBSCRIPTION_URL, true),
+  );
   const saga = new BookingProcessManager({
     store,
     quotes: new PricingQuoteValidator(client('pricing', env.PRICING_URL, true)),
     billing: new BillingObligationsAdapter(client('billing', env.BILLING_URL, true)),
+    entitlements,
     holds: new SchedulingHoldCommitter(client('scheduling', env.SCHEDULING_URL, true)),
     clock: systemClock,
     ids: uuidGenerator,
@@ -146,6 +155,7 @@ export function compose(
     ),
     commitments: new SchedulingCommitmentsAdapter(client('scheduling', env.SCHEDULING_URL, true)),
     billing: new BillingCancellationAdapter(client('billing', env.BILLING_URL, true)),
+    entitlements,
     clock: systemClock,
     ids: uuidGenerator,
     random: systemRandom,
@@ -164,5 +174,8 @@ export function compose(
     instanceId: options.instanceId,
     inlineBudgetMs: positiveInt(env.BOOKING_INLINE_SAGA_BUDGET_MS, 4_000),
   });
-  return { store, saga, service, technicianView, changeSaga, changes };
+  const holds = new BookingHoldsService(
+    new SchedulingHoldRequests(client('scheduling', env.SCHEDULING_URL, false)),
+  );
+  return { store, saga, service, holds, entitlements, technicianView, changeSaga, changes };
 }

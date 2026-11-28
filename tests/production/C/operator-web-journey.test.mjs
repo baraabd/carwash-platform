@@ -9,7 +9,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -92,6 +92,59 @@ function assertNoProblems(problems) {
     'no page errors and no CSP violations',
   );
 }
+
+test('subscription covered delivery closes real UI work with NOT_CASH and never requests collection', async () => {
+  stack.fixture.control.reset();
+  const key = 'WG-2042'; // One package, no extras in this declared fixture.
+  stack.fixture.control.setFinancialSource(key, 'SUBSCRIPTION');
+  const task = stack.fixture.control.seedTask(key, { stage: 'FINISHED' });
+  const expectedRevision = task.revision;
+  const { context, page, problems } = await session();
+  try {
+    await openJob(page, key);
+    await expectHeading(page, 'الخدمة مكتملة وجاهزة للتسليم.');
+    assert.equal(await page.locator('[data-action="cash-dialog"]').count(), 0);
+    assert.equal(await page.locator('[data-action="cash-issue"]').count(), 0);
+    assert.equal(await page.locator('[data-action="payment-followup"]').count(), 0);
+    assert.match(await page.locator('#main').textContent(), /مغطى بالاشتراك/);
+    await page.locator('[data-action="primary"]').click();
+    assert.match(await page.locator('#sheet[open]').textContent(), /مغطى بالاشتراك/);
+    assert.doesNotMatch(
+      await page.locator('#sheet[open]').textContent(),
+      /المبلغ المستحق|كاش مسجّل|معتمد/,
+    );
+    await page.locator('[data-action="close-job-confirm"]').click();
+    await expectHeading(page, 'لمعة تستحق المشاهدة.');
+    const closed = stack.fixture.control.taskOf(key);
+    assert.equal(closed.stage, 'CLOSED');
+    assert.equal(closed.collection.outcome, 'NOT_CASH');
+    assert.equal(closed.collection.amount, null);
+    assert.equal(stack.fixture.control.cashReceiptOf(key), null);
+    assert.match(await page.locator('#main').textContent(), /مغطى بالاشتراك · لا تحصيل إضافي/);
+    assert.doesNotMatch(
+      await page.locator('#main').textContent(),
+      /تم التحصيل|قيد المراجعة|تسجيل تحصيل لاحق/,
+    );
+    const writes = mutationsOf(/\/tasks\/[^/]+\/close$/);
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0].body.collection.outcome, 'NOT_CASH');
+    assert.equal(writes[0].body.expectedRevision, expectedRevision);
+    assert.equal(
+      stack.fixture.requests.filter((r) =>
+        r.path
+          .split('/')
+          .some((segment) =>
+            ['cash-collection-target', 'cash-collections', 'cash-collection'].includes(segment),
+          ),
+      ).length,
+      0,
+      'covered work neither reads a cash target nor posts a financial collection',
+    );
+    assertNoProblems(problems);
+  } finally {
+    await context.close();
+  }
+});
 
 test('full cash journey: accept, depart, arrive, photos, checklist, finish, exact cash close', async () => {
   stack.fixture.control.reset();
@@ -666,6 +719,93 @@ test('reassignment: a withdrawn task disappears on reconnect and on a refused mu
     await context.close();
   }
 });
+
+test('authentication loss removes an open private sheet and its contents from the DOM', async () => {
+  stack.fixture.control.reset();
+  stack.fixture.control.seedTask('WG-2041', { stage: 'ACCEPTED' });
+  const { context, page, problems } = await session();
+  try {
+    await openJob(page, 'WG-2041');
+    await page.locator('[data-action="contact"]').click();
+    const customer = await page.locator('#sheet-body h3').textContent();
+    assert.ok(customer?.trim(), 'a real rendered fixture contact is present before revocation');
+    assert.equal(await page.locator('#sheet[open]').count(), 1);
+
+    // Simulate loss of Identity credentials, then use the normal reconnect read path.
+    await context.clearCookies();
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.locator('#operatorSignIn').waitFor({ state: 'visible' });
+
+    assert.equal(await page.locator('#sheet[open]').count(), 0);
+    assert.equal(await page.locator('#sheet-title').textContent(), '');
+    assert.equal(await page.locator('#sheet-body').innerHTML(), '');
+    assert.equal(await page.locator('#toast').textContent(), '');
+    assert.equal(await page.locator('input[type="file"]').count(), 0);
+    assert.equal((await page.locator('body').textContent()).includes(customer), false);
+    assertNoProblems(problems);
+  } finally {
+    await context.close();
+  }
+});
+
+for (const [name, path] of [
+  ['task detail', /\/api\/operator\/tasks\/[^/]+$/],
+  ['booking view', /\/api\/operator\/bookings\/[^/]+$/],
+]) {
+  test(`terminal 401 during dependent ${name} read clears private state after jobs succeeded`, async () => {
+    stack.fixture.control.reset();
+    stack.fixture.control.seedTask('WG-2041', { stage: 'ACCEPTED' });
+    const { context, page, problems } = await session();
+    try {
+      await openJob(page, 'WG-2041');
+      await page.locator('[data-action="contact"]').click();
+      const customer = await page.locator('#sheet-body h3').textContent();
+      assert.ok(customer?.trim());
+      let refused = 0;
+      await page.route(
+        path,
+        async (route) => {
+          refused += 1;
+          // A declared HTTP fault at the dependent read, after the parent read
+          // succeeded. This proves the browser's refusal handling, not Identity.
+          await context.clearCookies();
+          await route.fulfill({
+            status: 401,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              error: {
+                code: 'AUTH_REQUIRED',
+                reason: null,
+                message: 'fixture',
+                requestId: randomUUID(),
+                correlationId: randomUUID(),
+                retryable: false,
+                retryAfterMs: null,
+                issues: [],
+              },
+            }),
+          });
+        },
+        { times: 1 },
+      );
+      logMark = stack.gateway.log.length;
+      await page.evaluate(() => window.dispatchEvent(new Event('online')));
+      await page.locator('#operatorSignIn').waitFor({ state: 'visible' });
+      assert.ok(refused > 0, 'the rejection happened on a dependent read');
+      assert.ok(
+        gatewayLog().some((entry) => entry.path === '/api/operator/jobs' && entry.status === 200),
+        'the initial jobs read succeeded before the dependent refusal',
+      );
+      assert.equal(await page.locator('#sheet[open]').count(), 0);
+      assert.equal(await page.locator('#sheet-body').innerHTML(), '');
+      assert.equal(await page.locator('.job-card').count(), 0);
+      assert.equal((await page.locator('body').textContent()).includes(customer), false);
+      assertNoProblems(problems);
+    } finally {
+      await context.close();
+    }
+  });
+}
 
 test('unauthenticated session shows the pending state and never renders jobs', async () => {
   stack.fixture.control.reset();

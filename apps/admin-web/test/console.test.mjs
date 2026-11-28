@@ -25,13 +25,55 @@ import {
   oneOf,
   request,
   text,
+  bindSessionRequests,
 } from '../src/api/http.ts';
 
 const session = (permissions, principalKind = 'account') => ({
   subject: crypto.randomUUID(),
+  sessionId: crypto.randomUUID(),
+  authVersion: 1,
   principalKind,
   roles: [],
   permissions,
+});
+
+test('refresh never rebinds an old console command to a replacement cookie session', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalDocument = globalThis.document;
+  const original = session(['billing.reconcile']);
+  const replacement = session(['billing.reconcile']);
+  const expected = `account:${original.subject}:${original.sessionId}:${original.authVersion}`;
+  const seen = [];
+  globalThis.document = { cookie: 'wg_csrf=current-cookie' };
+  bindSessionRequests(original);
+  globalThis.fetch = async (url, options) => {
+    if (url === '/api/v1/auth/refresh') {
+      // A different tab/session may have refreshed while the old command was in flight.
+      bindSessionRequests(replacement);
+      return new Response(JSON.stringify(replacement), { status: 200 });
+    }
+    seen.push(options);
+    return new Response(JSON.stringify({ error: { code: 'AUTH_REQUIRED' } }), { status: 401 });
+  };
+  try {
+    const result = await request('/admin/billing/obligations', {
+      method: 'POST',
+      body: { prepared: 'original session' },
+      idempotencyKey: 'session_command_1234567890',
+      read: (value) => value,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.failure, 'UNAUTHENTICATED');
+    assert.equal(seen.length, 2);
+    for (const attempt of seen) {
+      assert.equal(attempt.headers['x-wg-session-binding'], expected);
+      assert.equal(attempt.headers['idempotency-key'], 'session_command_1234567890');
+    }
+  } finally {
+    bindSessionRequests(null);
+    globalThis.fetch = originalFetch;
+    globalThis.document = originalDocument;
+  }
 });
 
 test('access: each role sees only its screens; customers, technicians and guests see none', () => {
@@ -43,6 +85,12 @@ test('access: each role sees only its screens; customers, technicians and guests
     assignmentActions: true,
     payments: false,
     reconcile: false,
+    reviewModeration: false,
+    services: false,
+    coverage: true,
+    support: true,
+    custody: false,
+    subscriptions: false,
   });
   assert.equal(defaultScreen(operations), 'dashboard');
   assert.equal(canOpen('payments', operations), false);
@@ -55,6 +103,12 @@ test('access: each role sees only its screens; customers, technicians and guests
     assignmentActions: false,
     payments: false,
     reconcile: false,
+    reviewModeration: false,
+    services: false,
+    coverage: false,
+    support: false,
+    custody: false,
+    subscriptions: false,
   });
   assert.equal(defaultScreen(reviewer), 'technicians');
   assert.equal(canOpen('bookings', reviewer), false);
@@ -165,6 +219,16 @@ test('http: CSRF cookie, idempotency key and strict readers', () => {
   assert.throws(() => oneOf('X', ['A', 'B'], 's'));
   assert.throws(() => list(new Array(501).fill(1), 'l', (v) => v));
 });
+test('moderation and notification screens keep their distinct owner permissions', () => {
+  const moderator = capabilities(session(['reviews.moderate']));
+  assert.equal(isStaff(moderator), true);
+  assert.equal(defaultScreen(moderator), 'reviews');
+  assert.equal(canOpen('reviews', moderator), true);
+  assert.equal(canOpen('notifications', moderator), false);
+  assert.equal(canOpen('reviews', capabilities(session(['verification.review']))), false);
+  assert.equal(canOpen('notifications', capabilities(session(['operations.dispatch']))), true);
+  assert.equal(canOpen('reviews', capabilities(session(['reviews.moderate'], 'guest'))), false);
+});
 
 /** Runs `request` against a scripted fetch and returns the typed outcome. */
 async function withFetch(script, run) {
@@ -182,6 +246,42 @@ async function withFetch(script, run) {
 const read = (body) => object(body, '$');
 const reply = (status, body) => () =>
   Promise.resolve(new Response(body === undefined ? '' : JSON.stringify(body), { status }));
+
+test('admin refresh shares one request and preserves a rejected write key/body', async () => {
+  let refreshed = false;
+  let refreshes = 0;
+  const writes = [];
+  const key = idempotencyKey();
+  await withFetch(
+    async (url, options) => {
+      if (url === '/api/v1/auth/refresh') {
+        refreshes++;
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        refreshed = true;
+        return reply(200, {})();
+      }
+      if (options.method === 'POST') writes.push(options);
+      return reply(refreshed ? 200 : 401, {})();
+    },
+    async () => {
+      const results = await Promise.all([
+        request('/auth/session', { read }),
+        request('/admin/customer-reviews/example/decision', {
+          method: 'POST',
+          body: { expectedRevision: 2 },
+          idempotencyKey: key,
+          read,
+        }),
+      ]);
+      assert.ok(results.every((result) => result.ok));
+    },
+  );
+  assert.equal(refreshes, 1);
+  assert.equal(writes.length, 2);
+  assert.equal(writes[0].body, writes[1].body);
+  assert.equal(writes[0].headers['idempotency-key'], key);
+  assert.equal(writes[1].headers['idempotency-key'], key);
+});
 
 test('http: statuses map to typed failures; a failed write is UNKNOWN, never success', async () => {
   for (const [status, failure] of [
@@ -232,4 +332,68 @@ test('http: statuses map to typed failures; a failed write is UNKNOWN, never suc
   assert.equal(seen.init.credentials, 'same-origin');
   assert.equal(seen.init.redirect, 'error');
   assert.match(seen.init.headers['x-correlation-id'], /^[0-9a-f-]{36}$/);
+});
+
+test('domain screen access follows owner read grants and denies guest escalation', () => {
+  for (const [permission, screen] of [
+    ['catalog.publish', 'services'],
+    ['pricing.prices.publish', 'services'],
+    ['operations.dispatch', 'coverage'],
+    ['support.cases.read', 'disputes'],
+    ['billing.read', 'wallets'],
+    ['subscription.manage', 'subscriptions'],
+  ]) {
+    const caps = capabilities(session([permission]));
+    assert.equal(isStaff(caps), true, permission);
+    assert.equal(canOpen(screen, caps), true, permission);
+    assert.equal(canOpen(screen, capabilities(session([permission], 'guest'))), false, permission);
+  }
+  assert.equal(defaultScreen(capabilities(session(['support.cases.read']))), 'disputes');
+  assert.equal(defaultScreen(capabilities(session(['subscription.manage']))), 'subscriptions');
+  assert.equal(canOpen('wallets', capabilities(session(['operations.dispatch']))), false);
+  assert.equal(canOpen('services', capabilities(session(['subscription.manage']))), false);
+});
+
+test('admin session replacement refuses old reads and cannot replay an old write after refresh', async () => {
+  const { sessionRequests } = await import('../src/api/http.ts');
+  sessionRequests.invalidate();
+  let finishRead;
+  await withFetch(
+    () =>
+      new Promise((resolve) => {
+        finishRead = resolve;
+      }),
+    async () => {
+      const pending = request('/admin/operations/bookings', { read });
+      sessionRequests.invalidate();
+      finishRead(new Response(JSON.stringify({ privateValue: 'former-account' })));
+      const result = await pending;
+      assert.equal(result.ok, false);
+      assert.equal(result.code, 'SESSION_CHANGED');
+    },
+  );
+  const calls = [];
+  let finishRefresh;
+  await withFetch(
+    async (url) => {
+      calls.push(url);
+      if (url.endsWith('/refresh'))
+        return new Promise((resolve) => {
+          finishRefresh = resolve;
+        });
+      return new Response('{}', { status: 401 });
+    },
+    async () => {
+      const pending = request('/admin/reviews/decision', {
+        method: 'POST',
+        body: { decision: 'APPROVE' },
+        read,
+      });
+      while (!finishRefresh) await new Promise((resolve) => setImmediate(resolve));
+      sessionRequests.invalidate();
+      finishRefresh(new Response('{}'));
+      assert.equal((await pending).code, 'SESSION_CHANGED');
+    },
+  );
+  assert.deepEqual(calls, ['/api/v1/admin/reviews/decision', '/api/v1/auth/refresh']);
 });

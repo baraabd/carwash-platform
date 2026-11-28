@@ -106,7 +106,10 @@ export function obligationFact(input: {
 }): ObligationStatusFact {
   const cashState = CASH_STATES.find((s) => s === input.cashState);
   if (!cashState) throw new OperationsRuleError('INVALID_CASH_STATE');
-  if ((cashState === 'PAID' || cashState === 'VOIDED') && input.outstanding.amountMinor !== 0n)
+  if (
+    (cashState === 'PAID' || cashState === 'CASH_COLLECTED' || cashState === 'VOIDED') &&
+    input.outstanding.amountMinor !== 0n
+  )
     throw new OperationsRuleError('CLOSED_OBLIGATION_HAS_OUTSTANDING');
   return {
     kind: 'OBLIGATION_STATUS',

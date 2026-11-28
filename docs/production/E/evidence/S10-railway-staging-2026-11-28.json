@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-28T08:20:57Z",
+  "scope": "Railway staging infrastructure inventory and replica state; not application acceptance",
+  "inventory": {
+    "project": {
+      "id": "7aa96062-f337-4d69-92c6-2af61c9348db",
+      "name": "carwash-platform",
+      "workspaceName": "My Projects"
+    },
+    "environment": {
+      "id": "2bfd91fb-ae06-4c71-a267-913fa123699b",
+      "name": "staging",
+      "isEphemeral": false
+    },
+    "staged": null,
+    "region": null,
+    "services": [
+      {
+        "id": "cd19e7af-9c99-4156-9fe5-357c0be814de",
+        "name": "Redis",
+        "state": "live",
+        "source": {
+          "image": "redis:8.2",
+          "repo": null,
+          "branch": null
+        },
+        "regions": [
+          "asia-southeast1-eqsg3a"
+        ],
+        "numReplicas": 1,
+        "cronSchedule": null,
+        "volumeMounts": [
+          {
+            "volumeId": "b31f1737-53fb-4212-8c8e-c164e5d4a477",
+            "volumeName": "redis-volume",
+            "mountPath": "/data"
+          }
+        ],
+        "latestDeployment": {
+          "id": "daa7698b-2f84-4cb5-8855-48cce54bb680",
+          "status": "SUCCESS",
+          "createdAt": "2026-11-27T06:41:57.268Z",
+          "url": null
+        },
+        "stagedChangeCount": 0
+      },
+      {
+        "id": "04b846a5-0a1f-49bf-9dff-4b477ab367af",
+        "name": "database-provisioning",
+        "state": "live",
+        "source": {
+          "image": "ghcr.io/railwayapp/function-bun:1.4.4",
+          "repo": null,
+          "branch": null
+        },
+        "regions": [
+          "asia-southeast1-eqsg3a"
+        ],
+        "numReplicas": 1,
+        "cronSchedule": null,
+        "volumeMounts": [],
+        "latestDeployment": {
+          "id": "6fecf499-df4a-4215-8024-87da7bd98880",
+          "status": "SUCCESS",
+          "createdAt": "2026-11-27T07:51:39.053Z",
+          "url": null
+        },
+        "stagedChangeCount": 0
+      },
+      {
+        "id": "b557b04b-ecbc-4b9d-ad9e-dfd9bd2f4d2b",
+        "name": "RabbitMQ",
+        "state": "live",
+        "source": {
+          "image": "rabbitmq@sha256:02c5a810ea34181122bf9e38685c1a6b0363e41290b0ae5bef4fae7477eba6db",
+          "repo": null,
+          "branch": null
+        },
+        "regions": [
+          "asia-southeast1-eqsg3a"
+        ],
+        "numReplicas": 1,
+        "cronSchedule": null,
+        "volumeMounts": [
+          {
+            "volumeId": "01106f59-aaa3-4a82-8d25-b757473da759",
+            "volumeName": "rabbitmq-volume",
+            "mountPath": "/var/lib/rabbitmq"
+          }
+        ],
+        "latestDeployment": {
+          "id": "e427ae91-b85a-4cb2-a203-1c7493fef6c4",
+          "status": "SUCCESS",
+          "createdAt": "2026-11-28T07:54:27.655Z",
+          "url": null
+        },
+        "stagedChangeCount": 0
+      },
+      {
+        "id": "36d4389d-d07f-49be-9ff2-cb2fcea5f9f4",
+        "name": "Postgres",
+        "state": "live",
+        "source": {
+          "image": "ghcr.io/railwayapp-templates/postgres-ssl:16",
+          "repo": null,
+          "branch": null
+        },
+        "regions": [
+          "asia-southeast1-eqsg3a"
+        ],
+        "numReplicas": 1,
+        "cronSchedule": null,
+        "volumeMounts": [
+          {
+            "volumeId": "0d547b39-7872-4fdd-86a2-29668ca78aca",
+            "volumeName": "postgres-volume",
+            "mountPath": "/var/lib/postgresql/data"
+          }
+        ],
+        "latestDeployment": {
+          "id": "24ebc0a6-c4fe-47ca-8283-9af41bf92e8a",
+          "status": "SUCCESS",
+          "createdAt": "2026-11-27T06:41:32.806Z",
+          "url": null
+        },
+        "stagedChangeCount": 0
+      }
+    ],
+    "volumes": [
+      {
+        "id": "01106f59-aaa3-4a82-8d25-b757473da759",
+        "name": "rabbitmq-volume",
+        "state": "live",
+        "region": "asia-southeast1-eqsg3a",
+        "sizeMB": 5000,
+        "mountedOn": {
+          "serviceId": "b557b04b-ecbc-4b9d-ad9e-dfd9bd2f4d2b",
+          "serviceName": "RabbitMQ",
+          "mountPath": "/var/lib/rabbitmq"
+        },
+        "stagedChangeCount": 0
+      },
+      {
+        "id": "b31f1737-53fb-4212-8c8e-c164e5d4a477",
+        "name": "redis-volume",
+        "state": "live",
+        "region": "asia-southeast1-eqsg3a",
+        "sizeMB": 5000,
+        "mountedOn": {
+          "serviceId": "cd19e7af-9c99-4156-9fe5-357c0be814de",
+          "serviceName": "Redis",
+          "mountPath": "/data"
+        },
+        "stagedChangeCount": 0
+      },
+      {
+        "id": "0d547b39-7872-4fdd-86a2-29668ca78aca",
+        "name": "postgres-volume",
+        "state": "live",
+        "region": "asia-southeast1-eqsg3a",
+        "sizeMB": 5000,
+        "mountedOn": {
+          "serviceId": "36d4389d-d07f-49be-9ff2-cb2fcea5f9f4",
+          "serviceName": "Postgres",
+          "mountPath": "/var/lib/postgresql/data"
+        },
+        "stagedChangeCount": 0
+      }
+    ],
+    "buckets": [
+      {
+        "id": "a3403e86-7a5f-4cb1-9f5e-2e208686fba5",
+        "name": "MediaObjects",
+        "state": "live",
+        "region": "sin",
+        "stagedChangeCount": 0
+      }
+    ],
+    "sharedVariableNames": []
+  },
+  "health": {
+    "environment": {
+      "id": "2bfd91fb-ae06-4c71-a267-913fa123699b",
+      "name": "staging"
+    },
+    "services": [
+      {
+        "serviceId": "b557b04b-ecbc-4b9d-ad9e-dfd9bd2f4d2b",
+        "serviceName": "RabbitMQ",
+        "state": "online",
+        "statusText": "Online",
+        "activeDeployments": [
+          {
+            "id": "e427ae91-b85a-4cb2-a203-1c7493fef6c4",
+            "status": "SUCCESS",
+            "createdAt": "2026-11-28T07:54:27.655Z",
+            "statusUpdatedAt": "2026-11-28T07:54:41.275Z"
+          }
+        ],
+        "replicaStatus": {
+          "running": 1,
+          "crashed": 0,
+          "total": 1
+        },
+        "cronJob": null,
+        "issues": {
+          "warningCount": 0,
+          "criticalCount": 0
+        },
+        "recentFailures": 0,
+        "recentFailedDeployments": [],
+        "hasIssues": false,
+        "isCronJob": false,
+        "hasVolume": true
+      },
+      {
+        "serviceId": "04b846a5-0a1f-49bf-9dff-4b477ab367af",
+        "serviceName": "database-provisioning",
+        "state": "online",
+        "statusText": "Online",
+        "activeDeployments": [
+          {
+            "id": "6fecf499-df4a-4215-8024-87da7bd98880",
+            "status": "SUCCESS",
+            "createdAt": "2026-11-27T07:51:39.053Z",
+            "statusUpdatedAt": "2026-11-27T07:51:47.345Z"
+          }
+        ],
+        "replicaStatus": {
+          "running": 0,
+          "crashed": 0,
+          "total": 1
+        },
+        "cronJob": null,
+        "issues": {
+          "warningCount": 0,
+          "criticalCount": 0
+        },
+        "recentFailures": 0,
+        "recentFailedDeployments": [],
+        "hasIssues": false,
+        "isCronJob": false,
+        "hasVolume": false
+      },
+      {
+        "serviceId": "cd19e7af-9c99-4156-9fe5-357c0be814de",
+        "serviceName": "Redis",
+        "state": "online",
+        "statusText": "Online",
+        "activeDeployments": [
+          {
+            "id": "daa7698b-2f84-4cb5-8855-48cce54bb680",
+            "status": "SUCCESS",
+            "createdAt": "2026-11-27T06:41:57.268Z",
+            "statusUpdatedAt": "2026-11-27T06:42:04.095Z"
+          }
+        ],
+        "replicaStatus": {
+          "running": 1,
+          "crashed": 0,
+          "total": 1
+        },
+        "cronJob": null,
+        "issues": {
+          "warningCount": 0,
+          "criticalCount": 0
+        },
+        "recentFailures": 0,
+        "recentFailedDeployments": [],
+        "hasIssues": false,
+        "isCronJob": false,
+        "hasVolume": true
+      },
+      {
+        "serviceId": "36d4389d-d07f-49be-9ff2-cb2fcea5f9f4",
+        "serviceName": "Postgres",
+        "state": "online",
+        "statusText": "Online",
+        "activeDeployments": [
+          {
+            "id": "24ebc0a6-c4fe-47ca-8283-9af41bf92e8a",
+            "status": "SUCCESS",
+            "createdAt": "2026-11-27T06:41:32.806Z",
+            "statusUpdatedAt": "2026-11-27T06:41:41.597Z"
+          }
+        ],
+        "replicaStatus": {
+          "running": 1,
+          "crashed": 0,
+          "total": 1
+        },
+        "cronJob": null,
+        "issues": {
+          "warningCount": 0,
+          "criticalCount": 0
+        },
+        "recentFailures": 0,
+        "recentFailedDeployments": [],
+        "hasIssues": false,
+        "isCronJob": false,
+        "hasVolume": true
+      }
+    ],
+    "pendingWork": [],
+    "summary": {
+      "totalServices": 4,
+      "servicesWithIssues": 0,
+      "totalFailures": 0
+    }
+  }
+}

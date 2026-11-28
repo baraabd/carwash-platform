@@ -135,6 +135,7 @@ function asyncApi(set, title, description) {
   ];
   for (const spec of set) {
     const message = spec.eventType.replace(/[^a-z0-9]+/gi, '_');
+    const legacy = spec.eventType === 'workforce.shift-updated.v1';
     lines.push(
       `  ${spec.producer}.events/${spec.eventType}:`,
       '    publish:',
@@ -146,19 +147,29 @@ function asyncApi(set, title, description) {
       '        payload:',
       '          type: object',
       '          additionalProperties: false',
-      '          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]',
+      legacy
+        ? '          required: [eventId, eventType, schemaVersion, producer, occurredAt, correlationId, aggregateVersion, data]'
+        : '          required: [eventId, eventType, envelopeVersion, producer, occurredAt, correlationId, causationId, traceparent, aggregate, actor, data]',
       '          properties:',
       '            eventType:',
       `              const: ${spec.eventType}`,
-      '            envelopeVersion:',
-      '              const: 2',
+      legacy ? '            schemaVersion:' : '            envelopeVersion:',
+      legacy ? '              const: 1' : '              const: 2',
       '            producer:',
       `              const: ${spec.producer}`,
-      '            aggregate:',
-      '              type: object',
-      '              properties:',
-      '                type:',
-      `                  const: ${spec.aggregateType}`,
+      ...(legacy
+        ? [
+            '            aggregateVersion:',
+            '              type: integer',
+            '              minimum: 1',
+          ]
+        : [
+            '            aggregate:',
+            '              type: object',
+            '              properties:',
+            '                type:',
+            `                  const: ${spec.aggregateType}`,
+          ]),
       '            data:',
       '              type: object',
       '              additionalProperties: false',
@@ -168,6 +179,20 @@ function asyncApi(set, title, description) {
 }
 
 const outputs = new Map();
+outputs.set(
+  'docs/asyncapi/operations-events-v1.yaml',
+  asyncApi(
+    [...events.OPERATIONS_EVENTS_V1, events.WORKFORCE_SHIFT_UPDATED_V1],
+    'WashGo operations events V1',
+    [
+      'Booking lifecycle and Dispatch assignment, task and cash declarations.',
+      'Workforce shift updates retain their original envelope v1 for replay compatibility.',
+      'Published contracts and implemented workers do not certify hosted release acceptance.',
+      'Opaque references and exact amounts only; no contact, location, photo URL or plate.',
+      'The closed parsers in @carwash/event-contracts operations-v1 define payloads.',
+    ],
+  ),
+);
 for (const contract of contracts.OWNER_CONTRACTS) {
   outputs.set(
     `docs/contracts/${contract.id}.openapi.json`,

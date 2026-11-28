@@ -1,3 +1,4 @@
+import { isServiceOriginAllowed } from '@carwash/service-kit';
 import { ReviewsError } from '../../application/errors';
 
 export interface OwnerEndpoint {
@@ -22,18 +23,7 @@ export function ownerEndpoint(
   } catch {
     throw new Error(`${originKey}_INVALID`);
   }
-  if (
-    origin.username ||
-    origin.password ||
-    origin.search ||
-    origin.hash ||
-    origin.pathname !== '/' ||
-    (origin.protocol !== 'https:' &&
-      !(
-        origin.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(origin.hostname)
-      ))
-  )
-    throw new Error(`${originKey}_INVALID`);
+  if (!isServiceOriginAllowed(origin, env)) throw new Error(`${originKey}_INVALID`);
   return { origin, timeoutMs };
 }
 

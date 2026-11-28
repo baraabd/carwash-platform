@@ -1,8 +1,10 @@
 import { BILLING_V1 } from './billing/v1';
+import { BOOKING_V1 } from './booking/v1';
 import { CATALOG_V1 } from './catalog/v1';
 import type { OwnerContract } from './common/route';
 import { CONFIGURATION_V1 } from './configuration/v1';
 import { CUSTOMER_V1 } from './customer/v1';
+import { DISPATCH_EXECUTION_V1 } from './dispatch-execution/v1';
 import { GATEWAY_V1 } from './gateway';
 import { GEO_V1 } from './geo/v1';
 import { IDENTITY_V1 } from './identity';
@@ -34,8 +36,10 @@ export const OWNER_CONTRACTS = [
   PRICING_V1,
   SCHEDULING_V1,
   WORKFORCE_V1,
+  DISPATCH_EXECUTION_V1,
   CONFIGURATION_V1,
   BILLING_V1,
+  BOOKING_V1,
   // P05-E1
   SUBSCRIPTION_V1,
   PROMOTION_V1,

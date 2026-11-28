@@ -84,6 +84,15 @@
       "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
     },
     {
+      "id": "dispatch.v1",
+      "domain": "dispatch",
+      "version": 1,
+      "prefix": "/internal/v1/dispatch",
+      "status": "published-provider-pending",
+      "openApi": "docs/contracts/dispatch.v1.openapi.json",
+      "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
+    },
+    {
       "id": "configuration.v1",
       "domain": "configuration",
       "version": 1,
@@ -99,6 +108,15 @@
       "prefix": "/internal/v1/billing",
       "status": "published-provider-pending",
       "openApi": "docs/contracts/billing.v1.openapi.json",
+      "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
+    },
+    {
+      "id": "booking.v1",
+      "domain": "booking",
+      "version": 1,
+      "prefix": "/internal/v1/booking",
+      "status": "published-provider-pending",
+      "openApi": "docs/contracts/booking.v1.openapi.json",
       "scope": "Published wire contract. The owner provider is not accepted; presence here does not claim the endpoint works."
     },
     {
@@ -148,9 +166,7 @@
     }
   ],
   "unpublishedBusinessDomains": [
-    "booking",
     "communications",
-    "dispatch",
     "media",
     "wallet"
   ]

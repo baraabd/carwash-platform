@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { dispatchExecutionV1 } from '@carwash/contracts';
 import { traceHeaders } from '@carwash/service-kit';
 import {
   DispatchError,
@@ -21,6 +22,7 @@ import {
 } from '../../domain';
 import type {
   Actor,
+  AutomaticPolicy,
   AssignmentQuery,
   AuditAppend,
   DispatchReadModel,
@@ -222,6 +224,101 @@ function actorId(actor: Actor): string {
 
 class PrismaDispatchTransaction implements DispatchTransaction {
   constructor(private readonly tx: Tx) {}
+
+  async automaticPolicy(assignmentId: string, now: Date): Promise<AutomaticPolicy> {
+    await this.tx.$executeRawUnsafe(
+      `INSERT INTO app.automatic_assignment_policy
+      (assignment_id,state,offered_count,failed_passes,next_attempt_at)
+      VALUES ($1::uuid,'ACTIVE',0,0,$2) ON CONFLICT (assignment_id) DO NOTHING`,
+      assignmentId,
+      now,
+    );
+    const [row] = await this.tx.$queryRawUnsafe<
+      Array<{
+        state: AutomaticPolicy['state'];
+        offered_count: number;
+        failed_passes: number;
+        next_attempt_at: Date;
+        reason: string | null;
+      }>
+    >(
+      `SELECT state,offered_count,failed_passes,next_attempt_at,reason FROM app.automatic_assignment_policy
+       WHERE assignment_id=$1::uuid FOR UPDATE`,
+      assignmentId,
+    );
+    if (!row) throw new Error('AUTOMATIC_POLICY_MISSING');
+    return {
+      assignmentId,
+      state: row.state,
+      offeredCount: row.offered_count,
+      failedPasses: row.failed_passes,
+      nextAttemptAt: row.next_attempt_at,
+      reason: row.reason,
+    };
+  }
+
+  async updateAutomaticPolicy(policy: AutomaticPolicy): Promise<void> {
+    await this.tx.$executeRawUnsafe(
+      `UPDATE app.automatic_assignment_policy
+      SET state=$2,offered_count=$3,failed_passes=$4,next_attempt_at=$5,reason=$6,updated_at=now()
+      WHERE assignment_id=$1::uuid`,
+      policy.assignmentId,
+      policy.state,
+      policy.offeredCount,
+      policy.failedPasses,
+      policy.nextAttemptAt,
+      policy.reason,
+    );
+  }
+
+  async pauseAutomaticAssignment(assignmentId: string, now: Date): Promise<void> {
+    const policy = await this.automaticPolicy(assignmentId, now);
+    await this.updateAutomaticPolicy({ ...policy, state: 'PAUSED', reason: 'MANUAL_OVERRIDE' });
+  }
+
+  async triedAutomaticResources(assignmentId: string): Promise<readonly string[]> {
+    const rows = await this.tx.$queryRawUnsafe<Array<{ resource_id: string }>>(
+      `SELECT resource_id::text FROM app.automatic_assignment_attempt WHERE assignment_id=$1::uuid`,
+      assignmentId,
+    );
+    return rows.map((row) => row.resource_id);
+  }
+
+  async recordAutomaticOffer(
+    assignmentId: string,
+    resourceId: string,
+    offerId: string,
+    now: Date,
+  ): Promise<void> {
+    await this.tx.$executeRawUnsafe(
+      `INSERT INTO app.automatic_assignment_attempt
+      (assignment_id,resource_id,offer_id,created_at) VALUES ($1::uuid,$2::uuid,$3::uuid,$4)`,
+      assignmentId,
+      resourceId,
+      offerId,
+      now,
+    );
+  }
+
+  async resourceHasOverlap(
+    resourceId: string,
+    assignment: AssignmentState,
+    now: Date,
+  ): Promise<boolean> {
+    const [row] = await this.tx.$queryRawUnsafe<Array<{ busy: boolean }>>(
+      `SELECT EXISTS (SELECT 1 FROM app.assignment a WHERE a.id<>$2::uuid
+        AND a.starts_at<$4 AND a.ends_at>$3 AND (
+          (a.status='ASSIGNED' AND a.resource_id=$1::uuid)
+          OR (a.status='OFFERED' AND EXISTS (SELECT 1 FROM app.dispatch_offer o
+            WHERE o.assignment_id=a.id AND o.resource_id=$1::uuid AND o.status='OFFERED' AND o.expires_at>$5)))) AS busy`,
+      resourceId,
+      assignment.id,
+      assignment.startsAt,
+      assignment.endsAt,
+      now,
+    );
+    return row?.busy ?? true;
+  }
 
   async claimIdempotency(
     scope: string,
@@ -810,12 +907,87 @@ export class PrismaDispatchStore
     return new PrismaDispatchTransaction(tx);
   }
 
+  async dueAutomaticAssignments(now: Date, limit: number): Promise<readonly AssignmentState[]> {
+    const rows = await this.prisma.client.$queryRawUnsafe<AssignmentRow[]>(
+      `SELECT ${ASSIGNMENT_COLUMNS} FROM app.assignment WHERE status='UNASSIGNED'
+       AND pending_change_id IS NULL AND ends_at>$1 AND starts_at<$1::timestamptz+interval '24 hours'
+       AND NOT EXISTS (SELECT 1 FROM app.automatic_assignment_policy p WHERE p.assignment_id=app.assignment.id
+         AND (p.state<>'ACTIVE' OR p.next_attempt_at>$1))
+       ORDER BY starts_at,id LIMIT $2`,
+      now,
+      limit,
+    );
+    return rows.map(toAssignment);
+  }
+
+  async activeResourceLoads(
+    resourceIds: readonly string[],
+    now: Date,
+  ): Promise<ReadonlyMap<string, number>> {
+    if (resourceIds.length === 0) return new Map();
+    const rows = await this.prisma.client.$queryRawUnsafe<
+      Array<{ resource_id: string; count: number }>
+    >(
+      `SELECT resource_id::text,count(*)::int AS count FROM (
+         SELECT a.resource_id FROM app.assignment a WHERE a.status='ASSIGNED' AND a.ends_at>$2
+          AND a.resource_id=ANY($1::uuid[]) AND EXISTS (SELECT 1 FROM app.task t WHERE t.assignment_id=a.id
+            AND t.stage NOT IN ('CLOSED','RELEASED','WITHDRAWN','CANCELLED'))
+         UNION ALL SELECT o.resource_id FROM app.dispatch_offer o JOIN app.assignment a ON a.id=o.assignment_id
+          WHERE o.status='OFFERED' AND o.expires_at>$2 AND a.status='OFFERED' AND o.resource_id=ANY($1::uuid[])
+       ) active GROUP BY resource_id`,
+      resourceIds,
+      now,
+    );
+    return new Map(rows.map((row) => [row.resource_id, row.count]));
+  }
+
   async findAssignment(id: string): Promise<AssignmentState | null> {
     const [row] = await this.prisma.client.$queryRawUnsafe<AssignmentRow[]>(
       `SELECT ${ASSIGNMENT_COLUMNS} FROM app.assignment WHERE id = $1::uuid`,
       id,
     );
     return row ? toAssignment(row) : null;
+  }
+
+  async executionByBooking(bookingId: string) {
+    const rows = await this.prisma.client.$queryRawUnsafe<
+      Array<{
+        id: string;
+        booking_id: string;
+        version: number;
+        hold_id: string;
+        status: 'UNASSIGNED' | 'OFFERED' | 'ASSIGNED' | 'CANCELLED';
+        task_id: string | null;
+        task_version: number | null;
+        stage: string | null;
+        closed_at: Date | null;
+      }>
+    >(
+      `SELECT a.id::text, a.booking_id::text, a.version, a.hold_id::text, a.status,
+              t.id::text AS task_id, t.version AS task_version, t.stage, t.closed_at
+         FROM app.assignment a LEFT JOIN app.task t ON t.assignment_id = a.id
+           AND t.stage NOT IN ('RELEASED', 'WITHDRAWN', 'CANCELLED')
+        WHERE a.booking_id = $1::uuid`,
+      bookingId,
+    );
+    const row = rows[0];
+    if (!row) return null;
+    return dispatchExecutionV1.parseExecutionV1({
+      bookingId: row.booking_id,
+      assignmentId: row.id,
+      revision: row.version,
+      holdId: row.hold_id,
+      status: row.status,
+      task:
+        row.task_id === null
+          ? null
+          : {
+              taskId: row.task_id,
+              revision: row.task_version,
+              stage: row.stage,
+              completedAt: row.closed_at?.toISOString() ?? null,
+            },
+    });
   }
 
   async findAssignmentByBooking(bookingId: string): Promise<AssignmentState | null> {

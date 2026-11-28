@@ -11,6 +11,32 @@
     "DUPLICATE_CODE"
   ],
   "paths": {
+    "/internal/v1/catalog/current": {
+      "get": {
+        "operationId": "catalog.getCurrent",
+        "x-access": "public",
+        "x-idempotent": false,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts catalogV1 (closed objects; unknown fields refused)",
+        "parameters": [],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/internal/v1/catalog/definitions": {
       "get": {
         "operationId": "catalog.getPublished",

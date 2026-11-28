@@ -7,6 +7,7 @@ import path from 'node:path';
 import { retainBrowserDiagnostics } from '../../scripts/production/acceptance-diagnostics.mjs';
 import {
   BUSINESS_SUITES,
+  HOSTED_BROKER_ACCEPTANCE_CASE,
   assertBusinessEvidence,
   businessSuite,
 } from '../../scripts/production/acceptance-plan.mjs';
@@ -21,8 +22,51 @@ const complete = () =>
     source: { ...source },
     github: { runId: invocation.runId, attempt: invocation.attempt },
     scope: businessSuite(suite).scope,
-    steps: [{ name: 'tests', status: 'PASSED' }],
-    evidence: [{ name: 'nonempty-test-family', file: 'child.json' }],
+    steps: [
+      { name: 'tests', status: 'PASSED' },
+      ...(suite === 'a-customer-browser'
+        ? [{ name: 'customer-client-offline', status: 'PASSED' }]
+        : []),
+    ],
+    evidence: [
+      { name: 'nonempty-test-family', file: 'child.json' },
+      ...(suite === 'a-customer-browser'
+        ? [
+            {
+              name: 'customer-client-offline',
+              files: ['production-booking', 'production-customer', 'production-membership'].map(
+                (name) => `apps/customer-web/test/${name}.test.mjs`,
+              ),
+              counts: {
+                tests: 3,
+                pass: 3,
+                fail: 0,
+                cancelled: 0,
+                skipped: 0,
+                todo: 0,
+                accepted: true,
+              },
+            },
+          ]
+        : []),
+      ...(suite === 'b-reporting-broker'
+        ? [
+            {
+              name: 'hosted-broker-definitions',
+              names: [HOSTED_BROKER_ACCEPTANCE_CASE],
+              counts: {
+                tests: 1,
+                pass: 1,
+                fail: 0,
+                cancelled: 0,
+                skipped: 0,
+                todo: 0,
+                accepted: true,
+              },
+            },
+          ]
+        : []),
+    ],
     cleanup: 'PASSED',
   }));
 
@@ -156,6 +200,72 @@ test('the aggregate accepts exactly all current-source business families', () =>
 test('missing and duplicated matrix results fail instead of silently reducing coverage', () => {
   for (const records of [[], complete().slice(1), [...complete(), complete()[0]]])
     assert.throws(() => assertBusinessEvidence(records, invocation));
+});
+
+test('the required business gate rejects absent, partial or incomplete Customer session client proof', () => {
+  for (const mutate of [
+    (report) => report.steps.pop(),
+    (report) => report.evidence.pop(),
+    (report) => report.evidence.push(structuredClone(report.evidence.at(-1))),
+    (report) => report.evidence.at(-1).files.pop(),
+    (report) => {
+      report.evidence.at(-1).counts.tests = 0;
+    },
+    (report) => {
+      report.evidence.at(-1).counts.pass = 2;
+    },
+    (report) => {
+      report.evidence.at(-1).counts.skipped = 1;
+    },
+    (report) => {
+      report.evidence.at(-1).counts.accepted = false;
+    },
+  ]) {
+    const records = complete();
+    mutate(records.find((report) => report.suite === 'a-customer-browser'));
+    assert.throws(() => assertBusinessEvidence(records, invocation));
+  }
+});
+
+test('required Reporting evidence rejects an omitted, duplicated, skipped or incomplete hosted transport case', () => {
+  for (const mutate of [
+    (report) => report.evidence.pop(),
+    (report) => report.evidence.push(structuredClone(report.evidence.at(-1))),
+    (report) => {
+      report.evidence.at(-1).names = [];
+    },
+    (report) => {
+      report.evidence.at(-1).names = ['unrelated successful test'];
+    },
+    (report) => {
+      report.evidence.at(-1).names.push(HOSTED_BROKER_ACCEPTANCE_CASE);
+    },
+    (report) => {
+      report.evidence.at(-1).counts.tests = 0;
+    },
+    (report) => {
+      report.evidence.at(-1).counts.pass = 0;
+    },
+    (report) => {
+      report.evidence.at(-1).counts.fail = 1;
+    },
+    (report) => {
+      report.evidence.at(-1).counts.skipped = 1;
+    },
+    (report) => {
+      report.evidence.at(-1).counts.cancelled = 1;
+    },
+    (report) => {
+      report.evidence.at(-1).counts.todo = 1;
+    },
+    (report) => {
+      report.evidence.at(-1).counts.accepted = false;
+    },
+  ]) {
+    const reports = complete();
+    mutate(reports.find((report) => report.suite === 'b-reporting-broker'));
+    assert.throws(() => assertBusinessEvidence(reports, invocation));
+  }
 });
 
 test('stale, dirty, failed, empty and partial evidence cannot be accepted', () => {

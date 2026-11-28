@@ -35,7 +35,8 @@ function single(value: unknown): string | undefined {
  *
  * - GET  /service-zones             public, not personalized, no geometry.
  * - POST /serviceability            principal: a CURRENT account or guest
- *   session with bookings.create:self. Rate limited per originating address
+ *   session with bookings.create:self or an operational account with
+ *   operations.dispatch. Rate limited per originating address
  *   (explicitly trusted proxies only) BEFORE Identity is contacted.
  * - POST /serviceability/validate   service:geo.serviceability.validate. Only
  *   configured digest-authenticated workloads; mixed session credentials denied.

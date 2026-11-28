@@ -290,7 +290,7 @@ test('actor resolution: exactly one credential kind; Identity outage fails close
       );
   const resolver = (fetchImpl: typeof fetch) =>
     new ActorResolver(
-      new IdentitySessionClient({ baseUrl: 'http://identity.invalid', fetchImpl }),
+      new IdentitySessionClient({ baseUrl: 'https://identity.invalid', fetchImpl }),
       new ServiceClientAuthenticator(
         parseServiceClients(
           JSON.stringify([
@@ -370,6 +370,7 @@ const API_ENV = {
 
 test('configuration: complete settings load; each missing or unsafe value stops the process', () => {
   assert.equal(loadS3Config(S3_ENV).bucket, 'washgo-media-test');
+  assert.equal(loadS3Config(S3_ENV).urlStyle, 'path');
   assert.equal(loadApiConfig(API_ENV).policy.readUrlTtlMs, 120_000);
   assert.equal(loadWorkerConfig(API_ENV).s3.requestTimeoutMs, 5_000);
   const broken: Array<[string, Record<string, string | undefined>]> = [
@@ -411,6 +412,63 @@ test('configuration: complete settings load; each missing or unsafe value stops 
   assert.throws(() => objectStoreFromEnv({ MEDIA_S3_BUCKET: 'x' }), /MEDIA_CONFIG_INVALID/);
 });
 
+test('S3 addressing: explicit virtual-host configuration validates DNS before signing', () => {
+  const env = {
+    ...API_ENV,
+    MEDIA_S3_ENDPOINT: 'https://t3.storageapi.dev',
+    MEDIA_S3_REGION: 'auto',
+    MEDIA_S3_URL_STYLE: 'virtual-host',
+    MEDIA_S3_ACCESS_KEY_ID: 'tid_synthetic_example_key',
+  };
+  assert.equal(loadS3Config(env).urlStyle, 'virtual-host');
+  assert.equal(loadS3Config(env).accessKeyId, 'tid_synthetic_example_key');
+  assert.equal(loadApiConfig(env).s3.urlStyle, 'virtual-host');
+  assert.equal(loadWorkerConfig(env).s3.urlStyle, 'virtual-host');
+  for (const style of ['', 'virtual', 'PATH', 'auto', 'true']) {
+    assert.throws(
+      () => loadS3Config({ ...env, MEDIA_S3_URL_STYLE: style }),
+      /MEDIA_CONFIG_INVALID_MEDIA_S3_URL_STYLE/,
+    );
+  }
+  for (const accessKey of [
+    'ab',
+    'a'.repeat(129),
+    'tid_bad/key',
+    'tid_bad:key',
+    'tid bad',
+    'tid_\nkey',
+    'tid_\u0000key',
+  ]) {
+    assert.throws(
+      () => loadS3Config({ ...env, MEDIA_S3_ACCESS_KEY_ID: accessKey }),
+      /MEDIA_CONFIG_INVALID_MEDIA_S3_ACCESS_KEY_ID/,
+    );
+  }
+  for (const host of ['127.0.0.1', '[::1]', 'localhost', 'bad_host.example', 'bad..example']) {
+    assert.throws(
+      () => loadS3Config({ ...env, MEDIA_S3_ENDPOINT: `https://${host}` }),
+      /MEDIA_CONFIG_INVALID_MEDIA_S3_ENDPOINT/,
+    );
+  }
+  for (const bucket of ['abc..def', 'abc.-def', 'abc-.def', '127.0.0.1']) {
+    assert.throws(
+      () => loadS3Config({ ...env, MEDIA_S3_BUCKET: bucket }),
+      /MEDIA_CONFIG_INVALID_MEDIA_S3_BUCKET/,
+    );
+  }
+  const longHost = ['a', 'b', 'c', 'd'].map((letter) => letter.repeat(60)).join('.');
+  assert.throws(
+    () => loadS3Config({ ...env, MEDIA_S3_ENDPOINT: `https://${longHost}` }),
+    /MEDIA_CONFIG_INVALID_MEDIA_S3_ENDPOINT/,
+  );
+  // Path mode still supports loopback emulators and existing dotted bucket names.
+  assert.equal(loadS3Config({ ...S3_ENV, MEDIA_S3_URL_STYLE: 'path' }).urlStyle, 'path');
+  assert.equal(
+    loadS3Config({ ...S3_ENV, MEDIA_S3_BUCKET: 'archive.photos' }).bucket,
+    'archive.photos',
+  );
+});
+
 // ---------------------------------------------------------- object store adapter
 
 function store(fetchImpl: typeof fetch): S3ObjectStore {
@@ -432,6 +490,104 @@ const respond =
   (status: number, body: Uint8Array | null = null): typeof fetch =>
   () =>
     Promise.resolve(new Response(body, { status }));
+
+test('object store addresses every signed and presigned operation in the configured style', async () => {
+  const variants = [
+    {
+      style: undefined,
+      endpoint: 'http://127.0.0.1:8333',
+      expectedOrigin: 'http://127.0.0.1:8333',
+      bucketPath: '/b-test',
+      objectPath: '/b-test/objects/proof',
+    },
+    {
+      style: 'path',
+      endpoint: 'https://t3.storageapi.dev',
+      expectedOrigin: 'https://t3.storageapi.dev',
+      bucketPath: '/b-test',
+      objectPath: '/b-test/objects/proof',
+    },
+    {
+      style: 'virtual-host',
+      endpoint: 'https://t3.storageapi.dev',
+      expectedOrigin: 'https://b-test.t3.storageapi.dev',
+      bucketPath: '/',
+      objectPath: '/objects/proof',
+    },
+  ] as const;
+  for (const variant of variants) {
+    const calls: Array<{ method: string; url: URL; headers: Headers }> = [];
+    const capture: typeof fetch = (input, init) => {
+      assert.ok(input instanceof URL);
+      assert.equal(init?.redirect, 'error');
+      assert.ok(init?.signal instanceof AbortSignal);
+      calls.push({
+        method: init?.method ?? 'GET',
+        url: input,
+        headers: new Headers(init?.headers),
+      });
+      return Promise.resolve(
+        new Response(init?.method === 'GET' ? new Uint8Array([1, 2]) : null, {
+          status: init?.method === 'DELETE' ? 204 : 200,
+        }),
+      );
+    };
+    const s3 = new S3ObjectStore(
+      {
+        endpoint: variant.endpoint,
+        ...(variant.style ? { urlStyle: variant.style } : {}),
+        region: 'auto',
+        bucket: 'b-test',
+        accessKeyId: 'AKIAEXAMPLE1',
+        secretAccessKey: 'secret-value-123',
+        requestTimeoutMs: 200,
+        maxConcurrentReads: 1,
+      },
+      capture,
+    );
+    await s3.ping();
+    await s3.createBucketIfMissing();
+    await s3.write('objects/proof', new Uint8Array([1, 2]), 'image/png');
+    const result = await s3.read('objects/proof', 10);
+    assert.deepEqual(result, { kind: 'FOUND', bytes: Buffer.from([1, 2]), truncated: false });
+    await s3.remove('objects/proof');
+    assert.deepEqual(
+      calls.map(({ method, url }) => [method, url.origin, url.pathname]),
+      [
+        ['HEAD', variant.expectedOrigin, variant.bucketPath],
+        ['PUT', variant.expectedOrigin, variant.bucketPath],
+        ['PUT', variant.expectedOrigin, variant.objectPath],
+        ['GET', variant.expectedOrigin, variant.objectPath],
+        ['DELETE', variant.expectedOrigin, variant.objectPath],
+      ],
+    );
+    for (const { headers } of calls)
+      assert.match(headers.get('authorization') ?? '', /SignedHeaders=[^,]*host/);
+    const now = new Date('2026-11-28T08:00:00.000Z');
+    const expiry = new Date(now.getTime() + 60_000);
+    const upload = s3.presignUpload(
+      'objects/proof',
+      { contentType: 'image/png', contentLength: 2, sha256Hex: 'a'.repeat(64) },
+      expiry,
+      now,
+    );
+    const download = s3.presignDownload('objects/proof', expiry, now);
+    for (const request of [upload, download]) {
+      const url = new URL(request.url);
+      assert.equal(url.origin, variant.expectedOrigin);
+      assert.equal(url.pathname, variant.objectPath);
+      assert.match(url.searchParams.get('X-Amz-SignedHeaders') ?? '', /(?:^|;)host(?:;|$)/);
+      assert.match(url.searchParams.get('X-Amz-Credential') ?? '', /\/auto\/s3\/aws4_request$/);
+      assert.match(url.searchParams.get('X-Amz-Signature') ?? '', /^[a-f0-9]{64}$/);
+    }
+    assert.equal(upload.method, 'PUT');
+    assert.equal(download.method, 'GET');
+    assert.equal(
+      new URL(upload.url).searchParams.get('X-Amz-SignedHeaders'),
+      'content-length;content-type;host;x-amz-checksum-sha256',
+    );
+  }
+});
 
 test('object store fails closed: 5xx, 403, network error and timeout are STORAGE_UNAVAILABLE', async () => {
   for (const fetchImpl of [

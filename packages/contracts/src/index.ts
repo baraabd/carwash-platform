@@ -9,6 +9,8 @@ export * as catalogV1 from './catalog/v1';
 export * as pricingV1 from './pricing/v1';
 export * as schedulingV1 from './scheduling/v1';
 export * as workforceV1 from './workforce/v1';
+export * as dispatchExecutionV1 from './dispatch-execution/v1';
+export * as bookingV1 from './booking/v1';
 export * as configurationV1 from './configuration/v1';
 export * as billingV1 from './billing/v1';
 export * as subscriptionV1 from './subscription/v1';

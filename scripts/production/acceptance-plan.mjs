@@ -40,10 +40,12 @@ export const BUSINESS_SUITES = Object.freeze({
       `b-${service}`,
       {
         lane: 'B',
-        services: [service],
+        services: service === 'subscription' ? ['subscription', 'billing'] : [service],
         browser: false,
         scope:
-          'Real owner PostgreSQL migrations, upgrades, least-privilege persistence and HTTP contracts; declared upstream doubles. No live payment provider.',
+          service === 'subscription'
+            ? 'Real Subscription and Billing HTTP with isolated runtime-role PostgreSQL databases, durable funding and refund exclusion, compiled funding worker restart after a lost committed reply; owner upgrade checks; explicit Identity/Pricing/provider evidence fixtures. No live payment provider.'
+            : 'Real owner PostgreSQL migrations, upgrades, least-privilege persistence and HTTP contracts; declared upstream doubles. No live payment provider.',
       },
     ]),
   ),
@@ -53,6 +55,13 @@ export const BUSINESS_SUITES = Object.freeze({
     browser: false,
     scope:
       'Real PostgreSQL/RabbitMQ delivery from Billing custody outbox through the production relay and Wallet consumer, with scoped broker identities, restart/redelivery and permission denial checks. No live payment provider.',
+  },
+  'b-reporting-broker': {
+    lane: 'B',
+    services: ['billing', 'reporting'],
+    browser: false,
+    scope:
+      'Real Billing HTTP and transactional obligation outbox through compiled relay/RabbitMQ/Reporting consumer into isolated PostgreSQL and the published cash KPI HTTP contract. Exact cash states, restart/redelivery, ordering, poison and topic/resource permission denials. A separate hosted-definition transport fixture proves additive import and scoped owner permissions on the disposable broker. Identity/Pricing/Dispatch are explicit fixtures; no hosted apply, live provider or browser approval.',
   },
   ...Object.fromEntries(
     cOwners.map((service) => [
@@ -80,6 +89,13 @@ export const BUSINESS_SUITES = Object.freeze({
     scope:
       'Real Workforce/Dispatch/Booking/Media, PostgreSQL/RabbitMQ/S3 and technician browser. Identity/Booking owner doubles and a Gateway harness; Billing custody is not proved.',
   },
+  'c-runtime-workers': {
+    lane: 'C',
+    services: [...cOwners, 'reporting', 'communications'],
+    browser: false,
+    scope:
+      'Six standalone Booking/Dispatch/Scheduling/Workforce/Reporting/Communications workers against real PostgreSQL and RabbitMQ: restart, automatic assignment, task close, native owner projections and durable notification intent. Shared disposable broker identity and explicit financial/media fixtures; no production ACL, message delivery or payment-provider approval.',
+  },
   'c-operator-fixtures': {
     lane: 'C',
     services: [],
@@ -104,6 +120,23 @@ export const BUSINESS_SUITES = Object.freeze({
       'Admin Chromium journeys through real Gateway/Identity and owner HTTP APIs on PostgreSQL/Redis. Booking upstream and Pricing doubles; selected projections enter their owner handlers directly.',
   },
 });
+
+export const HOSTED_BROKER_ACCEPTANCE_CASE =
+  'hosted definitions import all native resources, enforce owner ACLs and preserve messages on replay';
+
+/** The required hosted transport case must run exactly once in a complete successful child run. */
+export function assertHostedBrokerEvidence(proof) {
+  const counts = proof?.counts;
+  assert.ok(counts?.accepted && Number.isSafeInteger(counts.tests) && counts.tests > 0);
+  assert.equal(counts.pass, counts.tests);
+  for (const name of ['fail', 'cancelled', 'skipped', 'todo']) assert.equal(counts[name], 0);
+  assert.ok(Array.isArray(proof.names));
+  assert.equal(
+    proof.names.filter((name) => name === HOSTED_BROKER_ACCEPTANCE_CASE).length,
+    1,
+    'Hosted broker definitions require exactly one completed transport case',
+  );
+}
 
 export function businessSuite(id) {
   assert.ok(Object.hasOwn(BUSINESS_SUITES, id), `Unknown business acceptance suite: ${id}`);
@@ -130,6 +163,28 @@ export function assertBusinessEvidence(reports, { sha, tree, runId, attempt }) {
     assert.equal(report.scope, businessSuite(report.suite).scope);
     assert.ok(report.steps.length > 0 && report.steps.every((s) => s.status === 'PASSED'));
     assert.ok(report.evidence.length > 0, `${report.suite} has no test evidence`);
+    if (report.suite === 'a-customer-browser') {
+      const family = 'customer-client-offline';
+      assert.equal(report.steps.filter((step) => step.name === family).length, 1);
+      const records = report.evidence.filter((entry) => entry.name === family);
+      assert.equal(records.length, 1, 'Customer client acceptance evidence is required');
+      const proof = records[0];
+      const counts = proof.counts;
+      assert.ok(counts?.accepted && Number.isSafeInteger(counts.tests) && counts.tests > 0);
+      assert.equal(counts.pass, counts.tests);
+      for (const name of ['fail', 'cancelled', 'skipped', 'todo']) assert.equal(counts[name], 0);
+      assert.ok(Array.isArray(proof.files));
+      for (const name of ['production-booking', 'production-customer', 'production-membership'])
+        assert.ok(
+          proof.files.includes(`apps/customer-web/test/${name}.test.mjs`),
+          `Customer client acceptance is missing ${name}`,
+        );
+    }
+    if (report.suite === 'b-reporting-broker') {
+      const records = report.evidence.filter((entry) => entry.name === 'hosted-broker-definitions');
+      assert.equal(records.length, 1, 'Hosted broker definitions acceptance evidence is required');
+      assertHostedBrokerEvidence(records[0]);
+    }
     assert.equal(report.cleanup, 'PASSED');
   }
 }

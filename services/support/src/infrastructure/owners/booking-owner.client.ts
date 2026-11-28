@@ -6,7 +6,16 @@ import {
   type OnBehalfOf,
   type OwnerRequest,
 } from '../../ports';
-import { id, instant, ownerGet, record, revision, state, type OwnerEndpoint } from './owner-http';
+import {
+  id,
+  instant,
+  ownerGet,
+  ownerPost,
+  record,
+  revision,
+  state,
+  type OwnerEndpoint,
+} from './owner-http';
 
 const BOOKING = '/internal/v1/booking';
 
@@ -28,7 +37,7 @@ export class BookingOwnerClient implements BookingOwner {
       throw new OwnerReadError('OWNER_FORBIDDEN');
     if (response.status !== 200) throw new OwnerReadError('OWNER_UNAVAILABLE');
     const b = record(response.body);
-    const slot = record(b.slot);
+    const slot = record(b.schedule ?? b.slot);
     return {
       bookingId: id(b.bookingId),
       revision: revision(b.revision),
@@ -39,14 +48,45 @@ export class BookingOwnerClient implements BookingOwner {
     };
   }
 
-  /**
-   * Booking publishes no operational cancel or reschedule command yet
-   * (CR-D-P04-03, owned by Lane C). Nothing is sent, so nothing can have
-   * happened: the decision is BLOCKED_ON_OWNER, never "cancelled".
-   */
-  execute(_auth: OnBehalfOf, request: OwnerRequest): Promise<OwnerOutcome> {
+  /** Uses the frozen revision/key and the human's own authority on every retry. */
+  async execute(auth: OnBehalfOf, request: OwnerRequest): Promise<OwnerOutcome> {
     if (request.operation !== 'booking.cancel' && request.operation !== 'booking.reschedule')
       throw new Error('NOT_A_BOOKING_OPERATION');
-    return Promise.resolve({ kind: 'UNAVAILABLE', code: 'OWNER_CAPABILITY_UNPUBLISHED' });
+    const reschedule = request.operation === 'booking.reschedule';
+    const { expectedRevision, holdId, holdRevision, reasonCode } = request.body;
+    // Historical decisions cannot manufacture a new hold from dates on resend.
+    if (reschedule && (typeof holdId !== 'string' || typeof holdRevision !== 'number'))
+      return { kind: 'UNAVAILABLE', code: 'BOOKING_HOLD_REQUIRED' };
+    const reason =
+      reasonCode === 'CUSTOMER_REQUEST'
+        ? 'CUSTOMER_REQUEST_BY_PHONE'
+        : reasonCode === 'TECHNICIAN_UNAVAILABLE' || reasonCode === 'WEATHER_OR_SAFETY'
+          ? 'SERVICE_UNAVAILABLE'
+          : 'OPERATIONS_REQUEST';
+    const result = await ownerPost(
+      this.endpoint,
+      `${BOOKING}/bookings/${request.targetId}/${reschedule ? 'reschedule' : 'cancellation'}`,
+      auth,
+      request.key,
+      reschedule ? { expectedRevision, holdId, holdRevision } : { expectedRevision, reason },
+      (body) => {
+        const change = record(body);
+        id(change.changeId);
+        if (
+          id(change.bookingId) !== request.targetId ||
+          change.kind !== (reschedule ? 'RESCHEDULE' : 'CANCELLATION')
+        )
+          return null;
+        return ['IN_PROGRESS', 'COMPLETED', 'REFUSED', 'FAILED'].includes(String(change.state))
+          ? String(change.state)
+          : null;
+      },
+    );
+    if (result.kind !== 'APPLIED') return result;
+    if (result.ownerState === 'IN_PROGRESS')
+      return { ...result, kind: 'PENDING', ownerState: 'IN_PROGRESS', code: 'OWNER_IN_PROGRESS' };
+    if (result.ownerState !== 'COMPLETED')
+      return { kind: 'REJECTED', ownerStatus: 409, code: `BOOKING_CHANGE_${result.ownerState}` };
+    return result;
   }
 }

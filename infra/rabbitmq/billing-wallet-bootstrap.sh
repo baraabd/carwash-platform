@@ -8,8 +8,8 @@ set -eu
 
 rabbitmqctl await_startup
 rabbitmqctl add_vhost "$CW_FINANCE_VHOST"
-rabbitmqctl add_user cw_billing_app "$BILLING_BROKER_PASSWORD"
-rabbitmqctl add_user cw_wallet_app "$WALLET_BROKER_PASSWORD"
+rabbitmqctl add_user -- cw_billing_app "$BILLING_BROKER_PASSWORD"
+rabbitmqctl add_user -- cw_wallet_app "$WALLET_BROKER_PASSWORD"
 rabbitmqctl set_user_tags cw_billing_app
 rabbitmqctl set_user_tags cw_wallet_app
 # Billing owns its exchange, with no read access to any service queue.

@@ -186,6 +186,7 @@ test('a replaced slot differing from the requested slot never advances the resch
 
 function booking(overrides: Partial<Booking> = {}): Booking {
   return {
+    subscription: null,
     id: ID.booking,
     beneficiary: { kind: 'account', subjectId: ID.subject },
     status: 'CONFIRMED',

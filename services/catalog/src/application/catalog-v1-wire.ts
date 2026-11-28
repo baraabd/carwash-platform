@@ -20,10 +20,10 @@ import {
  * tests/production/B runs the PUBLISHED parsers against every response and the
  * same request corpus, so any drift fails acceptance.
  *
- * One deliberate superset: `expectedCatalogRevision: 0` is accepted when no
- * catalog exists yet. The published parser requires >= 1, which makes the very
- * first publication unexpressible; contract request CR-B-P06-01 asks E to allow
- * 0. A 0 against an existing catalog is an ordinary REVISION_CONFLICT.
+ * `expectedCatalogRevision: 0` is the canonical initial publication precondition.
+ * It is not a published catalog revision. A 0 against an existing catalog is
+ * an ordinary REVISION_CONFLICT. The current-state read distinguishes an
+ * unpublished owner from an unavailable owner without fabricating a catalog.
  */
 
 export class WireViolation extends Error {
@@ -196,6 +196,14 @@ export interface CatalogView {
   readonly catalogRevision: number;
   readonly publishedAt: string;
   readonly items: readonly DefinitionView[];
+}
+
+/** catalog.v1 CurrentCatalogV1. */
+export interface CurrentCatalogView {
+  readonly state: 'UNPUBLISHED' | 'PUBLISHED';
+  readonly catalog: CatalogView | null;
+  readonly expectedCatalogRevision: number;
+  readonly asOf: string;
 }
 
 export function definitionView(d: Definition): DefinitionView {

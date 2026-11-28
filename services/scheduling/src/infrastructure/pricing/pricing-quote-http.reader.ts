@@ -1,3 +1,4 @@
+import { isServiceOriginAllowed } from '@carwash/service-kit';
 import { pricingV1 } from '@carwash/contracts';
 import { PricingUnavailable, type SchedulingQuote, type SchedulingQuoteReader } from '../../ports';
 
@@ -16,8 +17,7 @@ export function pricingReaderConfigFromEnv(env: NodeJS.ProcessEnv): PricingReade
   const raw = env.PRICING_ORIGIN;
   if (!raw) return { origin: null, timeoutMs };
   const origin = new URL(raw);
-  const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname);
-  if (origin.protocol !== 'https:' && !(origin.protocol === 'http:' && loopback)) {
+  if (!isServiceOriginAllowed(origin, env)) {
     throw new Error('PRICING_ORIGIN_HTTPS_REQUIRED');
   }
   if (

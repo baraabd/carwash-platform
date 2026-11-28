@@ -6,6 +6,10 @@ import { Client } from 'pg';
 import { billingV1, parseApiErrorEnvelope } from '@carwash/contracts';
 import { BILLING_REFUND_STATUS_CHANGED_V1 } from '@carwash/event-contracts';
 import { snapshotFinancialStatus } from '../../src/application';
+import { serviceTokenDigest } from '@carwash/service-kit';
+import { SubscriptionFundingService } from '../../src/application/subscription-funding.service';
+import { ServiceClientCallerAuthority } from '../../src/infrastructure/security/service-callers';
+import { Sha256Hasher } from '../../src/infrastructure/system/system.adapters';
 import type { BillingUnitOfWork } from '../../src/ports';
 import { PrismaBillingRepository } from '../../src/infrastructure/persistence/prisma-billing.repository';
 import { PrismaService } from '../../src/infrastructure/persistence/prisma.service';
@@ -239,6 +243,220 @@ async function requested(p: Paid, amount = p.amount, options: Options = {}) {
   assert.equal(reply.status, 201, JSON.stringify(reply.body));
   return billingV1.parseRefundV1(reply.body);
 }
+
+test('subscription funding uses the real allocated credit and excludes pending, unknown and completed refunds', async () => {
+  const token = 'test-canonical-subscription-funding-token-123456789';
+  const service = new SubscriptionFundingService({
+    hasher: new Sha256Hasher(),
+    repository: new PrismaBillingRepository(prismas[0]!),
+    callers: new ServiceClientCallerAuthority(
+      JSON.stringify([
+        {
+          id: 'subscription',
+          tokenSha256: serviceTokenDigest(token),
+          scopes: ['billing.subscription-funding.read'],
+        },
+      ]),
+    ),
+  });
+  const context = {
+    clientId: 'subscription',
+    token,
+    bearerPresent: false,
+    correlationId: randomUUID(),
+  };
+  const p = await paid('600000');
+  const body = {
+    obligationId: p.obligationId,
+    beneficiary: { kind: 'account', subjectId: SUBJECTS.customer },
+    amount: syp(p.amount),
+  };
+  assert.equal((await service.verify(context, body)).verified, true);
+  assert.equal((await service.verify(context, { ...body, amount: syp('599999') })).verified, false);
+  assert.equal(
+    (
+      await service.verify(context, {
+        ...body,
+        beneficiary: { kind: 'account', subjectId: SUBJECTS.otherCustomer },
+      })
+    ).verified,
+    false,
+  );
+  let refund = await requested(p, '1000');
+  assert.equal(
+    (await service.verify(context, body)).verified,
+    false,
+    'refund REQUESTED already reserves the funding',
+  );
+  const unknown = await outcome(refund, 'UNKNOWN');
+  assert.equal(unknown.status, 200, JSON.stringify(unknown.body));
+  refund = billingV1.parseRefundV1(unknown.body);
+  assert.equal((await service.verify(context, body)).verified, false);
+  const completed = await outcome(refund, 'SUCCEEDED');
+  assert.equal(completed.status, 200, JSON.stringify(completed.body));
+  assert.equal(
+    (await service.verify(context, body)).verified,
+    false,
+    'returned money cannot fund entitlement units',
+  );
+});
+
+function fundingClaimHarness() {
+  const token = 'test-durable-subscription-funding-token-123456789';
+  const callers = new ServiceClientCallerAuthority(
+    JSON.stringify([
+      {
+        id: 'subscription',
+        tokenSha256: serviceTokenDigest(token),
+        scopes: [
+          'billing.subscription-funding.read',
+          'billing.subscription-funding.claim',
+          'billing.subscription-funding.release',
+        ],
+      },
+    ]),
+  );
+  return {
+    services: prismas.map(
+      (prisma) =>
+        new SubscriptionFundingService({
+          repository: new PrismaBillingRepository(prisma),
+          callers,
+          clock,
+          hasher: new Sha256Hasher(),
+        }),
+    ),
+    context: { clientId: 'subscription', token, bearerPresent: false, correlationId: randomUUID() },
+  };
+}
+
+test('durable subscription claims replay across replicas, fence both refund APIs and SQL, and release only once', async () => {
+  const p = await paid('600000');
+  const h = fundingClaimHarness();
+  const body = {
+    obligationId: p.obligationId,
+    subscriptionId: randomUUID(),
+    periodNo: 1,
+    beneficiary: { kind: 'account', subjectId: SUBJECTS.customer },
+    amount: syp(p.amount),
+  };
+  const claimKey = key();
+  const replies = await Promise.all(
+    h.services.map((service) => service.claim(h.context, body, claimKey)),
+  );
+  assert.ok(replies.every((reply) => reply.claimed === true));
+  await assert.rejects(
+    h.services[0]!.claim(h.context, { ...body, periodNo: 2 }, claimKey),
+    /IDEMPOTENCY_CONFLICT/,
+  );
+  await assert.rejects(h.services[0]!.claim(h.context, body, undefined), /IDEMPOTENCY_KEY_INVALID/);
+  await assert.rejects(
+    h.services[0]!.claim({ ...h.context, bearerPresent: true }, body, key()),
+    /AUTH_FORBIDDEN/,
+  );
+  assert.equal(
+    (
+      await sql.query(
+        'SELECT count(*)::int AS n FROM app.subscription_funding_claim WHERE obligation_id=$1',
+        [p.obligationId],
+      )
+    ).rows[0].n,
+    1,
+  );
+  rejected(await request(p, '1000'), 409, 'CONFLICT');
+  const credit = await get(`/provider-credits/${p.creditId}`);
+  const legacy = await post(
+    `/provider-credits/${p.creditId}/refunds`,
+    {
+      expectedRevision: credit.body.revision,
+      amount: syp('1000'),
+      reason: 'SERVICE_NOT_DELIVERED',
+    },
+    {},
+    TOKENS.refunder,
+  );
+  assert.equal(legacy.status, 409, JSON.stringify(legacy.body));
+  await assert.rejects(
+    sql.query(
+      `INSERT INTO app.payment_refund
+    (id,workflow,credit_id,provider,currency,amount_minor,reason,channel,status,requested_by_subject,requested_at,revision,updated_at,correlation_id)
+    VALUES ($1,'OBLIGATION_V1',$2,'SHAM_CASH','SYP',1,'SERVICE_QUALITY','MANUAL_OUT_OF_BAND','REQUESTED',$3,$4,1,$4,$5)`,
+      [randomUUID(), p.creditId, SUBJECTS.refunder, clock.now(), randomUUID()],
+    ),
+    /subscription funding/,
+  );
+  assert.equal(
+    (await h.services[1]!.claim(h.context, { ...body, subscriptionId: randomUUID() }, key()))
+      .reason,
+    'FUNDING_ALREADY_CLAIMED',
+  );
+  const releaseKey = key();
+  for (const service of h.services)
+    assert.equal(
+      (
+        await service.release(
+          h.context,
+          body.subscriptionId,
+          { beneficiary: body.beneficiary },
+          releaseKey,
+        )
+      ).released,
+      true,
+    );
+  await assert.rejects(
+    h.services[0]!.release(h.context, randomUUID(), { beneficiary: body.beneficiary }, releaseKey),
+    /IDEMPOTENCY_CONFLICT/,
+  );
+  assert.equal(
+    (await h.services[0]!.claim(h.context, body, claimKey)).reason,
+    'SUBSCRIPTION_CANCELLED',
+  );
+  assert.equal((await request(p, '1000')).status, 201);
+});
+
+test('claim/refund concurrency has one winner and a release tombstone fences delayed acquisitions', async () => {
+  const h = fundingClaimHarness();
+  for (let index = 0; index < 4; index++) {
+    const p = await paid('700000');
+    const body = {
+      obligationId: p.obligationId,
+      subscriptionId: randomUUID(),
+      periodNo: 1,
+      beneficiary: { kind: 'account', subjectId: SUBJECTS.customer },
+      amount: syp(p.amount),
+    };
+    const [claimed, refunded] = await Promise.all([
+      h.services[0]!.claim(h.context, body, key()),
+      request(p, '1000', { replica: replicaB }),
+    ]);
+    assert.ok(
+      (claimed.claimed === true && refunded.status === 409) ||
+        (claimed.claimed === false && refunded.status === 201),
+      JSON.stringify({ claimed, refundStatus: refunded.status, refund: refunded.body }),
+    );
+  }
+  const p = await paid();
+  const id = randomUUID();
+  const beneficiary = { kind: 'account', subjectId: SUBJECTS.customer };
+  await h.services[0]!.release(h.context, id, { beneficiary }, key());
+  assert.equal(
+    (
+      await h.services[1]!.claim(
+        h.context,
+        {
+          obligationId: p.obligationId,
+          subscriptionId: id,
+          periodNo: 1,
+          beneficiary,
+          amount: syp(p.amount),
+        },
+        key(),
+      )
+    ).reason,
+    'SUBSCRIPTION_CANCELLED',
+  );
+  assert.equal((await request(p, '100')).status, 201);
+});
 
 async function list(p: Pick<Paid, 'obligationId'>, token = TOKENS.customer) {
   const reply = await get(`/obligations/${p.obligationId}/refunds`, token, replicaB);

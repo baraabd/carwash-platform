@@ -28,7 +28,12 @@ export const IDENTITY_PERMISSIONS = [
   // Additive, P03-E1: owner-requested staff capabilities (CR-B1-2, CR-B2-2, CR-B-03).
   'catalog.publish',
   'pricing.publish',
+  // Canonical pricing.v1 permission; the legacy grant remains for compatibility.
+  'pricing.prices.publish',
   'billing.reconcile',
+  // Billing still enforces independent actors for correction and custody settlement.
+  'billing.cash.correct',
+  'billing.treasury.receive',
   // Additive, P05-E1: review moderation (reviews.v1).
   'reviews.moderate',
   // Technician financial authority is limited further by Billing's closed assignment fence.

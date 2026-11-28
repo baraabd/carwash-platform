@@ -98,6 +98,14 @@ export class ChangeService {
     const holdId = input.holdId.toLowerCase();
     const record = await this.load(meta, bookingId);
     const requester = beneficiaryRequester(meta, record);
+    // The entitlement owner has no reservation-reschedule command yet. Moving
+    // its scheduledFor locally could promise coverage outside its funded period.
+    if (record.booking.subscription)
+      throw new BookingError(
+        'INVALID_INPUT',
+        'Cancel this subscription booking and create a new covered booking for the desired time.',
+        'SUBSCRIPTION_RESCHEDULE_UNAVAILABLE',
+      );
     const request = { kind: 'RESCHEDULE', expectedRevision, holdId, holdRevision } as const;
     const replay = await this.replay(requester, key, record.booking.id, request);
     if (replay) return replay;
@@ -336,8 +344,11 @@ function isOwner(meta: RequestMeta, record: BookingRecord): boolean {
   );
 }
 
-/** Only the booking's own principal (with the create permission) may reschedule. */
+/** Owner commands and separately authorized operations retain distinct audit requesters. */
 function beneficiaryRequester(meta: RequestMeta, record: BookingRecord): Requester {
+  if (meta.actor.kind === 'USER' && meta.actor.permissions.includes(OPERATIONS_PERMISSION)) {
+    return { kind: 'staff', subjectId: meta.actor.subject };
+  }
   if (
     meta.actor.kind !== 'USER' ||
     !meta.actor.permissions.includes(CREATE_PERMISSION) ||

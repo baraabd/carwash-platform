@@ -24,8 +24,7 @@ import { PrismaInboxStore } from './prisma-inbox.store';
 import type { PrismaService } from '../prisma.service';
 
 /**
- * Standalone worker for the operations projection (booking confirmations,
- * scheduling holds, workforce eligibility).
+ * Standalone worker for published operations and Billing obligation projections.
  *
  * One delivery = one local transaction: the inbox row, the derived rows and
  * the freshness checkpoint commit together, and the ACK follows the commit.

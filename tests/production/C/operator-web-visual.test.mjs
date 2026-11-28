@@ -46,7 +46,7 @@ const ONLY = process.env.OPERATOR_VISUAL_ONLY ? new RegExp(process.env.OPERATOR_
 const CAPTURE_CSS = `
   html { scrollbar-width: none !important; scroll-behavior: auto !important; }
   *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
-  *, *::before, *::after { animation: none !important; transition: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+  *, *::before, *::after, *::backdrop { animation: none !important; transition: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 `;
 const screenshotOptions = (fullPage = true) => ({
   fullPage,
@@ -62,6 +62,35 @@ async function applyCaptureCss(page) {
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
     document.documentElement.dataset.captureCss = '1';
   }, CAPTURE_CSS);
+  // ::backdrop is a separate pseudo-element: the universal selector alone does
+  // not disable its filter. A filtered top layer can leave a raster strip beyond
+  // the viewport in a full-page capture. Check the intended symmetric rule.
+  assert.deepEqual(
+    await page.evaluate(() =>
+      [...document.querySelectorAll('dialog[open]')].map(
+        (dialog) => getComputedStyle(dialog, '::backdrop').backdropFilter,
+      ),
+    ),
+    await page
+      .locator('dialog[open]')
+      .count()
+      .then((count) => Array(count).fill('none')),
+    'Capture stabilization must disable every open dialog backdrop filter',
+  );
+}
+
+/** Compare the actual product backdrop before either page receives capture CSS. */
+async function productBackdrop(page) {
+  return page.evaluate(() =>
+    [...document.querySelectorAll('dialog[open]')].map((dialog) => {
+      const style = getComputedStyle(dialog, '::backdrop');
+      return {
+        backgroundColor: style.backgroundColor,
+        backdropFilter: style.backdropFilter,
+        webkitBackdropFilter: style.getPropertyValue('-webkit-backdrop-filter'),
+      };
+    }),
+  );
 }
 
 // ------------------------------------------------------------- scenario data
@@ -762,6 +791,14 @@ test(
           await runSteps(candPage, scenario.steps, ids);
           await settle(candPage);
 
+          const referenceBackdrop = await productBackdrop(refPage);
+          const candidateBackdrop = await productBackdrop(candPage);
+          assert.deepEqual(
+            candidateBackdrop,
+            referenceBackdrop,
+            'Product dialog backdrop must match the approved reference before stabilization',
+          );
+
           if (process.env.OPERATOR_VISUAL_DEBUG)
             console.log(
               'scroll',
@@ -902,6 +939,7 @@ test(
             changedPixels: result.changedPixels,
             diffRatio: result.diffRatio,
             rawDiffRatio: rawResult.diffRatio,
+            productBackdrop: candidateBackdrop,
             contrastCorrection,
             declaredRegions: regions.filter((r) => !r.hidden),
             declaredIds: [...new Set(regions.map((r) => r.id))],

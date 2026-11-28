@@ -73,7 +73,8 @@ export function routeMatch(method: string, full: string): Match | readonly Match
         const name = part.slice(1);
         const value = parts[i] ?? '';
         const choices = route.pathEnums?.[name];
-        if (choices ? !choices.includes(value) : !UUID.test(value)) return false;
+        const pattern = route.pathPatterns?.[name] ?? UUID;
+        if (choices ? !choices.includes(value) : !pattern.test(value)) return false;
         values[name] = value;
         return true;
       })

@@ -47,12 +47,18 @@ export function currentSurface() {
     errorCodes: [...contracts.API_ERROR_CODES],
     currencies: contracts.CURRENCIES,
     events: Object.fromEntries(
-      [...events.BUSINESS_EVENTS_V1, ...events.BILLING_EVENTS_V1, ...events.PRODUCT_EVENTS_V1].map(
-        (e) => [
-          e.eventType,
-          { producer: e.producer, aggregateType: e.aggregateType, envelopeVersion: 2 },
-        ],
-      ),
+      [
+        ...events.BUSINESS_EVENTS_V1,
+        ...events.BILLING_EVENTS_V1,
+        ...events.PRODUCT_EVENTS_V1,
+        ...events.OPERATIONS_EVENTS_V1,
+        events.WORKFORCE_SHIFT_UPDATED_V1,
+      ].map((e) => [
+        e.eventType,
+        e.eventType === 'workforce.shift-updated.v1'
+          ? { producer: e.producer, aggregateType: 'shift', envelopeVersion: 1 }
+          : { producer: e.producer, aggregateType: e.aggregateType, envelopeVersion: 2 },
+      ]),
     ),
   };
 }

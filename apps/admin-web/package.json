@@ -15,5 +15,10 @@
   "devDependencies": {
     "typescript": "5.9.3",
     "vite": "8.3.3"
+  },
+  "dependencies": {
+    "@carwash/contracts": "workspace:*",
+    "@carwash/api-clients": "workspace:*",
+    "@carwash/security-kit": "workspace:*"
   }
 }

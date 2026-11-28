@@ -48,6 +48,26 @@ const equipmentKinds = [
 
 export const OPERATOR_GATEWAY_ROUTES: readonly GatewayRoute[] = [
   {
+    id: 'operator.auth.csrf',
+    prefix: '/api/operator',
+    method: 'GET',
+    path: '/auth/csrf',
+    owner: 'identity',
+    upstream: '/internal/v1/identity/csrf',
+    authTransport: true,
+  },
+  ...(['login', 'challenges/resend', 'challenges/verify', 'logout', 'refresh'] as const).map(
+    (action): GatewayRoute => ({
+      id: `operator.auth.${action.replaceAll('/', '.')}`,
+      prefix: '/api/operator',
+      method: 'POST',
+      path: `/auth/${action}`,
+      owner: 'identity',
+      upstream: `/internal/v1/identity/${action}`,
+      authTransport: true,
+    }),
+  ),
+  {
     ...read('session', '/session', 'identity', '/internal/v1/identity/session'),
     authTransport: true,
   },

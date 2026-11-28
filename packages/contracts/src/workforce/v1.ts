@@ -1,7 +1,7 @@
 import type { OwnerContract } from '../common/route';
 import { parsePageRequest, parseRevision, type PageRequest } from '../common/protocol';
 import { parseUtc, type UtcTimestamp } from '../common/time';
-import { ContractViolation, closed, list, oneOf, uuid } from '../common/wire';
+import { ContractViolation, closed, integer, list, oneOf, uuid } from '../common/wire';
 
 /**
  * workforce.v1 — owner: Workforce service (Lane C).
@@ -17,6 +17,12 @@ export const WORKFORCE_V1 = {
     listCapacityResources: {
       method: 'GET',
       path: '/capacity-resources',
+      access: 'service:workforce.capacity.read',
+      paged: true,
+    },
+    listAssignmentCandidates: {
+      method: 'GET',
+      path: '/assignment-candidates',
       access: 'service:workforce.capacity.read',
       paged: true,
     },
@@ -50,6 +56,39 @@ export interface CapacityResourceQueryV1 {
   readonly from: UtcTimestamp;
   readonly to: UtcTimestamp;
   readonly page: PageRequest;
+}
+
+/** Purpose-limited Dispatch mapping; never names, phones, documents or locations. */
+export interface AssignmentCandidateV1 extends CapacityResourceV1 {
+  readonly technicianSubjectId: string;
+  readonly availability: 'AVAILABLE' | 'ON_BREAK';
+  readonly availabilityRevision: number;
+}
+
+export function parseAssignmentCandidateV1(value: unknown, path = '$'): AssignmentCandidateV1 {
+  const v = closed(value, path, [
+    'resourceId',
+    'revision',
+    'eligibility',
+    'eligibilityRevision',
+    'zoneIds',
+    'shifts',
+    'technicianSubjectId',
+    'availability',
+    'availabilityRevision',
+  ]);
+  const { technicianSubjectId, availability, availabilityRevision, ...resource } = v;
+  return {
+    ...parseCapacityResourceV1(resource, path),
+    technicianSubjectId: uuid(technicianSubjectId, `${path}.technicianSubjectId`),
+    availability: oneOf(availability, `${path}.availability`, ['AVAILABLE', 'ON_BREAK'] as const),
+    availabilityRevision: integer(
+      availabilityRevision,
+      `${path}.availabilityRevision`,
+      0,
+      2_147_483_647,
+    ),
+  };
 }
 
 function shift(value: unknown, path: string): ShiftV1 {

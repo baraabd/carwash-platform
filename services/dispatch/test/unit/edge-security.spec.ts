@@ -229,7 +229,7 @@ test('service clients: digests only, unknown scopes and malformed config fail cl
 
 test('actor resolver: exactly one credential kind; Identity decides user permissions', async () => {
   const identity = new IdentitySessionClient({
-    baseUrl: 'http://identity.internal:3000',
+    baseUrl: 'https://identity.internal:3000',
     fetchImpl: () =>
       Promise.resolve(
         new Response(JSON.stringify({ subject: SUBJECT, permissions: ['operations.dispatch'] }), {

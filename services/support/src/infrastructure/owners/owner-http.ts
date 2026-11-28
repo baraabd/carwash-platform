@@ -1,3 +1,4 @@
+import { isServiceOriginAllowed } from '@carwash/service-kit';
 import type { ExactAmount, OwnerOutcome } from '../../domain';
 import { OwnerReadError, type OnBehalfOf } from '../../ports';
 
@@ -28,13 +29,7 @@ export function ownerEndpointFromEnv(
   const raw = env[originKey];
   if (raw === undefined || raw === '') return { origin: null, timeoutMs };
   const origin = new URL(raw);
-  const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(origin.hostname);
-  // Plain HTTP only for loopback or a dotless private service name.
-  const internalName = !origin.hostname.includes('.');
-  if (origin.protocol !== 'https:' && !(origin.protocol === 'http:' && (loopback || internalName)))
-    throw new Error(`${originKey}_INVALID`);
-  if (origin.username || origin.password || origin.search || origin.hash || origin.pathname !== '/')
-    throw new Error(`${originKey}_INVALID`);
+  if (!isServiceOriginAllowed(origin, env)) throw new Error(`${originKey}_INVALID`);
   return { origin, timeoutMs };
 }
 
@@ -131,8 +126,17 @@ export async function ownerPost(
   // An unreadable body does not change what the status code already says.
   const parsed = await bounded(response).catch(() => null);
   const status = response.status;
-  if (status >= 200 && status < 300)
-    return { kind: 'APPLIED', ownerStatus: status, ownerState: appliedState(parsed) };
+  if (status >= 200 && status < 300) {
+    let ownerState: string | null = null;
+    try {
+      ownerState = appliedState(parsed);
+    } catch {
+      /* malformed success is not evidence */
+    }
+    return ownerState === null
+      ? { kind: 'UNKNOWN', code: 'OWNER_INVALID_RESPONSE' }
+      : { kind: 'APPLIED', ownerStatus: status, ownerState };
+  }
   if ([400, 401, 403, 404, 409, 412, 422].includes(status))
     return { kind: 'REJECTED', ownerStatus: status, code: errorCode(parsed) ?? `HTTP_${status}` };
   return { kind: 'UNKNOWN', code: errorCode(parsed) ?? `HTTP_${status}` };

@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-28T08:03:00.820483Z",
+  "repository": "baraabd/carwash-platform",
+  "authorizationReference": "user-s02-s12-full-closure-2026-11-27",
+  "captureMethod": "Authenticated GitHub REST readback through the official GitHub CLI",
+  "sourcePolicyBlob": "55cc50d6b5cfce888d0ec612a8c994ea54e3ec2d",
+  "branch": {
+    "name": "main",
+    "protected": true,
+    "sha": "502d74864a3427e66166f76e00bf676e615eac14"
+  },
+  "ruleset": {
+    "id": 28284393,
+    "name": "main-release-governance",
+    "target": "branch",
+    "source_type": "Repository",
+    "source": "baraabd/carwash-platform",
+    "enforcement": "active",
+    "conditions": {
+      "ref_name": {
+        "exclude": [],
+        "include": [
+          "~DEFAULT_BRANCH"
+        ]
+      }
+    },
+    "rules": [
+      {
+        "type": "deletion"
+      },
+      {
+        "type": "non_fast_forward"
+      },
+      {
+        "type": "pull_request",
+        "parameters": {
+          "required_approving_review_count": 0,
+          "dismiss_stale_reviews_on_push": true,
+          "required_reviewers": [],
+          "require_code_owner_review": false,
+          "require_last_push_approval": false,
+          "required_review_thread_resolution": true,
+          "require_extra_approval_for_unattributed_changes": true,
+          "allowed_merge_methods": [
+            "merge"
+          ]
+        }
+      },
+      {
+        "type": "required_status_checks",
+        "parameters": {
+          "strict_required_status_checks_policy": true,
+          "do_not_enforce_on_create": false,
+          "required_status_checks": [
+            {
+              "context": "F001 final-source acceptance",
+              "integration_id": 15368
+            },
+            {
+              "context": "identity-security",
+              "integration_id": 15368
+            },
+            {
+              "context": "gateway",
+              "integration_id": 15368
+            },
+            {
+              "context": "F008 redaction trace metrics and runtime acceptance",
+              "integration_id": 15368
+            },
+            {
+              "context": "Foundation release gate",
+              "integration_id": 15368
+            },
+            {
+              "context": "F010 parity harness gate",
+              "integration_id": 15368
+            },
+            {
+              "context": "Frozen design reference",
+              "integration_id": 15368
+            },
+            {
+              "context": "Static gates, builds and offline tests",
+              "integration_id": 15368
+            },
+            {
+              "context": "Real PostgreSQL and RabbitMQ acceptance",
+              "integration_id": 15368
+            },
+            {
+              "context": "Dependency and secret scanning",
+              "integration_id": 15368
+            },
+            {
+              "context": "Declared scope of these gates",
+              "integration_id": 15368
+            },
+            {
+              "context": "All business acceptance families passed",
+              "integration_id": 15368
+            },
+            {
+              "context": "Release artifacts verified",
+              "integration_id": 15368
+            },
+            {
+              "context": "Data-plane recovery drill",
+              "integration_id": 15368
+            }
+          ]
+        }
+      },
+      {
+        "type": "code_scanning",
+        "parameters": {
+          "code_scanning_tools": [
+            {
+              "tool": "CodeQL",
+              "security_alerts_threshold": "high_or_higher",
+              "alerts_threshold": "errors"
+            }
+          ]
+        }
+      }
+    ],
+    "node_id": "RRS_lACqUmVwb3NpdG9yec5SFej8zgGvlek",
+    "created_at": "2026-11-28T08:45:52.613+01:00",
+    "updated_at": "2026-11-28T08:45:52.754+01:00",
+    "bypass_actors": [],
+    "current_user_can_bypass": "never",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/baraabd/carwash-platform/rulesets/28284393"
+      },
+      "html": {
+        "href": "https://github.com/baraabd/carwash-platform/rules/28284393"
+      }
+    }
+  },
+  "activeBranchRules": [
+    {
+      "type": "deletion",
+      "ruleset_source_type": "Repository",
+      "ruleset_source": "baraabd/carwash-platform",
+      "ruleset_id": 28284393
+    },
+    {
+      "type": "non_fast_forward",
+      "ruleset_source_type": "Repository",
+      "ruleset_source": "baraabd/carwash-platform",
+      "ruleset_id": 28284393
+    },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": true,
+        "required_reviewers": [],
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": true,
+        "require_extra_approval_for_unattributed_changes": true,
+        "allowed_merge_methods": [
+          "merge"
+        ]
+      },
+      "ruleset_source_type": "Repository",
+      "ruleset_source": "baraabd/carwash-platform",
+      "ruleset_id": 28284393
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [
+          {
+            "context": "F001 final-source acceptance",
+            "integration_id": 15368
+          },
+          {
+            "context": "identity-security",
+            "integration_id": 15368
+          },
+          {
+            "context": "gateway",
+            "integration_id": 15368
+          },
+          {
+            "context": "F008 redaction trace metrics and runtime acceptance",
+            "integration_id": 15368
+          },
+          {
+            "context": "Foundation release gate",
+            "integration_id": 15368
+          },
+          {
+            "context": "F010 parity harness gate",
+            "integration_id": 15368
+          },
+          {
+            "context": "Frozen design reference",
+            "integration_id": 15368
+          },
+          {
+            "context": "Static gates, builds and offline tests",
+            "integration_id": 15368
+          },
+          {
+            "context": "Real PostgreSQL and RabbitMQ acceptance",
+            "integration_id": 15368
+          },
+          {
+            "context": "Dependency and secret scanning",
+            "integration_id": 15368
+          },
+          {
+            "context": "Declared scope of these gates",
+            "integration_id": 15368
+          },
+          {
+            "context": "All business acceptance families passed",
+            "integration_id": 15368
+          },
+          {
+            "context": "Release artifacts verified",
+            "integration_id": 15368
+          },
+          {
+            "context": "Data-plane recovery drill",
+            "integration_id": 15368
+          }
+        ]
+      },
+      "ruleset_source_type": "Repository",
+      "ruleset_source": "baraabd/carwash-platform",
+      "ruleset_id": 28284393
+    },
+    {
+      "type": "code_scanning",
+      "parameters": {
+        "code_scanning_tools": [
+          {
+            "tool": "CodeQL",
+            "security_alerts_threshold": "high_or_higher",
+            "alerts_threshold": "errors"
+          }
+        ]
+      },
+      "ruleset_source_type": "Repository",
+      "ruleset_source": "baraabd/carwash-platform",
+      "ruleset_id": 28284393
+    }
+  ],
+  "driftCheck": {
+    "checkedAt": "2026-11-28T07:57:05.612Z",
+    "drift": [],
+    "classic": "absent",
+    "liveId": 28284393
+  },
+  "scope": "Observed repository enforcement; independent release review and hosted production acceptance are separate requirements."
+}

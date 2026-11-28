@@ -9,6 +9,7 @@ import type {
 import type { BookingLinkReader, BookingLinkStore } from './booking-obligation.ports';
 import type { CashReceiptRecord, CustodyReader, CustodyStore } from './custody.ports';
 import type { ProviderReader, ProviderStore } from './provider.ports';
+import type { SubscriptionFundingStore } from './subscription-funding.ports';
 
 export type PrincipalKind = 'account' | 'guest';
 
@@ -198,6 +199,7 @@ export interface JournalMeta {
 
 /** Work inside ONE local ACID transaction. Reads after a lock use this connection. */
 export interface BillingUnitOfWork {
+  readonly subscriptionFunding: SubscriptionFundingStore;
   findReceipt(
     actor: PrincipalRef,
     operation: string,
@@ -251,6 +253,7 @@ export interface BillingRepository {
 /** A priced quote as confirmed by its owner, Pricing, for the calling principal. */
 export interface VerifiedQuote {
   readonly quoteId: string;
+  readonly beneficiary: PrincipalRef;
   readonly total: Money;
   readonly usable: boolean;
 }

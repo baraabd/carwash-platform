@@ -69,6 +69,86 @@ with the reported manifest digest; the barrier itself never deploys. No reviewed
 executor or runbook with real targets exists in this repository (see W10-E), so deployment
 remains blocked even after a GO until that input exists.
 
+## Railway secret evidence references
+
+The release barrier also accepts the following **Carwash-internal evidence
+locators** for the authorized Railway target. These are not Railway URLs or
+connection strings. The barrier never opens them, retrieves a secret or grants
+access. A syntactically valid locator does not establish that a resource exists.
+
+```text
+railway://project/<project-id>/environment/<environment-id>/service/<service-id>/variable/<VARIABLE_NAME>
+railway://project/<project-id>/environment/<environment-id>/service/<service-id>/volume/<volume-id>/file/<volume-relative-path>
+```
+
+Copy the project, environment, service and volume IDs from actual provider
+readback. IDs use canonical lowercase UUID spelling with a valid version and
+variant. Display names and placeholders do not qualify. A file is identified
+by its volume ID and exact path inside that volume; no file UUID is invented.
+This matches Railway's [volume file operations](https://docs.railway.com/cli/volume),
+which address files by path. Variable references are scoped to the live service
+instance, including the consuming service when a variable is shared or rendered
+from another service.
+
+The internal grammar accepts uppercase variable names matching
+`[A-Z_][A-Z0-9_]{0,254}`. File paths are relative to the volume root, with
+nonempty segments matching `[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}` and a maximum
+length of 1,024 characters. Locators are at most 2,048 characters. Query strings,
+fragments, userinfo, percent encodings, whitespace/control characters,
+backslashes, absolute file paths and `.`/`..` segments are refused. There is no
+URL decoding or path normalization that could conceal an invalid spelling.
+Secret values, database URLs and Railway template expressions do not belong in
+these identifiers.
+
+Each Railway entry in `details.references` must also have `readbackPath`, pointing
+to a JSON file retained in the receipt's `evidence` with its SHA-256 digest:
+
+```json
+{
+  "name": "identity-otp-pepper",
+  "ref": "railway://project/<project-id>/environment/<environment-id>/service/<service-id>/variable/IDENTITY_OTP_PEPPER",
+  "readbackPath": "release/evidence/railway-identity-pepper.json"
+}
+```
+
+The readback file has exactly the following observation fields. The placeholders
+illustrate the format and are not valid evidence:
+
+```json
+{
+  "schema": "carwash.railway-secret-readback/v1",
+  "ref": "<the exact locator from the receipt>",
+  "observedAt": "<actual UTC readback time>",
+  "present": true,
+  "deployed": true
+}
+```
+
+The operator may record `present: true` and `deployed: true` only after an
+authenticated read verifies the secret variable or file in the actual live
+target. A staged change, a successful upload request without readback, or a
+redacted variable name alone is insufficient. For a volume file, verify the
+volume's attachment to that environment/service and the exact file, including
+the protected permissions and runtime identity's access required by the
+deployment contract. Preserve sanitized supporting provider/CLI output as
+additional hashed evidence when needed; never retain secret values or file
+contents in the receipt or observation.
+
+The barrier requires the same locator, affirmative live presence, an observation
+time no later than the receipt or evaluation time, and an unchanged hashed file.
+Missing, modified, malformed, mismatched or future readback fails the secrets
+family. Extra observation fields are rejected so raw provider responses and
+secret-bearing payloads cannot be embedded in this minimal record. The evaluator
+is offline: it validates evidence integrity and binding, not the authenticity
+of an operator's claim or the current remote state. Re-read after rotations or
+deployment changes; a snapshot does not establish future availability or that an
+external provider will accept a credential. Hosted acceptance remains required.
+
+The existing `vault://`, `aws-sm://`, `gcp-sm://`, `azure-kv://` and
+`k8s-secret://` contracts remain unchanged. `env://` is not a production secret
+store reference and is still refused. No alternative store reference may be
+invented to disguise a Railway resource.
+
 ## Artifact receipt command
 
 After obtaining the full release manifest from the artifact workflow, use a
