@@ -17,7 +17,16 @@ import {
 } from './infrastructure/persistence/prisma.service';
 import { PrismaInboxStore } from './inbox/prisma-inbox.store';
 import { NotificationQueries, ReadBudget } from './application/notification-reads';
-import { PrismaNotificationReader } from './infrastructure/persistence/prisma-notification.repository';
+import {
+  PrismaNotificationReader,
+  PrismaNotificationRepository,
+} from './infrastructure/persistence/prisma-notification.repository';
+import { NotificationAdministration } from './application/notification.service';
+import { receiptVerifierFromEnv } from './infrastructure/provider/connector-receipts';
+import {
+  NotificationReceiptsController,
+  RECEIPT_VERIFIER,
+} from './transport/http/notification-receipts.controller';
 import {
   IdentitySessionClient,
   UnconfiguredSessionAuthority,
@@ -45,6 +54,7 @@ export const RUNTIME_TABLES = [
   'notification',
   'delivery_attempt',
   'booking_notification_cancellation',
+  'notification_receipt',
 ] as const;
 
 export function runtimeCapabilities(
@@ -122,7 +132,7 @@ export function readBudgetFromEnv(env: NodeJS.ProcessEnv = process.env): ReadBud
 }
 
 @Module({
-  controllers: [HealthController, NotificationsController],
+  controllers: [HealthController, NotificationsController, NotificationReceiptsController],
   providers: [
     {
       provide: HEALTH_OPTIONS,
@@ -132,6 +142,15 @@ export function readBudgetFromEnv(env: NodeJS.ProcessEnv = process.env): ReadBud
     { provide: DATABASE_URL, useFactory: () => databaseUrlFromEnv() },
     PrismaService,
     PrismaInboxStore,
+    {
+      provide: NotificationAdministration,
+      inject: [PrismaService],
+      useFactory: (prisma: PrismaService) =>
+        new NotificationAdministration(new PrismaNotificationRepository(prisma.client), {
+          now: () => new Date(),
+        }),
+    },
+    { provide: RECEIPT_VERIFIER, useFactory: () => receiptVerifierFromEnv(process.env) },
     {
       provide: NotificationQueries,
       inject: [PrismaService],

@@ -10,7 +10,9 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -27,6 +29,14 @@ const { PrismaNotificationIntake, PrismaNotificationRepository, sha256Hex } = di
 const { HttpNotificationProvider } = dist('infrastructure/provider/http-notification.provider.js');
 const { PrismaInboxStore } = dist('inbox/prisma-inbox.store.js');
 const { DEFAULT_DELIVERY_POLICY } = dist('domain/notification.js');
+const { ConnectorReceiptVerifier, RECEIPT_SCHEMA } = dist(
+  'infrastructure/provider/connector-receipts.js',
+);
+const { createHttpApplication } = dist('transport/http/create-app.js');
+const { NOTIFICATION_RECEIPTS_V1 } = dist('transport/http/notification-receipts.http.js');
+const { signProviderNotification } = require('@carwash/service-kit');
+const RECEIPT_CONNECTOR = 'local-contract-test';
+const RECEIPT_KEY = randomBytes(48);
 
 const client = serviceClient('communications');
 const repository = new PrismaNotificationRepository(client);
@@ -48,6 +58,7 @@ function scripted(answers, { idempotent = false } = {}) {
   const calls = [];
   return {
     name: 'scripted-test-port',
+    connectorId: RECEIPT_CONNECTOR,
     idempotentSubmission: idempotent,
     calls,
     async submit(submission) {
@@ -188,8 +199,11 @@ test('C4: accepted, then a delivery receipt; late contradicting receipts are ign
   assert.equal(provider.calls[0].idempotencyKey, `cw-notification:${id}`);
   assert.equal(await state(id), 'PROVIDER_ACCEPTED');
   const admin = new NotificationAdministration(repository, time);
-  assert.equal(await admin.recordReceipt(id, 'DELIVERED'), 'APPLIED');
-  assert.equal(await admin.recordReceipt(id, 'FAILED'), 'IGNORED');
+  assert.equal(await admin.recordReceipt(receiptFor(id, 'prov-c4')), 'APPLIED');
+  assert.equal(
+    await admin.recordReceipt(receiptFor(id, 'prov-c4', { receipt: 'FAILED' })),
+    'IGNORED',
+  );
   assert.equal(await state(id), 'DELIVERED');
   const [attempt] = await attempts(id);
   assert.deepEqual(
@@ -513,3 +527,371 @@ for (const idempotentProvider of [false, true]) {
     assert.equal((await attempts(id))[0].outcome, 'ACCEPTED', 'late evidence is preserved');
   });
 }
+
+/** Local signed connector contract fixture; no SMS vendor delivery is claimed. */
+function receiptBody(notificationId, providerMessageId, changes = {}) {
+  return Buffer.from(
+    JSON.stringify({
+      schema: RECEIPT_SCHEMA,
+      connectorId: RECEIPT_CONNECTOR,
+      notificationId,
+      submissionKey: `cw-notification:${notificationId}`,
+      providerMessageId,
+      receipt: 'DELIVERED',
+      ...changes,
+    }),
+  );
+}
+
+function receiptFor(notificationId, providerMessageId, changes = {}, receiptId = randomUUID()) {
+  const rawBody = receiptBody(notificationId, providerMessageId, changes);
+  const now = new Date();
+  const headers = signProviderNotification({
+    rawBody,
+    notificationId: receiptId,
+    secret: RECEIPT_KEY,
+    at: now,
+  });
+  return new ConnectorReceiptVerifier(RECEIPT_CONNECTOR, RECEIPT_KEY).verify({
+    rawBody,
+    headers,
+    now,
+  });
+}
+
+function completeAccepted(claim, providerMessageId, time, repo = repository) {
+  return repo.complete({
+    notificationId: claim.notificationId,
+    fence: claim.fence,
+    attempt: claim.attempt,
+    outcome: 'ACCEPTED',
+    now: time.now(),
+    transition: {
+      state: 'PROVIDER_ACCEPTED',
+      nextAttemptAt: null,
+      providerMessageId,
+      errorCode: null,
+    },
+  });
+}
+
+test('C16: concurrent signed receipt replays are durable, atomic and conflict-sensitive', async () => {
+  await quiesce();
+  const time = clock();
+  const id = await enqueue(time);
+  await worker(scripted([{ kind: 'ACCEPTED', providerMessageId: 'receipt-c16' }]), time).runOnce();
+  assert.equal(await state(id), 'PROVIDER_ACCEPTED', 'submission does not prove delivery');
+  const receipt = receiptFor(id, 'receipt-c16');
+  const secondClient = serviceClient('communications');
+  try {
+    const a = new NotificationAdministration(repository, time);
+    const b = new NotificationAdministration(new PrismaNotificationRepository(secondClient), time);
+    const results = await Promise.all([a.recordReceipt(receipt), b.recordReceipt(receipt)]);
+    assert.deepEqual(results.sort(), ['APPLIED', 'REPLAYED']);
+    assert.equal(await state(id), 'DELIVERED');
+    assert.equal(await client.notificationReceipt.count({ where: { notificationId: id } }), 1);
+    assert.equal(
+      await b.recordReceipt(receipt),
+      'REPLAYED',
+      'another instance uses the persistent ledger',
+    );
+    const changed = receiptFor(id, 'receipt-c16', { receipt: 'FAILED' }, receipt.receiptId);
+    assert.equal(await a.recordReceipt(changed), 'CONFLICT');
+    assert.equal(await state(id), 'DELIVERED');
+    const row = await client.notificationReceipt.findFirst({ where: { notificationId: id } });
+    assert.deepEqual([row.receipt, row.result], ['DELIVERED', 'APPLIED']);
+  } finally {
+    await secondClient.$disconnect();
+  }
+});
+
+test('C17: an early receipt cannot reserve replay identity; retry after accepted response correlates', async () => {
+  await quiesce();
+  const time = clock();
+  const id = await enqueue(time);
+  const [claim] = await repository.claimDue({
+    now: time.now(),
+    workerId: 'early-receipt',
+    limit: 1,
+    leaseMs: 5_000,
+    idempotentProvider: false,
+    maxAttempts: 3,
+    connectorId: RECEIPT_CONNECTOR,
+  });
+  const receipt = receiptFor(id, 'receipt-c17');
+  const admin = new NotificationAdministration(repository, time);
+  assert.equal(await admin.recordReceipt(receipt), 'CORRELATION_PENDING');
+  assert.equal(await client.notificationReceipt.count({ where: { notificationId: id } }), 0);
+  assert.equal(await state(id), 'SENDING');
+  assert.equal(await completeAccepted(claim, 'receipt-c17', time), true);
+  assert.equal(await admin.recordReceipt(receipt), 'APPLIED');
+  assert.equal(await state(id), 'DELIVERED');
+  assert.equal(
+    await completeAccepted(claim, 'receipt-c17', time),
+    false,
+    'late completion is fenced by terminal receipt state',
+  );
+});
+
+test('C18: unknown targets, mismatched message/connector and legacy attempts never become delivered', async () => {
+  await quiesce();
+  const time = clock();
+  const id = await enqueue(time);
+  await worker(scripted([{ kind: 'ACCEPTED', providerMessageId: 'receipt-c18' }]), time).runOnce();
+  const admin = new NotificationAdministration(repository, time);
+  const receipt = receiptFor(id, 'receipt-c18');
+  assert.equal(await admin.recordReceipt(receiptFor(randomUUID(), 'receipt-c18')), 'NOT_FOUND');
+  assert.equal(await admin.recordReceipt(receiptFor(id, 'wrong-message')), 'CORRELATION_PENDING');
+  assert.equal(
+    await admin.recordReceipt({ ...receipt, connectorId: 'different-connector' }),
+    'CORRELATION_PENDING',
+  );
+  assert.equal(await client.notificationReceipt.count({ where: { notificationId: id } }), 0);
+  assert.equal(await state(id), 'PROVIDER_ACCEPTED');
+  const legacyId = await enqueue(time);
+  const [legacy] = await repository.claimDue({
+    now: time.now(),
+    workerId: 'legacy-no-connector',
+    limit: 1,
+    leaseMs: 5_000,
+    idempotentProvider: false,
+    maxAttempts: 3,
+  });
+  assert.equal(legacy.notificationId, legacyId);
+  await completeAccepted(legacy, 'legacy-message', time);
+  assert.equal(
+    await admin.recordReceipt(receiptFor(legacyId, 'legacy-message')),
+    'CORRELATION_PENDING',
+  );
+  assert.equal(await state(legacyId), 'PROVIDER_ACCEPTED');
+});
+
+test(
+  'C19: reclaim, late completion and an old FAILED receipt cannot settle a newer claim',
+  { timeout: 15_000 },
+  async () => {
+    await quiesce();
+    const time = clock();
+    const id = await enqueue(time);
+    const options = {
+      now: time.now(),
+      workerId: 'receipt-race-first',
+      limit: 1,
+      leaseMs: 5_000,
+      idempotentProvider: true,
+      maxAttempts: 3,
+      connectorId: RECEIPT_CONNECTOR,
+    };
+    const [first] = await repository.claimDue(options);
+    time.advance(5_001);
+    const locked = Promise.withResolvers();
+    const release = Promise.withResolvers();
+    const ingressStarted = Promise.withResolvers();
+    const reclaimClient = client.$extends({
+      query: {
+        notification: {
+          async updateMany({ args, query }) {
+            const result = await query(args);
+            if (result.count === 1) {
+              locked.resolve();
+              await release.promise;
+            }
+            return result;
+          },
+        },
+      },
+    });
+    const ingressClient = client.$extends({
+      query: {
+        notificationReceipt: {
+          async findUnique({ args, query }) {
+            const result = await query(args);
+            ingressStarted.resolve();
+            return result;
+          },
+        },
+      },
+    });
+    const reclaim = new PrismaNotificationRepository(reclaimClient).claimDue({
+      ...options,
+      now: time.now(),
+      workerId: 'receipt-race-new',
+    });
+    await locked.promise;
+    const lateCompletion = completeAccepted(first, 'old-provider-message', time);
+    const failedReceipt = new NotificationAdministration(
+      new PrismaNotificationRepository(ingressClient),
+      time,
+    ).recordReceipt(receiptFor(id, 'old-provider-message', { receipt: 'FAILED' }));
+    try {
+      await ingressStarted.promise;
+    } finally {
+      release.resolve();
+    }
+    const [[newer], written, result] = await Promise.all([reclaim, lateCompletion, failedReceipt]);
+    assert.equal(written, false);
+    assert.equal(result, 'CORRELATION_PENDING');
+    assert.equal(await state(id), 'SENDING');
+    assert.equal(await client.notificationReceipt.count({ where: { notificationId: id } }), 0);
+    assert.equal(
+      (await attempts(id))[0].outcome,
+      'ACCEPTED',
+      'late submission evidence is retained',
+    );
+    await completeAccepted(newer, 'new-provider-message', time);
+    const admin = new NotificationAdministration(repository, time);
+    assert.equal(
+      await admin.recordReceipt(receiptFor(id, 'old-provider-message')),
+      'CORRELATION_PENDING',
+      'historical DELIVERED also requires explicit reconciliation',
+    );
+    assert.equal(await admin.recordReceipt(receiptFor(id, 'new-provider-message')), 'APPLIED');
+    assert.equal(await state(id), 'DELIVERED');
+  },
+);
+
+test('C20: receipt ledger failure rolls back the state transition and permits a clean retry', async () => {
+  await quiesce();
+  const time = clock();
+  const id = await enqueue(time);
+  await worker(scripted([{ kind: 'ACCEPTED', providerMessageId: 'receipt-c20' }]), time).runOnce();
+  const receipt = receiptFor(id, 'receipt-c20');
+  const failingClient = client.$extends({
+    query: {
+      notificationReceipt: {
+        create() {
+          throw new Error('INJECTED_RECEIPT_LEDGER_FAILURE');
+        },
+      },
+    },
+  });
+  await assert.rejects(
+    new NotificationAdministration(
+      new PrismaNotificationRepository(failingClient),
+      time,
+    ).recordReceipt(receipt),
+    /INJECTED_RECEIPT_LEDGER_FAILURE/,
+  );
+  assert.equal(await state(id), 'PROVIDER_ACCEPTED');
+  assert.equal(await client.notificationReceipt.count({ where: { notificationId: id } }), 0);
+  assert.equal(
+    await new NotificationAdministration(repository, time).recordReceipt(receipt),
+    'APPLIED',
+  );
+  for (const statement of [
+    `UPDATE app.notification_receipt SET receipt='FAILED' WHERE receipt_id='${receipt.receiptId}'`,
+    `DELETE FROM app.notification_receipt WHERE receipt_id='${receipt.receiptId}'`,
+  ]) {
+    const result = await sql(appDsn(context, 'communications'), statement);
+    assert.equal(result.ok, false);
+    assert.equal(result.code, '55000');
+  }
+});
+
+test('C21: booking cancellation suppresses unsent work while preserving a real in-flight receipt', async () => {
+  await quiesce();
+  const time = clock();
+  const booking = randomUUID();
+  const id = await enqueue(time, { subject: { type: 'booking', ref: booking } });
+  await repository.cancelBooking({
+    bookingId: booking,
+    eventId: randomUUID(),
+    version: 1,
+    occurredAt: time.now(),
+    now: time.now(),
+  });
+  const admin = new NotificationAdministration(repository, time);
+  assert.equal(await admin.recordReceipt(receiptFor(id, 'never-submitted')), 'CORRELATION_PENDING');
+  assert.equal(await state(id), 'CANCELLED');
+  const activeBooking = randomUUID();
+  const activeId = await enqueue(time, { subject: { type: 'booking', ref: activeBooking } });
+  const [claim] = await repository.claimDue({
+    now: time.now(),
+    workerId: 'cancel-in-flight',
+    limit: 1,
+    leaseMs: 5_000,
+    idempotentProvider: false,
+    maxAttempts: 3,
+    connectorId: RECEIPT_CONNECTOR,
+  });
+  await repository.cancelBooking({
+    bookingId: activeBooking,
+    eventId: randomUUID(),
+    version: 1,
+    occurredAt: time.now(),
+    now: time.now(),
+  });
+  await completeAccepted(claim, 'accepted-before-cancel', time);
+  assert.equal(
+    await admin.recordReceipt(receiptFor(activeId, 'accepted-before-cancel')),
+    'APPLIED',
+  );
+  assert.equal(
+    await state(activeId),
+    'DELIVERED',
+    'cancellation cannot erase real submitted delivery evidence',
+  );
+  assert.equal(
+    await client.bookingNotificationCancellation.count({ where: { bookingId: activeBooking } }),
+    1,
+  );
+  assert.equal(
+    (
+      await worker(
+        scripted([{ kind: 'ACCEPTED', providerMessageId: 'not-called' }]),
+        time,
+      ).runOnce()
+    ).claimed,
+    0,
+  );
+});
+
+test('C22: the mounted owner HTTP ingress persists signed receipt effects across app restarts', async () => {
+  await quiesce();
+  const time = clock();
+  const id = await enqueue(time);
+  await worker(scripted([{ kind: 'ACCEPTED', providerMessageId: 'receipt-http' }]), time).runOnce();
+  const directory = mkdtempSync(path.join(tmpdir(), 'cw-receipt-pg-http-'));
+  const file = path.join(directory, 'key');
+  writeFileSync(file, RECEIPT_KEY, { mode: 0o600 });
+  const values = {
+    DATABASE_URL: appDsn(context, 'communications'),
+    NOTIFICATION_RECEIPT_CONNECTOR_ID: RECEIPT_CONNECTOR,
+    NOTIFICATION_RECEIPT_SIGNING_KEY_FILE: file,
+  };
+  const previous = Object.fromEntries(Object.keys(values).map((name) => [name, process.env[name]]));
+  Object.assign(process.env, values);
+  const rawBody = receiptBody(id, 'receipt-http');
+  const receiptId = randomUUID();
+  let app;
+  try {
+    for (let boot = 0; boot < 2; boot += 1) {
+      app = await createHttpApplication();
+      await app.listen(0, '127.0.0.1');
+      const origin = await app.getUrl();
+      const headers = signProviderNotification({
+        rawBody,
+        notificationId: receiptId,
+        secret: RECEIPT_KEY,
+        at: new Date(),
+      });
+      const response = await fetch(origin + NOTIFICATION_RECEIPTS_V1, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...headers },
+        body: rawBody,
+      });
+      assert.equal(response.status, 204);
+      assert.equal(await state(id), 'DELIVERED');
+      assert.equal(await client.notificationReceipt.count({ where: { notificationId: id } }), 1);
+      await app.close();
+      app = undefined;
+    }
+  } finally {
+    if (app) await app.close();
+    for (const name of Object.keys(values)) {
+      if (previous[name] === undefined) delete process.env[name];
+      else process.env[name] = previous[name];
+    }
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

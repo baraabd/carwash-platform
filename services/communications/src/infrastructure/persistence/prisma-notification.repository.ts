@@ -19,6 +19,7 @@ import type {
   NotificationIntake,
   NotificationReader,
   NotificationRepository,
+  ReceiptResult,
   NotificationView,
   StaffNotificationDetail,
   StaffNotificationPage,
@@ -297,6 +298,7 @@ export class PrismaNotificationRepository
             attemptNo: attempt,
             fence,
             workerId,
+            connectorId: input.connectorId ?? null,
             startedAt: now,
           },
         });
@@ -394,28 +396,74 @@ export class PrismaNotificationRepository
 
   async applyReceipt(
     input: Parameters<NotificationRepository['applyReceipt']>[0],
-  ): Promise<'APPLIED' | 'IGNORED' | 'NOT_FOUND'> {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const current = await this.client.notification.findUnique({
-        where: { id: input.notificationId },
-        select: { state: true, fence: true },
-      });
-      if (!current) return 'NOT_FOUND';
-      const next = afterReceipt(asState(current.state), input.receipt);
-      if (!next) return 'IGNORED';
-      const moved = await this.client.notification.updateMany({
-        where: { id: input.notificationId, state: current.state, fence: current.fence },
-        data: {
-          state: next,
-          leaseOwner: null,
-          leaseUntil: null,
-          nextAttemptAt: null,
-          updatedAt: input.now,
+  ): Promise<ReceiptResult> {
+    return this.client.$transaction(async (tx) => {
+      // Serialize one durable receipt identity, even if a conflicting replay
+      // names another notification. This lock never orders booking work.
+      const replayKey = `notification-receipt:${input.connectorId}:${input.receiptId}`;
+      await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(${replayKey}, 0))`;
+      const previous = await tx.notificationReceipt.findUnique({
+        where: {
+          connectorId_receiptId: { connectorId: input.connectorId, receiptId: input.receiptId },
         },
       });
-      if (moved.count === 1) return 'APPLIED';
-    }
-    throw new Error('RECEIPT_CONTENDED');
+      if (previous) return previous.payloadHash === input.payloadHash ? 'REPLAYED' : 'CONFLICT';
+
+      // Match completion/claim's notification-before-attempt lock order. Do
+      // not acquire the booking lock here: receipts neither enqueue nor retry.
+      await tx.$queryRaw`SELECT id FROM app.notification WHERE id = ${input.notificationId}::uuid FOR UPDATE`;
+      const current = await tx.notification.findUnique({
+        where: { id: input.notificationId },
+      });
+      if (!current) return 'NOT_FOUND';
+      const attempt = await tx.deliveryAttempt.findUnique({
+        where: {
+          notificationId_attemptNo: { notificationId: current.id, attemptNo: current.attemptCount },
+        },
+      });
+      // A signed notification ID alone is not a provider correlation. Require
+      // the current claim's recorded ACCEPTED message from this connector.
+      // A historical FAILED must never settle a newer claim. Legacy NULL
+      // connectors and receipts preceding the submission response fail closed.
+      if (
+        !attempt ||
+        attempt.fence !== current.fence ||
+        attempt.connectorId !== input.connectorId ||
+        attempt.outcome !== 'ACCEPTED' ||
+        attempt.providerMessageId !== input.providerMessageId ||
+        (current.providerMessageId !== null &&
+          current.providerMessageId !== input.providerMessageId)
+      )
+        return 'CORRELATION_PENDING';
+      const next = afterReceipt(asState(current.state), input.receipt);
+      const result = next === null ? 'IGNORED' : 'APPLIED';
+      if (next !== null)
+        await tx.notification.update({
+          where: { id: current.id },
+          data: {
+            state: next,
+            providerMessageId: input.providerMessageId,
+            leaseOwner: null,
+            leaseUntil: null,
+            nextAttemptAt: null,
+            updatedAt: input.now,
+          },
+        });
+      await tx.notificationReceipt.create({
+        data: {
+          connectorId: input.connectorId,
+          receiptId: input.receiptId,
+          notificationId: current.id,
+          providerMessageId: input.providerMessageId,
+          receipt: input.receipt,
+          payloadHash: input.payloadHash,
+          signedAt: input.signedAt,
+          receivedAt: input.now,
+          result,
+        },
+      });
+      return result;
+    });
   }
 
   async cancel(

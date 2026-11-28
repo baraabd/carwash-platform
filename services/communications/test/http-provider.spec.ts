@@ -190,12 +190,21 @@ test('http provider: configuration fails closed and never echoes the token', () 
       }),
     /PROVIDER_IDEMPOTENCY_UNDECLARED/,
   );
-  assert.equal(
-    httpProviderFromEnv({
-      NOTIFICATION_PROVIDER_URL: 'https://sms.example.com/',
-      NOTIFICATION_PROVIDER_TOKEN: TOKEN,
-      NOTIFICATION_PROVIDER_IDEMPOTENT: 'true',
-    }).idempotentSubmission,
-    true,
+  assert.throws(
+    () =>
+      httpProviderFromEnv({
+        NOTIFICATION_PROVIDER_URL: 'https://sms.example.com/',
+        NOTIFICATION_PROVIDER_TOKEN: TOKEN,
+        NOTIFICATION_PROVIDER_IDEMPOTENT: 'true',
+      }),
+    /PROVIDER_CONNECTOR_ID_REQUIRED/,
   );
+  const configured = httpProviderFromEnv({
+    NOTIFICATION_PROVIDER_URL: 'https://sms.example.com/',
+    NOTIFICATION_PROVIDER_TOKEN: TOKEN,
+    NOTIFICATION_PROVIDER_IDEMPOTENT: 'true',
+    NOTIFICATION_PROVIDER_CONNECTOR_ID: 'test-connector',
+  });
+  assert.equal(configured.idempotentSubmission, true);
+  assert.equal(configured.connectorId, 'test-connector');
 });

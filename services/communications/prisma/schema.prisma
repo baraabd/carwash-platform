@@ -86,6 +86,7 @@ model Notification {
   updatedAt         DateTime  @map("updated_at") @db.Timestamptz(3)
 
   attempts DeliveryAttempt[]
+  receipts NotificationReceipt[]
 
   @@unique([sourceService, idempotencyKey])
   @@index([state, nextAttemptAt])
@@ -102,6 +103,8 @@ model DeliveryAttempt {
   attemptNo         Int          @map("attempt_no")
   fence             Int
   workerId          String       @map("worker_id") @db.VarChar(64)
+  /// Null only for attempts made before authenticated connector receipt support.
+  connectorId       String?      @map("connector_id") @db.VarChar(64)
   startedAt         DateTime     @map("started_at") @db.Timestamptz(3)
   finishedAt        DateTime?    @map("finished_at") @db.Timestamptz(3)
   outcome           String?      @db.VarChar(24)
@@ -120,4 +123,23 @@ model BookingNotificationCancellation {
   sourceVersion Int @map("source_version")
   cancelledAt DateTime @map("cancelled_at") @db.Timestamptz(3)
   @@map("booking_notification_cancellation")
+}
+
+/// Durable signed-receipt identity and its effect, committed in one transaction.
+/// No recipient, message content or signing material is retained here.
+model NotificationReceipt {
+  connectorId       String       @map("connector_id") @db.VarChar(64)
+  receiptId         String       @map("receipt_id") @db.VarChar(128)
+  notificationId    String       @map("notification_id") @db.Uuid
+  providerMessageId String       @map("provider_message_id") @db.VarChar(128)
+  receipt           String       @db.VarChar(9)
+  payloadHash       String       @map("payload_hash") @db.Char(64)
+  signedAt          DateTime     @map("signed_at") @db.Timestamptz(3)
+  receivedAt        DateTime     @map("received_at") @db.Timestamptz(3)
+  result            String       @db.VarChar(7)
+  notification      Notification @relation(fields: [notificationId], references: [id], onDelete: Restrict)
+
+  @@id([connectorId, receiptId])
+  @@index([notificationId])
+  @@map("notification_receipt")
 }

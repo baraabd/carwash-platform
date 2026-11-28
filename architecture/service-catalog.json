@@ -785,7 +785,8 @@
         "delivery_attempts",
         "conversations",
         "messages",
-        "booking_notification_cancellations"
+        "booking_notification_cancellations",
+        "notification_receipts"
       ],
       "api": {
         "version": 1,
