@@ -1,0 +1,122 @@
+{
+  "schema": "carwash.staging.s3-adapter-probe/v1",
+  "scope": "Compiled Media S3 adapter against the actual staging bucket; not a deployed API, browser, database, migration, worker or production acceptance.",
+  "startedAt": "2026-11-28T08:58:31.216Z",
+  "projectId": "7aa96062-f337-4d69-92c6-2af61c9348db",
+  "environmentId": "2bfd91fb-ae06-4c71-a267-913fa123699b",
+  "bucketId": "a3403e86-7a5f-4cb1-9f5e-2e208686fba5",
+  "source": {
+    "baseCommit": "2405c809ea84988fd38d9a477ab5457d24add097",
+    "testedFiles": {
+      "services/media/src/infrastructure/config/media-config.ts": "sha256:77eacd0ec6b2f5ebc27b2be985c6835f07f37a5b920f904581460665cd9619da",
+      "services/media/src/infrastructure/storage/s3-object-store.ts": "sha256:61f34671e41f7eb0d40ba118601e7cac8572e825152caad81bbbac03c1e3a9b3",
+      "services/media/src/infrastructure/storage/sigv4.ts": "sha256:d74b4ef939fe2e3f9c5f54599d6070886af32ba1b6c845fb35d247058256a261",
+      "services/media/dist/infrastructure/config/media-config.js": "sha256:5d7c58a06991cd95e8b473d58759bb4eda4f7f4a9cc19992607ad0ff8564629b",
+      "services/media/dist/infrastructure/storage/s3-object-store.js": "sha256:943ff2ce0838112e1fe8b9a6a6df62645f3988ad4f671cf0feb5aefde14f28be",
+      "services/media/dist/infrastructure/storage/sigv4.js": "sha256:0cd7e93dcbb6e81414af4c89ab2ff7013a584c5a6bf0b614aba871d461198c73"
+    },
+    "dirtyAtStart": true,
+    "testedFilesUnchanged": true
+  },
+  "operations": [
+    {
+      "name": "actual-provider-configuration-accepted",
+      "status": "PASSED"
+    },
+    {
+      "name": "virtual-host-bucket-head",
+      "status": "PASSED"
+    },
+    {
+      "name": "authenticated-object-put",
+      "status": "PASSED"
+    },
+    {
+      "name": "authenticated-object-read",
+      "status": "PASSED",
+      "bodyHashMatched": true
+    },
+    {
+      "name": "presigned-object-put",
+      "status": "PASSED",
+      "httpStatus": 200
+    },
+    {
+      "name": "presigned-object-get",
+      "status": "PASSED",
+      "httpStatus": 200,
+      "bodyHashMatched": true
+    },
+    {
+      "name": "anonymous-object-access-denied",
+      "status": "PASSED",
+      "httpStatus": 403
+    },
+    {
+      "name": "core-storage-operations",
+      "status": "PASSED"
+    },
+    {
+      "name": "remove-task-owned-object",
+      "status": "PASSED",
+      "authenticatedMissingAfterDelete": true
+    }
+  ],
+  "requests": [
+    {
+      "operation": "legacy-path-head-diagnostic",
+      "method": "HEAD",
+      "status": 200
+    },
+    {
+      "operation": "virtual-host-bucket-head",
+      "method": "HEAD",
+      "status": 200
+    },
+    {
+      "operation": "authenticated-object-put",
+      "method": "PUT",
+      "status": 200
+    },
+    {
+      "operation": "authenticated-object-read",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "operation": "remove-task-owned-object",
+      "method": "DELETE",
+      "status": 204
+    },
+    {
+      "operation": "remove-task-owned-object",
+      "method": "GET",
+      "status": 404
+    }
+  ],
+  "accepted": true,
+  "bucket": {
+    "bucketName": "mediaobjects-p68komqrezcu",
+    "endpoint": "https://t3.storageapi.dev",
+    "region": "auto",
+    "urlStyle": "virtual-host",
+    "credentialsCreatedAt": "2026-11-28T07:54:26.092Z"
+  },
+  "previousAlphanumericKeyGrammarWouldAccept": false,
+  "legacyPathProbe": {
+    "accepted": true
+  },
+  "payload": {
+    "contentType": "image/png",
+    "bytes": 68,
+    "sha256": "sha256:7687b07d5f1235103580f6dc140694e9083b6911eb9deeb5dde6147c2a721190",
+    "fixture": "One-pixel synthetic PNG; no customer data."
+  },
+  "cors": {
+    "httpStatus": 404,
+    "errorCode": "NoSuchCORSConfiguration",
+    "changed": false,
+    "browserAcceptance": false
+  },
+  "finishedAt": "2026-11-28T08:59:26.086Z"
+}

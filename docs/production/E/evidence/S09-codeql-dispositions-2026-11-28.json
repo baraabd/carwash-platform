@@ -1,0 +1,67 @@
+{
+  "schema": "carwash.governance.codeql-dispositions/v1",
+  "authorizationRef": "user-s02-s12-full-closure-2026-11-27",
+  "reviewedSource": "2405c809ea84988fd38d9a477ab5457d24add097",
+  "currentSourceWithIdenticalAlertedFiles": "0bbfc921b0e85b4cf4fa4d71d5d72b224a22eb2f",
+  "reviewedPathsUnchangedFromMain": [
+    "scripts/ci/install-tools.mjs",
+    "tests/integration/rabbitmq-acl.test.mjs",
+    "tests/production/C/media-s3.test.mjs"
+  ],
+  "observedAt": "2026-11-28T09:02:14.828503+00:00",
+  "openAlertCount": 0,
+  "alerts": [
+    {
+      "number": 12,
+      "url": "https://github.com/baraabd/carwash-platform/security/code-scanning/12",
+      "rule": "js/file-access-to-http",
+      "securitySeverity": "medium",
+      "path": "scripts/ci/install-tools.mjs",
+      "beforeState": "open",
+      "state": "dismissed",
+      "dismissedReason": "false positive",
+      "dismissedComment": "Reviewed 2405c809; unchanged from main. GET URL is from committed tools.lock.json, initial origin https://github.com, no body/auth headers. Archive and binary SHA256 checked before use. Intended pinned tool download, not private-file exfiltration.",
+      "dismissedAt": "2026-11-28T08:37:52Z",
+      "actor": "baraabd"
+    },
+    {
+      "number": 13,
+      "url": "https://github.com/baraabd/carwash-platform/security/code-scanning/13",
+      "rule": "js/file-access-to-http",
+      "securitySeverity": "medium",
+      "path": "tests/integration/rabbitmq-acl.test.mjs",
+      "beforeState": "open",
+      "state": "dismissed",
+      "dismissedReason": "used in tests",
+      "dismissedComment": "Reviewed 2405c809; unchanged from main. Runner generates ephemeral broker credentials and a 0600 context; test targets literal 127.0.0.1 to assert admin denial (401/403). Docker binds loopback. Applies to generated test context, not arbitrary supplied files.",
+      "dismissedAt": "2026-11-28T08:38:03Z",
+      "actor": "baraabd"
+    },
+    {
+      "number": 14,
+      "url": "https://github.com/baraabd/carwash-platform/security/code-scanning/14",
+      "rule": "js/file-access-to-http",
+      "securitySeverity": "medium",
+      "path": "tests/integration/rabbitmq-acl.test.mjs",
+      "beforeState": "open",
+      "state": "dismissed",
+      "dismissedReason": "used in tests",
+      "dismissedComment": "Reviewed 2405c809; unchanged from main. Runner generates ephemeral broker credentials and a 0600 context; test targets literal 127.0.0.1 to assert admin denial (401/403). Docker binds loopback. Applies to generated test context, not arbitrary supplied files.",
+      "dismissedAt": "2026-11-28T08:38:12Z",
+      "actor": "baraabd"
+    },
+    {
+      "number": 27,
+      "url": "https://github.com/baraabd/carwash-platform/security/code-scanning/27",
+      "rule": "js/file-access-to-http",
+      "securitySeverity": "medium",
+      "path": "tests/production/C/media-s3.test.mjs",
+      "beforeState": "open",
+      "state": "dismissed",
+      "dismissedReason": "used in tests",
+      "dismissedComment": "Reviewed 2405c809; unchanged from main. Anonymous GET asserts 403 on a run-specific S3 test object. Runner creates a literal loopback endpoint, ephemeral keys and generated image fixtures. No auth/body sent. Applies to generated context, not arbitrary external files.",
+      "dismissedAt": "2026-11-28T08:38:22Z",
+      "actor": "baraabd"
+    }
+  ]
+}

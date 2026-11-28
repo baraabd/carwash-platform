@@ -52,3 +52,36 @@ CI suites remain mandatory for the final source. These checks do not prove
 that this Railway bucket accepted a signed request, its CORS/private policy,
 or upload/finalize/read/purge/restart behavior. Retain those hosted results
 separately before accepting S10/S11.
+
+## Actual provider probe — 08:58–08:59 UTC
+
+The [sanitized provider record](evidence/S10-media-s3-provider-probe-2026-11-28.json)
+records a successful execution of the compiled adapter against the existing
+staging bucket. Existing credentials stayed in the probe process; no credentials
+were created, rotated, printed or written to the evidence. One synthetic 68-byte
+PNG was uploaded under a unique task-owned key and removed in cleanup.
+
+- The actual provider configuration passed the repaired loader. The earlier
+  alphanumeric-only identifier grammar would reject its access-key identifier.
+- Virtual-host bucket HEAD, authenticated object PUT/GET and presigned PUT/GET
+  succeeded; read bytes matched the fixture hash.
+- Anonymous access to that existing object returned 403.
+- DELETE returned 204, and the authenticated follow-up GET returned 404.
+- Read-only CORS inspection returned `404 NoSuchCORSConfiguration`. Browser
+  upload acceptance remains pending configuration for the actual web origins.
+- The diagnostic legacy path-style bucket HEAD also returned 200. This result
+  does not establish legacy object-operation compatibility, and no claim is
+  made that every path-style request is rejected. Deployment selects the
+  provider-reported virtual-host contract explicitly.
+
+The probe started while the repair worktree was uncommitted, which is preserved
+as `dirtyAtStart: true` in the original record. Source and compiled-file hashes
+remained unchanged throughout execution. The three recorded TypeScript hashes
+were then verified against commit `0bbfc921b0e85b4cf4fa4d71d5d72b224a22eb2f`
+(cherry-picked from `2e52a71805d06b932aa641e82764082ee7944f40`). This binds the
+observed adapter code without relabelling the run as an immutable-image or
+deployed-application acceptance. The original report SHA-256 is
+`a637f45ad5da8c4c6a1a547c2748349e806c62487cc53df0ed6f70260a73b002`.
+
+No Media API, owner database, purge worker, browser journey or production
+deployment was exercised by this probe. Those gates remain mandatory.
