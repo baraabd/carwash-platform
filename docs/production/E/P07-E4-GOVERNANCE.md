@@ -1,18 +1,18 @@
 # P07-E4 — Main-branch governance and CodeQL disposition
 
-Lane E · parent P07-E. Status: **policy, validator and drift check implemented; NOT applied.**
-Applying a repository ruleset and dismissing code-scanning alerts are repository-admin
-actions and require an explicit owner authorization reference
-(`governance.mjs apply --authorization <ref>`). None was given at the time of writing.
+Lane E · parent P07-E. Status: **main ruleset applied and verified on 2026-11-28.**
+The existing S02–S12 owner authorization was used with an authenticated repository
+administrator to apply the policy. The live ruleset is active and its readback
+matches the explicit policy. No code-scanning alert was dismissed.
 
-## Live state observed (read-only, 2026-10-11)
+## Historical state observed (read-only, 2026-10-11)
 
 - `main` classic branch protection: **absent** (`GET branches/main/protection` → 404).
 - Repository rulesets: **none** (`GET rulesets` → `[]`).
 - `governance.mjs check` → `RULESET_ABSENT main-release-governance` (drift, exit 1).
 
-So today any push to `main` is possible without review or green checks. This is the
-gap this child closes once authorized.
+At that observation, pushes to `main` were not constrained by this policy. The
+2026-11-28 enforcement evidence below supersedes that historical state.
 
 ## Desired policy — `architecture/governance/main-ruleset.json`
 
@@ -104,7 +104,39 @@ not a request for the owner to repeat authorization. The reviewed desired
 policy and drift verifier are concrete and ready for an authenticated
 administrator. No alert was dismissed and no enforcement is claimed.
 
-- **E4-B1** Resolved for the existing reviewed policy by the S02–S12 instruction; an authenticated repository administration capability is still unavailable.
+### S09 enforcement evidence — 2026-11-28
+
+The official GitHub CLI authentication completed for `baraabd`; the repository
+API confirmed administrator access and `main` as the default branch. Applying
+the reviewed policy with `user-s02-s12-full-closure-2026-11-27` created active
+ruleset [28284393](https://github.com/baraabd/carwash-platform/rules/28284393).
+
+GitHub returned two additional pull-request defaults: `required_reviewers: []`
+and `require_extra_approval_for_unattributed_changes: true`. These are now
+explicit in the desired policy. The validator rejects disabling or omitting
+the latter. The strict live comparison is unchanged and still detects omitted,
+weakened or unexpected parameters. Ordinary PR approvals remain zero.
+
+The authenticated readback confirmed:
+
+- `main.protected: true`;
+- active default-branch targeting with no bypass actors;
+- deletion, non-fast-forward, pull-request, required-status-check and CodeQL rules;
+- all 14 required checks bound to GitHub Actions application 15368;
+- `GOVERNANCE MATCHES POLICY`, `drift: []`, live ruleset ID 28284393.
+
+The successful drift check was recorded at `2026-11-28T07:57:05.614Z`.
+Classic branch protection remains absent: enforcement is supplied by the
+repository ruleset. The sanitized live records are retained in
+[`evidence/S09-main-ruleset-2026-11-28.json`](evidence/S09-main-ruleset-2026-11-28.json).
+The governance, release-barrier and release-provenance test suites passed
+62/62 tests; the ten frozen design references remained unchanged.
+
+This proves repository enforcement at the recorded observation. Release-candidate
+checks must still refresh it, and the separate independent production review,
+hosted acceptance and production authorization remain release-barrier inputs.
+
+- **E4-B1** Resolved: owner authorization, authenticated administration and live ruleset enforcement are verified.
 - **E4-B2** Owner authorization to dismiss alerts 12/13/14/27 with the reasons above.
-- After apply: `governance.mjs check` must return `GOVERNANCE MATCHES POLICY`; that
-  output is the acceptance evidence. It is not claimed here.
+- Refresh `governance.mjs check` for the release candidate and retain its current
+  API evidence; the observation above is not a perpetual guarantee.

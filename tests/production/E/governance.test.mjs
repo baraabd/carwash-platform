@@ -22,6 +22,48 @@ test('the committed policy is valid against the real workflows', () => {
   assert.deepEqual(validatePolicy(readPolicy(), contexts), []);
 });
 
+test('GitHub pull-request review defaults are explicitly represented in the policy', () => {
+  const desired = readPolicy();
+  const live = structuredClone(desired);
+  // Parameters returned by GitHub for main-release-governance on 2026-11-28.
+  rule(live, 'pull_request').parameters = {
+    required_approving_review_count: 0,
+    dismiss_stale_reviews_on_push: true,
+    required_reviewers: [],
+    require_code_owner_review: false,
+    require_last_push_approval: false,
+    required_review_thread_resolution: true,
+    require_extra_approval_for_unattributed_changes: true,
+    allowed_merge_methods: ['merge'],
+  };
+  assert.deepEqual(compareRuleset(desired, live), []);
+});
+
+test('unattributed-change approval cannot be disabled or omitted from the policy', () => {
+  for (const weaken of [
+    (p) =>
+      (rule(p, 'pull_request').parameters.require_extra_approval_for_unattributed_changes = false),
+    (p) =>
+      delete rule(p, 'pull_request').parameters.require_extra_approval_for_unattributed_changes,
+  ]) {
+    assert.ok(mutate(weaken).includes('UNATTRIBUTED_CHANGES_APPROVAL_NOT_REQUIRED'));
+  }
+});
+
+test('live review downgrades, omitted defaults and unexpected parameters remain drift', () => {
+  const desired = readPolicy();
+  for (const change of [
+    (pr) => (pr.require_extra_approval_for_unattributed_changes = false),
+    (pr) => delete pr.require_extra_approval_for_unattributed_changes,
+    (pr) => delete pr.required_reviewers,
+    (pr) => (pr.unexpected_review_parameter = true),
+  ]) {
+    const live = structuredClone(desired);
+    change(rule(live, 'pull_request').parameters);
+    assert.deepEqual(compareRuleset(desired, live), [{ code: 'DRIFT', field: 'rules' }]);
+  }
+});
+
 test('every required check is produced unconditionally by a pull request to main', () => {
   for (const check of rule(readPolicy(), 'required_status_checks').parameters
     .required_status_checks) {

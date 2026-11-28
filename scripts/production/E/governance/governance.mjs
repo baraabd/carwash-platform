@@ -90,6 +90,9 @@ export function validatePolicy(policy, contexts) {
   const pr = policy.rules?.find((r) => r.type === 'pull_request')?.parameters ?? {};
   if (pr.dismiss_stale_reviews_on_push !== true) fail('STALE_REVIEWS_KEPT');
   if (pr.required_review_thread_resolution !== true) fail('THREADS_NOT_REQUIRED');
+  if (pr.require_extra_approval_for_unattributed_changes !== true) {
+    fail('UNATTRIBUTED_CHANGES_APPROVAL_NOT_REQUIRED');
+  }
   if (
     !Number.isInteger(pr.required_approving_review_count) ||
     pr.required_approving_review_count < 0
