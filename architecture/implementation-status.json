@@ -464,7 +464,8 @@
         "ProbeNotification",
         "Notification",
         "DeliveryAttempt",
-        "BookingNotificationCancellation"
+        "BookingNotificationCancellation",
+        "NotificationReceipt"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"

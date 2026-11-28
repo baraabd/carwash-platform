@@ -171,6 +171,16 @@ test('communications: without an Identity origin it boots and refuses every read
     assert.equal(read.status, 503);
     const body = (await read.json()) as { error: { code: string } };
     assert.equal(body.error.code, 'AUTH_UNAVAILABLE');
+    const receipt = await fetch(url + '/internal/v1/communications/notification-receipts', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    });
+    assert.equal(receipt.status, 503, 'mounted ingress refuses absent signing configuration');
+    assert.equal(
+      ((await receipt.json()) as { error: { code: string } }).error.code,
+      'RECEIPT_NOT_CONFIGURED',
+    );
   } finally {
     await app.close();
   }
