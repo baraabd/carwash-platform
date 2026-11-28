@@ -8,6 +8,7 @@
 // artifact manifest. Anything else is NO-GO with the owning lane and action.
 
 import { artifactDigests, canonicalJson, manifestDigest, validateManifest } from './manifest.mjs';
+import { isSecretReference, parseRailwaySecretReference } from './secret-references.mjs';
 export { canonicalJson } from './manifest.mjs';
 
 export const RECEIPT_SCHEMA = 'carwash.release-receipt/v1';
@@ -15,7 +16,6 @@ export const CANDIDATE_SCHEMA = 'carwash.release-candidate/v1';
 
 const SHA1 = /^[0-9a-f]{40}$/;
 const DIGEST = /^sha256:[0-9a-f]{64}$/;
-const SECRET_REF = /^(vault|aws-sm|gcp-sm|azure-kv|k8s-secret):\/\/\S+$/;
 // Keys that would carry secret material instead of a reference.
 const SECRET_KEYS =
   /^(value|secret|password|passwd|token|apikey|api_key|privatekey|private_key|clientsecret|client_secret)$/i;
@@ -63,11 +63,46 @@ export function findSecretMaterial(value, path = '$') {
     value.forEach((v, i) => hits.push(...findSecretMaterial(v, `${path}[${i}]`)));
   else if (isObject(value))
     for (const [key, v] of Object.entries(value)) {
-      if (SECRET_KEYS.test(key) && typeof v === 'string' && !SECRET_REF.test(v))
+      if (SECRET_KEYS.test(key) && typeof v === 'string' && !isSecretReference(v))
         hits.push(`${path}.${key}`);
       hits.push(...findSecretMaterial(v, `${path}.${key}`));
     }
   return hits;
+}
+
+// The operator records a sanitized observation from Railway's live state.
+// Syntax alone cannot attest that a resource exists or a secret was provisioned.
+function railwayReadbackProblems(reference, receipt, ctx) {
+  const readbackPath = reference.readbackPath;
+  if (!nonEmptyString(readbackPath)) return ['Railway reference needs readbackPath'];
+  const evidence = Array.isArray(receipt.evidence)
+    ? receipt.evidence.find((item) => isObject(item) && item.path === readbackPath)
+    : null;
+  const file = typeof ctx.readEvidence === 'function' ? ctx.readEvidence(readbackPath) : null;
+  if (!evidence || !file || evidence.sha256 !== file.sha256)
+    return ['Railway readback must be present as unchanged, hashed receipt evidence'];
+  let readback;
+  try {
+    readback = JSON.parse(file.content);
+  } catch {
+    return ['Railway readback evidence must contain JSON'];
+  }
+  const keys = ['schema', 'ref', 'observedAt', 'present', 'deployed'];
+  if (
+    !isObject(readback) ||
+    readback.schema !== 'carwash.railway-secret-readback/v1' ||
+    Object.keys(readback).some((key) => !keys.includes(key))
+  )
+    return ['Railway readback must contain only the declared observation metadata'];
+  const problems = [];
+  if (readback.ref !== reference.ref) problems.push('Railway readback names a different resource');
+  if (readback.present !== true || readback.deployed !== true)
+    problems.push('Railway readback does not attest to presence in live deployed state');
+  const observedAt = parseInstant(readback.observedAt);
+  const producedAt = parseInstant(receipt.producedAt);
+  if (observedAt === null || producedAt === null || observedAt > producedAt || observedAt > ctx.now)
+    problems.push('Railway readback needs an observedAt UTC instant no later than the receipt');
+  return problems;
 }
 
 // Family-specific checks. Each returns a list of problems (empty = valid).
@@ -156,15 +191,17 @@ const KIND_CHECKS = {
       ? []
       : ['external input must carry its reviewed details'];
   },
-  'secret-references'(receipt) {
+  'secret-references'(receipt, _candidate, ctx) {
     const refs = receipt.details?.references;
     if (!Array.isArray(refs) || refs.length === 0)
       return ['secret receipt must list store references'];
-    return refs.flatMap((ref, i) =>
-      isObject(ref) && nonEmptyString(ref.name) && SECRET_REF.test(ref.ref ?? '')
-        ? []
-        : [`reference ${i} must be {name, ref: <store>://...}`],
-    );
+    return refs.flatMap((ref, i) => {
+      if (!isObject(ref) || !nonEmptyString(ref.name) || !isSecretReference(ref.ref))
+        return [`reference ${i} must be {name, ref: <store>://...}`];
+      return parseRailwaySecretReference(ref.ref)
+        ? railwayReadbackProblems(ref, receipt, ctx).map((problem) => `reference ${i}: ${problem}`)
+        : [];
+    });
   },
   'incident-contacts'(receipt) {
     const d = receipt.details ?? {};
@@ -414,6 +451,7 @@ export function evaluateBarrier({ policy, candidate, receipts, io, now }) {
     artifactManifestDigest: manifest.digest,
     manifestProblems: manifest.problems,
     digestEvidence: io.digestEvidence,
+    readEvidence: io.readEvidence,
   };
   if (
     manifestReceipts.length === 1 &&
