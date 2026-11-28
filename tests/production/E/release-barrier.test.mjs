@@ -55,6 +55,30 @@ const LOCKED_BASE_IMAGES = {
   nativeLibraries: `gcr.io/distroless/cc-debian13@${DIGEST}`,
 };
 const MANIFEST_PATH = 'evidence/release-manifest.json';
+// Synthetic resource identities for offline receipt tests; no Railway access.
+const RAILWAY_SCOPE =
+  'railway://project/00000000-0000-4000-8000-000000000001' +
+  '/environment/00000000-0000-4000-8000-000000000002' +
+  '/service/00000000-0000-4000-8000-000000000003';
+
+function railwayReadback(repo, receipt, ref, name, change = {}) {
+  const readbackPath = 'evidence/railway-' + name + '.json';
+  const observation = {
+    schema: 'carwash.railway-secret-readback/v1',
+    ref,
+    observedAt: '2026-10-11T09:59:00.000Z',
+    present: true,
+    deployed: true,
+    ...change,
+  };
+  const bytes = JSON.stringify(observation);
+  writeFileSync(path.join(repo.dir, readbackPath), bytes);
+  receipt.evidence = [
+    ...receipt.evidence.filter((item) => item.path !== readbackPath),
+    { path: readbackPath, sha256: 'sha256:' + sha256Hex(bytes) },
+  ];
+  return { name, ref, readbackPath };
+}
 
 function sh(cwd, ...args) {
   return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
@@ -730,6 +754,103 @@ test('a conflicting artifact manifest anchors nothing and authorization cannot m
   assert.equal(report.artifactManifestDigest, null);
   assert.equal(familyResult(report, 'E.artifacts-published').status, 'CONFLICT');
   assert.equal(report.verdict, 'NO_GO');
+});
+
+test('Railway variable and volume-file references require matching hashed readback', (t) => {
+  const { repo, receipts, evaluate } = setup(t, { fresh: true });
+  const receipt = receipts['ext.secrets-provisioned'];
+  receipt.details.references = [
+    railwayReadback(repo, receipt, RAILWAY_SCOPE + '/variable/IDENTITY_OTP_PEPPER', 'pepper'),
+    railwayReadback(
+      repo,
+      receipt,
+      RAILWAY_SCOPE +
+        '/volume/00000000-0000-4000-8000-000000000004/file/secrets/identity/private-key.pem',
+      'private-key',
+    ),
+  ];
+  const report = evaluate();
+  assert.equal(report.verdict, 'GO', JSON.stringify(report.blockers, null, 2));
+});
+
+test('a valid Railway locator without retained readback cannot attest provisioning', (t) => {
+  const { repo, receipts, evaluate } = setup(t, { fresh: true });
+  const receipt = receipts['ext.secrets-provisioned'];
+  const ref = RAILWAY_SCOPE + '/variable/IDENTITY_OTP_PEPPER';
+  receipt.details.references = [{ name: 'pepper', ref }];
+  let result = familyResult(evaluate(), 'ext.secrets-provisioned');
+  assert.equal(result.status, 'INVALID');
+  assert.match(result.problems.join(), /needs readbackPath/);
+
+  const reference = railwayReadback(repo, receipt, ref, 'pepper');
+  receipt.details.references = [reference];
+  receipt.evidence = receipt.evidence.filter((item) => item.path !== reference.readbackPath);
+  result = familyResult(evaluate(), 'ext.secrets-provisioned');
+  assert.equal(result.status, 'INVALID');
+  assert.match(result.problems.join(), /unchanged, hashed receipt evidence/);
+});
+
+test('Railway readback rejects stale resource identity, staged state, future time and secret data', (t) => {
+  const { repo, receipts, evaluate } = setup(t, { fresh: true });
+  const receipt = receipts['ext.secrets-provisioned'];
+  const ref = RAILWAY_SCOPE + '/variable/IDENTITY_OTP_PEPPER';
+  for (const change of [
+    { ref: RAILWAY_SCOPE + '/variable/DIFFERENT_SECRET' },
+    { ref: ref.replace('000000000002', '000000000099') },
+    { present: false },
+    { deployed: false },
+    { observedAt: '2026-10-11T10:01:00.000Z' },
+    { observedAt: '2026-10-12T00:00:00.000Z' },
+    { observedAt: 'not-a-timestamp' },
+    { schema: 'unrelated-readback/v1' },
+    { value: 'test-only-secret-literal' },
+    { extra: { content: 'test-only-secret-literal' } },
+  ]) {
+    receipt.details.references = [railwayReadback(repo, receipt, ref, 'pepper', change)];
+    const report = evaluate();
+    assert.equal(report.verdict, 'NO_GO');
+    assert.equal(familyResult(report, 'ext.secrets-provisioned').status, 'INVALID');
+    assert.ok(!JSON.stringify(report).includes('test-only-secret-literal'));
+  }
+});
+
+test('Railway readback tampering, missing files and non-JSON evidence fail closed', (t) => {
+  const { repo, receipts, evaluate } = setup(t, { fresh: true });
+  const receipt = receipts['ext.secrets-provisioned'];
+  const reference = railwayReadback(
+    repo,
+    receipt,
+    RAILWAY_SCOPE + '/variable/IDENTITY_OTP_PEPPER',
+    'pepper',
+  );
+  receipt.details.references = [reference];
+  const file = path.join(repo.dir, reference.readbackPath);
+  writeFileSync(file, 'changed evidence');
+  assert.equal(familyResult(evaluate(), 'ext.secrets-provisioned').status, 'INVALID');
+  receipt.evidence.find((item) => item.path === reference.readbackPath).sha256 =
+    'sha256:' + sha256Hex('changed evidence');
+  assert.match(
+    familyResult(evaluate(), 'ext.secrets-provisioned').problems.join(),
+    /must contain JSON/,
+  );
+  rmSync(file);
+  assert.match(
+    familyResult(evaluate(), 'ext.secrets-provisioned').problems.join(),
+    /unchanged, hashed receipt evidence/,
+  );
+});
+
+test('existing store receipts keep their contract and env references cannot authorize production', (t) => {
+  const { receipts, evaluate } = setup(t);
+  const receipt = receipts['ext.secrets-provisioned'];
+  receipt.details.references = ['vault', 'aws-sm', 'gcp-sm', 'azure-kv', 'k8s-secret'].map(
+    (store) => ({ name: store, ref: store + '://carwash/production/identity-db' }),
+  );
+  assert.equal(evaluate().verdict, 'GO');
+  receipt.details.references.push({ name: 'runtime-only', ref: 'env://IDENTITY_SECRET' });
+  const report = evaluate();
+  assert.equal(report.verdict, 'NO_GO');
+  assert.equal(familyResult(report, 'ext.secrets-provisioned').status, 'INVALID');
 });
 
 test('secret values are rejected; store references are accepted', (t) => {
