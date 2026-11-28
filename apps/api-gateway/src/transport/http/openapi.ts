@@ -3,6 +3,7 @@ import {
   GATEWAY_ROUTES,
   GATEWAY_COMPOSITIONS,
   API_ERROR_CODES,
+  SESSION_BINDING_HEADER,
   type GatewayErrorCode,
 } from '@carwash/contracts';
 
@@ -14,6 +15,14 @@ const ERROR_RESPONSES = Object.fromEntries(
   ]),
 );
 const SECURITY = [{ bearer: [] }, { session: [] }];
+const SESSION_BINDING_PARAMETER = {
+  in: 'header',
+  name: SESSION_BINDING_HEADER,
+  required: false,
+  description:
+    'Expected principalKind:subject:sessionId:authVersion from the verified Identity session. A mismatch returns 401 before owner access; this assertion never grants authentication and is not forwarded.',
+  schema: { type: 'string', maxLength: 128 },
+};
 const CORRELATION_PARAMETERS = [
   {
     in: 'header',
@@ -76,13 +85,18 @@ export function gatewayOpenApi() {
         : {}),
       parameters: [
         ...CORRELATION_PARAMETERS,
+        ...(!route.public && !route.authTransport && !route.providerIngress
+          ? [SESSION_BINDING_PARAMETER]
+          : []),
         ...[...route.path.matchAll(/:([A-Za-z][A-Za-z0-9]*)/g)].map((match) => ({
           in: 'path',
           name: match[1],
           required: true,
           schema: route.pathEnums?.[match[1]!]
             ? { type: 'string', enum: route.pathEnums[match[1]!] }
-            : { type: 'string', format: 'uuid' },
+            : route.pathPatterns?.[match[1]!]
+              ? { type: 'string', pattern: route.pathPatterns[match[1]!]!.source }
+              : { type: 'string', format: 'uuid' },
         })),
         ...(route.query ?? []).map((parameter) => ({
           in: 'query',
@@ -137,10 +151,17 @@ export function gatewayOpenApi() {
     paths[path] = current;
   }
   for (const read of GATEWAY_COMPOSITIONS) {
+    const permissionGroups: string[][] = [];
     const permissions = read.routes.flatMap((id) => {
       const route = GATEWAY_ROUTES.find((candidate) => candidate.id === id);
-      if (!route || route.method !== 'GET' || (!route.permission && !route.public))
+      if (
+        !route ||
+        route.method !== 'GET' ||
+        (!route.permission && !route.anyPermission?.length && !route.public)
+      )
         throw new Error('INVALID_GATEWAY_COMPOSITION_CONTRACT');
+      if (route.permission) permissionGroups.push([route.permission]);
+      if (route.anyPermission) permissionGroups.push([...route.anyPermission].sort());
       return route.permission ? [route.permission] : [];
     });
     paths[GATEWAY_V1 + read.path] = {
@@ -149,8 +170,10 @@ export function gatewayOpenApi() {
         'x-read-only': true,
         'x-composes': read.routes,
         'x-required-permissions': [...new Set(permissions)].sort(),
+        // All groups must be satisfied; any permission within a group suffices.
+        'x-required-permission-groups': permissionGroups,
         security: SECURITY,
-        parameters: CORRELATION_PARAMETERS,
+        parameters: [...CORRELATION_PARAMETERS, SESSION_BINDING_PARAMETER],
         responses: {
           '200': {
             description: 'Read-only composition of owner responses',

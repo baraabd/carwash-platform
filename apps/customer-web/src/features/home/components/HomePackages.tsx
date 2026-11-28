@@ -10,6 +10,7 @@ interface HomePackagesProps {
   readonly details: readonly HomePackageDetail[];
   readonly onStartWithPackage: (id: string) => void;
   readonly unavailableReasonId?: string;
+  readonly production?: boolean;
 }
 
 export function HomePackages({
@@ -17,6 +18,7 @@ export function HomePackages({
   details,
   onStartWithPackage,
   unavailableReasonId,
+  production = false,
 }: HomePackagesProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
 
@@ -72,9 +74,11 @@ export function HomePackages({
         onClose={() => setDetailsOpen(false)}
       >
         <p className="sheet-intro">
-          {unavailableReasonId === undefined
-            ? 'أرقام توضيحية للسيارة السيدان. يظهر فرق الحجم والإضافات قبل التأكيد.'
-            : 'تفاصيل الباقات المنشورة. يحتاج تأكيد الحجز إلى عرض سعر وموعد متاح.'}
+          {production
+            ? 'الباقات المنشورة. يظهر السعر لحجم سيارتك والإضافات قبل التأكيد.'
+            : unavailableReasonId === undefined
+              ? 'أرقام توضيحية للسيارة السيدان. يظهر فرق الحجم والإضافات قبل التأكيد.'
+              : 'تفاصيل الباقات المنشورة. يحتاج تأكيد الحجز إلى عرض سعر وموعد متاح.'}
         </p>
         <div className="stack">
           {details.map((item) => (

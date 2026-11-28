@@ -90,6 +90,50 @@ test('catalog: valid published catalog round trips', () => {
   assert.equal(catalog.CATALOG_V1.routes.publish.access, 'permission:catalog.publish');
 });
 
+test('catalog: current owner state distinguishes unpublished from a real published snapshot', () => {
+  const current = {
+    state: 'UNPUBLISHED',
+    catalog: null,
+    expectedCatalogRevision: 0,
+    asOf: catalogFixture.publishedAt,
+  };
+  assert.deepEqual(catalog.parseCurrentCatalogV1(current), current);
+  const published = {
+    ...current,
+    state: 'PUBLISHED',
+    catalog: catalogFixture,
+    expectedCatalogRevision: 3,
+  };
+  assert.deepEqual(catalog.parseCurrentCatalogV1(published), published);
+  for (const bad of [
+    { ...current, state: 'PUBLISHED' },
+    { ...current, expectedCatalogRevision: 1 },
+    { ...published, state: 'UNPUBLISHED' },
+    { ...published, expectedCatalogRevision: 2 },
+  ])
+    throwsCode(() => catalog.parseCurrentCatalogV1(bad), 'INCONSISTENT_CATALOG_STATE');
+  throwsCode(
+    () => catalog.parseCatalogV1({ ...catalogFixture, catalogRevision: 0 }),
+    'INVALID_INTEGER',
+  );
+});
+
+test('catalog: first publication explicitly accepts zero while rejecting invalid revision values', () => {
+  const draft = definition(1, 'first-service');
+  delete draft.revision;
+  const command = {
+    expectedCatalogRevision: 0,
+    definitions: [draft],
+    reasonCode: 'INITIAL_PUBLICATION',
+  };
+  assert.deepEqual(catalog.parsePublishCatalogRequestV1(command), command);
+  for (const revision of [-1, 0.5, '0', null, 2147483648])
+    throwsCode(
+      () => catalog.parsePublishCatalogRequestV1({ ...command, expectedCatalogRevision: revision }),
+      'INVALID_INTEGER',
+    );
+});
+
 test('catalog: duplicate code / definition and bad durations refused', () => {
   const dupCode = clone(catalogFixture);
   dupCode.items[1].code = 'exterior';

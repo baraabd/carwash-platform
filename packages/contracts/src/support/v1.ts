@@ -155,6 +155,9 @@ export const CASE_REASON_CODES = [
   'PROVIDER_UNREACHABLE',
   'DUPLICATE_PAYMENT',
   'SERVICE_NOT_DELIVERED',
+  'BOOKING_CANCELLED',
+  'SERVICE_QUALITY',
+  'PRICE_CORRECTION',
   'PAID_AFTER_CANCELLATION',
   'PAID_AFTER_DEADLINE',
   'CUSTOMER_REQUEST',
@@ -266,6 +269,8 @@ export interface DecideCaseRequestV1 {
   readonly window?: ServiceWindowV1;
   /** Required by the owner for APPROVE_MATCH / ACCEPT_LATE_PAYMENT. */
   readonly statementCredit?: { readonly creditId: string; readonly revision: number };
+  /** Scheduling-owned hold required by the owner for RESCHEDULE_BOOKING. */
+  readonly bookingHold?: { readonly holdId: string; readonly revision: number };
 }
 
 /** Per-kind action/reason/amount/window applicability is the owner's rule set. */
@@ -274,13 +279,17 @@ export function parseDecideCaseRequestV1(value: unknown): DecideCaseRequestV1 {
     value,
     '$',
     ['action', 'reason'],
-    ['evidence', 'amount', 'window', 'statementCredit'],
+    ['evidence', 'amount', 'window', 'statementCredit', 'bookingHold'],
   );
   const reason = closed(v.reason, '$.reason', ['code', 'note']);
   const statementCredit =
     v.statementCredit === undefined
       ? null
       : closed(v.statementCredit, '$.statementCredit', ['creditId', 'revision']);
+  const bookingHold =
+    v.bookingHold === undefined
+      ? null
+      : closed(v.bookingHold, '$.bookingHold', ['holdId', 'revision']);
   return {
     action: oneOf(v.action, '$.action', CASE_ACTIONS),
     reason: {
@@ -290,6 +299,14 @@ export function parseDecideCaseRequestV1(value: unknown): DecideCaseRequestV1 {
     ...(v.evidence === undefined ? {} : { evidence: parseEvidence(v.evidence, '$.evidence') }),
     ...(v.amount === undefined ? {} : { amount: parsePositiveMoney(v.amount, '$.amount') }),
     ...(v.window === undefined ? {} : { window: parseWindow(v.window, '$.window') }),
+    ...(bookingHold === null
+      ? {}
+      : {
+          bookingHold: {
+            holdId: uuid(bookingHold.holdId, '$.bookingHold.holdId'),
+            revision: parseRevision(bookingHold.revision, '$.bookingHold.revision'),
+          },
+        }),
     ...(statementCredit === null
       ? {}
       : {

@@ -13,6 +13,77 @@
     "PRICE_NOT_AVAILABLE"
   ],
   "paths": {
+    "/internal/v1/pricing/subscription-quotes": {
+      "post": {
+        "operationId": "pricing.createSubscriptionQuote",
+        "x-access": "principal",
+        "x-idempotent": true,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts pricingV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/pricing/subscription-quotes/{quoteId}": {
+      "get": {
+        "operationId": "pricing.getSubscriptionQuote",
+        "x-access": "principal",
+        "x-idempotent": false,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts pricingV1 (closed objects; unknown fields refused)",
+        "parameters": [
+          {
+            "name": "quoteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/internal/v1/pricing/quotes": {
       "post": {
         "operationId": "pricing.createQuote",
@@ -138,6 +209,32 @@
             }
           }
         ],
+        "responses": {
+          "2XX": {
+            "description": "Owner response validated by the published parser."
+          },
+          "default": {
+            "description": "Error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/pricing/price-books/current": {
+      "get": {
+        "operationId": "pricing.getCurrentPriceBook",
+        "x-access": "permission:pricing.prices.publish",
+        "x-idempotent": false,
+        "x-revisioned": false,
+        "x-safe-post": false,
+        "x-wire-parsers": "@carwash/contracts pricingV1 (closed objects; unknown fields refused)",
+        "parameters": [],
         "responses": {
           "2XX": {
             "description": "Owner response validated by the published parser."

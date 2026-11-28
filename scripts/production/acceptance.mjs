@@ -24,7 +24,12 @@ import {
 import { redact, run } from '../acceptance/lib/exec.mjs';
 import { discoverServiceSpecs } from '../lib/test-discovery.mjs';
 import { testResults } from '../lib/test-results.mjs';
-import { BUSINESS_SUITES, assertBusinessEvidence, businessSuite } from './acceptance-plan.mjs';
+import {
+  BUSINESS_SUITES,
+  assertBusinessEvidence,
+  assertHostedBrokerEvidence,
+  businessSuite,
+} from './acceptance-plan.mjs';
 import { retainBrowserDiagnostics } from './acceptance-diagnostics.mjs';
 
 const node = process.execPath;
@@ -215,6 +220,11 @@ async function acceptance(suite) {
     );
     await command('design-before', node, ['scripts/check-design-reference.mjs']);
     await command('shared-build', 'pnpm', ['build:packages']);
+    if (suite === 'a-customer-browser')
+      await tests(
+        'customer-client-offline',
+        globSync('apps/customer-web/test/*.test.mjs', { cwd: ROOT }),
+      );
     for (const service of plan.services) {
       for (const task of ['generate', 'build', 'build:tests'])
         await command(`${service}-${task.replace(':', '-')}`, 'pnpm', [
@@ -245,7 +255,22 @@ async function acceptance(suite) {
         'apps/admin-web/test/live-finance.test.mjs',
         'apps/admin-web/test/statement-credit.test.mjs',
         'apps/admin-web/test/runtime.test.mjs',
+        'apps/admin-web/test/domain-owners.test.mjs',
       ]);
+      env.ADMIN_DOMAINS_EVIDENCE_DIR = path.join(out, 'admin-domains');
+      env.ADMIN_SOURCE_SHA = report.source.sha;
+      await command('admin-domain-browser-fixtures', node, [
+        'tests/production/D/domain-screens.browser.mjs',
+      ]);
+      await childEvidence(
+        'admin-domain-browser-fixtures',
+        path.join(env.ADMIN_DOMAINS_EVIDENCE_DIR, 'admin-domain-screens.json'),
+        (value) => {
+          assert.equal(value.source, report.source.sha);
+          assert.equal(value.failure, undefined);
+          assert.ok(value.browserVersion && value.tests.length >= 5);
+        },
+      );
     }
     if (plan.services.length && !suite.startsWith('c-'))
       await tests(
@@ -256,6 +281,10 @@ async function acceptance(suite) {
     // Written before starting any resources; --cleanup remains usable after cancellation.
     await writeJson(path.join(work, 'owned.json'), owned);
     if (plan.lane === 'A') {
+      if (suite === 'a-owners')
+        await tests('identity-native-password-encoding', [
+          'tests/identity/password-encoding.test.mjs',
+        ]);
       await tests('provider-contract', [
         'tests/production/A/acceptance-plan.test.mjs',
         ...(suite === 'a-booking-billing' ? [] : ['tests/production/A/vehicle.contract.test.mjs']),
@@ -301,7 +330,9 @@ async function acceptance(suite) {
         node,
         suite === 'b-wallet-broker'
           ? ['scripts/production/B/wallet-broker-acceptance.mjs']
-          : ['scripts/production/B/postgres-acceptance.mjs', '--service', service],
+          : suite === 'b-reporting-broker'
+            ? ['scripts/production/B/wallet-broker-acceptance.mjs', '--reporting']
+            : ['scripts/production/B/postgres-acceptance.mjs', '--service', service],
       );
       await childEvidence('owner-persistence', freshReport(before, pattern), (value) => {
         assert.equal(value.accepted, true);
@@ -312,6 +343,15 @@ async function acceptance(suite) {
             counts.pass === counts.tests &&
             ['fail', 'skipped', 'todo', 'cancelled'].every((key) => counts[key] === 0),
         );
+        if (suite === 'b-reporting-broker') {
+          const proof = {
+            name: 'hosted-broker-definitions',
+            counts,
+            names: value.tests.names,
+          };
+          assertHostedBrokerEvidence(proof);
+          report.evidence.push(proof);
+        }
       });
     } else if (suite === 'c-operator-fixtures') {
       await command('operator-fixture-acceptance', node, [
@@ -330,6 +370,7 @@ async function acceptance(suite) {
     } else if (plan.lane === 'C') {
       infrastructureUsed = true;
       if (suite === 'c-quote-hold') env.CW_PROD_C_EXTRA_SERVICES = 'catalog,pricing';
+      if (suite === 'c-runtime-workers') env.CW_PROD_C_EXTRA_SERVICES = 'reporting,communications';
       await command('lane-stack-up', node, ['scripts/production/C/stack.mjs', 'up']);
       if (suite === 'c-quote-hold')
         await tests('quote-hold-real-owners', [
@@ -337,6 +378,11 @@ async function acceptance(suite) {
         ]);
       else if (suite === 'c-p06')
         await tests('technician-real-services', ['tests/production/C/p06c-real-services.test.mjs']);
+      else if (suite === 'c-runtime-workers')
+        await tests('standalone-worker-processes', [
+          'tests/production/C/native-owner-effects.pg.test.mjs',
+          'tests/production/C/runtime-closure-processes.test.mjs',
+        ]);
       else {
         const owner = suite.slice(2);
         await command('owner-verification', node, ['scripts/production/C/verify.mjs', owner]);

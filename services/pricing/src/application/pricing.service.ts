@@ -1,3 +1,4 @@
+import { pricingV1 } from '@carwash/contracts';
 import {
   PriceBookRuleError,
   QuoteRequestInvalid,
@@ -169,6 +170,37 @@ export class PricingService {
   // -------------------------------------------------------------------------
   // publishPriceBook
   // -------------------------------------------------------------------------
+
+  async getCurrentPriceBook(context: RequestContext): Promise<pricingV1.CurrentPriceBookV1> {
+    await this.principal(context, PRICE_BOOK_PERMISSION);
+    const policy = this.policy();
+    const book = await this.deps.repository.transaction((uow) => uow.priceBookInForce());
+    return pricingV1.parseCurrentPriceBookV1({
+      state: book ? 'PUBLISHED' : 'UNPUBLISHED',
+      priceBook: book
+        ? {
+            priceBookRevision: book.revision,
+            currency: book.currency,
+            catalogRevision: book.catalog.catalogRevision,
+            policyRevision: book.policyRevision,
+            entriesFingerprint: book.entriesFingerprint,
+            publishedAt: book.publishedAt.toISOString(),
+            entries: book.entries.map((entry) => ({
+              definitionId: entry.definitionId,
+              vehicleType: entry.vehicleType,
+              unitPrice: {
+                currency: book.currency,
+                amountMinor: entry.unitPriceMinor.toString(),
+                scale: book.scale,
+              },
+            })),
+          }
+        : null,
+      nextExpectedPriceBookRevision: (book?.revision ?? 0) + 1,
+      policyCurrency: policy.currency,
+      asOf: this.deps.clock.now().toISOString(),
+    });
+  }
 
   /**
    * Publishes the next complete price book against the CURRENT published
@@ -428,14 +460,15 @@ export class PricingService {
     return { status: outcome.status, body: await this.render(outcome), replayed: false };
   }
 
-  /** The beneficiary's own quote. Missing and foreign are indistinguishable (404). */
+  /** Owner or explicitly authorized dispatch staff; always preserves the original beneficiary. */
   async getQuote(context: RequestContext, id: string): Promise<Record<string, unknown>> {
     const principal = await this.principal(context);
     const quoteId = normalizeUuid(id);
     const quote = quoteId === null ? null : await this.deps.repository.quote(quoteId);
     if (
       !quote ||
-      !samePrincipal(quote.beneficiary, { kind: principal.kind, subjectId: principal.subject })
+      (!samePrincipal(quote.beneficiary, { kind: principal.kind, subjectId: principal.subject }) &&
+        !principal.permissions.includes('operations.dispatch'))
     )
       throw new PricingApplicationError('NOT_FOUND');
     return quoteView(quote, this.deps.clock.now());

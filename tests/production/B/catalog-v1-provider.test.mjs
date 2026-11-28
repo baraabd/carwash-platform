@@ -6,8 +6,7 @@
  * so it restates the request rules locally. This suite keeps that restatement
  * honest: every response body must parse with the published parser, and every
  * request document is accepted or rejected by BOTH the published parser and
- * the service. The single documented exception is CR-B-P06-01
- * (expectedCatalogRevision: 0 for the very first publication).
+ * the service, including expectedCatalogRevision: 0 for the first publication.
  *
  * Persistence is the in-memory test double: this is contract evidence, not
  * database evidence (see scripts/production/B/postgres-acceptance.mjs).
@@ -70,11 +69,12 @@ test('catalog.v1: the published descriptor is structurally valid and matches the
   assert.equal(PREFIX, '/internal/v1/catalog');
   const routes = Object.values(catalog.CATALOG_V1.routes).map((r) => `${r.method} ${r.path}`);
   assert.deepEqual(routes.sort(), [
+    'GET /current',
     'GET /definitions',
     'GET /definitions/:definitionId',
     'POST /publications',
   ]);
-  // Nest metadata of the real controller: the same three routes and nothing else.
+  // Nest metadata of the real controller: exactly the published routes.
   const proto = CatalogController.prototype;
   const served = Object.getOwnPropertyNames(proto)
     .filter((name) => name !== 'constructor')
@@ -92,14 +92,27 @@ test('catalog.v1: the published descriptor is structurally valid and matches the
 test('catalog.v1: every success body parses with the published parsers', async () => {
   const http = await harness();
   try {
+    const initial = await http.request('GET', `${PREFIX}/current`);
+    const current = catalog.parseCurrentCatalogV1(initial.body);
+    assert.equal(current.state, 'UNPUBLISHED');
+    assert.equal(current.catalog, null);
+    assert.equal(current.expectedCatalogRevision, 0);
     const published = await http.request('POST', `${PREFIX}/publications`, {
       token: TOKENS.admin,
       key: key(),
-      body: publishBody(0, definitionsFixture()),
+      body: catalog.parsePublishCatalogRequestV1(
+        publishBody(current.expectedCatalogRevision, definitionsFixture()),
+      ),
     });
     assert.equal(published.status, 201);
     const parsed = catalog.parseCatalogV1(published.body);
     assert.equal(parsed.catalogRevision, 1);
+    const owner = catalog.parseCurrentCatalogV1(
+      (await http.request('GET', `${PREFIX}/current`)).body,
+    );
+    assert.equal(owner.state, 'PUBLISHED');
+    assert.equal(owner.expectedCatalogRevision, 1);
+    assert.deepEqual(owner.catalog, parsed);
 
     const second = definitionsFixture();
     second[2] = { ...second[2], status: 'RETIRED' };
@@ -107,7 +120,7 @@ test('catalog.v1: every success body parses with the published parsers', async (
     const next = await http.request('POST', `${PREFIX}/publications`, {
       token: TOKENS.admin,
       key: key(),
-      // From revision 1 on, the request itself is a published-parser document.
+      // Every publication, including the first, is a published-parser document.
       body: catalog.parsePublishCatalogRequestV1(publishBody(1, second, 'RETIRE_EXTRA')),
     });
     assert.equal(next.status, 201);
@@ -268,10 +281,10 @@ test('catalog.v1: the service and the published parser agree on every request do
     }
     assert.equal(accepts(catalog.parsePublishCatalogRequestV1, documents[0][1]), true);
 
-    // CR-B-P06-01: the only deliberate superset.
+    // The former first-publication gap is closed in the shared contract.
     assert.equal(
       accepts(catalog.parsePublishCatalogRequestV1, publishBody(0, definitionsFixture())),
-      false,
+      true,
     );
   } finally {
     await http.close();

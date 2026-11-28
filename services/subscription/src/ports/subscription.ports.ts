@@ -91,9 +91,13 @@ export const AUDIT_ACTIONS = [
   'subscription.requested',
   'subscription.activated',
   'subscription.renewed',
+  'subscription.renewal-requested',
+  'subscription.funding-release-retried',
   'subscription.frozen',
   'subscription.unfrozen',
   'subscription.cancelled',
+  'subscription.change-requested',
+  'subscription.change-rejected',
   'subscription.entitlement.reserved',
   'subscription.entitlement.committed',
   'subscription.entitlement.released',
@@ -137,6 +141,14 @@ export interface IdempotencyReceipt {
   readonly outcome: RecordedOutcome;
 }
 
+export interface WorkloadReceipt {
+  readonly clientId: string;
+  readonly operation: string;
+  readonly key: string;
+  readonly fingerprint: string;
+  readonly outcome: RecordedOutcome;
+}
+
 export class ReceiptAlreadyExists extends Error {
   constructor() {
     super('RECEIPT_ALREADY_EXISTS');
@@ -169,6 +181,26 @@ export interface LockedSubscription {
 }
 
 export interface SubscriptionUnitOfWork {
+  retryFundingRelease(
+    subscriptionId: string,
+    expectedAttempts: number,
+    at: Date,
+  ): Promise<{ attempts: number; attemptLimit: number } | null>;
+  insertChange(record: SubscriptionChangeRecord): Promise<void>;
+  lockChange(id: string): Promise<SubscriptionChangeRecord | null>;
+  updateChange(record: SubscriptionChangeRecord): Promise<void>;
+  lockPurchase(id: string): Promise<PurchaseRecord | null>;
+  purchaseForQuote(quoteId: string): Promise<PurchaseRecord | null>;
+  purchaseForPeriod(subscriptionId: string, periodNo: number): Promise<PurchaseRecord | null>;
+  insertPurchase(record: PurchaseRecord): Promise<void>;
+  updatePurchase(record: PurchaseRecord): Promise<void>;
+  /** Serializes one workload command even before a reservation exists. */
+  lockWorkloadReceipt(
+    clientId: string,
+    operation: string,
+    key: string,
+  ): Promise<WorkloadReceipt | null>;
+  saveWorkloadReceipt(receipt: WorkloadReceipt, at: Date): Promise<void>;
   /** Serialises publishers of one plan code (creates the plan row on first use). */
   lockPlan(planCode: string, createdBy: string, at: Date): Promise<RevisionHead | null>;
   insertRevision(revision: PlanRevisionRecord): Promise<void>;
@@ -201,6 +233,16 @@ export interface LedgerView {
 }
 
 export interface SubscriptionRepository {
+  fundingRecoveries(limit: number): Promise<Record<string, unknown>[]>;
+  pendingChanges(limit: number): Promise<SubscriptionChangeRecord[]>;
+  canonicalPlanCodes(after: string | null, limit: number): Promise<string[]>;
+  canonicalSubscriptionsOf(
+    subject: string,
+    after: string | null,
+    limit: number,
+  ): Promise<SubscriptionRecord[]>;
+  purchase(id: string): Promise<PurchaseRecord | null>;
+  purchaseForSubscription(subscriptionId: string): Promise<PurchaseRecord | null>;
   transaction<T>(work: (uow: SubscriptionUnitOfWork) => Promise<T>): Promise<T>;
   findReceipt(actor: string, operation: string, key: string): Promise<IdempotencyReceipt | null>;
   planCodes(limit: number): Promise<string[]>;
@@ -246,10 +288,109 @@ export interface AccessAuthority {
   verify(credential: string | undefined, correlationId: string): Promise<VerifiedPrincipal>;
 }
 
+/** Billing alone verifies settled, unrefunded funding owned by this account. */
+export interface FundingAuthority {
+  claim(input: FundingClaimInput): Promise<'CLAIMED' | 'NOT_VERIFIED' | 'UNAVAILABLE'>;
+  release(input: {
+    readonly subscriptionId: string;
+    readonly customerSubject: string;
+    readonly correlationId: string;
+  }): Promise<'RELEASED' | 'UNAVAILABLE'>;
+  verify(input: {
+    readonly obligationId: string;
+    readonly customerSubject: string;
+    readonly amount: import('../domain').Money;
+    readonly correlationId: string;
+    readonly quoteId?: string;
+  }): Promise<'VERIFIED' | 'NOT_VERIFIED' | 'UNAVAILABLE'>;
+}
+
+export interface FundingClaimInput {
+  readonly obligationId: string;
+  readonly customerSubject: string;
+  readonly subscriptionId: string;
+  readonly periodNo: number;
+  readonly amount: import('../domain').Money;
+  readonly correlationId: string;
+  readonly quoteId?: string;
+}
+
+export interface PurchaseRecord {
+  readonly id: string;
+  readonly customerSubject: string;
+  readonly subscriptionId: string;
+  readonly periodNo: number;
+  readonly planId: string;
+  readonly planVersion: number;
+  readonly quoteId: string;
+  readonly amount: import('../domain').Money;
+  readonly paymentMethod: 'CASH_ON_COMPLETION' | 'SHAM_CASH' | 'SYRIATEL_CASH';
+  readonly status:
+    | 'PENDING_PAYMENT'
+    | 'PAYMENT_UNDER_REVIEW'
+    | 'PAYMENT_UNKNOWN'
+    | 'ACTIVATED'
+    | 'REJECTED'
+    | 'EXPIRED';
+  readonly revision: number;
+  readonly obligationId: string | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+}
+
+export interface PurchaseQuote {
+  readonly quoteId: string;
+  readonly planId: string;
+  readonly planVersion: number;
+  readonly customerSubject: string;
+  readonly amount: import('../domain').Money;
+  readonly expiresAt: Date;
+}
+export interface PurchaseOwners {
+  quote(id: string, credential: string, correlationId: string): Promise<PurchaseQuote | null>;
+  createObligation(
+    quoteId: string,
+    method: PurchaseRecord['paymentMethod'],
+    credential: string,
+    key: string,
+    correlationId: string,
+  ): Promise<PurchaseObligation>;
+  obligation(id: string, credential: string, correlationId: string): Promise<PurchaseObligation>;
+}
+export interface PurchaseObligation {
+  readonly obligationId: string;
+  readonly quoteId: string;
+  readonly status: string;
+  readonly financialStatus: string;
+  readonly amount: import('../domain').Money;
+}
+
+export class PurchaseOwnerRefusal extends Error {
+  constructor(readonly code: string) {
+    super(code);
+    this.name = 'PurchaseOwnerRefusal';
+  }
+}
+
+export interface SubscriptionChangeRecord {
+  readonly id: string;
+  readonly subscriptionId: string;
+  readonly expectedRevision: number;
+  readonly action: 'FREEZE' | 'RESUME' | 'CANCEL';
+  readonly reason: string;
+  readonly requestedBy: string;
+  readonly requestedAt: Date;
+  readonly status: 'PENDING_REVIEW' | 'APPLIED' | 'REJECTED';
+  readonly decidedBy: string | null;
+  readonly decidedAt: Date | null;
+}
+
 /** Service-to-service scopes Subscription itself defines (deny by default). */
 export const SERVICE_SCOPES = [
   'subscription.entitlement.reserve',
   'subscription.entitlement.settle',
+  'subscription.entitlement.resolve',
+  'subscription.entitlement.read',
 ] as const;
 export type ServiceScope = (typeof SERVICE_SCOPES)[number];
 

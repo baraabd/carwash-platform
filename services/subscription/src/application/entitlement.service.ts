@@ -1,3 +1,4 @@
+import { subscriptionV1 } from '@carwash/contracts';
 import {
   DELTAS,
   PACKAGE_ID,
@@ -15,9 +16,11 @@ import type {
   ActorRef,
   AuditAction,
   Clock,
+  FundingAuthority,
   Hasher,
   IdGenerator,
   ReservationRecord,
+  RecordedOutcome,
   ServiceCallerAuthority,
   SettlementReason,
   SubscriptionRepository,
@@ -40,6 +43,7 @@ import {
 } from './request-support';
 import { SubscriptionApplicationError } from './subscription-errors';
 import { ledgerView, reservationView } from './views';
+import { requirePeriodFunding } from './period-funding';
 
 export const REVERSE_OPERATION = 'subscription.entitlement.reverse.v1';
 
@@ -69,6 +73,7 @@ export class EntitlementService {
   constructor(
     private readonly deps: {
       readonly repository: SubscriptionRepository;
+      readonly funding: FundingAuthority;
       readonly authority: AccessAuthority;
       readonly callers: ServiceCallerAuthority;
       readonly clock: Clock;
@@ -76,6 +81,229 @@ export class EntitlementService {
       readonly hasher: Hasher;
     },
   ) {}
+
+  private canonicalInput<T>(parse: (body: unknown) => T, body: unknown): T {
+    try {
+      return parse(body);
+    } catch {
+      throw new SubscriptionApplicationError('REQUEST_INVALID');
+    }
+  }
+
+  private async canonicalView(
+    reservation: ReservationRecord,
+    uow?: SubscriptionUnitOfWork,
+  ): Promise<Record<string, unknown>> {
+    const purchase = await this.deps.repository.purchaseForSubscription(reservation.subscriptionId);
+    if (purchase?.status !== 'ACTIVATED') throw new SubscriptionApplicationError('NOT_FOUND');
+    const period = uow
+      ? await uow.lockPeriod(reservation.subscriptionId, reservation.periodNo)
+      : await this.deps.repository.period(reservation.subscriptionId, reservation.periodNo);
+    if (!period || reservation.status === 'REVERSED')
+      throw new SubscriptionApplicationError('RESERVATION_NOT_RESERVED');
+    return {
+      ...subscriptionV1.parseEntitlementReservationV1({
+        reservationId: reservation.id,
+        revision: reservation.version,
+        subscriptionId: reservation.subscriptionId,
+        bookingId: reservation.bookingId,
+        packageId: reservation.packageId,
+        status: reservation.status === 'COMMITTED' ? 'CONSUMED' : reservation.status,
+        reservedAt: reservation.reservedAt.toISOString(),
+        expiresAt: period.endsAt.toISOString(),
+        resolvedAt: reservation.settledAt?.toISOString() ?? null,
+      }),
+    };
+  }
+
+  private async workloadCommand(
+    clientId: string,
+    operation: string,
+    rawKey: unknown,
+    input: unknown,
+    work: (uow: SubscriptionUnitOfWork, now: Date) => Promise<RecordedOutcome>,
+  ): Promise<CommandResult> {
+    const key = idempotencyKey(rawKey);
+    const fingerprint = this.deps.hasher.sha256Hex(canonicalJson(input));
+    try {
+      return await this.deps.repository.transaction(async (uow) => {
+        const receipt = await uow.lockWorkloadReceipt(clientId, operation, key);
+        if (receipt) {
+          if (receipt.fingerprint !== fingerprint)
+            throw new SubscriptionApplicationError('IDEMPOTENCY_CONFLICT');
+          return { ...receipt.outcome, replayed: true };
+        }
+        const now = this.deps.clock.now();
+        const outcome = await work(uow, now);
+        await uow.saveWorkloadReceipt({ clientId, operation, key, fingerprint, outcome }, now);
+        return { ...outcome, replayed: false };
+      });
+    } catch (error: unknown) {
+      throw asApplicationError(error);
+    }
+  }
+
+  /** Published subscription.v1 participant, with durable key and natural Booking fences. */
+  async reserveCanonical(
+    context: RequestContext,
+    rawKey: unknown,
+    body: unknown,
+  ): Promise<CommandResult> {
+    const client = serviceCaller(this.deps.callers, context, 'subscription.entitlement.reserve');
+    const input = this.canonicalInput(subscriptionV1.parseReserveEntitlementRequestV1, body);
+    if (input.beneficiary.kind !== 'account') throw new SubscriptionApplicationError('NOT_FOUND');
+    const purchase = await this.deps.repository.purchaseForSubscription(input.subscriptionId);
+    if (
+      purchase?.status !== 'ACTIVATED' ||
+      purchase.customerSubject !== input.beneficiary.subjectId
+    )
+      throw new SubscriptionApplicationError('NOT_FOUND');
+    if (!input.scheduledFor)
+      throw new SubscriptionApplicationError('REQUEST_INVALID', { field: 'scheduledFor' });
+    if (!input.vehicleType)
+      throw new SubscriptionApplicationError('REQUEST_INVALID', { field: 'vehicleType' });
+    const scheduledFor = new Date(input.scheduledFor);
+    return this.workloadCommand(
+      client,
+      'subscription.entitlement.reserve.v1',
+      rawKey,
+      input,
+      async (uow, now) => {
+        const locked = await uow.lockSubscription(input.subscriptionId);
+        if (!locked || locked.subscription.customerSubject !== input.beneficiary.subjectId)
+          throw new SubscriptionApplicationError('NOT_FOUND');
+        if (!locked.subscription.terms.vehicleTypes?.includes(input.vehicleType ?? ''))
+          throw new SubscriptionApplicationError('PACKAGE_NOT_COVERED');
+        const existing = await uow.reservationFor(input.subscriptionId, input.bookingId);
+        if (existing) {
+          if (
+            existing.reservedBy !== client ||
+            existing.packageId !== input.packageId ||
+            existing.scheduledFor.getTime() !== scheduledFor.getTime()
+          )
+            throw new SubscriptionApplicationError('RESERVATION_CONFLICT');
+          return { status: 200, body: await this.canonicalView(existing, uow) };
+        }
+        if (locked.subscription.version !== input.expectedRevision)
+          throw new SubscriptionApplicationError('VERSION_CONFLICT');
+        const next = planReservation({
+          state: {
+            status: locked.subscription.status,
+            version: locked.subscription.version,
+            terms: locked.subscription.terms,
+            currentPeriod: locked.period,
+          },
+          packageId: input.packageId,
+          scheduledFor,
+          now,
+        });
+        const reservation: ReservationRecord = {
+          id: this.deps.ids.uuid(),
+          subscriptionId: input.subscriptionId,
+          periodNo: next.periodNo,
+          bookingId: input.bookingId,
+          packageId: input.packageId,
+          scheduledFor,
+          status: 'RESERVED',
+          version: 1,
+          reservedAt: now,
+          reservedBy: client,
+          settledAt: null,
+          settledBy: null,
+          reason: null,
+          correlationId: context.correlationId,
+        };
+        if (!locked.period) throw new SubscriptionApplicationError('SUBSCRIPTION_NOT_ACTIVE');
+        await requirePeriodFunding(
+          this.deps.funding,
+          uow,
+          locked.subscription,
+          locked.period,
+          context.correlationId,
+        );
+        await uow.insertReservation(reservation);
+        await uow.updatePeriodCounters({ ...next, subscriptionId: input.subscriptionId });
+        await this.record(
+          uow,
+          now,
+          { kind: 'service', id: client },
+          'RESERVE',
+          reservation,
+          null,
+          context.correlationId,
+        );
+        return { status: 201, body: await this.canonicalView(reservation, uow) };
+      },
+    );
+  }
+
+  async resolveCanonical(
+    context: RequestContext,
+    rawKey: unknown,
+    rawId: string,
+    body: unknown,
+  ): Promise<CommandResult> {
+    const client = serviceCaller(this.deps.callers, context, 'subscription.entitlement.resolve');
+    const reservationId = pathId(rawId);
+    const input = this.canonicalInput(subscriptionV1.parseResolveEntitlementRequestV1, body);
+    const kind = input.action === 'CONSUME' ? 'COMMIT' : 'RELEASE';
+    return this.workloadCommand(
+      client,
+      'subscription.entitlement.resolve.v1',
+      rawKey,
+      { reservationId, ...input },
+      async (uow, now) => {
+        const reservation = await uow.lockReservation(reservationId);
+        if (
+          !reservation ||
+          reservation.reservedBy !== client ||
+          reservation.bookingId !== input.bookingId
+        )
+          throw new SubscriptionApplicationError('NOT_FOUND');
+        if (reservation.status === TARGET[kind])
+          return { status: 200, body: await this.canonicalView(reservation, uow) };
+        const updated = await this.settle(
+          uow,
+          now,
+          { kind: 'service', id: client },
+          reservation,
+          kind,
+          kind === 'RELEASE' ? 'SAGA_COMPENSATION' : null,
+          context.correlationId,
+        );
+        return { status: 200, body: await this.canonicalView(updated, uow) };
+      },
+    );
+  }
+
+  async getCanonical(context: RequestContext, rawId: string): Promise<Record<string, unknown>> {
+    const client = serviceCaller(this.deps.callers, context, 'subscription.entitlement.read');
+    const reservation = await this.deps.repository.reservation(pathId(rawId));
+    if (!reservation || reservation.reservedBy !== client)
+      throw new SubscriptionApplicationError('NOT_FOUND');
+    return this.canonicalView(reservation);
+  }
+
+  async findCanonical(
+    context: RequestContext,
+    bookingId: unknown,
+  ): Promise<{ items: Record<string, unknown>[] }> {
+    const client = serviceCaller(this.deps.callers, context, 'subscription.entitlement.read');
+    const reservations = await this.deps.repository.reservationsForBooking(
+      uuidField(bookingId, 'bookingId'),
+    );
+    const visible = await Promise.all(
+      reservations
+        .filter((r) => r.reservedBy === client)
+        .map(async (reservation) => {
+          const purchase = await this.deps.repository.purchaseForSubscription(
+            reservation.subscriptionId,
+          );
+          return purchase?.status === 'ACTIVATED' ? this.canonicalView(reservation) : null;
+        }),
+    );
+    return { items: visible.filter((reservation) => reservation !== null) };
+  }
 
   private async record(
     uow: SubscriptionUnitOfWork,
@@ -157,6 +385,8 @@ export class EntitlementService {
       'scheduledFor',
     ]);
     const subscriptionId = uuidField(input.subscriptionId, 'subscriptionId');
+    if (await this.deps.repository.purchaseForSubscription(subscriptionId))
+      throw new SubscriptionApplicationError('LEGACY_OPERATION_NOT_ALLOWED');
     const bookingId = uuidField(input.bookingId, 'bookingId');
     const customerSubject = uuidField(input.customerSubject, 'customerSubject');
     if (typeof input.packageId !== 'string' || !PACKAGE_ID.test(input.packageId))
@@ -207,6 +437,14 @@ export class EntitlementService {
           reason: null,
           correlationId: context.correlationId,
         };
+        if (!locked.period) throw new SubscriptionApplicationError('SUBSCRIPTION_NOT_ACTIVE');
+        await requirePeriodFunding(
+          this.deps.funding,
+          uow,
+          locked.subscription,
+          locked.period,
+          context.correlationId,
+        );
         await uow.insertReservation(reservation);
         await uow.updatePeriodCounters({ ...next, subscriptionId });
         await this.record(uow, now, actor, 'RESERVE', reservation, null, context.correlationId);
@@ -240,6 +478,11 @@ export class EntitlementService {
     const status = nextReservationStatus(reservation.status, kind);
     const period = await uow.lockPeriod(reservation.subscriptionId, reservation.periodNo);
     if (!period) throw new Error('RESERVATION_PERIOD_MISSING');
+    if (kind === 'COMMIT') {
+      const subscription = await this.deps.repository.subscription(reservation.subscriptionId);
+      if (!subscription) throw new SubscriptionApplicationError('NOT_FOUND');
+      await requirePeriodFunding(this.deps.funding, uow, subscription, period, correlationId);
+    }
     const next = applyMovement(period, kind);
     const updated: ReservationRecord = {
       ...reservation,
@@ -264,6 +507,9 @@ export class EntitlementService {
   ): Promise<CommandResult> {
     const client = serviceCaller(this.deps.callers, context, 'subscription.entitlement.settle');
     const reservationId = pathId(id);
+    const known = await this.deps.repository.reservation(reservationId);
+    if (known && (await this.deps.repository.purchaseForSubscription(known.subscriptionId)))
+      throw new SubscriptionApplicationError('LEGACY_OPERATION_NOT_ALLOWED');
     let reason: SettlementReason | null = null;
     if (kind === 'RELEASE')
       reason = oneOf(objectWithKeys(body, ['reason']).reason, RELEASE_REASONS, 'reason');
@@ -320,6 +566,8 @@ export class EntitlementService {
     const known = await this.deps.repository.reservation(reservationId);
     const owner = known ? await this.deps.repository.subscription(known.subscriptionId) : null;
     if (!known || !owner) throw new SubscriptionApplicationError('NOT_FOUND');
+    if (await this.deps.repository.purchaseForSubscription(known.subscriptionId))
+      throw new SubscriptionApplicationError('LEGACY_OPERATION_NOT_ALLOWED');
     if (owner.customerSubject === principal.subject)
       throw new SubscriptionApplicationError('SELF_SERVICE_FORBIDDEN');
     return receiptCommand({

@@ -84,6 +84,7 @@ test('http provider: an uncorrelatable 2xx is AMBIGUOUS, not success', async () 
 
 test('http provider: status codes are classified conservatively', async () => {
   const cases: [number, unknown][] = [
+    [408, { kind: 'AMBIGUOUS', code: 'PROVIDER_SERVER_408' }],
     [429, { kind: 'REJECTED', code: 'PROVIDER_REFUSED_429', retryable: true }],
     [401, { kind: 'REJECTED', code: 'PROVIDER_REFUSED_401', retryable: true }],
     [422, { kind: 'REJECTED', code: 'PROVIDER_REJECTED_422', retryable: false }],
@@ -97,6 +98,33 @@ test('http provider: status codes are classified conservatively', async () => {
         expected,
       );
     });
+});
+
+test('http provider: an Identity recipient requires an explicitly capable adapter and keeps its namespace', async () => {
+  const seen: unknown[] = [];
+  await withServer(
+    (req, res, body) => {
+      seen.push(JSON.parse(body));
+      reply(202, '{"messageId":"native-recipient"}')(req, res, body);
+    },
+    async (url) => {
+      const submission = { ...SUBMISSION, recipientNamespace: 'IDENTITY_ACCOUNT' as const };
+      assert.deepEqual(await provider(url).submit(submission, AbortSignal.timeout(2_000)), {
+        kind: 'NOT_SUBMITTED',
+        code: 'RECIPIENT_NAMESPACE_UNSUPPORTED',
+      });
+      assert.equal(seen.length, 0);
+      const capable = new HttpNotificationProvider({
+        endpoint: url,
+        token: TOKEN,
+        idempotentSubmission: false,
+        recipientNamespaces: ['IDENTITY_ACCOUNT'],
+      });
+      assert.equal((await capable.submit(submission, AbortSignal.timeout(2_000))).kind, 'ACCEPTED');
+    },
+  );
+  assert.equal(seen.length, 1);
+  assert.equal((seen[0] as { recipientNamespace: string }).recipientNamespace, 'IDENTITY_ACCOUNT');
 });
 
 test('http provider: a provider that never answers is a timeout, i.e. AMBIGUOUS', async () => {

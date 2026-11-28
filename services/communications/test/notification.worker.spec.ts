@@ -54,6 +54,9 @@ function queue(size: number, failCompletion = false) {
     enqueue() {
       return Promise.reject(new Error('UNUSED_PORT'));
     },
+    cancelBooking() {
+      return Promise.reject(new Error('UNUSED_PORT'));
+    },
     applyReceipt() {
       return Promise.reject(new Error('UNUSED_PORT'));
     },

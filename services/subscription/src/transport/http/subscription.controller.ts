@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Headers,
+  HttpCode,
   Inject,
   Param,
   Post,
@@ -29,9 +30,11 @@ import {
   type RequestContext,
   type SubscriptionErrorCode,
 } from '../../application';
+import { CanonicalSubscriptionService } from '../../application/canonical-subscription.service';
 
 export const SUBSCRIPTION_SERVICE = 'SUBSCRIPTION_SERVICE';
 export const ENTITLEMENT_SERVICE = 'ENTITLEMENT_SERVICE';
+export const CANONICAL_SUBSCRIPTION_SERVICE = 'CANONICAL_SUBSCRIPTION_SERVICE';
 export const SUBSCRIPTION_V1 = 'internal/v1/subscription';
 
 type Headers_ = Record<string, string | undefined>;
@@ -64,6 +67,8 @@ export class SubscriptionController {
   constructor(
     @Inject(SUBSCRIPTION_SERVICE) private readonly subscriptions: SubscriptionService,
     @Inject(ENTITLEMENT_SERVICE) private readonly entitlements: EntitlementService,
+    @Inject(CANONICAL_SUBSCRIPTION_SERVICE)
+    private readonly canonical: CanonicalSubscriptionService,
   ) {}
 
   private context(headers: Headers_): RequestContext {
@@ -72,6 +77,7 @@ export class SubscriptionController {
       correlationId: resolveCorrelationId(headers[CORRELATION_HEADER]),
       serviceClient: headers[SERVICE_CLIENT_HEADER],
       serviceToken: headers[SERVICE_TOKEN_HEADER],
+      bearerPresent: headers.authorization !== undefined || headers.cookie !== undefined,
     };
   }
 
@@ -120,12 +126,12 @@ export class SubscriptionController {
 
   // ---------------------------------------------------------------- plans
 
-  @Get('plans')
+  @Get('administration/plans')
   plans(@Headers() headers: Headers_) {
     return this.run(() => this.subscriptions.listPlans(this.context(headers)));
   }
 
-  @Get('plans/:code')
+  @Get('administration/plans/:code')
   plan(@Headers() headers: Headers_, @Param('code') code: string) {
     return this.run(() => this.subscriptions.getPlan(this.context(headers), code));
   }
@@ -149,6 +155,56 @@ export class SubscriptionController {
 
   // -------------------------------------------------------- subscriptions
 
+  @Get('plans')
+  canonicalPlans(@Query() query: { limit?: unknown; cursor?: unknown }) {
+    return this.run(() => this.canonical.listPlans(query));
+  }
+  @Get('plans/:planId')
+  canonicalPlan(@Param('planId') id: string) {
+    return this.run(() => this.canonical.getPlan(id));
+  }
+  @Post('plans/:planId/versions')
+  canonicalPublish(
+    @Headers() headers: Headers_,
+    @Param('planId') id: string,
+    @Body() body: unknown,
+    @Res() response: HttpResponse,
+  ) {
+    return this.send('subscription_canonical_plan_publish', headers, response, (context) =>
+      this.canonical.publish(context, headers['idempotency-key'], id, body),
+    );
+  }
+  @Post('purchases')
+  purchase(@Headers() headers: Headers_, @Body() body: unknown, @Res() response: HttpResponse) {
+    return this.send('subscription_purchase_create', headers, response, (context) =>
+      this.canonical.createPurchase(context, headers['idempotency-key'], body),
+    );
+  }
+  @Post('subscriptions/:id/renewals')
+  createRenewal(
+    @Headers() headers: Headers_,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Res() response: HttpResponse,
+  ) {
+    return this.send('subscription_renewal_purchase', headers, response, (context) =>
+      this.canonical.createRenewal(context, headers['idempotency-key'], id, body),
+    );
+  }
+  @Get('purchases/by-request/:idempotencyKey')
+  purchaseByRequest(@Headers() headers: Headers_, @Param('idempotencyKey') key: string) {
+    return this.run(() => this.canonical.getPurchaseByRequest(this.context(headers), key));
+  }
+  @Get('purchases/:id')
+  getPurchase(@Headers() headers: Headers_, @Param('id') id: string) {
+    return this.run(() => this.canonical.getPurchase(this.context(headers), id));
+  }
+  @Post('subscriptions/:id/eligibility')
+  @HttpCode(200)
+  eligibility(@Headers() headers: Headers_, @Param('id') id: string, @Body() body: unknown) {
+    return this.run(() => this.canonical.eligibility(this.context(headers), id, body));
+  }
+
   @Post('subscriptions')
   request(@Headers() headers: Headers_, @Body() body: unknown, @Res() response: HttpResponse) {
     return this.send('subscription_request_outcome', headers, response, (context) =>
@@ -156,14 +212,69 @@ export class SubscriptionController {
     );
   }
 
-  @Get('subscriptions')
+  @Get('legacy/subscriptions')
   mine(@Headers() headers: Headers_) {
     return this.run(() => this.subscriptions.mySubscriptions(this.context(headers)));
   }
 
-  @Get('subscriptions/:id')
+  @Get('legacy/subscriptions/:id')
   subscription(@Headers() headers: Headers_, @Param('id') id: string) {
     return this.run(() => this.subscriptions.getSubscription(this.context(headers), id));
+  }
+
+  @Get('subscriptions')
+  canonicalMine(
+    @Headers() headers: Headers_,
+    @Query() query: { limit?: unknown; cursor?: unknown },
+  ) {
+    return this.run(() => this.canonical.listSubscriptions(this.context(headers), query));
+  }
+  @Get('subscriptions/:id')
+  canonicalSubscription(@Headers() headers: Headers_, @Param('id') id: string) {
+    return this.run(() => this.canonical.getSubscription(this.context(headers), id));
+  }
+
+  @Post('subscriptions/:id/changes')
+  canonicalChange(
+    @Headers() headers: Headers_,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Res() response: HttpResponse,
+  ) {
+    return this.send('subscription_change_requested', headers, response, (context) =>
+      this.canonical.requestChange(context, headers['idempotency-key'], id, body),
+    );
+  }
+  @Get('administration/changes')
+  pendingChanges(@Headers() headers: Headers_) {
+    return this.run(() => this.canonical.pendingChanges(this.context(headers)));
+  }
+  @Get('administration/funding-recovery')
+  fundingRecoveries(@Headers() headers: Headers_) {
+    return this.run(() => this.canonical.fundingRecoveries(this.context(headers)));
+  }
+  @Post('administration/funding-recovery/:id/retry')
+  retryFundingRelease(
+    @Headers() headers: Headers_,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Res() response: HttpResponse,
+  ) {
+    return this.send('subscription_funding_release_retried', headers, response, (context) =>
+      this.canonical.retryFundingRelease(context, headers['idempotency-key'], id, body),
+    );
+  }
+  @Post('subscriptions/:id/changes/:changeId/decision')
+  decideChange(
+    @Headers() headers: Headers_,
+    @Param('id') id: string,
+    @Param('changeId') changeId: string,
+    @Body() body: unknown,
+    @Res() response: HttpResponse,
+  ) {
+    return this.send('subscription_change_decided', headers, response, (context) =>
+      this.canonical.decideChange(context, headers['idempotency-key'], id, changeId, body),
+    );
   }
 
   @Get('subscriptions/:id/ledger')
@@ -237,6 +348,39 @@ export class SubscriptionController {
   }
 
   // --------------------------------------------------------- entitlements
+
+  @Post('entitlement-reservations')
+  reserveCanonical(
+    @Headers() headers: Headers_,
+    @Body() body: unknown,
+    @Res() response: HttpResponse,
+  ) {
+    return this.send('subscription_canonical_reserve', headers, response, (context) =>
+      this.entitlements.reserveCanonical(context, headers['idempotency-key'], body),
+    );
+  }
+
+  @Post('entitlement-reservations/:id/resolution')
+  resolveCanonical(
+    @Headers() headers: Headers_,
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Res() response: HttpResponse,
+  ) {
+    return this.send('subscription_canonical_resolution', headers, response, (context) =>
+      this.entitlements.resolveCanonical(context, headers['idempotency-key'], id, body),
+    );
+  }
+
+  @Get('entitlement-reservations/:id')
+  getCanonical(@Headers() headers: Headers_, @Param('id') id: string) {
+    return this.run(() => this.entitlements.getCanonical(this.context(headers), id));
+  }
+
+  @Get('entitlement-reservations')
+  findCanonical(@Headers() headers: Headers_, @Query('bookingId') bookingId: string | undefined) {
+    return this.run(() => this.entitlements.findCanonical(this.context(headers), bookingId));
+  }
 
   @Post('reservations')
   reserve(@Headers() headers: Headers_, @Body() body: unknown, @Res() response: HttpResponse) {

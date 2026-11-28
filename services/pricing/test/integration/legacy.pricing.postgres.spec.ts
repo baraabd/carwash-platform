@@ -513,8 +513,21 @@ test('postgres: trigger functions are not executable by the runtime role or PUBL
        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = 'app' AND starts_with(p.proname, 'pricing_')`,
   );
-  // Five P01 guards, three promotion guards and four pricing.v1 guards coexist.
-  assert.equal(rows.rowCount, 12);
+  assert.deepEqual(rows.rows.map((row) => String(row.proname)).sort(), [
+    'pricing_check_price_book_entries',
+    'pricing_check_pricing_quote',
+    'pricing_check_quote_consistency',
+    'pricing_check_redemption_caps',
+    'pricing_guard_promotion_revision',
+    'pricing_guard_redemption',
+    'pricing_reject_mutation',
+    'pricing_require_increasing_effective_from',
+    'pricing_require_open_price_book',
+    'pricing_require_open_pricing_quote',
+    'pricing_require_open_quote',
+    'pricing_require_open_version',
+    'pricing_subscription_quote_immutable',
+  ]);
   for (const row of rows.rows) {
     assert.equal(row.runtime, false, row.proname);
     assert.doesNotMatch(row.acl, /(^|,)=X/, `${row.proname} must not grant EXECUTE to PUBLIC`);

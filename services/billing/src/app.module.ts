@@ -1,5 +1,18 @@
+import { BILLING_SERVICE_SCOPES } from './ports';
 import { Module } from '@nestjs/common';
-import { HealthModule, createLogger, type DependencyProbe } from '@carwash/service-kit';
+import {
+  HealthController,
+  HEALTH_OPTIONS,
+  schemaReadinessProbe,
+  type HealthOptions,
+  type RuntimeCapability,
+  databaseSchemaFromUrl,
+  originCapability,
+  configurationCapability,
+  serviceClientsCapability,
+  createLogger,
+  type DependencyProbe,
+} from '@carwash/service-kit';
 import {
   DATABASE_URL,
   PrismaService,
@@ -30,6 +43,11 @@ import {
   pricingCredentialFromEnv,
 } from './infrastructure/pricing/pricing-quote.validator';
 import { ServiceClientCallerAuthority } from './infrastructure/security/service-callers';
+import { SubscriptionFundingService } from './application/subscription-funding.service';
+import {
+  SUBSCRIPTION_FUNDING_SERVICE,
+  SubscriptionFundingController,
+} from './transport/http/subscription-funding.controller';
 import { RandomIds, Sha256Hasher, SystemClock } from './infrastructure/system/system.adapters';
 import {
   DispatchWorkAuthority,
@@ -54,22 +72,112 @@ import {
   REFUND_SERVICE,
 } from './transport/http/provider.controller';
 /**
- * Composition root for the billing service.
- *
- * Nest belongs here at the outside edge. Domain/application/ports do not import
- * it. BUSINESS_READY stays false: the owner API exists, but readiness promotion
- * still needs complete contract conformance, environment deployment and merchant
- * acceptance. Cash uses Dispatch's current assigned CLOSED work and Identity's
- * collection grant. Its registered custody events have a standalone cash-relay
- * worker, kept separate from API replicas; obligation and legacy provider/refund
- * outbox rows remain pending until their subscribers/contracts are wired.
- * Payment providers run with the capabilities possible without an official
- * merchant API (statement evidence + manual refunds); provider notifications
- * and verified queries stay unavailable until LIVE_PROVIDER_ACCEPTANCE.
+ * billing HTTP composition. The foundation fallback remains unready.
+ * Runtime promotion requires locally validated implemented capabilities and
+ * this owner's live database/schema; release, workers and external acceptance
+ * are separate gates and are never inferred from this health response.
  */
 export const PAYMENT_PROVIDERS = 'PAYMENT_PROVIDERS';
 export const SERVICE_NAME = 'billing';
 export const BUSINESS_READY = false;
+
+/** Owner-local schema surface; the release migration gate still proves exact revisions. */
+export const RUNTIME_TABLES = [
+  'service_marker',
+  'billing_obligation',
+  'payment_intent',
+  'payment_attempt',
+  'ledger_journal',
+  'ledger_line',
+  'billing_idempotency_receipt',
+  'billing_audit_event',
+  'outbox_message',
+  'cash_receipt',
+  'cash_receipt_reversal',
+  'custody_handover',
+  'custody_handover_item',
+  'provider_credit',
+  'subscription_funding_command',
+  'subscription_funding_namespace',
+  'subscription_funding_claim',
+  'payment_refund',
+  'booking_obligation',
+  'booking_compensation',
+] as const;
+
+export function runtimeCapabilities(
+  env: NodeJS.ProcessEnv = process.env,
+): readonly RuntimeCapability[] {
+  return [
+    originCapability('identity-authority', env.IDENTITY_SESSION_ORIGIN, env),
+    originCapability('pricing-contract', env.PRICING_ORIGIN, env),
+    originCapability('dispatch-work-contract', env.BILLING_DISPATCH_ORIGIN, env),
+    configurationCapability('pricing-workload-credential', () => {
+      const credential = pricingCredentialFromEnv(env);
+      return credential !== null && /^[\x21-\x7e]{32,256}$/.test(credential.token);
+    }),
+    serviceClientsCapability(
+      'billing-workload-scopes',
+      env.BILLING_SERVICE_CLIENTS,
+      BILLING_SERVICE_SCOPES,
+    ),
+    configurationCapability('merchant-statement-accounts', () =>
+      productionProviderRegistry(env)
+        .all()
+        .every((provider) => provider.diagnostics().merchantAccountCount > 0),
+    ),
+    {
+      ...configurationCapability('automated-provider-confirmation', () =>
+        productionProviderRegistry(env)
+          .all()
+          .every(
+            (provider) => provider.capabilities.notifications && provider.capabilities.creditQuery,
+          ),
+      ),
+      required: false,
+    },
+  ];
+}
+
+export function runtimeHealthOptions(
+  prisma: PrismaService,
+  url: string,
+  env: NodeJS.ProcessEnv = process.env,
+): HealthOptions {
+  return {
+    service: SERVICE_NAME,
+    businessReady: BUSINESS_READY,
+    runtimeCapabilities: runtimeCapabilities(env),
+    dependencies: [
+      postgresProbe(prisma),
+      schemaReadinessProbe(RUNTIME_TABLES, async () => {
+        const rows = await prisma.client.$queryRaw<
+          Array<{
+            table_name: string;
+            role_name: string;
+            session_role: string;
+            database_name: string;
+          }>
+        >`
+          SELECT table_name, current_user::text AS role_name, session_user::text AS session_role,
+            current_database()::text AS database_name FROM information_schema.tables
+          WHERE table_schema = ${databaseSchemaFromUrl(url)} AND table_type = 'BASE TABLE'
+        `;
+        if (
+          rows.some(
+            (row) =>
+              row.role_name !== `cw_${SERVICE_NAME}_app` ||
+              row.session_role !== `cw_${SERVICE_NAME}_app` ||
+              row.database_name !== `cw_${SERVICE_NAME}`,
+          )
+        )
+          throw new Error('OWNER_DATABASE_IDENTITY_MISMATCH');
+        return rows.map((row) => row.table_name);
+      }),
+    ],
+    logger: createLogger({ service: SERVICE_NAME }),
+  };
+}
 
 export function postgresProbe(prisma: PrismaService): DependencyProbe {
   return {
@@ -82,14 +190,8 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
 }
 
 @Module({
-  imports: [
-    HealthModule.forService({
-      service: SERVICE_NAME,
-      businessReady: BUSINESS_READY,
-      logger: createLogger({ service: SERVICE_NAME }),
-    }),
-  ],
   controllers: [
+    HealthController,
     BillingController,
     CustodyController,
     ProviderController,
@@ -97,12 +199,29 @@ export function postgresProbe(prisma: PrismaService): DependencyProbe {
     CanonicalRefundController,
     FinanceController,
     BookingObligationController,
+    SubscriptionFundingController,
   ],
   providers: [
+    {
+      provide: HEALTH_OPTIONS,
+      inject: [PrismaService, DATABASE_URL],
+      useFactory: (prisma: PrismaService, url: string) => runtimeHealthOptions(prisma, url),
+    },
     { provide: DATABASE_URL, useFactory: () => databaseUrlFromEnv() },
     PrismaService,
     PrismaBillingRepository,
     PrismaFinanceReadModel,
+    {
+      provide: SUBSCRIPTION_FUNDING_SERVICE,
+      inject: [PrismaBillingRepository],
+      useFactory: (repository: PrismaBillingRepository) =>
+        new SubscriptionFundingService({
+          repository,
+          callers: ServiceClientCallerAuthority.fromEnv(process.env),
+          clock: new SystemClock(),
+          hasher: new Sha256Hasher(),
+        }),
+    },
     // Fails startup on invalid merchant-account config or on automation
     // settings for an adapter that does not exist (never silently ignored).
     { provide: PAYMENT_PROVIDERS, useFactory: () => productionProviderRegistry(process.env) },

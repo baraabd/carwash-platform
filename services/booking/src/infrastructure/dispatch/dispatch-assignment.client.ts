@@ -1,4 +1,4 @@
-import { traceHeaders } from '@carwash/service-kit';
+import { isServiceOriginAllowed, traceHeaders } from '@carwash/service-kit';
 import {
   ASSIGNMENT_STATUSES,
   AssignmentUnavailable,
@@ -57,13 +57,7 @@ export function dispatchAssignmentConfig(env: NodeJS.ProcessEnv): DispatchAssign
   } catch {
     throw new Error('INVALID_BOOKING_DISPATCH_URL');
   }
-  if (
-    (baseUrl.protocol !== 'http:' && baseUrl.protocol !== 'https:') ||
-    baseUrl.username !== '' ||
-    baseUrl.password !== '' ||
-    baseUrl.search !== '' ||
-    baseUrl.hash !== ''
-  ) {
+  if (!isServiceOriginAllowed(baseUrl, env)) {
     throw new Error('INVALID_BOOKING_DISPATCH_URL');
   }
   const clientId = rawClientId === '' ? 'booking' : rawClientId;

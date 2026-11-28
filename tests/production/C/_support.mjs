@@ -114,9 +114,22 @@ export function startProcess(script, env, args = []) {
   child.stderr.on('data', (chunk) => {
     stderr += chunk;
   });
-  const exited = new Promise((resolve) =>
-    child.on('exit', (code, signal) => resolve({ code, signal })),
-  );
+  let exitResult;
+  const exited = new Promise((resolve) => {
+    const finish = (result) => {
+      if (exitResult) return;
+      exitResult = result;
+      for (const waiter of waiters.splice(0))
+        waiter.reject(
+          new Error(
+            `process stopped before expected line (${result.code ?? result.signal}); stderr=${stderr.slice(-500)}`,
+          ),
+        );
+      resolve(result);
+    };
+    child.once('error', (error) => finish({ code: null, signal: null, error: error.message }));
+    child.once('exit', (code, signal) => finish({ code, signal }));
+  });
   return {
     child,
     lines,
@@ -125,23 +138,30 @@ export function startProcess(script, env, args = []) {
     waitFor(match, timeoutMs = 30_000) {
       const found = lines.find(match);
       if (found) return Promise.resolve(found);
+      if (exitResult)
+        return Promise.reject(new Error(`process already stopped; stderr=${stderr.slice(-500)}`));
       return new Promise((resolve, reject) => {
-        const timer = setTimeout(
-          () => reject(new Error(`timeout waiting for line; stderr=${stderr.slice(-500)}`)),
-          timeoutMs,
-        );
-        waiters.push({
+        const waiter = {
           match,
           resolve: (line) => {
             clearTimeout(timer);
             resolve(line);
           },
-        });
+          reject: (error) => {
+            clearTimeout(timer);
+            reject(error);
+          },
+        };
+        const timer = setTimeout(() => {
+          waiters.splice(waiters.indexOf(waiter), 1);
+          reject(new Error(`timeout waiting for line; stderr=${stderr.slice(-500)}`));
+        }, timeoutMs);
+        waiters.push(waiter);
       });
     },
     /** SIGKILL: no shutdown hook, no finally block, exactly like a crash. */
     async kill() {
-      if (child.exitCode !== null) return;
+      if (exitResult || child.exitCode !== null || child.signalCode !== null) return;
       child.kill('SIGKILL');
       await exited;
     },

@@ -27,8 +27,8 @@ import { ApplicationError } from './errors';
 
 /**
  * A principal checks serviceability while booking for itself, so the session
- * must hold the guest/account booking permission. Staff tools need their own
- * reviewed permission; none is assumed here.
+ * must hold the guest/account booking permission. Operational staff may also
+ * inspect coverage; only an account with operations.dispatch gets that grant.
  */
 export const SERVICEABILITY_PERMISSION = 'bookings.create:self';
 /** geo.v1 validateDecision access scope. */
@@ -150,7 +150,10 @@ export class ServiceabilityApplication {
     rawBody: unknown,
   ): Promise<DecisionView> {
     const session = await this.identity.authorize(credentials);
-    if (!session.permissions.includes(SERVICEABILITY_PERMISSION)) {
+    if (
+      !session.permissions.includes(SERVICEABILITY_PERMISSION) &&
+      !(session.principal.kind === 'account' && session.permissions.includes('operations.dispatch'))
+    ) {
       throw new ApplicationError('AUTH_FORBIDDEN');
     }
     const body = closedBody(rawBody, ['point']);

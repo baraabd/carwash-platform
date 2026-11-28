@@ -22,6 +22,7 @@ export const CATALOG_V1 = {
   owner: 'catalog',
   prefix: '/internal/v1/catalog',
   routes: {
+    getCurrent: { method: 'GET', path: '/current', access: 'public' },
     getPublished: { method: 'GET', path: '/definitions', access: 'public' },
     getDefinition: { method: 'GET', path: '/definitions/:definitionId', access: 'public' },
     publish: {
@@ -68,6 +69,15 @@ export interface CatalogV1 {
   readonly catalogRevision: number;
   readonly publishedAt: UtcTimestamp;
   readonly items: readonly DefinitionV1[];
+}
+
+/** The absence of a publication is an owner state, never a fake revision-zero catalog. */
+export interface CurrentCatalogV1 {
+  readonly state: 'UNPUBLISHED' | 'PUBLISHED';
+  readonly catalog: CatalogV1 | null;
+  /** Revision compared by publication: zero only while no catalog exists. */
+  readonly expectedCatalogRevision: number;
+  readonly asOf: UtcTimestamp;
 }
 
 export interface PublishCatalogRequestV1 {
@@ -148,13 +158,36 @@ export function parseCatalogV1(value: unknown, path = '$'): CatalogV1 {
   };
 }
 
+export function parseCurrentCatalogV1(value: unknown, path = '$'): CurrentCatalogV1 {
+  const v = closed(value, path, ['state', 'catalog', 'expectedCatalogRevision', 'asOf']);
+  const state = oneOf(v.state, `${path}.state`, ['UNPUBLISHED', 'PUBLISHED'] as const);
+  const catalog = v.catalog === null ? null : parseCatalogV1(v.catalog, `${path}.catalog`);
+  const expectedCatalogRevision = integer(
+    v.expectedCatalogRevision,
+    `${path}.expectedCatalogRevision`,
+    0,
+    2_147_483_647,
+  );
+  if (
+    (state === 'PUBLISHED') !== (catalog !== null) ||
+    expectedCatalogRevision !== (catalog?.catalogRevision ?? 0)
+  )
+    throw new ContractViolation('INCONSISTENT_CATALOG_STATE', path);
+  return { state, catalog, expectedCatalogRevision, asOf: parseUtc(v.asOf, `${path}.asOf`) };
+}
+
 export function parsePublishCatalogRequestV1(value: unknown): PublishCatalogRequestV1 {
   const v = closed(value, '$', ['expectedCatalogRevision', 'definitions', 'reasonCode']);
   const definitions = list(v.definitions, '$.definitions', MAX_DEFINITIONS, parseDefinitionDraftV1);
   if (definitions.length === 0) throw new ContractViolation('EMPTY_LIST', '$.definitions');
   uniqueDefinitions(definitions, '$.definitions');
   return {
-    expectedCatalogRevision: parseRevision(v.expectedCatalogRevision, '$.expectedCatalogRevision'),
+    expectedCatalogRevision: integer(
+      v.expectedCatalogRevision,
+      '$.expectedCatalogRevision',
+      0,
+      2_147_483_647,
+    ),
     definitions,
     reasonCode: text(v.reasonCode, '$.reasonCode', { max: 64, pattern: REASON_CODE }),
   };

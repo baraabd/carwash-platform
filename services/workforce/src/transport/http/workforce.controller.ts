@@ -323,6 +323,24 @@ export class WorkforceController {
     const meta = await this.actors.resolve(req);
     return availabilityView(await this.workforce.availability(meta));
   }
+
+  @Get('assignment-candidates')
+  async assignmentCandidates(@Req() req: HeaderBag, @Query() query: unknown) {
+    const page = await this.workforce.listAssignmentCandidates(
+      await this.actors.resolve(req),
+      queryRecord(query),
+    );
+    const base = capacityPageView(page);
+    return {
+      ...base,
+      items: base.items.map((item, index) => ({
+        ...item,
+        technicianSubjectId: page.items[index]!.technicianSubjectId,
+        availability: page.items[index]!.availability,
+        availabilityRevision: page.items[index]!.availabilityRevision,
+      })),
+    };
+  }
   @Put('me/availability')
   async setAvailability(@Req() req: HeaderBag, @Body() body: unknown) {
     const meta = await this.actors.resolve(req);

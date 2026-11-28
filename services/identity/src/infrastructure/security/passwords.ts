@@ -51,8 +51,9 @@ export class ArgonPasswords implements Passwords {
       parts[2] !== 'v=19'
     )
       return false;
-    // PHC parameter ordering is not semantic; current argon2 emits m,p,t.
-    // Accept each recognized parameter exactly once before applying resource caps.
+    // Historical argon2 0.45.1 wrote m,p,t instead of the specified m,t,p order.
+    // Accept each known parameter once, cap resources, then normalize only the
+    // encoding for verification. A successful login rehashes that legacy form.
     const params = new Map<string, number>();
     for (const item of (parts[3] ?? '').split(',')) {
       const match = /^([mpt])=(\d{1,9})$/.exec(item);
@@ -73,7 +74,8 @@ export class ArgonPasswords implements Passwords {
     )
       return false;
     try {
-      return await verify(encoded, value);
+      parts[3] = `m=${memory},t=${time},p=${parallelism}`;
+      return await verify(parts.join('$'), value);
     } catch {
       return false;
     }
@@ -81,7 +83,8 @@ export class ArgonPasswords implements Passwords {
   needsRehash(encoded: string): boolean {
     try {
       return (
-        !encoded.startsWith('$argon2id$') || needsRehash(encoded, { ...this.policy, version: 0x13 })
+        !/^\$argon2id\$v=19\$m=\d+,t=\d+,p=\d+\$/.test(encoded) ||
+        needsRehash(encoded, { ...this.policy, version: 0x13 })
       );
     } catch {
       return true;

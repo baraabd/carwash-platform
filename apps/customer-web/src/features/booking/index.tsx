@@ -15,6 +15,7 @@ import { ReviewStep } from './review/ReviewStep';
 import { ScheduleStep } from './schedule/ScheduleStep';
 import { VehicleStep } from './vehicle/VehicleStep';
 import './booking.css';
+import { ProductionJourney } from './production/ProductionJourney';
 
 export { BOOKING_FOOTER_SLOT_ID } from './bookingFlow';
 
@@ -23,6 +24,16 @@ interface BookingRouteProps {
 }
 
 export function BookingRoute({ step }: BookingRouteProps) {
+  const { state } = useCustomerSession();
+  const stepIndex = bookingFlow.findIndex((item) => item.id === step);
+  return state.runtimeMode === 'parity' ? (
+    <ParityBookingRoute step={step} />
+  ) : (
+    <ProductionJourney step={stepIndex} />
+  );
+}
+
+function ParityBookingRoute({ step }: BookingRouteProps) {
   const { state, run } = useCustomerSession();
   const stepIndex = bookingFlow.findIndex((item) => item.id === step);
   // Contact must not mount from a bookmark until location and time are chosen.

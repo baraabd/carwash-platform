@@ -4,6 +4,7 @@ import { BUSINESS_EVENTS_V1 } from './business-v1';
 import type { EventProducer } from './envelope-v2';
 import { FOUNDATION_PROBE_CREATED_V1 } from './foundation-probe-created';
 import { PRODUCT_EVENTS_V1 } from './product-v1';
+import { OPERATIONS_EVENTS_V1, WORKFORCE_SHIFT_UPDATED_V1 } from './operations-v1';
 
 /**
  * contract-only / published-producer-pending: the wire schema is published but
@@ -15,7 +16,9 @@ export type EventContractStatus =
 type BusinessEventId =
   | (typeof BUSINESS_EVENTS_V1)[number]['eventType']
   | (typeof BILLING_EVENTS_V1)[number]['eventType']
-  | (typeof PRODUCT_EVENTS_V1)[number]['eventType'];
+  | (typeof PRODUCT_EVENTS_V1)[number]['eventType']
+  | (typeof OPERATIONS_EVENTS_V1)[number]['eventType']
+  | typeof WORKFORCE_SHIFT_UPDATED_V1.eventType;
 
 export interface EventContractDescriptor {
   readonly id: typeof BOOKING_CONFIRMED_V1 | typeof FOUNDATION_PROBE_CREATED_V1 | BusinessEventId;
@@ -43,16 +46,27 @@ export const EVENT_CONTRACTS: readonly EventContractDescriptor[] = [
     status: 'contract-only',
     asyncApi: 'docs/asyncapi/booking-confirmed-v1.yaml',
   },
-  ...[...BUSINESS_EVENTS_V1, ...BILLING_EVENTS_V1, ...PRODUCT_EVENTS_V1].map(
-    (event): EventContractDescriptor => ({
-      id: event.eventType,
-      producer: event.producer,
-      schemaVersion: 1,
-      envelopeVersion: 2,
-      status: 'published-producer-pending',
-      asyncApi: event.asyncApi,
-    }),
-  ),
+  ...[
+    ...BUSINESS_EVENTS_V1,
+    ...BILLING_EVENTS_V1,
+    ...PRODUCT_EVENTS_V1,
+    ...OPERATIONS_EVENTS_V1,
+  ].map((event): EventContractDescriptor => ({
+    id: event.eventType,
+    producer: event.producer,
+    schemaVersion: 1,
+    envelopeVersion: 2,
+    status: 'published-producer-pending',
+    asyncApi: event.asyncApi,
+  })),
+  {
+    id: WORKFORCE_SHIFT_UPDATED_V1.eventType,
+    producer: 'workforce',
+    schemaVersion: 1,
+    envelopeVersion: 1,
+    status: 'published-producer-pending',
+    asyncApi: WORKFORCE_SHIFT_UPDATED_V1.asyncApi,
+  },
 ];
 
 export function eventContract(id: EventContractDescriptor['id']): EventContractDescriptor {

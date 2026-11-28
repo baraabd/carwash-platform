@@ -2,7 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Test } from '@nestjs/testing';
 import { HealthController, HEALTH_OPTIONS, type HealthOptions } from '@carwash/service-kit';
-import { AppModule, BUSINESS_READY, SERVICE_NAME, postgresProbe } from '../src/app.module';
+import {
+  AppModule,
+  BUSINESS_READY,
+  SERVICE_NAME,
+  postgresProbe,
+  runtimeCapabilities,
+} from '../src/app.module';
 import { PrismaService, databaseUrlFromEnv } from '../src/prisma.service';
 import { createHttpApplication } from '../src/transport/http/create-app';
 
@@ -48,63 +54,156 @@ test('reporting: the real HTTP adapter boots with distinct live/ready semantics'
     assert.deepEqual(await live.json(), {
       service: 'reporting',
       status: 'alive',
-      stage: 'foundation-only',
+      stage: 'business',
     });
 
     const ready = await fetch(url + '/health/ready');
-    assert.equal(ready.status, 503, 'foundation shell must not advertise business readiness');
+    assert.equal(ready.status, 503, 'configured HTTP capability cannot replace a live database');
     const body = (await ready.json()) as {
       businessReady: boolean;
+      dependenciesReady: boolean;
       ready: boolean;
       code: string;
+      scope: string;
+      dependencies: { name: string; status: string }[];
     };
-    assert.equal(body.businessReady, false);
+    assert.equal(body.businessReady, true);
+    assert.equal(body.dependenciesReady, false);
     assert.equal(body.ready, false);
-    assert.equal(body.code, 'FOUNDATION_NOT_READY');
+    assert.equal(body.code, 'DEPENDENCY_DOWN');
+    assert.equal(body.scope, 'http-api');
+    assert.deepEqual(
+      body.dependencies.map(({ name, status }) => ({ name, status })),
+      [
+        { name: 'postgres', status: 'DOWN' },
+        { name: 'postgres-schema', status: 'DOWN' },
+      ],
+    );
   } finally {
     await app.close();
   }
 });
 
-test('reporting: liveness reports the process is running, and its real stage', async () => {
+test('reporting: liveness reports configured HTTP capability without probing dependencies', async () => {
   const moduleRef = await compile();
-  const controller = moduleRef.get(HealthController);
+  const options = moduleRef.get<HealthOptions>(HEALTH_OPTIONS);
+  let checks = 0;
+  const controller = new HealthController({
+    ...options,
+    dependencies: [
+      {
+        name: 'postgres',
+        kind: 'postgres',
+        check: () => {
+          checks += 1;
+          return Promise.reject(new Error('offline dependency'));
+        },
+      },
+    ],
+  });
   assert.deepEqual(controller.live(), {
     service: 'reporting',
     status: 'alive',
-    stage: 'foundation-only',
+    stage: 'business',
   });
+  assert.equal(checks, 0, 'liveness never calls readiness probes');
   await moduleRef.close();
 });
 
-test('reporting: foundation readiness returns 503', async () => {
-  const moduleRef = await compile();
-  const controller = moduleRef.get(HealthController);
-  const { res, captured } = fakeResponse();
-  await controller.ready(res);
-  assert.equal(captured.code, 503, 'a foundation shell must never advertise readiness');
-  const body = captured.body as { businessReady: boolean; ready: boolean; code: string };
-  assert.equal(body.businessReady, false);
-  assert.equal(body.ready, false);
-  assert.equal(body.code, 'FOUNDATION_NOT_READY');
-  await moduleRef.close();
-});
-
-test('reporting: a healthy dependency still does not make the shell ready', async () => {
+test('reporting: missing Identity capability stays unready despite healthy database probes', async () => {
   const moduleRef = await compile();
   const options = moduleRef.get<HealthOptions>(HEALTH_OPTIONS);
+  assert.ok(options.dependencies, 'the real composition must register owner probes');
+  const controller = new HealthController({
+    ...options,
+    runtimeCapabilities: runtimeCapabilities({}),
+    dependencies: options.dependencies.map((probe) => ({
+      ...probe,
+      check: () => Promise.resolve(),
+    })),
+  });
+  const { res, captured } = fakeResponse();
+  await controller.ready(res);
+  assert.equal(captured.code, 503, 'healthy dependencies cannot replace required configuration');
+  const body = captured.body as {
+    businessReady: boolean;
+    dependenciesReady: boolean;
+    ready: boolean;
+    code: string;
+    capabilities: { name: string; required: boolean; available: boolean; code: string }[];
+  };
+  assert.equal(body.businessReady, false);
+  assert.equal(body.dependenciesReady, true);
+  assert.equal(body.ready, false);
+  assert.equal(body.code, 'FOUNDATION_NOT_READY');
+  assert.equal(controller.live().stage, 'foundation-only');
+  assert.deepEqual(body.capabilities, [
+    {
+      name: 'identity-authority',
+      required: true,
+      available: false,
+      code: 'NOT_CONFIGURED_OR_IMPLEMENTED',
+    },
+  ]);
+  await moduleRef.close();
+});
+
+test('reporting: configured capability and both healthy probe doubles permit HTTP readiness', async () => {
+  const moduleRef = await compile();
+  const options = moduleRef.get<HealthOptions>(HEALTH_OPTIONS);
+  assert.ok(options.dependencies, 'the real composition must register owner probes');
   const withHealthyDependency = new HealthController({
     ...options,
-    dependencies: [{ name: 'postgres', kind: 'postgres', check: () => Promise.resolve() }],
+    dependencies: options.dependencies.map((probe) => ({
+      ...probe,
+      check: () => Promise.resolve(),
+    })),
   });
   const { res, captured } = fakeResponse();
   await withHealthyDependency.ready(res);
+  assert.equal(captured.code, 200);
+  const body = captured.body as {
+    businessReady: boolean;
+    dependenciesReady: boolean;
+    dependencies: { name: string; status: string }[];
+    ready: boolean;
+    code: string;
+    scope: string;
+  };
+  assert.deepEqual(
+    body.dependencies.map(({ name, status }) => ({ name, status })),
+    [
+      { name: 'postgres', status: 'UP' },
+      { name: 'postgres-schema', status: 'UP' },
+    ],
+  );
+  assert.equal(body.businessReady, true);
+  assert.equal(body.dependenciesReady, true);
+  assert.equal(body.ready, true);
+  assert.equal(body.code, 'READY');
+  assert.equal(body.scope, 'http-api');
+  await moduleRef.close();
+});
+
+test('reporting: configured capability with no dependency probes remains unready', async () => {
+  const moduleRef = await compile();
+  const options = moduleRef.get<HealthOptions>(HEALTH_OPTIONS);
+  const controller = new HealthController({ ...options, dependencies: [] });
+  const { res, captured } = fakeResponse();
+  await controller.ready(res);
+  const body = captured.body as {
+    businessReady: boolean;
+    dependenciesReady: boolean | null;
+    ready: boolean;
+    code: string;
+    dependencies: unknown[];
+  };
   assert.equal(captured.code, 503);
-  const body = captured.body as { dependencies: { status: string }[]; ready: boolean };
-  assert.equal(body.dependencies.length, 1);
-  const [dependency] = body.dependencies;
-  assert.equal(dependency?.status, 'UP', 'the dependency state is still reported honestly');
+  assert.equal(body.businessReady, true);
+  assert.equal(body.dependenciesReady, null, 'an absent probe is unchecked, not healthy');
   assert.equal(body.ready, false);
+  assert.equal(body.code, 'DEPENDENCY_DOWN');
+  assert.deepEqual(body.dependencies, []);
   await moduleRef.close();
 });
 
@@ -113,7 +212,6 @@ test('reporting: dependency failure is DOWN without credential leakage', async (
   const options = moduleRef.get<HealthOptions>(HEALTH_OPTIONS);
   const controller = new HealthController({
     ...options,
-    businessReady: true,
     dependencies: [
       {
         name: 'postgres',
@@ -140,7 +238,7 @@ test('reporting: dependency failure is DOWN without credential leakage', async (
   await moduleRef.close();
 });
 
-test('reporting: the service is declared foundation-only, not business ready', () => {
+test('reporting: the unconfigured foundation fallback remains false', () => {
   assert.equal(SERVICE_NAME, 'reporting');
   assert.equal(BUSINESS_READY, false);
 });

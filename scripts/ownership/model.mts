@@ -62,12 +62,19 @@ export function jsonFile(file: string, root: string, diagnostics: Diagnostic[]):
     return undefined;
   }
 }
-export function walkOwned(dir: string, root: string, diagnostics: Diagnostic[]): string[] {
+export function walkOwned(
+  dir: string,
+  root: string,
+  diagnostics: Diagnostic[],
+  ownerRoot: string = dir,
+): string[] {
   const files: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) =>
     a.name.localeCompare(b.name, 'en'),
   )) {
     if (ignoredDirectories.has(entry.name) && entry.isDirectory()) continue;
+    // Only compiler output at the owner root is generated; authored nested paths remain checked.
+    if (entry.name === 'dist-tests' && dir === ownerRoot && entry.isDirectory()) continue;
     // pnpm node_modules links are intentionally outside this source traversal.
     if (entry.name === 'node_modules') continue;
     const file = path.join(dir, entry.name);
@@ -78,7 +85,7 @@ export function walkOwned(dir: string, root: string, diagnostics: Diagnostic[]):
         message: 'Source symlinks can bypass ownership; use a declared public package.',
       });
     } else if (entry.isDirectory()) {
-      files.push(...walkOwned(file, root, diagnostics));
+      files.push(...walkOwned(file, root, diagnostics, ownerRoot));
     } else if (entry.isFile()) {
       files.push(file);
     }

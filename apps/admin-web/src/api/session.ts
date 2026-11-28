@@ -1,5 +1,6 @@
 import type { StaffSession } from '../domain/access';
-import { UUID, list, object, oneOf, request, text, type Result } from './http';
+import { formatSessionBinding } from '@carwash/contracts/common';
+import { UUID, list, object, oneOf, request, text, integer, type Result } from './http';
 
 /**
  * Staff sign-in through Identity's published auth routes on the Gateway
@@ -8,12 +9,16 @@ import { UUID, list, object, oneOf, request, text, type Result } from './http';
  */
 function session(raw: unknown): StaffSession {
   const s = object(raw, '$');
-  return {
+  const result = {
     subject: text(s.subject, 'subject', UUID),
+    sessionId: text(s.sessionId, 'sessionId', UUID),
+    authVersion: integer(s.authVersion, 'authVersion'),
     principalKind: oneOf(s.principalKind, ['account', 'guest'] as const, 'principalKind'),
     roles: list(s.roles, 'roles', (v, p) => text(v, p, /^[a-z-]{2,32}$/)),
     permissions: list(s.permissions, 'permissions', (v, p) => text(v, p, /^[a-z][a-z.:-]{1,62}$/)),
   };
+  formatSessionBinding(result);
+  return result;
 }
 
 const ignore = (): null => null;
@@ -27,11 +32,32 @@ export function prepareCsrf(): Promise<Result<null>> {
   return request('/auth/csrf', { read: ignore });
 }
 
-export function startLogin(email: string, password: string): Promise<Result<string>> {
+export interface ChallengeReceipt {
+  readonly challengeId: string;
+  readonly expiresIn: number;
+  readonly resendAfter: number;
+}
+function challenge(raw: unknown): ChallengeReceipt {
+  const value = object(raw, '$');
+  const expiresIn = integer(value.expiresIn, 'expiresIn');
+  const resendAfter = integer(value.resendAfter, 'resendAfter');
+  if (expiresIn < 1 || expiresIn > 86400 || resendAfter > 86400)
+    throw new Error('INVALID_CHALLENGE_WINDOW');
+  return { challengeId: text(value.challengeId, 'challengeId', UUID), expiresIn, resendAfter };
+}
+export function startLogin(email: string, password: string): Promise<Result<ChallengeReceipt>> {
   return request('/auth/login', {
     method: 'POST',
     body: { email, password },
-    read: (raw) => text(object(raw, '$').challengeId, 'challengeId', UUID),
+    read: challenge,
+  });
+}
+
+export function resendCode(challengeId: string): Promise<Result<ChallengeReceipt>> {
+  return request('/auth/challenges/resend', {
+    method: 'POST',
+    body: { challengeId },
+    read: challenge,
   });
 }
 

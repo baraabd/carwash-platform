@@ -362,6 +362,7 @@ export class PrismaChangeStore implements ChangeStore {
               lease_owner = CASE WHEN $15::boolean THEN NULL ELSE lease_owner END,
               lease_until = CASE WHEN $15::boolean THEN NULL ELSE $16::timestamptz END
         WHERE change_id = $1::uuid AND fence = $2 AND lease_owner = $17
+          AND lease_until > clock_timestamp()
        RETURNING change_id::text`,
       change.changeId,
       lease.fence,

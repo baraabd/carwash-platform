@@ -21,12 +21,11 @@ import type { HoldView, QuoteRead } from '../../ports';
  * pricing.v1 (QuoteV1, QuoteValidationV1), scheduling.v1 (HoldV1), vehicle.v1
  * (VehicleSnapshotV1) and customer.v1 (AddressSnapshotV1).
  *
- * Booking cannot import @carwash/contracts yet (the lockfile is Lane E's; see
- * CR-P02-C2 §2), so the rules are restated here as closed, fail-closed checks.
+ * These established boundary adapters retain closed, fail-closed checks while
+ * translating the wire formats into Booking's value objects.
  * tests/production/C/booking-contract-parity.test.mjs runs these parsers and the
  * published ones over the same accepted and rejected documents; any divergence
- * fails the build. Once the dependency is granted this file is replaced by
- * imports, not extended.
+ * fails the build. New owner integrations import the published parsers directly.
  */
 export class ContractViolation extends Error {
   constructor(readonly path: string) {

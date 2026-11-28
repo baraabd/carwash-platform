@@ -1,4 +1,4 @@
-import { traceHeaders } from '@carwash/service-kit';
+import { isServiceOriginAllowed, traceHeaders } from '@carwash/service-kit';
 import type { UserCredential } from '../../ports';
 
 /**
@@ -81,6 +81,8 @@ export class OwnerHttpClient {
   private readonly fetchImpl: typeof fetch;
 
   constructor(private readonly options: OwnerHttpOptions) {
+    if (options.baseUrl && !isServiceOriginAllowed(new URL(options.baseUrl)))
+      throw new Error('INVALID_OWNER_ORIGIN');
     const now = options.now ?? Date.now;
     this.breaker = new CircuitBreaker(options.failureThreshold ?? 5, options.openMs ?? 10_000, now);
     this.fetchImpl = options.fetchImpl ?? fetch;

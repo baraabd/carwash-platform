@@ -74,6 +74,15 @@ export interface CreateResult {
 export class BookingService {
   constructor(private readonly deps: BookingServiceDeps) {}
 
+  async byRequest(meta: RequestMeta, rawKey: unknown): Promise<BookingView> {
+    const owner = requirePrincipal(meta.actor, READ_PERMISSION);
+    const found = await this.deps.store.findRequest(owner, idempotencyKey(rawKey));
+    if (!found) throw new BookingError('BOOKING_NOT_FOUND', 'Booking request not found.');
+    if (found.state !== 'BOUND')
+      throw new BookingError('IDEMPOTENCY_IN_PROGRESS', 'The booking request is still pending.');
+    return this.get(meta, found.bookingId);
+  }
+
   async create(meta: RequestMeta, rawKey: unknown, body: unknown): Promise<CreateResult> {
     const beneficiary = requirePrincipal(meta.actor, CREATE_PERMISSION);
     if (rawKey === undefined || rawKey === null || rawKey === '') {
@@ -312,6 +321,7 @@ export class BookingService {
     };
 
     return createBooking({
+      subscription: command.subscription ?? null,
       id: bookingId,
       beneficiary,
       paymentMethod: command.paymentMethod,

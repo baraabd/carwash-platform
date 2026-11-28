@@ -1,6 +1,6 @@
 # Context for: docker buildx build -f infra/release/Dockerfile.migrate .
 # Dockerfile-specific rules replace the root .dockerignore. Only the workspace
-# manifests, shared packages, services and the job entry point are needed.
+# manifests, shared packages, services, rootfs assembler and job entry point are needed.
 infra/*
 !infra/release
 infra/release/*
@@ -17,7 +17,15 @@ evidence
 design
 docs
 tests
-scripts
+scripts/*
+!scripts/production
+scripts/production/*
+!scripts/production/E
+scripts/production/E/*
+!scripts/production/E/release
+scripts/production/E/release/*
+!scripts/production/E/release/migration-rootfs.mjs
+!scripts/production/E/release/migration-runtime.lock.json
 security
 *.md
 .env

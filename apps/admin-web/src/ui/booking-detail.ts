@@ -80,7 +80,7 @@ function failed<T>(
 async function fillBooking(bookingId: string, into: HTMLElement): Promise<void> {
   const c = copy();
   const result = await ownedBooking(bookingId);
-  if (failed(result, into)) return;
+  if (!into.isConnected || failed(result, into)) return;
   const b = result.value;
   replace(
     into,
@@ -100,7 +100,7 @@ async function fillBooking(bookingId: string, into: HTMLElement): Promise<void> 
 async function fillNotifications(bookingId: string, into: HTMLElement): Promise<void> {
   const c = copy();
   const result = await bookingNotifications(bookingId);
-  if (failed(result, into)) return;
+  if (!into.isConnected || failed(result, into)) return;
   const head = into.querySelector('.panel-head');
   if (result.value.length === 0) {
     replace(into, head, h('p', {}, c.noNotifications));
@@ -131,7 +131,7 @@ async function fillNotifications(bookingId: string, into: HTMLElement): Promise<
 async function fillDerived(bookingId: string, into: HTMLElement): Promise<void> {
   const c = copy();
   const result = await bookingDetail(bookingId);
-  if (failed(result, into)) return;
+  if (!into.isConnected || failed(result, into)) return;
   const { holds, assignments, freshness, item } = result.value;
   replace(
     into,
@@ -207,7 +207,7 @@ function input(id: string, label: string, value: string): HTMLElement {
 
 async function fillAssignment(bookingId: string, into: HTMLElement): Promise<void> {
   const result = await bookingAssignment(bookingId);
-  if (failed(result, into)) return;
+  if (!into.isConnected || failed(result, into)) return;
   renderAssignment(into, result.value, null);
 }
 
@@ -314,6 +314,7 @@ async function submit(
       : command === 'reassign'
         ? await reassignJob({ ...base, offer })
         : await unassignJob(base);
+  if (!into.isConnected) return;
   if (result.ok) {
     renderAssignment(into, result.value, null);
     const done = h(
@@ -336,6 +337,7 @@ async function submit(
     // The assignment moved on (newer revision, live offer, already assigned):
     // show Dispatch's current state instead of retrying blindly.
     await fillAssignment(a.bookingId, into);
+    if (!into.isConnected) return;
     append(
       into,
       h(

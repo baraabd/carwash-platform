@@ -37,6 +37,12 @@ let hooks: TechniciansHooks = {
     assignmentActions: false,
     payments: false,
     reconcile: false,
+    reviewModeration: false,
+    services: false,
+    coverage: false,
+    support: false,
+    custody: false,
+    subscriptions: false,
   }),
 };
 let cursor: string | null = null;
@@ -161,6 +167,7 @@ function outcomeMessage(decided: VerificationCase): string {
 }
 
 export function openReview(caseId: string): void {
+  const current = generation;
   const c = copy();
   if (!hooks.capabilities().reviewDecisions) {
     toast(c.forbidden);
@@ -198,6 +205,7 @@ export function openReview(caseId: string): void {
   let pending: { decision: ReviewDecision; key: string } | null = null;
 
   const send = async (): Promise<void> => {
+    if (submit.disabled || current !== generation || !submit.isConnected) return;
     problem.textContent = '';
     let decision: ReviewDecision;
     if (pending) {
@@ -218,6 +226,7 @@ export function openReview(caseId: string): void {
     for (const control of [approveRadio, rejectRadio, validUntil, reason]) control.disabled = true;
     submit.textContent = c.submitting;
     const result = await decide(caseId, decision, pending.key);
+    if (current !== generation || !submit.isConnected) return;
     submit.textContent = c.submit;
     if (result.ok) {
       outcome.textContent = outcomeMessage(result.value);
@@ -302,4 +311,13 @@ export function wireTechnicians(next: TechniciansHooks): void {
 export function showTechnicians(): Promise<void> {
   renderJoinRequests();
   return loadResources(false);
+}
+
+export function invalidateTechnicians(clearPrivate = false): void {
+  generation += 1;
+  cursor = null;
+  if (clearPrivate) {
+    for (const id of ['resourceRows', 'resourceMore', 'resourceFreshness', 'joinRequests'])
+      document.getElementById(id)?.replaceChildren();
+  }
 }

@@ -12,6 +12,7 @@ import {
   type AssignmentChangedFact,
   type AssignmentStatus,
   type BookingConfirmedFact,
+  type OwnerObservationFact,
   type CashState,
   type DerivedOperationsStatus,
   type Eligibility,
@@ -100,6 +101,33 @@ async function lock(tx: Prisma.TransactionClient, key: string): Promise<void> {
 
 export class PrismaOperationsWriter implements OperationsWriter {
   constructor(private readonly tx: Prisma.TransactionClient) {}
+
+  async applyOwnerObservation(fact: OwnerObservationFact, hash: string): Promise<FactOutcome> {
+    await lock(this.tx, `ops-observation:${fact.eventType}:${fact.aggregateId}`);
+    const key = { eventType: fact.eventType, aggregateId: fact.aggregateId };
+    const current = await this.tx.opsOwnerObservation.findUnique({
+      where: { eventType_aggregateId: key },
+    });
+    const decision = decideFact(
+      current && { version: current.version, fingerprint: current.fingerprint },
+      { version: fact.version, fingerprint: hash },
+    );
+    if (decision !== 'APPLY') return decision;
+    const data = {
+      source: fact.source,
+      version: fact.version,
+      fingerprint: hash,
+      sourceEventId: fact.eventId,
+      occurredAt: fact.occurredAt,
+      state: { ...fact.state },
+    };
+    await this.tx.opsOwnerObservation.upsert({
+      where: { eventType_aggregateId: key },
+      create: { ...key, ...data },
+      update: data,
+    });
+    return 'APPLIED';
+  }
 
   async applyBookingConfirmed(fact: BookingConfirmedFact, hash: string): Promise<FactOutcome> {
     await lock(this.tx, `ops-booking:${fact.bookingId}`);

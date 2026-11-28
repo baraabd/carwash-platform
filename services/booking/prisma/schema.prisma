@@ -32,44 +32,72 @@ model ServiceMarker {
 /// quote is a partial unique index (WHERE status <> 'REJECTED') and CHECKs keep
 /// status/slot/money consistent; Prisma cannot express those, the SQL is the authority.
 model Booking {
-  id                 String            @id @db.Uuid
-  principalKind      String            @map("principal_kind")
-  principalSubject   String            @map("principal_subject") @db.Uuid
-  status             String
-  rejectionReason    String?           @map("rejection_reason")
-  paymentMethod      String            @map("payment_method")
-  contact            Json
-  vehicleSnapshot    Json              @map("vehicle_snapshot")
-  addressSnapshot    Json              @map("address_snapshot")
-  quoteSnapshot      Json              @map("quote_snapshot")
-  quoteId            String            @map("quote_id") @db.Uuid
-  quoteRevision      Int               @map("quote_revision")
-  currency           String
-  totalMinor         BigInt            @map("total_minor")
-  totalScale         Int               @map("total_scale") @db.SmallInt
-  holdId             String            @map("hold_id") @db.Uuid
-  holdRevision       Int               @map("hold_revision")
-  zoneId             String            @map("zone_id") @db.Uuid
-  requestedStartsAt  DateTime          @map("requested_starts_at") @db.Timestamptz(3)
-  requestedEndsAt    DateTime          @map("requested_ends_at") @db.Timestamptz(3)
-  slotStartsAt       DateTime?         @map("slot_starts_at") @db.Timestamptz(3)
-  slotEndsAt         DateTime?         @map("slot_ends_at") @db.Timestamptz(3)
-  version            Int               @default(1)
-  createdAt          DateTime          @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime          @map("updated_at") @db.Timestamptz(3)
-  confirmedAt        DateTime?         @map("confirmed_at") @db.Timestamptz(3)
-  cancellationReason String?           @map("cancellation_reason")
-  cancelledAt        DateTime?         @map("cancelled_at") @db.Timestamptz(3)
-  scheduleRevision   Int               @default(1) @map("schedule_revision")
-  scheduleHoldId     String?           @map("schedule_hold_id") @db.Uuid
-  scheduleStartsAt   DateTime?         @map("schedule_starts_at") @db.Timestamptz(3)
-  scheduleEndsAt     DateTime?         @map("schedule_ends_at") @db.Timestamptz(3)
-  saga               BookingSaga?
-  changes            BookingChange[]
-  schedules          BookingSchedule[]
+  id                     String                         @id @db.Uuid
+  principalKind          String                         @map("principal_kind")
+  principalSubject       String                         @map("principal_subject") @db.Uuid
+  status                 String
+  rejectionReason        String?                        @map("rejection_reason")
+  paymentMethod          String                         @map("payment_method")
+  subscriptionId         String?                        @map("subscription_id") @db.Uuid
+  subscriptionRevision   Int?                           @map("subscription_revision")
+  contact                Json
+  vehicleSnapshot        Json                           @map("vehicle_snapshot")
+  addressSnapshot        Json                           @map("address_snapshot")
+  quoteSnapshot          Json                           @map("quote_snapshot")
+  quoteId                String                         @map("quote_id") @db.Uuid
+  quoteRevision          Int                            @map("quote_revision")
+  currency               String
+  totalMinor             BigInt                         @map("total_minor")
+  totalScale             Int                            @map("total_scale") @db.SmallInt
+  holdId                 String                         @map("hold_id") @db.Uuid
+  holdRevision           Int                            @map("hold_revision")
+  zoneId                 String                         @map("zone_id") @db.Uuid
+  requestedStartsAt      DateTime                       @map("requested_starts_at") @db.Timestamptz(3)
+  requestedEndsAt        DateTime                       @map("requested_ends_at") @db.Timestamptz(3)
+  slotStartsAt           DateTime?                      @map("slot_starts_at") @db.Timestamptz(3)
+  slotEndsAt             DateTime?                      @map("slot_ends_at") @db.Timestamptz(3)
+  version                Int                            @default(1)
+  createdAt              DateTime                       @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime                       @map("updated_at") @db.Timestamptz(3)
+  confirmedAt            DateTime?                      @map("confirmed_at") @db.Timestamptz(3)
+  cancellationReason     String?                        @map("cancellation_reason")
+  cancelledAt            DateTime?                      @map("cancelled_at") @db.Timestamptz(3)
+  scheduleRevision       Int                            @default(1) @map("schedule_revision")
+  scheduleHoldId         String?                        @map("schedule_hold_id") @db.Uuid
+  scheduleStartsAt       DateTime?                      @map("schedule_starts_at") @db.Timestamptz(3)
+  scheduleEndsAt         DateTime?                      @map("schedule_ends_at") @db.Timestamptz(3)
+  saga                   BookingSaga?
+  changes                BookingChange[]
+  schedules              BookingSchedule[]
+  executionProjection    BookingDispatchProjection?
+  entitlementConsumption BookingEntitlementConsumption?
 
   @@index([principalKind, principalSubject, createdAt])
   @@map("booking")
+}
+
+model InboxMessage {
+  consumerName  String   @map("consumer_name") @db.VarChar(80)
+  eventId       String   @map("event_id") @db.Uuid
+  eventType     String   @map("event_type")
+  payloadHash   String   @map("payload_hash") @db.Char(64)
+  correlationId String   @map("correlation_id") @db.Uuid
+  receivedAt    DateTime @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  @@id([consumerName, eventId])
+  @@map("inbox_message")
+}
+
+model BookingDispatchProjection {
+  bookingId          String   @id @map("booking_id") @db.Uuid
+  assignmentId       String   @map("assignment_id") @db.Uuid
+  assignmentRevision Int      @map("assignment_revision")
+  taskId             String?  @map("task_id") @db.Uuid
+  taskRevision       Int?     @map("task_revision")
+  updatedAt          DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+  booking            Booking  @relation(fields: [bookingId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@map("booking_dispatch_projection")
 }
 
 /// Idempotency-Key claims for create requests, per principal.
@@ -91,26 +119,45 @@ model BookingRequest {
 
 /// Durable state of the creation saga (process manager), fenced by lease.
 model BookingSaga {
-  bookingId        String    @id @map("booking_id") @db.Uuid
-  step             String
-  outcome          String?
-  pendingRejection String?   @map("pending_rejection")
-  obligationId     String?   @map("obligation_id") @db.VarChar(128)
-  pivotAttempted   Boolean   @default(false) @map("pivot_attempted")
-  attempts         Int       @default(0)
-  nextAttemptAt    DateTime  @map("next_attempt_at") @db.Timestamptz(3)
-  deadlineAt       DateTime  @map("deadline_at") @db.Timestamptz(3)
-  lastError        String?   @map("last_error") @db.VarChar(64)
-  fence            Int       @default(0)
-  leaseOwner       String?   @map("lease_owner") @db.VarChar(80)
-  leaseUntil       DateTime? @map("lease_until") @db.Timestamptz(3)
-  correlationId    String    @map("correlation_id") @db.Uuid
-  version          Int       @default(1)
-  createdAt        DateTime  @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime  @map("updated_at") @db.Timestamptz(3)
-  booking          Booking   @relation(fields: [bookingId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  bookingId                String    @id @map("booking_id") @db.Uuid
+  step                     String
+  outcome                  String?
+  pendingRejection         String?   @map("pending_rejection")
+  obligationId             String?   @map("obligation_id") @db.VarChar(128)
+  entitlementReservationId String?   @map("entitlement_reservation_id") @db.Uuid
+  pivotAttempted           Boolean   @default(false) @map("pivot_attempted")
+  attempts                 Int       @default(0)
+  nextAttemptAt            DateTime  @map("next_attempt_at") @db.Timestamptz(3)
+  deadlineAt               DateTime  @map("deadline_at") @db.Timestamptz(3)
+  lastError                String?   @map("last_error") @db.VarChar(64)
+  fence                    Int       @default(0)
+  leaseOwner               String?   @map("lease_owner") @db.VarChar(80)
+  leaseUntil               DateTime? @map("lease_until") @db.Timestamptz(3)
+  correlationId            String    @map("correlation_id") @db.Uuid
+  version                  Int       @default(1)
+  createdAt                DateTime  @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime  @map("updated_at") @db.Timestamptz(3)
+  booking                  Booking   @relation(fields: [bookingId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@map("booking_saga")
+}
+
+/// Transactional outbox, same lease semantics as the shared OutboxRelay store.
+model BookingEntitlementConsumption {
+  bookingId     String    @id @map("booking_id") @db.Uuid
+  reservationId String    @unique @map("reservation_id") @db.Uuid
+  correlationId String    @map("correlation_id") @db.Uuid
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  lockedBy      String?   @map("locked_by") @db.VarChar(80)
+  lockedUntil   DateTime? @map("locked_until") @db.Timestamptz(3)
+  consumedAt    DateTime? @map("consumed_at") @db.Timestamptz(3)
+  lastError     String?   @map("last_error") @db.VarChar(64)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  booking       Booking   @relation(fields: [bookingId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([consumedAt, nextAttemptAt])
+  @@map("booking_entitlement_consumption")
 }
 
 /// Transactional outbox, same lease semantics as the shared OutboxRelay store.

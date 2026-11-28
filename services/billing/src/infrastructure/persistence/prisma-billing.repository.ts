@@ -42,6 +42,7 @@ import {
 import { PrismaBookingLinkReader, PrismaBookingLinkStore } from './prisma-booking-link.store';
 import { PrismaProviderReader, PrismaProviderStore } from './prisma-provider.store';
 import { PrismaService } from './prisma.service';
+import { PrismaSubscriptionFundingStore } from './prisma-subscription-funding.store';
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | PrismaClient;
@@ -183,11 +184,13 @@ async function snapshot(db: Db, obligationId: string): Promise<FinancialSnapshot
 }
 
 class PrismaBillingUnitOfWork implements BillingUnitOfWork {
+  readonly subscriptionFunding: PrismaSubscriptionFundingStore;
   readonly custody: CustodyStore;
   readonly providers: ProviderStore;
   readonly bookings: PrismaBookingLinkStore;
 
   constructor(private readonly tx: Tx) {
+    this.subscriptionFunding = new PrismaSubscriptionFundingStore(tx);
     this.custody = new PrismaCustodyStore(tx);
     this.providers = new PrismaProviderStore(tx);
     this.bookings = new PrismaBookingLinkStore(tx);

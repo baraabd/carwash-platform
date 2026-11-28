@@ -7,6 +7,8 @@ import { RouterProvider } from 'react-router-dom';
 import { customerRouter } from './app/router';
 import { CustomerSessionProvider } from './state/CustomerSessionProvider';
 import { CustomerProductionProvider } from './data/CustomerProductionProvider';
+import { ProductionBookingProvider } from './data/ProductionBookingProvider';
+import { ProductionMembershipProvider } from './data/ProductionMembershipProvider';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('CUSTOMER_ROOT_NOT_FOUND');
@@ -27,7 +29,11 @@ createRoot(root).render(
   <StrictMode>
     <CustomerSessionProvider initialState={initialState}>
       <CustomerProductionProvider>
-        <RouterProvider router={customerRouter} />
+        <ProductionBookingProvider>
+          <ProductionMembershipProvider>
+            <RouterProvider router={customerRouter} />
+          </ProductionMembershipProvider>
+        </ProductionBookingProvider>
       </CustomerProductionProvider>
     </CustomerSessionProvider>
   </StrictMode>,

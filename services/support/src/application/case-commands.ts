@@ -187,6 +187,7 @@ export class CaseCommands {
       'amount',
       'window',
       'statementCredit',
+      'bookingHold',
     ]);
     const action = oneOf(raw.action, actionsOf(kind), 'ACTION_NOT_ALLOWED_FOR_KIND');
     requireDecide(session, kind, action);
@@ -423,9 +424,9 @@ export class CaseCommands {
       assertResendable(decision.status);
       const request = decision.ownerRequest;
       if (!request) throw new Error('DECISION_WITHOUT_OWNER_REQUEST');
-      // Billing command receipts are scoped to the human actor. A different
-      // Finance account cannot replay this receipt or establish its outcome.
-      if (request.body.creditId !== undefined && session.subject !== decision.decidedBy)
+      // Owner command receipts are scoped to the human actor. Another staff
+      // account cannot replace that actor during a resend.
+      if (session.subject !== (decision.approvedBy ?? decision.decidedBy))
         throw new AccessFault('AUTH_FORBIDDEN');
       const fence = decision.executionFence + 1;
       const attempt = decision.executionAttempts + 1;
@@ -471,7 +472,8 @@ export class CaseCommands {
         status: statuses.decisionStatus,
         ownerHttpStatus: 'ownerStatus' in outcome ? outcome.ownerStatus : null,
         ownerCode: outcome.kind === 'APPLIED' ? null : outcome.code,
-        ownerState: outcome.kind === 'APPLIED' ? outcome.ownerState : null,
+        ownerState:
+          outcome.kind === 'APPLIED' || outcome.kind === 'PENDING' ? outcome.ownerState : null,
       });
       if (!recorded) return;
       await this.transition(
@@ -638,7 +640,13 @@ export class CaseCommands {
           body: {
             expectedRevision: booking.revision,
             reasonCode: decision.reason.code,
-            ...(policy.operation === 'booking.reschedule' ? { window: decision.window } : {}),
+            ...(policy.operation === 'booking.reschedule'
+              ? {
+                  window: decision.window,
+                  holdId: decision.bookingHold?.holdId,
+                  holdRevision: decision.bookingHold?.revision,
+                }
+              : {}),
           },
         };
       }

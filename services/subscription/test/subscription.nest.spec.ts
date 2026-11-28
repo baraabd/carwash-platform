@@ -168,7 +168,7 @@ test('subscription: the owner API is mounted and fails closed without Identity o
     const anonymous = await fetch(url + '/offers');
     assert.equal(anonymous.status, 401);
     const bearer = { authorization: 'Bearer eyJhbGciOiJSUzI1NiJ9.e30.c2ln' };
-    const unverifiable = await fetch(url + '/plans', { headers: bearer });
+    const unverifiable = await fetch(url + '/administration/plans', { headers: bearer });
     assert.equal(
       unverifiable.status,
       503,

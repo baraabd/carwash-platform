@@ -510,3 +510,11 @@ for (const file of [
     accepts(f.root);
   });
 }
+
+test('owner-root compiled test output is ignored while authored nested dist-tests remains checked', (t) => {
+  const f = fixture(t);
+  f.put('services/booking/dist-tests/test/copy.js', "import '../../../billing/src/index.js';");
+  accepts(f.root);
+  f.put('services/booking/src/dist-tests/probe.ts', "import '../../../billing/src/index.js';");
+  rejects(f.root, 'CROSS_OWNER_IMPORT');
+});

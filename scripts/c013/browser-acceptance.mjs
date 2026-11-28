@@ -1030,6 +1030,12 @@ try {
         );
         await page.keyboard.press('Enter');
         await atStep(page, step);
+        // Route DOM readiness precedes the shell's passive focus effect.
+        await page.waitForFunction(
+          () => globalThis.document.activeElement?.matches('#main h1'),
+          null,
+          { timeout: 2_000 },
+        );
         assert.equal(
           await page.evaluate(() => globalThis.document.activeElement?.matches('#main h1')),
           true,
@@ -1037,6 +1043,11 @@ try {
         );
         await headerBack(page);
         await atStep(page, 6);
+        await page.waitForFunction(
+          () => globalThis.document.activeElement?.matches('#main h1'),
+          null,
+          { timeout: 2_000 },
+        );
       }
       assert.deepEqual(
         await page.evaluate(() => ({

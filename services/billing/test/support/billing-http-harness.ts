@@ -36,6 +36,12 @@ import {
   CanonicalRefundController,
 } from '../../src/transport/http/canonical-refund.controller';
 import { configureCanonicalRefundTransport } from '../../src/transport/http/canonical-refund.http';
+import { SubscriptionFundingService } from '../../src/application/subscription-funding.service';
+import { ServiceClientCallerAuthority } from '../../src/infrastructure/security/service-callers';
+import {
+  SUBSCRIPTION_FUNDING_SERVICE,
+  SubscriptionFundingController,
+} from '../../src/transport/http/subscription-funding.controller';
 
 export const SUBJECTS = {
   customer: '6f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f',
@@ -206,6 +212,8 @@ export async function startBillingHttp(input: {
   work?: WorkAuthority;
   /** Provider registry; defaults to the production (documentation-pending) adapters. */
   providers?: PaymentProviderRegistry;
+  /** Explicit test workload registry; omitted means the real adapter denies every caller. */
+  fundingClients?: string;
 }): Promise<BillingHttpHarness> {
   const authority = new IdentitySessionAuthority({
     origin: new URL(input.identity.origin),
@@ -251,6 +259,12 @@ export async function startBillingHttp(input: {
     ids: new RandomIds(),
     hasher: new Sha256Hasher(),
   });
+  const subscriptionFunding = new SubscriptionFundingService({
+    repository: input.repository,
+    callers: new ServiceClientCallerAuthority(input.fundingClients),
+    clock: input.clock,
+    hasher: new Sha256Hasher(),
+  });
   const moduleRef = await Test.createTestingModule({
     controllers: [
       BillingController,
@@ -258,6 +272,7 @@ export async function startBillingHttp(input: {
       ProviderController,
       ProviderNotificationController,
       CanonicalRefundController,
+      SubscriptionFundingController,
     ],
     providers: [
       { provide: BILLING_SERVICE, useValue: service },
@@ -265,6 +280,7 @@ export async function startBillingHttp(input: {
       { provide: PROVIDER_PAYMENTS_SERVICE, useValue: payments },
       { provide: REFUND_SERVICE, useValue: refunds },
       { provide: CANONICAL_REFUND_SERVICE, useValue: canonicalRefunds },
+      { provide: SUBSCRIPTION_FUNDING_SERVICE, useValue: subscriptionFunding },
     ],
   }).compile();
   // Same transport options as createHttpApplication (raw notification bytes).

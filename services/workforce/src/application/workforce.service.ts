@@ -444,6 +444,48 @@ export class WorkforceService {
     };
   }
 
+  /** Same owner facts, plus the authoritative subject binding and declared availability. */
+  async listAssignmentCandidates(meta: RequestMeta, rawQuery: Readonly<Record<string, unknown>>) {
+    requireScope(meta.actor, 'workforce.capacity.read');
+    const query = parseCapacityQuery(rawQuery);
+    const scope = cursorScope(query);
+    const after = query.cursor === null ? null : decodeCursor(query.cursor, scope);
+    const rows = await this.read.listCapacityCandidates({
+      zoneId: query.zoneId,
+      from: query.from,
+      to: query.to,
+      afterOperatorId: after,
+      limit: query.limit + 1,
+    });
+    const page = rows.slice(0, query.limit);
+    const last = page[page.length - 1];
+    const items = await Promise.all(
+      page.map(async (candidate) => {
+        const availability =
+          (await this.read.findAvailability(candidate.operator.id)) ??
+          initialAvailability(candidate.operator.id);
+        const resource = toCapacityResource(
+          {
+            ...candidate,
+            shifts: candidate.shifts.filter((shift) => shift.zoneId === query.zoneId),
+          },
+          query,
+        );
+        return {
+          ...resource,
+          technicianSubjectId: candidate.operator.identitySubject,
+          availability: availability.status,
+          availabilityRevision: availability.revision,
+        };
+      }),
+    );
+    return {
+      items,
+      nextCursor: rows.length > query.limit && last ? encodeCursor(scope, last.operator.id) : null,
+      asOf: this.clock.now(),
+    };
+  }
+
   /** The caller's own availability; ON_BREAK at revision 0 when never set. */
   async availability(meta: RequestMeta): Promise<AvailabilityState> {
     const user = requirePermission(meta.actor, 'work.read:assigned');

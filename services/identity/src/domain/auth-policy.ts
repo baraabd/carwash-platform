@@ -55,9 +55,15 @@ const ROLE_PERMISSIONS: Readonly<Record<IdentityRole, readonly IdentityPermissio
   ],
   operations: ['operations.dispatch'],
   // billing.reconcile stays separate from billing.read (CR-B-03). catalog.publish
-  // and pricing.publish are held only by super-admin until the owner approves a
+  // and both pricing publication grants are held only by super-admin until the owner approves a
   // narrower staff mapping (decision E-P03-D1).
-  finance: ['billing.read', 'billing.refund', 'billing.reconcile'],
+  finance: [
+    'billing.read',
+    'billing.refund',
+    'billing.reconcile',
+    'billing.cash.correct',
+    'billing.treasury.receive',
+  ],
   support: ['support.cases.read', 'support.cases.write'],
   reviewer: ['verification.review'],
   'super-admin': IDENTITY_PERMISSIONS,

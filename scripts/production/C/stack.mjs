@@ -56,7 +56,7 @@ export function laneServicesForEnv(env = process.env) {
   const raw = env.CW_PROD_C_EXTRA_SERVICES;
   if (raw === undefined || raw === '') return [...LANE_SERVICES];
   const extras = raw.split(',');
-  const allowed = new Set(['catalog', 'pricing']);
+  const allowed = new Set(['catalog', 'pricing', 'reporting', 'communications']);
   if (new Set(extras).size !== extras.length || extras.some((owner) => !allowed.has(owner))) {
     throw new Error('INVALID_LANE_C_EXTRA_SERVICES');
   }
@@ -413,7 +413,7 @@ async function up() {
 }
 
 export async function migrate(context, services = Object.keys(context.databases)) {
-  const allowed = new Set([...LANE_SERVICES, 'catalog', 'pricing']);
+  const allowed = new Set([...LANE_SERVICES, 'catalog', 'pricing', 'reporting', 'communications']);
   if (
     !services.length ||
     services.some((owner) => !allowed.has(owner) || !Object.hasOwn(context.databases, owner))

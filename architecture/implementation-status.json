@@ -135,7 +135,8 @@
         "IdentityChallenge",
         "IdentitySession",
         "IdentityRefresh",
-        "IdentityAudit"
+        "IdentityAudit",
+        "IdentityInitialAdministrator"
       ],
       "productDomainStatus": "identity-security-foundation-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
@@ -232,6 +233,7 @@
         "PricingQuote",
         "PricingQuoteLine",
         "PricingAuditRecord",
+        "PricingSubscriptionQuote",
         "Promotion",
         "PromotionRevision",
         "QuoteDiscount",
@@ -254,8 +256,11 @@
       "persistenceModels": [
         "ServiceMarker",
         "Booking",
+        "InboxMessage",
+        "BookingDispatchProjection",
         "BookingRequest",
         "BookingSaga",
+        "BookingEntitlementConsumption",
         "OutboxMessage",
         "AuditEntry",
         "BookingChange",
@@ -298,6 +303,8 @@
         "HoldObservation",
         "Assignment",
         "DispatchOffer",
+        "AutomaticAssignmentPolicy",
+        "AutomaticAssignmentAttempt",
         "IdempotencyRecord",
         "InboxMessage",
         "OutboxMessage",
@@ -365,6 +372,9 @@
         "CustodyHandover",
         "CustodyHandoverItem",
         "ProviderCredit",
+        "SubscriptionFundingCommand",
+        "SubscriptionFundingNamespace",
+        "SubscriptionFundingClaim",
         "PaymentRefund",
         "BookingObligation",
         "BookingCompensation"
@@ -405,11 +415,15 @@
         "SubscriptionPlan",
         "SubscriptionPlanRevision",
         "CustomerSubscription",
+        "SubscriptionFundingRelease",
+        "SubscriptionPurchase",
+        "SubscriptionChangeRequest",
         "SubscriptionPeriod",
         "EntitlementReservation",
         "EntitlementMovement",
         "SubscriptionIdempotencyReceipt",
         "SubscriptionAuditEvent",
+        "SubscriptionWorkloadReceipt",
         "OutboxMessage"
       ],
       "productDomainStatus": "foundation-shell-only",
@@ -449,7 +463,8 @@
         "InboxMessage",
         "ProbeNotification",
         "Notification",
-        "DeliveryAttempt"
+        "DeliveryAttempt",
+        "BookingNotificationCancellation"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
@@ -534,7 +549,8 @@
         "OpsFreshness",
         "OpsAssignment",
         "OpsAssignmentResource",
-        "OpsObligation"
+        "OpsObligation",
+        "OpsOwnerObservation"
       ],
       "productDomainStatus": "foundation-shell-only",
       "runtimeAcceptance": "not-verified-on-current-candidate"
@@ -614,8 +630,8 @@
   "governance": {
     "branchProtection": "not-enforced",
     "rulesets": 0,
-    "note": "Observed through GitHub on 2026-10-05: main protected=false and no repository rulesets. The branch-administration endpoint returns 403 for the available connector. This external observation is not proof that branch protection was configured by W01-E.",
-    "observedAt": "2026-10-05"
+    "note": "Observed through GitHub on 2026-11-27: main and develop protected=false, required-check enforcement off and repository rulesets empty. The user has authorized S02-S12 remediation and deployment. Applying the existing reviewed policy was attempted; the local GitHub CLI has no authenticated administration session, and the connector exposes read-only ruleset operations. Policy source is not evidence of live enforcement.",
+    "observedAt": "2026-11-27"
   },
   "currentCandidateAcceptance": "not-verified-on-current-candidate",
   "verificationRecords": {

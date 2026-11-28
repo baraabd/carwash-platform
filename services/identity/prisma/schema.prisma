@@ -42,6 +42,7 @@ model IdentityAccount {
   recoveryDigest String? @unique @map("recovery_digest") @db.Char(64)
   guestExpiresAt DateTime? @map("guest_expires_at") @db.Timestamptz(3)
   sessions       IdentitySession[]
+  initialAdministrator IdentityInitialAdministrator? @relation("InitialAdministratorAccount")
   @@map("identity_account")
 }
 
@@ -57,6 +58,7 @@ model IdentityChallenge {
   expiresAt    DateTime @map("expires_at") @db.Timestamptz(3)
   resendAt     DateTime @map("resend_at") @db.Timestamptz(3)
   state        String @db.VarChar(16)
+  initialAdministrator IdentityInitialAdministrator? @relation("InitialAdministratorChallenge")
   @@index([expiresAt])
   @@map("identity_challenge")
 }
@@ -90,6 +92,27 @@ model IdentityAudit {
   subjectId  String? @map("subject_id") @db.Uuid
   requestId  String @map("request_id") @db.Uuid
   occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  initialAdministratorGrant IdentityInitialAdministrator? @relation("InitialAdministratorGrant")
+  initialAdministratorLogin IdentityInitialAdministrator? @relation("InitialAdministratorLogin")
   @@index([occurredAt])
   @@map("identity_audit")
+}
+
+/// One irreversible initial grant. It never grants roles again after role/status changes.
+model IdentityInitialAdministrator {
+  singleton Int @id
+  accountId String @unique @map("account_id") @db.Uuid
+  requestId String @unique @map("request_id") @db.Uuid
+  requestHash String @map("request_hash") @db.Char(64)
+  reason String @db.VarChar(512)
+  grantedAuthVersion Int @map("granted_auth_version")
+  grantedAt DateTime @map("granted_at") @db.Timestamptz(3)
+  challengeId String @unique @map("challenge_id") @db.Uuid
+  loginAuditId String @unique @map("login_audit_id") @db.Uuid
+  auditId String @unique @map("audit_id") @db.Uuid
+  account IdentityAccount @relation("InitialAdministratorAccount", fields: [accountId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  challenge IdentityChallenge @relation("InitialAdministratorChallenge", fields: [challengeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  loginAudit IdentityAudit @relation("InitialAdministratorLogin", fields: [loginAuditId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  audit IdentityAudit @relation("InitialAdministratorGrant", fields: [auditId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  @@map("identity_initial_administrator")
 }

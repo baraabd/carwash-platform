@@ -25,6 +25,7 @@ import {
   parseDefinitionId,
   parsePublishRequest,
   type CatalogView,
+  type CurrentCatalogView,
   type DefinitionView,
   type PublishRequest,
 } from './catalog-v1-wire';
@@ -131,6 +132,17 @@ export class CatalogService {
     const snapshot = await this.deps.repository.current();
     if (!snapshot) throw new CatalogApplicationError('NOT_FOUND');
     return catalogView(snapshot);
+  }
+
+  /** Public owner state for bootstrap; repository failure is never interpreted as no catalog. */
+  async current(): Promise<CurrentCatalogView> {
+    const snapshot = await this.deps.repository.current();
+    return {
+      state: snapshot ? 'PUBLISHED' : 'UNPUBLISHED',
+      catalog: snapshot ? catalogView(snapshot) : null,
+      expectedCatalogRevision: snapshot?.catalogRevision ?? 0,
+      asOf: this.deps.clock.now().toISOString(),
+    };
   }
 
   /** catalog.v1 getDefinition (public): a definition of the current snapshot, retired included. */

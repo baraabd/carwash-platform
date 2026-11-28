@@ -396,10 +396,22 @@ test('C008 privacy: location is requested from one place, on the customer tap on
   );
   assert.deepEqual(
     users.map((file) => path.relative(APP_SRC, file).replaceAll('\\', '/')),
-    ['widgets/address-editor/deviceLocation.ts'],
+    ['data/productionDeviceLocation.ts', 'widgets/address-editor/deviceLocation.ts'],
   );
   assert.ok(!/watchPosition/.test(allCode), 'the position is never tracked');
   assert.ok(!/permissions\s*\.\s*query/.test(allCode), 'permission state is never probed');
+
+  // S03 adds an explicit production-only coordinate adapter. The approved
+  // illustrative map continues to discard its coordinates as below; production
+  // only returns a point to its form after the customer activates the button.
+  const productionDevice = withoutComments(read('data/productionDeviceLocation.ts'));
+  assert.equal(productionDevice.match(/getCurrentPosition/g).length, 1);
+  assert.ok(!/console\.|localStorage|sessionStorage|fetch\(/.test(productionDevice));
+  const productionScreen = withoutComments(
+    read('features/booking/production/ProductionJourney.tsx'),
+  );
+  assert.match(productionScreen, /onClick=\{locate\}/);
+  assert.ok(!/useEffect\([^)]*requestBookingLocation/.test(productionScreen));
 
   const device = withoutComments(read('widgets/address-editor/deviceLocation.ts'));
   assert.equal(device.match(/getCurrentPosition/g).length, 1);

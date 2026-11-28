@@ -1,0 +1,599 @@
+{
+  "schemaVersion": 1,
+  "kind": "carwash-worker-process-inventory",
+  "state": "desired-not-deployed",
+  "scope": "Every standalone worker entrypoint currently present in owner services. Owner HTTP runtimes remain in architecture/service-catalog.json. This inventory is configuration intent, not evidence that a process is running.",
+  "imageResolution": "Resolve ownerImage from the accepted release manifest to an immutable digest; never infer a deployed image from this file.",
+  "environmentPolicy": "DATABASE_URL is only this owner runtime role. Workload and broker credentials are least-privilege per owner. requiredEnv names configuration needed to perform the full role, including adapters that otherwise fail closed. Secret values are never stored here.",
+  "selectionPolicy": "Deploy required processes for enabled capabilities. specialized-alternative entries replace only their named maintenance component and must not be added as substitutes for all functions of a combined worker. legacy-capability entries are retained for existing catalog consumers and must be selected explicitly.",
+  "observationSource": "infra/railway/staging-inventory.json",
+  "processes": [
+    {
+      "id": "billing-cash-relay",
+      "owner": "billing",
+      "role": "outbox-relay",
+      "entrypoint": "services/billing/src/outbox/relay.runner.ts",
+      "ownerImage": "billing/runtime",
+      "command": ["node", "dist/outbox/relay.runner.js"],
+      "requiredEnv": ["DATABASE_URL", "BROKER_URL"],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "required",
+      "repositoryWorkingDirectory": "services/billing",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "oldest unpublished owner outbox age",
+        "expired lease and retry/dead row counts",
+        "publisher confirmation failures"
+      ]
+    },
+    {
+      "id": "billing-obligation-relay",
+      "owner": "billing",
+      "role": "outbox-relay",
+      "entrypoint": "services/billing/src/outbox/relay.runner.ts",
+      "ownerImage": "billing/runtime",
+      "command": ["node", "dist/outbox/relay.runner.js", "--family", "obligations"],
+      "requiredEnv": ["DATABASE_URL", "BROKER_URL"],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "required",
+      "repositoryWorkingDirectory": "services/billing",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "oldest unpublished billing obligation event age",
+        "expired obligation lease and retry/dead row counts",
+        "publisher confirmation or unroutable failures",
+        "Reporting billing freshness and inbox convergence"
+      ],
+      "requiresBeforeStart": [
+        "Reporting operations queue bound to the two published Billing obligation routing keys",
+        "Reporting cash-state migration applied"
+      ]
+    },
+    {
+      "id": "booking-runtime",
+      "owner": "booking",
+      "role": "combined-worker",
+      "entrypoint": "services/booking/src/workers/runtime.main.ts",
+      "ownerImage": "booking/runtime",
+      "command": ["node", "dist/workers/runtime.main.js"],
+      "requiredEnv": [
+        "DATABASE_URL",
+        "PRICING_URL",
+        "BILLING_URL",
+        "SCHEDULING_URL",
+        "SUBSCRIPTION_URL",
+        "BOOKING_TOKEN_PRICING",
+        "BOOKING_TOKEN_BILLING",
+        "BOOKING_TOKEN_SCHEDULING",
+        "BOOKING_TOKEN_SUBSCRIPTION",
+        "BOOKING_DISPATCH_URL",
+        "BOOKING_DISPATCH_CLIENT_ID",
+        "BOOKING_DISPATCH_CLIENT_TOKEN",
+        "BROKER_URL"
+      ],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "required",
+      "repositoryWorkingDirectory": "services/booking",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "worker pass/error logs",
+        "oldest due owner task age",
+        "expired lease and retry/dead row counts"
+      ]
+    },
+    {
+      "id": "booking-saga",
+      "owner": "booking",
+      "role": "saga-worker",
+      "entrypoint": "services/booking/src/workers/saga.main.ts",
+      "ownerImage": "booking/runtime",
+      "command": ["node", "dist/workers/saga.main.js"],
+      "requiredEnv": [
+        "DATABASE_URL",
+        "PRICING_URL",
+        "BILLING_URL",
+        "SCHEDULING_URL",
+        "SUBSCRIPTION_URL",
+        "BOOKING_TOKEN_PRICING",
+        "BOOKING_TOKEN_BILLING",
+        "BOOKING_TOKEN_SCHEDULING",
+        "BOOKING_TOKEN_SUBSCRIPTION",
+        "BOOKING_DISPATCH_URL",
+        "BOOKING_DISPATCH_CLIENT_ID",
+        "BOOKING_DISPATCH_CLIENT_TOKEN"
+      ],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "specialized-alternative",
+      "alternativeTo": "booking-runtime",
+      "repositoryWorkingDirectory": "services/booking",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "worker pass/error logs",
+        "oldest due owner task age",
+        "expired lease and retry/dead row counts"
+      ]
+    },
+    {
+      "id": "catalog-relay",
+      "owner": "catalog",
+      "role": "outbox-relay",
+      "entrypoint": "services/catalog/src/outbox/relay.runner.ts",
+      "ownerImage": "catalog/runtime",
+      "command": ["node", "dist/outbox/relay.runner.js"],
+      "requiredEnv": ["DATABASE_URL", "BROKER_URL"],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "required",
+      "repositoryWorkingDirectory": "services/catalog",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "oldest unpublished owner outbox age",
+        "expired lease and retry/dead row counts",
+        "publisher confirmation failures"
+      ]
+    },
+    {
+      "id": "communications-catalog-consumer",
+      "owner": "communications",
+      "role": "catalog-inbox-consumer",
+      "entrypoint": "services/communications/src/inbox/consumer.runner.ts",
+      "ownerImage": "communications/runtime",
+      "command": ["node", "dist/inbox/consumer.runner.js"],
+      "requiredEnv": ["DATABASE_URL", "BROKER_URL"],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "legacy-capability",
+      "repositoryWorkingDirectory": "services/communications",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "broker consumer presence",
+        "queue unacknowledged and oldest ready message age",
+        "dead-letter queue count",
+        "owner inbox checkpoint age"
+      ]
+    },
+    {
+      "id": "communications-event-notifications",
+      "owner": "communications",
+      "role": "domain-inbox-consumer",
+      "entrypoint": "services/communications/src/inbox/event-notifications-consumer.runner.ts",
+      "ownerImage": "communications/runtime",
+      "command": ["node", "dist/inbox/event-notifications-consumer.runner.js"],
+      "requiredEnv": ["DATABASE_URL", "BROKER_URL"],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "required",
+      "repositoryWorkingDirectory": "services/communications",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "broker consumer presence",
+        "queue unacknowledged and oldest ready message age",
+        "dead-letter queue count",
+        "owner inbox checkpoint age"
+      ]
+    },
+    {
+      "id": "communications-delivery",
+      "owner": "communications",
+      "role": "notification-delivery",
+      "entrypoint": "services/communications/src/delivery/delivery.runner.ts",
+      "ownerImage": "communications/runtime",
+      "command": ["node", "dist/delivery/delivery.runner.js"],
+      "requiredEnv": [
+        "DATABASE_URL",
+        "NOTIFICATION_PROVIDER_URL",
+        "NOTIFICATION_PROVIDER_TOKEN",
+        "NOTIFICATION_PROVIDER_IDEMPOTENT",
+        "NOTIFICATION_PROVIDER_RECIPIENT_NAMESPACES"
+      ],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "required",
+      "repositoryWorkingDirectory": "services/communications",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "worker pass/error logs",
+        "oldest due owner task age",
+        "expired lease and retry/dead row counts"
+      ]
+    },
+    {
+      "id": "dispatch-runtime",
+      "owner": "dispatch",
+      "role": "combined-worker",
+      "entrypoint": "services/dispatch/src/workers/runtime.main.ts",
+      "ownerImage": "dispatch/runtime",
+      "command": ["node", "dist/workers/runtime.main.js"],
+      "requiredEnv": [
+        "DATABASE_URL",
+        "BROKER_URL",
+        "DISPATCH_WORKFORCE_URL",
+        "DISPATCH_WORKFORCE_CLIENT_ID",
+        "DISPATCH_WORKFORCE_CLIENT_TOKEN",
+        "DISPATCH_MEDIA_URL",
+        "DISPATCH_MEDIA_CLIENT_ID",
+        "DISPATCH_MEDIA_CLIENT_TOKEN"
+      ],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "required",
+      "repositoryWorkingDirectory": "services/dispatch",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "worker pass/error logs",
+        "oldest due owner task age",
+        "expired lease and retry/dead row counts"
+      ]
+    },
+    {
+      "id": "dispatch-offer-expiry",
+      "owner": "dispatch",
+      "role": "expiry-worker",
+      "entrypoint": "services/dispatch/src/workers/offer-expiry.main.ts",
+      "ownerImage": "dispatch/runtime",
+      "command": ["node", "dist/workers/offer-expiry.main.js"],
+      "requiredEnv": ["DATABASE_URL"],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "specialized-alternative",
+      "alternativeTo": "dispatch-runtime",
+      "repositoryWorkingDirectory": "services/dispatch",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "worker pass/error logs",
+        "oldest due owner task age",
+        "expired lease and retry/dead row counts"
+      ]
+    },
+    {
+      "id": "dispatch-evidence-fence",
+      "owner": "dispatch",
+      "role": "evidence-worker",
+      "entrypoint": "services/dispatch/src/workers/evidence-fence.main.ts",
+      "ownerImage": "dispatch/runtime",
+      "command": ["node", "dist/workers/evidence-fence.main.js"],
+      "requiredEnv": [
+        "DATABASE_URL",
+        "DISPATCH_MEDIA_URL",
+        "DISPATCH_MEDIA_CLIENT_ID",
+        "DISPATCH_MEDIA_CLIENT_TOKEN"
+      ],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "specialized-alternative",
+      "alternativeTo": "dispatch-runtime",
+      "repositoryWorkingDirectory": "services/dispatch",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "worker pass/error logs",
+        "oldest due owner task age",
+        "expired lease and retry/dead row counts"
+      ]
+    },
+    {
+      "id": "media-purge",
+      "owner": "media",
+      "role": "retention-worker",
+      "entrypoint": "services/media/src/workers/purge.main.ts",
+      "ownerImage": "media/runtime",
+      "command": ["node", "dist/workers/purge.main.js"],
+      "requiredEnv": [
+        "DATABASE_URL",
+        "MEDIA_S3_ENDPOINT",
+        "MEDIA_S3_REGION",
+        "MEDIA_S3_BUCKET",
+        "MEDIA_S3_ACCESS_KEY_ID",
+        "MEDIA_S3_SECRET_ACCESS_KEY"
+      ],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "required",
+      "repositoryWorkingDirectory": "services/media",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "worker pass/error logs",
+        "oldest due owner task age",
+        "expired lease and retry/dead row counts"
+      ]
+    },
+    {
+      "id": "reporting-catalog-consumer",
+      "owner": "reporting",
+      "role": "catalog-inbox-consumer",
+      "entrypoint": "services/reporting/src/inbox/consumer.runner.ts",
+      "ownerImage": "reporting/runtime",
+      "command": ["node", "dist/inbox/consumer.runner.js"],
+      "requiredEnv": ["DATABASE_URL", "BROKER_URL"],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "legacy-capability",
+      "repositoryWorkingDirectory": "services/reporting",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "broker consumer presence",
+        "queue unacknowledged and oldest ready message age",
+        "dead-letter queue count",
+        "owner inbox checkpoint age"
+      ]
+    },
+    {
+      "id": "reporting-operations",
+      "owner": "reporting",
+      "role": "domain-inbox-consumer",
+      "entrypoint": "services/reporting/src/inbox/operations-consumer.runner.ts",
+      "ownerImage": "reporting/runtime",
+      "command": ["node", "dist/inbox/operations-consumer.runner.js"],
+      "requiredEnv": ["DATABASE_URL", "BROKER_URL"],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "required",
+      "repositoryWorkingDirectory": "services/reporting",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "broker consumer presence",
+        "queue unacknowledged and oldest ready message age",
+        "dead-letter queue count",
+        "owner inbox checkpoint age"
+      ]
+    },
+    {
+      "id": "scheduling-runtime",
+      "owner": "scheduling",
+      "role": "combined-worker",
+      "entrypoint": "services/scheduling/src/workers/runtime.main.ts",
+      "ownerImage": "scheduling/runtime",
+      "command": ["node", "dist/workers/runtime.main.js"],
+      "requiredEnv": ["DATABASE_URL", "BROKER_URL"],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "required",
+      "repositoryWorkingDirectory": "services/scheduling",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "worker pass/error logs",
+        "oldest due owner task age",
+        "expired lease and retry/dead row counts"
+      ]
+    },
+    {
+      "id": "scheduling-hold-expiry",
+      "owner": "scheduling",
+      "role": "expiry-worker",
+      "entrypoint": "services/scheduling/src/workers/hold-expiry.main.ts",
+      "ownerImage": "scheduling/runtime",
+      "command": ["node", "dist/workers/hold-expiry.main.js"],
+      "requiredEnv": ["DATABASE_URL"],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "specialized-alternative",
+      "alternativeTo": "scheduling-runtime",
+      "repositoryWorkingDirectory": "services/scheduling",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "worker pass/error logs",
+        "oldest due owner task age",
+        "expired lease and retry/dead row counts"
+      ]
+    },
+    {
+      "id": "subscription-funding-recovery",
+      "owner": "subscription",
+      "role": "funding-recovery",
+      "entrypoint": "services/subscription/src/workers/funding.main.ts",
+      "ownerImage": "subscription/runtime",
+      "command": ["node", "dist/workers/funding.main.js"],
+      "requiredEnv": [
+        "DATABASE_URL",
+        "SUBSCRIPTION_BILLING_ORIGIN",
+        "SUBSCRIPTION_BILLING_CLIENT_ID",
+        "SUBSCRIPTION_BILLING_SERVICE_TOKEN"
+      ],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "required",
+      "repositoryWorkingDirectory": "services/subscription",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "funding_release_batch: attempted/released",
+        "administrator funding-recovery: nextAttemptAt/attempts/status",
+        "oldest unreleased queue age; dead attempts require reviewed retry"
+      ]
+    },
+    {
+      "id": "wallet-custody-consumer",
+      "owner": "wallet",
+      "role": "domain-inbox-consumer",
+      "entrypoint": "services/wallet/src/transport/messaging/custody-consumer.runner.ts",
+      "ownerImage": "wallet/runtime",
+      "command": ["node", "dist/transport/messaging/custody-consumer.runner.js"],
+      "requiredEnv": ["DATABASE_URL", "BROKER_URL"],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "required",
+      "repositoryWorkingDirectory": "services/wallet",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "broker consumer presence",
+        "queue unacknowledged and oldest ready message age",
+        "dead-letter queue count",
+        "owner inbox checkpoint age"
+      ]
+    },
+    {
+      "id": "workforce-runtime",
+      "owner": "workforce",
+      "role": "combined-worker",
+      "entrypoint": "services/workforce/src/workers/runtime.main.ts",
+      "ownerImage": "workforce/runtime",
+      "command": ["node", "dist/workers/runtime.main.js"],
+      "requiredEnv": ["DATABASE_URL", "BROKER_URL"],
+      "ingress": {
+        "public": false,
+        "private": false
+      },
+      "deploymentMode": "required",
+      "repositoryWorkingDirectory": "services/workforce",
+      "runtimeWorkingDirectory": "/app",
+      "healthcheck": {
+        "disableInheritedImageHttpProbe": true,
+        "liveness": "platform-process-supervision",
+        "restartOn": "process-exit",
+        "progressMonitoringRequired": true
+      },
+      "progressSignals": [
+        "worker pass/error logs",
+        "oldest due owner task age",
+        "expired lease and retry/dead row counts"
+      ]
+    }
+  ],
+  "workerHealthPolicy": "Owner images contain an HTTP healthcheck for the API. Worker deployments must disable that inherited probe and use platform process supervision with restart on failure, plus role-specific backlog/lease/DLQ alerts. A running PID alone is not proof of successful business progress. This inventory does not assert those deployment controls are already configured."
+}

@@ -11,6 +11,10 @@ import { HomePackages } from './components/HomePackages';
 import { HomeBenefits, PaymentPreviewLink, ResultTeaser } from './components/HomeShowcase';
 import { buildHomeViewModel } from './homeViewModel';
 import './home.css';
+import { useProductionBooking } from '../../data/ProductionBookingProvider';
+import { BOOKING_LABELS } from '../../data/productionBookingContracts';
+import { sizeName } from '../../widgets/vehicle-editor/vehicleEditorModel';
+import { JourneyNotice } from '../../widgets/customer-access/JourneyNotice';
 
 const HOME_DOCUMENT_TITLE = 'WashGo Signature — وقتك لك، واللمعة علينا';
 
@@ -19,7 +23,19 @@ export function HomeRoute() {
   const navigate = useNavigate();
   const view = useMemo(() => buildHomeViewModel(state), [state]);
   const parity = state.runtimeMode === 'parity';
-  const unavailable = parity ? {} : { unavailableReasonId: 'production-booking-unavailable' };
+  const production = useProductionBooking();
+  const principal = production?.snapshot.principal?.subjectId;
+  const active = production?.snapshot.bookings.find(
+    (item) => !['COMPLETED', 'CANCELLED', 'EXPIRED', 'REJECTED'].includes(item.status),
+  );
+  const repeatable = production?.snapshot.bookings.find((item) => item.status === 'COMPLETED');
+  const unavailable =
+    !parity && production?.snapshot.catalogStatus !== 'available'
+      ? { unavailableReasonId: 'production-booking-unavailable' }
+      : {};
+  useEffect(() => {
+    if (principal && production) void production.client.loadBookings();
+  }, [principal, production?.client]);
 
   useEffect(() => {
     const previousTitle = document.title;
@@ -45,24 +61,64 @@ export function HomeRoute() {
         startingPrice={view.startingPrice}
         onStart={() => {
           if (parity) follow(commands.startBooking());
+          else navigate('/book/0');
         }}
         {...unavailable}
       />
       <HomeBenefits />
       <HomeBookingEntries
-        activeOrder={view.activeOrder}
-        repeatableOrder={view.repeatableOrder}
-        savedDraft={view.savedDraft}
-        onViewOrder={(orderId) => follow(commands.viewOrder(orderId))}
-        onRepeatOrder={(orderId) => follow(commands.repeatOrder(orderId))}
-        onResumeDraft={() => follow(commands.resumeBooking())}
+        activeOrder={
+          parity
+            ? view.activeOrder
+            : active
+              ? { id: active.bookingId, statusLabel: BOOKING_LABELS[active.status] }
+              : null
+        }
+        repeatableOrder={
+          parity
+            ? view.repeatableOrder
+            : repeatable
+              ? {
+                  id: repeatable.bookingId,
+                  carLabel: repeatable.vehicle.model ?? sizeName(repeatable.vehicle.type),
+                  packageName: 'عنايتك السابقة',
+                }
+              : null
+        }
+        savedDraft={parity ? view.savedDraft : null}
+        onViewOrder={(orderId) =>
+          parity ? follow(commands.viewOrder(orderId)) : navigate(`/order/${orderId}`)
+        }
+        onRepeatOrder={(orderId) => {
+          if (parity) follow(commands.repeatOrder(orderId));
+          else if (production && repeatable)
+            void production.client.repeat(repeatable).then((ready) => {
+              if (ready) navigate('/book/0');
+            });
+        }}
+        onResumeDraft={() => (parity ? follow(commands.resumeBooking()) : navigate('/book/0'))}
       />
+      {!parity && production?.snapshot.draft.packageId ? (
+        <button
+          className="btn secondary full gap-top"
+          type="button"
+          onClick={() => navigate(`/book/${production.client.prerequisites()}`)}
+        >
+          أكمل حجزك
+        </button>
+      ) : null}
       {parity && <PaymentPreviewLink />}
       <HomePackages
         packages={view.packages}
         details={view.packageDetails}
+        production={!parity}
         onStartWithPackage={(id) => {
           if (parity && isCarePackageId(id)) follow(commands.startBooking(id));
+          else if (production) {
+            if (production.snapshot.principal)
+              void production.client.selectCare(id).then(() => navigate('/book/0'));
+            else navigate('/book/0');
+          }
         }}
         {...unavailable}
       />
@@ -82,10 +138,11 @@ export function HomeRoute() {
                 : 'لا توجد باقات منشورة حاليًا.'
               : 'تعذّر تحميل الباقات. حاول إعادة تحميل الصفحة.'}
             <br />
-            تأكيد الحجز غير متاح قبل ربط عرض السعر والمواعيد.
+            يُحسب السعر لحجم سيارتك واختياراتك، ويُتحقق من توفر الموعد قبل التأكيد.
           </>
         )}
       </p>
+      {!parity ? <JourneyNotice /> : null}
     </div>
   );
 }

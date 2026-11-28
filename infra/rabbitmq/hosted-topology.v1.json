@@ -1,0 +1,218 @@
+{
+  "schemaVersion": 1,
+  "state": "desired-not-deployed",
+  "requiredBrokerRoles": [
+    {
+      "id": "billing-cash-relay",
+      "owner": "billing"
+    },
+    {
+      "id": "billing-obligation-relay",
+      "owner": "billing"
+    },
+    {
+      "id": "booking-runtime",
+      "owner": "booking"
+    },
+    {
+      "id": "catalog-relay",
+      "owner": "catalog"
+    },
+    {
+      "id": "communications-event-notifications",
+      "owner": "communications"
+    },
+    {
+      "id": "dispatch-runtime",
+      "owner": "dispatch"
+    },
+    {
+      "id": "reporting-operations",
+      "owner": "reporting"
+    },
+    {
+      "id": "scheduling-runtime",
+      "owner": "scheduling"
+    },
+    {
+      "id": "wallet-custody-consumer",
+      "owner": "wallet"
+    },
+    {
+      "id": "workforce-runtime",
+      "owner": "workforce"
+    }
+  ],
+  "requiredNonBrokerRoles": [
+    {
+      "id": "communications-delivery",
+      "owner": "communications"
+    },
+    {
+      "id": "media-purge",
+      "owner": "media"
+    },
+    {
+      "id": "subscription-funding-recovery",
+      "owner": "subscription"
+    }
+  ],
+  "producers": [
+    {
+      "owner": "billing",
+      "exchange": "washgo.billing.events",
+      "keys": [
+        "billing.obligation-created.v1",
+        "billing.obligation-status-changed.v1",
+        "billing.cash-collected.v1",
+        "billing.cash-collection-reversed.v1",
+        "billing.custody-handover-changed.v1"
+      ]
+    },
+    {
+      "owner": "booking",
+      "exchange": "booking.events",
+      "keys": [
+        "booking.created.v1",
+        "booking.cancelled.v1",
+        "booking.rescheduled.v1",
+        "booking.lifecycle-progressed.v1"
+      ]
+    },
+    {
+      "owner": "catalog",
+      "exchange": "catalog.events",
+      "keys": ["foundation.probe.created.v1"]
+    },
+    {
+      "owner": "dispatch",
+      "exchange": "dispatch.events",
+      "keys": [
+        "dispatch.assignment-changed.v1",
+        "dispatch.task-progressed.v1",
+        "dispatch.cash-declared.v1"
+      ]
+    },
+    {
+      "owner": "scheduling",
+      "exchange": "scheduling.events",
+      "keys": ["scheduling.hold-changed.v1"]
+    },
+    {
+      "owner": "workforce",
+      "exchange": "workforce.events",
+      "keys": ["workforce.shift-updated.v1", "workforce.eligibility-changed.v1"]
+    }
+  ],
+  "consumers": [
+    {
+      "owner": "booking",
+      "queue": "booking.dispatch.execution",
+      "deliveryLimit": 120,
+      "dlx": "booking.dlx",
+      "dlq": "booking.dlq",
+      "bindings": [
+        {
+          "exchange": "dispatch.events",
+          "keys": ["dispatch.task-progressed.v1", "dispatch.assignment-changed.v1"]
+        }
+      ]
+    },
+    {
+      "owner": "dispatch",
+      "queue": "dispatch.scheduling.hold-changed",
+      "deliveryLimit": 30,
+      "dlx": "dispatch.dlx",
+      "dlq": "dispatch.dlq",
+      "bindings": [
+        {
+          "exchange": "scheduling.events",
+          "keys": ["scheduling.hold-changed.v1"]
+        }
+      ]
+    },
+    {
+      "owner": "dispatch",
+      "queue": "dispatch.workforce.eligibility-changed",
+      "deliveryLimit": 30,
+      "dlx": "dispatch.dlx",
+      "dlq": "dispatch.dlq",
+      "bindings": [
+        {
+          "exchange": "workforce.events",
+          "keys": ["workforce.eligibility-changed.v1"]
+        }
+      ]
+    },
+    {
+      "owner": "communications",
+      "queue": "communications.event-notifications",
+      "deliveryLimit": 3,
+      "dlx": "communications.event-notifications.dlx",
+      "dlq": "communications.event-notifications.dlq",
+      "deadLetterKey": "communications.event-notifications",
+      "bindings": [
+        {
+          "exchange": "booking.events",
+          "keys": ["booking.confirmed.v1", "booking.created.v1", "booking.cancelled.v1"]
+        }
+      ]
+    },
+    {
+      "owner": "reporting",
+      "queue": "reporting.operations",
+      "deliveryLimit": 3,
+      "dlx": "reporting.operations.dlx",
+      "dlq": "reporting.operations.dlq",
+      "deadLetterKey": "reporting.operations",
+      "bindings": [
+        {
+          "exchange": "booking.events",
+          "keys": [
+            "booking.confirmed.v1",
+            "booking.created.v1",
+            "booking.cancelled.v1",
+            "booking.rescheduled.v1",
+            "booking.lifecycle-progressed.v1"
+          ]
+        },
+        {
+          "exchange": "dispatch.events",
+          "keys": ["dispatch.assignment-changed.v1", "dispatch.cash-declared.v1"]
+        },
+        {
+          "exchange": "scheduling.events",
+          "keys": ["scheduling.hold-changed.v1"]
+        },
+        {
+          "exchange": "workforce.events",
+          "keys": ["workforce.shift-updated.v1", "workforce.eligibility-changed.v1"]
+        },
+        {
+          "exchange": "washgo.billing.events",
+          "keys": ["billing.obligation-created.v1", "billing.obligation-status-changed.v1"]
+        }
+      ]
+    },
+    {
+      "owner": "wallet",
+      "queue": "wallet.billing-custody.v1",
+      "deliveryLimit": 10,
+      "dlx": "wallet.billing-custody.dlx",
+      "dlq": "wallet.billing-custody.dlq",
+      "dlqType": "quorum",
+      "deadLetterKey": "custody",
+      "retryExchange": "wallet.billing-custody.retry",
+      "bindings": [
+        {
+          "exchange": "washgo.billing.events",
+          "keys": [
+            "billing.cash-collected.v1",
+            "billing.cash-collection-reversed.v1",
+            "billing.custody-handover-changed.v1"
+          ]
+        }
+      ]
+    }
+  ]
+}

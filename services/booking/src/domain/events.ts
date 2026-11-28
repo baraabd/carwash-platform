@@ -4,10 +4,8 @@ import { moneyToWire, type MoneyWire } from './money';
 import type { PaymentMethod, PrincipalRef } from './snapshots';
 
 /**
- * `booking.created.v1` on envelope v2: the producer side of the contract
- * REQUESTED from Lane E in docs/production/C/contract-requests/CR-P02-C2-booking-v1.md.
- * Until E publishes it, it is written to the outbox only (status
- * producer-pending); nothing may claim it is a published contract.
+ * `booking.created.v1` on envelope v2 is registered in @carwash/event-contracts.
+ * Its durable outbox is relayed by the separate Booking production worker.
  *
  * Emitted once, when the booking is CONFIRMED (the hold is committed). Data
  * carries opaque ids, the slot and the exact total; never the contact name,

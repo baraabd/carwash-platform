@@ -170,6 +170,7 @@ test('pricing: canonical and legacy quote adapters coexist with promotion routes
     const id = '6f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f';
     for (const route of [
       'quotes',
+      'subscription-quotes',
       'legacy/quotes',
       'price-books',
       'legacy/prices',
@@ -184,6 +185,14 @@ test('pricing: canonical and legacy quote adapters coexist with promotion routes
       });
       assert.equal(result.status, 401, route);
     }
+    const subscriptionQuote = await fetch(
+      `${origin}/internal/v1/pricing/subscription-quotes/${id}`,
+    );
+    assert.equal(
+      subscriptionQuote.status,
+      401,
+      'subscription quote read must be mounted and authenticated',
+    );
   } finally {
     await app.close();
     if (previous === undefined) delete process.env.PRICING_SERVICE_CLIENTS;

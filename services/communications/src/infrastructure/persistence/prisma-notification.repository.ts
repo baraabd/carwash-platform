@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import type { Prisma, PrismaClient } from '../../generated/prisma/client';
 import {
   CHANNELS,
+  RECIPIENT_NAMESPACES,
+  type RecipientNamespace,
   NotificationRuleError,
   DELIVERY_STATES,
   afterLeaseExpiry,
@@ -27,11 +29,20 @@ export const sha256Hex: Hasher = (canonical) =>
   createHash('sha256').update(canonical, 'utf8').digest('hex');
 
 type Db = PrismaClient | Prisma.TransactionClient;
+async function lockBooking(tx: Prisma.TransactionClient, bookingId: string): Promise<void> {
+  await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(${'notification-booking:' + bookingId}, 0))`;
+}
 
 function asState(value: string): DeliveryState {
   const state = DELIVERY_STATES.find((candidate) => candidate === value);
   if (!state) throw new Error('UNKNOWN_PERSISTED_STATE');
   return state;
+}
+
+function asRecipientNamespace(value: string): RecipientNamespace {
+  const namespace = RECIPIENT_NAMESPACES.find((candidate) => candidate === value);
+  if (!namespace) throw new Error('UNKNOWN_RECIPIENT_NAMESPACE');
+  return namespace;
 }
 
 function asChannel(value: string): Channel {
@@ -59,7 +70,76 @@ function asParameters(value: Prisma.JsonValue): Readonly<Record<string, string>>
 export class PrismaNotificationIntake implements NotificationIntake {
   constructor(protected readonly db: Db) {}
 
+  private transaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    return '$transaction' in this.db ? this.db.$transaction(work) : work(this.db);
+  }
+
+  async cancelBooking(input: Parameters<NotificationIntake['cancelBooking']>[0]): Promise<void> {
+    await this.transaction(async (tx) => {
+      await lockBooking(tx, input.bookingId);
+      await tx.bookingNotificationCancellation.createMany({
+        data: [
+          {
+            bookingId: input.bookingId,
+            eventId: input.eventId,
+            sourceVersion: input.version,
+            cancelledAt: input.occurredAt,
+          },
+        ],
+        skipDuplicates: true,
+      });
+      await tx.notification.updateMany({
+        where: {
+          sourceService: 'booking',
+          subjectType: 'booking',
+          subjectRef: input.bookingId,
+          state: { in: ['QUEUED', 'RETRY_WAIT'] },
+          attemptCount: 0,
+        },
+        data: {
+          state: 'CANCELLED',
+          nextAttemptAt: null,
+          lastErrorCode: 'SOURCE_BOOKING_CANCELLED',
+          updatedAt: input.now,
+        },
+      });
+      // A previous submission may already have reached its provider. Preserve uncertainty.
+      await tx.notification.updateMany({
+        where: {
+          sourceService: 'booking',
+          subjectType: 'booking',
+          subjectRef: input.bookingId,
+          state: 'RETRY_WAIT',
+          attemptCount: { gt: 0 },
+        },
+        data: {
+          state: 'UNKNOWN',
+          nextAttemptAt: null,
+          lastErrorCode: 'SOURCE_BOOKING_CANCELLED',
+          updatedAt: input.now,
+        },
+      });
+    });
+  }
+
   async enqueue(input: Parameters<NotificationIntake['enqueue']>[0]): Promise<EnqueueResult> {
+    return this.transaction(async (tx) => {
+      if (input.request.sourceService === 'booking' && input.request.subject?.type === 'booking') {
+        await lockBooking(tx, input.request.subject.ref);
+        if (
+          await tx.bookingNotificationCancellation.findUnique({
+            where: { bookingId: input.request.subject.ref },
+          })
+        )
+          return { kind: 'SUPPRESSED', reason: 'BOOKING_CANCELLED' };
+      }
+      return new PrismaNotificationIntake(tx).enqueueWithin(input);
+    });
+  }
+
+  private async enqueueWithin(
+    input: Parameters<NotificationIntake['enqueue']>[0],
+  ): Promise<EnqueueResult> {
     const { request, requestHash, notificationId, now } = input;
     // ON CONFLICT DO NOTHING on the business identity: a concurrent duplicate
     // waits on the unique index and then sees zero inserted rows.
@@ -71,6 +151,7 @@ export class PrismaNotificationIntake implements NotificationIntake {
           idempotencyKey: request.idempotencyKey,
           requestHash,
           recipientRef: request.recipientRef,
+          recipientNamespace: request.recipientNamespace ?? 'CUSTOMER',
           channel: request.channel,
           templateKey: request.templateKey,
           templateVersion: request.templateVersion,
@@ -168,6 +249,31 @@ export class PrismaNotificationRepository
       const fence = candidate.fence + 1;
       const attempt = candidate.attemptCount + 1;
       const won = await this.client.$transaction(async (tx) => {
+        if (
+          candidate.sourceService === 'booking' &&
+          candidate.subjectType === 'booking' &&
+          candidate.subjectRef
+        ) {
+          await lockBooking(tx, candidate.subjectRef);
+          if (
+            await tx.bookingNotificationCancellation.findUnique({
+              where: { bookingId: candidate.subjectRef },
+            })
+          ) {
+            await tx.notification.updateMany({
+              where: { id: candidate.id, fence: candidate.fence, state: candidate.state },
+              data: {
+                state: candidate.attemptCount > 0 ? 'UNKNOWN' : 'CANCELLED',
+                nextAttemptAt: null,
+                leaseOwner: null,
+                leaseUntil: null,
+                lastErrorCode: 'SOURCE_BOOKING_CANCELLED',
+                updatedAt: now,
+              },
+            });
+            return false;
+          }
+        }
         // Compare-and-set on (fence, state). PostgreSQL re-checks the WHERE
         // after the row lock, so exactly one of two racing workers moves it.
         const moved = await tx.notification.updateMany({
@@ -206,6 +312,9 @@ export class PrismaNotificationRepository
           idempotencyKey: providerIdempotencyKey(candidate.id),
           channel: asChannel(candidate.channel),
           recipientRef: candidate.recipientRef,
+          ...(candidate.recipientNamespace === 'CUSTOMER'
+            ? {}
+            : { recipientNamespace: asRecipientNamespace(candidate.recipientNamespace) }),
           templateKey: candidate.templateKey,
           templateVersion: candidate.templateVersion,
           parameters: asParameters(candidate.parameters),
@@ -230,6 +339,27 @@ export class PrismaNotificationRepository
   async complete(input: Parameters<NotificationRepository['complete']>[0]): Promise<boolean> {
     const { notificationId, fence, attempt, outcome, transition, now } = input;
     return this.client.$transaction(async (tx) => {
+      let appliedTransition = transition;
+      const candidate = await tx.notification.findUnique({ where: { id: notificationId } });
+      if (
+        candidate?.sourceService === 'booking' &&
+        candidate.subjectType === 'booking' &&
+        candidate.subjectRef
+      ) {
+        await lockBooking(tx, candidate.subjectRef);
+        if (
+          transition.state === 'RETRY_WAIT' &&
+          (await tx.bookingNotificationCancellation.findUnique({
+            where: { bookingId: candidate.subjectRef },
+          }))
+        )
+          appliedTransition = {
+            state: 'UNKNOWN',
+            nextAttemptAt: null,
+            providerMessageId: transition.providerMessageId,
+            errorCode: 'SOURCE_BOOKING_CANCELLED',
+          };
+      }
       // Lock the notification before its attempt, exactly as lease expiry and
       // reclaim do. The reverse order deadlocks with a concurrent sweeper.
       // Same fence and still SENDING, or UNKNOWN because this very claim's
@@ -238,10 +368,10 @@ export class PrismaNotificationRepository
       const moved = await tx.notification.updateMany({
         where: { id: notificationId, fence, state: { in: ['SENDING', 'UNKNOWN'] } },
         data: {
-          state: transition.state,
-          nextAttemptAt: transition.nextAttemptAt,
-          providerMessageId: transition.providerMessageId,
-          lastErrorCode: transition.errorCode,
+          state: appliedTransition.state,
+          nextAttemptAt: appliedTransition.nextAttemptAt,
+          providerMessageId: appliedTransition.providerMessageId,
+          lastErrorCode: appliedTransition.errorCode,
           leaseOwner: null,
           leaseUntil: null,
           updatedAt: now,

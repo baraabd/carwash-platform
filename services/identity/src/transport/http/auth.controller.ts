@@ -202,6 +202,12 @@ export class IdentityHealthController {
   @Get('ready')
   async ready(@Res() response: AuthResponse) {
     const ready = await this.runtime.ready();
-    return response.status(ready ? 200 : 503).json({ service: 'identity', ready });
+    return response.status(ready ? 200 : 503).json({
+      service: 'identity',
+      scope: 'http-api',
+      ready,
+      businessReady: ready,
+      code: ready ? 'READY' : 'DEPENDENCY_DOWN',
+    });
   }
 }

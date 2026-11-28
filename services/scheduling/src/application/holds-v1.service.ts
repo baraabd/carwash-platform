@@ -194,14 +194,40 @@ export class HoldsV1Service {
     request: HoldRequest,
     rawKey: string | undefined,
   ): Promise<StoredResponse> {
+    return this.createForBeneficiary(meta, request, rawKey, false);
+  }
+
+  /** Staff acts as itself; the hold beneficiary must match the authoritative quote. */
+  async createStaffHold(
+    meta: RequestMeta,
+    request: HoldRequest,
+    rawKey: string | undefined,
+  ): Promise<StoredResponse> {
+    if (!isOperations(meta.actor))
+      throw new SchedulingError('FORBIDDEN', 'Operations permission required.');
+    return this.createForBeneficiary(meta, request, rawKey, true);
+  }
+
+  private async createForBeneficiary(
+    meta: RequestMeta,
+    request: HoldRequest,
+    rawKey: string | undefined,
+    onBehalf: boolean,
+  ): Promise<StoredResponse> {
     const principal = requirePrincipal(meta.actor);
     const key = requireKey(rawKey);
     if (
-      request.beneficiary.kind !== principal.principalKind ||
-      request.beneficiary.subjectId.toLowerCase() !== principal.subject
+      !onBehalf &&
+      (request.beneficiary.kind !== principal.principalKind ||
+        request.beneficiary.subjectId.toLowerCase() !== principal.subject)
     ) {
       throw new SchedulingError('FORBIDDEN', 'A principal may hold slots only for itself.');
     }
+    const beneficiary = {
+      kind: request.beneficiary.kind,
+      subjectId: request.beneficiary.subjectId.toLowerCase(),
+    };
+    assertUuid(beneficiary.subjectId, 'beneficiary.subjectId');
     assertUuid(request.zoneId, 'zoneId');
     assertUuid(request.quoteRef.quoteId, 'quoteRef.quoteId');
     if (
@@ -218,7 +244,7 @@ export class HoldsV1Service {
     const actor = actorKey(principal);
     const scope = `${CONTRACT}:createHold:${actor}`;
     const print = fingerprint('createHold', actor, null, {
-      beneficiary: { kind: request.beneficiary.kind, subjectId: principal.subject },
+      beneficiary,
       zoneId,
       startsAt: startsAt.toISOString(),
       durationMinutes: request.durationMinutes,
@@ -245,7 +271,7 @@ export class HoldsV1Service {
       if (!(error instanceof PricingUnavailable)) throw error;
       throw new SchedulingError('PRICING_UNAVAILABLE', 'Pricing is unavailable.');
     }
-    this.assertQuote(quote, request, principal, this.clock.now());
+    this.assertQuote(quote, request, beneficiary, this.clock.now());
 
     try {
       return await this.uow.run(async (tx) => {
@@ -253,10 +279,10 @@ export class HoldsV1Service {
         // authority when two replicas race to use the same key.
         const replay = settle(await tx.claimIdempotency(scope, key, print));
         if (replay) return replay;
-        await tx.lockBeneficiary(principal.principalKind, principal.subject);
+        await tx.lockBeneficiary(beneficiary.kind, beneficiary.subjectId);
         const active = await tx.countActiveHolds(
-          principal.principalKind,
-          principal.subject,
+          beneficiary.kind,
+          beneficiary.subjectId,
           this.clock.now(),
         );
         if (active >= HOLD_LIMITS.maxActivePerBeneficiary) {
@@ -270,15 +296,15 @@ export class HoldsV1Service {
         // into a new hold. No upstream IO occurs while these locks are held.
         const now = this.clock.now();
         this.assertFreshSlot(startsAt, now);
-        this.assertQuote(quote, request, principal, now);
+        this.assertQuote(quote, request, beneficiary, now);
         const current = await expireDueHoldsOf(tx, this.ids, locked, now, meta.correlationId);
         const next = holdUnits(current, 1, now, startsAt);
         const hold: HoldState = {
           id: this.ids.next(),
           windowId: locked.id,
           zoneId: locked.zoneId,
-          beneficiaryKind: principal.principalKind,
-          beneficiarySubject: principal.subject,
+          beneficiaryKind: beneficiary.kind,
+          beneficiarySubject: beneficiary.subjectId,
           quoteId: request.quoteRef.quoteId.toLowerCase(),
           quoteRevision: request.quoteRef.revision,
           slotStartsAt: startsAt,
@@ -324,7 +350,7 @@ export class HoldsV1Service {
   private assertQuote(
     quote: SchedulingQuote | null,
     request: HoldRequest,
-    principal: PrincipalActor,
+    beneficiary: HoldRequest['beneficiary'],
     now: Date,
   ): void {
     if (
@@ -338,8 +364,8 @@ export class HoldsV1Service {
     if (
       quote.quoteId !== request.quoteRef.quoteId.toLowerCase() ||
       quote.revision !== request.quoteRef.revision ||
-      quote.beneficiary.kind !== principal.principalKind ||
-      quote.beneficiary.subjectId !== principal.subject ||
+      quote.beneficiary.kind !== beneficiary.kind ||
+      quote.beneficiary.subjectId !== beneficiary.subjectId ||
       (quote.zoneId !== null && quote.zoneId !== request.zoneId.toLowerCase()) ||
       quote.durationMinutes !== request.durationMinutes
     ) {

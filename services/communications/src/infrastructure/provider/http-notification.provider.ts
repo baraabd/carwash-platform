@@ -1,4 +1,8 @@
-import type { SubmissionOutcome } from '../../domain/notification';
+import {
+  RECIPIENT_NAMESPACES,
+  type RecipientNamespace,
+  type SubmissionOutcome,
+} from '../../domain/notification';
 import type { NotificationProvider, ProviderSubmission } from '../../ports/notification.ports';
 
 const MESSAGE_ID = /^[A-Za-z0-9._:-]{1,128}$/;
@@ -14,6 +18,7 @@ const NOT_CONNECTED = new Set([
 
 export interface HttpProviderConfig {
   readonly endpoint: URL;
+  readonly recipientNamespaces?: readonly RecipientNamespace[];
   readonly token: string;
   /** Set only when the provider's documentation guarantees idempotency-key deduplication. */
   readonly idempotentSubmission: boolean;
@@ -75,6 +80,9 @@ export class HttpNotificationProvider implements NotificationProvider {
   }
 
   async submit(submission: ProviderSubmission, signal: AbortSignal): Promise<SubmissionOutcome> {
+    const namespace = submission.recipientNamespace ?? 'CUSTOMER';
+    if (!(this.config.recipientNamespaces ?? ['CUSTOMER']).includes(namespace))
+      return { kind: 'NOT_SUBMITTED', code: 'RECIPIENT_NAMESPACE_UNSUPPORTED' };
     let response: Response;
     try {
       response = await fetch(this.config.endpoint, {
@@ -89,6 +97,9 @@ export class HttpNotificationProvider implements NotificationProvider {
         body: JSON.stringify({
           channel: submission.channel,
           recipientRef: submission.recipientRef,
+          ...(submission.recipientNamespace
+            ? { recipientNamespace: submission.recipientNamespace }
+            : {}),
           template: { key: submission.templateKey, version: submission.templateVersion },
           parameters: submission.parameters,
         }),
@@ -119,7 +130,8 @@ export class HttpNotificationProvider implements NotificationProvider {
     }
     await response.body?.cancel().catch(() => undefined);
     // Refused before processing; safe to retry later.
-    if ([401, 403, 408, 429].includes(response.status))
+    if (response.status === 408) return { kind: 'AMBIGUOUS', code: 'PROVIDER_SERVER_408' };
+    if ([401, 403, 429].includes(response.status))
       return { kind: 'REJECTED', code: `PROVIDER_REFUSED_${response.status}`, retryable: true };
     if (response.status >= 400 && response.status < 500)
       return { kind: 'REJECTED', code: `PROVIDER_REJECTED_${response.status}`, retryable: false };
@@ -135,7 +147,14 @@ export function httpProviderFromEnv(env: NodeJS.ProcessEnv): HttpNotificationPro
   const idempotent = env.NOTIFICATION_PROVIDER_IDEMPOTENT;
   if (idempotent !== 'true' && idempotent !== 'false')
     throw new Error('PROVIDER_IDEMPOTENCY_UNDECLARED');
+  const namespaces = (env.NOTIFICATION_PROVIDER_RECIPIENT_NAMESPACES ?? 'CUSTOMER').split(',');
+  if (
+    namespaces.length === 0 ||
+    namespaces.some((v) => !RECIPIENT_NAMESPACES.includes(v as RecipientNamespace))
+  )
+    throw new Error('INVALID_PROVIDER_RECIPIENT_NAMESPACES');
   return new HttpNotificationProvider({
+    recipientNamespaces: namespaces as RecipientNamespace[],
     endpoint: new URL(url),
     token,
     idempotentSubmission: idempotent === 'true',

@@ -6,7 +6,14 @@ import {
   type RecordCashCollectionRequestV1,
 } from '@carwash/contracts/billing-v1';
 import { ContractViolation } from '@carwash/contracts/common';
-import { call, unknownGatewayOutcome, type Result } from './client';
+import {
+  call,
+  unknownGatewayOutcome,
+  sessionChanged,
+  sessionRequests,
+  type Result,
+} from './client';
+import type { RequestEpochToken } from '@carwash/api-clients';
 import { ShapeError } from './parse';
 import type { Money } from './types';
 
@@ -54,6 +61,10 @@ interface CashAttempt {
  */
 const attempts = new Map<string, CashAttempt>();
 
+export function clearCashAttempts(): void {
+  attempts.clear();
+}
+
 const refused = (code: string): Result<never> => ({
   kind: 'error',
   status: 409,
@@ -84,7 +95,9 @@ export async function collectCash(
   amount: Money,
   idempotencyKey: string,
 ): Promise<Result<CashReceipt>> {
-  const result = await collect(bookingId, amount, idempotencyKey);
+  const epoch = sessionRequests.capture();
+  const result = await collect(bookingId, amount, idempotencyKey, epoch);
+  if (!sessionRequests.current(epoch)) return sessionChanged();
   if (result.kind === 'ok' || (result.kind === 'error' && !result.retryable)) {
     attempts.delete(idempotencyKey);
   }
@@ -95,8 +108,10 @@ async function collect(
   bookingId: string,
   amount: Money,
   key: string,
+  epoch: RequestEpochToken,
 ): Promise<Result<CashReceipt>> {
   const target = await readCashTarget(bookingId);
+  if (!sessionRequests.current(epoch)) return sessionChanged();
   if (target.kind !== 'ok') return target;
   const receipt = restored(target.value, amount);
   if (receipt) return { kind: 'ok', status: 200, value: receipt };
@@ -143,8 +158,10 @@ async function collect(
       return result;
     },
   });
+  if (!sessionRequests.current(epoch)) return sessionChanged();
   if (recorded.kind !== 'ok') return recorded;
   const current = await readCashTarget(bookingId);
+  if (!sessionRequests.current(epoch)) return sessionChanged();
   if (current.kind !== 'ok') return current;
   const active = restored(current.value, amount);
   return active

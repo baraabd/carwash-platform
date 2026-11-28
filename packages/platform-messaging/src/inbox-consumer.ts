@@ -7,6 +7,7 @@ import {
   type Telemetry,
 } from '@carwash/observability';
 import { createHash } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 import type { ConfirmChannel, ConsumeMessage } from 'amqplib';
 import type { InboxOutcome, InboxRecord, InboxStore, MessageLogger } from './types';
 
@@ -37,7 +38,11 @@ export interface InboxConsumerOptions<T extends ParsedEvent> {
   readonly queue: string;
   readonly store: InboxStore;
   readonly parse: (raw: unknown) => T;
-  readonly effect: (event: T, tx: unknown) => Promise<void>;
+  /** Optional authoritative reads BEFORE the local transaction, never under a DB lock. */
+  readonly prepare?: (event: T) => Promise<unknown>;
+  readonly effect: (event: T, tx: unknown, prepared?: unknown) => Promise<void>;
+  /** Bounded pacing before a transient NACK; the quorum queue still owns the retry budget. */
+  readonly retryDelayMs?: number;
   readonly logger?: MessageLogger;
   readonly prefetch?: number;
   /**
@@ -84,7 +89,15 @@ export class InboxConsumer<T extends ParsedEvent> {
   private consumerTag: string | undefined;
   private readonly inFlight = new Set<Promise<void>>();
 
-  constructor(private readonly options: InboxConsumerOptions<T>) {}
+  constructor(private readonly options: InboxConsumerOptions<T>) {
+    if (
+      options.retryDelayMs !== undefined &&
+      (!Number.isSafeInteger(options.retryDelayMs) ||
+        options.retryDelayMs < 0 ||
+        options.retryDelayMs > 5_000)
+    )
+      throw new Error('INVALID_INBOX_RETRY_DELAY');
+  }
 
   async start(): Promise<string> {
     await this.options.channel.prefetch(this.options.prefetch ?? 1);
@@ -179,8 +192,9 @@ export class InboxConsumer<T extends ParsedEvent> {
     };
 
     try {
+      const prepared = await this.options.prepare?.(event);
       const outcome = await this.options.store.applyOnce(record, (tx) =>
-        this.options.effect(event, tx),
+        this.options.effect(event, tx, prepared),
       );
       if (outcome === 'CONFLICT') {
         // Same eventId, different bytes: an integrity problem, not a retry case.
@@ -210,6 +224,8 @@ export class InboxConsumer<T extends ParsedEvent> {
       // message. The queue is quorum-backed with x-delivery-limit, so RabbitMQ
       // owns the bounded retry counter and dead-letters once the limit is
       // exceeded. Process restarts therefore cannot reset the retry budget.
+      const retryDelayMs = this.options.retryDelayMs ?? 0;
+      if (retryDelayMs > 0) await delay(Math.min(retryDelayMs, 5_000));
       this.options.channel.nack(message, false, true);
       this.options.onTransientFailure?.(event, deliveryCount);
     }

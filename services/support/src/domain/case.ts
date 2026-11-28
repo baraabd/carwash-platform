@@ -81,6 +81,9 @@ export const REASON_CODES = [
   'PROVIDER_UNREACHABLE',
   'DUPLICATE_PAYMENT',
   'SERVICE_NOT_DELIVERED',
+  'BOOKING_CANCELLED',
+  'SERVICE_QUALITY',
+  'PRICE_CORRECTION',
   'PAID_AFTER_CANCELLATION',
   'PAID_AFTER_DEADLINE',
   'CUSTOMER_REQUEST',
@@ -112,6 +115,8 @@ export type CaseRuleCode =
   | 'INVALID_WINDOW'
   | 'WINDOW_REQUIRED'
   | 'WINDOW_NOT_ALLOWED'
+  | 'BOOKING_HOLD_REQUIRED'
+  | 'INVALID_BOOKING_HOLD'
   | 'CASE_NOT_DECIDABLE'
   | 'CASE_NOT_AWAITING_APPROVAL'
   | 'SAME_PERSON_APPROVAL'
@@ -197,6 +202,9 @@ export const KIND_POLICIES: Readonly<Record<CaseKind, KindPolicy>> = {
     reasons: [
       'DUPLICATE_PAYMENT',
       'SERVICE_NOT_DELIVERED',
+      'BOOKING_CANCELLED',
+      'SERVICE_QUALITY',
+      'PRICE_CORRECTION',
       'PAID_AFTER_CANCELLATION',
       'CUSTOMER_REQUEST',
       'OPERATIONAL_ERROR',
@@ -209,6 +217,11 @@ export const KIND_POLICIES: Readonly<Record<CaseKind, KindPolicy>> = {
     subject: 'billing.payment-attempt',
     actions: { ACCEPT_LATE_PAYMENT: RECONCILE_WITH_AMOUNT, REFUND, DISMISS },
     reasons: [
+      'BOOKING_CANCELLED',
+      'SERVICE_NOT_DELIVERED',
+      'DUPLICATE_PAYMENT',
+      'SERVICE_QUALITY',
+      'PRICE_CORRECTION',
       'PAID_AFTER_CANCELLATION',
       'PAID_AFTER_DEADLINE',
       'PROVIDER_CONFIRMED',
@@ -446,6 +459,8 @@ export interface DecisionInput {
   readonly amount: ExactAmount | null;
   readonly window: ServiceWindow | null;
   readonly statementCredit?: { readonly creditId: string; readonly revision: number };
+  /** Scheduling-owned capacity, never inferred from the requested time window. */
+  readonly bookingHold?: { readonly holdId: string; readonly revision: number };
 }
 
 /** Validates a decision against its kind's policy; the shape is closed. */
@@ -497,6 +512,25 @@ export function decisionInput(
       throw new CaseRuleError('INVALID_STATEMENT_CREDIT');
     statementCredit = { creditId: selected.creditId.toLowerCase(), revision: selected.revision };
   } else if (raw.statementCredit !== undefined) throw new CaseRuleError('INVALID_STATEMENT_CREDIT');
+  let bookingHold: DecisionInput['bookingHold'];
+  if (action === 'RESCHEDULE_BOOKING') {
+    if (raw.bookingHold === undefined || raw.bookingHold === null)
+      throw new CaseRuleError('BOOKING_HOLD_REQUIRED');
+    if (typeof raw.bookingHold !== 'object' || Array.isArray(raw.bookingHold))
+      throw new CaseRuleError('INVALID_BOOKING_HOLD');
+    const selected = raw.bookingHold as Record<string, unknown>;
+    if (
+      Object.keys(selected).sort().join(',') !== 'holdId,revision' ||
+      typeof selected.holdId !== 'string' ||
+      !UUID.test(selected.holdId) ||
+      typeof selected.revision !== 'number' ||
+      !Number.isSafeInteger(selected.revision) ||
+      selected.revision < 1 ||
+      selected.revision > 2_147_483_647
+    )
+      throw new CaseRuleError('INVALID_BOOKING_HOLD');
+    bookingHold = { holdId: selected.holdId.toLowerCase(), revision: selected.revision };
+  } else if (raw.bookingHold !== undefined) throw new CaseRuleError('INVALID_BOOKING_HOLD');
   return {
     action,
     reason: parsedReason,
@@ -504,6 +538,7 @@ export function decisionInput(
     amount,
     window,
     ...(statementCredit ? { statementCredit } : {}),
+    ...(bookingHold ? { bookingHold } : {}),
   };
 }
 
@@ -596,6 +631,12 @@ export function assertResendable(status: DecisionStatus): void {
 /** What the owner answered, classified so that nothing unknown becomes success. */
 export type OwnerOutcome =
   | { readonly kind: 'APPLIED'; readonly ownerStatus: number; readonly ownerState: string | null }
+  | {
+      readonly kind: 'PENDING';
+      readonly ownerStatus: number;
+      readonly ownerState: string;
+      readonly code: string;
+    }
   | { readonly kind: 'REJECTED'; readonly ownerStatus: number; readonly code: string }
   | { readonly kind: 'UNKNOWN'; readonly code: string }
   | { readonly kind: 'UNAVAILABLE'; readonly code: string };
@@ -605,6 +646,8 @@ export function outcomeStatuses(outcome: OwnerOutcome): {
   readonly caseStatus: CaseStatus;
 } {
   switch (outcome.kind) {
+    case 'PENDING':
+      return { decisionStatus: 'EXECUTING', caseStatus: 'EXECUTING' };
     case 'APPLIED':
       return { decisionStatus: 'APPLIED', caseStatus: 'RESOLVED' };
     case 'REJECTED':

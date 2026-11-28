@@ -6,6 +6,8 @@ import {
   matchesRequestedSlot,
   onCommit,
   onObligation,
+  onEntitlement,
+  onEntitlementReleased,
   onQuoteChecked,
   onVoid,
   rejectBooking,
@@ -18,6 +20,7 @@ import {
 } from '../domain';
 import type {
   BillingObligations,
+  BookingEntitlements,
   BookingRecord,
   BookingStore,
   Clock,
@@ -33,6 +36,7 @@ export interface ProcessManagerDeps {
   readonly store: BookingStore;
   readonly quotes: QuoteValidator;
   readonly billing: BillingObligations;
+  readonly entitlements?: BookingEntitlements;
   readonly holds: HoldCommitter;
   readonly clock: Clock;
   readonly ids: IdGenerator;
@@ -141,7 +145,31 @@ export class BookingProcessManager {
             ? { kind: 'VALID' }
             : { kind: 'INVALID', reason: 'QUOTE_INVALID' };
         } else check = result;
-        next = onQuoteChecked(saga, check, this.deps.clock.now(), random);
+        next = onQuoteChecked(
+          saga,
+          check,
+          this.deps.clock.now(),
+          random,
+          booking.subscription ? 'SUBSCRIPTION' : 'DIRECT',
+        );
+        break;
+      }
+      case 'RESERVE_ENTITLEMENT': {
+        const result = this.deps.entitlements
+          ? await this.deps.entitlements.reserve(booking, correlationId)
+          : ({ kind: 'UNAVAILABLE', error: 'SUBSCRIPTION_NOT_CONFIGURED' } as const);
+        next = onEntitlement(saga, result, this.deps.clock.now(), random);
+        break;
+      }
+      case 'RELEASE_ENTITLEMENT': {
+        const result = this.deps.entitlements
+          ? await this.deps.entitlements.releaseForBooking(
+              booking.id,
+              saga.entitlementReservationId,
+              correlationId,
+            )
+          : ({ kind: 'UNAVAILABLE', error: 'SUBSCRIPTION_NOT_CONFIGURED' } as const);
+        next = onEntitlementReleased(saga, result, this.deps.clock.now(), random);
         break;
       }
       case 'CREATE_OBLIGATION': {

@@ -27,8 +27,10 @@ import type { RejectionReason } from './booking';
 export const SAGA_STEPS = [
   'VALIDATE_QUOTE',
   'CREATE_OBLIGATION',
+  'RESERVE_ENTITLEMENT',
   'COMMIT_HOLD',
   'VOID_OBLIGATION',
+  'RELEASE_ENTITLEMENT',
   'DONE',
   'NEEDS_RECONCILIATION',
 ] as const;
@@ -43,6 +45,7 @@ export interface SagaState {
   /** Why the booking will be rejected once compensation finishes. */
   readonly pendingRejection: RejectionReason | null;
   readonly obligationId: string | null;
+  readonly entitlementReservationId: string | null;
   /** True once COMMIT_HOLD was sent at least once: no deadline-based rejection after it. */
   readonly pivotAttempted: boolean;
   /** Attempts of the current step. */
@@ -72,6 +75,7 @@ export function newSaga(bookingId: string, now: Date): SagaState {
     outcome: null,
     pendingRejection: null,
     obligationId: null,
+    entitlementReservationId: null,
     pivotAttempted: false,
     attempts: 0,
     nextAttemptAt: now,
@@ -119,6 +123,9 @@ function advance(
 
 /** The booking ends REJECTED once nothing that may exist remotely is left behind. */
 function rejectOrCompensate(saga: SagaState, reason: RejectionReason, now: Date): SagaState {
+  if (saga.step === 'RESERVE_ENTITLEMENT' || saga.entitlementReservationId !== null) {
+    return advance(saga, 'RELEASE_ENTITLEMENT', now, { pendingRejection: reason });
+  }
   if (saga.step === 'CREATE_OBLIGATION' || saga.obligationId !== null) {
     // An obligation may exist (created, or its creation outcome unknown).
     return advance(saga, 'VOID_OBLIGATION', now, { pendingRejection: reason });
@@ -128,7 +135,8 @@ function rejectOrCompensate(saga: SagaState, reason: RejectionReason, now: Date)
 
 function retry(saga: SagaState, error: string, now: Date, random: number): SagaState {
   const attempts = saga.attempts + 1;
-  const afterPivot = saga.pivotAttempted || saga.step === 'VOID_OBLIGATION';
+  const afterPivot =
+    saga.pivotAttempted || saga.step === 'VOID_OBLIGATION' || saga.step === 'RELEASE_ENTITLEMENT';
   return {
     ...saga,
     attempts,
@@ -161,9 +169,15 @@ export function onQuoteChecked(
   result: QuoteCheck,
   now: Date,
   random: number,
+  financialSource: 'DIRECT' | 'SUBSCRIPTION' = 'DIRECT',
 ): SagaState {
   expectStep(saga, 'VALIDATE_QUOTE');
-  if (result.kind === 'VALID') return advance(saga, 'CREATE_OBLIGATION', now);
+  if (result.kind === 'VALID')
+    return advance(
+      saga,
+      financialSource === 'SUBSCRIPTION' ? 'RESERVE_ENTITLEMENT' : 'CREATE_OBLIGATION',
+      now,
+    );
   if (result.kind === 'INVALID') return rejectOrCompensate(saga, result.reason, now);
   return retryBeforePivot(saga, result.error, now, random);
 }
@@ -173,6 +187,44 @@ export type ObligationResult =
   | { readonly kind: 'REJECTED' }
   /** Not sent, or sent with an unknown outcome. Creation is idempotent by booking. */
   | { readonly kind: 'UNAVAILABLE'; readonly error: string };
+
+export type EntitlementResult =
+  | { readonly kind: 'RESERVED'; readonly reservationId: string }
+  | { readonly kind: 'REJECTED' }
+  | { readonly kind: 'UNAVAILABLE'; readonly error: string };
+
+export function onEntitlement(
+  saga: SagaState,
+  result: EntitlementResult,
+  now: Date,
+  random: number,
+): SagaState {
+  expectStep(saga, 'RESERVE_ENTITLEMENT');
+  if (result.kind === 'RESERVED')
+    return advance(saga, now >= saga.deadlineAt ? 'RELEASE_ENTITLEMENT' : 'COMMIT_HOLD', now, {
+      entitlementReservationId: result.reservationId,
+      ...(now >= saga.deadlineAt ? { pendingRejection: 'DEADLINE_EXCEEDED' } : {}),
+    });
+  if (result.kind === 'REJECTED')
+    return advance(saga, 'DONE', now, {
+      outcome: 'REJECTED',
+      pendingRejection: 'ENTITLEMENT_REJECTED',
+    });
+  // A timed-out reserve can still commit at the owner. Resolve the identical
+  // command first; an empty concurrent GET cannot prove absence of that effect.
+  return retry(saga, result.error, now, random);
+}
+
+export function onEntitlementReleased(
+  saga: SagaState,
+  result: VoidResult,
+  now: Date,
+  random: number,
+): SagaState {
+  expectStep(saga, 'RELEASE_ENTITLEMENT');
+  if (result.kind === 'VOIDED') return advance(saga, 'DONE', now, { outcome: 'REJECTED' });
+  return retry(saga, result.error, now, random);
+}
 
 export function onObligation(
   saga: SagaState,

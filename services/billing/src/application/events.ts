@@ -1,4 +1,9 @@
-import { parseEnvelopeV2, type EventEnvelopeV2 } from '@carwash/event-contracts';
+import {
+  BILLING_OBLIGATION_CREATED_V1,
+  BILLING_OBLIGATION_STATUS_CHANGED_V1,
+  parseEnvelopeV2,
+  type EventEnvelopeV2,
+} from '@carwash/event-contracts';
 import { FINANCIAL_STATUSES, Money, type FinancialStatus, type MoneyWire } from '../domain';
 import type { OutboxEvent, PrincipalRef } from '../ports';
 
@@ -7,11 +12,9 @@ import type { OutboxEvent, PrincipalRef } from '../ports';
  * transaction as the financial fact they describe (transactional outbox).
  *
  * Data carries opaque IDs, revisions, statuses and amounts only: never a
- * provider transaction reference, phone, name or receipt. Registration in
- * @carwash/event-contracts and the broker topology are a Lane E request
- * (docs/production/B/CONTRACT_REQUEST_E_BILLING.md). Until E publishes them the
- * relay is NOT started and rows stay pending; the shapes below are the exact
- * proposal and are self-validated through the shared envelope v2 parser.
+ * provider transaction reference, phone, name or receipt. The published v1
+ * parser validates every new row. The obligation relay publishes only this
+ * family to Reporting; custody and refund outcomes remain separate facts.
  */
 export const BILLING_EVENTS_EXCHANGE = 'washgo.billing.events';
 export const OBLIGATION_AGGREGATE = 'billing-obligation';
@@ -118,6 +121,9 @@ function outboxRow<TType extends string, TData>(
     { eventType, producer: 'billing', aggregateType: OBLIGATION_AGGREGATE },
     parseData,
   );
+  if (eventType === OBLIGATION_CREATED_V1) BILLING_OBLIGATION_CREATED_V1.parse(envelope);
+  else if (eventType === OBLIGATION_STATUS_CHANGED_V1)
+    BILLING_OBLIGATION_STATUS_CHANGED_V1.parse(envelope);
   return {
     eventId: context.eventId,
     eventType,

@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useCustomerProduction } from '../../data/CustomerProductionProvider';
 import { productionFailure, type ProductionCustomerSnapshot } from '../../data/productionCustomer';
+import type { AddressV1, CustomerProfileV1 } from '@carwash/contracts/customer-v1';
+import type { VehicleV1 } from '@carwash/contracts/vehicle-v1';
 
 /** Uses existing status/button styles; unknown writes are replayed explicitly with their original key. */
 export function ProductionNotice({
   onConfirmed,
   operation,
 }: {
-  readonly onConfirmed?: () => void;
+  readonly onConfirmed?: (record: CustomerProfileV1 | AddressV1 | VehicleV1) => void;
   readonly operation?: NonNullable<ProductionCustomerSnapshot['pending']>;
 }) {
   const production = useCustomerProduction();
@@ -22,7 +24,8 @@ export function ProductionNotice({
     const pending = snapshot.pending;
     void client.retryPending().then((result) => {
       setProblem({ message: productionFailure(result), snapshot: client.getSnapshot() });
-      if (result.ok && (operation === undefined || operation === pending)) onConfirmed?.();
+      if (result.ok && (operation === undefined || operation === pending))
+        onConfirmed?.(result.value);
     });
   };
   const message = problem?.snapshot === snapshot ? problem.message : null;

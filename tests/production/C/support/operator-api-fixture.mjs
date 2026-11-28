@@ -262,6 +262,7 @@ export async function startOperatorFixture({
         })),
         total: money(seed.total),
         paymentMethod: seed.paymentMethod,
+        financialSource: 'DIRECT',
       });
       state.assignments.set(seed.bookingId, {
         assignmentId: uuidFrom(`${seed.bookingId}:assignment`),
@@ -439,7 +440,8 @@ export async function startOperatorFixture({
     const task = [...state.tasks.values()].find((t) => t.bookingId === bookingId);
     if (!cash || !booking || !task || task.owner !== subject) refuse(404, 'NOT_FOUND');
     if (task.stage !== 'CLOSED') refuse(409, 'WORK_NOT_COMPLETED');
-    if (booking.paymentMethod !== 'CASH_ON_COMPLETION') refuse(409, 'INTENT_NOT_CASH');
+    if (booking.financialSource !== 'DIRECT' || booking.paymentMethod !== 'CASH_ON_COMPLETION')
+      refuse(409, 'INTENT_NOT_CASH');
     return {
       ...structuredClone(cash),
       amountDue: cash.receipt ? money(0) : structuredClone(booking.total),
@@ -988,6 +990,14 @@ export async function startOperatorFixture({
     },
     bookingIdOf(seedKey) {
       return SEEDS.find((s) => s.key === seedKey).bookingId;
+    },
+    /** Declared coverage fixture; does not claim Subscription owner acceptance. */
+    setFinancialSource(seedKey, financialSource) {
+      if (!['DIRECT', 'SUBSCRIPTION'].includes(financialSource))
+        throw new Error('INVALID_FIXTURE_FUNDING');
+      const booking = state.bookings.get(control.bookingIdOf(seedKey));
+      booking.financialSource = financialSource;
+      if (financialSource === 'SUBSCRIPTION') booking.paymentMethod = 'CASH_ON_COMPLETION';
     },
     taskOf(seedKey) {
       const bookingId = control.bookingIdOf(seedKey);

@@ -60,12 +60,22 @@ function newDefinition(overrides: Partial<WireDefinition> = {}): WireDefinition 
 
 /** The current snapshot as publishable drafts (revision stripped). */
 async function current(): Promise<{ revision: number; drafts: WireDefinition[] }> {
-  const response = await replicaA.request('GET', `${PATH}/definitions`);
-  if (response.status === 404) return { revision: 0, drafts: [] };
+  const response = await replicaA.request('GET', `${PATH}/current`);
   assert.equal(response.status, 200);
-  const items = response.body.items as (WireDefinition & { revision: number })[];
+  if (response.body.state === 'UNPUBLISHED') {
+    assert.equal(response.body.catalog, null);
+    assert.equal(response.body.expectedCatalogRevision, 0);
+    return { revision: 0, drafts: [] };
+  }
+  assert.equal(response.body.state, 'PUBLISHED');
+  const snapshot = response.body.catalog as {
+    catalogRevision: number;
+    items: (WireDefinition & { revision: number })[];
+  };
+  assert.equal(response.body.expectedCatalogRevision, snapshot.catalogRevision);
+  const items = snapshot.items;
   return {
-    revision: response.body.catalogRevision as number,
+    revision: snapshot.catalogRevision,
     drafts: items.map((item) => ({
       definitionId: item.definitionId,
       kind: item.kind,
@@ -90,6 +100,27 @@ before(async () => {
   sql = new Client({ connectionString: DATABASE_URL.replace(/\?.*$/, '') });
   await sql.connect();
   await sql.query('SET search_path TO app');
+});
+
+test('postgres: initial/current owner precondition allows one publication across two replicas', async () => {
+  // On the disposable acceptance database this is the first publication (revision zero).
+  // Re-running against an existing test database still compares its real owner head.
+  const head = await current();
+  const results = await Promise.all(
+    [replicaA, replicaB].map((replica, index) =>
+      replica.request('POST', `${PATH}/publications`, {
+        token: index ? TOKENS.otherAdmin : TOKENS.admin,
+        key: key(),
+        body: publishBody(head.revision, [...head.drafts, newDefinition()], 'PG_BOOTSTRAP_RACE'),
+      }),
+    ),
+  );
+  assert.deepEqual(results.map((result) => result.status).sort(), [201, 412]);
+  const expected = results.find((result) => result.status === 201)!.body;
+  const read = await replicaB.request('GET', `${PATH}/current`);
+  assert.equal(read.body.state, 'PUBLISHED');
+  assert.equal(read.body.expectedCatalogRevision, head.revision + 1);
+  assert.deepEqual(read.body.catalog, expected);
 });
 
 after(async () => {

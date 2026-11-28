@@ -130,7 +130,7 @@ export class PrismaProviderStore implements ProviderStore {
     // Two-key advisory lock namespaced to provider references; released at
     // COMMIT/ROLLBACK. hashtext collisions only serialise unrelated writers.
     await this.tx.$executeRaw`
-      SELECT pg_advisory_xact_lock(hashtext('billing.provider-reference'), hashtext(${`${provider}:${reference}`}))`;
+      SELECT pg_advisory_xact_lock(hashtext('billing.provider-reference'), hashtext(${`${provider}:${reference}`}))::text`;
   }
 
   async effectiveCredit(

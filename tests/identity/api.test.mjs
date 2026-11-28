@@ -327,8 +327,13 @@ test('F006 real roles: all seven roles are represented without broad implicit ad
       view.body.permissions.includes('billing.reconcile'),
       role === 'finance' || role === 'super-admin',
     );
-    for (const publish of ['catalog.publish', 'pricing.publish'])
+    for (const publish of ['catalog.publish', 'pricing.publish', 'pricing.prices.publish'])
       assert.equal(view.body.permissions.includes(publish), role === 'super-admin');
+    for (const cash of ['billing.cash.correct', 'billing.treasury.receive'])
+      assert.equal(
+        view.body.permissions.includes(cash),
+        role === 'finance' || role === 'super-admin',
+      );
   }
 });
 test('F006 real audit: durable security records contain no credential, OTP or refresh fields', async (t) => {

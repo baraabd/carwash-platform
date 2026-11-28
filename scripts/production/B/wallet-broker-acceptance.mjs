@@ -24,32 +24,36 @@ import {
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const IMAGES = { postgres: 'postgres:16.10-alpine', rabbitmq: 'rabbitmq:4.2-management-alpine' };
 const record = process.argv.includes('--record');
+const reporting = process.argv.includes('--reporting');
+const consumer = reporting ? 'reporting' : 'wallet';
+const consumerEnv = consumer.toUpperCase();
 const runId = randomBytes(6).toString('hex');
 const containerOwner = process.env.CW_BUSINESS_ACCEPTANCE_RUN ?? runId;
-const names = { pg: `cw-p05b-wallet-pg-${runId}`, mq: `cw-p05b-wallet-mq-${runId}` };
-const work = path.join(ROOT, '.acceptance', `cw-p05b-wallet-broker-${runId}`);
+const names = { pg: `cw-p05b-${consumer}-pg-${runId}`, mq: `cw-p05b-${consumer}-mq-${runId}` };
+const work = path.join(ROOT, '.acceptance', `cw-p05b-${consumer}-broker-${runId}`);
 const secret = () => randomBytes(32).toString('base64url');
 const credentials = {
   postgresBootstrap: secret(),
   brokerBootstrap: secret(),
   billingApp: secret(),
   billingMigration: secret(),
-  billingBroker: secret(),
-  walletApp: secret(),
-  walletMigration: secret(),
-  walletBroker: secret(),
+  // Exercise leading-dash CLI credentials on every real broker run, retaining all 256 random bits.
+  billingBroker: `-${secret()}`,
+  [`${consumer}App`]: secret(),
+  [`${consumer}Migration`]: secret(),
+  [`${consumer}Broker`]: `-${secret()}`,
 };
 Object.values(credentials).forEach(registerSecret);
-const services = ['billing', 'wallet'];
+const services = ['billing', consumer];
 const vhost = `cw-finance-${runId}`;
-const { Client } = createRequire(path.join(ROOT, 'services/wallet/package.json'))('pg');
+const { Client } = createRequire(path.join(ROOT, `services/${consumer}/package.json`))('pg');
 const amqplib = createRequire(path.join(ROOT, 'packages/platform-messaging/package.json'))(
   'amqplib',
 );
 const report = {
   task: 'P06-B',
   child: 'B-messaging',
-  suite: 'wallet-broker',
+  suite: `${consumer}-broker`,
   runId,
   startedAt: new Date().toISOString(),
   sourceSHA: null,
@@ -58,10 +62,11 @@ const report = {
   images: IMAGES,
   dependencies: {
     postgres: 'REAL pinned PostgreSQL; two owner databases, separate migration/runtime roles',
-    broker:
-      'REAL pinned RabbitMQ; distinct least-privilege Billing/Wallet identities, quorum custody queue and DLQ',
-    billing: 'REAL Billing HTTP/application + committed outbox + production cash relay process',
-    wallet: 'REAL production consumer process + own transactional custody projection',
+    broker: `REAL pinned RabbitMQ; distinct least-privilege Billing/${consumer} identities, quorum queue and durable DLQ`,
+    billing: `REAL Billing HTTP/application + committed outbox + production ${reporting ? 'obligation' : 'cash'} relay process`,
+    [consumer]: reporting
+      ? 'REAL operations consumer process + own PostgreSQL cash projection + published Reporting HTTP contract'
+      : 'REAL production consumer process + own transactional custody projection',
     upstreams:
       'Identity and Pricing HTTP doubles; Dispatch WorkAuthority port double; synthetic fault envelopes clearly identified',
   },
@@ -151,15 +156,15 @@ try {
       '-e',
       `POSTGRES_PASSWORD=${credentials.postgresBootstrap}`,
       '-e',
-      'CW_SERVICES=billing wallet',
+      `CW_SERVICES=billing ${consumer}`,
       '-e',
       `BILLING_DB_PASSWORD=${credentials.billingApp}`,
       '-e',
       `BILLING_MIGRATION_PASSWORD=${credentials.billingMigration}`,
       '-e',
-      `WALLET_DB_PASSWORD=${credentials.walletApp}`,
+      `${consumerEnv}_DB_PASSWORD=${credentials[`${consumer}App`]}`,
       '-e',
-      `WALLET_MIGRATION_PASSWORD=${credentials.walletMigration}`,
+      `${consumerEnv}_MIGRATION_PASSWORD=${credentials[`${consumer}Migration`]}`,
       '-v',
       `${path.join(ROOT, 'infra/postgres/provision.sh')}:/docker-entrypoint-initdb.d/01-provision.sh:ro`,
       '-p',
@@ -179,7 +184,7 @@ try {
       '-e',
       `RABBITMQ_DEFAULT_PASS=${credentials.brokerBootstrap}`,
       '-v',
-      `${path.join(ROOT, 'infra/rabbitmq/billing-wallet-bootstrap.sh')}:/finance-bootstrap.sh:ro`,
+      `${path.join(ROOT, `infra/rabbitmq/billing-${consumer}-bootstrap.sh`)}:/finance-bootstrap.sh:ro`,
       '-p',
       '127.0.0.1::5672',
       IMAGES.rabbitmq,
@@ -233,11 +238,45 @@ try {
         '-e',
         `BILLING_BROKER_PASSWORD=${credentials.billingBroker}`,
         '-e',
-        `WALLET_BROKER_PASSWORD=${credentials.walletBroker}`,
+        `${consumerEnv}_BROKER_PASSWORD=${credentials[`${consumer}Broker`]}`,
         names.mq,
         'sh',
         '/finance-bootstrap.sh',
       ]);
+      if (reporting) {
+        // Reporting binds every published operations source, even when this
+        // slice emits only Billing facts. Provisioning owns those exchanges.
+        await checked('docker', [
+          'exec',
+          '--user',
+          'rabbitmq',
+          names.mq,
+          'rabbitmqctl',
+          'set_permissions',
+          '-p',
+          vhost,
+          'cw_finance_bootstrap',
+          '.*',
+          '.*',
+          '.*',
+        ]);
+        const topologyUrl = `amqp://cw_finance_bootstrap:${credentials.brokerBootstrap}@127.0.0.1:${mqPort}/${encodeURIComponent(vhost)}`;
+        registerSecret(topologyUrl);
+        const topologyConnection = await amqplib.connect(topologyUrl);
+        try {
+          const channel = await topologyConnection.createChannel();
+          for (const exchange of [
+            'booking.events',
+            'dispatch.events',
+            'scheduling.events',
+            'workforce.events',
+          ])
+            await channel.assertExchange(exchange, 'topic', { durable: true });
+          await channel.close();
+        } finally {
+          await topologyConnection.close();
+        }
+      }
       await checked('docker', [
         'exec',
         '--user',
@@ -259,7 +298,7 @@ try {
         ])
       ).stdout;
       assert.match(users, /^cw_billing_app\s+\[\]\s*$/m);
-      assert.match(users, /^cw_wallet_app\s+\[\]\s*$/m);
+      assert.match(users, new RegExp(`^cw_${consumer}_app\\s+\\[\\]\\s*$`, 'm'));
       assert.doesNotMatch(users, /administrator|cw_finance_bootstrap/);
       await writeFile(path.join(work, 'broker-identities.log'), users);
     },
@@ -333,17 +372,36 @@ try {
     async () => {
       const result = await run(
         process.execPath,
-        ['--test', '--test-reporter=spec', 'tests/production/B/wallet-broker.test.mjs'],
+        [
+          '--test',
+          '--test-concurrency=1',
+          '--test-reporter=spec',
+          ...(reporting
+            ? [
+                'tests/production/B/hosted-broker-definitions.test.mjs',
+                'tests/production/B/reporting-cash.pg.test.mjs',
+              ]
+            : []),
+          `tests/production/B/${consumer}-broker.test.mjs`,
+        ],
         {
           cwd: ROOT,
           timeoutMs: 600_000,
           env: {
             ...process.env,
             BILLING_TEST_DATABASE_URL: appUrl('billing'),
-            WALLET_TEST_DATABASE_URL: appUrl('wallet'),
+            [`${consumerEnv}_TEST_DATABASE_URL`]: appUrl(consumer),
             BILLING_TEST_AMQP_URL: brokerUrl('billing'),
-            WALLET_TEST_AMQP_URL: brokerUrl('wallet'),
+            [`${consumerEnv}_TEST_AMQP_URL`]: brokerUrl(consumer),
             CW_WALLET_BROKER_LOG_DIR: path.join(work, 'workers'),
+            CW_FINANCE_BROKER_LOG_DIR: path.join(work, 'workers'),
+            ...(reporting
+              ? {
+                  CW_HOSTED_BROKER_CONTAINER: names.mq,
+                  CW_HOSTED_BROKER_RUN: containerOwner,
+                  CW_HOSTED_BROKER_PORT: String(mqPort),
+                }
+              : {}),
             LOG_LEVEL: 'error',
           },
         },
@@ -409,12 +467,12 @@ try {
     const out = path.join(ROOT, 'docs/production/B/evidence');
     await mkdir(out, { recursive: true });
     await writeFile(
-      path.join(out, `wallet-broker-${report.sourceSHA?.slice(0, 12) ?? 'unknown'}.json`),
+      path.join(out, `${consumer}-broker-${report.sourceSHA?.slice(0, 12) ?? 'unknown'}.json`),
       json,
     );
   }
   console.log(
-    `${report.accepted ? 'ACCEPTED' : 'NOT ACCEPTED'}: wallet broker acceptance (${path.relative(ROOT, work)}/report.json)`,
+    `${report.accepted ? 'ACCEPTED' : 'NOT ACCEPTED'}: ${consumer} broker acceptance (${path.relative(ROOT, work)}/report.json)`,
   );
   process.exit(exitCode);
 }

@@ -23,7 +23,7 @@ import './payment.css';
 
 const DOCUMENT_TITLE = `${bookingFlow[PAYMENT_STEP_INDEX].label} — WashGo Signature`;
 
-function WalletArt() {
+export function WalletArt() {
   return (
     <svg className="pay-hero-art" viewBox="0 0 120 130" aria-hidden="true">
       <defs>

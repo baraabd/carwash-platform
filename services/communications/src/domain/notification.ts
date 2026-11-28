@@ -99,7 +99,11 @@ export function notificationSubject(value: unknown): NotificationSubject | null 
   };
 }
 
+export const RECIPIENT_NAMESPACES = ['CUSTOMER', 'IDENTITY_ACCOUNT', 'IDENTITY_GUEST'] as const;
+export type RecipientNamespace = (typeof RECIPIENT_NAMESPACES)[number];
+
 export interface NotificationRequest {
+  readonly recipientNamespace?: RecipientNamespace;
   readonly sourceService: string;
   readonly idempotencyKey: string;
   readonly recipientRef: string;
@@ -120,6 +124,7 @@ export function notificationRequest(input: {
   sourceService: unknown;
   idempotencyKey: unknown;
   recipientRef: unknown;
+  recipientNamespace?: unknown;
   channel: unknown;
   templateKey: unknown;
   templateVersion: unknown;
@@ -128,6 +133,9 @@ export function notificationRequest(input: {
   subject?: unknown;
   now: Date;
 }): NotificationRequest {
+  const namespace = input.recipientNamespace;
+  if (namespace !== undefined && !RECIPIENT_NAMESPACES.includes(namespace as RecipientNamespace))
+    throw new NotificationRuleError('INVALID_RECIPIENT_NAMESPACE');
   const channel = input.channel;
   if (typeof channel !== 'string' || !CHANNELS.some((c) => c === channel))
     throw new NotificationRuleError('INVALID_CHANNEL');
@@ -156,6 +164,9 @@ export function notificationRequest(input: {
     sourceService: text(SERVICE, input.sourceService, 'INVALID_SOURCE_SERVICE'),
     idempotencyKey: text(IDEMPOTENCY_KEY, input.idempotencyKey, 'INVALID_IDEMPOTENCY_KEY'),
     recipientRef: text(UUID, input.recipientRef, 'INVALID_RECIPIENT_REF').toLowerCase(),
+    ...(namespace === undefined || namespace === 'CUSTOMER'
+      ? {}
+      : { recipientNamespace: namespace as RecipientNamespace }),
     channel: channel as Channel,
     templateKey: text(TEMPLATE_KEY, input.templateKey, 'INVALID_TEMPLATE_KEY'),
     templateVersion: version,
@@ -182,6 +193,9 @@ export function requestFingerprint(request: NotificationRequest): string {
     // Appended only when present, so fingerprints of subject-less requests
     // persisted before subjects existed are unchanged and still replay.
     ...(request.subject ? [request.subject.type, request.subject.ref] : []),
+    ...(request.recipientNamespace && request.recipientNamespace !== 'CUSTOMER'
+      ? [request.recipientNamespace]
+      : []),
   ]);
 }
 

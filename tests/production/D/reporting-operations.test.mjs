@@ -494,7 +494,7 @@ test('A8: discovery reads filter, page with a stable cursor and keep owners sepa
 const vhost = context.vhost;
 const READ_ACCEPTED = '^(reporting\\.|catalog\\.events$)';
 const READ_REQUESTED =
-  '^(reporting\\.|catalog\\.events$|booking\\.events$|scheduling\\.events$|workforce\\.events$)';
+  '^(reporting\\.|catalog\\.events$|booking\\.events$|scheduling\\.events$|workforce\\.events$|dispatch\\.events$|washgo\\.billing\\.events$)';
 
 async function setReportingRead(pattern) {
   const result = await composeExec(context, 'rabbitmq', [
@@ -530,7 +530,13 @@ async function withChannel(url, fn) {
 /** The infrastructure bootstrap declares producer exchanges (E owns this step). */
 async function declareProducerExchanges() {
   await withChannel(infraBrokerUrl(context), async (channel) => {
-    for (const name of ['booking.events', 'scheduling.events', 'workforce.events'])
+    for (const name of [
+      'booking.events',
+      'scheduling.events',
+      'workforce.events',
+      'dispatch.events',
+      'washgo.billing.events',
+    ])
       await channel.assertExchange(name, 'topic', { durable: true });
   });
 }

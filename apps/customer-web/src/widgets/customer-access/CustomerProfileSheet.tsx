@@ -5,6 +5,7 @@ import { productionFailure } from '../../data/productionCustomer';
 import { Icon } from '../../shared/Icon';
 import { Sheet } from '../../shared/Sheet';
 import { ProductionNotice } from './ProductionNotice';
+import { AccountEntry } from './AccountEntry';
 
 interface Props {
   readonly open: boolean;
@@ -86,12 +87,14 @@ function ProfileFields({
   );
 }
 
-function GuestEntry() {
+function GuestEntry({ initialAccount = false }: { readonly initialAccount?: boolean }) {
   const production = useCustomerProduction();
   const [recover, setRecover] = useState(false);
   const [code, setCode] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
+  const [account, setAccount] = useState(initialAccount);
   if (!production) return null;
+  if (account) return <AccountEntry onGuest={() => setAccount(false)} />;
   const { client, snapshot } = production;
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -141,6 +144,14 @@ function GuestEntry() {
       >
         {recover ? 'إنشاء جلسة ضيف جديدة' : 'لدي رمز استعادة'}
       </button>
+      <button
+        className="text-btn full"
+        type="button"
+        disabled={snapshot.busy}
+        onClick={() => setAccount(true)}
+      >
+        تسجيل الدخول أو إنشاء حساب
+      </button>
     </form>
   );
 }
@@ -148,6 +159,7 @@ function GuestEntry() {
 /** Ports the reference's profileSheet; guest entry/receipt uses its existing field and sheet components. */
 export function CustomerProfileSheet({ open, onClose, onSaved }: Props) {
   const production = useCustomerProduction();
+  const [enterAccount, setEnterAccount] = useState(false);
   if (!production) return null;
   const { client, snapshot } = production;
   const saved = () => {
@@ -194,7 +206,7 @@ export function CustomerProfileSheet({ open, onClose, onSaved }: Props) {
           </button>
         </>
       ) : snapshot.authStatus === 'anonymous' ? (
-        <GuestEntry />
+        <GuestEntry initialAccount={enterAccount} />
       ) : (snapshot.loading && snapshot.profileStatus === 'unavailable') ||
         snapshot.authStatus === 'loading' ? (
         <p role="status" className="sheet-intro">
@@ -222,9 +234,23 @@ export function CustomerProfileSheet({ open, onClose, onSaved }: Props) {
             onSaved={saved}
           />
           {snapshot.session?.principalKind === 'guest' ? (
-            <p className="input-note">
-              البيانات مرتبطة بجلسة ضيف. رقم التواصل لا يحوّلها إلى حساب.
-            </p>
+            <>
+              <p className="input-note">
+                البيانات مرتبطة بجلسة ضيف. احتفظ برمز الاستعادة قبل إنهائها؛ الدخول بحساب لا ينقل
+                بيانات الضيف تلقائيًا.
+              </p>
+              <button
+                className="btn secondary full"
+                type="button"
+                disabled={snapshot.busy || snapshot.loading || snapshot.pending !== null}
+                onClick={() => {
+                  setEnterAccount(true);
+                  void client.signOut();
+                }}
+              >
+                إنهاء جلسة الضيف والدخول بحساب
+              </button>
+            </>
           ) : null}
         </>
       )}

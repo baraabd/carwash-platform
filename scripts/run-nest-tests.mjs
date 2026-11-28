@@ -43,4 +43,5 @@ process.stdout.write(result.stdout);
 process.stderr.write(result.stderr);
 const summary = testResults(result.stdout, result.code, result.signal);
 if (!summary.accepted) process.stderr.write(`NEST_TESTS_INCOMPLETE: ${JSON.stringify(summary)}\n`);
-process.exit(summary.accepted && result.outcome === 'exited' ? 0 : 1);
+// Let stdout/stderr drain when CI captures a large result through pipes.
+process.exitCode = summary.accepted && result.outcome === 'exited' ? 0 : 1;

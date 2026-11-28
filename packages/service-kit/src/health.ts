@@ -1,6 +1,8 @@
 import { serviceTelemetry } from '@carwash/observability';
 import { Controller, Get, Inject, Module, Res, type DynamicModule } from '@nestjs/common';
 import { bestEffortLog, type Logger } from './logging';
+import { isServiceOriginAllowed } from '@carwash/security-kit';
+import { parseServiceClients } from './service-clients';
 
 /**
  * Liveness and readiness are different questions and are answered separately.
@@ -29,11 +31,108 @@ export interface DependencyResult {
 
 export interface HealthOptions {
   readonly service: string;
-  /** Sprint 0.2: every business service is a foundation shell. */
+  /** Foundation fallback; configured owners declare their actual capabilities below. */
   readonly businessReady: boolean;
+  /** Local, implemented HTTP capabilities. Never a release/merchant/worker approval switch. */
+  readonly runtimeCapabilities?: readonly RuntimeCapability[];
   readonly dependencies?: readonly DependencyProbe[];
   readonly logger?: Logger;
   readonly probeTimeoutMs?: number;
+}
+
+export interface RuntimeCapability {
+  readonly name: string;
+  /** Optional capabilities remain visible without claiming that they are implemented. */
+  readonly required?: boolean;
+  check(): boolean;
+}
+
+export function configurationCapability(name: string, check: () => boolean): RuntimeCapability {
+  return { name, check };
+}
+
+export function originCapability(
+  name: string,
+  raw: string | undefined,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): RuntimeCapability {
+  return configurationCapability(name, () => !!raw && isServiceOriginAllowed(new URL(raw), env));
+}
+
+/** Every declared workload scope must have at least one valid owner-scoped credential. */
+export function serviceClientsCapability(
+  name: string,
+  raw: string | undefined,
+  scopes: readonly string[],
+): RuntimeCapability {
+  return configurationCapability(name, () => {
+    const clients = parseServiceClients(raw, scopes);
+    return (
+      scopes.length > 0 &&
+      scopes.every((scope) => clients.some((client) => client.scopes.includes(scope)))
+    );
+  });
+}
+
+export function credentialCapability(
+  name: string,
+  clientId: string | undefined,
+  token: string | undefined,
+): RuntimeCapability {
+  return configurationCapability(
+    name,
+    () =>
+      /^[a-z][a-z0-9-]{1,63}$/.test(clientId ?? '') && /^[\x21-\x7e]{32,256}$/.test(token ?? ''),
+  );
+}
+
+/** Check only the owner's schema metadata, using its own injected database client. */
+export function schemaReadinessProbe(
+  expectedTables: readonly string[],
+  tables: () => Promise<readonly string[]>,
+): DependencyProbe {
+  return {
+    name: 'postgres-schema',
+    kind: 'postgres',
+    check: async () => {
+      const present = new Set(await tables());
+      if (expectedTables.length === 0 || !expectedTables.every((table) => present.has(table)))
+        throw new Error('OWNER_SCHEMA_NOT_MIGRATED');
+    },
+  };
+}
+
+function capabilitiesFor(options: HealthOptions) {
+  return (options.runtimeCapabilities ?? []).map((capability) => {
+    try {
+      const available = capability.check() === true;
+      return {
+        name: capability.name,
+        required: capability.required !== false,
+        available,
+        code: available ? 'AVAILABLE' : 'NOT_CONFIGURED_OR_IMPLEMENTED',
+      };
+    } catch {
+      // Config errors can contain paths, credentials or raw values. Return no exception text.
+      return {
+        name: capability.name,
+        required: capability.required !== false,
+        available: false,
+        code: 'CONFIGURATION_INVALID',
+      };
+    }
+  });
+}
+
+function businessReadiness(
+  options: HealthOptions,
+  capabilities = capabilitiesFor(options),
+): boolean {
+  const required = capabilities.filter((capability) => capability.required);
+  return (
+    options.businessReady ||
+    (required.length > 0 && required.every((capability) => capability.available))
+  );
 }
 
 export const HEALTH_OPTIONS = 'CARWASH_HEALTH_OPTIONS';
@@ -79,7 +178,7 @@ export class HealthController {
     return {
       service: this.options.service,
       status: 'alive',
-      stage: this.options.businessReady ? 'business' : 'foundation-only',
+      stage: businessReadiness(this.options) ? 'business' : 'foundation-only',
     };
   }
 
@@ -96,9 +195,11 @@ export class HealthController {
         dependency.status === 'UP',
         dependency.durationMs / 1000,
       );
-    const dependenciesUp = dependencies.every((d) => d.status === 'UP');
+    const dependenciesUp = dependencies.length > 0 && dependencies.every((d) => d.status === 'UP');
+    const capabilities = capabilitiesFor(this.options);
+    const businessReady = businessReadiness(this.options, capabilities);
     // A green dependency never promotes an unimplemented service to ready.
-    const ready = this.options.businessReady && dependenciesUp;
+    const ready = businessReady && dependenciesUp;
     // `code` keeps its precedence (an unimplemented service is never READY), but
     // `dependenciesReady` is always reported so an operator can tell a broken
     // database/broker apart from a foundation shell even while code says
@@ -106,15 +207,12 @@ export class HealthController {
     // never a vacuous true.
     const body = {
       service: this.options.service,
-      businessReady: this.options.businessReady,
+      businessReady,
       dependenciesReady: dependencies.length === 0 ? null : dependenciesUp,
       ready,
-      code: this.options.businessReady
-        ? dependenciesUp
-          ? 'READY'
-          : 'DEPENDENCY_DOWN'
-        : 'FOUNDATION_NOT_READY',
+      code: businessReady ? (dependenciesUp ? 'READY' : 'DEPENDENCY_DOWN') : 'FOUNDATION_NOT_READY',
       dependencies,
+      ...(this.options.runtimeCapabilities ? { scope: 'http-api', capabilities } : {}),
     };
     if (!ready)
       bestEffortLog(this.options.logger, 'warn', 'readiness_not_ready', { code: body.code });

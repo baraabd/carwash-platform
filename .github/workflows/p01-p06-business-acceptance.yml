@@ -48,6 +48,8 @@ jobs:
             browser: false
           - suite: b-wallet-broker
             browser: false
+          - suite: b-reporting-broker
+            browser: false
           - suite: c-scheduling
             browser: false
           - suite: c-workforce
@@ -62,6 +64,8 @@ jobs:
             browser: false
           - suite: c-p06
             browser: true
+          - suite: c-runtime-workers
+            browser: false
           - suite: c-operator-fixtures
             browser: true
           - suite: d-services

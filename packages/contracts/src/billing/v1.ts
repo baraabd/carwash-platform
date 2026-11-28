@@ -17,6 +17,7 @@ import { parseCashReceiptV1, type CashReceiptV1 } from './custody';
 export * from './custody';
 export * from './refunds';
 export * from './statement-credit';
+export * from './subscription-funding';
 
 /**
  * billing.v1 — owner: Billing service (Lane B).
@@ -44,6 +45,24 @@ export const BILLING_V1 = {
   owner: 'billing',
   prefix: '/internal/v1/billing',
   routes: {
+    claimSubscriptionFunding: {
+      method: 'POST',
+      path: '/subscription-funding/claims',
+      access: 'service:billing.subscription-funding.claim',
+      idempotent: true,
+    },
+    releaseSubscriptionFunding: {
+      method: 'POST',
+      path: '/subscription-funding/subscriptions/:subscriptionId/release',
+      access: 'service:billing.subscription-funding.release',
+      idempotent: true,
+    },
+    verifySubscriptionFunding: {
+      method: 'POST',
+      path: '/subscription-funding/verify',
+      access: 'service:billing.subscription-funding.read',
+      safe: true,
+    },
     createObligation: {
       method: 'POST',
       path: '/obligations',

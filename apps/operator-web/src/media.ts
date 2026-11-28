@@ -1,4 +1,5 @@
-import { putBytes } from './api/client';
+import { putBytes, sessionRequests, type Result } from './api/client';
+import type { RequestEpochToken } from '@carwash/api-clients';
 import { finalizeUpload, freshUploadUrl, readUrl, reserveUpload } from './api/operator-api';
 import type { PresignedUpload } from './api/types';
 import { S } from './state';
@@ -84,14 +85,20 @@ export type UploadOutcome =
   | { readonly kind: 'failed'; readonly status: number; readonly code: string }
   | { readonly kind: 'unknown' };
 
-async function putWithFallback(intent: UploadIntent): Promise<'ok' | 'failed' | 'unknown'> {
+async function putWithFallback(
+  intent: UploadIntent,
+  epoch: RequestEpochToken,
+): Promise<'ok' | 'failed' | 'unknown'> {
+  if (!sessionRequests.current(epoch)) return 'failed';
   if (!intent.objectId) return 'failed';
   const body = new Blob([intent.bytes], { type: 'image/jpeg' });
   if (intent.upload && Date.parse(intent.upload.expiresAt) > Date.now() + 5_000) {
     const first = await putBytes(intent.upload.url, intent.upload.headers, body);
+    if (!sessionRequests.current(epoch)) return 'failed';
     if (first === 'ok') return 'ok';
   }
   const fresh = await freshUploadUrl(intent.objectId);
+  if (!sessionRequests.current(epoch)) return 'failed';
   if (fresh.kind === 'unknown') return 'unknown';
   if (fresh.kind === 'error') return fresh.retryable ? 'unknown' : 'failed';
   intent.upload = fresh.value.upload;
@@ -99,11 +106,14 @@ async function putWithFallback(intent: UploadIntent): Promise<'ok' | 'failed' | 
 }
 
 export async function runUpload(intent: UploadIntent): Promise<UploadOutcome> {
+  const epoch = sessionRequests.capture();
+  const stale: UploadOutcome = { kind: 'failed', status: 401, code: 'SESSION_CHANGED' };
   if (!intent.objectId) {
     const reserved = await reserveUpload(
       { byteLength: intent.bytes.byteLength, sha256: intent.sha256 },
       intent.reserveKey,
     );
+    if (!sessionRequests.current(epoch)) return stale;
     if (reserved.kind === 'unknown') return { kind: 'unknown' };
     if (reserved.kind === 'error') {
       return reserved.retryable
@@ -116,12 +126,14 @@ export async function runUpload(intent: UploadIntent): Promise<UploadOutcome> {
   }
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (!intent.stored) {
-      const put = await putWithFallback(intent);
+      const put = await putWithFallback(intent, epoch);
+      if (!sessionRequests.current(epoch)) return stale;
       if (put === 'unknown') return { kind: 'unknown' };
       if (put === 'failed') return { kind: 'failed', status: 0, code: 'UPLOAD_FAILED' };
       intent.stored = true;
     }
     const finalized = await finalizeUpload(intent.objectId, intent.finalizeKey);
+    if (!sessionRequests.current(epoch)) return stale;
     if (finalized.kind === 'unknown') return { kind: 'unknown' };
     if (finalized.kind === 'error') {
       if (finalized.code === 'UPLOAD_MISSING' || finalized.reason === 'UPLOAD_MISSING') {
@@ -142,13 +154,18 @@ export async function runUpload(intent: UploadIntent): Promise<UploadOutcome> {
 }
 
 /** Refresh short-lived read URLs (memory only) for the given objects. */
-export async function ensureReadUrls(objectIds: readonly string[]): Promise<void> {
+export async function ensureReadUrls(
+  objectIds: readonly string[],
+  onRejected: (result: Extract<Result<unknown>, { kind: 'error' }>) => void,
+): Promise<void> {
+  const epoch = sessionRequests.capture();
   const now = Date.now();
   await Promise.all(
     [...new Set(objectIds)].map(async (objectId) => {
       const cached = S.mediaUrls.get(objectId);
       if (cached && cached.expiresAt > now + 15_000) return;
       const result = await readUrl(objectId);
+      if (!sessionRequests.current(epoch)) return;
       if (result.kind === 'ok') {
         S.mediaUrls.set(objectId, {
           url: result.value.url,
@@ -156,6 +173,7 @@ export async function ensureReadUrls(objectIds: readonly string[]): Promise<void
         });
       } else {
         S.mediaUrls.delete(objectId);
+        if (result.kind === 'error') onRejected(result);
       }
     }),
   );

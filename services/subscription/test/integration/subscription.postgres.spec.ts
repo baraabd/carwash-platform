@@ -75,7 +75,7 @@ async function call(
 }
 
 async function publish(planCode: string, overrides: Record<string, unknown> = {}): Promise<Body> {
-  const head = await call('GET', `/plans/${planCode}`, { token: TOKENS.admin });
+  const head = await call('GET', `/administration/plans/${planCode}`, { token: TOKENS.admin });
   const revisions = head.status === 200 ? (head.body.revisions as Body[]) : [];
   const response = await call('POST', `/plans/${planCode}/revisions`, {
     token: TOKENS.admin,
@@ -233,7 +233,7 @@ test('plan revisions: linear chain, schedule windows, idempotent publish, staff-
   assert.equal(reused.status, 409);
   assert.equal(errorCode(reused.body), 'IDEMPOTENCY_CONFLICT');
 
-  const plan = await call('GET', `/plans/${planCode}`, { token: TOKENS.admin });
+  const plan = await call('GET', `/administration/plans/${planCode}`, { token: TOKENS.admin });
   const windows = (plan.body.revisions as Body[]).map((r) => [r.revision, r.effectiveUntil]);
   assert.deepEqual(windows, [
     [1, scheduledBody.effectiveFrom],
@@ -251,8 +251,11 @@ test('plan revisions: linear chain, schedule windows, idempotent publish, staff-
     });
     assert.equal(denied.status, 403);
   }
-  assert.equal((await call('GET', '/plans', { token: TOKENS.unknown })).status, 401);
-  assert.equal((await call('GET', '/plans', { token: TOKENS.customer })).status, 403);
+  assert.equal((await call('GET', '/administration/plans', { token: TOKENS.unknown })).status, 401);
+  assert.equal(
+    (await call('GET', '/administration/plans', { token: TOKENS.customer })).status,
+    403,
+  );
 
   const rejected = await call('POST', `/plans/${planCode}/revisions`, {
     token: TOKENS.admin,
@@ -362,7 +365,7 @@ test('request and activation: snapshot terms, one open subscription, payment fun
   assert.equal(reusedPayment.status, 409);
   assert.equal(errorCode(reusedPayment.body), 'PAYMENT_REFERENCE_USED');
 
-  const customerView = await call('GET', `/subscriptions/${id}`, { token: TOKENS.customer });
+  const customerView = await call('GET', `/legacy/subscriptions/${id}`, { token: TOKENS.customer });
   assert.equal(customerView.status, 200);
   assert.equal(
     (customerView.body.period as Body).paymentReference,
@@ -370,14 +373,14 @@ test('request and activation: snapshot terms, one open subscription, payment fun
     'customers never see the funding reference',
   );
   assert.equal(
-    (await call('GET', `/subscriptions/${id}`, { token: TOKENS.otherCustomer })).status,
+    (await call('GET', `/legacy/subscriptions/${id}`, { token: TOKENS.otherCustomer })).status,
     404,
   );
   assert.equal(
-    (await call('GET', `/subscriptions/not-a-uuid`, { token: TOKENS.customer })).status,
+    (await call('GET', `/legacy/subscriptions/not-a-uuid`, { token: TOKENS.customer })).status,
     404,
   );
-  const mine = await call('GET', '/subscriptions', { token: TOKENS.customer });
+  const mine = await call('GET', '/legacy/subscriptions', { token: TOKENS.customer });
   assert.ok((mine.body.subscriptions as Body[]).some((s) => s.subscriptionId === id));
   const staffList = await call('GET', `/customers/${CUSTOMER_SUBJECT}/subscriptions`, {
     token: TOKENS.admin,
@@ -610,7 +613,7 @@ test('cancellation compensation: existing reservations stay settleable, new ones
 });
 
 async function activeSubscriptionPlanOf(id: string): Promise<{ planCode: string }> {
-  const view = await call('GET', `/subscriptions/${id}`, { token: TOKENS.admin });
+  const view = await call('GET', `/legacy/subscriptions/${id}`, { token: TOKENS.admin });
   return { planCode: view.body.planCode as string };
 }
 
@@ -755,7 +758,7 @@ test('periods: bookings outside the period are refused; renewal after expiry sta
   const ended = await reserve(reserveBody(id));
   assert.equal(errorCode(ended.body), 'PERIOD_ENDED');
   assert.equal(
-    (await call('GET', `/subscriptions/${id}`, { token: TOKENS.customer })).body.status,
+    (await call('GET', `/legacy/subscriptions/${id}`, { token: TOKENS.customer })).body.status,
     'EXPIRED',
   );
   const renewed = await call('POST', `/subscriptions/${id}/renew`, {
@@ -815,7 +818,7 @@ test('service authorization: deny by default, explicit scopes, owner-bound reser
   assert.equal(wrongScope.status, 401, 'settle-only client cannot reserve');
   assert.equal(
     (await call('POST', '/reservations', { body, token: TOKENS.admin })).status,
-    401,
+    403,
     'a user token is not a service credential',
   );
   const foreign = await reserve({ ...body, customerSubject: OTHER_CUSTOMER_SUBJECT });
@@ -940,7 +943,19 @@ test('trigger functions are not executable by the runtime role or PUBLIC', async
        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = 'app'`,
   );
-  assert.equal(rows.rowCount, 7);
+  assert.deepEqual(rows.rows.map((row) => String(row.proname)).sort(), [
+    'subscription_change_guard',
+    'subscription_check_period',
+    'subscription_check_reservation',
+    'subscription_enqueue_funding_release',
+    'subscription_guard_period',
+    'subscription_guard_reservation',
+    'subscription_guard_revision_insert',
+    'subscription_guard_terms',
+    'subscription_guard_vehicle_terms',
+    'subscription_purchase_guard',
+    'subscription_reject_mutation',
+  ]);
   for (const row of rows.rows as { proname: string; runtime: boolean; acl: string }[]) {
     assert.equal(row.runtime, false, row.proname);
     assert.doesNotMatch(row.acl, /(^|,)=X/, `${row.proname} must not grant EXECUTE to PUBLIC`);

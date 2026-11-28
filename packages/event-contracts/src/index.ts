@@ -6,3 +6,4 @@ export * from './envelope-v2';
 export * from './business-v1';
 export * from './billing-v1';
 export * from './product-v1';
+export * from './operations-v1';

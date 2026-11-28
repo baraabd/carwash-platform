@@ -2,6 +2,13 @@ import type { IdentityPermission } from './identity';
 import type { ApiErrorCode, FieldIssue } from './common/errors';
 import { OPERATOR_GATEWAY_ROUTES } from './gateway-operator';
 import { ADMIN_GATEWAY_ROUTES } from './gateway-admin';
+import { CUSTOMER_CHECKOUT_GATEWAY_ROUTES } from './gateway-checkout';
+import { SUBSCRIPTION_GATEWAY_ROUTES } from './gateway-subscriptions';
+import {
+  MANAGEMENT_GATEWAY_ROUTES,
+  SUPPORT_READ_PERMISSIONS,
+  SUPPORT_QUERY,
+} from './gateway-management';
 /** F007 is a routing contract, never an implementation of a business operation. */
 export const GATEWAY_V1 = '/api/v1' as const;
 export type GatewayOwner =
@@ -9,9 +16,13 @@ export type GatewayOwner =
   | 'customer'
   | 'vehicle'
   | 'catalog'
+  | 'pricing'
+  | 'geo'
+  | 'scheduling'
   | 'booking'
   | 'workforce'
   | 'billing'
+  | 'subscription'
   | 'reviews'
   | 'support'
   | 'reporting'
@@ -41,6 +52,8 @@ export interface GatewayRoute {
   readonly revisioned?: true;
   /** Named parameters are UUIDs unless a closed enum is declared here. */
   readonly pathEnums?: Readonly<Record<string, readonly string[]>>;
+  /** Explicit constrained opaque identifiers; UUID remains the default. */
+  readonly pathPatterns?: Readonly<Record<string, RegExp>>;
   /** GET-only query allowlist; unknown and duplicate keys are rejected. */
   readonly query?: readonly GatewayQueryParam[];
   readonly anyPermission?: readonly IdentityPermission[];
@@ -69,6 +82,9 @@ export const PROVIDER_INGRESS_CONTENT_TYPES = [
 ] as const;
 export const PROVIDER_INGRESS_MAX_BYTES = 16_384;
 export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
+  ...CUSTOMER_CHECKOUT_GATEWAY_ROUTES,
+  ...SUBSCRIPTION_GATEWAY_ROUTES,
+  ...MANAGEMENT_GATEWAY_ROUTES,
   {
     id: 'auth.csrf',
     method: 'GET',
@@ -471,7 +487,8 @@ export const GATEWAY_ROUTES: readonly GatewayRoute[] = [
     path: '/admin/support',
     owner: 'support',
     upstream: '/internal/v1/support/cases',
-    permission: 'support.cases.read',
+    anyPermission: SUPPORT_READ_PERMISSIONS,
+    query: SUPPORT_QUERY,
   },
   {
     id: 'admin.review',

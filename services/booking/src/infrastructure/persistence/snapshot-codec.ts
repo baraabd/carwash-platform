@@ -71,6 +71,8 @@ export function quoteFromJson(value: unknown): QuoteSnapshot {
 }
 
 export interface BookingRow {
+  subscription_id: string | null;
+  subscription_revision: number | null;
   id: string;
   principal_kind: string;
   principal_subject: string;
@@ -107,7 +109,8 @@ export const BOOKING_COLUMNS = `b.id::text, b.principal_kind, b.principal_subjec
   b.quote_snapshot, b.currency, b.total_minor, b.hold_id::text, b.hold_revision, b.zone_id::text,
   b.requested_starts_at, b.requested_ends_at, b.slot_starts_at, b.slot_ends_at, b.version,
   b.created_at, b.updated_at, b.confirmed_at, b.cancellation_reason, b.cancelled_at,
-  b.schedule_revision, b.schedule_hold_id::text, b.schedule_starts_at, b.schedule_ends_at`;
+  b.schedule_revision, b.schedule_hold_id::text, b.schedule_starts_at, b.schedule_ends_at,
+  b.subscription_id::text, b.subscription_revision`;
 
 export function toBooking(row: BookingRow): Booking {
   const slot =
@@ -120,6 +123,13 @@ export function toBooking(row: BookingRow): Booking {
         }
       : null;
   return {
+    subscription:
+      row.subscription_id === null
+        ? null
+        : {
+            subscriptionId: row.subscription_id,
+            expectedRevision: row.subscription_revision as number,
+          },
     id: row.id,
     beneficiary: { kind: row.principal_kind as PrincipalKind, subjectId: row.principal_subject },
     status: row.status as BookingStatus,

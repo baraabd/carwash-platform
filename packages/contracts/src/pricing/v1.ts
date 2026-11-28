@@ -1,4 +1,5 @@
 import type { OwnerContract } from '../common/route';
+export * from './subscription-quotes';
 import { VEHICLE_TYPES, type VehicleType } from '../common/vehicle-type';
 import {
   CURRENCIES,
@@ -18,7 +19,16 @@ import {
 } from '../common/principal';
 import { parseRevision } from '../common/protocol';
 import { parseUtc, type UtcTimestamp } from '../common/time';
-import { ContractViolation, boolean, closed, integer, list, oneOf, uuid } from '../common/wire';
+import {
+  ContractViolation,
+  boolean,
+  closed,
+  integer,
+  list,
+  oneOf,
+  text,
+  uuid,
+} from '../common/wire';
 
 /**
  * pricing.v1 — owner: Pricing service (Lane B).
@@ -31,6 +41,17 @@ export const PRICING_V1 = {
   owner: 'pricing',
   prefix: '/internal/v1/pricing',
   routes: {
+    createSubscriptionQuote: {
+      method: 'POST',
+      path: '/subscription-quotes',
+      access: 'principal',
+      idempotent: true,
+    },
+    getSubscriptionQuote: {
+      method: 'GET',
+      path: '/subscription-quotes/:quoteId',
+      access: 'principal',
+    },
     createQuote: { method: 'POST', path: '/quotes', access: 'principal', idempotent: true },
     getQuote: { method: 'GET', path: '/quotes/:quoteId', access: 'principal' },
     validateQuote: {
@@ -44,6 +65,11 @@ export const PRICING_V1 = {
       path: '/price-books',
       access: 'permission:pricing.prices.publish',
       idempotent: true,
+    },
+    getCurrentPriceBook: {
+      method: 'GET',
+      path: '/price-books/current',
+      access: 'permission:pricing.prices.publish',
     },
   },
   reasons: ['QUOTE_EXPIRED', 'QUOTE_REVOKED', 'SELECTION_INVALID', 'PRICE_NOT_AVAILABLE'],
@@ -138,6 +164,108 @@ export interface PublishPriceBookRequestV1 {
   readonly expectedPriceBookRevision: number;
   readonly currency: Currency;
   readonly entries: readonly PriceBookEntryV1[];
+}
+
+/** Complete immutable publication for authorized editing, including unchanged entries. */
+export interface PriceBookV1 {
+  readonly priceBookRevision: number;
+  readonly currency: Currency;
+  readonly catalogRevision: number;
+  readonly policyRevision: string;
+  readonly entriesFingerprint: string;
+  readonly publishedAt: UtcTimestamp;
+  readonly entries: readonly PriceBookEntryV1[];
+}
+export interface CurrentPriceBookV1 {
+  readonly state: 'UNPUBLISHED' | 'PUBLISHED';
+  readonly priceBook: PriceBookV1 | null;
+  /** Existing publish semantics name the revision being created (current + 1). */
+  readonly nextExpectedPriceBookRevision: number;
+  readonly policyCurrency: Currency;
+  readonly asOf: UtcTimestamp;
+}
+export interface PriceBookPublicationV1 extends Omit<PriceBookV1, 'entries'> {
+  readonly entryCount: number;
+}
+export function parsePriceBookPublicationV1(value: unknown): PriceBookPublicationV1 {
+  const v = closed(value, '$', [
+    'priceBookRevision',
+    'currency',
+    'catalogRevision',
+    'policyRevision',
+    'entriesFingerprint',
+    'publishedAt',
+    'entryCount',
+  ]);
+  return {
+    priceBookRevision: parseRevision(v.priceBookRevision, '$.priceBookRevision'),
+    currency: oneOf(v.currency, '$.currency', CURRENCY_CODES),
+    catalogRevision: parseRevision(v.catalogRevision, '$.catalogRevision'),
+    policyRevision: text(v.policyRevision, '$.policyRevision', { min: 1, max: 128 }),
+    entriesFingerprint: text(v.entriesFingerprint, '$.entriesFingerprint', {
+      min: 64,
+      max: 64,
+      pattern: /^[0-9a-f]{64}$/,
+    }),
+    publishedAt: parseUtc(v.publishedAt, '$.publishedAt'),
+    entryCount: integer(v.entryCount, '$.entryCount', 1, 2000),
+  };
+}
+export function parsePriceBookV1(value: unknown): PriceBookV1 {
+  const v = closed(value, '$', [
+    'priceBookRevision',
+    'currency',
+    'catalogRevision',
+    'policyRevision',
+    'entriesFingerprint',
+    'publishedAt',
+    'entries',
+  ]);
+  const publication = parsePublishPriceBookRequestV1({
+    expectedPriceBookRevision: v.priceBookRevision,
+    currency: v.currency,
+    entries: v.entries,
+  });
+  return {
+    priceBookRevision: publication.expectedPriceBookRevision,
+    currency: publication.currency,
+    entries: publication.entries,
+    catalogRevision: parseRevision(v.catalogRevision, '$.catalogRevision'),
+    policyRevision: text(v.policyRevision, '$.policyRevision', { min: 1, max: 128 }),
+    entriesFingerprint: text(v.entriesFingerprint, '$.entriesFingerprint', {
+      min: 64,
+      max: 64,
+      pattern: /^[0-9a-f]{64}$/,
+    }),
+    publishedAt: parseUtc(v.publishedAt, '$.publishedAt'),
+  };
+}
+export function parseCurrentPriceBookV1(value: unknown): CurrentPriceBookV1 {
+  const v = closed(value, '$', [
+    'state',
+    'priceBook',
+    'nextExpectedPriceBookRevision',
+    'policyCurrency',
+    'asOf',
+  ]);
+  const state = oneOf(v.state, '$.state', ['UNPUBLISHED', 'PUBLISHED'] as const);
+  const priceBook = v.priceBook === null ? null : parsePriceBookV1(v.priceBook);
+  const nextExpectedPriceBookRevision = parseRevision(
+    v.nextExpectedPriceBookRevision,
+    '$.nextExpectedPriceBookRevision',
+  );
+  if (
+    (state === 'UNPUBLISHED') !== (priceBook === null) ||
+    nextExpectedPriceBookRevision !== (priceBook?.priceBookRevision ?? 0) + 1
+  )
+    throw new ContractViolation('INCONSISTENT_PRICE_BOOK', '$.priceBook');
+  return {
+    state,
+    priceBook,
+    nextExpectedPriceBookRevision,
+    policyCurrency: oneOf(v.policyCurrency, '$.policyCurrency', CURRENCY_CODES),
+    asOf: parseUtc(v.asOf, '$.asOf'),
+  };
 }
 
 function optionalUuid(value: unknown, path: string): string | null {

@@ -85,6 +85,11 @@ export interface BookingStore {
     audit: AuditFact,
   ): Promise<InsertBookingResult>;
   find(bookingId: string): Promise<BookingRecord | null>;
+  /** Recovery is scoped to the authenticated beneficiary, including guest/account kind. */
+  findRequest(
+    owner: PrincipalRef,
+    key: string,
+  ): Promise<{ readonly state: 'CLAIMED' | 'BOUND'; readonly bookingId: string } | null>;
   /** Newest first, strictly after the cursor, with principal kind AND subject fenced in SQL. */
   listOwned(
     owner: PrincipalRef,

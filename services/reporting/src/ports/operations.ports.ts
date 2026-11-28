@@ -2,6 +2,7 @@ import type {
   AssignmentChangedFact,
   AssignmentStatus,
   BookingConfirmedFact,
+  OwnerObservationFact,
   CashState,
   BookingSlot,
   DerivedOperationsStatus,
@@ -24,6 +25,7 @@ export type FactOutcome = 'APPLIED' | Exclude<FactDecision, 'APPLY'>;
  * inbox record commit together. Integrity conflicts are thrown.
  */
 export interface OperationsWriter {
+  applyOwnerObservation(fact: OwnerObservationFact, hash: string): Promise<FactOutcome>;
   applyBookingConfirmed(fact: BookingConfirmedFact, fingerprintHash: string): Promise<FactOutcome>;
   applyHoldChanged(fact: HoldChangedFact, fingerprintHash: string): Promise<FactOutcome>;
   applyEligibilityChanged(
